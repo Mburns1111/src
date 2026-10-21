@@ -1,89 +1,44 @@
-import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from "discord.js";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  FileUploadBuilder,
+  LabelBuilder,
+  MessageFlags,
+  ModalBuilder,
+  SlashCommandBuilder,
+  StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from "discord.js";
 import UserProfile from "../models/UserProfile.js";
 import {
   discordMessageUrl,
-  getAttachments,
   getConfiguredTextChannel,
   getMessageMedia,
   prepareFiles,
   requireGuild,
   validateAttachments,
-  validateVideoAttachment,
-  validateWebUrl,
 } from "./shared.js";
 import { UserFacingError } from "./errors.js";
-import { getProfileMedia } from "./profile-media.js";
+import {
+  getProfileAlbumImages,
+  getProfileInventoryVideo,
+} from "./profile-media.js";
+import {
+  saveInventoryVideoFile,
+  saveInventoryVideoLink,
+} from "./inventory-video.js";
 
 export const data = new SlashCommandBuilder()
   .setName("profile")
-  .setDescription("Create, edit, and view member showcase profiles")
-  .addSubcommand((command) =>
-    command
-      .setName("show")
-      .setDescription("View a member's showcase profile")
-      .addUserOption((option) =>
-        option.setName("user").setDescription("Member to view"),
-      ),
-  )
-  .addSubcommand((command) =>
-    command
-      .setName("edit")
-      .setDescription("Create or update your showcase profile")
-      .addStringOption((option) =>
-        option
-          .setName("adopt_me_username")
-          .setDescription("Your Adopt Me username")
-          .setMaxLength(64),
-      )
-      .addStringOption((option) =>
-        option
-          .setName("about")
-          .setDescription("A short introduction")
-          .setMaxLength(500),
-      )
-      .addBooleanOption((option) =>
-        option
-          .setName("looking_for_trades")
-          .setDescription("Whether you are looking for trades"),
-      )
-      .addStringOption((option) =>
-        option
-          .setName("inventory_video")
-          .setDescription("External video link; upload a file for reliable inline playback")
-          .setMinLength(1)
-          .setMaxLength(500),
-      )
-      .addAttachmentOption((option) =>
-        option
-          .setName("inventory_video_file")
-          .setDescription("Upload MP4, WebM, or another video file for inline playback"),
-      ),
-  )
-  .addSubcommand((command) =>
-    command
-      .setName("album_add")
-      .setDescription("Add screenshots to your photo album")
-      .addAttachmentOption((option) =>
-        option
-          .setName("image_1")
-          .setDescription("First screenshot")
-          .setRequired(true),
-      )
-      .addAttachmentOption((option) =>
-        option.setName("image_2").setDescription("Another screenshot"),
-      )
-      .addAttachmentOption((option) =>
-        option.setName("image_3").setDescription("Another screenshot"),
-      )
-      .addAttachmentOption((option) =>
-        option.setName("image_4").setDescription("Another screenshot"),
-      )
-      .addAttachmentOption((option) =>
-        option.setName("image_5").setDescription("Another screenshot"),
-      ),
+  .setDescription("View or update your member showcase profile")
+  .addUserOption((option) =>
+    option.setName("user").setDescription("View another member's profile"),
   );
 
-function makeProfileEmbed(profile, target, guildId, firstImageName) {
+function makeProfileEmbed(profile, target, guildId, firstImageName, albumPage, albumCount) {
   const inventoryPostUrl =
     profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId
       ? discordMessageUrl(
@@ -131,230 +86,418 @@ function makeProfileEmbed(profile, target, guildId, firstImageName) {
   if (profile.bio) {
     embed.setDescription(profile.bio.slice(0, 4096));
   }
+  if (albumCount) {
+    embed.addFields({
+      name: "Photo",
+      value: `${albumPage + 1} of ${albumCount}`,
+      inline: true,
+    });
+  }
   if (firstImageName) embed.setImage(`attachment://${firstImageName}`);
   return embed;
 }
 
-export async function execute(interaction) {
-  requireGuild(interaction);
-  const subcommand = interaction.options.getSubcommand();
+function makeAlbumButtons(userId, page, count) {
+  if (!count) return [];
 
-  if (subcommand === "show") {
-    const target = interaction.options.getUser("user") ?? interaction.user;
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`profile:album:${userId}:${page - 1}`)
+        .setLabel("◀")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(page === 0),
+      new ButtonBuilder()
+        .setCustomId(`profile:album:${userId}:${page + 1}`)
+        .setLabel("▶")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(page >= count - 1),
+    ),
+  ];
+}
+
+async function makeProfileShowPayload(guild, profile, target, page) {
+  const [albumImages, inventoryVideo] = await Promise.all([
+    getProfileAlbumImages(guild, profile),
+    getProfileInventoryVideo(guild, profile),
+  ]);
+  const albumPage = albumImages.length ? Math.min(page, albumImages.length - 1) : 0;
+  const currentImage = albumImages[albumPage];
+  const { files, firstImageName } = prepareFiles(
+    [...inventoryVideo, ...(currentImage ? [currentImage] : [])],
+    `profile-${target.id}-page-${albumPage}`,
+  );
+
+  return {
+    content: "",
+    embeds: [
+      makeProfileEmbed(
+        profile,
+        target,
+        guild.id,
+        firstImageName,
+        albumPage,
+        albumImages.length,
+      ),
+    ],
+    files,
+    attachments: [],
+    components: makeAlbumButtons(target.id, albumPage, albumImages.length),
+    allowedMentions: { parse: [] },
+  };
+}
+
+export async function handleProfileAlbumPage(interaction) {
+  const [, section, targetUserId, pageValue] = interaction.customId.split(":");
+  if (section !== "album" || !/^\d{17,20}$/.test(targetUserId)) {
+    throw new UserFacingError("That profile photo button is not valid.");
+  }
+  const page = Number(pageValue);
+  if (!Number.isSafeInteger(page) || page < 0) {
+    throw new UserFacingError("That profile photo page is not valid.");
+  }
+
+  await interaction.deferUpdate();
+  const profile = await UserProfile.findOne({
+    guildId: interaction.guildId,
+    discordUserId: targetUserId,
+  });
+  if (!profile) {
+    throw new UserFacingError("This member's profile is no longer available.");
+  }
+  const target = await interaction.client.users.fetch(targetUserId);
+  await interaction.message.edit(
+    await makeProfileShowPayload(interaction.guild, profile, target, page),
+  );
+}
+
+function makeProfileMenu(userId) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`profile:menu:view:${userId}`)
+        .setLabel("View my card")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`profile:menu:edit:${userId}`)
+        .setLabel("Edit my card")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`profile:menu:photos:${userId}`)
+        .setLabel("Add photos")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`profile:menu:video:${userId}`)
+        .setLabel("Inventory video")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+}
+
+function makeMenuReply(userId, content = "Choose what you want to do with your profile.") {
+  return {
+    content,
+    components: makeProfileMenu(userId),
+    embeds: [],
+    attachments: [],
+    allowedMentions: { parse: [] },
+  };
+}
+
+async function getOrCreateProfile(user) {
+  return await UserProfile.findOne({
+    guildId: user.guildId,
+    discordUserId: user.id,
+  }) ?? new UserProfile({
+    guildId: user.guildId,
+    discordUserId: user.id,
+    discordUsername: user.username,
+    displayName: user.globalName ?? user.username,
+  });
+}
+
+function makeEditProfileModal(profile, userId) {
+  const usernameInput = new TextInputBuilder()
+    .setCustomId("adopt_me_username")
+    .setStyle(TextInputStyle.Short)
+    .setMaxLength(64)
+    .setRequired(false);
+  if (profile.adoptMeUsername) usernameInput.setValue(profile.adoptMeUsername);
+
+  const bioInput = new TextInputBuilder()
+    .setCustomId("about")
+    .setStyle(TextInputStyle.Paragraph)
+    .setMaxLength(500)
+    .setRequired(false);
+  if (profile.bio) bioInput.setValue(profile.bio);
+
+  return new ModalBuilder()
+    .setCustomId(`profile:edit:${userId}`)
+    .setTitle("Edit your profile")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Adopt Me username")
+        .setTextInputComponent(usernameInput),
+      new LabelBuilder()
+        .setLabel("About you")
+        .setTextInputComponent(bioInput),
+      new LabelBuilder()
+        .setLabel("Are you looking for trades?")
+        .setStringSelectMenuComponent(
+          new StringSelectMenuBuilder()
+            .setCustomId("looking_for_trades")
+            .setMinValues(1)
+            .setMaxValues(1)
+            .addOptions(
+              {
+                label: "Yes",
+                value: "yes",
+                default: profile.lookingForTrades,
+              },
+              {
+                label: "No",
+                value: "no",
+                default: !profile.lookingForTrades,
+              },
+            ),
+        ),
+    );
+}
+
+function makeAddPhotosModal(userId) {
+  return new ModalBuilder()
+    .setCustomId(`profile:photos:${userId}`)
+    .setTitle("Add photos to your profile")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Choose 1 to 5 pictures")
+        .setFileUploadComponent(
+          new FileUploadBuilder()
+            .setCustomId("images")
+            .setMinValues(1)
+            .setMaxValues(5),
+        ),
+    );
+}
+
+function makeInventoryVideoModal(userId) {
+  const videoUrlInput = new TextInputBuilder()
+    .setCustomId("video_url")
+    .setStyle(TextInputStyle.Short)
+    .setMaxLength(500)
+    .setRequired(false);
+
+  return new ModalBuilder()
+    .setCustomId(`profile:video:${userId}`)
+    .setTitle("Add an inventory video")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Paste a video link, or upload a file below")
+        .setDescription("Choose one option, not both.")
+        .setTextInputComponent(videoUrlInput),
+      new LabelBuilder()
+        .setLabel("Upload a video (optional)")
+        .setFileUploadComponent(
+          new FileUploadBuilder()
+            .setCustomId("video")
+            .setMinValues(0)
+            .setMaxValues(1)
+            .setRequired(false),
+        ),
+    );
+}
+
+export async function handleProfileMenuButton(interaction) {
+  const [, section, action, ownerId] = interaction.customId.split(":");
+  if (section !== "menu" || ownerId !== interaction.user.id) {
+    throw new UserFacingError("That profile menu is not yours to use.");
+  }
+
+  if (action === "view") {
+    await interaction.deferUpdate();
     const profile = await UserProfile.findOne({
       guildId: interaction.guildId,
-      discordUserId: target.id,
+      discordUserId: ownerId,
     });
-
     if (!profile) {
-      throw new UserFacingError(
-        "That member has not made a profile yet. Use `/profile edit` to create yours.",
+      await interaction.message.edit(
+        makeMenuReply(ownerId, "You don't have a profile yet. Choose **Edit my card** to create one."),
       );
+      return;
     }
-
-    const media = await getProfileMedia(interaction.guild, profile);
-    const { files, firstImageName } = prepareFiles(media, `profile-${target.id}`);
-    await interaction.reply({
-      embeds: [
-        makeProfileEmbed(profile, target, interaction.guildId, firstImageName),
-      ],
-      files,
-      allowedMentions: { parse: [] },
-    });
-    return;
-  }
-
-  if (subcommand === "edit") {
-    const updates = {
-      discordUsername: interaction.user.username,
-      displayName: interaction.user.globalName ?? interaction.user.username,
-    };
-    const adoptMeUsername = interaction.options.getString("adopt_me_username");
-    const about = interaction.options.getString("about");
-    const lookingForTrades = interaction.options.getBoolean("looking_for_trades");
-    const inventoryVideo = interaction.options.getString("inventory_video")?.trim() ?? null;
-    const inventoryVideoFile = interaction.options.getAttachment("inventory_video_file");
-    const hasInventoryVideoUrl = Boolean(inventoryVideo);
-    const hasInventoryVideoFile = Boolean(inventoryVideoFile);
-
-    if (hasInventoryVideoUrl && hasInventoryVideoFile) {
-      throw new UserFacingError(
-        "Choose either an inventory video URL or an uploaded video file, not both.",
-      );
-    }
-    if (hasInventoryVideoFile) validateVideoAttachment(inventoryVideoFile);
-
-    if (adoptMeUsername !== null) {
-      updates.adoptMeUsername = adoptMeUsername.trim();
-    }
-    if (about !== null) updates.bio = about.trim();
-    if (lookingForTrades !== null) {
-      updates.lookingForTrades = lookingForTrades;
-    }
-    if (hasInventoryVideoUrl) {
-      updates.inventoryVideoUrl = validateWebUrl(
-        inventoryVideo,
-        "Inventory video",
-      );
-      updates.inventoryVideoAsset = null;
-    }
-
-    if (
-      adoptMeUsername === null &&
-      about === null &&
-      lookingForTrades === null &&
-      !hasInventoryVideoUrl &&
-      !hasInventoryVideoFile
-    ) {
-      throw new UserFacingError("Enter at least one profile field to update.");
-    }
-
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const profileFilter = {
-      guildId: interaction.guildId,
-      discordUserId: interaction.user.id,
-    };
-    let previousVideoPost = null;
-    let newVideoPost = null;
-
-    if (hasInventoryVideoUrl || hasInventoryVideoFile) {
-      const inventoryChannel = await getConfiguredTextChannel(
-        interaction,
-        "inventoryChannelId",
-        "inventory showcase",
-      );
-      const existingProfile = await UserProfile.findOne(profileFilter);
-      previousVideoPost = existingProfile?.inventoryVideoPostChannelId &&
-        existingProfile?.inventoryVideoPostMessageId
-        ? {
-            channelId: existingProfile.inventoryVideoPostChannelId,
-            messageId: existingProfile.inventoryVideoPostMessageId,
-          }
-        : null;
-      const adoptMeName =
-        updates.adoptMeUsername ?? existingProfile?.adoptMeUsername ?? "Not added yet";
-      const inventoryPostContent =
-        `Inventory video from ${interaction.user.username}\nAdopt Me username: ${adoptMeName}`;
-
-      if (inventoryVideoFile) {
-        const { files } = prepareFiles(
-          [inventoryVideoFile],
-          `inventory-video-${interaction.user.id}`,
-        );
-        newVideoPost = await inventoryChannel.send({
-          content: inventoryPostContent,
-          files,
-          allowedMentions: { parse: [] },
-        });
-        updates.inventoryVideoAsset = getMessageMedia(newVideoPost)[0] ?? null;
-        // Link the profile to the durable channel message, not the temporary upload URL.
-        updates.inventoryVideoUrl = newVideoPost.url;
-      } else {
-        newVideoPost = await inventoryChannel.send({
-          content: `${inventoryPostContent}\n${updates.inventoryVideoUrl}`,
-          allowedMentions: { parse: [] },
-        });
-      }
-      updates.inventoryVideoPostChannelId = newVideoPost.channelId;
-      updates.inventoryVideoPostMessageId = newVideoPost.id;
-    }
-
-    let profile;
-    try {
-      profile = await UserProfile.findOneAndUpdate(
-        profileFilter,
-        { $set: updates },
-        {
-          returnDocument: "after",
-          upsert: true,
-          runValidators: true,
-          setDefaultsOnInsert: true,
-        },
-      );
-    } catch (error) {
-      if (newVideoPost) await newVideoPost.delete().catch(() => {});
-      throw error;
-    }
-
-    if (previousVideoPost) {
-      try {
-        const oldChannel = await interaction.guild.channels.fetch(
-          previousVideoPost.channelId,
-        );
-        const oldMessage = await oldChannel?.messages.fetch(
-          previousVideoPost.messageId,
-        );
-        await oldMessage?.delete();
-      } catch {
-        // Keep the profile update even if an old showcase post was already removed.
-      }
-    }
-
-    const media = await getProfileMedia(interaction.guild, profile);
-    const { files, firstImageName } = prepareFiles(
-      media,
-      `profile-${interaction.user.id}`,
+    await interaction.message.edit(
+      await makeProfileShowPayload(interaction.guild, profile, interaction.user, 0),
     );
-    await interaction.editReply({
-      content: "Your profile was saved.",
-      embeds: [
-        makeProfileEmbed(
-          profile,
-          interaction.user,
-          interaction.guildId,
-          firstImageName,
-        ),
-      ],
-      files,
-      allowedMentions: { parse: [] },
-    });
     return;
   }
 
-  if (subcommand === "album_add") {
-    const attachments = getAttachments(interaction, "image");
-    validateAttachments(attachments, { imagesOnly: true });
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  if (action === "edit") {
+    const user = {
+      id: interaction.user.id,
+      username: interaction.user.username,
+      globalName: interaction.user.globalName,
+      guildId: interaction.guildId,
+    };
+    const profile = await getOrCreateProfile(user);
+    await interaction.showModal(makeEditProfileModal(profile, ownerId));
+    return;
+  }
+  if (action === "photos") {
+    await interaction.showModal(makeAddPhotosModal(ownerId));
+    return;
+  }
+  if (action === "video") {
+    await interaction.showModal(makeInventoryVideoModal(ownerId));
+    return;
+  }
+
+  throw new UserFacingError("That profile option is not available.");
+}
+
+export async function handleProfileModal(interaction) {
+  const [, action, ownerId] = interaction.customId.split(":");
+  if (!["edit", "photos", "video"].includes(action) || ownerId !== interaction.user.id) {
+    throw new UserFacingError("That profile form is not yours to use.");
+  }
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const profileFilter = {
+    guildId: interaction.guildId,
+    discordUserId: interaction.user.id,
+  };
+
+  if (action === "edit") {
+    const adoptMeUsername = interaction.fields
+      .getTextInputValue("adopt_me_username")
+      .trim();
+    const bio = interaction.fields.getTextInputValue("about").trim();
+    const lookingForTrades = interaction.fields
+      .getStringSelectValues("looking_for_trades")[0] === "yes";
+
+    await UserProfile.findOneAndUpdate(
+      profileFilter,
+      {
+        $set: {
+          discordUsername: interaction.user.username,
+          displayName: interaction.user.globalName ?? interaction.user.username,
+          adoptMeUsername,
+          bio,
+          lookingForTrades,
+        },
+      },
+      {
+        returnDocument: "after",
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+    await interaction.editReply(
+      makeMenuReply(interaction.user.id, "Your profile card was saved."),
+    );
+    return;
+  }
+
+  if (action === "photos") {
+    const uploads = Array.from(
+      interaction.fields.getUploadedFiles("images", true).values(),
+    );
+    validateAttachments(uploads, { imagesOnly: true });
     const channel = await getConfiguredTextChannel(
       interaction,
       "inventoryChannelId",
       "inventory showcase",
     );
-    const { files } = prepareFiles(attachments, `album-${interaction.user.id}`);
+    const { files } = prepareFiles(uploads, `album-${interaction.user.id}`);
     const archiveMessage = await channel.send({
       content: `Photo album from ${interaction.user.username} (${interaction.user.id})`,
       files,
       allowedMentions: { parse: [] },
     });
 
-    await UserProfile.findOneAndUpdate(
-      {
-        guildId: interaction.guildId,
-        discordUserId: interaction.user.id,
-      },
-      {
-        $set: {
-          discordUsername: interaction.user.username,
-          displayName: interaction.user.globalName ?? interaction.user.username,
-        },
-        $push: {
-          albumPosts: {
-            channelId: archiveMessage.channelId,
-            messageId: archiveMessage.id,
-            attachments: getMessageMedia(archiveMessage),
-            addedAt: new Date(),
+    try {
+      await UserProfile.findOneAndUpdate(
+        profileFilter,
+        {
+          $set: {
+            discordUsername: interaction.user.username,
+            displayName: interaction.user.globalName ?? interaction.user.username,
+          },
+          $push: {
+            albumPosts: {
+              channelId: archiveMessage.channelId,
+              messageId: archiveMessage.id,
+              attachments: getMessageMedia(archiveMessage),
+              addedAt: new Date(),
+            },
           },
         },
-      },
-      {
-        upsert: true,
-        setDefaultsOnInsert: true,
-      },
-    );
+        {
+          upsert: true,
+          runValidators: true,
+          setDefaultsOnInsert: true,
+        },
+      );
+    } catch (error) {
+      await archiveMessage.delete().catch(() => {});
+      throw error;
+    }
 
-    await interaction.editReply({
-      content: `Added ${attachments.length} screenshot(s) to your profile album: ${archiveMessage.url}`,
+    await interaction.editReply(
+      makeMenuReply(
+        interaction.user.id,
+        `Added ${uploads.length} photo(s) to your album. Choose another option below.`,
+      ),
+    );
+    return;
+  }
+
+  const video = interaction.fields.getUploadedFiles("video")?.first();
+  const videoUrl = interaction.fields.getTextInputValue("video_url").trim();
+  if (video && videoUrl) {
+    throw new UserFacingError("Choose either a video link or an uploaded video, not both.");
+  }
+  if (!video && !videoUrl) {
+    throw new UserFacingError("Add a video link or upload a video file.");
+  }
+
+  const videoPost = video
+    ? await saveInventoryVideoFile(interaction, video)
+    : await saveInventoryVideoLink(interaction, videoUrl);
+  await interaction.editReply(
+    makeMenuReply(
+      interaction.user.id,
+      `Your inventory video was saved: ${videoPost.url}`,
+    ),
+  );
+}
+
+export async function execute(interaction) {
+  requireGuild(interaction);
+  const target = interaction.options.getUser("user");
+
+  if (!target) {
+    await interaction.reply({
+      content: "Welcome to your profile! Pick what you want to do:",
+      components: makeProfileMenu(interaction.user.id),
+      flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] },
     });
+    return;
   }
+
+  await interaction.deferReply();
+  const profile = await UserProfile.findOne({
+    guildId: interaction.guildId,
+    discordUserId: target.id,
+  });
+  if (!profile) {
+    throw new UserFacingError(
+      "That member has not made a profile yet.",
+    );
+  }
+
+  await interaction.editReply(
+    await makeProfileShowPayload(interaction.guild, profile, target, 0),
+  );
 }

@@ -8,6 +8,7 @@ const guildConfigSchema = new mongoose.Schema(
     houseChannelId: { type: String, default: "" },
     inventoryChannelId: { type: String, default: "" },
     tradeVoteChannelId: { type: String, default: "" },
+    commandChannelId: { type: String, default: "" },
   },
   { timestamps: true },
 );

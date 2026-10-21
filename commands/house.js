@@ -3,21 +3,23 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  FileUploadBuilder,
+  LabelBuilder,
   MessageFlags,
+  ModalBuilder,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from "discord.js";
 import HouseListing from "../models/HouseListing.js";
 import {
-  getAttachments,
   getConfiguredTextChannel,
   getMessageMedia,
-  prepareFiles,
   requireGuild,
   validateAttachments,
   validateWebUrl,
 } from "./shared.js";
 import { UserFacingError } from "./errors.js";
+import { prepareMediaFiles } from "./video-compression.js";
 
 export const data = new SlashCommandBuilder()
   .setName("house")
@@ -59,21 +61,6 @@ export const data = new SlashCommandBuilder()
           .setName("video_url")
           .setDescription("Optional link to a house tour video")
           .setMaxLength(500),
-      )
-      .addAttachmentOption((option) =>
-        option.setName("media_1").setDescription("Screenshot or video"),
-      )
-      .addAttachmentOption((option) =>
-        option.setName("media_2").setDescription("Another screenshot or video"),
-      )
-      .addAttachmentOption((option) =>
-        option.setName("media_3").setDescription("Another screenshot or video"),
-      )
-      .addAttachmentOption((option) =>
-        option.setName("media_4").setDescription("Another screenshot or video"),
-      )
-      .addAttachmentOption((option) =>
-        option.setName("media_5").setDescription("Another screenshot or video"),
       ),
   );
 
@@ -84,33 +71,33 @@ function makeHouseComponents(listing) {
         .setCustomId(`house:sold:${String(listing._id)}`)
         .setLabel("Mark sold")
         .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(`house:media:${String(listing._id)}`)
+        .setLabel("Add pictures/video")
+        .setStyle(ButtonStyle.Secondary),
     ),
   ];
 }
 
-function getDirectVideoFileAttachment(videoUrl, listingId, title) {
-  if (!videoUrl) return null;
-
-  try {
-    const parsed = new URL(videoUrl);
-    const extension = parsed.pathname.split(".").pop()?.toLowerCase();
-    const supported = ["mp4", "webm", "mov", "m4v", "avi", "mkv"];
-    if (!supported.includes(extension || "")) {
-      return null;
-    }
-
-    const safeTitle = title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40) || "house";
-
-    return {
-      attachment: videoUrl,
-      name: `house-${String(listingId).slice(-8)}-${safeTitle}.${extension}`,
-    };
-  } catch {
-    return null;
+function makeMediaModal(listing) {
+  const remainingUploads = Math.max(0, 10 - (listing.mediaAttachments?.length ?? 0));
+  if (remainingUploads === 0) {
+    throw new UserFacingError("This listing already has the maximum of 10 media files.");
   }
+
+  return new ModalBuilder()
+    .setCustomId(`house:media:${String(listing._id)}`)
+    .setTitle("Add listing pictures or video")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel(`Choose up to ${remainingUploads} picture(s) or video(s)`)
+        .setFileUploadComponent(
+          new FileUploadBuilder()
+            .setCustomId("media")
+            .setMinValues(1)
+            .setMaxValues(remainingUploads),
+        ),
+    );
 }
 
 function makeHouseEmbed(listing, firstImageName) {
@@ -133,6 +120,117 @@ function makeHouseEmbed(listing, firstImageName) {
   return embed;
 }
 
+function getFirstImageName(attachments) {
+  return attachments.find((attachment) =>
+    attachment.contentType?.toLowerCase().startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp|avif)$/i.test(attachment.name)
+  )?.name;
+}
+
+function canManageListing(interaction, listing) {
+  return listing.ownerId === interaction.user.id ||
+    interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
+}
+
+async function getActiveListing(interaction, listingId) {
+  requireGuild(interaction);
+  if (!/^[a-f\d]{24}$/i.test(listingId)) {
+    throw new UserFacingError("That house listing is not valid.");
+  }
+
+  const listing = await HouseListing.findOne({
+    _id: listingId,
+    guildId: interaction.guildId,
+    status: "active",
+  });
+  if (!listing) {
+    throw new UserFacingError("This house listing is no longer active.");
+  }
+  if (!canManageListing(interaction, listing)) {
+    throw new UserFacingError("Only the seller or a server manager can edit this house listing.");
+  }
+  return listing;
+}
+
+async function fetchListingMessage(interaction, listing) {
+  const channel = await interaction.guild.channels.fetch(listing.postChannelId);
+  const message = await channel?.messages?.fetch(listing.postMessageId);
+  if (!message) {
+    throw new UserFacingError("I couldn't find this house listing post.");
+  }
+  return message;
+}
+
+export async function handleHouseButton(interaction) {
+  const [, action, listingId] = interaction.customId.split(":");
+  if (action !== "media") return false;
+
+  const listing = await getActiveListing(interaction, listingId);
+  if (interaction.message.id !== listing.postMessageId) {
+    throw new UserFacingError("That button doesn't belong to this house listing.");
+  }
+
+  await interaction.showModal(makeMediaModal(listing));
+  return true;
+}
+
+export async function handleHouseModal(interaction) {
+  const [, action, listingId] = interaction.customId.split(":");
+  if (action !== "media") return false;
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const listing = await getActiveListing(interaction, listingId);
+  const message = await fetchListingMessage(interaction, listing);
+
+  const uploads = Array.from(
+    interaction.fields.getUploadedFiles("media", true).values(),
+  );
+  validateAttachments(uploads);
+  if (listing.mediaAttachments.length + uploads.length > 10) {
+    throw new UserFacingError("A house listing can have up to 10 media files.");
+  }
+
+  const previousAttachmentIds = Array.from(message.attachments.keys());
+  const {
+    files,
+    firstImageName: uploadedFirstImageName,
+    cleanup,
+  } = await prepareMediaFiles(uploads, `house-${String(listing._id).slice(-8)}`);
+  let updatedMessage;
+  try {
+    updatedMessage = await message.edit({
+      attachments: previousAttachmentIds.map((id) => ({ id })),
+      files,
+      embeds: [
+        makeHouseEmbed(
+          listing,
+          getFirstImageName(listing.mediaAttachments) ?? uploadedFirstImageName,
+        ),
+      ],
+    });
+  } finally {
+    await cleanup();
+  }
+
+  const previousMedia = listing.mediaAttachments;
+  listing.mediaAttachments = getMessageMedia(updatedMessage);
+  try {
+    await listing.save();
+  } catch (error) {
+    await updatedMessage.edit({
+      attachments: previousAttachmentIds.map((id) => ({ id })),
+      embeds: message.embeds,
+    }).catch(console.error);
+    listing.mediaAttachments = previousMedia;
+    throw error;
+  }
+
+  await interaction.editReply({
+    content: `Added ${uploads.length} media file(s) to the house listing.`,
+  });
+  return true;
+}
+
 export async function execute(interaction) {
   requireGuild(interaction);
   const title = interaction.options.getString("title", true).trim();
@@ -143,12 +241,6 @@ export async function execute(interaction) {
     interaction.options.getString("video_url"),
     "House video",
   );
-  const attachments = getAttachments(interaction, "media");
-  validateAttachments(attachments);
-
-  if (!videoUrl && attachments.length === 0) {
-    throw new UserFacingError("Add at least one video link or image/video attachment.");
-  }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const channel = await getConfiguredTextChannel(
@@ -166,25 +258,16 @@ export async function execute(interaction) {
     estimatedValue,
     videoUrl,
   });
-  const { files, firstImageName } = prepareFiles(
-    attachments,
-    `house-${String(listing._id).slice(-8)}`,
-  );
-  const directVideoFile = getDirectVideoFileAttachment(videoUrl, listing._id, title);
-  const postFiles = directVideoFile ? [...files, directVideoFile] : files;
-
   let post;
   try {
     post = await channel.send({
       content: `House listing from ${interaction.user.username}`,
-      embeds: [makeHouseEmbed(listing, firstImageName)],
+      embeds: [makeHouseEmbed(listing)],
       components: makeHouseComponents(listing),
-      files: postFiles,
       allowedMentions: { parse: [] },
     });
     listing.postChannelId = post.channelId;
     listing.postMessageId = post.id;
-    listing.mediaAttachments = getMessageMedia(post);
     await listing.save();
   } catch (error) {
     if (post) await post.delete().catch(() => {});

@@ -14,30 +14,45 @@ async function getCurrentAttachments(guild, source) {
   }
 }
 
-export async function getProfileMedia(guild, profile, limit = 10) {
-  const sources = [];
+function isImageAttachment(attachment) {
+  return attachment.contentType?.toLowerCase().startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp|avif)$/i.test(attachment.name ?? "");
+}
+
+function getInventoryVideoSource(profile) {
   if (profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId) {
-    sources.push({
+    return {
       channelId: profile.inventoryVideoPostChannelId,
       messageId: profile.inventoryVideoPostMessageId,
       attachments: profile.inventoryVideoAsset ? [profile.inventoryVideoAsset] : [],
-    });
-  } else if (profile.inventoryVideoAsset) {
-    sources.push({ attachments: [profile.inventoryVideoAsset] });
+    };
   }
-  sources.push(...[...profile.albumPosts].reverse());
+  return profile.inventoryVideoAsset
+    ? { attachments: [profile.inventoryVideoAsset] }
+    : null;
+}
 
-  const media = [];
+export async function getProfileAlbumImages(guild, profile) {
+  const images = [];
   const seen = new Set();
-  for (const source of sources) {
+
+  for (const source of [...profile.albumPosts].reverse()) {
     for (const attachment of await getCurrentAttachments(guild, source)) {
-      if (!attachment.url || !attachment.name) continue;
+      if (!attachment.url || !isImageAttachment(attachment)) continue;
       const identity = attachment.attachmentId || attachment.url;
       if (seen.has(identity)) continue;
       seen.add(identity);
-      media.push(attachment);
-      if (media.length >= limit) return media;
+      images.push(attachment);
     }
   }
-  return media;
+
+  return images;
+}
+
+export async function getProfileInventoryVideo(guild, profile) {
+  const source = getInventoryVideoSource(profile);
+  if (!source) return [];
+  return (await getCurrentAttachments(guild, source)).filter(
+    (attachment) => !isImageAttachment(attachment),
+  );
 }

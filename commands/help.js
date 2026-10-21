@@ -1,6 +1,7 @@
 import {
   ApplicationCommandOptionType,
   EmbedBuilder,
+  MessageFlags,
   SlashCommandBuilder,
 } from "discord.js";
 import { requireGuild } from "./shared.js";
@@ -55,21 +56,26 @@ function splitIntoFields(lines, maxLength = 950) {
 
 export async function execute(interaction) {
   requireGuild(interaction);
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle("Adopt Me Showcase & Marketplace — Help")
-    .setDescription("Here’s what I can do in this server.")
-    .addFields({
-      name: "Features",
-      value: [
-        "• **Member profiles:** save an Adopt Me username, bio, trade interest, inventory video, and screenshot album. `/profile show` displays saved album images and uploaded videos inline.",
-        "• **Inventory showcase:** album images and videos are archived in the configured inventory channel and their attachment details are saved with the profile. Use `/inventory-video` to upload a video file; external links depend on their host.",
-        "• **House ads:** post a house with its price, estimated value, and media. Uploaded media is stored with the listing. Sellers or server managers can mark it sold to remove the ad.",
-        "• **Trade voting:** use `/new-vote` to post an offer with optional media saved to the listing. Members can rate it Good, Bad, or Unsure and separately say Would make or Wouldn't make. The poster cannot vote on their own trade.",
-        "• **Server setup:** admins with Manage Server can choose separate house, inventory, and trade-voting channels.",
-      ].join("\n"),
+    .setDescription("Here’s what I can do in this server.");
+
+  const featureLines = [
+    "• **Profiles:** Run `/profile` and choose a button to view or edit your card, add photos, or add an inventory video. Use the arrows to browse photos. Add a user to `/profile` to view their card.",
+    "• **Inventory videos:** Upload a video with `/inventory-video`. Videos over 8 MB are compressed automatically. Uploads must be under 100 MB. You can also add a video link to your profile.",
+    "• **House ads:** Post your house details and an optional video link. Use **Add pictures/video** on your ad to add photos or a video later. Videos over 8 MB are compressed; uploads must be under 100 MB. Use **Mark sold** when your house is sold.",
+    "• **Trade votes:** Post one required picture and, if you want, a video link or an uploaded video. Pick one video option, not both. The server can vote on the trade.",
+    "• **Server setup:** Server admins can choose where bot commands, house ads, inventory posts, and trade votes go.",
+  ];
+  splitIntoFields(featureLines).forEach((value, index, fields) => {
+    embed.addFields({
+      name: fields.length > 1 ? `Features (${index + 1}/${fields.length})` : "Features",
+      value,
     });
+  });
 
   try {
     const [globalCommands, guildCommands] = await Promise.all([
@@ -111,7 +117,7 @@ export async function execute(interaction) {
     });
   }
 
-  await interaction.reply({
+  await interaction.editReply({
     embeds: [embed],
     allowedMentions: { parse: [] },
   });

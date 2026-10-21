@@ -10,12 +10,18 @@ import { UserFacingError } from "./errors.js";
 
 export const data = new SlashCommandBuilder()
   .setName("setup")
-  .setDescription("Configure the server's house, inventory, and voting channels")
+  .setDescription("Configure the server's command and showcase channels")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand((command) =>
     command
       .setName("channels")
-      .setDescription("Choose separate channels for houses, inventory, and trade votes")
+      .setDescription("Choose where commands and server posts should go")
+      .addChannelOption((option) =>
+        option
+          .setName("commands")
+          .setDescription("Channel where members can use bot slash commands")
+          .addChannelTypes(ChannelType.GuildText),
+      )
       .addChannelOption((option) =>
         option
           .setName("house_listings")
@@ -38,16 +44,18 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   requireGuild(interaction);
+  const commandsChannel = interaction.options.getChannel("commands");
   const houseListings = interaction.options.getChannel("house_listings");
   const inventoryShowcase = interaction.options.getChannel("inventory_showcase");
   const tradeVoting = interaction.options.getChannel("trade_voting");
 
-  if (!houseListings && !inventoryShowcase && !tradeVoting) {
+  if (!commandsChannel && !houseListings && !inventoryShowcase && !tradeVoting) {
     throw new UserFacingError("Choose at least one channel to configure.");
   }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const updates = {};
+  if (commandsChannel) updates.commandChannelId = commandsChannel.id;
   if (houseListings) updates.houseChannelId = houseListings.id;
   if (inventoryShowcase) updates.inventoryChannelId = inventoryShowcase.id;
   if (tradeVoting) updates.tradeVoteChannelId = tradeVoting.id;
@@ -59,6 +67,7 @@ export async function execute(interaction) {
   );
 
   const configured = [];
+  if (commandsChannel) configured.push(`Bot commands: ${commandsChannel}`);
   if (houseListings) configured.push(`House listings: ${houseListings}`);
   if (inventoryShowcase) configured.push(`Inventory showcase: ${inventoryShowcase}`);
   if (tradeVoting) configured.push(`Trade voting: ${tradeVoting}`);

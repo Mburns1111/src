@@ -1,12 +1,14 @@
 import { MessageFlags, SlashCommandBuilder } from "discord.js";
 import UserProfile from "../models/UserProfile.js";
+import { UserFacingError } from "./errors.js";
 import {
   getConfiguredTextChannel,
   getMessageMedia,
-  prepareFiles,
   requireGuild,
   validateVideoAttachment,
+  validateWebUrl,
 } from "./shared.js";
+import { prepareMediaFiles } from "./video-compression.js";
 
 export const data = new SlashCommandBuilder()
   .setName("inventory-video")
@@ -18,12 +20,7 @@ export const data = new SlashCommandBuilder()
       .setRequired(true),
   );
 
-export async function execute(interaction) {
-  requireGuild(interaction);
-  const video = interaction.options.getAttachment("video", true);
-  validateVideoAttachment(video);
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
+async function replaceInventoryVideo(interaction, { video = null, videoUrl = "" } = {}) {
   const channel = await getConfiguredTextChannel(
     interaction,
     "inventoryChannelId",
@@ -44,13 +41,30 @@ export async function execute(interaction) {
       : null;
   const displayName = interaction.user.globalName ?? interaction.user.username;
   const adoptMeUsername = existingProfile?.adoptMeUsername || "Not added yet";
-  const { files } = prepareFiles([video], `inventory-video-${interaction.user.id}`);
-
-  const videoPost = await channel.send({
-    content: `Inventory video from ${displayName}\nAdopt Me username: ${adoptMeUsername}`,
-    files,
-    allowedMentions: { parse: [] },
-  });
+  let files = [];
+  let cleanup = async () => {};
+  if (video) {
+    const prepared = await prepareMediaFiles(
+      [video],
+      `inventory-video-${interaction.user.id}`,
+    );
+    files = prepared.files;
+    cleanup = prepared.cleanup;
+  }
+  let videoPost;
+  try {
+    videoPost = await channel.send({
+      content: [
+        `Inventory video from ${displayName}`,
+        `Adopt Me username: ${adoptMeUsername}`,
+        videoUrl,
+      ].filter(Boolean).join("\n"),
+      files,
+      allowedMentions: { parse: [] },
+    });
+  } finally {
+    await cleanup();
+  }
 
   try {
     await UserProfile.findOneAndUpdate(
@@ -60,7 +74,7 @@ export async function execute(interaction) {
           discordUsername: interaction.user.username,
           displayName,
           inventoryVideoUrl: videoPost.url,
-          inventoryVideoAsset: getMessageMedia(videoPost)[0] ?? null,
+          inventoryVideoAsset: video ? getMessageMedia(videoPost)[0] ?? null : null,
           inventoryVideoPostChannelId: videoPost.channelId,
           inventoryVideoPostMessageId: videoPost.id,
         },
@@ -91,6 +105,29 @@ export async function execute(interaction) {
     }
   }
 
+  return videoPost;
+}
+
+export async function saveInventoryVideoFile(interaction, video) {
+  validateVideoAttachment(video);
+  return replaceInventoryVideo(interaction, { video });
+}
+
+export async function saveInventoryVideoLink(interaction, value) {
+  const videoUrl = validateWebUrl(value, "Inventory video");
+  if (!videoUrl) {
+    throw new UserFacingError("Add a video link or upload a video file.");
+  }
+  return replaceInventoryVideo(interaction, { videoUrl });
+}
+
+export async function execute(interaction) {
+  requireGuild(interaction);
+  const video = interaction.options.getAttachment("video", true);
+  validateVideoAttachment(video);
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const videoPost = await saveInventoryVideoFile(interaction, video);
   await interaction.editReply({
     content: `Your video is posted and playable in the inventory channel: ${videoPost.url}`,
     allowedMentions: { parse: [] },

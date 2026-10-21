@@ -13,17 +13,23 @@ export function getAttachments(interaction, prefix, count = 5) {
   ).filter(Boolean);
 }
 
+export function isVideoAttachment(attachment) {
+  const type = attachment.contentType?.split(";")[0].toLowerCase();
+  const name = attachment.name.toLowerCase();
+  return type?.startsWith("video/") ||
+    /\.(mp4|webm|mov|m4v)$/i.test(name);
+}
+
 export function validateAttachments(attachments, { imagesOnly = false } = {}) {
   for (const attachment of attachments) {
     const type = attachment.contentType?.split(";")[0].toLowerCase();
     const name = attachment.name.toLowerCase();
     const isImage = type?.startsWith("image/") ||
       /\.(png|jpe?g|gif|webp|avif)$/i.test(name);
-    const isVideo = type?.startsWith("video/") ||
-      /\.(mp4|webm|mov|m4v)$/i.test(name);
+    const isVideo = isVideoAttachment(attachment);
 
     if (imagesOnly && !isImage) {
-      throw new UserFacingError("Album uploads must be image files.");
+      throw new UserFacingError("This upload must be an image file.");
     }
     if (!imagesOnly && !isImage && !isVideo) {
       throw new UserFacingError("Upload image or video files only.");
@@ -32,12 +38,7 @@ export function validateAttachments(attachments, { imagesOnly = false } = {}) {
 }
 
 export function validateVideoAttachment(attachment) {
-  const type = attachment.contentType?.split(";")[0].toLowerCase();
-  const name = attachment.name.toLowerCase();
-  const isVideo = type?.startsWith("video/") ||
-    /\.(mp4|webm|mov|m4v)$/i.test(name);
-
-  if (!isVideo) {
+  if (!isVideoAttachment(attachment)) {
     throw new UserFacingError(
       "Upload a video file such as MP4 or WebM to play it in the inventory channel.",
     );

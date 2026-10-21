@@ -8,14 +8,15 @@ import {
 } from "discord.js";
 import TradeListing from "../models/TradeListing.js";
 import {
-  getAttachments,
   getConfiguredTextChannel,
   getMessageMedia,
-  prepareFiles,
   requireGuild,
   validateAttachments,
+  validateVideoAttachment,
+  validateWebUrl,
 } from "./shared.js";
 import { UserFacingError } from "./errors.js";
+import { prepareMediaFiles } from "./video-compression.js";
 
 export const data = new SlashCommandBuilder()
   .setName("new-vote")
@@ -28,19 +29,21 @@ export const data = new SlashCommandBuilder()
       .setMaxLength(100),
   )
   .addAttachmentOption((option) =>
-    option.setName("media_1").setDescription("Optional image or video"),
+    option
+      .setName("picture")
+      .setDescription("Add one picture of the trade")
+      .setRequired(true),
+  )
+  .addStringOption((option) =>
+    option
+      .setName("video_url")
+      .setDescription("Optional link to a video of the trade")
+      .setMaxLength(500),
   )
   .addAttachmentOption((option) =>
-    option.setName("media_2").setDescription("Another image or video"),
-  )
-  .addAttachmentOption((option) =>
-    option.setName("media_3").setDescription("Another image or video"),
-  )
-  .addAttachmentOption((option) =>
-    option.setName("media_4").setDescription("Another image or video"),
-  )
-  .addAttachmentOption((option) =>
-    option.setName("media_5").setDescription("Another image or video"),
+    option
+      .setName("video")
+      .setDescription("Optional uploaded video; use instead of a video link"),
   );
 
 function getMapEntries(map) {
@@ -91,6 +94,9 @@ function makeTradeEmbed(listing, firstImageName = listing.coverImageName) {
     .setFooter({ text: `Trade ${String(listing._id).slice(-8)}` })
     .setTimestamp(listing.createdAt);
 
+  if (listing.videoUrl) {
+    embed.addFields({ name: "Trade video", value: `[Watch video](${listing.videoUrl})` });
+  }
   if (firstImageName) embed.setImage(`attachment://${firstImageName}`);
   return embed;
 }
@@ -128,8 +134,20 @@ function makeVoteButtons(listing) {
 export async function execute(interaction) {
   requireGuild(interaction);
   const title = interaction.options.getString("title", true).trim();
-  const attachments = getAttachments(interaction, "media");
-  validateAttachments(attachments);
+  const picture = interaction.options.getAttachment("picture", true);
+  const video = interaction.options.getAttachment("video");
+  const videoUrl = validateWebUrl(
+    interaction.options.getString("video_url"),
+    "Trade video",
+  );
+  if (video && videoUrl) {
+    throw new UserFacingError(
+      "Choose either an uploaded video or a video link, not both.",
+    );
+  }
+  validateAttachments([picture], { imagesOnly: true });
+  if (video) validateVideoAttachment(video);
+
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const channel = await getConfiguredTextChannel(
     interaction,
@@ -142,20 +160,22 @@ export async function execute(interaction) {
     ownerId: interaction.user.id,
     ownerName: interaction.user.globalName ?? interaction.user.username,
     title,
+    videoUrl,
   });
-  const { files, firstImageName } = prepareFiles(
-    attachments,
-    `trade-${String(listing._id).slice(-8)}`,
-  );
-  listing.coverImageName = firstImageName ?? "";
-
+  let cleanup = async () => {};
   let post;
   try {
+    const prepared = await prepareMediaFiles(
+      video ? [picture, video] : [picture],
+      `trade-${String(listing._id).slice(-8)}`,
+    );
+    cleanup = prepared.cleanup;
+    listing.coverImageName = prepared.firstImageName ?? "";
     post = await channel.send({
       content: `Trade proposal from ${interaction.user.username}`,
-      embeds: [makeTradeEmbed(listing, firstImageName)],
+      embeds: [makeTradeEmbed(listing, prepared.firstImageName)],
       components: makeVoteButtons(listing),
-      files,
+      files: prepared.files,
       allowedMentions: { parse: [] },
     });
     listing.postChannelId = post.channelId;
@@ -166,6 +186,8 @@ export async function execute(interaction) {
     if (post) await post.delete().catch(() => {});
     await TradeListing.deleteOne({ _id: listing._id }).catch(() => {});
     throw error;
+  } finally {
+    await cleanup();
   }
 
   await interaction.editReply({

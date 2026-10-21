@@ -1,7 +1,13 @@
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
 import mongoose from "mongoose";
-import { execute as executeProfile, data as profileCommand } from "./commands/profile.js";
+import {
+  execute as executeProfile,
+  data as profileCommand,
+  handleProfileAlbumPage,
+  handleProfileMenuButton,
+  handleProfileModal,
+} from "./commands/profile.js";
 import {
   execute as executeInventoryVideo,
   data as inventoryVideoCommand,
@@ -9,12 +15,15 @@ import {
 import {
   execute as executeHouse,
   data as houseCommand,
+  handleHouseButton,
+  handleHouseModal,
   handleSold,
 } from "./commands/house.js";
 import { execute as executeTrade, data as tradeCommand, handleVote } from "./commands/trade.js";
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
-import { UserFacingError } from "./commands/errors.js";
+import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
+import GuildConfig from "./models/GuildConfig.js";
 
 const token = process.env.DISCORD_TOKEN;
 const mongoUri = process.env.MONGODB_URI;
@@ -50,29 +59,79 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleSold(interaction);
       return;
     }
+    if (interaction.isButton() && interaction.customId.startsWith("house:media:")) {
+      await handleHouseButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("profile:album:")) {
+      await handleProfileAlbumPage(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("profile:menu:")) {
+      await handleProfileMenuButton(interaction);
+      return;
+    }
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("profile:")) {
+      await handleProfileModal(interaction);
+      return;
+    }
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("house:media:")) {
+      await handleHouseModal(interaction);
+      return;
+    }
 
     if (!interaction.isChatInputCommand()) return;
     const handler = commandHandlers.get(interaction.commandName);
-    if (!handler) return;
+    if (!handler) {
+      await interaction.reply({
+        content: "That command isn't available right now. Try again in a moment.",
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] },
+      });
+      return;
+    }
+    if (interaction.commandName !== setupCommand.name && interaction.guildId) {
+      const config = await GuildConfig.findOne({ guildId: interaction.guildId });
+      if (
+        config?.commandChannelId &&
+        interaction.channelId !== config.commandChannelId
+      ) {
+        await interaction.reply({
+          content: `Please use bot commands in <#${config.commandChannelId}>.`,
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+    }
     await handler(interaction);
   } catch (error) {
     if (!(error instanceof UserFacingError)) {
-      console.error("Interaction failed:", error);
+      console.error(
+        `Interaction failed (${interaction.commandName ?? interaction.customId ?? interaction.type}):`,
+        error,
+      );
     }
 
     const response = {
-      content: error instanceof UserFacingError
-        ? error.message
-        : "Something went wrong while saving or loading that information. Please try again.",
+      content: getInteractionErrorMessage(error),
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] },
     };
-    if (interaction.deferred && !interaction.replied) {
-      await interaction.editReply(response).catch(console.error);
-    } else if (interaction.replied) {
-      await interaction.followUp(response).catch(console.error);
-    } else {
-      await interaction.reply(response).catch(console.error);
+    try {
+      if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply(response);
+      } else if (interaction.replied) {
+        await interaction.followUp(response);
+      } else if (interaction.isRepliable()) {
+        await interaction.reply(response);
+      }
+    } catch (responseError) {
+      if ([10062, 40060].includes(Number(responseError?.code))) {
+        console.warn("Could not reply because the interaction expired or was already acknowledged.");
+      } else {
+        console.error("Could not send the interaction error response:", responseError);
+      }
     }
   }
 });
