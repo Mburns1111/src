@@ -65,7 +65,9 @@ import {
   ensureTradingPostEntry,
 } from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
+import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
+import UserProfile from "./models/UserProfile.js";
 import { cleanupPendingForms } from "./commands/pending-forms.js";
 
 const token = process.env.DISCORD_TOKEN;
@@ -125,6 +127,14 @@ async function ensureProfileForEntry(interaction) {
 }
 
 async function sendProfileReminder(interaction) {
+  const existingProfileCard = await UserProfile.exists({
+    guildId: interaction.guildId,
+    discordUserId: interaction.user.id,
+    profileCardChannelId: { $type: "string", $ne: "" },
+    profileCardMessageId: { $type: "string", $ne: "" },
+  });
+  if (existingProfileCard) return;
+
   const profile = await ensureProfileCard(
     interaction.guild,
     interaction.user,
@@ -189,16 +199,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId.startsWith("house:new:")) {
       await ensureProfileForEntry(interaction);
       await handleHouseCreateButton(interaction);
+      await sendProfileReminder(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId === "house:entry") {
       await ensureProfileForEntry(interaction);
       await handleHouseEntryButton(interaction);
+      await sendProfileReminder(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId === "outfit:entry") {
       await ensureProfileForEntry(interaction);
       await handleOutfitEntryButton(interaction);
+      await sendProfileReminder(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId === "profile:entry") {
@@ -208,11 +221,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId === "inventory:entry") {
       await ensureProfileForEntry(interaction);
       await handleInventoryEntryButton(interaction);
+      await sendProfileReminder(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("outfit:new:")) {
       await ensureProfileForEntry(interaction);
       await handleOutfitCreateButton(interaction);
+      await sendProfileReminder(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("tradevote:")) {
@@ -222,11 +237,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId === "trade:entry") {
       await ensureProfileForEntry(interaction);
       await handleTradeVoteEntryButton(interaction);
+      await sendProfileReminder(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("trade:new:")) {
       await ensureProfileForEntry(interaction);
       await handleTradeCreateButton(interaction);
+      await sendProfileReminder(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("house:sold:")) {
@@ -279,6 +296,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId === "tradingpost:entry") {
       await ensureProfileForEntry(interaction);
       await handleTradingPostEntryButton(interaction);
+      await sendProfileReminder(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("tradingpost:")) {
@@ -291,9 +309,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isModalSubmit() && interaction.customId.startsWith("profile:")) {
       await handleProfileModal(interaction);
       await refreshTradingPostCard(interaction.guild, interaction.user.id);
-      if (interaction.customId.startsWith("profile:video-entry:")) {
-        await sendProfileReminder(interaction);
-      }
       return;
     }
     if (
@@ -301,7 +316,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.customId.startsWith("tradingpost:")
     ) {
       await handleTradingPostModal(interaction);
-      await sendProfileReminder(interaction);
       return;
     }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("house:media:")) {
@@ -314,19 +328,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("house:create:")) {
       await handleHouseCreateModal(interaction);
-      await sendProfileReminder(interaction);
       await refreshTradingPostCard(interaction.guild, interaction.user.id);
       return;
     }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("outfit:create:")) {
       await handleOutfitCreateModal(interaction);
-      await sendProfileReminder(interaction);
       await refreshTradingPostCard(interaction.guild, interaction.user.id);
       return;
     }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("trade:create:")) {
       await handleTradeCreateModal(interaction);
-      await sendProfileReminder(interaction);
       return;
     }
 

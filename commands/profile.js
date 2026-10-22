@@ -1,8 +1,8 @@
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
   FileUploadBuilder,
   LabelBuilder,
   MessageFlags,
@@ -37,6 +37,7 @@ import {
 } from "./inventory-video.js";
 import { getVoteCounts } from "./trade.js";
 import { ensureChannelEntry } from "./channel-entry.js";
+import { renderPostImage } from "../services/post-renderer.js";
 
 export const data = new SlashCommandBuilder()
   .setName("profile")
@@ -91,24 +92,8 @@ export async function handleInventoryEntryButton(interaction) {
   return true;
 }
 
-function makeProfileEmbed(
-  profile,
-  target,
-  guildId,
-  firstImageName,
-  albumPage,
-  albumCount,
-  firstImageUrl = "",
-  listingLinks = { houses: [], outfits: [], trades: [] },
-) {
-  const inventoryPostUrl =
-    profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId
-      ? discordMessageUrl(
-          guildId,
-          profile.inventoryVideoPostChannelId,
-          profile.inventoryVideoPostMessageId,
-        )
-      : profile.inventoryVideoUrl;
+function makeProfileCardContent(profile, guildId, listingLinks) {
+  const lines = [`<@${profile.discordUserId}>'s member profile`];
   const inventoryLinks = profile.albumPosts
     .filter(
       (post) =>
@@ -116,123 +101,74 @@ function makeProfileEmbed(
         post.messageId !== profile.profileCardMessageId,
     )
     .slice(-8)
-    .map((post) => {
-      const url = discordMessageUrl(guildId, post.channelId, post.messageId);
-      return `[See my inventory here >](${url})`;
-    });
-  if (inventoryPostUrl) {
-    inventoryLinks.unshift(`[See my inventory here >](${inventoryPostUrl})`);
+    .map(
+      (post) =>
+        `[Inventory photos](${discordMessageUrl(
+          guildId,
+          post.channelId,
+          post.messageId,
+        )})`,
+    );
+  const inventoryVideoUrl =
+    profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId
+      ? discordMessageUrl(
+          guildId,
+          profile.inventoryVideoPostChannelId,
+          profile.inventoryVideoPostMessageId,
+        )
+      : profile.inventoryVideoUrl;
+  if (inventoryVideoUrl) {
+    inventoryLinks.unshift(`[Inventory video](${inventoryVideoUrl})`);
   }
-  const houseLinks = listingLinks.houses.map((listing) => {
-    const url = discordMessageUrl(guildId, listing.postChannelId, listing.postMessageId);
-    return `[${listing.title || "House listing"}](${url})`;
-  });
-  const outfitLinks = (listingLinks.outfits ?? []).map((listing) => {
-    const url = discordMessageUrl(guildId, listing.postChannelId, listing.postMessageId);
-    return `[${listing.title || "Outfit listing"}](${url})`;
-  });
-  const tradeLinks = listingLinks.trades.map((listing) => {
-    const url = discordMessageUrl(guildId, listing.postChannelId, listing.postMessageId);
-    const counts = getVoteCounts(listing);
-    const shortTitle = (listing.title || "Trade listing")
-      .trim()
-      .split(/\s+/)
-      .slice(0, 8)
-      .join(" ");
-    const title = shortTitle.length < (listing.title || "").trim().length
-      ? `${shortTitle}…`
-      : shortTitle;
-    const tally = [
-      ["✅", counts.good],
-      ["❌", counts.bad],
-      ["🤷", counts.unsure],
-      ["👍", counts.wouldMake],
-      ["👎", counts.wouldntMake],
-    ]
-      .map(([emoji, count]) => `${emoji} ${String(count).padStart(4)}`)
-      .join(" | ");
-    return `[${title}](${url})\n\`${tally}\``;
-  });
-  const tradingPostLink = listingLinks.tradingPost
-    ? `[See my Trading Post here >](${discordMessageUrl(
+  if (inventoryLinks.length) lines.push("", ...inventoryLinks);
+
+  for (const [label, listings] of [
+    ["House listings", listingLinks.houses],
+    ["Outfit listings", listingLinks.outfits],
+    ["Trade listings", listingLinks.trades],
+  ]) {
+    if (!listings.length) continue;
+    lines.push("", `**${label}**`);
+    for (const listing of listings) {
+      const url = discordMessageUrl(
+        guildId,
+        listing.postChannelId,
+        listing.postMessageId,
+      );
+      if (label === "Trade listings") {
+        const counts = getVoteCounts(listing);
+        lines.push(
+          `[${listing.title || "Trade listing"}](${url}) — ✅ ${counts.good} · ❌ ${counts.bad} · 🤷 ${counts.unsure} · 👍 ${counts.wouldMake} · 👎 ${counts.wouldntMake}`,
+        );
+      } else {
+        lines.push(`[${listing.title || label.slice(0, -1)}](${url})`);
+      }
+    }
+  }
+  if (listingLinks.tradingPost) {
+    lines.push(
+      "",
+      "**Trading Post**",
+      `[See my Trading Post here >](${discordMessageUrl(
         guildId,
         listingLinks.tradingPost.postChannelId,
         listingLinks.tradingPost.postMessageId,
-      )})`
-    : "";
-
-  const embed = new EmbedBuilder()
-    .setColor(0x57a773)
-    .setTitle(`${profile.displayName}'s Adopt Me Profile`)
-    .setThumbnail(target.displayAvatarURL({ size: 256 }))
-    .addFields(
-      {
-        name: "Roblox username",
-        value: profile.adoptMeUsername || "Not added yet",
-        inline: true,
-      },
-      {
-        name: "Looking for trades",
-        value: profile.lookingForTrades ? "Yes" : "No",
-        inline: true,
-      },
-    )
-    .setFooter({ text: `Discord member: ${profile.discordUsername}` })
-    .setTimestamp(profile.updatedAt);
-
-  const linkFields = makeLinkFields(
-    "Inventory",
-    [...new Set(inventoryLinks)],
-    "No inventory posted yet",
-  );
-  if (houseLinks.length) {
-    linkFields.push(...makeLinkFields("House listings", houseLinks, ""));
-  }
-  if (outfitLinks.length) {
-    linkFields.push(...makeLinkFields("Outfit listings", outfitLinks, ""));
-  }
-  if (tradeLinks.length) {
-    linkFields.push(...makeLinkFields("Trade listings", tradeLinks, ""));
-  }
-  if (tradingPostLink) {
-    linkFields.push({ name: "Trading Post", value: tradingPostLink });
-  }
-  for (const field of linkFields) {
-    embed.addFields(field);
+      )})`,
+    );
   }
 
-  if (profile.bio) {
-    embed.setDescription(profile.bio.slice(0, 4096));
-  }
-
-  if (albumCount) {
-    embed.addFields({
-      name: "Photo",
-      value: `${albumPage + 1} of ${albumCount}`,
-      inline: true,
-    });
-  }
-  if (firstImageUrl) embed.setImage(firstImageUrl);
-  else if (firstImageName) embed.setImage(`attachment://${firstImageName}`);
-  return embed;
-}
-
-function makeLinkFields(name, links, emptyMessage) {
-  if (!links.length) return [{ name, value: emptyMessage }];
-
-  const fields = [];
-  let value = "";
-  for (const link of links) {
-    const nextValue = value ? `${value}\n${link}` : link;
-    if (nextValue.length > 1024 && value) {
-      fields.push({ name, value });
-      value = link;
-    } else {
-      value = nextValue;
+  const visibleLines = [];
+  let contentLength = 0;
+  for (const line of lines) {
+    const nextLength = contentLength + line.length + (visibleLines.length ? 1 : 0);
+    if (nextLength > 1998) {
+      visibleLines.push("…");
+      break;
     }
+    visibleLines.push(line);
+    contentLength = nextLength;
   }
-  if (value) fields.push({ name, value });
-  return fields;
+  return visibleLines.join("\n");
 }
 
 function makeAlbumButtons(userId, page, count) {
@@ -321,49 +257,35 @@ async function makeProfileCardPayload(
   const attachmentsById = new Map(
     currentAttachments.map((attachment) => [attachment.id, attachment]),
   );
-  const files = [];
-  let firstImageName = "";
-  let firstImageUrl = "";
-
-  const retainedAttachments = [];
-  for (const image of photos) {
-    if (image.profilePhotoFileId) continue;
-    const existingAttachment = attachmentsById.get(image.attachmentId);
-    if (existingAttachment) {
-      retainedAttachments.push({ id: existingAttachment.id });
-    }
-  }
-
-  if (currentImage?.profilePhotoFileId) {
-    firstImageName = currentImage.name
-      .split(/[\\/]/)
-      .pop()
-      .replace(/[^\w.-]/g, "_")
-      .slice(-80) || "profile-photo";
-    files.push({
-      attachment: getProfilePhotoStream(currentImage.profilePhotoFileId),
-      name: firstImageName,
-    });
-  } else if (currentImage) {
-    firstImageUrl =
-      attachmentsById.get(currentImage.attachmentId)?.url ?? currentImage.url;
-  }
+  const photo = currentImage?.profilePhotoFileId
+    ? await streamToBuffer(
+        getProfilePhotoStream(currentImage.profilePhotoFileId),
+      )
+    : currentImage
+      ? attachmentsById.get(currentImage.attachmentId)?.url ?? currentImage.url
+      : undefined;
+  const image = await renderPostImage({
+    type: "profile",
+    data: {
+      displayName: profile.displayName,
+      discordUsername: profile.discordUsername,
+      robloxUsername: profile.adoptMeUsername,
+      lookingForTrades: profile.lookingForTrades,
+      bio: profile.bio,
+      footer: photos.length
+        ? `Photo ${albumPage + 1} of ${photos.length}`
+        : "Made for the community",
+    },
+    images: {
+      avatar: target.displayAvatarURL({ extension: "png", size: 256 }),
+      photo,
+    },
+  });
   return {
-    content: `<@${profile.discordUserId}>'s member profile`,
-    embeds: [
-      makeProfileEmbed(
-        profile,
-        target,
-        guild.id,
-        firstImageName,
-        albumPage,
-        photos.length,
-        firstImageUrl,
-        listingLinks,
-      ),
-    ],
-    files,
-    attachments: retainedAttachments,
+    content: makeProfileCardContent(profile, guild.id, listingLinks),
+    embeds: [],
+    files: [new AttachmentBuilder(image, { name: "profile-card.png" })],
+    attachments: [],
     components: makeProfileCardComponents(
       profile.discordUserId,
       albumPage,
@@ -371,6 +293,14 @@ async function makeProfileCardPayload(
     ),
     allowedMentions: { parse: [] },
   };
+}
+
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
 }
 
 async function getProfileListingLinks(guild, ownerId) {
