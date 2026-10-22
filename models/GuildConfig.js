@@ -9,6 +9,10 @@ const guildConfigSchema = new mongoose.Schema(
     inventoryChannelId: { type: String, default: "" },
     tradeVoteChannelId: { type: String, default: "" },
     commandChannelId: { type: String, default: "" },
+    profileChannelId: { type: String, default: "" },
+    tradingPostChannelId: { type: String, default: "" },
+    tradingPostEntryChannelId: { type: String, default: "" },
+    tradingPostEntryMessageId: { type: String, default: "" },
   },
   { timestamps: true },
 );

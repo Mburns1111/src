@@ -4,10 +4,17 @@ import mongoose from "mongoose";
 import {
   execute as executeProfile,
   data as profileCommand,
+  ensureProfileCard,
   handleProfileAlbumPage,
+  handleProfileCardButton,
   handleProfileMenuButton,
   handleProfileModal,
+  handleProfilePhotoActionButton,
 } from "./commands/profile.js";
+import {
+  execute as executeProfileCleanup,
+  data as profileCleanupCommand,
+} from "./commands/profile-cleanup.js";
 import {
   execute as executeInventoryVideo,
   data as inventoryVideoCommand,
@@ -15,13 +22,27 @@ import {
 import {
   execute as executeHouse,
   data as houseCommand,
+  handleHouseCreateButton,
+  handleHouseCreateModal,
   handleHouseButton,
   handleHouseModal,
   handleSold,
 } from "./commands/house.js";
-import { execute as executeTrade, data as tradeCommand, handleVote } from "./commands/trade.js";
+import {
+  execute as executeTrade,
+  data as tradeCommand,
+  handleTradeCreateButton,
+  handleTradeCreateModal,
+  handleVote,
+} from "./commands/trade.js";
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
+import {
+  handleTradingPostCardButton,
+  handleTradingPostEntryButton,
+  handleTradingPostModal,
+  refreshTradingPostCard,
+} from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
 import GuildConfig from "./models/GuildConfig.js";
 
@@ -38,6 +59,7 @@ const client = new Client({
 
 const commandHandlers = new Map([
   [profileCommand.name, executeProfile],
+  [profileCleanupCommand.name, executeProfileCleanup],
   [inventoryVideoCommand.name, executeInventoryVideo],
   [houseCommand.name, executeHouse],
   [tradeCommand.name, executeTrade],
@@ -51,12 +73,36 @@ client.once(Events.ClientReady, (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    if (interaction.isChatInputCommand()) {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith("house:new:")) {
+      await handleHouseCreateButton(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId.startsWith("tradevote:")) {
       await handleVote(interaction);
       return;
     }
+    if (interaction.isButton() && interaction.customId.startsWith("trade:new:")) {
+      await handleTradeCreateButton(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId.startsWith("house:sold:")) {
-      await handleSold(interaction);
+      const ownerId = await handleSold(interaction);
+      if (ownerId) {
+        let member;
+        try {
+          member = await interaction.guild.members.fetch(ownerId);
+        } catch (error) {
+          if (Number(error?.code) !== 10007) throw error;
+        }
+        if (member) {
+          await ensureProfileCard(interaction.guild, member.user, { refresh: true });
+          await refreshTradingPostCard(interaction.guild, ownerId);
+        }
+      }
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("house:media:")) {
@@ -67,28 +113,75 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleProfileAlbumPage(interaction);
       return;
     }
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith("profile:photos-action:")
+    ) {
+      await handleProfilePhotoActionButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("profile:card:")) {
+      await handleProfileCardButton(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId.startsWith("profile:menu:")) {
       await handleProfileMenuButton(interaction);
       return;
     }
+    if (interaction.isButton() && interaction.customId === "tradingpost:entry") {
+      await handleTradingPostEntryButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("tradingpost:")) {
+      await handleTradingPostCardButton(interaction);
+      if (interaction.customId.startsWith("tradingpost:delete:")) {
+        await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+      }
+      return;
+    }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("profile:")) {
       await handleProfileModal(interaction);
+      await refreshTradingPostCard(interaction.guild, interaction.user.id);
+      return;
+    }
+    if (
+      interaction.isModalSubmit() &&
+      interaction.customId.startsWith("tradingpost:")
+    ) {
+      await handleTradingPostModal(interaction);
+      await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
       return;
     }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("house:media:")) {
       await handleHouseModal(interaction);
       return;
     }
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("house:create:")) {
+      await handleHouseCreateModal(interaction);
+      await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+      await refreshTradingPostCard(interaction.guild, interaction.user.id);
+      return;
+    }
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("trade:create:")) {
+      await handleTradeCreateModal(interaction);
+      await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+      return;
+    }
 
     if (!interaction.isChatInputCommand()) return;
     const handler = commandHandlers.get(interaction.commandName);
     if (!handler) {
-      await interaction.reply({
+      await interaction.editReply({
         content: "That command isn't available right now. Try again in a moment.",
-        flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] },
       });
       return;
+    }
+    if (
+      interaction.guild &&
+      ![setupCommand.name, profileCleanupCommand.name].includes(interaction.commandName)
+    ) {
+      await ensureProfileCard(interaction.guild, interaction.user);
     }
     if (interaction.commandName !== setupCommand.name && interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
@@ -96,17 +189,33 @@ client.on(Events.InteractionCreate, async (interaction) => {
         config?.commandChannelId &&
         interaction.channelId !== config.commandChannelId
       ) {
-        await interaction.reply({
+        const response = {
           content: `Please use bot commands in <#${config.commandChannelId}>.`,
-          flags: MessageFlags.Ephemeral,
           allowedMentions: { parse: [] },
-        });
+        };
+        if (interaction.deferred) {
+          await interaction.editReply(response);
+        } else {
+          await interaction.reply({
+            ...response,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
         return;
       }
     }
-    await handler(interaction);
+    await handler(interaction, {
+      refreshProfileCard: () =>
+        ensureProfileCard(interaction.guild, interaction.user, { refresh: true }),
+      refreshTradingPostCard: () =>
+        refreshTradingPostCard(interaction.guild, interaction.user.id),
+    });
   } catch (error) {
-    if (!(error instanceof UserFacingError)) {
+    if (Number(error?.code) === 10062) {
+      console.error(
+        `Interaction expired before acknowledgement (${interaction.commandName ?? interaction.customId ?? interaction.type}; age ${Date.now() - interaction.createdTimestamp} ms).`,
+      );
+    } else if (!(error instanceof UserFacingError)) {
       console.error(
         `Interaction failed (${interaction.commandName ?? interaction.customId ?? interaction.type}):`,
         error,

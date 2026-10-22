@@ -6,6 +6,7 @@ const tradeListingSchema = new mongoose.Schema(
     guildId: { type: String, required: true },
     ownerId: { type: String, required: true },
     ownerName: { type: String, required: true },
+    ownerRobloxUsername: { type: String, default: "" },
     title: { type: String, required: true, maxlength: 100 },
     videoUrl: { type: String, default: "" },
     coverImageName: { type: String, default: "" },

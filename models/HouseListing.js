@@ -6,6 +6,7 @@ const houseListingSchema = new mongoose.Schema(
     guildId: { type: String, required: true },
     ownerId: { type: String, required: true },
     ownerName: { type: String, required: true },
+    ownerRobloxUsername: { type: String, default: "" },
     title: { type: String, required: true, maxlength: 100 },
     description: { type: String, required: true, maxlength: 1000 },
     askingPrice: { type: String, required: true, maxlength: 80 },

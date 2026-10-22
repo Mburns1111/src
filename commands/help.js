@@ -56,7 +56,9 @@ function splitIntoFields(lines, maxLength = 950) {
 
 export async function execute(interaction) {
   requireGuild(interaction);
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
 
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
@@ -64,11 +66,12 @@ export async function execute(interaction) {
     .setDescription("Here’s what I can do in this server.");
 
   const featureLines = [
-    "• **Profiles:** Run `/profile` and choose a button to view or edit your card, add photos, or add an inventory video. Use the arrows to browse photos. Add a user to `/profile` to view their card.",
+    "• **Profiles:** Your profile card is created automatically when you use a bot command and kept in the profiles channel. Use its permanent buttons to edit details, add photos, or add an inventory video. Run `/profile` to get the card link; add a user to view their profile.",
     "• **Inventory videos:** Upload a video with `/inventory-video`. Videos over 8 MB are compressed automatically. Uploads must be under 100 MB. You can also add a video link to your profile.",
-    "• **House ads:** Post your house details and an optional video link. Use **Add pictures/video** on your ad to add photos or a video later. Videos over 8 MB are compressed; uploads must be under 100 MB. Use **Mark sold** when your house is sold.",
-    "• **Trade votes:** Post one required picture and, if you want, a video link or an uploaded video. Pick one video option, not both. The server can vote on the trade.",
-    "• **Server setup:** Server admins can choose where bot commands, house ads, inventory posts, and trade votes go.",
+    "• **House ads:** Run `/house` to add a private form button in the house channel. Tap it to fill in your details. Use **Add pictures/video** on your ad to add media later, and **Mark sold** when it sells.",
+    "• **Trade votes:** Run `/new-vote` to add a private form button in the trade channel. Tap it within 1 minute to add one picture and, if you want, one video link or upload. Everyone can vote on the finished post.",
+    "• **Trading Post:** Use the pinned button in the Trading Post channel to create or update one permanent card. Other members can mark interest; you can opt in to receive DMs. Your profile card links to your Trading Post when you have one.",
+    "• **Server setup:** Before members use bot commands, an admin should set the profiles channel with `/setup channels`. Admins can also choose where house ads, inventory posts, trade votes, and Trading Post cards go. Use `/profile-cleanup` to remove profile cards for members who have left; their saved profile data is retained.",
   ];
   splitIntoFields(featureLines).forEach((value, index, fields) => {
     embed.addFields({

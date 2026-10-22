@@ -3,10 +3,16 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  FileUploadBuilder,
+  LabelBuilder,
   MessageFlags,
+  ModalBuilder,
   SlashCommandBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from "discord.js";
 import TradeListing from "../models/TradeListing.js";
+import UserProfile from "../models/UserProfile.js";
 import {
   getConfiguredTextChannel,
   getMessageMedia,
@@ -20,37 +26,80 @@ import { prepareMediaFiles } from "./video-compression.js";
 
 export const data = new SlashCommandBuilder()
   .setName("new-vote")
-  .setDescription("Post a trade for the server to vote on")
-  .addStringOption((option) =>
-    option
-      .setName("title")
-      .setDescription("Short title for your trade")
-      .setRequired(true)
-      .setMaxLength(100),
-  )
-  .addAttachmentOption((option) =>
-    option
-      .setName("picture")
-      .setDescription("Add one picture of the trade")
-      .setRequired(true),
-  )
-  .addStringOption((option) =>
-    option
-      .setName("video_url")
-      .setDescription("Optional link to a video of the trade")
-      .setMaxLength(500),
-  )
-  .addAttachmentOption((option) =>
-    option
-      .setName("video")
-      .setDescription("Optional uploaded video; use instead of a video link"),
+  .setDescription("Open the form to post a trade for the server to vote on");
+
+const activeTradeSubmissions = new Set();
+const openedTradeForms = new Set();
+const pendingTradeForms = new Map();
+const creatingTradeForms = new Set();
+const tradeFormLifetimeMs = 60_000;
+const tradeModalLifetimeMs = 15 * 60_000;
+
+function makeCreateTradeButton(userId, expiresAt) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`trade:new:${userId}:${expiresAt}`)
+      .setLabel("Create trade vote")
+      .setStyle(ButtonStyle.Primary),
   );
+}
+
+function makeCreateTradeModal(userId, message, expiresAt) {
+  return new ModalBuilder()
+    .setCustomId(
+      `trade:create:${userId}:${message.channelId}:${message.id}:${expiresAt}`,
+    )
+    .setTitle("Post a trade for voting")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Trade title")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("title")
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(100)
+            .setRequired(true),
+        ),
+      new LabelBuilder()
+        .setLabel("Add one picture (required)")
+        .setFileUploadComponent(
+          new FileUploadBuilder()
+            .setCustomId("picture")
+            .setMinValues(1)
+            .setMaxValues(1),
+        ),
+      new LabelBuilder()
+        .setLabel("Video link (optional)")
+        .setDescription("Use this or upload a video below, not both.")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("video_url")
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(500)
+            .setRequired(false),
+        ),
+      new LabelBuilder()
+        .setLabel("Upload a video (optional)")
+        .setFileUploadComponent(
+          new FileUploadBuilder()
+            .setCustomId("video")
+            .setMinValues(0)
+            .setMaxValues(1)
+            .setRequired(false),
+        ),
+    );
+}
 
 function getMapEntries(map) {
   if (map && typeof map.entries === "function") {
     return Array.from(map.entries());
   }
   return Object.entries(map ?? {});
+}
+
+function isImageAttachment(attachment) {
+  return attachment.contentType?.toLowerCase().startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp|avif)$/i.test(attachment.name ?? "");
 }
 
 export function getVoteCounts(listing) {
@@ -75,13 +124,18 @@ export function getVoteCounts(listing) {
   };
 }
 
-function makeTradeEmbed(listing, firstImageName = listing.coverImageName) {
+function makeTradeEmbed(listing) {
   const counts = getVoteCounts(listing);
   const embed = new EmbedBuilder()
     .setColor(0xe6a23c)
     .setTitle(listing.title)
     .setAuthor({ name: listing.ownerName })
     .addFields(
+      {
+        name: "Roblox username",
+        value: listing.ownerRobloxUsername || "Not added yet",
+        inline: true,
+      },
       {
         name: "Trade quality",
         value: `Good: ${counts.good} · Bad: ${counts.bad} · Unsure: ${counts.unsure}`,
@@ -97,7 +151,6 @@ function makeTradeEmbed(listing, firstImageName = listing.coverImageName) {
   if (listing.videoUrl) {
     embed.addFields({ name: "Trade video", value: `[Watch video](${listing.videoUrl})` });
   }
-  if (firstImageName) embed.setImage(`attachment://${firstImageName}`);
   return embed;
 }
 
@@ -133,37 +186,257 @@ function makeVoteButtons(listing) {
 
 export async function execute(interaction) {
   requireGuild(interaction);
-  const title = interaction.options.getString("title", true).trim();
-  const picture = interaction.options.getAttachment("picture", true);
-  const video = interaction.options.getAttachment("video");
-  const videoUrl = validateWebUrl(
-    interaction.options.getString("video_url"),
-    "Trade video",
-  );
-  if (video && videoUrl) {
-    throw new UserFacingError(
-      "Choose either an uploaded video or a video link, not both.",
-    );
+  const formKey = `${interaction.guildId}:${interaction.user.id}`;
+  const pendingForm = pendingTradeForms.get(formKey);
+  if (pendingForm || creatingTradeForms.has(formKey)) {
+    const response = {
+      content: pendingForm
+        ? `You already have a trade form waiting in <#${pendingForm.channelId}>. Finish that one before starting another: ${pendingForm.url}`
+        : "Your trade form is being created. Please wait a moment before trying again.",
+      allowedMentions: { parse: [] },
+    };
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply(response);
+    } else {
+      await interaction.reply({ ...response, flags: MessageFlags.Ephemeral });
+    }
+    return;
   }
-  validateAttachments([picture], { imagesOnly: true });
-  if (video) validateVideoAttachment(video);
+  creatingTradeForms.add(formKey);
+  try {
+    const channel = await getConfiguredTextChannel(
+      interaction,
+      "tradeVoteChannelId",
+      "trade voting",
+    );
+    const expiresAt = Date.now() + tradeFormLifetimeMs;
+    const post = await channel.send({
+      content: `Trade vote from ${interaction.user.username} — use the button within 1 minute to enter details.`,
+      components: [makeCreateTradeButton(interaction.user.id, expiresAt)],
+      allowedMentions: { parse: [] },
+    });
+    const submissionKey = `${interaction.guildId}:${post.channelId}:${post.id}`;
+    pendingTradeForms.set(formKey, {
+      channelId: post.channelId,
+      messageId: post.id,
+      url: post.url,
+      expiresAt,
+    });
+    const timeout = setTimeout(async () => {
+      if (openedTradeForms.has(submissionKey)) return;
+      const currentPending = pendingTradeForms.get(formKey);
+      if (currentPending?.messageId === post.id) {
+        pendingTradeForms.delete(formKey);
+      }
+      try {
+        const currentPost = await channel.messages.fetch(post.id);
+        const currentButton = currentPost.components
+          .flatMap((row) => row.components)
+          .find((component) => component.customId === `trade:new:${interaction.user.id}:${expiresAt}`);
+        if (currentButton && !currentButton.disabled) {
+          await currentPost.delete();
+        }
+      } catch (error) {
+        if (Number(error?.code) !== 10008) {
+          console.error("Could not delete expired trade form post:", error);
+        }
+      }
+    }, tradeFormLifetimeMs);
+    timeout.unref?.();
+    const response = {
+      content: `I added your trade vote form in ${channel}. Use the button within 1 minute to enter details privately. Only you can use it. ${post.url}`,
+      components: [],
+      allowedMentions: { parse: [] },
+    };
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply(response);
+    } else {
+      await interaction.reply({ ...response, flags: MessageFlags.Ephemeral });
+    }
+  } finally {
+    creatingTradeForms.delete(formKey);
+  }
+}
+
+export async function handleTradeCreateButton(interaction) {
+  const [, action, ownerId, expiresAtValue] = interaction.customId.split(":");
+  const expiresAt = Number(expiresAtValue);
+  if (action !== "new" || ownerId !== interaction.user.id) {
+    throw new UserFacingError("That trade form is not yours to use.");
+  }
+  if (!Number.isSafeInteger(expiresAt) || Date.now() >= expiresAt) {
+    throw new UserFacingError("This trade form expired. Run `/new-vote` to start again.");
+  }
+  const openedFormKey =
+    `${interaction.guildId}:${interaction.message.channelId}:${interaction.message.id}`;
+  openedTradeForms.add(openedFormKey);
+  try {
+    await interaction.showModal(
+      makeCreateTradeModal(ownerId, interaction.message, expiresAt),
+    );
+  } catch (error) {
+    openedTradeForms.delete(openedFormKey);
+    throw error;
+  }
+  await interaction.message.edit({
+    content: `Trade vote from ${interaction.user.username} — finish the form that just opened.`,
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`trade:new:${ownerId}:${expiresAt}`)
+          .setLabel("Form opened")
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(true),
+      ),
+    ],
+  }).catch((error) => {
+    console.error("Could not mark the opened trade form button as used:", error);
+  });
+  const formKey = `${interaction.guildId}:${ownerId}`;
+  const timeout = setTimeout(async () => {
+    if (
+      pendingTradeForms.get(formKey)?.messageId !== interaction.message.id ||
+      !openedTradeForms.has(openedFormKey) ||
+      activeTradeSubmissions.has(openedFormKey)
+    ) {
+      return;
+    }
+    pendingTradeForms.delete(formKey);
+    openedTradeForms.delete(openedFormKey);
+    try {
+      const post = await interaction.channel.messages.fetch(interaction.message.id);
+      const button = post.components
+        .flatMap((row) => row.components)
+        .find((component) => component.customId === interaction.customId);
+      if (button?.disabled) await post.delete();
+    } catch (error) {
+      if (Number(error?.code) !== 10008) {
+        console.error("Could not delete abandoned trade form post:", error);
+      }
+    }
+  }, tradeModalLifetimeMs);
+  timeout.unref?.();
+}
+
+export async function handleTradeCreateModal(interaction) {
+  const [, action, ownerId, channelId, messageId, expiresAtValue] =
+    interaction.customId.split(":");
+  const expiresAt = Number(expiresAtValue);
+  if (
+    action !== "create" ||
+    ownerId !== interaction.user.id ||
+    !/^\d{17,20}$/.test(channelId ?? "") ||
+    !/^\d{17,20}$/.test(messageId ?? "") ||
+    !Number.isSafeInteger(expiresAt)
+  ) {
+    throw new UserFacingError("That trade form is not yours to use.");
+  }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const channel = await getConfiguredTextChannel(
-    interaction,
-    "tradeVoteChannelId",
-    "trade voting",
-  );
+  const formKey = `${interaction.guildId}:${ownerId}`;
+  const pendingForm = pendingTradeForms.get(formKey);
+  if (pendingForm?.messageId !== messageId) {
+    throw new UserFacingError("This trade form is no longer active. Run `/new-vote` to start a new one.");
+  }
+  const submissionKey = `${interaction.guildId}:${channelId}:${messageId}`;
+  if (activeTradeSubmissions.has(submissionKey)) {
+    throw new UserFacingError("This trade vote is already being submitted.");
+  }
+  activeTradeSubmissions.add(submissionKey);
 
+  let post;
+  let claimed = false;
+  try {
+    const channel = await interaction.guild.channels.fetch(channelId);
+    post = await channel?.messages?.fetch(messageId);
+    const buttonId = `trade:new:${ownerId}:${expiresAt}`;
+    const button = post?.components
+      .flatMap((row) => row.components)
+      .find((component) => component.customId === buttonId);
+    if (!post || post.author?.id !== interaction.client.user.id || !button) {
+      throw new UserFacingError("This trade vote form has expired or was already submitted.");
+    }
+    await post.edit({
+      content: `Trade vote from ${interaction.user.username} — submitting...`,
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(buttonId)
+            .setLabel("Submitting...")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(true),
+        ),
+      ],
+    });
+    claimed = true;
+
+    const title = interaction.fields.getTextInputValue("title").trim();
+    const picture = interaction.fields.getUploadedFiles("picture", true).first();
+    const video = interaction.fields.getUploadedFiles("video")?.first();
+    const videoUrl = validateWebUrl(
+      interaction.fields.getTextInputValue("video_url").trim(),
+      "Trade video",
+    );
+    if (video && videoUrl) {
+      throw new UserFacingError(
+        "Choose either an uploaded video or a video link, not both.",
+      );
+    }
+    validateAttachments([picture], { imagesOnly: true });
+    if (video) validateVideoAttachment(video);
+
+    await publishTradeListing(interaction, { title, picture, video, videoUrl }, post);
+    pendingTradeForms.delete(formKey);
+    openedTradeForms.delete(submissionKey);
+  } catch (error) {
+    if (post && claimed) {
+      const canRetry = Date.now() < expiresAt;
+      if (!canRetry) {
+        pendingTradeForms.delete(formKey);
+        openedTradeForms.delete(submissionKey);
+      }
+      await post.edit({
+        content: canRetry
+          ? `Trade vote from ${interaction.user.username} — finish your trade using the button below.`
+          : `Trade vote form from ${interaction.user.username} expired. Run \`/new-vote\` to start again.`,
+        components: canRetry
+          ? [makeCreateTradeButton(ownerId, expiresAt)]
+          : [],
+        embeds: [],
+        attachments: [],
+      }).catch((restoreError) => {
+        console.error("Could not restore the trade vote form post:", restoreError);
+      });
+    }
+    throw error;
+  } finally {
+    activeTradeSubmissions.delete(submissionKey);
+  }
+
+  await interaction.editReply({
+    content: `Your trade was posted for voting: ${post.url}`,
+    allowedMentions: { parse: [] },
+  });
+}
+
+async function publishTradeListing(interaction, { title, picture, video, videoUrl }, post) {
+  const [profile, member] = await Promise.all([
+    UserProfile.findOne({
+      guildId: interaction.guildId,
+      discordUserId: interaction.user.id,
+    }),
+    interaction.guild.members.fetch(interaction.user.id),
+  ]);
+  const discordDisplayName = member.displayName;
   const listing = await TradeListing.create({
     guildId: interaction.guildId,
     ownerId: interaction.user.id,
-    ownerName: interaction.user.globalName ?? interaction.user.username,
+    ownerName: discordDisplayName,
+    ownerRobloxUsername: profile?.adoptMeUsername ?? "",
     title,
     videoUrl,
   });
   let cleanup = async () => {};
-  let post;
   try {
     const prepared = await prepareMediaFiles(
       video ? [picture, video] : [picture],
@@ -171,29 +444,26 @@ export async function execute(interaction) {
     );
     cleanup = prepared.cleanup;
     listing.coverImageName = prepared.firstImageName ?? "";
-    post = await channel.send({
-      content: `Trade proposal from ${interaction.user.username}`,
-      embeds: [makeTradeEmbed(listing, prepared.firstImageName)],
+    const updatedPost = await post.edit({
+      content: `Trade proposal from ${discordDisplayName}`,
+      embeds: [makeTradeEmbed(listing)],
       components: makeVoteButtons(listing),
       files: prepared.files,
       allowedMentions: { parse: [] },
     });
-    listing.postChannelId = post.channelId;
-    listing.postMessageId = post.id;
-    listing.mediaAttachments = getMessageMedia(post);
+    listing.postChannelId = updatedPost.channelId;
+    listing.postMessageId = updatedPost.id;
+    listing.mediaAttachments = getMessageMedia(updatedPost);
+    listing.coverImageName =
+      listing.mediaAttachments.find(isImageAttachment)?.name ??
+      listing.coverImageName;
     await listing.save();
   } catch (error) {
-    if (post) await post.delete().catch(() => {});
     await TradeListing.deleteOne({ _id: listing._id }).catch(() => {});
     throw error;
   } finally {
     await cleanup();
   }
-
-  await interaction.editReply({
-    content: `Your trade was posted for voting: ${post.url}`,
-    allowedMentions: { parse: [] },
-  });
 }
 
 export async function handleVote(interaction) {
@@ -257,14 +527,33 @@ export async function handleVote(interaction) {
   const updated = await TradeListing.findById(id);
   if (!updated) throw new UserFacingError("This trade post is no longer active.");
 
-  await interaction.message.edit({
+  const message = await interaction.channel.messages.fetch(interaction.message.id);
+  const currentImage = message.attachments.find(isImageAttachment);
+  const savedImage = updated.mediaAttachments.find(isImageAttachment);
+  const restoreImage = !currentImage && savedImage?.url;
+  if (!currentImage && !restoreImage) {
+    console.error(
+      `Trade ${id} has no image attachment on its post or usable saved image metadata.`,
+    );
+  }
+  const editedMessage = await message.edit({
     embeds: [makeTradeEmbed(updated)],
     components: makeVoteButtons(updated),
-    attachments: interaction.message.attachments.map((attachment) => ({
+    attachments: message.attachments.map((attachment) => ({
       id: attachment.id,
     })),
+    files: restoreImage
+      ? [{ attachment: savedImage.url, name: savedImage.name }]
+      : [],
     allowedMentions: { parse: [] },
   });
+  if (restoreImage) {
+    updated.mediaAttachments = getMessageMedia(editedMessage);
+    updated.coverImageName =
+      updated.mediaAttachments.find(isImageAttachment)?.name ??
+      updated.coverImageName;
+    await updated.save();
+  }
   await interaction.editReply({
     content: `Your ${dimension === "qualityVotes" ? "trade-quality" : "personal-choice"} vote was saved. You can change it by choosing another option in that row.`,
   });

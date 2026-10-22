@@ -13,23 +13,28 @@ import {
   TextInputStyle,
 } from "discord.js";
 import UserProfile from "../models/UserProfile.js";
+import GuildConfig from "../models/GuildConfig.js";
+import HouseListing from "../models/HouseListing.js";
+import TradeListing from "../models/TradeListing.js";
+import TradingPost from "../models/TradingPost.js";
 import {
   discordMessageUrl,
-  getConfiguredTextChannel,
-  getMessageMedia,
-  prepareFiles,
   requireGuild,
   validateAttachments,
 } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 import {
   getProfileAlbumImages,
-  getProfileInventoryVideo,
+  getProfilePhotoStream,
+  removeAllProfilePhotos,
+  removeProfilePhotos,
+  saveProfilePhotos,
 } from "./profile-media.js";
 import {
   saveInventoryVideoFile,
   saveInventoryVideoLink,
 } from "./inventory-video.js";
+import { getVoteCounts } from "./trade.js";
 
 export const data = new SlashCommandBuilder()
   .setName("profile")
@@ -38,7 +43,18 @@ export const data = new SlashCommandBuilder()
     option.setName("user").setDescription("View another member's profile"),
   );
 
-function makeProfileEmbed(profile, target, guildId, firstImageName, albumPage, albumCount) {
+const profileCardOperations = new Map();
+
+function makeProfileEmbed(
+  profile,
+  target,
+  guildId,
+  firstImageName,
+  albumPage,
+  albumCount,
+  firstImageUrl = "",
+  listingLinks = { houses: [], trades: [] },
+) {
   const inventoryPostUrl =
     profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId
       ? discordMessageUrl(
@@ -47,12 +63,53 @@ function makeProfileEmbed(profile, target, guildId, firstImageName, albumPage, a
           profile.inventoryVideoPostMessageId,
         )
       : profile.inventoryVideoUrl;
-  const albumLinks = profile.albumPosts
+  const inventoryLinks = profile.albumPosts
+    .filter(
+      (post) =>
+        post.channelId !== profile.profileCardChannelId ||
+        post.messageId !== profile.profileCardMessageId,
+    )
     .slice(-8)
-    .map((post, index) => {
+    .map((post) => {
       const url = discordMessageUrl(guildId, post.channelId, post.messageId);
-      return `[Album post ${index + 1}](${url})`;
+      return `[See my inventory here >](${url})`;
     });
+  if (inventoryPostUrl) {
+    inventoryLinks.unshift(`[See my inventory here >](${inventoryPostUrl})`);
+  }
+  const houseLinks = listingLinks.houses.map((listing) => {
+    const url = discordMessageUrl(guildId, listing.postChannelId, listing.postMessageId);
+    return `[${listing.title || "House listing"}](${url})`;
+  });
+  const tradeLinks = listingLinks.trades.map((listing) => {
+    const url = discordMessageUrl(guildId, listing.postChannelId, listing.postMessageId);
+    const counts = getVoteCounts(listing);
+    const shortTitle = (listing.title || "Trade listing")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 8)
+      .join(" ");
+    const title = shortTitle.length < (listing.title || "").trim().length
+      ? `${shortTitle}…`
+      : shortTitle;
+    const tally = [
+      ["✅", counts.good],
+      ["❌", counts.bad],
+      ["🤷", counts.unsure],
+      ["👍", counts.wouldMake],
+      ["👎", counts.wouldntMake],
+    ]
+      .map(([emoji, count]) => `${emoji} ${String(count).padStart(4)}`)
+      .join(" | ");
+    return `[${title}](${url})\n\`${tally}\``;
+  });
+  const tradingPostLink = listingLinks.tradingPost
+    ? `[See my Trading Post here >](${discordMessageUrl(
+        guildId,
+        listingLinks.tradingPost.postChannelId,
+        listingLinks.tradingPost.postMessageId,
+      )})`
+    : "";
 
   const embed = new EmbedBuilder()
     .setColor(0x57a773)
@@ -60,7 +117,7 @@ function makeProfileEmbed(profile, target, guildId, firstImageName, albumPage, a
     .setThumbnail(target.displayAvatarURL({ size: 256 }))
     .addFields(
       {
-        name: "Adopt Me username",
+        name: "Roblox username",
         value: profile.adoptMeUsername || "Not added yet",
         inline: true,
       },
@@ -69,23 +126,32 @@ function makeProfileEmbed(profile, target, guildId, firstImageName, albumPage, a
         value: profile.lookingForTrades ? "Yes" : "No",
         inline: true,
       },
-      {
-        name: "Inventory video",
-        value: inventoryPostUrl
-          ? `[Watch inventory video](${inventoryPostUrl})`
-          : "Not added yet",
-      },
-      {
-        name: "Photo album",
-        value: albumLinks.length ? albumLinks.join("\n") : "No screenshots added yet",
-      },
     )
     .setFooter({ text: `Discord member: ${profile.discordUsername}` })
     .setTimestamp(profile.updatedAt);
 
+  const linkFields = makeLinkFields(
+    "Inventory",
+    [...new Set(inventoryLinks)],
+    "No inventory posted yet",
+  );
+  if (houseLinks.length) {
+    linkFields.push(...makeLinkFields("House listings", houseLinks, ""));
+  }
+  if (tradeLinks.length) {
+    linkFields.push(...makeLinkFields("Trade listings", tradeLinks, ""));
+  }
+  if (tradingPostLink) {
+    linkFields.push({ name: "Trading Post", value: tradingPostLink });
+  }
+  for (const field of linkFields) {
+    embed.addFields(field);
+  }
+
   if (profile.bio) {
     embed.setDescription(profile.bio.slice(0, 4096));
   }
+
   if (albumCount) {
     embed.addFields({
       name: "Photo",
@@ -93,8 +159,27 @@ function makeProfileEmbed(profile, target, guildId, firstImageName, albumPage, a
       inline: true,
     });
   }
-  if (firstImageName) embed.setImage(`attachment://${firstImageName}`);
+  if (firstImageUrl) embed.setImage(firstImageUrl);
+  else if (firstImageName) embed.setImage(`attachment://${firstImageName}`);
   return embed;
+}
+
+function makeLinkFields(name, links, emptyMessage) {
+  if (!links.length) return [{ name, value: emptyMessage }];
+
+  const fields = [];
+  let value = "";
+  for (const link of links) {
+    const nextValue = value ? `${value}\n${link}` : link;
+    if (nextValue.length > 1024 && value) {
+      fields.push({ name, value });
+      value = link;
+    } else {
+      value = nextValue;
+    }
+  }
+  if (value) fields.push({ name, value });
+  return fields;
 }
 
 function makeAlbumButtons(userId, page, count) {
@@ -104,32 +189,114 @@ function makeAlbumButtons(userId, page, count) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`profile:album:${userId}:${page - 1}`)
-        .setLabel("◀")
+        .setLabel("Previous photo")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(page === 0),
       new ButtonBuilder()
         .setCustomId(`profile:album:${userId}:${page + 1}`)
-        .setLabel("▶")
+        .setLabel("Next photo")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(page >= count - 1),
     ),
   ];
 }
 
-async function makeProfileShowPayload(guild, profile, target, page) {
-  const [albumImages, inventoryVideo] = await Promise.all([
-    getProfileAlbumImages(guild, profile),
-    getProfileInventoryVideo(guild, profile),
-  ]);
-  const albumPage = albumImages.length ? Math.min(page, albumImages.length - 1) : 0;
-  const currentImage = albumImages[albumPage];
-  const { files, firstImageName } = prepareFiles(
-    [...inventoryVideo, ...(currentImage ? [currentImage] : [])],
-    `profile-${target.id}-page-${albumPage}`,
-  );
+function makeProfileCardComponents(userId, page, count) {
+  const rows = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`profile:card:edit:${userId}`)
+        .setLabel("Edit details")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`profile:card:photos:${userId}`)
+        .setLabel("Add/remove photos")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`profile:card:video:${userId}`)
+        .setLabel("Inventory video")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+  rows.push(...makeAlbumButtons(userId, page, count));
+  return rows;
+}
 
+async function showPhotoActionPrompt(interaction, ownerId) {
+  await interaction.reply({
+    content: "Choose whether to add photos or remove photos from your album.",
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`profile:photos-action:add:${ownerId}`)
+          .setLabel("Add photos")
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId(`profile:photos-action:remove:${ownerId}`)
+          .setLabel("Remove photos")
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`profile:photos-action:all:${ownerId}`)
+          .setLabel("Remove all")
+          .setStyle(ButtonStyle.Danger),
+      ),
+    ],
+    flags: MessageFlags.Ephemeral,
+    allowedMentions: { parse: [] },
+  });
+}
+
+async function makeProfileCardPayload(
+  guild,
+  profile,
+  target,
+  page = 0,
+  currentMessage = null,
+) {
+  const [albumImages, listingLinks] = await Promise.all([
+    getProfileAlbumImages(guild, profile),
+    getProfileListingLinks(guild, profile.discordUserId),
+  ]);
+  const photos = albumImages;
+  const albumPage = photos.length
+    ? Math.min(page, photos.length - 1)
+    : 0;
+  const currentImage = photos[albumPage];
+  const currentAttachments = Array.from(
+    currentMessage?.attachments?.values?.() ?? [],
+  );
+  const attachmentsById = new Map(
+    currentAttachments.map((attachment) => [attachment.id, attachment]),
+  );
+  const files = [];
+  let firstImageName = "";
+  let firstImageUrl = "";
+
+  const retainedAttachments = [];
+  for (const image of photos) {
+    if (image.profilePhotoFileId) continue;
+    const existingAttachment = attachmentsById.get(image.attachmentId);
+    if (existingAttachment) {
+      retainedAttachments.push({ id: existingAttachment.id });
+    }
+  }
+
+  if (currentImage?.profilePhotoFileId) {
+    firstImageName = currentImage.name
+      .split(/[\\/]/)
+      .pop()
+      .replace(/[^\w.-]/g, "_")
+      .slice(-80) || "profile-photo";
+    files.push({
+      attachment: getProfilePhotoStream(currentImage.profilePhotoFileId),
+      name: firstImageName,
+    });
+  } else if (currentImage) {
+    firstImageUrl =
+      attachmentsById.get(currentImage.attachmentId)?.url ?? currentImage.url;
+  }
   return {
-    content: "",
+    content: `<@${profile.discordUserId}>'s member profile`,
     embeds: [
       makeProfileEmbed(
         profile,
@@ -137,14 +304,334 @@ async function makeProfileShowPayload(guild, profile, target, page) {
         guild.id,
         firstImageName,
         albumPage,
-        albumImages.length,
+        photos.length,
+        firstImageUrl,
+        listingLinks,
       ),
     ],
     files,
-    attachments: [],
-    components: makeAlbumButtons(target.id, albumPage, albumImages.length),
+    attachments: retainedAttachments,
+    components: makeProfileCardComponents(
+      profile.discordUserId,
+      albumPage,
+      photos.length,
+    ),
     allowedMentions: { parse: [] },
   };
+}
+
+async function getProfileListingLinks(guild, ownerId) {
+  const guildId = guild.id;
+  const [houses, trades, tradingPost] = await Promise.all([
+    HouseListing.find({
+      guildId,
+      ownerId,
+      status: "active",
+      postChannelId: { $ne: "" },
+      postMessageId: { $ne: "" },
+    })
+      .select("title postChannelId postMessageId createdAt")
+      .sort({ createdAt: -1 })
+      .lean(),
+    TradeListing.find({
+      guildId,
+      ownerId,
+      status: "open",
+      postChannelId: { $ne: "" },
+      postMessageId: { $ne: "" },
+    })
+      .select("title postChannelId postMessageId createdAt votes qualityVotes decisionVotes")
+      .sort({ createdAt: -1 })
+      .lean(),
+    TradingPost.findOne({ guildId, ownerId })
+      .select("postChannelId postMessageId")
+      .lean(),
+  ]);
+
+  const channelFetches = new Map();
+  const existingTrades = [];
+  for (const listing of trades) {
+    let channelFetch = channelFetches.get(listing.postChannelId);
+    if (!channelFetches.has(listing.postChannelId)) {
+      channelFetch = guild.channels.fetch(listing.postChannelId);
+      channelFetches.set(listing.postChannelId, channelFetch);
+    } else if (channelFetch === null) {
+      continue;
+    }
+
+    let channel;
+    try {
+      channel = await channelFetch;
+    } catch (error) {
+      if (Number(error?.code) !== 10003) throw error;
+      await TradeListing.updateMany(
+        {
+          guildId,
+          ownerId,
+          status: "open",
+          postChannelId: listing.postChannelId,
+        },
+        { $set: { status: "closed" } },
+      );
+      channelFetches.set(listing.postChannelId, null);
+      continue;
+    }
+    if (!channel?.messages) {
+      await TradeListing.updateMany(
+        {
+          guildId,
+          ownerId,
+          status: "open",
+          postChannelId: listing.postChannelId,
+        },
+        { $set: { status: "closed" } },
+      );
+      channelFetches.set(listing.postChannelId, null);
+      continue;
+    }
+
+    try {
+      await channel.messages.fetch(listing.postMessageId);
+      existingTrades.push(listing);
+      if (existingTrades.length === 5) break;
+    } catch (error) {
+      if (Number(error?.code) !== 10008) throw error;
+      await TradeListing.updateOne(
+        {
+          _id: listing._id,
+          guildId,
+          ownerId,
+          status: "open",
+        },
+        { $set: { status: "closed" } },
+      );
+    }
+  }
+
+  return {
+    houses,
+    trades: existingTrades,
+    tradingPost:
+      tradingPost?.postChannelId && tradingPost?.postMessageId
+        ? tradingPost
+        : null,
+  };
+}
+
+async function ensureProfileCardOnce(guild, user, refresh) {
+  const guildId = guild.id;
+  const profileFilter = { guildId, discordUserId: user.id };
+  const config = await GuildConfig.findOne({ guildId });
+  if (!config?.profileChannelId) {
+    throw new UserFacingError(
+      "A server admin needs to set the profiles channel with `/setup channels` before members can use bot commands.",
+    );
+  }
+
+  const channel = await guild.channels.fetch(config.profileChannelId);
+  if (!channel?.isTextBased() || typeof channel.send !== "function") {
+    throw new UserFacingError(
+      "The configured profiles channel is unavailable. Ask an admin to update it with `/setup channels`.",
+    );
+  }
+
+  const member = await guild.members.fetch(user.id);
+  const discordUser = member.user;
+  let profile = await UserProfile.findOne(profileFilter);
+  let identityChanged = false;
+  if (!profile) {
+    profile = new UserProfile({
+      ...profileFilter,
+      discordUsername: discordUser.username,
+      displayName: member.displayName,
+    });
+    await profile.save();
+  } else {
+    const displayName = member.displayName;
+    identityChanged =
+      profile.discordUsername !== discordUser.username ||
+      profile.displayName !== displayName;
+    if (identityChanged) {
+      profile.discordUsername = discordUser.username;
+      profile.displayName = displayName;
+      await profile.save();
+    }
+  }
+
+  const oldChannelId = profile.profileCardChannelId;
+  const oldMessageId = profile.profileCardMessageId;
+  if (oldChannelId === channel.id && oldMessageId) {
+    try {
+      const existingChannel = await guild.channels.fetch(oldChannelId);
+      const existingMessage = await existingChannel?.messages?.fetch(oldMessageId);
+      if (existingMessage) {
+        if (!refresh && !identityChanged) return profile;
+        await existingMessage.edit(
+          await makeProfileCardPayload(
+            guild,
+            profile,
+            member,
+            0,
+            existingMessage,
+          ),
+        );
+        return profile;
+      }
+    } catch (error) {
+      if (![10003, 10008].includes(Number(error?.code))) throw error;
+    }
+  }
+
+  const newMessage = await channel.send(
+    await makeProfileCardPayload(guild, profile, member),
+  );
+  profile.profileCardChannelId = channel.id;
+  profile.profileCardMessageId = newMessage.id;
+  try {
+    await profile.save();
+  } catch (error) {
+    await newMessage.delete().catch((deleteError) => {
+      console.error("Could not remove an unsaved profile card post:", deleteError);
+    });
+    throw error;
+  }
+
+  if (oldChannelId && oldMessageId) {
+    try {
+      const oldChannel = await guild.channels.fetch(oldChannelId);
+      const oldMessage = await oldChannel?.messages?.fetch(oldMessageId);
+      await oldMessage?.delete();
+    } catch (error) {
+      if (![10003, 10008].includes(Number(error?.code))) {
+        console.error("Could not remove the old profile card post:", error);
+      }
+    }
+  }
+  return profile;
+}
+
+export async function ensureProfileCard(guild, user, { refresh = false } = {}) {
+  const key = `${guild.id}:${user.id}`;
+  const existingOperation = profileCardOperations.get(key);
+  if (existingOperation) {
+    const profile = await existingOperation;
+    return refresh
+      ? ensureProfileCard(guild, user, { refresh: true })
+      : profile;
+  }
+
+  const operation = ensureProfileCardOnce(guild, user, refresh);
+  const trackedOperation = operation.finally(() => {
+    if (profileCardOperations.get(key) === trackedOperation) {
+      profileCardOperations.delete(key);
+    }
+  });
+  profileCardOperations.set(key, trackedOperation);
+  return trackedOperation;
+}
+
+export async function handleProfileCardButton(interaction) {
+  const [, section, action, ownerId] = interaction.customId.split(":");
+  if (
+    section !== "card" ||
+    !["edit", "photos", "video"].includes(action) ||
+    ownerId !== interaction.user.id
+  ) {
+    throw new UserFacingError("Only the profile owner can use these buttons.");
+  }
+
+  const profile = await UserProfile.findOne({
+    guildId: interaction.guildId,
+    discordUserId: ownerId,
+    profileCardChannelId: interaction.channelId,
+    profileCardMessageId: interaction.message.id,
+  });
+  if (!profile) {
+    throw new UserFacingError("This profile card is no longer active. Run `/profile` to refresh it.");
+  }
+
+  if (action === "edit") {
+    await interaction.showModal(makeEditProfileModal(profile, ownerId));
+  } else if (action === "photos") {
+    await showPhotoActionPrompt(interaction, ownerId);
+  } else {
+    await interaction.showModal(makeInventoryVideoModal(ownerId));
+  }
+}
+
+export async function handleProfilePhotoActionButton(interaction) {
+  const [, section, action, ownerId] = interaction.customId.split(":");
+  if (
+    section !== "photos-action" ||
+    !["add", "remove", "all", "confirm-all", "cancel-all"].includes(action) ||
+    ownerId !== interaction.user.id
+  ) {
+    throw new UserFacingError("Only the profile owner can manage these photos.");
+  }
+
+  if (action === "add") {
+    await interaction.showModal(makeAddPhotosModal(ownerId));
+    return;
+  }
+
+  if (action === "cancel-all") {
+    await interaction.update({
+      content: "Remove all cancelled. Your profile photos were not changed.",
+      components: [],
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
+
+  const profile = await UserProfile.findOne({
+    guildId: interaction.guildId,
+    discordUserId: ownerId,
+  });
+  if (!profile) throw new UserFacingError("Your profile could not be loaded.");
+  const photos = await getProfileAlbumImages(interaction.guild, profile);
+  if (!photos.length) {
+    await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+    await interaction.update({
+      content: "There are no photos in your profile album to remove.",
+      components: [],
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
+  if (action === "all") {
+    await interaction.update({
+      content: `This will permanently remove all ${photos.length} photos from your profile. Are you sure?`,
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`profile:photos-action:confirm-all:${ownerId}`)
+            .setLabel("Yes, remove all")
+            .setStyle(ButtonStyle.Danger),
+          new ButtonBuilder()
+            .setCustomId(`profile:photos-action:cancel-all:${ownerId}`)
+            .setLabel("Cancel")
+            .setStyle(ButtonStyle.Secondary),
+        ),
+      ],
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
+  if (action === "confirm-all") {
+    await interaction.deferUpdate();
+    const removedCount = await removeAllProfilePhotos(
+      interaction.guild,
+      profile,
+    );
+    await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+    await interaction.editReply({
+      content: `Removed all ${removedCount} photos from your profile album.`,
+      components: [],
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
+  await interaction.showModal(makeRemovePhotosModal(ownerId, photos.length));
 }
 
 export async function handleProfileAlbumPage(interaction) {
@@ -157,17 +644,24 @@ export async function handleProfileAlbumPage(interaction) {
     throw new UserFacingError("That profile photo page is not valid.");
   }
 
-  await interaction.deferUpdate();
   const profile = await UserProfile.findOne({
     guildId: interaction.guildId,
     discordUserId: targetUserId,
+    profileCardChannelId: interaction.channelId,
+    profileCardMessageId: interaction.message.id,
   });
   if (!profile) {
-    throw new UserFacingError("This member's profile is no longer available.");
+    throw new UserFacingError("This profile card is no longer active.");
   }
   const target = await interaction.client.users.fetch(targetUserId);
-  await interaction.message.edit(
-    await makeProfileShowPayload(interaction.guild, profile, target, page),
+  await interaction.update(
+    await makeProfileCardPayload(
+      interaction.guild,
+      profile,
+      target,
+      page,
+      interaction.message,
+    ),
   );
 }
 
@@ -184,7 +678,7 @@ function makeProfileMenu(userId) {
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`profile:menu:photos:${userId}`)
-        .setLabel("Add photos")
+        .setLabel("Add/remove photos")
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`profile:menu:video:${userId}`)
@@ -271,6 +765,7 @@ function makeAddPhotosModal(userId) {
     .addLabelComponents(
       new LabelBuilder()
         .setLabel("Choose 1 to 5 pictures")
+        .setDescription("Repeat this to add as many photos as you like.")
         .setFileUploadComponent(
           new FileUploadBuilder()
             .setCustomId("images")
@@ -278,6 +773,53 @@ function makeAddPhotosModal(userId) {
             .setMaxValues(5),
         ),
     );
+}
+
+function makeRemovePhotosModal(userId, photoCount) {
+  return new ModalBuilder()
+    .setCustomId(`profile:remove-photos:${userId}`)
+    .setTitle("Remove photos from your profile")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Photo numbers to remove")
+        .setDescription(
+          `Use the card's Photo count, oldest first (1-${photoCount}); enter numbers or ranges.`,
+        )
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("photo_numbers")
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(100)
+            .setRequired(true)
+            .setPlaceholder("Example: 1, 3-5"),
+        ),
+    );
+}
+
+function parsePhotoNumbers(value, photoCount) {
+  const numbers = new Set();
+  const parts = value.split(",").map((part) => part.trim());
+  if (!parts.length || parts.some((part) => !part)) {
+    throw new UserFacingError("Enter photo numbers separated by commas, such as 1, 3-5.");
+  }
+
+  for (const part of parts) {
+    const match = /^(\d+)(?:\s*-\s*(\d+))?$/.exec(part);
+    if (!match) {
+      throw new UserFacingError("Use photo numbers separated by commas or ranges, such as 1, 3-5.");
+    }
+    const start = Number(match[1]);
+    const end = Number(match[2] ?? match[1]);
+    if (start < 1 || end < start || end > photoCount) {
+      throw new UserFacingError(
+        `Photo numbers must be between 1 and ${photoCount}, and ranges must be in ascending order.`,
+      );
+    }
+    for (let number = start; number <= end; number += 1) {
+      numbers.add(number);
+    }
+  }
+  return Array.from(numbers).sort((first, second) => first - second);
 }
 
 function makeInventoryVideoModal(userId) {
@@ -320,14 +862,27 @@ export async function handleProfileMenuButton(interaction) {
       discordUserId: ownerId,
     });
     if (!profile) {
-      await interaction.message.edit(
+      await interaction.editReply(
         makeMenuReply(ownerId, "You don't have a profile yet. Choose **Edit my card** to create one."),
       );
       return;
     }
-    await interaction.message.edit(
-      await makeProfileShowPayload(interaction.guild, profile, interaction.user, 0),
-    );
+    const cardUrl = profile.profileCardChannelId && profile.profileCardMessageId
+      ? discordMessageUrl(
+          interaction.guildId,
+          profile.profileCardChannelId,
+          profile.profileCardMessageId,
+        )
+      : "";
+    await interaction.editReply({
+      content: cardUrl
+        ? `Browse your photos and profile on the permanent card: ${cardUrl}`
+        : "Your permanent profile card is not available yet. Run `/profile` again in a moment.",
+      components: [],
+      embeds: [],
+      attachments: [],
+      allowedMentions: { parse: [] },
+    });
     return;
   }
 
@@ -343,7 +898,7 @@ export async function handleProfileMenuButton(interaction) {
     return;
   }
   if (action === "photos") {
-    await interaction.showModal(makeAddPhotosModal(ownerId));
+    await showPhotoActionPrompt(interaction, ownerId);
     return;
   }
   if (action === "video") {
@@ -356,11 +911,16 @@ export async function handleProfileMenuButton(interaction) {
 
 export async function handleProfileModal(interaction) {
   const [, action, ownerId] = interaction.customId.split(":");
-  if (!["edit", "photos", "video"].includes(action) || ownerId !== interaction.user.id) {
+  if (
+    !["edit", "photos", "remove-photos", "video"].includes(action) ||
+    ownerId !== interaction.user.id
+  ) {
     throw new UserFacingError("That profile form is not yours to use.");
   }
 
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
   const profileFilter = {
     guildId: interaction.guildId,
     discordUserId: interaction.user.id,
@@ -392,6 +952,7 @@ export async function handleProfileModal(interaction) {
         setDefaultsOnInsert: true,
       },
     );
+    await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
     await interaction.editReply(
       makeMenuReply(interaction.user.id, "Your profile card was saved."),
     );
@@ -403,50 +964,39 @@ export async function handleProfileModal(interaction) {
       interaction.fields.getUploadedFiles("images", true).values(),
     );
     validateAttachments(uploads, { imagesOnly: true });
-    const channel = await getConfiguredTextChannel(
-      interaction,
-      "inventoryChannelId",
-      "inventory showcase",
-    );
-    const { files } = prepareFiles(uploads, `album-${interaction.user.id}`);
-    const archiveMessage = await channel.send({
-      content: `Photo album from ${interaction.user.username} (${interaction.user.id})`,
-      files,
-      allowedMentions: { parse: [] },
-    });
-
-    try {
-      await UserProfile.findOneAndUpdate(
-        profileFilter,
-        {
-          $set: {
-            discordUsername: interaction.user.username,
-            displayName: interaction.user.globalName ?? interaction.user.username,
-          },
-          $push: {
-            albumPosts: {
-              channelId: archiveMessage.channelId,
-              messageId: archiveMessage.id,
-              attachments: getMessageMedia(archiveMessage),
-              addedAt: new Date(),
-            },
-          },
-        },
-        {
-          upsert: true,
-          runValidators: true,
-          setDefaultsOnInsert: true,
-        },
-      );
-    } catch (error) {
-      await archiveMessage.delete().catch(() => {});
-      throw error;
-    }
+    await ensureProfileCard(interaction.guild, interaction.user);
+    const profile = await UserProfile.findOne(profileFilter);
+    if (!profile) throw new UserFacingError("Your profile could not be loaded.");
+    await saveProfilePhotos(interaction.guildId, interaction.user.id, uploads);
+    await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
 
     await interaction.editReply(
       makeMenuReply(
         interaction.user.id,
-        `Added ${uploads.length} photo(s) to your album. Choose another option below.`,
+        `Added ${uploads.length} photo(s) to your profile album.`,
+      ),
+    );
+    return;
+  }
+
+  if (action === "remove-photos") {
+    const profile = await UserProfile.findOne(profileFilter);
+    if (!profile) throw new UserFacingError("Your profile could not be loaded.");
+    const photos = await getProfileAlbumImages(interaction.guild, profile);
+    const photoNumbers = parsePhotoNumbers(
+      interaction.fields.getTextInputValue("photo_numbers"),
+      photos.length,
+    );
+    const removedCount = await removeProfilePhotos(
+      interaction.guild,
+      profile,
+      photoNumbers,
+    );
+    await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+    await interaction.editReply(
+      makeMenuReply(
+        interaction.user.id,
+        `Removed ${removedCount} photo(s) from your profile album.`,
       ),
     );
     return;
@@ -464,6 +1014,7 @@ export async function handleProfileModal(interaction) {
   const videoPost = video
     ? await saveInventoryVideoFile(interaction, video)
     : await saveInventoryVideoLink(interaction, videoUrl);
+  await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
   await interaction.editReply(
     makeMenuReply(
       interaction.user.id,
@@ -474,19 +1025,36 @@ export async function handleProfileModal(interaction) {
 
 export async function execute(interaction) {
   requireGuild(interaction);
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
+  await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
   const target = interaction.options.getUser("user");
 
   if (!target) {
-    await interaction.reply({
-      content: "Welcome to your profile! Pick what you want to do:",
-      components: makeProfileMenu(interaction.user.id),
-      flags: MessageFlags.Ephemeral,
+    const profile = await UserProfile.findOne({
+      guildId: interaction.guildId,
+      discordUserId: interaction.user.id,
+    });
+    const cardUrl = profile?.profileCardChannelId && profile.profileCardMessageId
+      ? discordMessageUrl(
+          interaction.guildId,
+          profile.profileCardChannelId,
+          profile.profileCardMessageId,
+        )
+      : "";
+    await interaction.editReply({
+      content: cardUrl
+        ? `Your profile is in <#${profile.profileCardChannelId}>: ${cardUrl}\nUse the permanent buttons on your profile card to update it.`
+        : "Your profile card is being set up. Try `/profile` again in a moment.",
       allowedMentions: { parse: [] },
     });
     return;
   }
 
-  await interaction.deferReply();
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
   const profile = await UserProfile.findOne({
     guildId: interaction.guildId,
     discordUserId: target.id,
@@ -497,7 +1065,17 @@ export async function execute(interaction) {
     );
   }
 
-  await interaction.editReply(
-    await makeProfileShowPayload(interaction.guild, profile, target, 0),
-  );
+  const cardUrl = profile.profileCardChannelId && profile.profileCardMessageId
+    ? discordMessageUrl(
+        interaction.guildId,
+        profile.profileCardChannelId,
+        profile.profileCardMessageId,
+      )
+    : "";
+  await interaction.editReply({
+    content: cardUrl
+      ? `View ${target.username}'s permanent profile card to browse their photos: ${cardUrl}`
+      : `${target.username}'s permanent profile card is not available yet.`,
+    allowedMentions: { parse: [] },
+  });
 }

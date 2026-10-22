@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { REST, Routes } from "discord.js";
 import { data as profileCommand } from "./commands/profile.js";
+import { data as profileCleanupCommand } from "./commands/profile-cleanup.js";
 import { data as inventoryVideoCommand } from "./commands/inventory-video.js";
 import { data as houseCommand } from "./commands/house.js";
 import { data as tradeCommand } from "./commands/trade.js";
@@ -18,6 +19,7 @@ if (!token || !clientId) {
 const rest = new REST({ version: "10" }).setToken(token);
 const commands = [
   profileCommand,
+  profileCleanupCommand,
   inventoryVideoCommand,
   houseCommand,
   tradeCommand,
@@ -26,7 +28,7 @@ const commands = [
 ].map((command) => command.toJSON());
 
 await rest.put(Routes.applicationCommands(clientId), { body: commands });
-console.log("Registered global profile, inventory-video, house, trade-vote, setup, and help commands.");
+console.log("Registered global profile, profile-cleanup, inventory-video, house, trade-vote, setup, and help commands.");
 
 if (guildId) {
   await rest.put(Routes.applicationGuildCommands(clientId, guildId), {

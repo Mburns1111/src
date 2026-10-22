@@ -24,6 +24,8 @@ const userProfileSchema = new mongoose.Schema(
     inventoryVideoAsset: { type: mediaAssetSchema, default: null },
     inventoryVideoPostChannelId: { type: String, default: "" },
     inventoryVideoPostMessageId: { type: String, default: "" },
+    profileCardChannelId: { type: String, default: "" },
+    profileCardMessageId: { type: String, default: "" },
     albumPosts: { type: [albumPostSchema], default: [] },
   },
   { timestamps: true },
