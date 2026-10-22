@@ -12,3 +12,4 @@ const mediaAssetSchema = new mongoose.Schema(
 );
 
 export default mediaAssetSchema;
+// test

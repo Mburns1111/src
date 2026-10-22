@@ -9,6 +9,18 @@ import {
   validateWebUrl,
 } from "./shared.js";
 import { prepareMediaFiles } from "./video-compression.js";
+import { ensureChannelEntry } from "./channel-entry.js";
+
+export async function ensureInventoryEntry(guild, channel, { moveToBottom = false } = {}) {
+  return ensureChannelEntry(guild, channel, {
+    channelField: "inventoryEntryChannelId",
+    messageField: "inventoryEntryMessageId",
+    customId: "inventory:entry",
+    label: "Add an inventory video",
+    description: "Use the button to upload a playable video or add a video link.",
+    moveToBottom,
+  });
+}
 
 export const data = new SlashCommandBuilder()
   .setName("inventory-video")
@@ -39,7 +51,8 @@ async function replaceInventoryVideo(interaction, { video = null, videoUrl = "" 
           messageId: existingProfile.inventoryVideoPostMessageId,
         }
       : null;
-  const displayName = interaction.user.globalName ?? interaction.user.username;
+  const member = await interaction.guild.members.fetch(interaction.user.id);
+  const displayName = member.displayName;
   const adoptMeUsername = existingProfile?.adoptMeUsername || "Not added yet";
   let files = [];
   let cleanup = async () => {};
@@ -55,8 +68,8 @@ async function replaceInventoryVideo(interaction, { video = null, videoUrl = "" 
   try {
     videoPost = await channel.send({
       content: [
-        `Inventory video from ${displayName}`,
-        `Adopt Me username: ${adoptMeUsername}`,
+        `Discord username: ${displayName}`,
+        `Roblox username: ${adoptMeUsername}`,
         videoUrl,
       ].filter(Boolean).join("\n"),
       files,
@@ -105,6 +118,7 @@ async function replaceInventoryVideo(interaction, { video = null, videoUrl = "" 
     }
   }
 
+  await ensureInventoryEntry(interaction.guild, channel, { moveToBottom: true });
   return videoPost;
 }
 
@@ -121,13 +135,20 @@ export async function saveInventoryVideoLink(interaction, value) {
   return replaceInventoryVideo(interaction, { videoUrl });
 }
 
-export async function execute(interaction) {
+export async function execute(
+  interaction,
+  { refreshProfileCard, refreshTradingPostCard } = {},
+) {
   requireGuild(interaction);
   const video = interaction.options.getAttachment("video", true);
   validateVideoAttachment(video);
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
 
   const videoPost = await saveInventoryVideoFile(interaction, video);
+  await refreshProfileCard?.();
+  await refreshTradingPostCard?.();
   await interaction.editReply({
     content: `Your video is posted and playable in the inventory channel: ${videoPost.url}`,
     allowedMentions: { parse: [] },
