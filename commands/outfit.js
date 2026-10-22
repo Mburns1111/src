@@ -190,6 +190,28 @@ function getFirstImageName(attachments) {
   )?.name;
 }
 
+export async function refreshOutfitListingPost(guild, listing) {
+  const channel = await guild.channels.fetch(listing.postChannelId);
+  if (!channel?.messages) {
+    throw new Error(`Outfit listing channel ${listing.postChannelId} is unavailable.`);
+  }
+  const message = await channel.messages.fetch(listing.postMessageId);
+  const attachments = Array.from(message.attachments.values());
+  await message.edit({
+    content: `Outfit listing from ${listing.ownerName}`,
+    embeds: [
+      makeListingEmbed(
+        listing,
+        getFirstImageName(attachments) ??
+          getFirstImageName(listing.mediaAttachments ?? []),
+      ),
+    ],
+    components: makeListingComponents(listing),
+    attachments: attachments.map(({ id }) => ({ id })),
+    allowedMentions: { parse: [] },
+  });
+}
+
 function canManageListing(interaction, listing) {
   return listing.ownerId === interaction.user.id ||
     interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);

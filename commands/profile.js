@@ -3,6 +3,7 @@ import {
   AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
+  EmbedBuilder,
   FileUploadBuilder,
   LabelBuilder,
   MessageFlags,
@@ -120,7 +121,9 @@ function makeProfileCardContent(profile, guildId, listingLinks) {
   if (inventoryVideoUrl) {
     inventoryLinks.unshift(`[Inventory video](${inventoryVideoUrl})`);
   }
-  if (inventoryLinks.length) lines.push("", ...inventoryLinks);
+  if (inventoryLinks.length) {
+    lines.push(`**Inventory:** ${inventoryLinks.join(" · ")}`);
+  }
 
   for (const [label, listings] of [
     ["House listings", listingLinks.houses],
@@ -128,7 +131,7 @@ function makeProfileCardContent(profile, guildId, listingLinks) {
     ["Trade listings", listingLinks.trades],
   ]) {
     if (!listings.length) continue;
-    lines.push("", `**${label}**`);
+    const links = [];
     for (const listing of listings) {
       const url = discordMessageUrl(
         guildId,
@@ -137,19 +140,18 @@ function makeProfileCardContent(profile, guildId, listingLinks) {
       );
       if (label === "Trade listings") {
         const counts = getVoteCounts(listing);
-        lines.push(
+        links.push(
           `[${listing.title || "Trade listing"}](${url}) — ✅ ${counts.good} · ❌ ${counts.bad} · 🤷 ${counts.unsure} · 👍 ${counts.wouldMake} · 👎 ${counts.wouldntMake}`,
         );
       } else {
-        lines.push(`[${listing.title || label.slice(0, -1)}](${url})`);
+        links.push(`[${listing.title || label.slice(0, -1)}](${url})`);
       }
     }
+    lines.push(`**${label}:** ${links.join(" · ")}`);
   }
   if (listingLinks.tradingPost) {
     lines.push(
-      "",
-      "**Trading Post**",
-      `[See my Trading Post here >](${discordMessageUrl(
+      `**Trading Post:** [See my Trading Post here >](${discordMessageUrl(
         guildId,
         listingLinks.tradingPost.postChannelId,
         listingLinks.tradingPost.postMessageId,
@@ -161,7 +163,7 @@ function makeProfileCardContent(profile, guildId, listingLinks) {
   let contentLength = 0;
   for (const line of lines) {
     const nextLength = contentLength + line.length + (visibleLines.length ? 1 : 0);
-    if (nextLength > 1998) {
+    if (nextLength > 4090) {
       visibleLines.push("…");
       break;
     }
@@ -281,9 +283,15 @@ async function makeProfileCardPayload(
       photo,
     },
   });
+  const linksEmbed = new EmbedBuilder().setDescription(
+    makeProfileCardContent(profile, guild.id, listingLinks),
+  );
   return {
-    content: makeProfileCardContent(profile, guild.id, listingLinks),
-    embeds: [],
+    content: "",
+    embeds: [
+      new EmbedBuilder().setImage("attachment://profile-card.png"),
+      linksEmbed,
+    ],
     files: [new AttachmentBuilder(image, { name: "profile-card.png" })],
     attachments: [],
     components: makeProfileCardComponents(
@@ -635,6 +643,8 @@ export async function handleProfileAlbumPage(interaction) {
   if (section !== "album" || !/^\d{17,20}$/.test(targetUserId)) {
     throw new UserFacingError("That profile photo button is not valid.");
   }
+  await interaction.deferUpdate();
+
   const page = Number(pageValue);
   if (!Number.isSafeInteger(page) || page < 0) {
     throw new UserFacingError("That profile photo page is not valid.");
@@ -650,7 +660,7 @@ export async function handleProfileAlbumPage(interaction) {
     throw new UserFacingError("This profile card is no longer active.");
   }
   const target = await interaction.client.users.fetch(targetUserId);
-  await interaction.update(
+  await interaction.editReply(
     await makeProfileCardPayload(
       interaction.guild,
       profile,

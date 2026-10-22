@@ -20,6 +20,10 @@ import {
   data as profileCleanupCommand,
 } from "./commands/profile-cleanup.js";
 import {
+  execute as executeProfileRefresh,
+  data as profileRefreshCommand,
+} from "./commands/profile-refresh.js";
+import {
   execute as executeInventoryVideo,
   data as inventoryVideoCommand,
   ensureInventoryEntry,
@@ -84,6 +88,7 @@ const client = new Client({
 const commandHandlers = new Map([
   [profileCommand.name, executeProfile],
   [profileCleanupCommand.name, executeProfileCleanup],
+  [profileRefreshCommand.name, executeProfileRefresh],
   [inventoryVideoCommand.name, executeInventoryVideo],
   [houseCommand.name, executeHouse],
   [outfitCommand.name, executeOutfit],
@@ -352,7 +357,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (
       interaction.guild &&
-      ![setupCommand.name, profileCleanupCommand.name].includes(interaction.commandName)
+      ![
+        setupCommand.name,
+        profileCleanupCommand.name,
+        profileRefreshCommand.name,
+      ].includes(interaction.commandName)
     ) {
       await ensureProfileCard(interaction.guild, interaction.user);
     }

@@ -210,6 +210,22 @@ function makeVoteButtons(listing) {
   return [qualityButtons, decisionButtons];
 }
 
+export async function refreshTradeListingPost(guild, listing) {
+  const channel = await guild.channels.fetch(listing.postChannelId);
+  if (!channel?.messages) {
+    throw new Error(`Trade listing channel ${listing.postChannelId} is unavailable.`);
+  }
+  const message = await channel.messages.fetch(listing.postMessageId);
+  const attachments = Array.from(message.attachments.values());
+  await message.edit({
+    content: `Trade proposal from ${listing.ownerName}`,
+    embeds: [makeTradeEmbed(listing)],
+    components: makeVoteButtons(listing),
+    attachments: attachments.map(({ id }) => ({ id })),
+    allowedMentions: { parse: [] },
+  });
+}
+
 export async function execute(interaction) {
   requireGuild(interaction);
   const formKey = `${interaction.guildId}:${interaction.user.id}`;
