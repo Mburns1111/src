@@ -12,6 +12,7 @@ import {
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import HouseListing from "../models/HouseListing.js";
+import OutfitListing from "../models/OutfitListing.js";
 import TradingPost from "../models/TradingPost.js";
 import UserProfile from "../models/UserProfile.js";
 import { discordMessageUrl } from "./shared.js";
@@ -177,17 +178,30 @@ function makeTradingPostComponents(post) {
 }
 
 async function makeTradingPostPayload(guild, post, member, profile) {
-  const houses = await HouseListing.find({
-    guildId: guild.id,
-    ownerId: post.ownerId,
-    status: "active",
-    postChannelId: { $ne: "" },
-    postMessageId: { $ne: "" },
-  })
-    .select("title postChannelId postMessageId createdAt")
-    .sort({ createdAt: -1 })
-    .limit(8)
-    .lean();
+  const [houses, outfits] = await Promise.all([
+    HouseListing.find({
+      guildId: guild.id,
+      ownerId: post.ownerId,
+      status: "active",
+      postChannelId: { $ne: "" },
+      postMessageId: { $ne: "" },
+    })
+      .select("title postChannelId postMessageId createdAt")
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .lean(),
+    OutfitListing.find({
+      guildId: guild.id,
+      ownerId: post.ownerId,
+      status: "active",
+      postChannelId: { $ne: "" },
+      postMessageId: { $ne: "" },
+    })
+      .select("title postChannelId postMessageId createdAt")
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .lean(),
+  ]);
 
   const inventoryLinks = [];
   if (profile?.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId) {
@@ -218,10 +232,19 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     );
     return `House: [${listing.title || "View listing"}](${url})`;
   });
+  const outfitLinks = outfits.map((listing) => {
+    const url = discordMessageUrl(
+      guild.id,
+      listing.postChannelId,
+      listing.postMessageId,
+    );
+    return `Outfit: [${listing.title || "View listing"}](${url})`;
+  });
   const willingDetails = [
     (post.willingToTrade || "Not specified").slice(0, 250),
-    ...inventoryLinks,
+    ...outfitLinks.slice(0, 3),
     ...houseLinks.slice(0, 3),
+    ...inventoryLinks,
   ].join("\n");
 
   const embed = new EmbedBuilder()

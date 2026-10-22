@@ -4,12 +4,16 @@ import mongoose from "mongoose";
 import {
   execute as executeProfile,
   data as profileCommand,
+  ensureProfileEntry,
   ensureProfileCard,
+  ensureProfileRecord,
   handleProfileAlbumPage,
   handleProfileCardButton,
   handleProfileMenuButton,
   handleProfileModal,
   handleProfilePhotoActionButton,
+  handleProfileEntryButton,
+  handleInventoryEntryButton,
 } from "./commands/profile.js";
 import {
   execute as executeProfileCleanup,
@@ -18,6 +22,7 @@ import {
 import {
   execute as executeInventoryVideo,
   data as inventoryVideoCommand,
+  ensureInventoryEntry,
 } from "./commands/inventory-video.js";
 import {
   execute as executeHouse,
@@ -27,13 +32,28 @@ import {
   handleHouseButton,
   handleHouseModal,
   handleSold,
+  handleHouseEntryButton,
+  ensureHouseEntry,
 } from "./commands/house.js";
+import {
+  execute as executeOutfit,
+  data as outfitCommand,
+  handleOutfitCreateButton,
+  handleOutfitCreateModal,
+  handleOutfitButton,
+  handleOutfitModal,
+  handleOutfitSold,
+  handleOutfitEntryButton,
+  ensureOutfitEntry,
+} from "./commands/outfit.js";
 import {
   execute as executeTrade,
   data as tradeCommand,
   handleTradeCreateButton,
   handleTradeCreateModal,
   handleVote,
+  ensureTradeVoteEntry,
+  handleTradeVoteEntryButton,
 } from "./commands/trade.js";
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
@@ -42,9 +62,11 @@ import {
   handleTradingPostEntryButton,
   handleTradingPostModal,
   refreshTradingPostCard,
+  ensureTradingPostEntry,
 } from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
 import GuildConfig from "./models/GuildConfig.js";
+import { cleanupPendingForms } from "./commands/pending-forms.js";
 
 const token = process.env.DISCORD_TOKEN;
 const mongoUri = process.env.MONGODB_URI;
@@ -62,51 +84,177 @@ const commandHandlers = new Map([
   [profileCleanupCommand.name, executeProfileCleanup],
   [inventoryVideoCommand.name, executeInventoryVideo],
   [houseCommand.name, executeHouse],
+  [outfitCommand.name, executeOutfit],
   [tradeCommand.name, executeTrade],
   [setupCommand.name, executeSetup],
   [helpCommand.name, executeHelp],
 ]);
 
+let startupMaintenancePromise = Promise.resolve();
+
+async function ensureConfiguredEntry(guild, channelId, ensureEntry, label) {
+  if (!channelId) return;
+  try {
+    const channel = await guild.channels.fetch(channelId);
+    if (!channel?.isTextBased() || typeof channel.send !== "function") {
+      throw new Error(`Configured ${label} channel is unavailable.`);
+    }
+    await ensureEntry(guild, channel);
+  } catch (error) {
+    console.error(
+      `Could not ensure the ${label} channel button for guild ${guild.id}:`,
+      error,
+    );
+  }
+}
+
+async function refreshListingOwnerCards(guild, ownerId) {
+  let member;
+  try {
+    member = await guild.members.fetch(ownerId);
+  } catch (error) {
+    if (Number(error?.code) !== 10007) throw error;
+  }
+  if (!member) return;
+  await ensureProfileCard(guild, member.user, { refresh: true });
+  await refreshTradingPostCard(guild, ownerId);
+}
+
+async function ensureProfileForEntry(interaction) {
+  await ensureProfileRecord(interaction.guildId, interaction.user);
+}
+
+async function sendProfileReminder(interaction) {
+  const profile = await ensureProfileCard(
+    interaction.guild,
+    interaction.user,
+    { refresh: true },
+  );
+  const profileUrl = discordMessageUrl(
+    interaction.guildId,
+    profile.profileCardChannelId,
+    profile.profileCardMessageId,
+  );
+  await interaction.followUp({
+    content: `Your profile is ready to finish filling out: ${profileUrl}`,
+    flags: MessageFlags.Ephemeral,
+    allowedMentions: { parse: [] },
+  });
+}
+
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Bot is online as ${readyClient.user.tag}.`);
+  startupMaintenancePromise = (async () => {
+    for (const guild of readyClient.guilds.cache.values()) {
+      try {
+        await cleanupPendingForms(guild);
+      } catch (error) {
+        console.error(`Could not clean up pending forms for guild ${guild.id}:`, error);
+      }
+
+      let config;
+      try {
+        config = await GuildConfig.findOne({ guildId: guild.id });
+      } catch (error) {
+        console.error(`Could not load channel settings for guild ${guild.id}:`, error);
+        continue;
+      }
+      if (!config) continue;
+      await Promise.all([
+        ensureConfiguredEntry(guild, config.profileChannelId, ensureProfileEntry, "profile"),
+        ensureConfiguredEntry(guild, config.houseChannelId, ensureHouseEntry, "house listing"),
+        ensureConfiguredEntry(guild, config.outfitChannelId, ensureOutfitEntry, "outfit listing"),
+        ensureConfiguredEntry(guild, config.inventoryChannelId, ensureInventoryEntry, "inventory"),
+        ensureConfiguredEntry(guild, config.tradeVoteChannelId, ensureTradeVoteEntry, "trade voting"),
+        ensureConfiguredEntry(
+          guild,
+          config.tradingPostChannelId,
+          ensureTradingPostEntry,
+          "Trading Post",
+        ),
+      ]);
+    }
+  })().catch((error) => {
+    console.error("Startup channel maintenance failed:", error);
+  });
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    await startupMaintenancePromise;
     if (interaction.isChatInputCommand()) {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     }
 
     if (interaction.isButton() && interaction.customId.startsWith("house:new:")) {
+      await ensureProfileForEntry(interaction);
       await handleHouseCreateButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId === "house:entry") {
+      await ensureProfileForEntry(interaction);
+      await handleHouseEntryButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId === "outfit:entry") {
+      await ensureProfileForEntry(interaction);
+      await handleOutfitEntryButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId === "profile:entry") {
+      await handleProfileEntryButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId === "inventory:entry") {
+      await ensureProfileForEntry(interaction);
+      await handleInventoryEntryButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("outfit:new:")) {
+      await ensureProfileForEntry(interaction);
+      await handleOutfitCreateButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("tradevote:")) {
       await handleVote(interaction);
       return;
     }
+    if (interaction.isButton() && interaction.customId === "trade:entry") {
+      await ensureProfileForEntry(interaction);
+      await handleTradeVoteEntryButton(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId.startsWith("trade:new:")) {
+      await ensureProfileForEntry(interaction);
       await handleTradeCreateButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("house:sold:")) {
       const ownerId = await handleSold(interaction);
-      if (ownerId) {
-        let member;
-        try {
-          member = await interaction.guild.members.fetch(ownerId);
-        } catch (error) {
-          if (Number(error?.code) !== 10007) throw error;
-        }
-        if (member) {
-          await ensureProfileCard(interaction.guild, member.user, { refresh: true });
-          await refreshTradingPostCard(interaction.guild, ownerId);
-        }
-      }
+      if (ownerId) await refreshListingOwnerCards(interaction.guild, ownerId);
       return;
     }
-    if (interaction.isButton() && interaction.customId.startsWith("house:media:")) {
+    if (interaction.isButton() && interaction.customId.startsWith("outfit:sold:")) {
+      const ownerId = await handleOutfitSold(interaction);
+      if (ownerId) await refreshListingOwnerCards(interaction.guild, ownerId);
+      return;
+    }
+    if (
+      interaction.isButton() &&
+      ["house:media:", "house:interest:", "house:notify:"].some((prefix) =>
+        interaction.customId.startsWith(prefix),
+      )
+    ) {
       await handleHouseButton(interaction);
+      return;
+    }
+    if (
+      interaction.isButton() &&
+      ["outfit:media:", "outfit:interest:", "outfit:notify:"].some((prefix) =>
+        interaction.customId.startsWith(prefix),
+      )
+    ) {
+      await handleOutfitButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("profile:album:")) {
@@ -129,6 +277,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
     if (interaction.isButton() && interaction.customId === "tradingpost:entry") {
+      await ensureProfileForEntry(interaction);
       await handleTradingPostEntryButton(interaction);
       return;
     }
@@ -142,6 +291,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isModalSubmit() && interaction.customId.startsWith("profile:")) {
       await handleProfileModal(interaction);
       await refreshTradingPostCard(interaction.guild, interaction.user.id);
+      if (interaction.customId.startsWith("profile:video-entry:")) {
+        await sendProfileReminder(interaction);
+      }
       return;
     }
     if (
@@ -149,22 +301,32 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.customId.startsWith("tradingpost:")
     ) {
       await handleTradingPostModal(interaction);
-      await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+      await sendProfileReminder(interaction);
       return;
     }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("house:media:")) {
       await handleHouseModal(interaction);
       return;
     }
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("outfit:media:")) {
+      await handleOutfitModal(interaction);
+      return;
+    }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("house:create:")) {
       await handleHouseCreateModal(interaction);
-      await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+      await sendProfileReminder(interaction);
+      await refreshTradingPostCard(interaction.guild, interaction.user.id);
+      return;
+    }
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("outfit:create:")) {
+      await handleOutfitCreateModal(interaction);
+      await sendProfileReminder(interaction);
       await refreshTradingPostCard(interaction.guild, interaction.user.id);
       return;
     }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("trade:create:")) {
       await handleTradeCreateModal(interaction);
-      await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+      await sendProfileReminder(interaction);
       return;
     }
 

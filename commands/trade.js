@@ -23,6 +23,11 @@ import {
 } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 import { prepareMediaFiles } from "./video-compression.js";
+import { ensureChannelEntry } from "./channel-entry.js";
+import {
+  clearPendingForm,
+  trackPendingForm,
+} from "./pending-forms.js";
 
 export const data = new SlashCommandBuilder()
   .setName("new-vote")
@@ -35,12 +40,33 @@ const creatingTradeForms = new Set();
 const tradeFormLifetimeMs = 60_000;
 const tradeModalLifetimeMs = 15 * 60_000;
 
+export async function ensureTradeVoteEntry(
+  guild,
+  channel,
+  { moveToBottom = false } = {},
+) {
+  return ensureChannelEntry(guild, channel, {
+    channelField: "tradeVoteEntryChannelId",
+    messageField: "tradeVoteEntryMessageId",
+    customId: "trade:entry",
+    label: "Create a trade vote",
+    description: "Use the button to post a trade for the server to vote on.",
+    moveToBottom,
+  });
+}
+
+export async function handleTradeVoteEntryButton(interaction) {
+  if (interaction.customId !== "trade:entry") return false;
+  await execute(interaction);
+  return true;
+}
+
 function makeCreateTradeButton(userId, expiresAt) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`trade:new:${userId}:${expiresAt}`)
       .setLabel("Create trade vote")
-      .setStyle(ButtonStyle.Primary),
+      .setStyle(ButtonStyle.Success),
   );
 }
 
@@ -191,7 +217,10 @@ export async function execute(interaction) {
   if (pendingForm || creatingTradeForms.has(formKey)) {
     const response = {
       content: pendingForm
-        ? `You already have a trade form waiting in <#${pendingForm.channelId}>. Finish that one before starting another: ${pendingForm.url}`
+        ? [
+            `You already have a trade form waiting in <#${pendingForm.channelId}>.`,
+            `Finish that one before starting another: ${pendingForm.url}`,
+          ].join(" ")
         : "Your trade form is being created. Please wait a moment before trying again.",
       allowedMentions: { parse: [] },
     };
@@ -215,6 +244,21 @@ export async function execute(interaction) {
       components: [makeCreateTradeButton(interaction.user.id, expiresAt)],
       allowedMentions: { parse: [] },
     });
+    try {
+      await trackPendingForm({
+        guildId: interaction.guildId,
+        ownerId: interaction.user.id,
+        channelId: post.channelId,
+        messageId: post.id,
+        type: "trade",
+        expiresAt,
+      });
+    } catch (error) {
+      await post.delete().catch((cleanupError) => {
+        console.error("Could not remove an untracked trade form post:", cleanupError);
+      });
+      throw error;
+    }
     const submissionKey = `${interaction.guildId}:${post.channelId}:${post.id}`;
     pendingTradeForms.set(formKey, {
       channelId: post.channelId,
@@ -232,19 +276,31 @@ export async function execute(interaction) {
         const currentPost = await channel.messages.fetch(post.id);
         const currentButton = currentPost.components
           .flatMap((row) => row.components)
-          .find((component) => component.customId === `trade:new:${interaction.user.id}:${expiresAt}`);
+          .find(
+            (component) =>
+              component.customId === `trade:new:${interaction.user.id}:${expiresAt}`,
+          );
         if (currentButton && !currentButton.disabled) {
           await currentPost.delete();
         }
+        await clearPendingForm(interaction.guildId, post.channelId, post.id);
       } catch (error) {
-        if (Number(error?.code) !== 10008) {
+        if (Number(error?.code) === 10008) {
+          await clearPendingForm(interaction.guildId, post.channelId, post.id);
+        } else {
           console.error("Could not delete expired trade form post:", error);
         }
       }
     }, tradeFormLifetimeMs);
     timeout.unref?.();
+    await ensureTradeVoteEntry(interaction.guild, channel, {
+      moveToBottom: true,
+    });
     const response = {
-      content: `I added your trade vote form in ${channel}. Use the button within 1 minute to enter details privately. Only you can use it. ${post.url}`,
+      content: [
+        `I added your trade vote form in ${channel}.`,
+        `Use the button within 1 minute to enter details privately. Only you can use it. ${post.url}`,
+      ].join(" "),
       components: [],
       allowedMentions: { parse: [] },
     };
@@ -309,8 +365,11 @@ export async function handleTradeCreateButton(interaction) {
         .flatMap((row) => row.components)
         .find((component) => component.customId === interaction.customId);
       if (button?.disabled) await post.delete();
+      await clearPendingForm(interaction.guildId, interaction.channelId, interaction.message.id);
     } catch (error) {
-      if (Number(error?.code) !== 10008) {
+      if (Number(error?.code) === 10008) {
+        await clearPendingForm(interaction.guildId, interaction.channelId, interaction.message.id);
+      } else {
         console.error("Could not delete abandoned trade form post:", error);
       }
     }
@@ -346,6 +405,7 @@ export async function handleTradeCreateModal(interaction) {
 
   let post;
   let claimed = false;
+  let published = false;
   try {
     const channel = await interaction.guild.channels.fetch(channelId);
     post = await channel?.messages?.fetch(messageId);
@@ -363,7 +423,7 @@ export async function handleTradeCreateModal(interaction) {
           new ButtonBuilder()
             .setCustomId(buttonId)
             .setLabel("Submitting...")
-            .setStyle(ButtonStyle.Primary)
+            .setStyle(ButtonStyle.Secondary)
             .setDisabled(true),
         ),
       ],
@@ -386,14 +446,17 @@ export async function handleTradeCreateModal(interaction) {
     if (video) validateVideoAttachment(video);
 
     await publishTradeListing(interaction, { title, picture, video, videoUrl }, post);
+    published = true;
     pendingTradeForms.delete(formKey);
     openedTradeForms.delete(submissionKey);
+    await clearPendingForm(interaction.guildId, channelId, messageId);
   } catch (error) {
-    if (post && claimed) {
+    if (post && claimed && !published) {
       const canRetry = Date.now() < expiresAt;
       if (!canRetry) {
         pendingTradeForms.delete(formKey);
         openedTradeForms.delete(submissionKey);
+        await clearPendingForm(interaction.guildId, channelId, messageId);
       }
       await post.edit({
         content: canRetry

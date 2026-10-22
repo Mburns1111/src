@@ -66,12 +66,13 @@ export async function execute(interaction) {
     .setDescription("Here’s what I can do in this server.");
 
   const featureLines = [
-    "• **Profiles:** Your profile card is created automatically when you use a bot command and kept in the profiles channel. Use its permanent buttons to edit details, add photos, or add an inventory video. Run `/profile` to get the card link; add a user to view their profile.",
-    "• **Inventory videos:** Upload a video with `/inventory-video`. Videos over 8 MB are compressed automatically. Uploads must be under 100 MB. You can also add a video link to your profile.",
-    "• **House ads:** Run `/house` to add a private form button in the house channel. Tap it to fill in your details. Use **Add pictures/video** on your ad to add media later, and **Mark sold** when it sells.",
-    "• **Trade votes:** Run `/new-vote` to add a private form button in the trade channel. Tap it within 1 minute to add one picture and, if you want, one video link or upload. Everyone can vote on the finished post.",
+    "• **Profiles:** Use the button in the profiles channel to create or update your profile. Your profile card is kept there; use its buttons to edit details, add photos, or add an inventory video. Run `/profile` to get the card link; add a user to view their profile.",
+    "• **Inventory videos:** Use the button in the inventory channel to upload a video or add a video link. Videos over 8 MB are compressed automatically. Uploads must be under 100 MB. You can also add a video link from your profile card.",
+    "• **House ads:** Use the button in the house channel to start a private listing form. Tap its button to fill in your details. Use **Interested** to show interest, and the owner can turn **Interest DMs** on or off for each listing. Use **Add pictures/video** on your ad to add media later, and **Mark sold** when it sells. `/house` is also available.",
+    "• **Outfit listings:** Use the button in the outfit channel to start a private listing form. Add an optional cost, outfit pictures/video, and remove the listing when it is no longer available. Members can show interest, and the owner can turn on DMs per listing. Active outfit listings appear on your profile and Trading Post card. `/outfit` is also available.",
+    "• **Trade votes:** Use the button in the trade channel to start a private form. Tap its button within 1 minute to add one picture and, if you want, one video link or upload. Everyone can vote on the finished post. `/new-vote` is also available.",
     "• **Trading Post:** Use the pinned button in the Trading Post channel to create or update one permanent card. Other members can mark interest; you can opt in to receive DMs. Your profile card links to your Trading Post when you have one.",
-    "• **Server setup:** Before members use bot commands, an admin should set the profiles channel with `/setup channels`. Admins can also choose where house ads, inventory posts, trade votes, and Trading Post cards go. Use `/profile-cleanup` to remove profile cards for members who have left; their saved profile data is retained.",
+    "• **Server setup:** An admin should use `/setup channels` to choose the profiles, house listing, outfit listing, inventory, trade voting, and Trading Post channels. This adds the buttons members can use instead of slash commands. Use `/profile-cleanup` to remove profile cards for members who have left; their saved profile data is retained.",
   ];
   splitIntoFields(featureLines).forEach((value, index, fields) => {
     embed.addFields({

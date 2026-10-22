@@ -15,6 +15,7 @@ import {
 import UserProfile from "../models/UserProfile.js";
 import GuildConfig from "../models/GuildConfig.js";
 import HouseListing from "../models/HouseListing.js";
+import OutfitListing from "../models/OutfitListing.js";
 import TradeListing from "../models/TradeListing.js";
 import TradingPost from "../models/TradingPost.js";
 import {
@@ -35,6 +36,7 @@ import {
   saveInventoryVideoLink,
 } from "./inventory-video.js";
 import { getVoteCounts } from "./trade.js";
+import { ensureChannelEntry } from "./channel-entry.js";
 
 export const data = new SlashCommandBuilder()
   .setName("profile")
@@ -45,6 +47,50 @@ export const data = new SlashCommandBuilder()
 
 const profileCardOperations = new Map();
 
+export async function ensureProfileEntry(guild, channel, { moveToBottom = false } = {}) {
+  return ensureChannelEntry(guild, channel, {
+    channelField: "profileEntryChannelId",
+    messageField: "profileEntryMessageId",
+    customId: "profile:entry",
+    label: "Create or update my profile",
+    description: "Use the button to add your Roblox name and profile details.",
+    moveToBottom,
+  });
+}
+
+export async function handleProfileEntryButton(interaction) {
+  if (interaction.customId !== "profile:entry") return false;
+  const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
+  await interaction.showModal(makeEditProfileModal(profile, interaction.user.id));
+  return true;
+}
+
+export async function ensureProfileRecord(guildId, user) {
+  return UserProfile.findOneAndUpdate(
+    { guildId, discordUserId: user.id },
+    {
+      $setOnInsert: {
+        discordUsername: user.username,
+        displayName: user.globalName ?? user.username,
+      },
+    },
+    {
+      upsert: true,
+      returnDocument: "after",
+      runValidators: true,
+      setDefaultsOnInsert: true,
+    },
+  );
+}
+
+export async function handleInventoryEntryButton(interaction) {
+  if (interaction.customId !== "inventory:entry") return false;
+  await interaction.showModal(
+    makeInventoryVideoModal(interaction.user.id, { entryPoint: true }),
+  );
+  return true;
+}
+
 function makeProfileEmbed(
   profile,
   target,
@@ -53,7 +99,7 @@ function makeProfileEmbed(
   albumPage,
   albumCount,
   firstImageUrl = "",
-  listingLinks = { houses: [], trades: [] },
+  listingLinks = { houses: [], outfits: [], trades: [] },
 ) {
   const inventoryPostUrl =
     profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId
@@ -80,6 +126,10 @@ function makeProfileEmbed(
   const houseLinks = listingLinks.houses.map((listing) => {
     const url = discordMessageUrl(guildId, listing.postChannelId, listing.postMessageId);
     return `[${listing.title || "House listing"}](${url})`;
+  });
+  const outfitLinks = (listingLinks.outfits ?? []).map((listing) => {
+    const url = discordMessageUrl(guildId, listing.postChannelId, listing.postMessageId);
+    return `[${listing.title || "Outfit listing"}](${url})`;
   });
   const tradeLinks = listingLinks.trades.map((listing) => {
     const url = discordMessageUrl(guildId, listing.postChannelId, listing.postMessageId);
@@ -137,6 +187,9 @@ function makeProfileEmbed(
   );
   if (houseLinks.length) {
     linkFields.push(...makeLinkFields("House listings", houseLinks, ""));
+  }
+  if (outfitLinks.length) {
+    linkFields.push(...makeLinkFields("Outfit listings", outfitLinks, ""));
   }
   if (tradeLinks.length) {
     linkFields.push(...makeLinkFields("Trade listings", tradeLinks, ""));
@@ -322,8 +375,18 @@ async function makeProfileCardPayload(
 
 async function getProfileListingLinks(guild, ownerId) {
   const guildId = guild.id;
-  const [houses, trades, tradingPost] = await Promise.all([
+  const [houses, outfits, trades, tradingPost] = await Promise.all([
     HouseListing.find({
+      guildId,
+      ownerId,
+      status: "active",
+      postChannelId: { $ne: "" },
+      postMessageId: { $ne: "" },
+    })
+      .select("title postChannelId postMessageId createdAt")
+      .sort({ createdAt: -1 })
+      .lean(),
+    OutfitListing.find({
       guildId,
       ownerId,
       status: "active",
@@ -410,6 +473,7 @@ async function getProfileListingLinks(guild, ownerId) {
 
   return {
     houses,
+    outfits,
     trades: existingTrades,
     tradingPost:
       tradingPost?.postChannelId && tradingPost?.postMessageId
@@ -495,6 +559,8 @@ async function ensureProfileCardOnce(guild, user, refresh) {
     });
     throw error;
   }
+
+  await ensureProfileEntry(guild, channel, { moveToBottom: true });
 
   if (oldChannelId && oldMessageId) {
     try {
@@ -822,7 +888,7 @@ function parsePhotoNumbers(value, photoCount) {
   return Array.from(numbers).sort((first, second) => first - second);
 }
 
-function makeInventoryVideoModal(userId) {
+function makeInventoryVideoModal(userId, { entryPoint = false } = {}) {
   const videoUrlInput = new TextInputBuilder()
     .setCustomId("video_url")
     .setStyle(TextInputStyle.Short)
@@ -830,7 +896,9 @@ function makeInventoryVideoModal(userId) {
     .setRequired(false);
 
   return new ModalBuilder()
-    .setCustomId(`profile:video:${userId}`)
+    .setCustomId(
+      `profile:${entryPoint ? "video-entry" : "video"}:${userId}`,
+    )
     .setTitle("Add an inventory video")
     .addLabelComponents(
       new LabelBuilder()
@@ -912,7 +980,7 @@ export async function handleProfileMenuButton(interaction) {
 export async function handleProfileModal(interaction) {
   const [, action, ownerId] = interaction.customId.split(":");
   if (
-    !["edit", "photos", "remove-photos", "video"].includes(action) ||
+    !["edit", "photos", "remove-photos", "video", "video-entry"].includes(action) ||
     ownerId !== interaction.user.id
   ) {
     throw new UserFacingError("That profile form is not yours to use.");

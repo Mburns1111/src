@@ -17,6 +17,8 @@ const houseListingSchema = new mongoose.Schema(
     postMessageId: { type: String, default: "" },
     status: { type: String, enum: ["active", "sold"], default: "active" },
     soldAt: { type: Date, default: null },
+    interestedUserIds: { type: [String], default: [] },
+    notifyOnInterest: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

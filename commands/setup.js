@@ -7,6 +7,11 @@ import {
 import GuildConfig from "../models/GuildConfig.js";
 import { requireGuild } from "./shared.js";
 import { UserFacingError } from "./errors.js";
+import { ensureHouseEntry } from "./house.js";
+import { ensureOutfitEntry } from "./outfit.js";
+import { ensureInventoryEntry } from "./inventory-video.js";
+import { ensureProfileEntry } from "./profile.js";
+import { ensureTradeVoteEntry } from "./trade.js";
 import { ensureTradingPostEntry } from "./trading-post.js";
 
 export const data = new SlashCommandBuilder()
@@ -27,6 +32,12 @@ export const data = new SlashCommandBuilder()
         option
           .setName("house_listings")
           .setDescription("Channel for house ads")
+          .addChannelTypes(ChannelType.GuildText),
+      )
+      .addChannelOption((option) =>
+        option
+          .setName("outfit_listings")
+          .setDescription("Channel for outfit listings")
           .addChannelTypes(ChannelType.GuildText),
       )
       .addChannelOption((option) =>
@@ -59,6 +70,7 @@ export async function execute(interaction) {
   requireGuild(interaction);
   const commandsChannel = interaction.options.getChannel("commands");
   const houseListings = interaction.options.getChannel("house_listings");
+  const outfitListings = interaction.options.getChannel("outfit_listings");
   const inventoryShowcase = interaction.options.getChannel("inventory_showcase");
   const tradeVoting = interaction.options.getChannel("trade_voting");
   const profilesChannel = interaction.options.getChannel("profiles");
@@ -67,6 +79,7 @@ export async function execute(interaction) {
   if (
     !commandsChannel &&
     !houseListings &&
+    !outfitListings &&
     !inventoryShowcase &&
     !tradeVoting &&
     !profilesChannel &&
@@ -81,6 +94,7 @@ export async function execute(interaction) {
   const updates = {};
   if (commandsChannel) updates.commandChannelId = commandsChannel.id;
   if (houseListings) updates.houseChannelId = houseListings.id;
+  if (outfitListings) updates.outfitChannelId = outfitListings.id;
   if (inventoryShowcase) updates.inventoryChannelId = inventoryShowcase.id;
   if (tradeVoting) updates.tradeVoteChannelId = tradeVoting.id;
   if (profilesChannel) updates.profileChannelId = profilesChannel.id;
@@ -91,16 +105,30 @@ export async function execute(interaction) {
     { $set: updates },
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
+  if (houseListings) await ensureHouseEntry(interaction.guild, houseListings);
+  if (outfitListings) await ensureOutfitEntry(interaction.guild, outfitListings);
+  if (inventoryShowcase) await ensureInventoryEntry(interaction.guild, inventoryShowcase);
+  if (profilesChannel) await ensureProfileEntry(interaction.guild, profilesChannel);
+  if (tradeVoting) await ensureTradeVoteEntry(interaction.guild, tradeVoting);
   if (tradingPostChannel) {
     await ensureTradingPostEntry(interaction.guild, tradingPostChannel);
   }
 
   const configured = [];
   if (commandsChannel) configured.push(`Bot commands: ${commandsChannel}`);
-  if (houseListings) configured.push(`House listings: ${houseListings}`);
-  if (inventoryShowcase) configured.push(`Inventory showcase: ${inventoryShowcase}`);
-  if (tradeVoting) configured.push(`Trade voting: ${tradeVoting}`);
-  if (profilesChannel) configured.push(`Member profiles: ${profilesChannel}`);
+  if (houseListings) {
+    configured.push(`House listings and create button: ${houseListings}`);
+  }
+  if (outfitListings) {
+    configured.push(`Outfit listings and create button: ${outfitListings}`);
+  }
+  if (inventoryShowcase) {
+    configured.push(`Inventory showcase and video button: ${inventoryShowcase}`);
+  }
+  if (tradeVoting) configured.push(`Trade voting and create button: ${tradeVoting}`);
+  if (profilesChannel) {
+    configured.push(`Member profiles and profile button: ${profilesChannel}`);
+  }
   if (tradingPostChannel) {
     configured.push(`Trading Post cards and pinned create button: ${tradingPostChannel}`);
   }

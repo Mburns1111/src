@@ -9,6 +9,18 @@ import {
   validateWebUrl,
 } from "./shared.js";
 import { prepareMediaFiles } from "./video-compression.js";
+import { ensureChannelEntry } from "./channel-entry.js";
+
+export async function ensureInventoryEntry(guild, channel, { moveToBottom = false } = {}) {
+  return ensureChannelEntry(guild, channel, {
+    channelField: "inventoryEntryChannelId",
+    messageField: "inventoryEntryMessageId",
+    customId: "inventory:entry",
+    label: "Add an inventory video",
+    description: "Use the button to upload a playable video or add a video link.",
+    moveToBottom,
+  });
+}
 
 export const data = new SlashCommandBuilder()
   .setName("inventory-video")
@@ -106,6 +118,7 @@ async function replaceInventoryVideo(interaction, { video = null, videoUrl = "" 
     }
   }
 
+  await ensureInventoryEntry(interaction.guild, channel, { moveToBottom: true });
   return videoPost;
 }
 

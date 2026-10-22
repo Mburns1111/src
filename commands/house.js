@@ -13,6 +13,7 @@ import {
   TextInputStyle,
 } from "discord.js";
 import HouseListing from "../models/HouseListing.js";
+import UserProfile from "../models/UserProfile.js";
 import {
   getConfiguredTextChannel,
   getMessageMedia,
@@ -22,6 +23,14 @@ import {
 } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 import { prepareMediaFiles } from "./video-compression.js";
+import { ensureChannelEntry } from "./channel-entry.js";
+import { handleListingInterest } from "./listing-interest.js";
+import {
+  clearPendingForm,
+  discardPendingForm,
+  getPendingFormStatus,
+  trackPendingForm,
+} from "./pending-forms.js";
 
 export const data = new SlashCommandBuilder()
   .setName("house")
@@ -31,12 +40,29 @@ const activeHouseSubmissions = new Set();
 const pendingHouseForms = new Map();
 const creatingHouseForms = new Set();
 
+export async function ensureHouseEntry(guild, channel, { moveToBottom = false } = {}) {
+  return ensureChannelEntry(guild, channel, {
+    channelField: "houseEntryChannelId",
+    messageField: "houseEntryMessageId",
+    customId: "house:entry",
+    label: "Start a house listing",
+    description: "Use the button to add your house listing.",
+    moveToBottom,
+  });
+}
+
+export async function handleHouseEntryButton(interaction) {
+  if (interaction.customId !== "house:entry") return false;
+  await execute(interaction);
+  return true;
+}
+
 function makeCreateListingButton(userId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`house:new:${userId}`)
       .setLabel("Create house listing")
-      .setStyle(ButtonStyle.Primary),
+      .setStyle(ButtonStyle.Success),
   );
 }
 
@@ -105,6 +131,16 @@ function makeHouseComponents(listing) {
       new ButtonBuilder()
         .setCustomId(`house:media:${String(listing._id)}`)
         .setLabel("Add pictures/video")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`house:interest:${String(listing._id)}`)
+        .setLabel(`Interested (${listing.interestedUserIds.length})`)
+        .setStyle(ButtonStyle.Success),
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`house:notify:${String(listing._id)}`)
+        .setLabel(`Interest DMs: ${listing.notifyOnInterest ? "On" : "Off"}`)
         .setStyle(ButtonStyle.Secondary),
     ),
   ];
@@ -201,6 +237,13 @@ async function fetchListingMessage(interaction, listing) {
 
 export async function handleHouseButton(interaction) {
   const [, action, listingId] = interaction.customId.split(":");
+  if (action === "interest" || action === "notify") {
+    return handleListingInterest(interaction, {
+      ListingModel: HouseListing,
+      listingType: "house",
+      makeComponents: makeHouseComponents,
+    });
+  }
   if (action !== "media") return false;
 
   const listing = await getActiveListing(interaction, listingId);
@@ -302,6 +345,7 @@ export async function handleHouseCreateModal(interaction) {
 
   let post;
   let claimed = false;
+  let published = false;
   try {
     const channel = await interaction.guild.channels.fetch(channelId);
     post = await channel?.messages?.fetch(messageId);
@@ -319,7 +363,7 @@ export async function handleHouseCreateModal(interaction) {
           new ButtonBuilder()
             .setCustomId(buttonId)
             .setLabel("Submitting...")
-            .setStyle(ButtonStyle.Primary)
+            .setStyle(ButtonStyle.Secondary)
             .setDisabled(true),
         ),
       ],
@@ -337,9 +381,11 @@ export async function handleHouseCreateModal(interaction) {
       ),
     };
     await publishHouseListing(interaction, values, post);
+    published = true;
     pendingHouseForms.delete(formKey);
+    await clearPendingForm(interaction.guildId, channelId, messageId);
   } catch (error) {
-    if (post && claimed) {
+    if (post && claimed && !published) {
       await post.edit({
         content: `House listing from ${interaction.user.username} — finish your listing using the button below.`,
         components: [makeCreateListingButton(ownerId)],
@@ -363,11 +409,35 @@ export async function handleHouseCreateModal(interaction) {
 export async function execute(interaction) {
   requireGuild(interaction);
   const formKey = `${interaction.guildId}:${interaction.user.id}`;
-  const pendingForm = pendingHouseForms.get(formKey);
+  let pendingForm = pendingHouseForms.get(formKey);
+  let pendingStatus = pendingForm
+    ? await getPendingFormStatus(interaction.guild, {
+        ...pendingForm,
+        ownerId: interaction.user.id,
+        type: "house",
+      })
+    : "stale";
+  if (pendingStatus === "stale") {
+    pendingHouseForms.delete(formKey);
+    pendingForm = null;
+  } else if (pendingStatus === "active") {
+    await discardPendingForm(interaction.guild, {
+      ...pendingForm,
+      ownerId: interaction.user.id,
+      type: "house",
+    });
+    pendingHouseForms.delete(formKey);
+    pendingForm = null;
+  }
   if (pendingForm || creatingHouseForms.has(formKey)) {
     const response = {
       content: pendingForm
-        ? `You already have a house form waiting in <#${pendingForm.channelId}>. Finish that one before starting another: ${pendingForm.url}`
+        ? pendingStatus === "submitting"
+          ? "Your house listing is being submitted. Please wait a moment."
+          : [
+              `You already have a house form waiting in <#${pendingForm.channelId}>.`,
+              `Finish that one before starting another: ${pendingForm.url}`,
+            ].join(" ")
         : "Your house form is being created. Please wait a moment before trying again.",
       allowedMentions: { parse: [] },
     };
@@ -390,13 +460,33 @@ export async function execute(interaction) {
       components: [makeCreateListingButton(interaction.user.id)],
       allowedMentions: { parse: [] },
     });
+    try {
+      await trackPendingForm({
+        guildId: interaction.guildId,
+        ownerId: interaction.user.id,
+        channelId: post.channelId,
+        messageId: post.id,
+        type: "house",
+      });
+    } catch (error) {
+      await post.delete().catch((cleanupError) => {
+        console.error("Could not remove an untracked house form post:", cleanupError);
+      });
+      throw error;
+    }
     pendingHouseForms.set(formKey, {
       channelId: post.channelId,
       messageId: post.id,
       url: post.url,
     });
+    await ensureHouseEntry(interaction.guild, channel, {
+      moveToBottom: true,
+    });
     const response = {
-      content: `I added your house listing form in ${channel}. Use the button there to enter your details privately. Only you can use it. ${post.url}`,
+      content: [
+        `I added your house listing form in ${channel}.`,
+        `Use the button there to enter your details privately. Only you can use it. ${post.url}`,
+      ].join(" "),
       components: [],
       allowedMentions: { parse: [] },
     };
