@@ -226,7 +226,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await sendProfileReminder(interaction);
       return;
     }
-    if (interaction.isButton() && interaction.customId === "profile:entry") {
+    if (interaction.isButton() && interaction.customId.startsWith("profile:entry")) {
       await handleProfileEntryButton(interaction);
       return;
     }
