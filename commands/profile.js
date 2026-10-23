@@ -58,13 +58,23 @@ export async function ensureProfileEntry(guild, channel, { moveToBottom = false 
     label: "Create or update my profile",
     description: "Use the button to add your Roblox name and profile details.",
     moveToBottom,
+    extraButtons: [
+      { customId: "profile:entry:appearance", label: "Customize appearance" },
+      { customId: "profile:entry:video", label: "Inventory video" },
+    ],
   });
 }
 
 export async function handleProfileEntryButton(interaction) {
-  if (interaction.customId !== "profile:entry") return false;
+  if (!["profile:entry", "profile:entry:appearance", "profile:entry:video"].includes(interaction.customId)) return false;
   const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
-  await interaction.showModal(makeEditProfileModal(profile, interaction.user.id));
+  if (interaction.customId === "profile:entry:appearance") {
+    await interaction.reply({ content: "Customize your profile appearance (test catalog).", components: makeAppearanceControls(profile), flags: MessageFlags.Ephemeral });
+  } else if (interaction.customId === "profile:entry:video") {
+    await interaction.showModal(makeInventoryVideoModal(interaction.user.id));
+  } else {
+    await interaction.showModal(makeEditProfileModal(profile, interaction.user.id));
+  }
   return true;
 }
 
@@ -194,27 +204,15 @@ function makeAlbumButtons(userId, page, count) {
 }
 
 function makeProfileCardComponents(userId, page, count) {
-  const rows = [
+  return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`profile:card:edit:${userId}`)
-        .setLabel("Edit details")
-        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`profile:card:photos:${userId}`)
         .setLabel("Add/remove photos")
         .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(`profile:card:video:${userId}`)
-        .setLabel("Inventory video")
-        .setStyle(ButtonStyle.Secondary),
     ),
+    ...makeAlbumButtons(userId, page, count),
   ];
-  rows.push(new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`profile:card:appearance:${userId}`).setLabel("Customize appearance").setStyle(ButtonStyle.Secondary),
-  ));
-  rows.push(...makeAlbumButtons(userId, page, count));
-  return rows;
 }
 
 async function showPhotoActionPrompt(interaction, ownerId) {
