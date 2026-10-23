@@ -74,8 +74,6 @@ export async function execute(interaction) {
   requireGuild(interaction);
   if (interaction.options.getSubcommand() === "shop") {
     const channel = interaction.options.getChannel("channel");
-    await GuildConfig.findOneAndUpdate({ guildId: interaction.guildId },
-      { $set: { shopChannelId: channel.id } }, { upsert: true, setDefaultsOnInsert: true });
     await ensureShopEntry(interaction.guild, channel);
     await interaction.editReply({ content: `Shop catalog configured in ${channel}.` });
     return;
