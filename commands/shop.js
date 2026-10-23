@@ -276,6 +276,15 @@ async function confirmationPage(interaction, item, category, index) {
   };
 }
 
+function dmShopTools(guildId, category, index) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:refresh:${category}:${index}`)
+      .setLabel("Refresh Points & Items").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
+      .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
+  );
+}
+
 async function canPurchase(context, item) {
   const ownership = await getAppearanceOwnership(context.guildId, context.user.id);
   return !ownsAppearanceItem(ownership, item.category, item.id) &&
@@ -313,12 +322,7 @@ async function dmItemPage(context, category, index) {
         .setLabel(owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned || balance < item.price),
     ),
     dmCategoryMenu(context.guildId, category),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:refresh:${category}:${index}`)
-        .setLabel("Refresh Points & Items").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:appearance`)
-        .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
-    ),
+    dmShopTools(context.guildId, category, index),
   ];
   return result;
 }
@@ -340,6 +344,7 @@ async function dmConfirmation(context, category, index) {
         .setLabel("Cancel").setStyle(ButtonStyle.Secondary),
     ),
     dmCategoryMenu(context.guildId, category),
+    dmShopTools(context.guildId, category, index),
   ];
   return result;
 }
@@ -352,6 +357,7 @@ async function dmPreview(context, category, index) {
         .setLabel("← Back to item").setStyle(ButtonStyle.Primary),
     ),
     dmCategoryMenu(context.guildId, category),
+    dmShopTools(context.guildId, category, index),
   ];
   return result;
 }
