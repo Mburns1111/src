@@ -134,6 +134,30 @@ function fitFontSize(ctx, text, maxWidth, startingSize, family, minSize = 14) {
   return minSize;
 }
 
+function drawFittedLine(ctx, value, region, options = {}) {
+  const { fontSize = 40, minFontSize = 20, family = 'sans-serif', color = '#26382D' } = options;
+  let text = String(value ?? '').trim();
+  if (!text) return;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  let size = fontSize;
+  while (size > minFontSize) {
+    ctx.font = size + 'px ' + family;
+    if (ctx.measureText(text).width <= region.width) break;
+    size--;
+  }
+  ctx.font = size + 'px ' + family;
+  if (ctx.measureText(text).width > region.width) {
+    const chars = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment);
+    while (chars.length && ctx.measureText(chars.join('') + '…').width > region.width) chars.pop();
+    text = chars.join('') + '…';
+  }
+  ctx.fillText(text, region.x, region.y);
+  ctx.restore();
+}
+
 function wrapText(ctx, text, maxWidth) {
   const paragraphs = String(text ?? '').split(/\r?\n/);
   const lines = [];
@@ -412,21 +436,9 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
   // Profile title and subtitle.
   const title = `${data.displayName || 'Member'}'s Profile`;
 
-  const titleSize = fitFontSize(
-    ctx,
-    title,
-    r.title.width,
-    92,
-    style.titleFontFamily,
-    60
-  );
-
-  drawWrappedText(ctx, title, r.title, {
-    fontSize: titleSize,
-    minFontSize: 60,
-    family: style.titleFontFamily,
-    color: style.accentDark,
-    maxLines: 1,
+  drawFittedLine(ctx, title, r.title, {
+    fontSize: 66, minFontSize: 25,
+    family: style.titleFontFamily, color: style.accentDark,
   });
 
   drawWrappedText(
@@ -447,18 +459,10 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
   // Roblox username.
   drawLabel(ctx, 'Roblox username', r.usernameLabel, style);
 
-  drawWrappedText(
-    ctx,
-    data.robloxUsername || 'Not added yet',
-    r.username,
-    {
-      fontSize: 50,
-      minFontSize: 36,
-      family: style.fontFamily,
-      color: style.text,
-      maxLines: 2,
-    }
-  );
+  drawFittedLine(ctx, data.robloxUsername || 'Not added yet', r.username, {
+    fontSize: 34, minFontSize: 20,
+    family: style.fontFamily, color: style.text,
+  });
 
   // Trade status.
   drawLabel(ctx, 'Looking for trades', r.tradeLabel, style);
