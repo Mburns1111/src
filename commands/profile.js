@@ -813,13 +813,20 @@ export async function handleProfileAppearanceDM(interaction) {
 
   if (kind === "button" && field === "cancel") {
     await interaction.deferUpdate();
-    draft.appearance = filterOwnedAppearance(getProfileAppearance(profile), ownership);
-    draft.page = "colors";
-    draft.selected = 0;
-    await saveDraftPanel(panel, draft);
-    const payload = await appearanceDmPayload(guild, interaction.user, profile, draft);
-    payload.content = "↩️ **Unsaved changes discarded.** Your server profile is unchanged.\n\n" + payload.content;
-    await interaction.editReply(payload);
+    await MemberDmPanel.deleteOne({ _id: panel._id, token: panel.token });
+    try {
+      await interaction.message.delete();
+    } catch (error) {
+      if (Number(error?.code) !== 10008) {
+        console.warn("Could not delete the cancelled profile editor:", error);
+        await interaction.message.edit({
+          content: "Customization cancelled. Your profile was not changed.",
+          embeds: [], components: [], attachments: [],
+        }).catch(() => {});
+      }
+    }
+    await sendTemporaryDmNotice(interaction.user,
+      "↩️ **Changes discarded.** Your profile was not changed. You can open another editor using **Customize Profile** in your shop.");
     return true;
   }
   if (kind === "button" && field === "confirm") {
@@ -827,12 +834,23 @@ export async function handleProfileAppearanceDM(interaction) {
     profile.profileAppearance = filterOwnedAppearance(draft.appearance, ownership);
     profile.markModified("profileAppearance");
     await profile.save();
-    draft.appearance = filterOwnedAppearance(getProfileAppearance(profile), ownership);
-    await saveDraftPanel(panel, draft);
     await ensureProfileCard(guild, interaction.user, { refresh: true });
-    const payload = await appearanceDmPayload(guild, interaction.user, profile, draft);
-    payload.content = "✅ **Appearance saved and server profile updated!** You can keep using this editor.\n\n" + payload.content;
-    await interaction.editReply(payload);
+
+    // End the editing session only after the server profile is updated.
+    await MemberDmPanel.deleteOne({ _id: panel._id, token: panel.token });
+    try {
+      await interaction.message.delete();
+    } catch (error) {
+      if (Number(error?.code) !== 10008) {
+        console.warn("Could not delete the completed profile editor:", error);
+        await interaction.message.edit({
+          content: "Profile updated. This editing session is closed.",
+          embeds: [], components: [], attachments: [],
+        }).catch(() => {});
+      }
+    }
+    await sendTemporaryDmNotice(interaction.user,
+      "✅ **Profile appearance saved!** Your profile card in the server has been updated. The editor is closed; use **Customize Profile** in your permanent shop to edit again.");
     return true;
   }
   if (kind === "button" && field === "refresh") {
