@@ -19,6 +19,7 @@ const userProfileSchema = new mongoose.Schema(
     displayName: { type: String, required: true },
     adoptMeUsername: { type: String, default: "" },
     bio: { type: String, default: "" },
+    profileAppearance: { type: mongoose.Schema.Types.Mixed, default: () => ({ background: "sagePreview", panelColor: "match", panelOpacity: 0.34 }) },
     lookingForTrades: { type: Boolean, default: false },
     inventoryVideoUrl: { type: String, default: "" },
     inventoryVideoAsset: { type: mediaAssetSchema, default: null },
