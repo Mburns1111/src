@@ -1,14 +1,14 @@
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import {
   ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle,
-  EmbedBuilder, MessageFlags, PermissionFlagsBits, SlashCommandBuilder,
+  EmbedBuilder, MessageFlags, SlashCommandBuilder,
 } from "discord.js";
 import mongoose from "mongoose";
 import GuildConfig from "../models/GuildConfig.js";
 import UserProfile from "../models/UserProfile.js";
 import AppearanceInventory from "../models/AppearanceInventory.js";
 import PointsWallet from "../models/PointsWallet.js";
-import { shopItems, shopItem } from "../services/shop-catalog.js";
+import { shopItems } from "../services/shop-catalog.js";
 import { getAppearanceOwnership, ownsAppearanceItem } from "../services/appearance-ownership.js";
 import { resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
@@ -146,7 +146,13 @@ export async function ensureShopEntry(guild, channel) {
   }
   // Always put the balance button after all category examples when first configured.
   const balanceId = config?.shopChannelId === channel.id ? config.shopMessageId : null;
-  const balance = await updateOrSend(channel, balanceId, balanceEntryPayload());
+  let balance = await updateOrSend(channel, balanceId, balanceEntryPayload());
+  // A newly created category post must not appear below the balance button.
+  if (Object.values(ids).some(id => BigInt(id) > BigInt(balance.id))) {
+    const replacement = await channel.send(balanceEntryPayload());
+    await balance.delete().catch(error => console.warn("Could not remove old shop balance entry:", error));
+    balance = replacement;
+  }
   await GuildConfig.updateOne({ guildId: guild.id }, {
     $set: { shopChannelId: channel.id, shopMessageId: balance.id,
       shopCategoryMessageIds: ids },
@@ -286,7 +292,7 @@ export async function handleShopButton(interaction) {
   const category = rawCategory === "all" ? null : rawCategory;
   if (category && !CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
   const items = sortedItems(category);
-  const index = Number(rawIndex);
+  const index = rawIndex === undefined ? NaN : Number(rawIndex);
   if (!Number.isSafeInteger(index) || index < (action === "page" && category ? -1 : 0) || index >= items.length) {
     throw new UserFacingError("That shop item is unavailable.");
   }
