@@ -8,7 +8,7 @@ export function dmPanelUrl(channelId, messageId) {
   return `https://discord.com/channels/@me/${channelId}/${messageId}`;
 }
 
-export async function getOrCreateDmPanel({ guildId, user, kind, makeInitial }) {
+export async function getOrCreateDmPanel({ guildId, user, kind, makeInitial, adoptExisting }) {
   const key = `${guildId}:${user.id}:${kind}`;
   if (openingPanels.has(key)) return openingPanels.get(key);
   const task = (async () => {
@@ -24,6 +24,20 @@ export async function getOrCreateDmPanel({ guildId, user, kind, makeInitial }) {
         }
       } catch (error) {
         if (![10008, 10003].includes(Number(error?.code))) throw error;
+      }
+    }
+
+    // Adopt an earlier shop DM on upgrade if the bot already sent one. The
+    // predicate must identify a message belonging to this same guild.
+    if (!stored && adoptExisting) {
+      const recent = await channel.messages.fetch({ limit: 50 });
+      const found = recent.find(message =>
+        message.author.id === channel.client.user.id && adoptExisting(message));
+      if (found) {
+        const panel = await MemberDmPanel.findOneAndUpdate(criteria, {
+          $set: { channelId: channel.id, messageId: found.id },
+        }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
+        return { message: found, panel, created: false, adopted: true };
       }
     }
 
