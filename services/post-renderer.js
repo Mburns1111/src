@@ -1,6 +1,6 @@
 
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
@@ -376,6 +376,16 @@ function drawDecorations(ctx, width, height, appearance, style) {
   }
 }
 
+function textPanel(ctx, region, style, alternate = false) {
+  const pad = 10;
+  ctx.save();
+  ctx.globalAlpha = style.panelOpacity;
+  fillRoundedRect(ctx, region.x - pad, region.y - 5,
+    region.width + pad * 2, region.height + 10, 14,
+    alternate ? style.panelAlt : style.panel);
+  ctx.restore();
+}
+
 function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   const r = layout.regions;
   const { width, height } = layout;
@@ -383,7 +393,8 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   // Background layer.
   ctx.fillStyle = style.background;
   ctx.fillRect(0, 0, width, height);
-  drawBackgroundPattern(ctx, width, height, appearance);
+  if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
+  else drawBackgroundPattern(ctx, width, height, appearance);
 
   ctx.fillStyle = style.panelAlt;
 
@@ -411,40 +422,21 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   );
   ctx.fill();
 
-  // Main card and content panels.
-  fillRoundedRect(
-    ctx,
-    style.outerInset,
-    style.outerInset,
-    width - style.outerInset * 2,
-    height - style.outerInset * 2,
-    style.cornerRadius,
-    style.panel
-  );
-
-  fillRoundedRect(
-    ctx,
-    40,
-    40,
-    280,
-    height - 80,
-    style.panelRadius,
-    style.panelAlt
-  );
-
-  // IMPORTANT: Use style.panel instead of pure white.
-  fillRoundedRect(
-    ctx,
-    328,
-    40,
-    width - 348,
-    height - 80,
-    style.panelRadius,
-    style.panel
-  );
+  // The free default keeps its familiar solid panels. Image backgrounds use
+  // small content panels so the artwork remains visible between sections.
+  if (!images.background) {
+    fillRoundedRect(ctx, 20, 20, width - 40, height - 40, 38, style.panel);
+    fillRoundedRect(ctx, 40, 40, 280, height - 80, style.panelRadius, style.panelAlt);
+    fillRoundedRect(ctx, 328, 40, width - 348, height - 80, style.panelRadius, style.panel);
+  } else {
+    for (const region of [
+      r.title, r.subtitle, r.robloxLine, r.rolesLabel, ...r.rolesRows,
+      r.tradeLabel, r.tradeStatus, r.bioLabel, r.bio, r.footer,
+    ]) textPanel(ctx, region, style, region.x < 320);
+  }
 
   // Accent stripe and decorative marks.
-  fillRoundedRect(
+  if (!images.background) fillRoundedRect(
     ctx,
     328,
     40,
@@ -725,15 +717,21 @@ export async function renderPostImage({
   const resolvedAppearance = resolveAppearance(appearance);
   const font = APPEARANCE_CATALOG.fonts[resolvedAppearance.font];
   const colors = APPEARANCE_CATALOG.fontColors[resolvedAppearance.fontColor];
+  const backgroundItem = APPEARANCE_CATALOG.backgrounds[resolvedAppearance.background];
+  const matchedPalette = resolvedAppearance.panelColor === 'match'
+    ? backgroundItem.palette || {}
+    : APPEARANCE_CATALOG.panels[resolvedAppearance.panelColor]?.palette || {};
   const resolvedStyle = {
     ...DEFAULT_POST_STYLE,
     ...style,
     fontFamily: font.family,
     titleFontFamily: font.titleFamily,
     ...colors,
+    ...matchedPalette,
+    panelOpacity: resolvedAppearance.panelOpacity,
   };
 
-  const [avatar, photo] = await Promise.all([
+  const [avatar, photo, background] = await Promise.all([
     loadImageSource(images.avatar).catch((error) => {
       console.warn(
         `[post-renderer] Could not load avatar: ${error.message}`
@@ -747,6 +745,14 @@ export async function renderPostImage({
       );
       return null;
     }),
+    backgroundItem.kind === 'image'
+      ? readFile(new URL('../' + backgroundItem.asset, import.meta.url))
+          .then(bytes => loadImage(bytes))
+          .catch(error => {
+            console.warn('[post-renderer] Background unavailable:', error.message);
+            return null;
+          })
+      : Promise.resolve(null),
   ]);
 
   const canvas = createCanvas(layout.width, layout.height);
@@ -756,7 +762,7 @@ export async function renderPostImage({
     drawDefaultProfile(
       ctx,
       data,
-      { avatar, photo },
+      { avatar, photo, background },
       resolvedStyle,
       layout,
       resolvedAppearance
