@@ -1,3 +1,4 @@
+
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
 import mongoose from "mongoose";
@@ -62,6 +63,10 @@ import {
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
+  execute as executeMigrateOldPosts,
+  data as migrateOldPostsCommand,
+} from "./commands/migrate-old-posts.js";
+import {
   handleTradingPostCardButton,
   handleTradingPostEntryButton,
   handleTradingPostModal,
@@ -95,6 +100,7 @@ const commandHandlers = new Map([
   [tradeCommand.name, executeTrade],
   [setupCommand.name, executeSetup],
   [helpCommand.name, executeHelp],
+  ["migrate_old_posts", executeMigrateOldPosts],
 ]);
 
 let startupMaintenancePromise = Promise.resolve();
@@ -347,6 +353,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (!interaction.isChatInputCommand()) return;
+
+    console.log("Command received:", interaction.commandName);
+    console.log("Available handlers:", [...commandHandlers.keys()]);
+
     const handler = commandHandlers.get(interaction.commandName);
     if (!handler) {
       await interaction.editReply({
