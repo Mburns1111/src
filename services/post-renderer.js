@@ -390,6 +390,97 @@ function glassPanel(ctx, x, y, width, height, style, alternate = false) {
   ctx.restore();
 }
 
+
+/**
+ * Open-background profile: translucent panels hug text, while the avatar and
+ * optional photo sit directly on the background. The original free card is
+ * rendered by drawDefaultProfile and remains unchanged.
+ */
+function drawOpenProfile(ctx, data, images, style, layout, appearance) {
+  const { width, height } = layout;
+  ctx.fillStyle = style.background;
+  ctx.fillRect(0, 0, width, height);
+  if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
+  else drawBackgroundPattern(ctx, width, height, appearance);
+
+  // Small grouped panels; do not cover the unused background or photo region.
+  glassPanel(ctx, 335, 54, 831, 240, style);
+  glassPanel(ctx, 44, 317, 272, 157, style, true);
+  glassPanel(ctx, 44, 486, 272, 115, style, true);
+  glassPanel(ctx, 335, 308, 831, 174, style);
+  glassPanel(ctx, 44, 674, 272, 70, style, true);
+
+  const avatar = { x: 66, y: 65, width: 228, height: 228 };
+  const cx = avatar.x + avatar.width / 2, cy = avatar.y + avatar.height / 2;
+  ctx.save();
+  ctx.fillStyle = style.accent;
+  ctx.beginPath();
+  ctx.arc(cx, cy, avatar.width / 2 + 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, avatar.width / 2, 0, Math.PI * 2);
+  ctx.clip();
+  if (images.avatar) drawCover(ctx, images.avatar, avatar.x, avatar.y, avatar.width, avatar.height);
+  else {
+    ctx.fillStyle = style.panel;
+    ctx.fillRect(avatar.x, avatar.y, avatar.width, avatar.height);
+    ctx.fillStyle = style.accentDark;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 110px ' + style.titleFontFamily;
+    ctx.fillText(String(data.displayName || 'P').charAt(0).toUpperCase(), cx, cy);
+  }
+  ctx.restore();
+
+  drawFittedLine(ctx, String(data.displayName || 'Member') + "'s Profile",
+    { x: 358, y: 72, width: 770 }, {
+      fontSize: 57, minFontSize: 26,
+      family: '"AM Unicode Symbols", ' + style.titleFontFamily,
+      color: style.accentDark,
+    });
+  drawFittedLine(ctx, 'Discord: ' + (data.discordUsername || 'Member'),
+    { x: 358, y: 170, width: 770 }, {
+      fontSize: 36, minFontSize: 22, family: style.fontFamily, color: style.mutedText,
+    });
+  drawFittedLine(ctx, 'Roblox: ' + (data.robloxUsername || 'Not added yet'),
+    { x: 358, y: 230, width: 770 }, {
+      fontSize: 30, minFontSize: 20, family: style.fontFamily, color: style.mutedText,
+    });
+
+  drawLabel(ctx, 'Server roles', { x: 60, y: 331, width: 242, height: 34 }, style);
+  const roles = Array.isArray(data.serverRoles) ? data.serverRoles : [];
+  (roles.length ? roles.slice(0, 3) : ['No roles to display']).forEach((role, i) => {
+    drawFittedLine(ctx, '• ' + role, { x: 60, y: 369 + i * 34, width: 242 }, {
+      fontSize: 23, minFontSize: 17, family: style.fontFamily, color: style.text,
+    });
+  });
+
+  drawLabel(ctx, 'Looking for trades', { x: 60, y: 500, width: 244, height: 34 }, style);
+  drawFittedLine(ctx, data.lookingForTrades ? 'Yes' : 'No',
+    { x: 60, y: 539, width: 240 }, {
+      fontSize: 37, minFontSize: 30, family: style.fontFamily, color: style.accentDark,
+    });
+
+  drawLabel(ctx, 'About me', { x: 355, y: 323, width: 770, height: 35 }, style);
+  drawWrappedText(ctx, data.bio || 'Add a bio to tell everyone a little about yourself.',
+    { x: 355, y: 367, width: 785, height: 102 }, {
+      fontSize: 34, minFontSize: 22, lineHeight: 42, maxLines: 3,
+      family: style.fontFamily, color: style.text,
+    });
+
+  // A real photo has no backing panel; without one the background stays visible.
+  if (images.photo) {
+    drawContain(ctx, images.photo, 350, 495, 802, 245, style.imageRadius);
+  }
+  drawFittedLine(ctx, data.footer || 'Made for the community',
+    { x: 60, y: 692, width: 242 }, {
+      fontSize: 22, minFontSize: 16, family: style.fontFamily, color: style.mutedText,
+    });
+
+  // Decorations intentionally remain free to overlap text.
+  drawDecorations(ctx, width, height, appearance, style);
+}
+
 function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   const r = layout.regions;
   const { width, height } = layout;
@@ -788,7 +879,7 @@ export async function renderPostImage({
   const ctx = canvas.getContext('2d');
 
   if (type === 'profile') {
-    drawDefaultProfile(
+    (resolvedAppearance.background === 'default' ? drawDefaultProfile : drawOpenProfile)(
       ctx,
       data,
       { avatar, photo, background },
