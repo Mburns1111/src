@@ -15,6 +15,7 @@ const data = {
 };
 for (const [name, appearance] of [
   ['default', {}],
+  ['plain-sage', { background: 'sagePreview', panelColor: 'match', panelOpacity: 0.48 }],
   ['garden-background', { background: 'garden', panelColor: 'match', panelOpacity: 0.58, stickers: [{ id: 'flower', x: 0.85, y: 0.2, scale: 1, rotation: 20 }] }],
   ['garden-lavender-panels', { background: 'garden', panelColor: 'lavender', panelOpacity: 0.72 }],
   ['customized', {
