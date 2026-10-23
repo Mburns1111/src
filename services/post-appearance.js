@@ -29,6 +29,10 @@ export const APPEARANCE_CATALOG = Object.freeze({
   stickers: {
     flower: { kind: 'flower' },
     star: { kind: 'star' },
+    // Future custom artwork: add a catalog entry like
+    // blossom: { kind: 'image', asset: 'assets/stickers/blossom.png' },
+    // Keep IDs stable: equipped profiles save the ID, not the image bytes.
+
   },
 });
 
