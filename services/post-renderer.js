@@ -463,14 +463,6 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
     }
   );
 
-  // Roblox username.
-  drawLabel(ctx, 'Roblox username', r.usernameLabel, style);
-
-  drawFittedLine(ctx, data.robloxUsername || 'Not added yet', r.username, {
-    fontSize: 34, minFontSize: 20,
-    family: style.fontFamily, color: style.text,
-  });
-
   // Trade status.
   drawLabel(ctx, 'Looking for trades', r.tradeLabel, style);
 
@@ -486,6 +478,14 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
       maxLines: 2,
     }
   );
+
+  // Roblox username beneath the Discord username.
+  drawFittedLine(ctx, 'Roblox: ' + (data.robloxUsername || 'Not added yet'), r.robloxLine, {
+    fontSize: 38,
+    minFontSize: 22,
+    family: style.fontFamily,
+    color: style.mutedText,
+  });
 
   // Bio.
   drawLabel(ctx, 'About me', r.bioLabel, style);
