@@ -241,10 +241,7 @@ async function makeProfileCardPayload(
   page = 0,
   currentMessage = null,
 ) {
-  const [albumImages, listingLinks] = await Promise.all([
-    getProfileAlbumImages(guild, profile),
-    getProfileListingLinks(guild, profile.discordUserId),
-  ]);
+  const albumImages = await getProfileAlbumImages(guild, profile);
   const photos = albumImages;
   const albumPage = photos.length
     ? Math.min(page, photos.length - 1)
@@ -292,15 +289,9 @@ async function makeProfileCardPayload(
     },
     appearance: resolveAppearance(profile.profileAppearance?.background ? profile.profileAppearance : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 }),
   });
-  const linksEmbed = new EmbedBuilder().setDescription(
-    makeProfileCardContent(profile, guild.id, listingLinks),
-  );
   return {
     content: "",
-    embeds: [
-      new EmbedBuilder().setImage("attachment://profile-card.png"),
-      linksEmbed,
-    ],
+    embeds: [new EmbedBuilder().setImage("attachment://profile-card.png")],
     files: [new AttachmentBuilder(image, { name: "profile-card.png" })],
     attachments: [],
     components: makeProfileCardComponents(
@@ -310,6 +301,34 @@ async function makeProfileCardPayload(
     ),
     allowedMentions: { parse: [] },
   };
+}
+
+async function makeProfileDetailsPayload(guild, profile) {
+  const listingLinks = await getProfileListingLinks(guild, profile.discordUserId);
+  return {
+    content: "",
+    embeds: [new EmbedBuilder().setDescription(makeProfileCardContent(profile, guild.id, listingLinks))],
+    allowedMentions: { parse: [] },
+  };
+}
+
+async function syncProfileDetails(guild, channel, profile) {
+  const payload = await makeProfileDetailsPayload(guild, profile);
+  if (profile.profileDetailsMessageId) {
+    try {
+      const message = await channel.messages.fetch(profile.profileDetailsMessageId);
+      if (message.author.id === guild.client.user.id) {
+        await message.edit(payload);
+        return message;
+      }
+    } catch (error) {
+      if (![10003, 10008].includes(Number(error?.code))) throw error;
+    }
+  }
+  const message = await channel.send(payload);
+  profile.profileDetailsMessageId = message.id;
+  await profile.save();
+  return message;
 }
 
 async function streamToBuffer(stream) {
@@ -471,21 +490,14 @@ async function ensureProfileCardOnce(guild, user, refresh) {
 
   const oldChannelId = profile.profileCardChannelId;
   const oldMessageId = profile.profileCardMessageId;
+  const oldDetailsMessageId = profile.profileDetailsMessageId;
   if (oldChannelId === channel.id && oldMessageId) {
     try {
-      const existingChannel = await guild.channels.fetch(oldChannelId);
-      const existingMessage = await existingChannel?.messages?.fetch(oldMessageId);
-      if (existingMessage) {
-        if (!refresh && !identityChanged) return profile;
-        await existingMessage.edit(
-          await makeProfileCardPayload(
-            guild,
-            profile,
-            member,
-            0,
-            existingMessage,
-          ),
-        );
+      const existingMessage = await channel.messages.fetch(oldMessageId);
+      if (existingMessage.author.id === guild.client.user.id) {
+        if (!refresh && !identityChanged && oldDetailsMessageId) return profile;
+        await existingMessage.edit(await makeProfileCardPayload(guild, profile, member, 0, existingMessage));
+        await syncProfileDetails(guild, channel, profile);
         return profile;
       }
     } catch (error) {
@@ -493,17 +505,15 @@ async function ensureProfileCardOnce(guild, user, refresh) {
     }
   }
 
-  const newMessage = await channel.send(
-    await makeProfileCardPayload(guild, profile, member),
-  );
+  const newMessage = await channel.send(await makeProfileCardPayload(guild, profile, member));
   profile.profileCardChannelId = channel.id;
   profile.profileCardMessageId = newMessage.id;
+  profile.profileDetailsMessageId = "";
   try {
     await profile.save();
+    await syncProfileDetails(guild, channel, profile);
   } catch (error) {
-    await newMessage.delete().catch((deleteError) => {
-      console.error("Could not remove an unsaved profile card post:", deleteError);
-    });
+    await newMessage.delete().catch(() => {});
     throw error;
   }
 
@@ -512,11 +522,14 @@ async function ensureProfileCardOnce(guild, user, refresh) {
   if (oldChannelId && oldMessageId) {
     try {
       const oldChannel = await guild.channels.fetch(oldChannelId);
-      const oldMessage = await oldChannel?.messages?.fetch(oldMessageId);
-      await oldMessage?.delete();
+      for (const messageId of [oldMessageId, oldDetailsMessageId]) {
+        if (!messageId) continue;
+        const oldMessage = await oldChannel?.messages?.fetch(messageId);
+        if (oldMessage?.author.id === guild.client.user.id) await oldMessage.delete();
+      }
     } catch (error) {
       if (![10003, 10008].includes(Number(error?.code))) {
-        console.error("Could not remove the old profile card post:", error);
+        console.error("Could not remove the old profile post:", error);
       }
     }
   }
