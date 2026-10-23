@@ -8,6 +8,8 @@ import GuildConfig from "../models/GuildConfig.js";
 import UserProfile from "../models/UserProfile.js";
 import AppearanceInventory from "../models/AppearanceInventory.js";
 import PointsWallet from "../models/PointsWallet.js";
+import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js";
+import { openAppearanceDMFromShop } from "./profile.js";
 import { shopItems } from "../services/shop-catalog.js";
 import { getAppearanceOwnership, ownsAppearanceItem } from "../services/appearance-ownership.js";
 import { resolveAppearance } from "../services/post-appearance.js";
@@ -154,13 +156,14 @@ async function walletBalance(guildId, userId) {
   return (await PointsWallet.findOne({ guildId, discordUserId: userId }).lean())?.balance ?? 0;
 }
 function itemPage(item, index, total, balance, owned, category = null) {
+  const canAfford = balance >= item.price;
   const embed = new EmbedBuilder().setTitle(`Appearance Shop · ${index + 1}/${total}`)
-    .setDescription(`**${item.name}**\nCategory: ${item.category}\nPrice: **${item.price} Points**\nStatus: **${owned ? "Owned" : "Not owned"}**\nYour balance: **${balance} Points**\n\nUse Preview to see this on your own profile without saving it.`);
+    .setDescription(`**${item.name}**\nCategory: ${item.category}\nPrice: **${item.price} Points**\nStatus: **${owned ? "Owned" : "Not owned"}**\nYour balance: **${balance} Points**${!owned && !canAfford ? `\n**You need ${item.price - balance} more Points to buy this.**` : ""}\n\nUse Preview to see this on your own profile without saving it.`);
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index - 1}`).setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(index === 0 && !category),
     new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index + 1}`).setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(index === total - 1),
     new ButtonBuilder().setCustomId(`shop:preview:${category || 'all'}:${index}`).setLabel("Preview").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`shop:buy:${category || 'all'}:${index}`).setLabel(owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned),
+    new ButtonBuilder().setCustomId(`shop:buy:${category || 'all'}:${index}`).setLabel(owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned || !canAfford),
   );
   return { embeds: [embed], components: [row], allowedMentions: { parse: [] } };
 }
@@ -273,6 +276,12 @@ async function confirmationPage(interaction, item, category, index) {
   };
 }
 
+async function canPurchase(context, item) {
+  const ownership = await getAppearanceOwnership(context.guildId, context.user.id);
+  return !ownsAppearanceItem(ownership, item.category, item.id) &&
+    (await walletBalance(context.guildId, context.user.id)) >= item.price;
+}
+
 function dmCategoryMenu(guildId, current) {
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder().setCustomId(`shop:dm:${guildId}:category`)
@@ -291,6 +300,7 @@ async function dmItemPage(context, category, index) {
   const ownership = await getAppearanceOwnership(context.guildId, context.user.id);
   const owned = ownsAppearanceItem(ownership, item.category, item.id);
   const size = sortedItems(category).length;
+  const balance = await walletBalance(context.guildId, context.user.id);
   result.components = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index - 1}`)
@@ -300,9 +310,15 @@ async function dmItemPage(context, category, index) {
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:preview:${category}:${index}`)
         .setLabel("My Preview").setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:buy:${category}:${index}`)
-        .setLabel(owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned),
+        .setLabel(owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned || balance < item.price),
     ),
     dmCategoryMenu(context.guildId, category),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:refresh:${category}:${index}`)
+        .setLabel("Refresh Points & Items").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:appearance`)
+        .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
+    ),
   ];
   return result;
 }
@@ -342,17 +358,19 @@ async function dmPreview(context, category, index) {
 async function sendShopDM(interaction, category) {
   if (!category || !CATEGORY_LABELS[category]) throw new UserFacingError("No shop categories are available.");
   const context = { guildId: interaction.guildId, user: interaction.user, guild: interaction.guild };
-  let dm;
-  try {
-    dm = await interaction.user.send(await dmItemPage(context, category, 0));
-  } catch (error) {
-    if (Number(error?.code) === 50007) {
-      throw new UserFacingError("I couldn't send you a DM. Please allow direct messages from this server and try again.");
-    }
-    throw error;
-  }
+  const { message, created } = await getOrCreateDmPanel({
+    guildId: interaction.guildId,
+    user: interaction.user,
+    kind: "shop",
+    makeInitial: async () => ({ payload: await dmItemPage(context, category, 0) }),
+    // Recognize the shop message created by the previous version if it's still
+    // within recent DMs, so upgrading needn't send another copy.
+    adoptExisting: message => message.components.some(row =>
+      row.components?.some(component =>
+        component.customId?.startsWith(`shop:dm:${interaction.guildId}:`))),
+  });
   await interaction.editReply({
-    content: `Your shop is in your **DMs**! [Open your private shop](https://discord.com/channels/@me/${dm.channelId}/${dm.id}). You can browse any category there.`,
+    content: `${created ? "I opened your personal shop!" : "Your personal shop is already in your DMs."} [**Open your shop**](${dmPanelUrl(message.channelId, message.id)}). You can browse categories, check Points, and customize your profile there.`,
     allowedMentions: { parse: [] },
   });
 }
@@ -371,6 +389,9 @@ async function handleShopDM(interaction) {
     return true;
   }
   if (!interaction.isButton()) throw new UserFacingError("Unknown shop control.");
+  if (action === "appearance") {
+    return openAppearanceDMFromShop(interaction, guild);
+  }
   const category = categoryText;
   if (!CATEGORY_LABELS[category] || !itemsFor(category).length) throw new UserFacingError("This category isn't available.");
   const index = indexText === undefined ? NaN : Number(indexText);
@@ -382,7 +403,14 @@ async function handleShopDM(interaction) {
     await interaction.editReply(await dmItemPage(context, category, index));
   } else if (action === "preview") {
     await interaction.editReply(await dmPreview(context, category, index));
+  } else if (action === "refresh") {
+    await interaction.editReply(await dmItemPage(context, category, index));
   } else if (action === "buy") {
+    const item = sortedItems(category)[index];
+    if (!await canPurchase(context, item)) {
+      await interaction.editReply(await dmItemPage(context, category, index));
+      return true;
+    }
     await interaction.editReply(await dmConfirmation(context, category, index));
   } else if (action === "confirm") {
     await purchase(context, sortedItems(category)[index]);
