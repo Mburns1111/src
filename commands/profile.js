@@ -773,92 +773,17 @@ export async function handleProfileAppearanceDM(interaction) {
   return true;
 }
 
-async function saveProfileAppearance(interaction, profile, appearance, selectedPage, selectedIndex = 0, ownership) {
-  profile.profileAppearance = filterOwnedAppearance(appearance, ownership);
-  profile.markModified("profileAppearance");
-  await profile.save();
-  await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
-  await interaction.editReply({
-    content: "Appearance saved and profile updated. Only free or unlocked catalog items can be equipped.",
-    components: makeAppearanceControls(profile, selectedPage, selectedIndex, ownership),
-  });
-}
+// Old ephemeral appearance controls might still be visible in Discord. Redirect
+// them to the DM editor so they can no longer save changes without confirmation.
 export async function handleProfileAppearanceSelect(interaction) {
-  const [, , field, ownerId] = interaction.customId.split(":");
+  const ownerId = interaction.customId.split(":").at(-1);
   if (ownerId !== interaction.user.id) throw new UserFacingError("Only the profile owner can customize this profile.");
-  if (!["page", "opacity", "stickerAdd", "stickerSelect", ...Object.keys(APPEARANCE_CHOICES)].includes(field)) {
-    throw new UserFacingError("Unknown appearance setting.");
-  }
-  const profile = await UserProfile.findOne({ guildId: interaction.guildId, discordUserId: ownerId });
-  if (!profile) throw new UserFacingError("Your profile was not found.");
-  const value = interaction.values[0];
-  const ownership = await getAppearanceOwnership(interaction.guildId, ownerId);
-  if (field === "page") {
-    if (!APPEARANCE_PAGES[value]) throw new UserFacingError("Unknown customization category.");
-    await interaction.update({
-      content: "Profile customization (test catalog; shop ownership checks are not active yet).",
-      components: makeAppearanceControls(profile, value, 0, ownership),
-    });
-    return;
-  }
-  if (field === "stickerSelect") {
-    const index = Number(value);
-    if (!Number.isSafeInteger(index) || index < 0 || index >= getProfileAppearance(profile).stickers.length) {
-      throw new UserFacingError("Invalid sticker selection.");
-    }
-    await interaction.update({ components: makeAppearanceControls(profile, "stickers", index, ownership) });
-    return;
-  }
-  if (field === "stickerAdd") {
-    if (!ownsAppearanceItem(ownership, "stickers", value)) throw new UserFacingError("You have not unlocked that sticker.");
-    const appearance = getProfileAppearance(profile);
-    if (appearance.stickers.length >= 8) throw new UserFacingError("You can place up to eight stickers.");
-    appearance.stickers.push({ id: value, x: 0.8, y: 0.72, scale: 1, rotation: 0 });
-    await interaction.deferUpdate();
-    await saveProfileAppearance(interaction, profile, appearance, "stickers", appearance.stickers.length - 1, ownership);
-    return;
-  }
-  if (field === "opacity") {
-    if (![0.2, 0.34, 0.5, 0.7, 0.9].includes(Number(value))) throw new UserFacingError("Invalid opacity.");
-  } else if (!APPEARANCE_CHOICES[field]?.includes(value)) {
-    throw new UserFacingError("Invalid catalog choice.");
-  }
-  if (field !== "opacity" && value !== "match" && !ownsAppearanceItem(ownership, APPEARANCE_FIELD_CATEGORY[field], value)) {
-    throw new UserFacingError("You have not unlocked that appearance item.");
-  }
-  await interaction.deferUpdate();
-  const appearance = getProfileAppearance(profile);
-  appearance[field === "opacity" ? "panelOpacity" : field] = field === "opacity" ? Number(value) : value;
-  await saveProfileAppearance(interaction, profile, appearance,
-    APPEARANCE_PAGES.details.includes(field) ? "details" : "colors", 0, ownership);
+  await openAppearanceDM(interaction, await ensureProfileRecord(interaction.guildId, interaction.user));
 }
 export async function handleProfileStickerButton(interaction) {
-  const [, , action, indexText, ownerId] = interaction.customId.split(":");
-  if (ownerId !== interaction.user.id) throw new UserFacingError("Only the profile owner can edit stickers.");
-  const profile = await UserProfile.findOne({ guildId: interaction.guildId, discordUserId: ownerId });
-  if (!profile) throw new UserFacingError("Your profile was not found.");
-  const ownership = await getAppearanceOwnership(interaction.guildId, ownerId);
-  const appearance = filterOwnedAppearance(getProfileAppearance(profile), ownership);
-  const index = Number(indexText);
-  if (!Number.isSafeInteger(index) || index < 0 || index >= appearance.stickers.length) {
-    throw new UserFacingError("This sticker is no longer available.");
-  }
-  const sticker = appearance.stickers[index];
-  switch (action) {
-    case "left": sticker.x -= 0.025; break;
-    case "right": sticker.x += 0.025; break;
-    case "up": sticker.y -= 0.025; break;
-    case "down": sticker.y += 0.025; break;
-    case "smaller": sticker.scale -= 0.15; break;
-    case "larger": sticker.scale += 0.15; break;
-    case "rotateLeft": sticker.rotation -= 15; break;
-    case "rotateRight": sticker.rotation += 15; break;
-    case "remove": appearance.stickers.splice(index, 1); break;
-    default: throw new UserFacingError("Unknown sticker action.");
-  }
-  await interaction.deferUpdate();
-  await saveProfileAppearance(interaction, profile, appearance, "stickers",
-    action === "remove" ? Math.max(0, index - 1) : index, ownership);
+  const ownerId = interaction.customId.split(":").at(-1);
+  if (ownerId !== interaction.user.id) throw new UserFacingError("Only the profile owner can customize this profile.");
+  await openAppearanceDM(interaction, await ensureProfileRecord(interaction.guildId, interaction.user));
 }
 
 export async function handleProfileCardButton(interaction) {
