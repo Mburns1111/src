@@ -376,13 +376,17 @@ function drawDecorations(ctx, width, height, appearance, style) {
   }
 }
 
-function textPanel(ctx, region, style, alternate = false) {
-  const pad = 10;
+function glassPanel(ctx, x, y, width, height, style, alternate = false) {
   ctx.save();
   ctx.globalAlpha = style.panelOpacity;
-  fillRoundedRect(ctx, region.x - pad, region.y - 5,
-    region.width + pad * 2, region.height + 10, 14,
+  fillRoundedRect(ctx, x, y, width, height, 24,
     alternate ? style.panelAlt : style.panel);
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.62)';
+  ctx.lineWidth = 2;
+  roundedRect(ctx, x + 1, y + 1, width - 2, height - 2, 23);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -396,6 +400,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
   else drawBackgroundPattern(ctx, width, height, appearance);
 
+  if (!images.background) {
   ctx.fillStyle = style.panelAlt;
 
   ctx.beginPath();
@@ -422,6 +427,8 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   );
   ctx.fill();
 
+  }
+
   // The free default keeps its familiar solid panels. Image backgrounds use
   // small content panels so the artwork remains visible between sections.
   if (!images.background) {
@@ -429,10 +436,12 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
     fillRoundedRect(ctx, 40, 40, 280, height - 80, style.panelRadius, style.panelAlt);
     fillRoundedRect(ctx, 328, 40, width - 348, height - 80, style.panelRadius, style.panel);
   } else {
-    for (const region of [
-      r.title, r.subtitle, r.robloxLine, r.rolesLabel, ...r.rolesRows,
-      r.tradeLabel, r.tradeStatus, r.bioLabel, r.bio, r.footer,
-    ]) textPanel(ctx, region, style, region.x < 320);
+    // Group related information instead of giving every line a separate box.
+    glassPanel(ctx, 332, 60, 840, 235, style);
+    glassPanel(ctx, 44, 310, 272, 166, style, true);
+    glassPanel(ctx, 44, 484, 272, 139, style, true);
+    glassPanel(ctx, 332, 300, 840, 180, style);
+    glassPanel(ctx, 44, 676, 272, 65, style, true);
   }
 
   // Accent stripe and decorative marks.
@@ -574,7 +583,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
 
   drawWrappedText(
     ctx,
-    data.lookingForTrades ? 'Yes, interested!' : 'Not currently',
+    data.lookingForTrades ? 'Yes' : 'No',
     r.tradeStatus,
     {
       fontSize: 44,
@@ -610,38 +619,52 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
     }
   );
 
-  // Optional profile or album photo.
-  fillRoundedRect(
-    ctx,
-    r.photo.x,
-    r.photo.y,
-    r.photo.width,
-    r.photo.height,
-    style.imageRadius,
-    style.panelAlt
-  );
-
-  if (images.photo) {
-    drawContain(
+  // On image backgrounds the photo floats directly on the artwork.
+  // With no photo, leave the background completely visible.
+  if (!images.background) {
+    // Optional profile or album photo.
+    fillRoundedRect(
       ctx,
-      images.photo,
       r.photo.x,
       r.photo.y,
       r.photo.width,
       r.photo.height,
-      style.imageRadius
+      style.imageRadius,
+      style.panelAlt
     );
-  } else {
-    ctx.fillStyle = style.mutedText;
-    ctx.font = `40px ${style.fontFamily}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    ctx.fillText(
-      'PROFILE PHOTO / ALBUM IMAGE',
-      r.photo.x + r.photo.width / 2,
-      r.photo.y + r.photo.height / 2
-    );
+  
+    if (images.photo) {
+      drawContain(
+        ctx,
+        images.photo,
+        r.photo.x,
+        r.photo.y,
+        r.photo.width,
+        r.photo.height,
+        style.imageRadius
+      );
+    } else {
+      ctx.fillStyle = style.mutedText;
+      ctx.font = `40px ${style.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+  
+      ctx.fillText(
+        'PROFILE PHOTO / ALBUM IMAGE',
+        r.photo.x + r.photo.width / 2,
+        r.photo.y + r.photo.height / 2
+      );
+    }
+  
+    } else if (images.photo) {
+    drawContain(ctx, images.photo, r.photo.x, r.photo.y,
+      r.photo.width, r.photo.height, style.imageRadius);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 2;
+    roundedRect(ctx, r.photo.x, r.photo.y, r.photo.width, r.photo.height, style.imageRadius);
+    ctx.stroke();
+    ctx.restore();
   }
 
   // Footer.
