@@ -411,10 +411,15 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerIm
   else drawBackgroundPattern(ctx, width, height, appearance);
 
   // Small grouped panels; do not cover the unused background or photo region.
-  glassPanel(ctx, 335, 54, 831, 240, style);
+  // Default/matched palettes retain their original lighter right-side panels.
+  // Purchased panel themes need the visibly tinted shade on BOTH sides:
+  // the lighter shade blended into the background at the glass opacity.
+  const selectedPanelTheme = appearance.panelColor !== 'match' &&
+    Boolean(APPEARANCE_CATALOG.panels[appearance.panelColor]?.palette);
+  glassPanel(ctx, 335, 54, 831, 240, style, selectedPanelTheme);
   glassPanel(ctx, 44, 317, 272, 157, style, true);
   glassPanel(ctx, 44, 486, 272, 115, style, true);
-  glassPanel(ctx, 335, 308, 831, 174, style);
+  glassPanel(ctx, 335, 308, 831, 174, style, selectedPanelTheme);
   glassPanel(ctx, 44, 674, 272, 70, style, true);
 
   const avatar = { x: 66, y: 65, width: 228, height: 228 };
