@@ -1,3 +1,4 @@
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 import {
   ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle,
   EmbedBuilder, MessageFlags, PermissionFlagsBits, SlashCommandBuilder,
@@ -49,11 +50,53 @@ async function exampleImage(item) {
     appearance: exampleAppearance(item),
   });
 }
-function storefrontCategoryPayload(category, item, image) {
+async function featuredImage(featured) {
+  const width = 1200, tileWidth = 380, gap = 15;
+  const canvas = createCanvas(width, 330);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#E9F0E7";
+  ctx.fillRect(0, 0, width, 330);
+  for (let i = 0; i < featured.length; i++) {
+    const item = featured[i];
+    const img = await loadImage(await exampleImage(item));
+    const x = 15 + i * (tileWidth + gap);
+    ctx.drawImage(img, x, 15, tileWidth, 253);
+    ctx.fillStyle = "#29312C";
+    ctx.font = "bold 18px sans-serif";
+    ctx.fillText(item.name.slice(0, 28), x + 5, 291);
+    ctx.font = "16px sans-serif";
+    ctx.fillText(item.price + " Points", x + 5, 314);
+  }
+  return canvas.toBuffer("image/png");
+}
+function topThree(category) {
+  return [...itemsFor(category)].sort((a, b) => b.price - a.price || a.id.localeCompare(b.id)).slice(0, 3);
+}
+function sortedItems(category) {
+  return [...(category ? itemsFor(category) : shopItems())]
+    .sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
+}
+async function featuredPage(interaction, category) {
+  const featured = topThree(category);
+  const image = await featuredImage(featured);
+  const balance = await walletBalance(interaction.guildId, interaction.user.id);
+  return {
+    embeds: [new EmbedBuilder().setTitle(`${CATEGORY_LABELS[category]} · Featured`)
+      .setDescription(`Our top ${featured.length} picks!\n**Your Points: ${balance}**\nPress Browse Items to start with the cheapest and work your way up.`)
+      .setImage("attachment://shop-featured.png")],
+    files: [new AttachmentBuilder(image, { name: "shop-featured.png" })],
+    attachments: [],
+    components: [new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop:page:${category}:0`).setLabel("Browse Items →").setStyle(ButtonStyle.Primary),
+    )],
+    allowedMentions: { parse: [] },
+  };
+}
+function storefrontCategoryPayload(category, featured, image) {
   return {
     embeds: [new EmbedBuilder()
       .setTitle(CATEGORY_LABELS[category])
-      .setDescription(`Featured: **${item.name}** · **${item.price} Points**\nBrowse all ${CATEGORY_LABELS[category].toLowerCase()} privately.`)
+      .setDescription(`Top picks: ${featured.map(item => `**${item.name}** (${item.price} Points)`).join(" · ")}\nBrowse all ${CATEGORY_LABELS[category].toLowerCase()} privately.`)
       .setImage("attachment://shop-example.png")],
     files: [new AttachmentBuilder(image, { name: "shop-example.png" })],
     attachments: [],
@@ -95,8 +138,8 @@ export async function ensureShopEntry(guild, channel) {
     ? Object.fromEntries(config.shopCategoryMessageIds || []) : {};
   const ids = {};
   for (const category of categories()) {
-    const featured = [...itemsFor(category)].sort((a, b) => b.price - a.price)[0];
-    const image = await exampleImage(featured);
+    const featured = topThree(category);
+    const image = await featuredImage(featured);
     const message = await updateOrSend(channel, existing[category],
       storefrontCategoryPayload(category, featured, image));
     ids[category] = message.id;
@@ -117,7 +160,7 @@ function itemPage(item, index, total, balance, owned, category = null) {
   const embed = new EmbedBuilder().setTitle(`Appearance Shop · ${index + 1}/${total}`)
     .setDescription(`**${item.name}**\nCategory: ${item.category}\nPrice: **${item.price} Points**\nStatus: **${owned ? "Owned" : "Not owned"}**\nYour balance: **${balance} Points**\n\nUse Preview to see this on your own profile without saving it.`);
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index - 1}`).setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(index === 0),
+    new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index - 1}`).setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(index === 0 && !category),
     new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index + 1}`).setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(index === total - 1),
     new ButtonBuilder().setCustomId(`shop:preview:${category || 'all'}:${index}`).setLabel("Preview").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`shop:buy:${category || 'all'}:${index}`).setLabel(owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned),
@@ -125,8 +168,9 @@ function itemPage(item, index, total, balance, owned, category = null) {
   return { embeds: [embed], components: [row], allowedMentions: { parse: [] } };
 }
 async function pageFor(interaction, index, category = null) {
-  const items = category ? itemsFor(category) : shopItems();
+  const items = sortedItems(category);
   if (!items.length) throw new UserFacingError("The shop has no items yet.");
+  if (index === -1 && category) return featuredPage(interaction, category);
   if (!Number.isSafeInteger(index) || index < 0 || index >= items.length) throw new UserFacingError("Invalid shop page.");
   const ownership = await getAppearanceOwnership(interaction.guildId, interaction.user.id);
   const item = items[index];
@@ -216,14 +260,14 @@ export async function handleShopButton(interaction) {
   if (action === "open") {
     const category = rawCategory && CATEGORY_LABELS[rawCategory] ? rawCategory : null;
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    await interaction.editReply(await pageFor(interaction, 0, category));
+    await interaction.editReply(category ? await featuredPage(interaction, category) : await pageFor(interaction, 0));
     return true;
   }
   const category = rawCategory === "all" ? null : rawCategory;
   if (category && !CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
   const items = category ? itemsFor(category) : shopItems();
   const index = Number(rawIndex);
-  if (!Number.isSafeInteger(index) || index < 0 || index >= items.length) {
+  if (!Number.isSafeInteger(index) || index < (action === "page" && category ? -1 : 0) || index >= items.length) {
     throw new UserFacingError("That shop item is unavailable.");
   }
   if (action === "page") {
