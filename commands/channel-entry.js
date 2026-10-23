@@ -11,7 +11,7 @@ const entryLocks = new Map();
 export async function ensureChannelEntry(
   guild,
   channel,
-  { channelField, messageField, customId, label, description, moveToBottom = false },
+  { channelField, messageField, customId, label, description, moveToBottom = false, extraButtons = [] },
 ) {
   const key = `${guild.id}:${channelField}`;
   const currentLock = entryLocks.get(key);
@@ -25,6 +25,7 @@ export async function ensureChannelEntry(
       label,
       description,
       moveToBottom,
+      extraButtons,
     });
   }
 
@@ -35,6 +36,7 @@ export async function ensureChannelEntry(
     label,
     description,
     moveToBottom,
+    extraButtons,
   });
 
   const trackedOperation = operation.finally(() => {
@@ -50,7 +52,7 @@ export async function ensureChannelEntry(
 async function ensureChannelEntryOnce(
   guild,
   channel,
-  { channelField, messageField, customId, label, description, moveToBottom },
+  { channelField, messageField, customId, label, description, moveToBottom, extraButtons },
 ) {
   const config = await GuildConfig.findOne({ guildId: guild.id });
   const oldChannelId = config?.[channelField] ?? "";
@@ -64,6 +66,7 @@ async function ensureChannelEntryOnce(
           .setCustomId(customId)
           .setLabel(label)
           .setStyle(ButtonStyle.Primary),
+        ...extraButtons.map(button => new ButtonBuilder().setCustomId(button.customId).setLabel(button.label).setStyle(ButtonStyle.Secondary)),
       ),
     ],
     allowedMentions: { parse: [] },
