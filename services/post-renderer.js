@@ -849,6 +849,7 @@ export async function renderPostImage({
     ...colors,
     ...matchedPalette,
     panelOpacity: resolvedAppearance.panelOpacity,
+    ...(backgroundItem.kind === 'solid' && backgroundItem.color ? { background: backgroundItem.color } : {}),
   };
 
   const [avatar, photo, background] = await Promise.all([
