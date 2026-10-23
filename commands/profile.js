@@ -769,6 +769,7 @@ function adjustDraftSticker(draft, action) {
 export async function handleProfileAppearanceDM(interaction) {
   const [, , kind, token, field] = interaction.customId.split(":");
   const panel = await MemberDmPanel.findOne({
+    botUserId: interaction.client.user.id,
     discordUserId: interaction.user.id, kind: "appearance", token,
   });
   if (!panel || panel.messageId !== interaction.message?.id || panel.channelId !== interaction.channelId) {
