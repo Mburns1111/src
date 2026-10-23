@@ -1,9 +1,10 @@
 
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
+import { APPEARANCE_CATALOG, resolveAppearance } from './post-appearance.js';
 
 // Register a Unicode symbol font for decorative display names.
 // Downloaded once per process, with graceful fallback when offline.
@@ -309,14 +310,188 @@ function drawLabel(ctx, text, region, style) {
   });
 }
 
-function drawDefaultProfile(ctx, data, images, style, layout) {
+
+function drawBackgroundPattern(ctx, width, height, appearance) {
+  const choice = APPEARANCE_CATALOG.backgrounds[appearance.background];
+  if (choice.kind !== 'dots') return;
+  ctx.save();
+  ctx.fillStyle = choice.color;
+  ctx.globalAlpha = 0.26;
+  for (let y = 8; y < height; y += 26) {
+    for (let x = 8; x < width; x += 26) {
+      ctx.beginPath();
+      ctx.arc(x + ((Math.floor(y / 26) % 2) * 13), y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawDecorations(ctx, width, height, appearance, style) {
+  // Sticker transforms are normalized, so layouts may have different dimensions.
+  for (const sticker of appearance.stickers) {
+    const size = Math.min(width, height) * 0.065 * sticker.scale;
+    ctx.save();
+    ctx.translate(sticker.x * width, sticker.y * height);
+    ctx.rotate(sticker.rotation * Math.PI / 180);
+    ctx.fillStyle = style.accentDark;
+    ctx.strokeStyle = style.accentDark;
+    ctx.lineWidth = Math.max(2, size * 0.055);
+    if (sticker.id === 'flower') {
+      for (let i = 0; i < 6; i++) {
+        ctx.save();
+        ctx.rotate(i * Math.PI / 3);
+        ctx.beginPath();
+        ctx.ellipse(0, -size * 0.3, size * 0.16, size * 0.27, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = style.panel;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.13, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (sticker.id === 'star') {
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 5;
+        const radius = i % 2 ? size * 0.22 : size * 0.5;
+        const x = Math.cos(a) * radius, y = Math.sin(a) * radius;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  if (appearance.frame === 'doubleLine') {
+    const frame = APPEARANCE_CATALOG.frames.doubleLine;
+    ctx.save();
+    ctx.strokeStyle = frame.color;
+    ctx.lineWidth = 3;
+    roundedRect(ctx, 12, 12, width - 24, height - 24, 43);
+    ctx.stroke();
+    roundedRect(ctx, 26, 26, width - 52, height - 52, 33);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function glassPanel(ctx, x, y, width, height, style, alternate = false) {
+  ctx.save();
+  ctx.globalAlpha = style.panelOpacity;
+  fillRoundedRect(ctx, x, y, width, height, 24,
+    alternate ? style.panelAlt : style.panel);
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.62)';
+  ctx.lineWidth = 2;
+  roundedRect(ctx, x + 1, y + 1, width - 2, height - 2, 23);
+  ctx.stroke();
+  ctx.restore();
+}
+
+
+/**
+ * Open-background profile: translucent panels hug text, while the avatar and
+ * optional photo sit directly on the background. The original free card is
+ * rendered by drawDefaultProfile and remains unchanged.
+ */
+function drawOpenProfile(ctx, data, images, style, layout, appearance) {
+  const { width, height } = layout;
+  ctx.fillStyle = style.background;
+  ctx.fillRect(0, 0, width, height);
+  if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
+  else drawBackgroundPattern(ctx, width, height, appearance);
+
+  // Small grouped panels; do not cover the unused background or photo region.
+  glassPanel(ctx, 335, 54, 831, 240, style);
+  glassPanel(ctx, 44, 317, 272, 157, style, true);
+  glassPanel(ctx, 44, 486, 272, 115, style, true);
+  glassPanel(ctx, 335, 308, 831, 174, style);
+  glassPanel(ctx, 44, 674, 272, 70, style, true);
+
+  const avatar = { x: 66, y: 65, width: 228, height: 228 };
+  const cx = avatar.x + avatar.width / 2, cy = avatar.y + avatar.height / 2;
+  ctx.save();
+  ctx.fillStyle = style.accent;
+  ctx.beginPath();
+  ctx.arc(cx, cy, avatar.width / 2 + 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, avatar.width / 2, 0, Math.PI * 2);
+  ctx.clip();
+  if (images.avatar) drawCover(ctx, images.avatar, avatar.x, avatar.y, avatar.width, avatar.height);
+  else {
+    ctx.fillStyle = style.panel;
+    ctx.fillRect(avatar.x, avatar.y, avatar.width, avatar.height);
+    ctx.fillStyle = style.accentDark;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 110px ' + style.titleFontFamily;
+    ctx.fillText(String(data.displayName || 'P').charAt(0).toUpperCase(), cx, cy);
+  }
+  ctx.restore();
+
+  drawFittedLine(ctx, String(data.displayName || 'Member') + "'s Profile",
+    { x: 358, y: 72, width: 770 }, {
+      fontSize: 57, minFontSize: 26,
+      family: '"AM Unicode Symbols", ' + style.titleFontFamily,
+      color: style.accentDark,
+    });
+  drawFittedLine(ctx, 'Discord: ' + (data.discordUsername || 'Member'),
+    { x: 358, y: 170, width: 770 }, {
+      fontSize: 36, minFontSize: 22, family: style.fontFamily, color: style.mutedText,
+    });
+  drawFittedLine(ctx, 'Roblox: ' + (data.robloxUsername || 'Not added yet'),
+    { x: 358, y: 230, width: 770 }, {
+      fontSize: 30, minFontSize: 20, family: style.fontFamily, color: style.mutedText,
+    });
+
+  drawLabel(ctx, 'Server roles', { x: 60, y: 331, width: 242, height: 34 }, style);
+  const roles = Array.isArray(data.serverRoles) ? data.serverRoles : [];
+  (roles.length ? roles.slice(0, 3) : ['No roles to display']).forEach((role, i) => {
+    drawFittedLine(ctx, '• ' + role, { x: 60, y: 369 + i * 34, width: 242 }, {
+      fontSize: 23, minFontSize: 17, family: style.fontFamily, color: style.text,
+    });
+  });
+
+  drawLabel(ctx, 'Looking for trades', { x: 60, y: 500, width: 244, height: 34 }, style);
+  drawFittedLine(ctx, data.lookingForTrades ? 'Yes' : 'No',
+    { x: 60, y: 539, width: 240 }, {
+      fontSize: 37, minFontSize: 30, family: style.fontFamily, color: style.accentDark,
+    });
+
+  drawLabel(ctx, 'About me', { x: 355, y: 323, width: 770, height: 35 }, style);
+  drawWrappedText(ctx, data.bio || 'Add a bio to tell everyone a little about yourself.',
+    { x: 355, y: 367, width: 785, height: 102 }, {
+      fontSize: 34, minFontSize: 22, lineHeight: 42, maxLines: 3,
+      family: style.fontFamily, color: style.text,
+    });
+
+  // A real photo has no backing panel; without one the background stays visible.
+  if (images.photo) {
+    drawContain(ctx, images.photo, 350, 495, 802, 245, style.imageRadius);
+  }
+  drawFittedLine(ctx, data.footer || 'Made for the community',
+    { x: 60, y: 692, width: 242 }, {
+      fontSize: 22, minFontSize: 16, family: style.fontFamily, color: style.mutedText,
+    });
+
+  // Decorations intentionally remain free to overlap text.
+  drawDecorations(ctx, width, height, appearance, style);
+}
+
+function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   const r = layout.regions;
   const { width, height } = layout;
 
   // Background layer.
   ctx.fillStyle = style.background;
   ctx.fillRect(0, 0, width, height);
+  if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
+  else drawBackgroundPattern(ctx, width, height, appearance);
 
+  if (!images.background) {
   ctx.fillStyle = style.panelAlt;
 
   ctx.beginPath();
@@ -343,46 +518,31 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
   );
   ctx.fill();
 
-  // Main card and content panels.
-  fillRoundedRect(
-    ctx,
-    20,
-    20,
-    width - 40,
-    height - 40,
-    38,
-    style.panel
-  );
+  }
 
-  fillRoundedRect(
-    ctx,
-    40,
-    40,
-    280,
-    height - 80,
-    26,
-    style.panelAlt
-  );
-
-  // IMPORTANT: Use style.panel instead of pure white.
-  fillRoundedRect(
-    ctx,
-    328,
-    40,
-    width - 348,
-    height - 80,
-    26,
-    style.panel
-  );
+  // The free default keeps its familiar solid panels. Image backgrounds use
+  // small content panels so the artwork remains visible between sections.
+  if (!images.background) {
+    fillRoundedRect(ctx, 20, 20, width - 40, height - 40, 38, style.panel);
+    fillRoundedRect(ctx, 40, 40, 280, height - 80, style.panelRadius, style.panelAlt);
+    fillRoundedRect(ctx, 328, 40, width - 348, height - 80, style.panelRadius, style.panel);
+  } else {
+    // Group related information instead of giving every line a separate box.
+    glassPanel(ctx, 332, 58, 840, 232, style);
+    glassPanel(ctx, 44, 310, 272, 166, style, true);
+    glassPanel(ctx, 44, 486, 272, 112, style, true);
+    glassPanel(ctx, 332, 304, 840, 182, style);
+    glassPanel(ctx, 44, 676, 272, 65, style, true);
+  }
 
   // Accent stripe and decorative marks.
-  fillRoundedRect(
+  if (!images.background) fillRoundedRect(
     ctx,
     328,
     40,
-    12,
+    style.accentStripeWidth,
     height - 80,
-    6,
+    style.accentStripeWidth / 2,
     style.accent
   );
 
@@ -467,8 +627,10 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
   // Profile title and subtitle.
   const title = `${displayName}'s Profile`;
 
-  drawFittedLine(ctx, title, r.title, {
-    fontSize: 66, minFontSize: 25,
+  drawFittedLine(ctx, title, images.background
+    ? { ...r.title, x: r.title.x + 10, y: r.title.y + 8, width: r.title.width - 34 }
+    : r.title, {
+    fontSize: images.background ? 57 : 66, minFontSize: 25,
     family: '\"AM Unicode Symbols\", ' + style.titleFontFamily, color: style.accentDark,
   });
 
@@ -510,12 +672,14 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
   }
 
   // Trade status.
-  drawLabel(ctx, 'Looking for trades', r.tradeLabel, style);
+  drawLabel(ctx, 'Looking for trades', images.background
+    ? { ...r.tradeLabel, y: r.tradeLabel.y + 7, x: r.tradeLabel.x + 6 }
+    : r.tradeLabel, style);
 
   drawWrappedText(
     ctx,
-    data.lookingForTrades ? 'Yes, interested!' : 'Not currently',
-    r.tradeStatus,
+    data.lookingForTrades ? 'Yes' : 'No',
+    images.background ? { ...r.tradeStatus, x: r.tradeStatus.x + 6, y: r.tradeStatus.y - 4, height: 52 } : r.tradeStatus,
     {
       fontSize: 44,
       minFontSize: 34,
@@ -534,12 +698,14 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
   });
 
   // Bio.
-  drawLabel(ctx, 'About me', r.bioLabel, style);
+  drawLabel(ctx, 'About me', images.background
+    ? { ...r.bioLabel, x: r.bioLabel.x + 10, y: r.bioLabel.y + 13 }
+    : r.bioLabel, style);
 
   drawWrappedText(
     ctx,
     data.bio || 'Add a bio to tell everyone a little about yourself.',
-    r.bio,
+    images.background ? { ...r.bio, x: r.bio.x + 10, y: r.bio.y + 12, width: r.bio.width - 24, height: r.bio.height - 12 } : r.bio,
     {
       fontSize: 48,
       minFontSize: 34,
@@ -550,38 +716,52 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
     }
   );
 
-  // Optional profile or album photo.
-  fillRoundedRect(
-    ctx,
-    r.photo.x,
-    r.photo.y,
-    r.photo.width,
-    r.photo.height,
-    18,
-    style.panelAlt
-  );
-
-  if (images.photo) {
-    drawContain(
+  // On image backgrounds the photo floats directly on the artwork.
+  // With no photo, leave the background completely visible.
+  if (!images.background) {
+    // Optional profile or album photo.
+    fillRoundedRect(
       ctx,
-      images.photo,
       r.photo.x,
       r.photo.y,
       r.photo.width,
       r.photo.height,
-      18
+      style.imageRadius,
+      style.panelAlt
     );
-  } else {
-    ctx.fillStyle = style.mutedText;
-    ctx.font = `40px ${style.fontFamily}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    ctx.fillText(
-      'PROFILE PHOTO / ALBUM IMAGE',
-      r.photo.x + r.photo.width / 2,
-      r.photo.y + r.photo.height / 2
-    );
+  
+    if (images.photo) {
+      drawContain(
+        ctx,
+        images.photo,
+        r.photo.x,
+        r.photo.y,
+        r.photo.width,
+        r.photo.height,
+        style.imageRadius
+      );
+    } else {
+      ctx.fillStyle = style.mutedText;
+      ctx.font = `40px ${style.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+  
+      ctx.fillText(
+        'PROFILE PHOTO / ALBUM IMAGE',
+        r.photo.x + r.photo.width / 2,
+        r.photo.y + r.photo.height / 2
+      );
+    }
+  
+    } else if (images.photo) {
+    drawContain(ctx, images.photo, r.photo.x, r.photo.y,
+      r.photo.width, r.photo.height, style.imageRadius);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 2;
+    roundedRect(ctx, r.photo.x, r.photo.y, r.photo.width, r.photo.height, style.imageRadius);
+    ctx.stroke();
+    ctx.restore();
   }
 
   // Footer.
@@ -600,32 +780,33 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
 
   // Final frame layer.
   ctx.strokeStyle = style.frame;
-  ctx.lineWidth = 5;
+  ctx.lineWidth = style.borderWidth;
 
   roundedRect(
     ctx,
-    20,
-    20,
-    width - 40,
-    height - 40,
-    38
+    style.outerInset,
+    style.outerInset,
+    width - style.outerInset * 2,
+    height - style.outerInset * 2,
+    style.cornerRadius
   );
 
   ctx.stroke();
 
   ctx.strokeStyle = style.panelAlt;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = style.innerBorderWidth;
 
   roundedRect(
     ctx,
-    30,
-    30,
-    width - 60,
-    height - 60,
-    27
+    style.innerInset,
+    style.innerInset,
+    width - style.innerInset * 2,
+    height - style.innerInset * 2,
+    style.innerCornerRadius
   );
 
   ctx.stroke();
+  drawDecorations(ctx, width, height, appearance, style);
 }
 
 /**
@@ -636,6 +817,7 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
  * @param {object} options.data Text/data fields for the selected layout.
  * @param {object} [options.images] Optional avatar/photo image sources.
  * @param {object} [options.style] Optional overrides for DEFAULT_POST_STYLE.
+ * @param {object} [options.appearance] Catalog item IDs and sticker transforms.
  * @returns {Promise<Buffer>} PNG bytes suitable for Discord AttachmentBuilder.
  */
 export async function renderPostImage({
@@ -643,6 +825,7 @@ export async function renderPostImage({
   data = {},
   images = {},
   style = {},
+  appearance = {},
 } = {}) {
   if (type === 'profile') await ensureSymbolFont();
   const layout = POST_LAYOUTS[type];
@@ -651,12 +834,25 @@ export async function renderPostImage({
     throw new Error(`Unknown post layout: ${type}`);
   }
 
+  const resolvedAppearance = resolveAppearance(appearance);
+  const font = APPEARANCE_CATALOG.fonts[resolvedAppearance.font];
+  const colors = APPEARANCE_CATALOG.fontColors[resolvedAppearance.fontColor];
+  const backgroundItem = APPEARANCE_CATALOG.backgrounds[resolvedAppearance.background];
+  const matchedPalette = resolvedAppearance.panelColor === 'match'
+    ? backgroundItem.palette || {}
+    : APPEARANCE_CATALOG.panels[resolvedAppearance.panelColor]?.palette || {};
   const resolvedStyle = {
     ...DEFAULT_POST_STYLE,
     ...style,
+    fontFamily: font.family,
+    titleFontFamily: font.titleFamily,
+    ...colors,
+    ...matchedPalette,
+    panelOpacity: resolvedAppearance.panelOpacity,
+    ...(backgroundItem.kind === 'solid' && backgroundItem.color ? { background: backgroundItem.color } : {}),
   };
 
-  const [avatar, photo] = await Promise.all([
+  const [avatar, photo, background] = await Promise.all([
     loadImageSource(images.avatar).catch((error) => {
       console.warn(
         `[post-renderer] Could not load avatar: ${error.message}`
@@ -670,18 +866,27 @@ export async function renderPostImage({
       );
       return null;
     }),
+    backgroundItem.kind === 'image'
+      ? readFile(new URL('../' + backgroundItem.asset, import.meta.url))
+          .then(bytes => loadImage(bytes))
+          .catch(error => {
+            console.warn('[post-renderer] Background unavailable:', error.message);
+            return null;
+          })
+      : Promise.resolve(null),
   ]);
 
   const canvas = createCanvas(layout.width, layout.height);
   const ctx = canvas.getContext('2d');
 
   if (type === 'profile') {
-    drawDefaultProfile(
+    (resolvedAppearance.background === 'default' ? drawDefaultProfile : drawOpenProfile)(
       ctx,
       data,
-      { avatar, photo },
+      { avatar, photo, background },
       resolvedStyle,
-      layout
+      layout,
+      resolvedAppearance
     );
   } else {
     throw new Error(
