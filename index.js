@@ -10,6 +10,7 @@ import {
   ensureProfileRecord,
   handleProfileAlbumPage,
   handleProfileCardButton,
+  handleProfileAppearanceSelect,
   handleProfileMenuButton,
   handleProfileModal,
   handleProfilePhotoActionButton,
@@ -294,6 +295,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.customId.startsWith("profile:photos-action:")
     ) {
       await handleProfilePhotoActionButton(interaction);
+      return;
+    }
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith("profile:appearance:")) {
+      await handleProfileAppearanceSelect(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("profile:card:")) {
