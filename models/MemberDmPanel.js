@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 
-// One reusable DM message per server, member, and feature. Also stores the
-// unsaved appearance draft so editing can continue after a bot restart.
+// Tracks the permanent shop DM and any unfinished temporary appearance editor.\n// Unsaved appearance drafts survive bot restarts; completed editors are deleted.
 const memberDmPanelSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   botUserId: { type: String, required: true },
