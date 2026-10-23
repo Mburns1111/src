@@ -361,24 +361,29 @@ async function dmPreview(context, category, index) {
   ];
   return result;
 }
-async function sendShopDM(interaction, category) {
-  if (!category || !CATEGORY_LABELS[category]) throw new UserFacingError("No shop categories are available.");
-  const context = { guildId: interaction.guildId, user: interaction.user, guild: interaction.guild };
-  const { message, created, adopted } = await getOrCreateDmPanel({
-    guildId: interaction.guildId,
-    user: interaction.user,
+// One permanent shop DM per member and server. Other features can call this
+// before sending temporary controls, without creating another shop message.
+export async function ensureMemberShopDM(guild, user, category = categories()[0]) {
+  if (!category || !CATEGORY_LABELS[category]) {
+    throw new UserFacingError("No shop categories are available.");
+  }
+  const context = { guildId: guild.id, user, guild };
+  const result = await getOrCreateDmPanel({
+    guildId: guild.id,
+    user,
     kind: "shop",
     makeInitial: async () => ({ payload: await dmItemPage(context, category, 0) }),
-    // Recognize the shop message created by the previous version if it's still
-    // within recent DMs, so upgrading needn't send another copy.
     adoptExisting: message => message.components.some(row =>
       row.components?.some(component =>
-        component.customId?.startsWith(`shop:dm:${interaction.guildId}:`))),
+        component.customId?.startsWith(`shop:dm:${guild.id}:`))),
   });
-  if (adopted) {
-    // Upgrade a shop DM from the previous version to the latest buttons.
-    await message.edit(await dmItemPage(context, category, 0));
+  if (result.adopted) {
+    await result.message.edit(await dmItemPage(context, category, 0));
   }
+  return result;
+}
+async function sendShopDM(interaction, category) {
+  const { message, created } = await ensureMemberShopDM(interaction.guild, interaction.user, category);
   await interaction.editReply({
     content: `${created ? "I opened your personal shop!" : "Your personal shop is already in your DMs."} [**Open your shop**](${dmPanelUrl(message.channelId, message.id)}). You can browse categories, check Points, and customize your profile there.`,
     allowedMentions: { parse: [] },
