@@ -554,7 +554,7 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
   const ownerId = profile.discordUserId;
   const selectId = field => dmToken
     ? `profile:dm:select:${dmToken}:${field}`
-    : selectId(field);
+    : `profile:appearance:${field}:${ownerId}`;
   const finish = () => new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:confirm`).setLabel("Confirm & update profile").setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:cancel`).setLabel("Cancel").setStyle(ButtonStyle.Secondary),
@@ -626,7 +626,7 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
       );
     }
     return new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder().setCustomId(`profile:appearance:${field}:${ownerId}`)
+      new StringSelectMenuBuilder().setCustomId(selectId(field))
         .setPlaceholder({
           background: "Choose background", panelColor: "Choose panel color",
           font: "Choose font", fontColor: "Choose text color", frame: "Choose frame",
@@ -681,7 +681,7 @@ async function openAppearanceDM(interaction, profile) {
   }
   appearanceDmSessions.set(interaction.user.id, draft);
   await interaction.editReply({
-    content: \`I sent your **live profile customization editor** to your DMs. [Open your editor](https://discord.com/channels/@me/\${dm.channelId}/\${dm.id}). Nothing changes on your public profile until you confirm.\`,
+    content: `I sent your **live profile customization editor** to your DMs. [Open your editor](https://discord.com/channels/@me/${dm.channelId}/${dm.id}). Nothing changes on your public profile until you confirm.`,
   });
 }
 
