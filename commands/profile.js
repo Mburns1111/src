@@ -108,36 +108,16 @@ export async function handleInventoryEntryButton(interaction) {
 }
 
 function makeProfileCardContent(profile, guildId, listingLinks) {
-  const lines = [`<@${profile.discordUserId}>'s member profile`];
+  const sections = [`<@${profile.discordUserId}>'s member profile`];
   const inventoryLinks = profile.albumPosts
-    .filter(
-      (post) =>
-        post.channelId !== profile.profileCardChannelId ||
-        post.messageId !== profile.profileCardMessageId,
-    )
+    .filter(post => post.channelId !== profile.profileCardChannelId || post.messageId !== profile.profileCardMessageId)
     .slice(-8)
-    .map(
-      (post) =>
-        `[Inventory photos](${discordMessageUrl(
-          guildId,
-          post.channelId,
-          post.messageId,
-        )})`,
-    );
-  const inventoryVideoUrl =
-    profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId
-      ? discordMessageUrl(
-          guildId,
-          profile.inventoryVideoPostChannelId,
-          profile.inventoryVideoPostMessageId,
-        )
-      : profile.inventoryVideoUrl;
-  if (inventoryVideoUrl) {
-    inventoryLinks.unshift(`[Inventory video](${inventoryVideoUrl})`);
-  }
-  if (inventoryLinks.length) {
-    lines.push(`**Inventory:** ${inventoryLinks.join(" · ")}`);
-  }
+    .map(post => `• [Inventory photos](${discordMessageUrl(guildId, post.channelId, post.messageId)})`);
+  const inventoryVideoUrl = profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId
+    ? discordMessageUrl(guildId, profile.inventoryVideoPostChannelId, profile.inventoryVideoPostMessageId)
+    : profile.inventoryVideoUrl;
+  if (inventoryVideoUrl) inventoryLinks.unshift(`• [Inventory video](${inventoryVideoUrl})`);
+  if (inventoryLinks.length) sections.push(`**Inventory**\n${inventoryLinks.join("\n")}`);
 
   for (const [label, listings] of [
     ["House listings", listingLinks.houses],
@@ -145,46 +125,32 @@ function makeProfileCardContent(profile, guildId, listingLinks) {
     ["Trade listings", listingLinks.trades],
   ]) {
     if (!listings.length) continue;
-    const links = [];
-    for (const listing of listings) {
-      const url = discordMessageUrl(
-        guildId,
-        listing.postChannelId,
-        listing.postMessageId,
-      );
-      if (label === "Trade listings") {
-        const counts = getVoteCounts(listing);
-        links.push(
-          `[${listing.title || "Trade listing"}](${url}) — ✅ ${counts.good} · ❌ ${counts.bad} · 🤷 ${counts.unsure} · 👍 ${counts.wouldMake} · 👎 ${counts.wouldntMake}`,
-        );
-      } else {
-        links.push(`[${listing.title || label.slice(0, -1)}](${url})`);
-      }
-    }
-    lines.push(`**${label}:** ${links.join(" · ")}`);
+    const entries = listings.map(listing => {
+      const url = discordMessageUrl(guildId, listing.postChannelId, listing.postMessageId);
+      const title = `[${listing.title || label.slice(0, -1)}](${url})`;
+      if (label !== "Trade listings") return `• ${title}`;
+      const counts = getVoteCounts(listing);
+      return `• ${title}\n  ✅ ${counts.good}  ❌ ${counts.bad}  🤷 ${counts.unsure}  👍 ${counts.wouldMake}  👎 ${counts.wouldntMake}`;
+    });
+    sections.push(`**${label}**\n${entries.join("\n")}`);
   }
   if (listingLinks.tradingPost) {
-    lines.push(
-      `**Trading Post:** [See my Trading Post here >](${discordMessageUrl(
-        guildId,
-        listingLinks.tradingPost.postChannelId,
-        listingLinks.tradingPost.postMessageId,
-      )})`,
-    );
+    sections.push(`**Trading Post**\n• [View trading post](${discordMessageUrl(guildId, listingLinks.tradingPost.postChannelId, listingLinks.tradingPost.postMessageId)})`);
   }
 
-  const visibleLines = [];
-  let contentLength = 0;
-  for (const line of lines) {
-    const nextLength = contentLength + line.length + (visibleLines.length ? 1 : 0);
-    if (nextLength > 4090) {
-      visibleLines.push("…");
+  // Discord embed descriptions are limited to 4096 characters.
+  const result = [];
+  let length = 0;
+  for (const section of sections) {
+    const separator = result.length ? "\n\n" : "";
+    if (length + separator.length + section.length > 4090) {
+      if (length + 2 <= 4096) result.push("…");
       break;
     }
-    visibleLines.push(line);
-    contentLength = nextLength;
+    result.push(section);
+    length += separator.length + section.length;
   }
-  return visibleLines.join("\n");
+  return result.join("\n\n");
 }
 
 function makeAlbumButtons(userId, page, count) {
