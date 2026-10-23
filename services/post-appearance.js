@@ -5,7 +5,7 @@
 export const APPEARANCE_CATALOG = Object.freeze({
   backgrounds: {
     default: { kind: 'solid' },
-    sagePreview: { kind: 'solid', color: '#879D87', palette: { panel: '#E8ECE2', panelAlt: '#DCE4D7', accent: '#6F8974' } },
+    sagePreview: { kind: 'solid', color: '#DCE9D7', palette: { panel: '#F3F7EF', panelAlt: '#E9F1E5', accent: '#79977C' } },
     sageDots: { kind: 'dots', color: '#708779' },
     garden: { kind: 'image', asset: 'assets/backgrounds/garden.svg', palette: { panel: '#E7E4D5', panelAlt: '#D1DAC4', accent: '#708779' } },
   },
@@ -39,7 +39,7 @@ export const DEFAULT_APPEARANCE = Object.freeze({
   fontColor: 'default',
   stickers: [],
   panelColor: 'match',
-  panelOpacity: 0.58,
+  panelOpacity: 0.34,
 });
 
 const select = (category, id) => APPEARANCE_CATALOG[category][id]
@@ -56,7 +56,7 @@ export function resolveAppearance(input = {}) {
     font: select('fonts', value.font),
     fontColor: select('fontColors', value.fontColor),
     panelColor: value.panelColor === 'match' ? 'match' : select('panels', value.panelColor),
-    panelOpacity: Number.isFinite(value.panelOpacity) ? Math.min(1, Math.max(0.2, value.panelOpacity)) : 0.58,
+    panelOpacity: Number.isFinite(value.panelOpacity) ? Math.min(1, Math.max(0.2, value.panelOpacity)) : 0.34,
     stickers: (Array.isArray(value.stickers) ? value.stickers : [])
       .filter(s => s && APPEARANCE_CATALOG.stickers[s.id])
       .slice(0, 8)
