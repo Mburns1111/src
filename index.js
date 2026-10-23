@@ -79,6 +79,7 @@ import {
   ensureTradingPostEntry,
 } from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
+import { handleTemporaryDmNotice } from "./services/temporary-dm-notice.js";
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
 import UserProfile from "./models/UserProfile.js";
@@ -216,6 +217,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith("dm:notice:")) {
+      await handleTemporaryDmNotice(interaction);
+      return;
+    }
     if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("shop:")) {
       await handleShopButton(interaction);
       return;
