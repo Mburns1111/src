@@ -11,6 +11,7 @@ import {
   handleProfileAlbumPage,
   handleProfileCardButton,
   handleProfileAppearanceSelect,
+  handleProfileAppearanceDM,
   handleProfileStickerButton,
   handleProfileMenuButton,
   handleProfileModal,
@@ -91,7 +92,7 @@ if (!token || !mongoUri) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages],
 });
 
 const commandHandlers = new Map([
@@ -214,7 +215,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     }
 
-    if (interaction.isButton() && interaction.customId.startsWith("shop:")) {
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("shop:")) {
       await handleShopButton(interaction);
       return;
     }
@@ -305,6 +306,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.customId.startsWith("profile:photos-action:")
     ) {
       await handleProfilePhotoActionButton(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("profile:dm:")) {
+      await handleProfileAppearanceDM(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("profile:sticker:")) {
