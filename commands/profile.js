@@ -623,7 +623,7 @@ async function saveProfileAppearance(interaction, profile, appearance, selectedP
   await profile.save();
   await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
   await interaction.editReply({
-    content: "Appearance saved and profile updated. Test catalog items are temporarily available; shop ownership checks are not yet active.",
+    content: "Appearance saved and profile updated. Only free or unlocked catalog items can be equipped.",
     components: makeAppearanceControls(profile, selectedPage, selectedIndex, ownership),
   });
 }
@@ -726,7 +726,7 @@ export async function handleProfileCardButton(interaction) {
   }
 
   if (action === "appearance") {
-    await interaction.reply({ content: "Profile appearance (test catalog; shop ownership will be enforced before launch).", components: makeAppearanceControls(profile), flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "Profile appearance (test catalog; shop ownership will be enforced before launch).", components: makeAppearanceControls(profile, "colors", 0, await getAppearanceOwnership(interaction.guildId, ownerId)), flags: MessageFlags.Ephemeral });
   } else if (action === "edit") {
     await interaction.showModal(makeEditProfileModal(profile, ownerId));
   } else if (action === "photos") {
