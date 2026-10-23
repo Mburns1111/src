@@ -130,9 +130,11 @@ function makeProfileCardContent(profile, guildId, listingLinks) {
       const title = `[${listing.title || label.slice(0, -1)}](${url})`;
       if (label !== "Trade listings") return `• ${title}`;
       const counts = getVoteCounts(listing);
-      return `• ${title}\n  ✅ ${counts.good}  ❌ ${counts.bad}  🤷 ${counts.unsure}  👍 ${counts.wouldMake}  👎 ${counts.wouldntMake}`;
+      const positive = counts.good + counts.wouldMake;
+      const negative = counts.bad + counts.wouldntMake;
+      return `• ${title} — 👍 ${positive} · 👎 ${negative}${counts.unsure ? ` · 🤷 ${counts.unsure}` : ""}`;
     });
-    sections.push(`**${label}**\n${entries.join("\n")}`);
+    sections.push(`**${label} (${listings.length})**\n${entries.join("\n")}`);
   }
   if (listingLinks.tradingPost) {
     sections.push(`**Trading Post**\n• [View trading post](${discordMessageUrl(guildId, listingLinks.tradingPost.postChannelId, listingLinks.tradingPost.postMessageId)})`);
