@@ -1,7 +1,7 @@
-import { createCanvas, loadImage } from "@napi-rs/canvas";
+
 import {
   ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle,
-  EmbedBuilder, MessageFlags, SlashCommandBuilder,
+  EmbedBuilder, MessageFlags, SlashCommandBuilder, StringSelectMenuBuilder,
 } from "discord.js";
 import mongoose from "mongoose";
 import GuildConfig from "../models/GuildConfig.js";
@@ -50,24 +50,17 @@ async function exampleImage(item) {
     appearance: exampleAppearance(item),
   });
 }
-async function featuredImage(featured) {
-  const width = 1200, tileWidth = 380, gap = 15;
-  const canvas = createCanvas(width, 330);
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#E9F0E7";
-  ctx.fillRect(0, 0, width, 330);
-  for (let i = 0; i < featured.length; i++) {
-    const item = featured[i];
-    const img = await loadImage(await exampleImage(item));
-    const x = 15 + i * (tileWidth + gap);
-    ctx.drawImage(img, x, 15, tileWidth, 253);
-    ctx.fillStyle = "#29312C";
-    ctx.font = "bold 18px sans-serif";
-    ctx.fillText(item.name.slice(0, 28), x + 5, 291);
-    ctx.font = "16px sans-serif";
-    ctx.fillText(item.price + " Points", x + 5, 314);
-  }
-  return canvas.toBuffer("image/png");
+// Render each featured example at full profile-card size instead of squeezing
+// three profiles into a single horizontal image. Discord stacks these vertically.
+async function featuredCards(featured) {
+  const images = await Promise.all(featured.map(exampleImage));
+  return {
+    embeds: featured.map((item, index) =>
+      new EmbedBuilder().setTitle(`${item.name} · ${item.price} Points`)
+        .setImage(`attachment://shop-featured-${index}.png`)),
+    files: images.map((image, index) =>
+      new AttachmentBuilder(image, { name: `shop-featured-${index}.png` })),
+  };
 }
 function topThree(category) {
   return [...itemsFor(category)].sort((a, b) => b.price - a.price || a.id.localeCompare(b.id)).slice(0, 3);
@@ -76,15 +69,14 @@ function sortedItems(category) {
   return [...(category ? itemsFor(category) : shopItems())]
     .sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
 }
-async function featuredPage(interaction, category) {
+async function featuredPage(context, category) {
   const featured = topThree(category);
-  const image = await featuredImage(featured);
-  const balance = await walletBalance(interaction.guildId, interaction.user.id);
+  const cards = await featuredCards(featured);
+  const balance = await walletBalance(context.guildId, context.user.id);
   return {
     embeds: [new EmbedBuilder().setTitle(`${CATEGORY_LABELS[category]} · Featured`)
-      .setDescription(`Our top ${featured.length} picks!\n**Your Points: ${balance}**\nPress Browse Items to start with the cheapest and work your way up.`)
-      .setImage("attachment://shop-featured.png")],
-    files: [new AttachmentBuilder(image, { name: "shop-featured.png" })],
+      .setDescription(`Our top ${featured.length} picks!\n**Your Points: ${balance}**\nBrowse Items starts at the cheapest design.`), ...cards.embeds],
+    files: cards.files,
     attachments: [],
     components: [new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:page:${category}:0`).setLabel("Browse Items →").setStyle(ButtonStyle.Primary),
@@ -92,13 +84,13 @@ async function featuredPage(interaction, category) {
     allowedMentions: { parse: [] },
   };
 }
-function storefrontCategoryPayload(category, featured, image) {
+async function storefrontCategoryPayload(category, featured) {
+  const cards = await featuredCards(featured);
   return {
-    embeds: [new EmbedBuilder()
-      .setTitle(CATEGORY_LABELS[category])
-      .setDescription(`Top picks: ${featured.map(item => `**${item.name}** (${item.price} Points)`).join(" · ")}\nBrowse all ${CATEGORY_LABELS[category].toLowerCase()} privately.`)
-      .setImage("attachment://shop-example.png")],
-    files: [new AttachmentBuilder(image, { name: "shop-example.png" })],
+    embeds: [new EmbedBuilder().setTitle(CATEGORY_LABELS[category])
+      .setDescription(`Top ${featured.length} picks below. Browse all ${CATEGORY_LABELS[category].toLowerCase()} in your DMs.`),
+      ...cards.embeds],
+    files: cards.files,
     attachments: [],
     components: [new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:open:${category}`)
@@ -139,9 +131,8 @@ export async function ensureShopEntry(guild, channel) {
   const ids = {};
   for (const category of categories()) {
     const featured = topThree(category);
-    const image = await featuredImage(featured);
     const message = await updateOrSend(channel, existing[category],
-      storefrontCategoryPayload(category, featured, image));
+      await storefrontCategoryPayload(category, featured));
     ids[category] = message.id;
   }
   // Always put the balance button after all category examples when first configured.
