@@ -91,7 +91,8 @@ async function updateOrSend(channel, id, payload) {
 }
 export async function ensureShopEntry(guild, channel) {
   const config = await GuildConfig.findOne({ guildId: guild.id });
-  const existing = config?.shopChannelId === channel.id ? config.shopCategoryMessageIds || {} : {};
+  const existing = config?.shopChannelId === channel.id
+    ? Object.fromEntries(config.shopCategoryMessageIds || []) : {};
   const ids = {};
   for (const category of categories()) {
     const featured = [...itemsFor(category)].sort((a, b) => b.price - a.price)[0];
