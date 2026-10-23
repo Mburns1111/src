@@ -327,7 +327,7 @@ function drawBackgroundPattern(ctx, width, height, appearance) {
   ctx.restore();
 }
 
-function drawDecorations(ctx, width, height, appearance, style) {
+function drawDecorations(ctx, width, height, appearance, style, stickerImages = new Map()) {
   // Sticker transforms are normalized, so layouts may have different dimensions.
   for (const sticker of appearance.stickers) {
     const size = Math.min(width, height) * 0.065 * sticker.scale;
@@ -337,7 +337,14 @@ function drawDecorations(ctx, width, height, appearance, style) {
     ctx.fillStyle = style.accentDark;
     ctx.strokeStyle = style.accentDark;
     ctx.lineWidth = Math.max(2, size * 0.055);
-    if (sticker.id === 'flower') {
+    const item = APPEARANCE_CATALOG.stickers[sticker.id];
+    if (item?.kind === 'image' && stickerImages.has(sticker.id)) {
+      const image = stickerImages.get(sticker.id);
+      const ratio = image.width / image.height;
+      const imageWidth = ratio >= 1 ? size : size * ratio;
+      const imageHeight = ratio >= 1 ? size / ratio : size;
+      ctx.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+    } else if (sticker.id === 'flower') {
       for (let i = 0; i < 6; i++) {
         ctx.save();
         ctx.rotate(i * Math.PI / 3);
@@ -396,7 +403,7 @@ function glassPanel(ctx, x, y, width, height, style, alternate = false) {
  * optional photo sit directly on the background. The original free card is
  * rendered by drawDefaultProfile and remains unchanged.
  */
-function drawOpenProfile(ctx, data, images, style, layout, appearance) {
+function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerImages) {
   const { width, height } = layout;
   ctx.fillStyle = style.background;
   ctx.fillRect(0, 0, width, height);
@@ -478,10 +485,10 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance) {
     });
 
   // Decorations intentionally remain free to overlap text.
-  drawDecorations(ctx, width, height, appearance, style);
+  drawDecorations(ctx, width, height, appearance, style, stickerImages);
 }
 
-function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
+function drawDefaultProfile(ctx, data, images, style, layout, appearance, stickerImages) {
   const r = layout.regions;
   const { width, height } = layout;
 
@@ -806,7 +813,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   );
 
   ctx.stroke();
-  drawDecorations(ctx, width, height, appearance, style);
+  drawDecorations(ctx, width, height, appearance, style, stickerImages);
 }
 
 /**
@@ -876,6 +883,20 @@ export async function renderPostImage({
       : Promise.resolve(null),
   ]);
 
+  // Custom sticker assets are curated local files (e.g. transparent PNGs).
+  // Never load arbitrary user-provided paths or URLs from saved profiles.
+  const stickerImages = new Map();
+  await Promise.all(resolvedAppearance.stickers.map(async sticker => {
+    const item = APPEARANCE_CATALOG.stickers[sticker.id];
+    if (item?.kind !== 'image' || !item.asset || stickerImages.has(sticker.id)) return;
+    try {
+      const bytes = await readFile(new URL('../' + item.asset, import.meta.url));
+      stickerImages.set(sticker.id, await loadImage(bytes));
+    } catch (error) {
+      console.warn('[post-renderer] Sticker unavailable:', sticker.id, error.message);
+    }
+  }));
+
   const canvas = createCanvas(layout.width, layout.height);
   const ctx = canvas.getContext('2d');
 
@@ -886,7 +907,8 @@ export async function renderPostImage({
       { avatar, photo, background },
       resolvedStyle,
       layout,
-      resolvedAppearance
+      resolvedAppearance,
+      stickerImages
     );
   } else {
     throw new Error(
