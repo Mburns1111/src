@@ -64,6 +64,7 @@ import {
 } from "./commands/trade.js";
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
+import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
   execute as executeMigrateOldPosts,
@@ -103,6 +104,7 @@ const commandHandlers = new Map([
   [tradeCommand.name, executeTrade],
   [setupCommand.name, executeSetup],
   [shopCommand.name, executeShop],
+  [testPointsCommand.name, executeTestPoints],
   [helpCommand.name, executeHelp],
   ["migrate_old_posts", executeMigrateOldPosts],
 ]);
@@ -387,6 +389,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       ![
         setupCommand.name,
         shopCommand.name,
+        testPointsCommand.name,
         profileCleanupCommand.name,
         profileRefreshCommand.name,
       ].includes(interaction.commandName)
