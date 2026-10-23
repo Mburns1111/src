@@ -768,20 +768,35 @@ function adjustDraftSticker(draft, action) {
 
 export async function handleProfileAppearanceDM(interaction) {
   const [, , kind, token, field] = interaction.customId.split(":");
-  const draft = appearanceDmSessions.get(interaction.user.id);
-  if (!draft || draft.token !== token) {
-    throw new UserFacingError("This editor has expired. Click Customize appearance in the server to open a new one.");
+  const panel = await MemberDmPanel.findOne({
+    discordUserId: interaction.user.id, kind: "appearance", token,
+  });
+  if (!panel || panel.messageId !== interaction.message?.id || panel.channelId !== interaction.channelId) {
+    throw new UserFacingError("This editor is no longer active. Use Customize Profile in the shop or server to open your current editor.");
   }
-  const guild = await interaction.client.guilds.fetch(draft.guildId);
+  const guild = await interaction.client.guilds.fetch(panel.guildId);
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) throw new UserFacingError("You must still belong to the server to edit this profile.");
-  const profile = await UserProfile.findOne({ guildId: draft.guildId, discordUserId: interaction.user.id });
+  const profile = await UserProfile.findOne({ guildId: panel.guildId, discordUserId: interaction.user.id });
   if (!profile) throw new UserFacingError("Your profile is no longer available.");
-  const ownership = await getAppearanceOwnership(draft.guildId, interaction.user.id);
+  const ownership = await getAppearanceOwnership(panel.guildId, interaction.user.id);
+  const draft = {
+    token: panel.token,
+    guildId: panel.guildId,
+    appearance: filterOwnedAppearance(panel.appearanceDraft ?? getProfileAppearance(profile), ownership),
+    page: APPEARANCE_PAGES[panel.appearancePage] ? panel.appearancePage : "colors",
+    selected: panel.selectedSticker ?? 0,
+  };
 
   if (kind === "button" && field === "cancel") {
-    appearanceDmSessions.delete(interaction.user.id);
-    await interaction.update({ content: "Customization cancelled. Your server profile was not changed.", embeds: [], components: [], attachments: [] });
+    await interaction.deferUpdate();
+    draft.appearance = filterOwnedAppearance(getProfileAppearance(profile), ownership);
+    draft.page = "colors";
+    draft.selected = 0;
+    await saveDraftPanel(panel, draft);
+    const payload = await appearanceDmPayload(guild, interaction.user, profile, draft);
+    payload.content = "↩️ **Unsaved changes discarded.** Your server profile is unchanged.\n\n" + payload.content;
+    await interaction.editReply(payload);
     return true;
   }
   if (kind === "button" && field === "confirm") {
@@ -789,12 +804,17 @@ export async function handleProfileAppearanceDM(interaction) {
     profile.profileAppearance = filterOwnedAppearance(draft.appearance, ownership);
     profile.markModified("profileAppearance");
     await profile.save();
+    draft.appearance = filterOwnedAppearance(getProfileAppearance(profile), ownership);
+    await saveDraftPanel(panel, draft);
     await ensureProfileCard(guild, interaction.user, { refresh: true });
-    appearanceDmSessions.delete(interaction.user.id);
-    await interaction.editReply({
-      content: "✅ **Appearance saved!** Your profile card in the server has been updated.",
-      embeds: [], components: [], attachments: [],
-    });
+    const payload = await appearanceDmPayload(guild, interaction.user, profile, draft);
+    payload.content = "✅ **Appearance saved and server profile updated!** You can keep using this editor.\n\n" + payload.content;
+    await interaction.editReply(payload);
+    return true;
+  }
+  if (kind === "button" && field === "refresh") {
+    await interaction.deferUpdate();
+    await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
     return true;
   }
   if (kind === "button" && [
@@ -804,6 +824,7 @@ export async function handleProfileAppearanceDM(interaction) {
     adjustDraftSticker(draft, field);
     draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
     await interaction.deferUpdate();
+    await saveDraftPanel(panel, draft);
     await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
     return true;
   }
@@ -863,6 +884,7 @@ export async function handleProfileAppearanceDM(interaction) {
   }
   draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
   await interaction.deferUpdate();
+  await saveDraftPanel(panel, draft);
   await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
   return true;
 }
