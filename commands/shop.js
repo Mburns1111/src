@@ -9,6 +9,7 @@ import UserProfile from "../models/UserProfile.js";
 import AppearanceInventory from "../models/AppearanceInventory.js";
 import PointsWallet from "../models/PointsWallet.js";
 import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js";
+import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
 import { openAppearanceDMFromShop } from "./profile.js";
 import { shopItems } from "../services/shop-catalog.js";
 import { getAppearanceOwnership, ownsAppearanceItem } from "../services/appearance-ownership.js";
@@ -430,10 +431,8 @@ async function handleShopDM(interaction) {
   } else if (action === "confirm") {
     await purchase(context, sortedItems(category)[index]);
     await interaction.editReply(await dmItemPage(context, category, index));
-    await interaction.followUp({
-      content: `Purchased **${sortedItems(category)[index].name}** for **${sortedItems(category)[index].price} Points**! Open Customize appearance in the server to equip it.`,
-      allowedMentions: { parse: [] },
-    });
+    await sendTemporaryDmNotice(interaction.user,
+      `✅ **Purchased ${sortedItems(category)[index].name} for ${sortedItems(category)[index].price} Points!** You can equip it using **Customize Profile** in your permanent shop.`);
   } else {
     throw new UserFacingError("Unknown shop action.");
   }
