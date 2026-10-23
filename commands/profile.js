@@ -15,6 +15,8 @@ import {
 } from "discord.js";
 import UserProfile from "../models/UserProfile.js";
 import { randomUUID } from "node:crypto";
+import MemberDmPanel from "../models/MemberDmPanel.js";
+import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js";
 import GuildConfig from "../models/GuildConfig.js";
 import HouseListing from "../models/HouseListing.js";
 import OutfitListing from "../models/OutfitListing.js";
@@ -557,7 +559,8 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
     : `profile:appearance:${field}:${ownerId}`;
   const finish = () => new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:confirm`).setLabel("Confirm & update profile").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:cancel`).setLabel("Cancel").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:cancel`).setLabel("Discard Changes").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:refresh`).setLabel("Refresh Preview").setStyle(ButtonStyle.Secondary),
   );
   const pageMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -677,8 +680,6 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
   return dmToken ? [pageMenu, ...rows, finish()] : [pageMenu, ...rows];
 }
 
-const appearanceDmSessions = new Map();
-
 async function appearanceDmPayload(guild, user, profile, draft) {
   const ownership = await getAppearanceOwnership(guild.id, user.id);
   const previewProfile = { ...profile.toObject(), profileAppearance: draft.appearance };
@@ -687,7 +688,7 @@ async function appearanceDmPayload(guild, user, profile, draft) {
     previewProfile, draft.page, draft.selected, ownership, draft.token,
   );
   return {
-    content: "**Customize your profile** — this is a live preview. Changes are not saved until you press **Confirm & update profile**. Use the sticker controls below the picture to see each change.",
+    content: "**Customize your profile** — changes appear in this preview. Your server profile only changes when you press **Confirm & update profile**. This message stays here for next time.",
     embeds: preview.embeds,
     files: preview.files,
     attachments: [],
@@ -696,30 +697,53 @@ async function appearanceDmPayload(guild, user, profile, draft) {
   };
 }
 
-async function openAppearanceDM(interaction, profile) {
+async function openAppearanceDM(interaction, profile, guild = interaction.guild) {
+  if (!guild) throw new UserFacingError("The server is not available.");
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const ownership = await getAppearanceOwnership(interaction.guildId, interaction.user.id);
-  const draft = {
-    token: randomUUID().slice(0, 12),
-    guildId: interaction.guildId,
-    appearance: filterOwnedAppearance(getProfileAppearance(profile), ownership),
-    page: "colors",
-    selected: 0,
-  };
-  const payload = await appearanceDmPayload(interaction.guild, interaction.user, profile, draft);
-  let dm;
-  try {
-    dm = await interaction.user.send(payload);
-  } catch (error) {
-    if (Number(error?.code) === 50007) {
-      throw new UserFacingError("I couldn't send you a DM. Please allow direct messages from this server and try Customize appearance again.");
-    }
-    throw error;
-  }
-  appearanceDmSessions.set(interaction.user.id, draft);
-  await interaction.editReply({
-    content: `I sent your **live profile customization editor** to your DMs. [Open your editor](https://discord.com/channels/@me/${dm.channelId}/${dm.id}). Nothing changes on your public profile until you confirm.`,
+  const { message, created } = await getOrCreateDmPanel({
+    guildId: guild.id,
+    user: interaction.user,
+    kind: "appearance",
+    makeInitial: async () => {
+      const ownership = await getAppearanceOwnership(guild.id, interaction.user.id);
+      const draft = {
+        token: randomUUID().slice(0, 12),
+        guildId: guild.id,
+        appearance: filterOwnedAppearance(getProfileAppearance(profile), ownership),
+        page: "colors",
+        selected: 0,
+      };
+      return {
+        payload: await appearanceDmPayload(guild, interaction.user, profile, draft),
+        fields: {
+          token: draft.token,
+          appearanceDraft: draft.appearance,
+          appearancePage: draft.page,
+          selectedSticker: draft.selected,
+        },
+      };
+    },
   });
+  await interaction.editReply({
+    content: `${created ? "I opened your profile customization editor!" : "Your profile customization editor is already in your DMs."} [**Open your editor**](${dmPanelUrl(message.channelId, message.id)}). You can return to this same message any time.`,
+    allowedMentions: { parse: [] },
+  });
+}
+
+export async function openAppearanceDMFromShop(interaction, guild) {
+  const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) throw new UserFacingError("You must belong to this server to customize your profile.");
+  const profile = await ensureProfileRecord(guild.id, interaction.user);
+  await openAppearanceDM(interaction, profile, guild);
+  return true;
+}
+
+async function saveDraftPanel(panel, draft) {
+  panel.appearanceDraft = draft.appearance;
+  panel.appearancePage = draft.page;
+  panel.selectedSticker = draft.selected;
+  panel.markModified("appearanceDraft");
+  await panel.save();
 }
 
 function adjustDraftSticker(draft, action) {
