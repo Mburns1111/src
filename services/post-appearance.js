@@ -5,6 +5,7 @@
 export const APPEARANCE_CATALOG = Object.freeze({
   backgrounds: {
     default: { kind: 'solid' },
+    sagePreview: { kind: 'solid', color: '#879D87', palette: { panel: '#E8ECE2', panelAlt: '#DCE4D7', accent: '#6F8974' } },
     sageDots: { kind: 'dots', color: '#708779' },
     garden: { kind: 'image', asset: 'assets/backgrounds/garden.svg', palette: { panel: '#E7E4D5', panelAlt: '#D1DAC4', accent: '#708779' } },
   },
