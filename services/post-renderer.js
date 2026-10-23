@@ -433,12 +433,8 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
     );
   }
 
-  // Normalize decorative compatibility glyphs (e.g. mathematical alphabets)
-  // to readable characters when the server lacks specialized Unicode fonts.
-  // This affects only the rendered heading, never the stored Discord name.
-  const displayName = String(data.displayName || 'Member')
-    .normalize('NFKC')
-    .replace(/[\u200B-\u200D\uFEFF]/g, '');
+  // Preserve the member's exact decorative display name.
+  const displayName = String(data.displayName || 'Member');
 
   // Profile title and subtitle.
   const title = `${displayName}'s Profile`;
