@@ -17,6 +17,12 @@ export const POST_LAYOUTS = {
       usernameLabel: { x: 60, y: 324, width: 250, height: 50 },
       username: { x: 60, y: 378, width: 250, height: 100 },
       robloxLine: { x: 348, y: 239, width: 810, height: 48 },
+      rolesLabel: { x: 60, y: 318, width: 250, height: 38 },
+      rolesRows: [
+        { x: 60, y: 356, width: 250, height: 32 },
+        { x: 60, y: 394, width: 250, height: 32 },
+        { x: 60, y: 432, width: 250, height: 32 },
+      ],
 
       tradeLabel: { x: 60, y: 486, width: 250, height: 50 },
       tradeStatus: { x: 60, y: 538, width: 250, height: 100 },
