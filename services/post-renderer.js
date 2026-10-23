@@ -1,6 +1,34 @@
 
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
+
+// Register a Unicode symbol font for decorative display names.
+// Downloaded once per process, with graceful fallback when offline.
+let symbolFontPromise;
+async function ensureSymbolFont() {
+  if (!symbolFontPromise) {
+    symbolFontPromise = (async () => {
+      try {
+        const url = 'https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssymbols2/NotoSansSymbols2-Regular.ttf';
+        const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const folder = join(tmpdir(), 'am-bot-fonts');
+        await mkdir(folder, { recursive: true });
+        const path = join(folder, 'NotoSansSymbols2-Regular.ttf');
+        await writeFile(path, Buffer.from(await response.arrayBuffer()));
+        if (!GlobalFonts.registerFromPath(path, 'AM Unicode Symbols')) {
+          throw new Error('Font registration failed');
+        }
+      } catch (error) {
+        console.warn('Optional decorative font unavailable:', error.message);
+      }
+    })();
+  }
+  return symbolFontPromise;
+}
 
 const MAX_TEXT_LINES_DEFAULT = 6;
 
@@ -132,6 +160,30 @@ function fitFontSize(ctx, text, maxWidth, startingSize, family, minSize = 14) {
   }
 
   return minSize;
+}
+
+function drawFittedLine(ctx, value, region, options = {}) {
+  const { fontSize = 40, minFontSize = 20, family = 'sans-serif', color = '#26382D' } = options;
+  let text = String(value ?? '').trim();
+  if (!text) return;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  let size = fontSize;
+  while (size > minFontSize) {
+    ctx.font = size + 'px ' + family;
+    if (ctx.measureText(text).width <= region.width) break;
+    size--;
+  }
+  ctx.font = size + 'px ' + family;
+  if (ctx.measureText(text).width > region.width) {
+    const chars = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment);
+    while (chars.length && ctx.measureText(chars.join('') + '…').width > region.width) chars.pop();
+    text = chars.join('') + '…';
+  }
+  ctx.fillText(text, region.x, region.y);
+  ctx.restore();
 }
 
 function wrapText(ctx, text, maxWidth) {
@@ -409,24 +461,15 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
     );
   }
 
+  // Preserve the member's exact decorative display name.
+  const displayName = String(data.displayName || 'Member');
+
   // Profile title and subtitle.
-  const title = `${data.displayName || 'Member'}'s Profile`;
+  const title = `${displayName}'s Profile`;
 
-  const titleSize = fitFontSize(
-    ctx,
-    title,
-    r.title.width,
-    92,
-    style.titleFontFamily,
-    60
-  );
-
-  drawWrappedText(ctx, title, r.title, {
-    fontSize: titleSize,
-    minFontSize: 60,
-    family: style.titleFontFamily,
-    color: style.accentDark,
-    maxLines: 1,
+  drawFittedLine(ctx, title, r.title, {
+    fontSize: 66, minFontSize: 25,
+    family: '\"AM Unicode Symbols\", ' + style.titleFontFamily, color: style.accentDark,
   });
 
   drawWrappedText(
@@ -444,21 +487,27 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
     }
   );
 
-  // Roblox username.
-  drawLabel(ctx, 'Roblox username', r.usernameLabel, style);
-
-  drawWrappedText(
-    ctx,
-    data.robloxUsername || 'Not added yet',
-    r.username,
-    {
-      fontSize: 50,
-      minFontSize: 36,
-      family: style.fontFamily,
-      color: style.text,
-      maxLines: 2,
-    }
-  );
+  // Show up to three current server roles in the space beneath the avatar.
+  drawLabel(ctx, 'Server roles', r.rolesLabel, style);
+  const roles = Array.isArray(data.serverRoles) ? data.serverRoles : [];
+  if (!roles.length) {
+    drawFittedLine(ctx, 'No roles to display', r.rolesRows[0], {
+      fontSize: 23, minFontSize: 18, family: style.fontFamily,
+      color: style.mutedText,
+    });
+  } else {
+    const visible = roles.slice(0, 3);
+    visible.forEach((role, index) => {
+      const remaining = roles.length - 3;
+      const text = index === 2 && remaining > 0
+        ? role + ' (+' + remaining + ')'
+        : role;
+      drawFittedLine(ctx, '• ' + text, r.rolesRows[index], {
+        fontSize: 24, minFontSize: 18, family: style.fontFamily,
+        color: style.text,
+      });
+    });
+  }
 
   // Trade status.
   drawLabel(ctx, 'Looking for trades', r.tradeLabel, style);
@@ -475,6 +524,14 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
       maxLines: 2,
     }
   );
+
+  // Roblox username beneath the Discord username.
+  drawFittedLine(ctx, 'Roblox: ' + (data.robloxUsername || 'Not added yet'), r.robloxLine, {
+    fontSize: 38,
+    minFontSize: 22,
+    family: style.fontFamily,
+    color: style.mutedText,
+  });
 
   // Bio.
   drawLabel(ctx, 'About me', r.bioLabel, style);
@@ -587,6 +644,7 @@ export async function renderPostImage({
   images = {},
   style = {},
 } = {}) {
+  if (type === 'profile') await ensureSymbolFont();
   const layout = POST_LAYOUTS[type];
 
   if (!layout) {

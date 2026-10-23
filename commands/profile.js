@@ -266,12 +266,23 @@ async function makeProfileCardPayload(
     : currentImage
       ? attachmentsById.get(currentImage.attachmentId)?.url ?? currentImage.url
       : undefined;
+  // Resolve roles for the member whose profile is being rendered.
+  // Fetching also works when 'target' is a Discord User rather than GuildMember.
+  const profileMember = await guild.members.fetch(profile.discordUserId).catch(() => null);
+  const serverRoles = profileMember
+    ? profileMember.roles.cache
+        .filter((role) => role.id !== guild.id && !role.managed)
+        .sort((a, b) => b.position - a.position)
+        .map((role) => role.name)
+    : [];
+
   const image = await renderPostImage({
     type: "profile",
     data: {
       displayName: profile.displayName,
       discordUsername: profile.discordUsername,
       robloxUsername: profile.adoptMeUsername,
+      serverRoles,
       lookingForTrades: profile.lookingForTrades,
       bio: profile.bio,
       footer: photos.length
