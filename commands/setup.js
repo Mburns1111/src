@@ -64,20 +64,17 @@ export const data = new SlashCommandBuilder()
           .setName("trading_post")
           .setDescription("Channel for permanent member Trading Post cards")
           .addChannelTypes(ChannelType.GuildText),
+      )
+      .addChannelOption((option) =>
+        option
+          .setName("shop")
+          .setDescription("Channel for the permanent shop catalog")
+          .addChannelTypes(ChannelType.GuildText),
       ),
-  )
-  .addSubcommand(command => command.setName("shop").setDescription("Set the shop catalog channel")
-    .addChannelOption(option => option.setName("channel").setDescription("Channel for the permanent shop catalog")
-      .addChannelTypes(ChannelType.GuildText).setRequired(true)));
+  );
 
 export async function execute(interaction) {
   requireGuild(interaction);
-  if (interaction.options.getSubcommand() === "shop") {
-    const channel = interaction.options.getChannel("channel");
-    await ensureShopEntry(interaction.guild, channel);
-    await interaction.editReply({ content: `Shop catalog configured in ${channel}.` });
-    return;
-  }
   const commandsChannel = interaction.options.getChannel("commands");
   const houseListings = interaction.options.getChannel("house_listings");
   const outfitListings = interaction.options.getChannel("outfit_listings");
@@ -85,6 +82,7 @@ export async function execute(interaction) {
   const tradeVoting = interaction.options.getChannel("trade_voting");
   const profilesChannel = interaction.options.getChannel("profiles");
   const tradingPostChannel = interaction.options.getChannel("trading_post");
+  const shopChannel = interaction.options.getChannel("shop");
 
   if (
     !commandsChannel &&
@@ -93,7 +91,8 @@ export async function execute(interaction) {
     !inventoryShowcase &&
     !tradeVoting &&
     !profilesChannel &&
-    !tradingPostChannel
+    !tradingPostChannel &&
+    !shopChannel
   ) {
     throw new UserFacingError("Choose at least one channel to configure.");
   }
@@ -109,6 +108,10 @@ export async function execute(interaction) {
   if (tradeVoting) updates.tradeVoteChannelId = tradeVoting.id;
   if (profilesChannel) updates.profileChannelId = profilesChannel.id;
   if (tradingPostChannel) updates.tradingPostChannelId = tradingPostChannel.id;
+
+  // Ensure the shop before updating channel settings so its existing message IDs
+  // are checked against the previous channel when a shop is moved.
+  if (shopChannel) await ensureShopEntry(interaction.guild, shopChannel);
 
   await GuildConfig.findOneAndUpdate(
     { guildId: interaction.guildId },
@@ -141,6 +144,9 @@ export async function execute(interaction) {
   }
   if (tradingPostChannel) {
     configured.push(`Trading Post cards and pinned create button: ${tradingPostChannel}`);
+  }
+  if (shopChannel) {
+    configured.push(`Shop catalog and Points button: ${shopChannel}`);
   }
 
   await interaction.editReply({
