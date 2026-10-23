@@ -358,7 +358,7 @@ async function dmPreview(context, category, index) {
 async function sendShopDM(interaction, category) {
   if (!category || !CATEGORY_LABELS[category]) throw new UserFacingError("No shop categories are available.");
   const context = { guildId: interaction.guildId, user: interaction.user, guild: interaction.guild };
-  const { message, created } = await getOrCreateDmPanel({
+  const { message, created, adopted } = await getOrCreateDmPanel({
     guildId: interaction.guildId,
     user: interaction.user,
     kind: "shop",
@@ -369,6 +369,10 @@ async function sendShopDM(interaction, category) {
       row.components?.some(component =>
         component.customId?.startsWith(`shop:dm:${interaction.guildId}:`))),
   });
+  if (adopted) {
+    // Upgrade a shop DM from the previous version to the latest buttons.
+    await message.edit(await dmItemPage(context, category, 0));
+  }
   await interaction.editReply({
     content: `${created ? "I opened your personal shop!" : "Your personal shop is already in your DMs."} [**Open your shop**](${dmPanelUrl(message.channelId, message.id)}). You can browse categories, check Points, and customize your profile there.`,
     allowedMentions: { parse: [] },
