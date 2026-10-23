@@ -1,6 +1,34 @@
 
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
+
+// Register a Unicode symbol font for decorative display names.
+// Downloaded once per process, with graceful fallback when offline.
+let symbolFontPromise;
+async function ensureSymbolFont() {
+  if (!symbolFontPromise) {
+    symbolFontPromise = (async () => {
+      try {
+        const url = 'https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssymbols2/NotoSansSymbols2-Regular.ttf';
+        const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const folder = join(tmpdir(), 'am-bot-fonts');
+        await mkdir(folder, { recursive: true });
+        const path = join(folder, 'NotoSansSymbols2-Regular.ttf');
+        await writeFile(path, Buffer.from(await response.arrayBuffer()));
+        if (!GlobalFonts.registerFromPath(path, 'AM Unicode Symbols')) {
+          throw new Error('Font registration failed');
+        }
+      } catch (error) {
+        console.warn('Optional decorative font unavailable:', error.message);
+      }
+    })();
+  }
+  return symbolFontPromise;
+}
 
 const MAX_TEXT_LINES_DEFAULT = 6;
 
@@ -441,7 +469,7 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
 
   drawFittedLine(ctx, title, r.title, {
     fontSize: 66, minFontSize: 25,
-    family: style.titleFontFamily, color: style.accentDark,
+    family: '\"AM Unicode Symbols\", ' + style.titleFontFamily, color: style.accentDark,
   });
 
   drawWrappedText(
@@ -594,6 +622,7 @@ export async function renderPostImage({
   images = {},
   style = {},
 } = {}) {
+  if (type === 'profile') await ensureSymbolFont();
   const layout = POST_LAYOUTS[type];
 
   if (!layout) {
