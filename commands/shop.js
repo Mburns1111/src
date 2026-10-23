@@ -221,6 +221,8 @@ async function previewPayload(context, item) {
     embeds: [new EmbedBuilder().setImage("attachment://shop-preview.png")],
     files: [new AttachmentBuilder(image, { name: "shop-preview.png" })],
     components: [],
+    attachments: [],
+    allowedMentions: { parse: [] },
   };
 }
 async function preview(interaction, item) {
@@ -282,6 +284,7 @@ function dmCategoryMenu(guildId, current) {
 }
 async function dmFeatured(context, category) {
   const result = await featuredPage(context, category);
+  result.content = "";
   result.components = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:0`)
@@ -294,6 +297,7 @@ async function dmFeatured(context, category) {
 async function dmItemPage(context, category, index) {
   if (index === -1) return dmFeatured(context, category);
   const result = await pageFor(context, index, category);
+  result.content = "";
   const item = sortedItems(category)[index];
   const ownership = await getAppearanceOwnership(context.guildId, context.user.id);
   const owned = ownsAppearanceItem(ownership, item.category, item.id);
@@ -316,6 +320,7 @@ async function dmItemPage(context, category, index) {
 async function dmConfirmation(context, category, index) {
   const item = sortedItems(category)[index];
   const result = await confirmationPage(context, item, category, index);
+  result.content = "";
   const ownership = await getAppearanceOwnership(context.guildId, context.user.id);
   const balance = await walletBalance(context.guildId, context.user.id);
   const blocked = ownsAppearanceItem(ownership, item.category, item.id) || balance < item.price;
@@ -364,7 +369,7 @@ async function sendShopDM(interaction, category) {
 }
 async function handleShopDM(interaction) {
   const [, , guildId, action, categoryText, indexText] = interaction.customId.split(":");
-  if (!/^\\d{17,21}$/.test(guildId)) throw new UserFacingError("This shop link is invalid.");
+  if (!/^\d{17,21}$/.test(guildId)) throw new UserFacingError("This shop link is invalid.");
   const guild = await interaction.client.guilds.fetch(guildId);
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) throw new UserFacingError("You must belong to the server to use this shop.");
