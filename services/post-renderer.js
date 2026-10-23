@@ -4,6 +4,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
+import { APPEARANCE_CATALOG, resolveAppearance } from './post-appearance.js';
 
 // Register a Unicode symbol font for decorative display names.
 // Downloaded once per process, with graceful fallback when offline.
@@ -309,13 +310,80 @@ function drawLabel(ctx, text, region, style) {
   });
 }
 
-function drawDefaultProfile(ctx, data, images, style, layout) {
+
+function drawBackgroundPattern(ctx, width, height, appearance) {
+  const choice = APPEARANCE_CATALOG.backgrounds[appearance.background];
+  if (choice.kind !== 'dots') return;
+  ctx.save();
+  ctx.fillStyle = choice.color;
+  ctx.globalAlpha = 0.26;
+  for (let y = 8; y < height; y += 26) {
+    for (let x = 8; x < width; x += 26) {
+      ctx.beginPath();
+      ctx.arc(x + ((Math.floor(y / 26) % 2) * 13), y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawDecorations(ctx, width, height, appearance, style) {
+  // Sticker transforms are normalized, so layouts may have different dimensions.
+  for (const sticker of appearance.stickers) {
+    const size = Math.min(width, height) * 0.065 * sticker.scale;
+    ctx.save();
+    ctx.translate(sticker.x * width, sticker.y * height);
+    ctx.rotate(sticker.rotation * Math.PI / 180);
+    ctx.fillStyle = style.accentDark;
+    ctx.strokeStyle = style.accentDark;
+    ctx.lineWidth = Math.max(2, size * 0.055);
+    if (sticker.id === 'flower') {
+      for (let i = 0; i < 6; i++) {
+        ctx.save();
+        ctx.rotate(i * Math.PI / 3);
+        ctx.beginPath();
+        ctx.ellipse(0, -size * 0.3, size * 0.16, size * 0.27, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = style.panel;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.13, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (sticker.id === 'star') {
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 5;
+        const radius = i % 2 ? size * 0.22 : size * 0.5;
+        const x = Math.cos(a) * radius, y = Math.sin(a) * radius;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  if (appearance.frame === 'doubleLine') {
+    const frame = APPEARANCE_CATALOG.frames.doubleLine;
+    ctx.save();
+    ctx.strokeStyle = frame.color;
+    ctx.lineWidth = 3;
+    roundedRect(ctx, 12, 12, width - 24, height - 24, 43);
+    ctx.stroke();
+    roundedRect(ctx, 26, 26, width - 52, height - 52, 33);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   const r = layout.regions;
   const { width, height } = layout;
 
   // Background layer.
   ctx.fillStyle = style.background;
   ctx.fillRect(0, 0, width, height);
+  drawBackgroundPattern(ctx, width, height, appearance);
 
   ctx.fillStyle = style.panelAlt;
 
@@ -626,6 +694,7 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
   );
 
   ctx.stroke();
+  drawDecorations(ctx, width, height, appearance, style);
 }
 
 /**
@@ -636,6 +705,7 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
  * @param {object} options.data Text/data fields for the selected layout.
  * @param {object} [options.images] Optional avatar/photo image sources.
  * @param {object} [options.style] Optional overrides for DEFAULT_POST_STYLE.
+ * @param {object} [options.appearance] Catalog item IDs and sticker transforms.
  * @returns {Promise<Buffer>} PNG bytes suitable for Discord AttachmentBuilder.
  */
 export async function renderPostImage({
@@ -643,6 +713,7 @@ export async function renderPostImage({
   data = {},
   images = {},
   style = {},
+  appearance = {},
 } = {}) {
   if (type === 'profile') await ensureSymbolFont();
   const layout = POST_LAYOUTS[type];
@@ -651,9 +722,15 @@ export async function renderPostImage({
     throw new Error(`Unknown post layout: ${type}`);
   }
 
+  const resolvedAppearance = resolveAppearance(appearance);
+  const font = APPEARANCE_CATALOG.fonts[resolvedAppearance.font];
+  const colors = APPEARANCE_CATALOG.fontColors[resolvedAppearance.fontColor];
   const resolvedStyle = {
     ...DEFAULT_POST_STYLE,
     ...style,
+    fontFamily: font.family,
+    titleFontFamily: font.titleFamily,
+    ...colors,
   };
 
   const [avatar, photo] = await Promise.all([
@@ -681,7 +758,8 @@ export async function renderPostImage({
       data,
       { avatar, photo },
       resolvedStyle,
-      layout
+      layout,
+      resolvedAppearance
     );
   } else {
     throw new Error(
