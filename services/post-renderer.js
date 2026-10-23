@@ -487,6 +487,28 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
     }
   );
 
+  // Show up to three current server roles in the space beneath the avatar.
+  drawLabel(ctx, 'Server roles', r.rolesLabel, style);
+  const roles = Array.isArray(data.serverRoles) ? data.serverRoles : [];
+  if (!roles.length) {
+    drawFittedLine(ctx, 'No roles to display', r.rolesRows[0], {
+      fontSize: 23, minFontSize: 18, family: style.fontFamily,
+      color: style.mutedText,
+    });
+  } else {
+    const visible = roles.slice(0, 3);
+    visible.forEach((role, index) => {
+      const remaining = roles.length - 3;
+      const text = index === 2 && remaining > 0
+        ? role + ' (+' + remaining + ')'
+        : role;
+      drawFittedLine(ctx, '• ' + text, r.rolesRows[index], {
+        fontSize: 24, minFontSize: 18, family: style.fontFamily,
+        color: style.text,
+      });
+    });
+  }
+
   // Trade status.
   drawLabel(ctx, 'Looking for trades', r.tradeLabel, style);
 
