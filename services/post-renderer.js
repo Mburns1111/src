@@ -437,10 +437,10 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
     fillRoundedRect(ctx, 328, 40, width - 348, height - 80, style.panelRadius, style.panel);
   } else {
     // Group related information instead of giving every line a separate box.
-    glassPanel(ctx, 332, 60, 840, 235, style);
+    glassPanel(ctx, 332, 58, 840, 232, style);
     glassPanel(ctx, 44, 310, 272, 166, style, true);
-    glassPanel(ctx, 44, 484, 272, 139, style, true);
-    glassPanel(ctx, 332, 300, 840, 180, style);
+    glassPanel(ctx, 44, 486, 272, 112, style, true);
+    glassPanel(ctx, 332, 304, 840, 182, style);
     glassPanel(ctx, 44, 676, 272, 65, style, true);
   }
 
@@ -536,8 +536,10 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   // Profile title and subtitle.
   const title = `${displayName}'s Profile`;
 
-  drawFittedLine(ctx, title, r.title, {
-    fontSize: 66, minFontSize: 25,
+  drawFittedLine(ctx, title, images.background
+    ? { ...r.title, x: r.title.x + 10, y: r.title.y + 8, width: r.title.width - 34 }
+    : r.title, {
+    fontSize: images.background ? 57 : 66, minFontSize: 25,
     family: '\"AM Unicode Symbols\", ' + style.titleFontFamily, color: style.accentDark,
   });
 
@@ -579,12 +581,14 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   }
 
   // Trade status.
-  drawLabel(ctx, 'Looking for trades', r.tradeLabel, style);
+  drawLabel(ctx, 'Looking for trades', images.background
+    ? { ...r.tradeLabel, y: r.tradeLabel.y + 7, x: r.tradeLabel.x + 6 }
+    : r.tradeLabel, style);
 
   drawWrappedText(
     ctx,
     data.lookingForTrades ? 'Yes' : 'No',
-    r.tradeStatus,
+    images.background ? { ...r.tradeStatus, x: r.tradeStatus.x + 6, y: r.tradeStatus.y - 4, height: 52 } : r.tradeStatus,
     {
       fontSize: 44,
       minFontSize: 34,
@@ -603,12 +607,14 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   });
 
   // Bio.
-  drawLabel(ctx, 'About me', r.bioLabel, style);
+  drawLabel(ctx, 'About me', images.background
+    ? { ...r.bioLabel, x: r.bioLabel.x + 10, y: r.bioLabel.y + 13 }
+    : r.bioLabel, style);
 
   drawWrappedText(
     ctx,
     data.bio || 'Add a bio to tell everyone a little about yourself.',
-    r.bio,
+    images.background ? { ...r.bio, x: r.bio.x + 10, y: r.bio.y + 12, width: r.bio.width - 24, height: r.bio.height - 12 } : r.bio,
     {
       fontSize: 48,
       minFontSize: 34,
