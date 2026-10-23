@@ -17,6 +17,7 @@ import UserProfile from "../models/UserProfile.js";
 import { randomUUID } from "node:crypto";
 import MemberDmPanel from "../models/MemberDmPanel.js";
 import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js";
+import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
 import GuildConfig from "../models/GuildConfig.js";
 import HouseListing from "../models/HouseListing.js";
 import OutfitListing from "../models/OutfitListing.js";
@@ -688,7 +689,7 @@ async function appearanceDmPayload(guild, user, profile, draft) {
     previewProfile, draft.page, draft.selected, ownership, draft.token,
   );
   return {
-    content: "**Customize your profile** — changes appear in this preview. Your server profile only changes when you press **Confirm & update profile**. This message stays here for next time.",
+    content: "**Customize your profile** — see every change in this preview. **Confirm & update profile** saves your work and closes this temporary editor. **Discard Changes** closes it without saving. Your permanent shop remains in DMs.",
     embeds: preview.embeds,
     files: preview.files,
     attachments: [],
@@ -700,7 +701,12 @@ async function appearanceDmPayload(guild, user, profile, draft) {
 async function openAppearanceDM(interaction, profile, guild = interaction.guild) {
   if (!guild) throw new UserFacingError("The server is not available.");
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const { message, created } = await getOrCreateDmPanel({
+
+  // Keep only the shop message permanently. If Customize is the member's first
+  // visit, create their permanent shop before the temporary editor.
+  const { ensureMemberShopDM } = await import("./shop.js");
+  const shop = await ensureMemberShopDM(guild, interaction.user);
+  const { message, panel, created } = await getOrCreateDmPanel({
     guildId: guild.id,
     user: interaction.user,
     kind: "appearance",
@@ -724,8 +730,24 @@ async function openAppearanceDM(interaction, profile, guild = interaction.guild)
       };
     },
   });
+
+  if (!created) {
+    // A still-open editing session is reused rather than creating duplicates.
+    // Refresh controls from the saved draft (which also survives bot restarts).
+    const ownership = await getAppearanceOwnership(guild.id, interaction.user.id);
+    const draft = {
+      token: panel.token,
+      guildId: guild.id,
+      appearance: filterOwnedAppearance(panel.appearanceDraft ?? getProfileAppearance(profile), ownership),
+      page: APPEARANCE_PAGES[panel.appearancePage] ? panel.appearancePage : "colors",
+      selected: panel.selectedSticker ?? 0,
+    };
+    if (draft.token) {
+      await message.edit(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    }
+  }
   await interaction.editReply({
-    content: `${created ? "I opened your profile customization editor!" : "Your profile customization editor is already in your DMs."} [**Open your editor**](${dmPanelUrl(message.channelId, message.id)}). You can return to this same message any time.`,
+    content: `[**Open your temporary profile editor**](${dmPanelUrl(message.channelId, message.id)}) — ${created ? "ready to customize!" : "your unfinished edits are still here."}\n[Your permanent shop](${dmPanelUrl(shop.message.channelId, shop.message.id)}) stays in DMs and has the **Customize Profile** button for next time.`,
     allowedMentions: { parse: [] },
   });
 }
