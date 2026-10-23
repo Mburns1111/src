@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 // unsaved appearance draft so editing can continue after a bot restart.
 const memberDmPanelSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
+  botUserId: { type: String, required: true },
   discordUserId: { type: String, required: true },
   kind: { type: String, required: true, enum: ["shop", "appearance"] },
   channelId: { type: String, required: true },
@@ -15,7 +16,7 @@ const memberDmPanelSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 memberDmPanelSchema.index(
-  { guildId: 1, discordUserId: 1, kind: 1 },
+  { botUserId: 1, guildId: 1, discordUserId: 1, kind: 1 },
   { unique: true },
 );
 
