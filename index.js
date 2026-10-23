@@ -11,6 +11,7 @@ import {
   handleProfileAlbumPage,
   handleProfileCardButton,
   handleProfileAppearanceSelect,
+  handleProfileStickerButton,
   handleProfileMenuButton,
   handleProfileModal,
   handleProfilePhotoActionButton,
@@ -295,6 +296,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.customId.startsWith("profile:photos-action:")
     ) {
       await handleProfilePhotoActionButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("profile:sticker:")) {
+      await handleProfileStickerButton(interaction);
       return;
     }
     if (interaction.isStringSelectMenu() && interaction.customId.startsWith("profile:appearance:")) {
