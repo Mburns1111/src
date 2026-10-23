@@ -569,6 +569,43 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
         { label: "Stickers", value: "stickers", default: page === "stickers" },
       ]),
   );
+  if (dmToken && page === "stickers") {
+    const stickerChoices = [
+      ...a.stickers.map((sticker, i) => ({
+        label: `Edit sticker ${i + 1}: ${sticker.id}`,
+        value: `select:${i}`,
+        default: i === selected,
+      })),
+      ...Object.keys(APPEARANCE_CATALOG.stickers).map(id => ({
+        label: `Add ${id}`,
+        value: `add:${id}`,
+        description: ownership?.stickers.has(id) ? "Owned" : "Locked",
+      })),
+    ];
+    const rows = [
+      pageMenu,
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId(selectId("stickerPick"))
+          .setPlaceholder("Add a sticker or choose one to edit")
+          .addOptions(stickerChoices),
+      ),
+    ];
+    if (a.stickers.length) {
+      const button = (action, label, style = ButtonStyle.Secondary) =>
+        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:${action}`)
+          .setLabel(label).setStyle(style);
+      rows.push(new ActionRowBuilder().addComponents(
+        button("left", "← Left"), button("right", "Right →"),
+        button("up", "↑ Up"), button("down", "↓ Down"),
+      ));
+      rows.push(new ActionRowBuilder().addComponents(
+        button("smaller", "− Size"), button("larger", "+ Size"),
+        button("rotateLeft", "↶ Rotate"), button("rotateRight", "↷ Rotate"),
+        button("remove", "Remove", ButtonStyle.Danger),
+      ));
+    }
+    return [...rows, finish()];
+  }
   if (page === "stickers") {
     const rows = [pageMenu, new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder().setCustomId(selectId("stickerAdd"))
@@ -685,6 +722,26 @@ async function openAppearanceDM(interaction, profile) {
   });
 }
 
+function adjustDraftSticker(draft, action) {
+  const sticker = draft.appearance.stickers[draft.selected];
+  if (!sticker) throw new UserFacingError("Choose a sticker to edit.");
+  switch (action) {
+    case "left": sticker.x -= 0.04; break;
+    case "right": sticker.x += 0.04; break;
+    case "up": sticker.y -= 0.04; break;
+    case "down": sticker.y += 0.04; break;
+    case "smaller": sticker.scale -= 0.15; break;
+    case "larger": sticker.scale += 0.15; break;
+    case "rotateLeft": sticker.rotation -= 15; break;
+    case "rotateRight": sticker.rotation += 15; break;
+    case "remove":
+      draft.appearance.stickers.splice(draft.selected, 1);
+      draft.selected = Math.max(0, draft.selected - 1);
+      break;
+    default: throw new UserFacingError("Unknown sticker adjustment.");
+  }
+}
+
 export async function handleProfileAppearanceDM(interaction) {
   const [, , kind, token, field] = interaction.customId.split(":");
   const draft = appearanceDmSessions.get(interaction.user.id);
@@ -716,6 +773,16 @@ export async function handleProfileAppearanceDM(interaction) {
     });
     return true;
   }
+  if (kind === "button" && [
+    "left", "right", "up", "down", "smaller", "larger",
+    "rotateLeft", "rotateRight", "remove",
+  ].includes(field)) {
+    adjustDraftSticker(draft, field);
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await interaction.deferUpdate();
+    await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    return true;
+  }
   if (kind !== "select") throw new UserFacingError("Unknown editor action.");
   const value = interaction.values[0];
 
@@ -738,24 +805,27 @@ export async function handleProfileAppearanceDM(interaction) {
     draft.appearance.stickers.push({ id: value, x: 0.8, y: 0.72, scale: 1, rotation: 0 });
     draft.selected = draft.appearance.stickers.length - 1;
     draft.page = "stickers";
-  } else if (field === "stickerAction") {
-    const sticker = draft.appearance.stickers[draft.selected];
-    if (!sticker) throw new UserFacingError("Choose a sticker to edit.");
-    switch (value) {
-      case "left": sticker.x -= 0.04; break;
-      case "right": sticker.x += 0.04; break;
-      case "up": sticker.y -= 0.04; break;
-      case "down": sticker.y += 0.04; break;
-      case "smaller": sticker.scale -= 0.15; break;
-      case "larger": sticker.scale += 0.15; break;
-      case "rotateLeft": sticker.rotation -= 15; break;
-      case "rotateRight": sticker.rotation += 15; break;
-      case "remove":
-        draft.appearance.stickers.splice(draft.selected, 1);
-        draft.selected = Math.max(0, draft.selected - 1);
-        break;
-      default: throw new UserFacingError("Unknown sticker adjustment.");
+  } else if (field === "stickerPick") {
+    const [action, id] = value.split(":");
+    if (action === "select") {
+      const index = Number(id);
+      if (!Number.isSafeInteger(index) || index < 0 || index >= draft.appearance.stickers.length) {
+        throw new UserFacingError("Invalid sticker selection.");
+      }
+      draft.selected = index;
+    } else if (action === "add") {
+      if (!ownsAppearanceItem(ownership, "stickers", id)) {
+        throw new UserFacingError("You have not unlocked that sticker.");
+      }
+      if (draft.appearance.stickers.length >= 8) throw new UserFacingError("You can place up to eight stickers.");
+      draft.appearance.stickers.push({ id, x: 0.8, y: 0.72, scale: 1, rotation: 0 });
+      draft.selected = draft.appearance.stickers.length - 1;
+    } else {
+      throw new UserFacingError("Unknown sticker choice.");
     }
+    draft.page = "stickers";
+  } else if (field === "stickerAction") {
+    adjustDraftSticker(draft, value);
   } else if (field === "opacity") {
     if (![0.2, 0.34, 0.5, 0.7, 0.9].includes(Number(value))) throw new UserFacingError("Invalid opacity.");
     draft.appearance.panelOpacity = Number(value);
