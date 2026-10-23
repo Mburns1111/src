@@ -1,6 +1,6 @@
 
 import "dotenv/config";
-import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
+import { Client, Events, GatewayIntentBits, MessageFlags, Partials } from "discord.js";
 import mongoose from "mongoose";
 import {
   execute as executeProfile,
@@ -93,6 +93,7 @@ if (!token || !mongoUri) {
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages],
+  partials: [Partials.Channel],
 });
 
 const commandHandlers = new Map([
