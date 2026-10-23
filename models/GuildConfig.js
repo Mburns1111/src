@@ -19,6 +19,7 @@ const guildConfigSchema = new mongoose.Schema(
     tradeVoteEntryMessageId: { type: String, default: "" },
     shopChannelId: { type: String, default: "" },
     shopMessageId: { type: String, default: "" },
+    shopCategoryMessageIds: { type: Map, of: String, default: () => ({}) },
     commandChannelId: { type: String, default: "" },
     profileChannelId: { type: String, default: "" },
     profileEntryChannelId: { type: String, default: "" },
