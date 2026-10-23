@@ -40,6 +40,7 @@ import { getVoteCounts } from "./trade.js";
 import { ensureChannelEntry } from "./channel-entry.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { APPEARANCE_CATALOG, resolveAppearance } from "../services/post-appearance.js";
+import { getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, APPEARANCE_FIELD_CATEGORY } from "../services/appearance-ownership.js";
 
 export const data = new SlashCommandBuilder()
   .setName("profile")
@@ -70,7 +71,7 @@ export async function handleProfileEntryButton(interaction) {
   if (!["profile:entry", "profile:entry:appearance", "profile:entry:video", "profile:entry:photos"].includes(interaction.customId)) return false;
   const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
   if (interaction.customId === "profile:entry:appearance") {
-    await interaction.reply({ content: "Customize your profile appearance (test catalog).", components: makeAppearanceControls(profile), flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: "Customize your profile appearance (test catalog).", components: makeAppearanceControls(profile, "colors", 0, await getAppearanceOwnership(interaction.guildId, interaction.user.id)), flags: MessageFlags.Ephemeral });
   } else if (interaction.customId === "profile:entry:photos") {
     await showPhotoActionPrompt(interaction, interaction.user.id);
   } else if (interaction.customId === "profile:entry:video") {
@@ -255,7 +256,7 @@ async function makeProfileCardPayload(
       avatar: target.displayAvatarURL({ extension: "png", size: 256 }),
       photo,
     },
-    appearance: resolveAppearance(profile.profileAppearance?.background ? profile.profileAppearance : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 }),
+    appearance: filterOwnedAppearance(profile.profileAppearance?.background ? profile.profileAppearance : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 }, await getAppearanceOwnership(guild.id, profile.discordUserId)),
   });
   return {
     content: "",
@@ -547,7 +548,7 @@ function getProfileAppearance(profile) {
     ? profile.profileAppearance
     : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 });
 }
-function makeAppearanceControls(profile, page = "colors", selected = 0) {
+function makeAppearanceControls(profile, page = "colors", selected = 0, ownership = null) {
   const a = getProfileAppearance(profile);
   const ownerId = profile.discordUserId;
   const pageMenu = new ActionRowBuilder().addComponents(
@@ -564,10 +565,9 @@ function makeAppearanceControls(profile, page = "colors", selected = 0) {
     const rows = [pageMenu, new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder().setCustomId(`profile:appearance:stickerAdd:${ownerId}`)
         .setPlaceholder("Add a sticker (up to 8)")
-        .setDisabled(a.stickers.length >= 8)
+        .setDisabled(a.stickers.length >= 8 || !Object.keys(APPEARANCE_CATALOG.stickers).some(id => ownership?.stickers.has(id)))
         .addOptions([
-          { label: "Add flower", value: "flower" },
-          { label: "Add star", value: "star" },
+          ...Object.keys(APPEARANCE_CATALOG.stickers).map(id => ({ label: id, value: id, description: ownership?.stickers.has(id) ? "Owned" : "Locked", default: false })),
         ]),
     )];
     if (!a.stickers.length) return rows;
@@ -611,19 +611,20 @@ function makeAppearanceControls(profile, page = "colors", selected = 0) {
         }[field])
         .addOptions(APPEARANCE_CHOICES[field].map(id => ({
           label: APPEARANCE_LABELS[id] || id, value: id, default: a[field] === id,
+          description: (id === "match" || ownership?.[APPEARANCE_FIELD_CATEGORY[field]]?.has(id)) ? "Available" : "Locked",
         }))),
     );
   });
   return [pageMenu, ...rows];
 }
-async function saveProfileAppearance(interaction, profile, appearance, selectedPage, selectedIndex = 0) {
-  profile.profileAppearance = resolveAppearance(appearance);
+async function saveProfileAppearance(interaction, profile, appearance, selectedPage, selectedIndex = 0, ownership) {
+  profile.profileAppearance = filterOwnedAppearance(appearance, ownership);
   profile.markModified("profileAppearance");
   await profile.save();
   await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
   await interaction.editReply({
     content: "Appearance saved and profile updated. Test catalog items are temporarily available; shop ownership checks are not yet active.",
-    components: makeAppearanceControls(profile, selectedPage, selectedIndex),
+    components: makeAppearanceControls(profile, selectedPage, selectedIndex, ownership),
   });
 }
 export async function handleProfileAppearanceSelect(interaction) {
@@ -635,11 +636,12 @@ export async function handleProfileAppearanceSelect(interaction) {
   const profile = await UserProfile.findOne({ guildId: interaction.guildId, discordUserId: ownerId });
   if (!profile) throw new UserFacingError("Your profile was not found.");
   const value = interaction.values[0];
+  const ownership = await getAppearanceOwnership(interaction.guildId, ownerId);
   if (field === "page") {
     if (!APPEARANCE_PAGES[value]) throw new UserFacingError("Unknown customization category.");
     await interaction.update({
       content: "Profile customization (test catalog; shop ownership checks are not active yet).",
-      components: makeAppearanceControls(profile, value),
+      components: makeAppearanceControls(profile, value, 0, ownership),
     });
     return;
   }
@@ -648,16 +650,16 @@ export async function handleProfileAppearanceSelect(interaction) {
     if (!Number.isSafeInteger(index) || index < 0 || index >= getProfileAppearance(profile).stickers.length) {
       throw new UserFacingError("Invalid sticker selection.");
     }
-    await interaction.update({ components: makeAppearanceControls(profile, "stickers", index) });
+    await interaction.update({ components: makeAppearanceControls(profile, "stickers", index, ownership) });
     return;
   }
   if (field === "stickerAdd") {
-    if (!APPEARANCE_CATALOG.stickers[value]) throw new UserFacingError("Invalid sticker.");
+    if (!ownsAppearanceItem(ownership, "stickers", value)) throw new UserFacingError("You have not unlocked that sticker.");
     const appearance = getProfileAppearance(profile);
     if (appearance.stickers.length >= 8) throw new UserFacingError("You can place up to eight stickers.");
     appearance.stickers.push({ id: value, x: 0.8, y: 0.72, scale: 1, rotation: 0 });
     await interaction.deferUpdate();
-    await saveProfileAppearance(interaction, profile, appearance, "stickers", appearance.stickers.length - 1);
+    await saveProfileAppearance(interaction, profile, appearance, "stickers", appearance.stickers.length - 1, ownership);
     return;
   }
   if (field === "opacity") {
@@ -665,18 +667,22 @@ export async function handleProfileAppearanceSelect(interaction) {
   } else if (!APPEARANCE_CHOICES[field]?.includes(value)) {
     throw new UserFacingError("Invalid catalog choice.");
   }
+  if (field !== "opacity" && value !== "match" && !ownsAppearanceItem(ownership, APPEARANCE_FIELD_CATEGORY[field], value)) {
+    throw new UserFacingError("You have not unlocked that appearance item.");
+  }
   await interaction.deferUpdate();
   const appearance = getProfileAppearance(profile);
   appearance[field === "opacity" ? "panelOpacity" : field] = field === "opacity" ? Number(value) : value;
   await saveProfileAppearance(interaction, profile, appearance,
-    APPEARANCE_PAGES.details.includes(field) ? "details" : "colors");
+    APPEARANCE_PAGES.details.includes(field) ? "details" : "colors", 0, ownership);
 }
 export async function handleProfileStickerButton(interaction) {
   const [, , action, indexText, ownerId] = interaction.customId.split(":");
   if (ownerId !== interaction.user.id) throw new UserFacingError("Only the profile owner can edit stickers.");
   const profile = await UserProfile.findOne({ guildId: interaction.guildId, discordUserId: ownerId });
   if (!profile) throw new UserFacingError("Your profile was not found.");
-  const appearance = getProfileAppearance(profile);
+  const ownership = await getAppearanceOwnership(interaction.guildId, ownerId);
+  const appearance = filterOwnedAppearance(getProfileAppearance(profile), ownership);
   const index = Number(indexText);
   if (!Number.isSafeInteger(index) || index < 0 || index >= appearance.stickers.length) {
     throw new UserFacingError("This sticker is no longer available.");
@@ -696,7 +702,7 @@ export async function handleProfileStickerButton(interaction) {
   }
   await interaction.deferUpdate();
   await saveProfileAppearance(interaction, profile, appearance, "stickers",
-    action === "remove" ? Math.max(0, index - 1) : index);
+    action === "remove" ? Math.max(0, index - 1) : index, ownership);
 }
 
 export async function handleProfileCardButton(interaction) {
