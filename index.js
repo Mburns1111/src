@@ -63,6 +63,7 @@ import {
   handleTradeVoteEntryButton,
 } from "./commands/trade.js";
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
+import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
   execute as executeMigrateOldPosts,
@@ -101,6 +102,7 @@ const commandHandlers = new Map([
   [outfitCommand.name, executeOutfit],
   [tradeCommand.name, executeTrade],
   [setupCommand.name, executeSetup],
+  [shopCommand.name, executeShop],
   [helpCommand.name, executeHelp],
   ["migrate_old_posts", executeMigrateOldPosts],
 ]);
@@ -185,6 +187,7 @@ client.once(Events.ClientReady, (readyClient) => {
       if (!config) continue;
       await Promise.all([
         ensureConfiguredEntry(guild, config.profileChannelId, ensureProfileEntry, "profile"),
+        ensureConfiguredEntry(guild, config.shopChannelId, ensureShopEntry, "shop"),
         ensureConfiguredEntry(guild, config.houseChannelId, ensureHouseEntry, "house listing"),
         ensureConfiguredEntry(guild, config.outfitChannelId, ensureOutfitEntry, "outfit listing"),
         ensureConfiguredEntry(guild, config.inventoryChannelId, ensureInventoryEntry, "inventory"),
@@ -209,6 +212,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith("shop:")) {
+      await handleShopButton(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId.startsWith("house:new:")) {
       await ensureProfileForEntry(interaction);
       await handleHouseCreateButton(interaction);
@@ -379,6 +386,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.guild &&
       ![
         setupCommand.name,
+        shopCommand.name,
         profileCleanupCommand.name,
         profileRefreshCommand.name,
       ].includes(interaction.commandName)
