@@ -346,11 +346,11 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
   // Main card and content panels.
   fillRoundedRect(
     ctx,
-    20,
-    20,
-    width - 40,
-    height - 40,
-    38,
+    style.outerInset,
+    style.outerInset,
+    width - style.outerInset * 2,
+    height - style.outerInset * 2,
+    style.cornerRadius,
     style.panel
   );
 
@@ -360,7 +360,7 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
     40,
     280,
     height - 80,
-    26,
+    style.panelRadius,
     style.panelAlt
   );
 
@@ -371,7 +371,7 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
     40,
     width - 348,
     height - 80,
-    26,
+    style.panelRadius,
     style.panel
   );
 
@@ -380,9 +380,9 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
     ctx,
     328,
     40,
-    12,
+    style.accentStripeWidth,
     height - 80,
-    6,
+    style.accentStripeWidth / 2,
     style.accent
   );
 
@@ -557,7 +557,7 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
     r.photo.y,
     r.photo.width,
     r.photo.height,
-    18,
+    style.imageRadius,
     style.panelAlt
   );
 
@@ -569,7 +569,7 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
       r.photo.y,
       r.photo.width,
       r.photo.height,
-      18
+      style.imageRadius
     );
   } else {
     ctx.fillStyle = style.mutedText;
@@ -600,29 +600,29 @@ function drawDefaultProfile(ctx, data, images, style, layout) {
 
   // Final frame layer.
   ctx.strokeStyle = style.frame;
-  ctx.lineWidth = 5;
+  ctx.lineWidth = style.borderWidth;
 
   roundedRect(
     ctx,
-    20,
-    20,
-    width - 40,
-    height - 40,
-    38
+    style.outerInset,
+    style.outerInset,
+    width - style.outerInset * 2,
+    height - style.outerInset * 2,
+    style.cornerRadius
   );
 
   ctx.stroke();
 
   ctx.strokeStyle = style.panelAlt;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = style.innerBorderWidth;
 
   roundedRect(
     ctx,
-    30,
-    30,
-    width - 60,
-    height - 60,
-    27
+    style.innerInset,
+    style.innerInset,
+    width - style.innerInset * 2,
+    height - style.innerInset * 2,
+    style.innerCornerRadius
   );
 
   ctx.stroke();
