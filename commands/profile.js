@@ -527,39 +527,94 @@ export async function ensureProfileCard(guild, user, { refresh = false } = {}) {
 const APPEARANCE_CHOICES = {
   background: ["sagePreview", "sageDots", "garden"],
   panelColor: ["match", "moss", "lavender", "default"],
+  font: ["default", "classic"],
+  fontColor: ["default", "plum"],
+  frame: ["default", "doubleLine"],
 };
-function makeAppearanceControls(profile) {
-  const a = resolveAppearance(profile.profileAppearance?.background ? profile.profileAppearance : { background: "sagePreview", panelOpacity: 0.34 });
-  return [
-    ...Object.entries(APPEARANCE_CHOICES).map(([field, ids]) => new ActionRowBuilder().addComponents(
+const APPEARANCE_LABELS = {
+  sagePreview: "Pale sage", sageDots: "Sage dots", garden: "Garden",
+  match: "Match background", moss: "Moss", lavender: "Lavender",
+  default: "Default", classic: "Classic serif", plum: "Plum",
+  doubleLine: "Double-line border",
+};
+const APPEARANCE_PAGES = {
+  colors: ["background", "panelColor", "opacity"],
+  details: ["font", "fontColor", "frame"],
+};
+function makeAppearanceControls(profile, page = "colors") {
+  const a = resolveAppearance(profile.profileAppearance?.background
+    ? profile.profileAppearance
+    : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 });
+  const pageMenu = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`profile:appearance:page:${profile.discordUserId}`)
+      .setPlaceholder("Customization category")
+      .addOptions([
+        { label: "Backgrounds & panels", value: "colors", default: page === "colors" },
+        { label: "Fonts, text & frames", value: "details", default: page === "details" },
+      ]),
+  );
+  const rows = APPEARANCE_PAGES[page].map(field => {
+    if (field === "opacity") {
+      return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId(`profile:appearance:opacity:${profile.discordUserId}`)
+          .setPlaceholder("Panel opacity")
+          .addOptions([0.2, 0.34, 0.5, 0.7, 0.9].map(n => ({
+            label: `${Math.round(n * 100)}% opacity`, value: String(n),
+            default: Math.abs(a.panelOpacity - n) < 0.001,
+          }))),
+      );
+    }
+    return new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder().setCustomId(`profile:appearance:${field}:${profile.discordUserId}`)
-        .setPlaceholder(field === "background" ? "Choose background" : "Choose panel color")
-        .addOptions(ids.map(id => ({ label: id === "sagePreview" ? "Pale sage" : id === "match" ? "Match background" : id, value: id, default: a[field] === id }))),
-    )),
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder().setCustomId(`profile:appearance:opacity:${profile.discordUserId}`)
-        .setPlaceholder("Panel transparency")
-        .addOptions([0.2, 0.34, 0.5, 0.7, 0.9].map(n => ({ label: `${Math.round(n * 100)}% opacity`, value: String(n), default: Math.abs(a.panelOpacity - n) < 0.001 }))),
-    ),
-  ];
+        .setPlaceholder({
+          background: "Choose background", panelColor: "Choose panel color",
+          font: "Choose font", fontColor: "Choose text color", frame: "Choose frame",
+        }[field])
+        .addOptions(APPEARANCE_CHOICES[field].map(id => ({
+          label: APPEARANCE_LABELS[id] || id, value: id, default: a[field] === id,
+        }))),
+    );
+  });
+  return [pageMenu, ...rows];
 }
 export async function handleProfileAppearanceSelect(interaction) {
   const [, , field, ownerId] = interaction.customId.split(":");
   if (ownerId !== interaction.user.id) throw new UserFacingError("Only the profile owner can customize this profile.");
-  if (!["background", "panelColor", "opacity"].includes(field)) throw new UserFacingError("Unknown appearance setting.");
+  if (!["page", "opacity", ...Object.keys(APPEARANCE_CHOICES)].includes(field)) {
+    throw new UserFacingError("Unknown appearance setting.");
+  }
   const profile = await UserProfile.findOne({ guildId: interaction.guildId, discordUserId: ownerId });
   if (!profile) throw new UserFacingError("Your profile was not found.");
   const value = interaction.values[0];
+  if (field === "page") {
+    if (!APPEARANCE_PAGES[value]) throw new UserFacingError("Unknown customization category.");
+    await interaction.update({
+      content: "Profile customization (test catalog; shop ownership checks are not active yet).",
+      components: makeAppearanceControls(profile, value),
+    });
+    return;
+  }
   if (field === "opacity") {
     if (![0.2, 0.34, 0.5, 0.7, 0.9].includes(Number(value))) throw new UserFacingError("Invalid opacity.");
-  } else if (!APPEARANCE_CHOICES[field]?.includes(value)) throw new UserFacingError("Invalid catalog choice.");
+  } else if (!APPEARANCE_CHOICES[field]?.includes(value)) {
+    throw new UserFacingError("Invalid catalog choice.");
+  }
   await interaction.deferUpdate();
-  const current = profile.profileAppearance?.background ? profile.profileAppearance : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 };
-  profile.profileAppearance = resolveAppearance({ ...current, [field === "opacity" ? "panelOpacity" : field]: field === "opacity" ? Number(value) : value });
+  const current = profile.profileAppearance?.background
+    ? profile.profileAppearance
+    : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 };
+  profile.profileAppearance = resolveAppearance({
+    ...current, [field === "opacity" ? "panelOpacity" : field]: field === "opacity" ? Number(value) : value,
+  });
   profile.markModified("profileAppearance");
   await profile.save();
   await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
-  await interaction.editReply({ content: "Appearance saved and profile updated. Test catalog items are temporarily available; shop ownership checks are not yet active.", components: makeAppearanceControls(profile) });
+  const page = APPEARANCE_PAGES.details.includes(field) ? "details" : "colors";
+  await interaction.editReply({
+    content: "Appearance saved and profile updated. Test catalog items are temporarily available; shop ownership checks are not yet active.",
+    components: makeAppearanceControls(profile, page),
+  });
 }
 
 export async function handleProfileCardButton(interaction) {
