@@ -293,6 +293,7 @@ async function makeProfileCardPayload(
       avatar: target.displayAvatarURL({ extension: "png", size: 256 }),
       photo,
     },
+    appearance: { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 },
   });
   const linksEmbed = new EmbedBuilder().setDescription(
     makeProfileCardContent(profile, guild.id, listingLinks),
