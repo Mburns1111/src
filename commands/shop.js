@@ -69,9 +69,28 @@ async function pageFor(interaction, index) {
   if (!items.length) throw new UserFacingError("The shop has no items yet.");
   if (!Number.isSafeInteger(index) || index < 0 || index >= items.length) throw new UserFacingError("Invalid shop page.");
   const ownership = await getAppearanceOwnership(interaction.guildId, interaction.user.id);
-  return itemPage(items[index], index, items.length,
+  const item = items[index];
+  const result = itemPage(item, index, items.length,
     await walletBalance(interaction.guildId, interaction.user.id),
-    ownsAppearanceItem(ownership, items[index].category, items[index].id));
+    ownsAppearanceItem(ownership, item.category, item.id));
+  const appearance = resolveAppearance({ background: "sagePreview", panelColor: "match", panelOpacity: 0.34 });
+  const field = { backgrounds: "background", panels: "panelColor", frames: "frame",
+    fonts: "font", fontColors: "fontColor" }[item.category];
+  if (field) appearance[field] = item.id;
+  if (item.category === "stickers") {
+    appearance.stickers = [{ id: item.id, x: 0.8, y: 0.72, scale: 1.4, rotation: 0 }];
+  }
+  const example = await renderPostImage({
+    type: "profile",
+    data: { displayName: "Shop Example", discordUsername: "Example",
+      robloxUsername: "Example", bio: "See how this design looks on a profile.",
+      footer: "Catalog example" },
+    appearance,
+  });
+  result.embeds[0].setImage("attachment://shop-example.png");
+  result.files = [new AttachmentBuilder(example, { name: "shop-example.png" })];
+  result.attachments = [];
+  return result;
 }
 export async function execute(interaction) {
   requireGuild(interaction);
