@@ -27,6 +27,7 @@ const userProfileSchema = new mongoose.Schema(
     inventoryVideoPostMessageId: { type: String, default: "" },
     profileCardChannelId: { type: String, default: "" },
     profileCardMessageId: { type: String, default: "" },
+    profileDetailsMessageId: { type: String, default: "" },
     albumPosts: { type: [albumPostSchema], default: [] },
   },
   { timestamps: true },
