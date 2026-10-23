@@ -186,10 +186,10 @@ export async function execute(interaction) {
     await interaction.editReply({ content: `You have **${await walletBalance(interaction.guildId, interaction.user.id)} Points**.` });
     return;
   }
-  await interaction.editReply(await pageFor(interaction, 0));
+  await sendShopDM(interaction, categories()[0]);
 }
-async function preview(interaction, item) {
-  const profile = await UserProfile.findOne({ guildId: interaction.guildId, discordUserId: interaction.user.id });
+async function previewPayload(context, item) {
+  const profile = await UserProfile.findOne({ guildId: context.guildId, discordUserId: context.user.id });
   const appearance = resolveAppearance(profile?.profileAppearance?.background
     ? profile.profileAppearance
     : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 });
@@ -200,28 +200,31 @@ async function preview(interaction, item) {
     appearance.stickers = [...appearance.stickers.slice(0, 7),
       { id: item.id, x: 0.8, y: 0.72, scale: 1, rotation: 0 }];
   }
-  const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+  const member = await context.guild.members.fetch(context.user.id).catch(() => null);
   const image = await renderPostImage({
     type: "profile",
     data: {
-      displayName: profile?.displayName || interaction.user.globalName || interaction.user.username,
-      discordUsername: interaction.user.username,
+      displayName: profile?.displayName || context.user.globalName || context.user.username,
+      discordUsername: context.user.username,
       robloxUsername: profile?.adoptMeUsername || "",
       bio: profile?.bio || "",
       lookingForTrades: profile?.lookingForTrades || false,
-      serverRoles: member ? member.roles.cache.filter(role => role.id !== interaction.guildId && !role.managed)
+      serverRoles: member ? member.roles.cache.filter(role => role.id !== context.guildId && !role.managed)
         .sort((a, b) => b.position - a.position).map(role => role.name) : [],
       footer: "Shop preview · not saved",
     },
-    images: { avatar: interaction.user.displayAvatarURL({ extension: "png", size: 256 }) },
+    images: { avatar: context.user.displayAvatarURL({ extension: "png", size: 256 }) },
     appearance,
   });
-  await interaction.editReply({
+  return {
     content: `**Preview: ${item.name}** — this does not change your saved profile.`,
     embeds: [new EmbedBuilder().setImage("attachment://shop-preview.png")],
     files: [new AttachmentBuilder(image, { name: "shop-preview.png" })],
     components: [],
-  });
+  };
+}
+async function preview(interaction, item) {
+  await interaction.editReply(await previewPayload(interaction, item));
 }
 async function purchase(interaction, item) {
   // Wallet deduction and item grant must commit together. Requires MongoDB transactions.
@@ -267,8 +270,142 @@ async function confirmationPage(interaction, item, category, index) {
     allowedMentions: { parse: [] },
   };
 }
+
+function dmCategoryMenu(guildId, current) {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder().setCustomId(`shop:dm:${guildId}:category`)
+      .setPlaceholder("Browse another category")
+      .addOptions(categories().map(category => ({
+        label: CATEGORY_LABELS[category], value: category, default: category === current,
+      }))),
+  );
+}
+async function dmFeatured(context, category) {
+  const result = await featuredPage(context, category);
+  result.components = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:0`)
+        .setLabel("Browse Items →").setStyle(ButtonStyle.Primary),
+    ),
+    dmCategoryMenu(context.guildId, category),
+  ];
+  return result;
+}
+async function dmItemPage(context, category, index) {
+  if (index === -1) return dmFeatured(context, category);
+  const result = await pageFor(context, index, category);
+  const item = sortedItems(category)[index];
+  const ownership = await getAppearanceOwnership(context.guildId, context.user.id);
+  const owned = ownsAppearanceItem(ownership, item.category, item.id);
+  const size = sortedItems(category).length;
+  result.components = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index - 1}`)
+        .setLabel("◀ Previous").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index + 1}`)
+        .setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(index >= size - 1),
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:preview:${category}:${index}`)
+        .setLabel("My Preview").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:buy:${category}:${index}`)
+        .setLabel(owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned),
+    ),
+    dmCategoryMenu(context.guildId, category),
+  ];
+  return result;
+}
+async function dmConfirmation(context, category, index) {
+  const item = sortedItems(category)[index];
+  const result = await confirmationPage(context, item, category, index);
+  const ownership = await getAppearanceOwnership(context.guildId, context.user.id);
+  const balance = await walletBalance(context.guildId, context.user.id);
+  const blocked = ownsAppearanceItem(ownership, item.category, item.id) || balance < item.price;
+  result.embeds[0].setDescription(
+    `**${item.name}**\nPrice: **${item.price} Points**\nYour balance: **${balance} Points**\n${blocked ? (balance < item.price ? `You need **${item.price - balance} more Points** to buy this.` : "You already own this.") : `After purchase: **${balance - item.price} Points**\nDo you want to buy this item?`}`,
+  );
+  result.components = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:confirm:${category}:${index}`)
+        .setLabel("Confirm Purchase").setStyle(ButtonStyle.Success).setDisabled(blocked),
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:cancel:${category}:${index}`)
+        .setLabel("Cancel").setStyle(ButtonStyle.Secondary),
+    ),
+    dmCategoryMenu(context.guildId, category),
+  ];
+  return result;
+}
+async function dmPreview(context, category, index) {
+  const item = sortedItems(category)[index];
+  const result = await previewPayload(context, item);
+  result.components = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index}`)
+        .setLabel("← Back to item").setStyle(ButtonStyle.Primary),
+    ),
+    dmCategoryMenu(context.guildId, category),
+  ];
+  return result;
+}
+async function sendShopDM(interaction, category) {
+  if (!category || !CATEGORY_LABELS[category]) throw new UserFacingError("No shop categories are available.");
+  const context = { guildId: interaction.guildId, user: interaction.user, guild: interaction.guild };
+  let dm;
+  try {
+    dm = await interaction.user.send(await dmFeatured(context, category));
+  } catch (error) {
+    if (Number(error?.code) === 50007) {
+      throw new UserFacingError("I couldn't send you a DM. Please allow direct messages from this server and try again.");
+    }
+    throw error;
+  }
+  await interaction.editReply({
+    content: `Your shop is in your **DMs**! [Open your private shop](https://discord.com/channels/@me/${dm.channelId}/${dm.id}). You can browse any category there.`,
+    allowedMentions: { parse: [] },
+  });
+}
+async function handleShopDM(interaction) {
+  const [, , guildId, action, categoryText, indexText] = interaction.customId.split(":");
+  if (!/^\\d{17,21}$/.test(guildId)) throw new UserFacingError("This shop link is invalid.");
+  const guild = await interaction.client.guilds.fetch(guildId);
+  const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) throw new UserFacingError("You must belong to the server to use this shop.");
+  const context = { guildId, user: interaction.user, guild };
+  if (action === "category" && interaction.isStringSelectMenu()) {
+    const selected = interaction.values[0];
+    if (!CATEGORY_LABELS[selected] || !itemsFor(selected).length) throw new UserFacingError("Unknown category.");
+    await interaction.deferUpdate();
+    await interaction.editReply(await dmFeatured(context, selected));
+    return true;
+  }
+  if (!interaction.isButton()) throw new UserFacingError("Unknown shop control.");
+  const category = categoryText;
+  if (!CATEGORY_LABELS[category] || !itemsFor(category).length) throw new UserFacingError("This category isn't available.");
+  const index = indexText === undefined ? NaN : Number(indexText);
+  if (!Number.isSafeInteger(index) || index < (action === "page" ? -1 : 0) || index >= itemsFor(category).length) {
+    throw new UserFacingError("That shop page isn't available.");
+  }
+  await interaction.deferUpdate();
+  if (action === "page" || action === "cancel") {
+    await interaction.editReply(await dmItemPage(context, category, index));
+  } else if (action === "preview") {
+    await interaction.editReply(await dmPreview(context, category, index));
+  } else if (action === "buy") {
+    await interaction.editReply(await dmConfirmation(context, category, index));
+  } else if (action === "confirm") {
+    await purchase(context, sortedItems(category)[index]);
+    await interaction.editReply(await dmItemPage(context, category, index));
+    await interaction.followUp({
+      content: `Purchased **${sortedItems(category)[index].name}** for **${sortedItems(category)[index].price} Points**! Open Customize appearance in the server to equip it.`,
+      allowedMentions: { parse: [] },
+    });
+  } else {
+    throw new UserFacingError("Unknown shop action.");
+  }
+  return true;
+}
+
 export async function handleShopButton(interaction) {
   const [, action, rawCategory, rawIndex] = interaction.customId.split(":");
+  if (action === "dm") return handleShopDM(interaction);
   if (action === "balance") {
     await interaction.reply({ content: `You have **${await walletBalance(interaction.guildId, interaction.user.id)} Points**.`,
       flags: MessageFlags.Ephemeral });
@@ -277,7 +414,7 @@ export async function handleShopButton(interaction) {
   if (action === "open") {
     const category = rawCategory && CATEGORY_LABELS[rawCategory] ? rawCategory : null;
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    await interaction.editReply(category ? await featuredPage(interaction, category) : await pageFor(interaction, 0));
+    await sendShopDM(interaction, category || categories()[0]);
     return true;
   }
   const category = rawCategory === "all" ? null : rawCategory;
