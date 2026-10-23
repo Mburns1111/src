@@ -13,6 +13,7 @@ import { ensureInventoryEntry } from "./inventory-video.js";
 import { ensureProfileEntry } from "./profile.js";
 import { ensureTradeVoteEntry } from "./trade.js";
 import { ensureTradingPostEntry } from "./trading-post.js";
+import { ensureShopEntry } from "./shop.js";
 
 export const data = new SlashCommandBuilder()
   .setName("setup")
@@ -64,10 +65,21 @@ export const data = new SlashCommandBuilder()
           .setDescription("Channel for permanent member Trading Post cards")
           .addChannelTypes(ChannelType.GuildText),
       ),
-  );
+  )
+  .addSubcommand(command => command.setName("shop").setDescription("Set the shop catalog channel")
+    .addChannelOption(option => option.setName("channel").setDescription("Channel for the permanent shop catalog")
+      .addChannelTypes(ChannelType.GuildText).setRequired(true)));
 
 export async function execute(interaction) {
   requireGuild(interaction);
+  if (interaction.options.getSubcommand() === "shop") {
+    const channel = interaction.options.getChannel("channel");
+    await GuildConfig.findOneAndUpdate({ guildId: interaction.guildId },
+      { $set: { shopChannelId: channel.id } }, { upsert: true, setDefaultsOnInsert: true });
+    await ensureShopEntry(interaction.guild, channel);
+    await interaction.editReply({ content: `Shop catalog configured in ${channel}.` });
+    return;
+  }
   const commandsChannel = interaction.options.getChannel("commands");
   const houseListings = interaction.options.getChannel("house_listings");
   const outfitListings = interaction.options.getChannel("outfit_listings");
