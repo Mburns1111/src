@@ -61,15 +61,18 @@ export async function ensureProfileEntry(guild, channel, { moveToBottom = false 
     extraButtons: [
       { customId: "profile:entry:appearance", label: "Customize appearance" },
       { customId: "profile:entry:video", label: "Inventory video" },
+      { customId: "profile:entry:photos", label: "Add/remove photos" },
     ],
   });
 }
 
 export async function handleProfileEntryButton(interaction) {
-  if (!["profile:entry", "profile:entry:appearance", "profile:entry:video"].includes(interaction.customId)) return false;
+  if (!["profile:entry", "profile:entry:appearance", "profile:entry:video", "profile:entry:photos"].includes(interaction.customId)) return false;
   const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
   if (interaction.customId === "profile:entry:appearance") {
     await interaction.reply({ content: "Customize your profile appearance (test catalog).", components: makeAppearanceControls(profile), flags: MessageFlags.Ephemeral });
+  } else if (interaction.customId === "profile:entry:photos") {
+    await showPhotoActionPrompt(interaction, interaction.user.id);
   } else if (interaction.customId === "profile:entry:video") {
     await interaction.showModal(makeInventoryVideoModal(interaction.user.id));
   } else {
@@ -204,15 +207,7 @@ function makeAlbumButtons(userId, page, count) {
 }
 
 function makeProfileCardComponents(userId, page, count) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`profile:card:photos:${userId}`)
-        .setLabel("Add/remove photos")
-        .setStyle(ButtonStyle.Secondary),
-    ),
-    ...makeAlbumButtons(userId, page, count),
-  ];
+  return makeAlbumButtons(userId, page, count);
 }
 
 async function showPhotoActionPrompt(interaction, ownerId) {
