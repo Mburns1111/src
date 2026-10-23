@@ -59,6 +59,17 @@ export const DEFAULT_POST_STYLE = {
   // Subdued border.
   frame: '#89958C',
 
+  // Shared geometry for every basic post; optional shop frames will be separate overlays.
+  cornerRadius: 38,
+  innerCornerRadius: 27,
+  panelRadius: 26,
+  imageRadius: 18,
+  outerInset: 20,
+  innerInset: 30,
+  borderWidth: 5,
+  innerBorderWidth: 2,
+  accentStripeWidth: 12,
+
   fontFamily: 'sans-serif',
   titleFontFamily: 'serif',
 };
