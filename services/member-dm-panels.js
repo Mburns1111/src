@@ -9,10 +9,11 @@ export function dmPanelUrl(channelId, messageId) {
 }
 
 export async function getOrCreateDmPanel({ guildId, user, kind, makeInitial, adoptExisting }) {
-  const key = `${guildId}:${user.id}:${kind}`;
+  const botUserId = user.client.user.id;
+  const key = `${botUserId}:${guildId}:${user.id}:${kind}`;
   if (openingPanels.has(key)) return openingPanels.get(key);
   const task = (async () => {
-    const criteria = { guildId, discordUserId: user.id, kind };
+    const criteria = { botUserId, guildId, discordUserId: user.id, kind };
     const stored = await MemberDmPanel.findOne(criteria);
     const channel = await user.createDM();
 
