@@ -282,20 +282,9 @@ function dmCategoryMenu(guildId, current) {
       }))),
   );
 }
-async function dmFeatured(context, category) {
-  const result = await featuredPage(context, category);
-  result.content = "";
-  result.components = [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:0`)
-        .setLabel("Browse Items →").setStyle(ButtonStyle.Primary),
-    ),
-    dmCategoryMenu(context.guildId, category),
-  ];
-  return result;
-}
 async function dmItemPage(context, category, index) {
-  if (index === -1) return dmFeatured(context, category);
+  // Older DM buttons may still refer to page -1; reopen page one instead.
+  if (index === -1) index = 0;
   const result = await pageFor(context, index, category);
   result.content = "";
   const item = sortedItems(category)[index];
@@ -305,7 +294,7 @@ async function dmItemPage(context, category, index) {
   result.components = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index - 1}`)
-        .setLabel("◀ Previous").setStyle(ButtonStyle.Secondary),
+        .setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(index === 0),
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index + 1}`)
         .setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(index >= size - 1),
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:preview:${category}:${index}`)
@@ -355,7 +344,7 @@ async function sendShopDM(interaction, category) {
   const context = { guildId: interaction.guildId, user: interaction.user, guild: interaction.guild };
   let dm;
   try {
-    dm = await interaction.user.send(await dmFeatured(context, category));
+    dm = await interaction.user.send(await dmItemPage(context, category, 0));
   } catch (error) {
     if (Number(error?.code) === 50007) {
       throw new UserFacingError("I couldn't send you a DM. Please allow direct messages from this server and try again.");
@@ -378,7 +367,7 @@ async function handleShopDM(interaction) {
     const selected = interaction.values[0];
     if (!CATEGORY_LABELS[selected] || !itemsFor(selected).length) throw new UserFacingError("Unknown category.");
     await interaction.deferUpdate();
-    await interaction.editReply(await dmFeatured(context, selected));
+    await interaction.editReply(await dmItemPage(context, selected, 0));
     return true;
   }
   if (!interaction.isButton()) throw new UserFacingError("Unknown shop control.");
