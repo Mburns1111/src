@@ -250,6 +250,26 @@ async function purchase(interaction, item) {
     await session.endSession();
   }
 }
+async function confirmationPage(interaction, item, category, index) {
+  const balance = await walletBalance(interaction.guildId, interaction.user.id);
+  const ownership = await getAppearanceOwnership(interaction.guildId, interaction.user.id);
+  const owned = ownsAppearanceItem(ownership, item.category, item.id);
+  const image = await exampleImage(item);
+  return {
+    embeds: [new EmbedBuilder().setTitle("Confirm your purchase")
+      .setDescription(`**${item.name}**\nPrice: **${item.price} Points**\nYour balance: **${balance} Points**\nAfter purchase: **${Math.max(0, balance - item.price)} Points**\n\n${owned ? "You already own this item." : balance < item.price ? "You need more Points to buy this." : "Do you want to buy this item?"}`)
+      .setImage("attachment://shop-confirm.png")],
+    files: [new AttachmentBuilder(image, { name: "shop-confirm.png" })],
+    attachments: [],
+    components: [new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop:confirm:${category || "all"}:${index}`)
+        .setLabel("Confirm Purchase").setStyle(ButtonStyle.Success).setDisabled(owned || balance < item.price),
+      new ButtonBuilder().setCustomId(`shop:cancel:${category || "all"}:${index}`)
+        .setLabel("Cancel").setStyle(ButtonStyle.Secondary),
+    )],
+    allowedMentions: { parse: [] },
+  };
+}
 export async function handleShopButton(interaction) {
   const [, action, rawCategory, rawIndex] = interaction.customId.split(":");
   if (action === "balance") {
@@ -265,18 +285,21 @@ export async function handleShopButton(interaction) {
   }
   const category = rawCategory === "all" ? null : rawCategory;
   if (category && !CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
-  const items = category ? itemsFor(category) : shopItems();
+  const items = sortedItems(category);
   const index = Number(rawIndex);
   if (!Number.isSafeInteger(index) || index < (action === "page" && category ? -1 : 0) || index >= items.length) {
     throw new UserFacingError("That shop item is unavailable.");
   }
-  if (action === "page") {
+  if (action === "page" || action === "cancel") {
     await interaction.deferUpdate();
     await interaction.editReply(await pageFor(interaction, index, category));
   } else if (action === "preview") {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await preview(interaction, items[index]);
   } else if (action === "buy") {
+    await interaction.deferUpdate();
+    await interaction.editReply(await confirmationPage(interaction, items[index], category, index));
+  } else if (action === "confirm") {
     await interaction.deferUpdate();
     await purchase(interaction, items[index]);
     await interaction.editReply(await pageFor(interaction, index, category));
