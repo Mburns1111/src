@@ -25,6 +25,7 @@ import {
   customColorHex, customColorLabel,
 } from "../services/custom-colors.js";
 import { UserFacingError } from "./errors.js";
+import { STICKER_CATALOG, isStickerForSale } from "../services/sticker-catalog.js";
 import { requireGuild } from "./shared.js";
 
 export const data = new SlashCommandBuilder()
@@ -563,6 +564,9 @@ async function purchase(interaction, item) {
   if (item.id === CUSTOM_COLOR_SHOP_ID || !appearanceCatalogItem(item.category, item.id)) {
     throw new UserFacingError("Choose a valid HEX code before purchasing a custom color.");
   }
+  if (item.category === "stickers" && !isStickerForSale(item.id)) {
+    throw new UserFacingError("This seasonal sticker is no longer on sale. Previously purchased copies remain yours.");
+  }
   // Wallet deduction and item grant must commit together. Requires MongoDB transactions.
   const session = await mongoose.startSession();
   try {
@@ -598,7 +602,7 @@ async function confirmationPage(interaction, item, category, index) {
     files: [new AttachmentBuilder(image, { name: "shop-confirm.png" })],
     attachments: [],
     components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`shop:confirm:${category || "all"}:${index}`)
+      new ButtonBuilder().setCustomId(`shop:confirm:${category || "all"}:${index}:${item.id}`)
         .setLabel("Confirm Purchase").setStyle(ButtonStyle.Success).setDisabled(owned || balance < item.price),
       new ButtonBuilder().setCustomId(`shop:cancel:${category || "all"}:${index}`)
         .setLabel("Cancel").setStyle(ButtonStyle.Secondary),
@@ -697,7 +701,7 @@ async function dmItemPage(context, category, index) {
       new ButtonBuilder()
         .setCustomId(item.id === CUSTOM_COLOR_SHOP_ID
           ? `shop:dm:${context.guildId}:customOpen:${category}:${index}`
-          : `shop:dm:${context.guildId}:buy:${category}:${index}`)
+          : `shop:dm:${context.guildId}:buy:${category}:${index}:${item.id}`)
         .setLabel(item.id === CUSTOM_COLOR_SHOP_ID ? "Enter HEX Code" : item.included ? "Included" : owned ? "Owned" : `Buy · ${item.price}`)
         .setStyle(item.id === CUSTOM_COLOR_SHOP_ID ? ButtonStyle.Primary : ButtonStyle.Success)
         .setDisabled(item.id !== CUSTOM_COLOR_SHOP_ID && (owned || balance < item.price)),
@@ -725,7 +729,7 @@ async function dmConfirmation(context, category, index) {
   );
   result.components = [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:confirm:${category}:${index}`)
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:confirm:${category}:${index}:${item.id}`)
         .setLabel("Confirm Purchase").setStyle(ButtonStyle.Success).setDisabled(blocked),
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:cancel:${category}:${index}`)
         .setLabel("Cancel").setStyle(ButtonStyle.Secondary),
@@ -785,6 +789,11 @@ function mixItemEntries(category, ownership = null) {
   // the six selected fonts form the current public shop.
   const legacyFont = category === "fonts" && ownership?.fonts?.has("classic")
     ? [{ id: "classic", name: "Classic Serif · Previously purchased", included: true }] : [];
+  const ownedSeasonalStickers = category === "stickers"
+    ? [...(ownership?.stickers || [])]
+      .filter(id => STICKER_CATALOG[id] && !isStickerForSale(id))
+      .map(id => ({ id, name: `${STICKER_CATALOG[id].name} · Owned`, ownedCustom: true }))
+    : [];
   const ownedTextColors = category === "fontColors"
     ? [...(ownership?.fontColors || [])]
       .filter(id => Boolean(customColorHex(id))).sort()
@@ -796,7 +805,7 @@ function mixItemEntries(category, ownership = null) {
   const seen = new Set();
   return [...(MIX_DEFAULT_ITEM_LABELS[category] || []),
     ...itemsFor(category).filter(item => item.id !== CUSTOM_COLOR_SHOP_ID),
-    ...legacyFont, ...ownedTextColors]
+    ...legacyFont, ...ownedSeasonalStickers, ...ownedTextColors]
     .filter(item => {
       if (seen.has(item.id)) return false;
       seen.add(item.id);
@@ -947,7 +956,7 @@ async function dmMixEditor(context, panel, { reuseImage = false } = {}) {
   const mix = normalizeShopMix(panel.shopPreviewMix);
   const category = panel.shopMixCategory;
   const ownership = isClassicColorCategory(category) ||
-    category === "fonts" || category === "fontColors"
+    ["fonts", "fontColors", "stickers"].includes(category)
     ? await getAppearanceOwnership(context.guildId, context.user.id) : null;
   const chrome = mixEditorChrome(context, panel, mix, ownership);
   if (reuseImage) return chrome; // Only the controls changed: keep current PNG
@@ -1014,7 +1023,7 @@ async function sendShopDM(interaction, category) {
   });
 }
 async function handleShopDM(interaction) {
-  const [, , guildId, action, categoryText, indexText] = interaction.customId.split(":");
+  const [, , guildId, action, categoryText, indexText, expectedItemId] = interaction.customId.split(":");
   if (!/^\d{17,21}$/.test(guildId)) throw new UserFacingError("This shop link is invalid.");
   if (action === "customSubmit" && interaction.isModalSubmit()) {
     const hex = normalizeHexColor(interaction.fields.getTextInputValue("custom_hex"));
@@ -1215,7 +1224,7 @@ async function handleShopDM(interaction) {
     } else if (action === "mixItem") {
       if (isClassicColorCategory(category)) throw new UserFacingError("Use the color controls instead.");
       const choice = interaction.values[0];
-      const ownership = ["fonts", "fontColors"].includes(category)
+      const ownership = ["fonts", "fontColors", "stickers"].includes(category)
         ? await getAppearanceOwnership(guildId, interaction.user.id) : null;
       const entries = mixItemEntries(category, ownership);
       const maxPage = Math.max(0, Math.ceil(entries.length / MIX_OPTION_PAGE_SIZE) - 1);
@@ -1290,6 +1299,12 @@ async function handleShopDM(interaction) {
   const index = indexText === undefined ? NaN : Number(indexText);
   if (!Number.isSafeInteger(index) || index < (action === "page" ? -1 : 0) || index >= itemsFor(category).length) {
     throw new UserFacingError("That shop page isn't available.");
+  }
+  // Seasonal rotation changes the list length. Check the actual stable ID on
+  // purchase controls so an old button cannot charge for a different item.
+  if (category === "stickers" && ["buy", "confirm"].includes(action) &&
+      sortedItems(category)[index]?.id !== expectedItemId) {
+    throw new UserFacingError("The sticker catalog changed. Reopen the shop to choose the correct sticker.");
   }
   let destination = index;
   if (action === "family" || action === "familyPreview") {
@@ -1381,7 +1396,7 @@ async function handleShopDM(interaction) {
 }
 
 export async function handleShopButton(interaction) {
-  const [, action, rawCategory, rawIndex] = interaction.customId.split(":");
+  const [, action, rawCategory, rawIndex, expectedItemId] = interaction.customId.split(":");
   if (action === "dm") return handleShopDM(interaction);
   if (action === "customOpen") {
     // Old non-DM catalog controls redirect into the permanent member shop,
@@ -1410,6 +1425,10 @@ export async function handleShopButton(interaction) {
   const index = rawIndex === undefined ? NaN : Number(rawIndex);
   if (!Number.isSafeInteger(index) || index < (action === "page" && category ? -1 : 0) || index >= items.length) {
     throw new UserFacingError("That shop item is unavailable.");
+  }
+  if (items[index]?.category === "stickers" && action === "confirm" &&
+      items[index]?.id !== expectedItemId) {
+    throw new UserFacingError("The sticker catalog changed. Reopen the shop to choose a sticker.");
   }
   if (action === "page" || action === "cancel") {
     await interaction.deferUpdate();
