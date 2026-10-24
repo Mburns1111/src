@@ -1,5 +1,6 @@
 import { MessageFlags, SlashCommandBuilder } from "discord.js";
 import UserProfile from "../models/UserProfile.js";
+import { awardMilestoneSafely } from "../services/points-rewards.js";
 import { UserFacingError } from "./errors.js";
 import {
   getConfiguredTextChannel,
@@ -119,6 +120,8 @@ async function replaceInventoryVideo(interaction, { video = null, videoUrl = "" 
   }
 
   await ensureInventoryEntry(interaction.guild, channel, { moveToBottom: true });
+  await awardMilestoneSafely(interaction.guildId, interaction.user.id,
+    "inventoryFirstPost", videoPost.id);
   return videoPost;
 }
 
