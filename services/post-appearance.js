@@ -46,6 +46,14 @@ export const APPEARANCE_CATALOG = Object.freeze({
   },
   frames: {
     default: { kind: 'standard' },
+    // Classic, understated outlines rendered directly with Canvas. These
+    // don't depend on image assets and work with every profile background.
+    fineLine: { kind: 'fineLine' },
+    boldOutline: { kind: 'boldOutline' },
+    dashedOutline: { kind: 'dashedOutline' },
+    dottedOutline: { kind: 'dottedOutline' },
+    cornerAccents: { kind: 'cornerAccents' },
+    // Legacy purchased Double Line remains unchanged and equippable.
     doubleLine: { kind: 'doubleLine', color: '#354B3E' },
   },
   fonts: {
