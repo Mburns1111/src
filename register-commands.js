@@ -9,6 +9,8 @@ import { data as houseCommand } from "./commands/house.js";
 import { data as outfitCommand } from "./commands/outfit.js";
 import { data as tradeCommand } from "./commands/trade.js";
 import { data as setupCommand } from "./commands/setup.js";
+import { data as shopCommand } from "./commands/shop.js";
+import { data as testPointsCommand } from "./commands/test-points.js";
 import { data as helpCommand } from "./commands/help.js";
 import { data as migrateOldPostsCommand } from "./commands/migrate-old-posts.js";
 
@@ -31,6 +33,8 @@ const commands = [
   outfitCommand,
   tradeCommand,
   setupCommand,
+  shopCommand,
+  testPointsCommand,
   helpCommand,
   migrateOldPostsCommand,
 ].map((command) => command.toJSON());
@@ -38,7 +42,7 @@ const commands = [
 await rest.put(Routes.applicationCommands(clientId), { body: commands });
 
 console.log(
-  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, help, and migrate-old-posts commands.",
+  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, shop, help, and migrate-old-posts commands.",
 );
 
 if (guildId) {

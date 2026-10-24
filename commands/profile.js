@@ -14,6 +14,10 @@ import {
   TextInputStyle,
 } from "discord.js";
 import UserProfile from "../models/UserProfile.js";
+import { randomUUID } from "node:crypto";
+import MemberDmPanel from "../models/MemberDmPanel.js";
+import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js";
+import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
 import GuildConfig from "../models/GuildConfig.js";
 import HouseListing from "../models/HouseListing.js";
 import OutfitListing from "../models/OutfitListing.js";
@@ -39,6 +43,12 @@ import {
 import { getVoteCounts } from "./trade.js";
 import { ensureChannelEntry } from "./channel-entry.js";
 import { renderPostImage } from "../services/post-renderer.js";
+import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, appearanceCatalogItem, resolveAppearance } from "../services/post-appearance.js";
+import { SHOP_FONT_STYLES } from "../services/font-library.js";
+import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } from "../services/sticker-catalog.js";
+import { customColorHex, customColorLabel } from "../services/custom-colors.js";
+import { CLASSIC_COLOR_OPTIONS, STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID } from "../services/classic-colors.js";
+import { FREE_APPEARANCE, getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, APPEARANCE_FIELD_CATEGORY } from "../services/appearance-ownership.js";
 
 export const data = new SlashCommandBuilder()
   .setName("profile")
@@ -57,13 +67,31 @@ export async function ensureProfileEntry(guild, channel, { moveToBottom = false 
     label: "Create or update my profile",
     description: "Use the button to add your Roblox name and profile details.",
     moveToBottom,
+    extraButtons: [
+      { customId: "profile:entry:appearance", label: "Customize appearance" },
+      { customId: "profile:entry:video", label: "Inventory video" },
+      { customId: "profile:entry:photos", label: "Add/remove photos" },
+    ],
   });
 }
 
 export async function handleProfileEntryButton(interaction) {
-  if (interaction.customId !== "profile:entry") return false;
+  if (!["profile:entry", "profile:entry:appearance", "profile:entry:video", "profile:entry:photos"].includes(interaction.customId)) return false;
+  if (interaction.customId === "profile:entry:appearance") {
+    // Acknowledge before loading the profile or preparing DM images.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
+    await openAppearanceDM(interaction, profile);
+    return true;
+  }
   const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
-  await interaction.showModal(makeEditProfileModal(profile, interaction.user.id));
+  if (interaction.customId === "profile:entry:photos") {
+    await showPhotoActionPrompt(interaction, interaction.user.id);
+  } else if (interaction.customId === "profile:entry:video") {
+    await interaction.showModal(makeInventoryVideoModal(interaction.user.id));
+  } else {
+    await interaction.showModal(makeEditProfileModal(profile, interaction.user.id));
+  }
   return true;
 }
 
@@ -94,36 +122,16 @@ export async function handleInventoryEntryButton(interaction) {
 }
 
 function makeProfileCardContent(profile, guildId, listingLinks) {
-  const lines = [`<@${profile.discordUserId}>'s member profile`];
+  const sections = [`<@${profile.discordUserId}>'s member profile`];
   const inventoryLinks = profile.albumPosts
-    .filter(
-      (post) =>
-        post.channelId !== profile.profileCardChannelId ||
-        post.messageId !== profile.profileCardMessageId,
-    )
+    .filter(post => post.channelId !== profile.profileCardChannelId || post.messageId !== profile.profileCardMessageId)
     .slice(-8)
-    .map(
-      (post) =>
-        `[Inventory photos](${discordMessageUrl(
-          guildId,
-          post.channelId,
-          post.messageId,
-        )})`,
-    );
-  const inventoryVideoUrl =
-    profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId
-      ? discordMessageUrl(
-          guildId,
-          profile.inventoryVideoPostChannelId,
-          profile.inventoryVideoPostMessageId,
-        )
-      : profile.inventoryVideoUrl;
-  if (inventoryVideoUrl) {
-    inventoryLinks.unshift(`[Inventory video](${inventoryVideoUrl})`);
-  }
-  if (inventoryLinks.length) {
-    lines.push(`**Inventory:** ${inventoryLinks.join(" · ")}`);
-  }
+    .map(post => `• [Inventory photos](${discordMessageUrl(guildId, post.channelId, post.messageId)})`);
+  const inventoryVideoUrl = profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId
+    ? discordMessageUrl(guildId, profile.inventoryVideoPostChannelId, profile.inventoryVideoPostMessageId)
+    : profile.inventoryVideoUrl;
+  if (inventoryVideoUrl) inventoryLinks.unshift(`• [Inventory video](${inventoryVideoUrl})`);
+  if (inventoryLinks.length) sections.push(`**Inventory**\n${inventoryLinks.join("\n")}`);
 
   for (const [label, listings] of [
     ["House listings", listingLinks.houses],
@@ -131,46 +139,34 @@ function makeProfileCardContent(profile, guildId, listingLinks) {
     ["Trade listings", listingLinks.trades],
   ]) {
     if (!listings.length) continue;
-    const links = [];
-    for (const listing of listings) {
-      const url = discordMessageUrl(
-        guildId,
-        listing.postChannelId,
-        listing.postMessageId,
-      );
-      if (label === "Trade listings") {
-        const counts = getVoteCounts(listing);
-        links.push(
-          `[${listing.title || "Trade listing"}](${url}) — ✅ ${counts.good} · ❌ ${counts.bad} · 🤷 ${counts.unsure} · 👍 ${counts.wouldMake} · 👎 ${counts.wouldntMake}`,
-        );
-      } else {
-        links.push(`[${listing.title || label.slice(0, -1)}](${url})`);
-      }
-    }
-    lines.push(`**${label}:** ${links.join(" · ")}`);
+    const entries = listings.map(listing => {
+      const url = discordMessageUrl(guildId, listing.postChannelId, listing.postMessageId);
+      const title = `[${listing.title || label.slice(0, -1)}](${url})`;
+      if (label !== "Trade listings") return `• ${title}`;
+      const counts = getVoteCounts(listing);
+      const positive = counts.good + counts.wouldMake;
+      const negative = counts.bad + counts.wouldntMake;
+      return `• ${title} — 👍 ${positive} · 👎 ${negative}${counts.unsure ? ` · 🤷 ${counts.unsure}` : ""}`;
+    });
+    sections.push(`**${label} (${listings.length})**\n${entries.join("\n")}`);
   }
   if (listingLinks.tradingPost) {
-    lines.push(
-      `**Trading Post:** [See my Trading Post here >](${discordMessageUrl(
-        guildId,
-        listingLinks.tradingPost.postChannelId,
-        listingLinks.tradingPost.postMessageId,
-      )})`,
-    );
+    sections.push(`**Trading Post**\n• [View trading post](${discordMessageUrl(guildId, listingLinks.tradingPost.postChannelId, listingLinks.tradingPost.postMessageId)})`);
   }
 
-  const visibleLines = [];
-  let contentLength = 0;
-  for (const line of lines) {
-    const nextLength = contentLength + line.length + (visibleLines.length ? 1 : 0);
-    if (nextLength > 4090) {
-      visibleLines.push("…");
+  // Discord embed descriptions are limited to 4096 characters.
+  const result = [];
+  let length = 0;
+  for (const section of sections) {
+    const separator = result.length ? "\n\n" : "";
+    if (length + separator.length + section.length > 4090) {
+      if (length + 2 <= 4096) result.push("…");
       break;
     }
-    visibleLines.push(line);
-    contentLength = nextLength;
+    result.push(section);
+    length += separator.length + section.length;
   }
-  return visibleLines.join("\n");
+  return result.join("\n\n");
 }
 
 function makeAlbumButtons(userId, page, count) {
@@ -193,24 +189,7 @@ function makeAlbumButtons(userId, page, count) {
 }
 
 function makeProfileCardComponents(userId, page, count) {
-  const rows = [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`profile:card:edit:${userId}`)
-        .setLabel("Edit details")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`profile:card:photos:${userId}`)
-        .setLabel("Add/remove photos")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(`profile:card:video:${userId}`)
-        .setLabel("Inventory video")
-        .setStyle(ButtonStyle.Secondary),
-    ),
-  ];
-  rows.push(...makeAlbumButtons(userId, page, count));
-  return rows;
+  return makeAlbumButtons(userId, page, count);
 }
 
 async function showPhotoActionPrompt(interaction, ownerId) {
@@ -244,10 +223,7 @@ async function makeProfileCardPayload(
   page = 0,
   currentMessage = null,
 ) {
-  const [albumImages, listingLinks] = await Promise.all([
-    getProfileAlbumImages(guild, profile),
-    getProfileListingLinks(guild, profile.discordUserId),
-  ]);
+  const albumImages = await getProfileAlbumImages(guild, profile);
   const photos = albumImages;
   const albumPage = photos.length
     ? Math.min(page, photos.length - 1)
@@ -293,17 +269,11 @@ async function makeProfileCardPayload(
       avatar: target.displayAvatarURL({ extension: "png", size: 256 }),
       photo,
     },
-    appearance: { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 },
+    appearance: filterOwnedAppearance(profile.profileAppearance?.background ? profile.profileAppearance : DEFAULT_APPEARANCE, await getAppearanceOwnership(guild.id, profile.discordUserId)),
   });
-  const linksEmbed = new EmbedBuilder().setDescription(
-    makeProfileCardContent(profile, guild.id, listingLinks),
-  );
   return {
     content: "",
-    embeds: [
-      new EmbedBuilder().setImage("attachment://profile-card.png"),
-      linksEmbed,
-    ],
+    embeds: [new EmbedBuilder().setImage("attachment://profile-card.png")],
     files: [new AttachmentBuilder(image, { name: "profile-card.png" })],
     attachments: [],
     components: makeProfileCardComponents(
@@ -313,6 +283,34 @@ async function makeProfileCardPayload(
     ),
     allowedMentions: { parse: [] },
   };
+}
+
+async function makeProfileDetailsPayload(guild, profile) {
+  const listingLinks = await getProfileListingLinks(guild, profile.discordUserId);
+  return {
+    content: "",
+    embeds: [new EmbedBuilder().setDescription(makeProfileCardContent(profile, guild.id, listingLinks))],
+    allowedMentions: { parse: [] },
+  };
+}
+
+async function syncProfileDetails(guild, channel, profile) {
+  const payload = await makeProfileDetailsPayload(guild, profile);
+  if (profile.profileDetailsMessageId) {
+    try {
+      const message = await channel.messages.fetch(profile.profileDetailsMessageId);
+      if (message.author.id === guild.client.user.id) {
+        await message.edit(payload);
+        return message;
+      }
+    } catch (error) {
+      if (![10003, 10008].includes(Number(error?.code))) throw error;
+    }
+  }
+  const message = await channel.send(payload);
+  profile.profileDetailsMessageId = message.id;
+  await profile.save();
+  return message;
 }
 
 async function streamToBuffer(stream) {
@@ -474,21 +472,14 @@ async function ensureProfileCardOnce(guild, user, refresh) {
 
   const oldChannelId = profile.profileCardChannelId;
   const oldMessageId = profile.profileCardMessageId;
+  const oldDetailsMessageId = profile.profileDetailsMessageId;
   if (oldChannelId === channel.id && oldMessageId) {
     try {
-      const existingChannel = await guild.channels.fetch(oldChannelId);
-      const existingMessage = await existingChannel?.messages?.fetch(oldMessageId);
-      if (existingMessage) {
-        if (!refresh && !identityChanged) return profile;
-        await existingMessage.edit(
-          await makeProfileCardPayload(
-            guild,
-            profile,
-            member,
-            0,
-            existingMessage,
-          ),
-        );
+      const existingMessage = await channel.messages.fetch(oldMessageId);
+      if (existingMessage.author.id === guild.client.user.id) {
+        if (!refresh && !identityChanged && oldDetailsMessageId) return profile;
+        await existingMessage.edit(await makeProfileCardPayload(guild, profile, member, 0, existingMessage));
+        await syncProfileDetails(guild, channel, profile);
         return profile;
       }
     } catch (error) {
@@ -496,17 +487,15 @@ async function ensureProfileCardOnce(guild, user, refresh) {
     }
   }
 
-  const newMessage = await channel.send(
-    await makeProfileCardPayload(guild, profile, member),
-  );
+  const newMessage = await channel.send(await makeProfileCardPayload(guild, profile, member));
   profile.profileCardChannelId = channel.id;
   profile.profileCardMessageId = newMessage.id;
+  profile.profileDetailsMessageId = "";
   try {
     await profile.save();
+    await syncProfileDetails(guild, channel, profile);
   } catch (error) {
-    await newMessage.delete().catch((deleteError) => {
-      console.error("Could not remove an unsaved profile card post:", deleteError);
-    });
+    await newMessage.delete().catch(() => {});
     throw error;
   }
 
@@ -515,11 +504,14 @@ async function ensureProfileCardOnce(guild, user, refresh) {
   if (oldChannelId && oldMessageId) {
     try {
       const oldChannel = await guild.channels.fetch(oldChannelId);
-      const oldMessage = await oldChannel?.messages?.fetch(oldMessageId);
-      await oldMessage?.delete();
+      for (const messageId of [oldMessageId, oldDetailsMessageId]) {
+        if (!messageId) continue;
+        const oldMessage = await oldChannel?.messages?.fetch(messageId);
+        if (oldMessage?.author.id === guild.client.user.id) await oldMessage.delete();
+      }
     } catch (error) {
       if (![10003, 10008].includes(Number(error?.code))) {
-        console.error("Could not remove the old profile card post:", error);
+        console.error("Could not remove the old profile post:", error);
       }
     }
   }
@@ -546,14 +538,722 @@ export async function ensureProfileCard(guild, user, { refresh = false } = {}) {
   return trackedOperation;
 }
 
+// The full classic spectrum (27 choices) is paged to obey Discord's
+// 25-select-option limit. The free standard colors are labeled clearly.
+const APPEARANCE_CHOICES = {
+  background: [STANDARD_BACKGROUND_ID, ...CLASSIC_COLOR_OPTIONS.map(item => item.id)],
+  panelColor: ["match", ...CLASSIC_COLOR_OPTIONS.map(item => item.id)],
+  // 'font' is kept to accept selections from pre-update editor messages.
+  font: ["default", "classic", ...Object.keys(SHOP_FONT_STYLES)],
+  headerFont: ["default", ...Object.keys(SHOP_FONT_STYLES), "classic"],
+  bodyFont: ["default", ...Object.keys(SHOP_FONT_STYLES), "classic"],
+  fontColor: ["default", "black", "white"],
+  frame: ["default", "doubleLine", "softRounded", "silverFloral", "goldCelestial", "blackKnight"],
+};
+const APPEARANCE_LABELS = {
+  ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [
+    item.id,
+    item.name,
+  ])),
+  sagePreview: "Starter Sage (free)",
+  match: "Match background (free)",
+  default: "Default",
+  classic: "Classic Serif (legacy)",
+  ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, font]) => [id, font.name])),
+  black: "Black (free)",
+  white: "White (free)",
+  doubleLine: "Double Line",
+  softRounded: "Soft Rounded",
+  silverFloral: "Silver Floral",
+  goldCelestial: "Golden Celestial",
+  blackKnight: "Black Knight",
+};
+const COLOR_SELECT_PAGE_SIZE = 24;
+const RETIRED_COLOR_NAMES = {
+  sageDots: "Sage Dots", garden: "Garden", paleSage: "Pale Sage",
+  warmCream: "Warm Cream", dustyBlue: "Dusty Blue",
+  moss: "Moss", lavender: "Lavender", sagePanel: "Sage Panel",
+  creamPanel: "Cream Panel", bluePanel: "Blue Panel",
+  charcoal: "Charcoal", forest: "Forest", navy: "Navy",
+};
+
+// The real profile editor shows ONLY owned/unlocked colors. Locked colors
+// remain available to try in the shop's Mix & Match preview, not here.
+// "Match background" is always allowed, and free standards/text colors are
+// already included in the ownership set. Retired paid colors stay available
+// to their original buyers without returning to the storefront.
+function availableAppearanceChoices(field, ownership) {
+  const choices = APPEARANCE_CHOICES[field];
+  // Equipment must be owned: the shop and Mix & Match can preview locked
+  // frames, but Customize Profile offers only the free or purchased frames.
+  if (!["background", "panelColor", "fontColor", "frame", "headerFont", "bodyFont", "font"].includes(field)) return choices;
+  const category = APPEARANCE_FIELD_CATEGORY[field];
+  const unlocked = choices.filter(id =>
+    id === "match" || ownsAppearanceItem(ownership, category, id));
+  if (["headerFont", "bodyFont", "font"].includes(field)) return unlocked;
+  if (field === "fontColor") {
+    // A member can own any number of permanent purchased HEX text colors.
+    // Do not expose the raw template ID or anyone else's color codes.
+    const customOwned = [...(ownership?.fontColors || [])]
+      .filter(id => Boolean(customColorHex(id))).sort();
+    return [...new Set([...unlocked, ...customOwned])];
+  }
+  if (field === "frame") {
+    // Preserve a previously purchased retired border even if no longer sold.
+    const legacy = Object.keys(APPEARANCE_CATALOG.frames).filter(id =>
+      !choices.includes(id) && ownership?.frames?.has(id) &&
+      !FREE_APPEARANCE.frames.includes(id));
+    return [...unlocked, ...legacy];
+  }
+  // Each purchased custom HEX value is stored as a stable inventory ID,
+  // so multiple saved colors can appear here without a separate DB schema.
+  const customOwned = [...(ownership?.[category] || [])]
+    .filter(id => Boolean(customColorHex(id))).sort();
+  const retiredOwned = Object.keys(APPEARANCE_CATALOG[category]).filter(id =>
+    !choices.includes(id) && ownership?.[category]?.has(id) &&
+    !FREE_APPEARANCE[category]?.includes(id));
+  return [...new Set([...unlocked, ...customOwned, ...retiredOwned])];
+}
+
+function appearanceChoicePage(field, currentAppearance, optionPages = {}, ownership = null) {
+  const options = availableAppearanceChoices(field, ownership);
+  const pageCount = Math.ceil(options.length / COLOR_SELECT_PAGE_SIZE);
+  if (pageCount <= 1) return { page: 0, count: 1 };
+  // On first open, show the page containing the equipped color.
+  const selectedIndex = options.indexOf(currentAppearance[field]);
+  const selectedPage = Math.max(0, Math.floor(selectedIndex / COLOR_SELECT_PAGE_SIZE));
+  const requested = Number.isSafeInteger(optionPages[field]) ? optionPages[field] : selectedPage;
+  return { page: Math.max(0, Math.min(pageCount - 1, requested)), count: pageCount };
+}
+
+function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
+  const all = availableAppearanceChoices(field, ownership);
+  const { page, count } = appearanceChoicePage(field, appearance, optionPages, ownership);
+  const visible = count === 1 ? all : all.slice(
+    page * COLOR_SELECT_PAGE_SIZE, (page + 1) * COLOR_SELECT_PAGE_SIZE,
+  );
+  const options = visible.map(id => ({
+    label: customColorLabel(id) ||
+      (!APPEARANCE_CHOICES[field].includes(id)
+      ? `Retired · ${RETIRED_COLOR_NAMES[id] || id}`
+      : field === "background" && id === STANDARD_BACKGROUND_ID
+        ? "Starter Sage (free)"
+        : field === "panelColor" && id === STANDARD_PANEL_ID
+          ? `${APPEARANCE_LABELS[id]} (Free · Standard)`
+          : field === "frame" && id === "default"
+            ? "Classic Thin (free)"
+            : (field === "headerFont" || field === "bodyFont") && id === "default"
+              ? "Standard Clean (free)"
+              : APPEARANCE_LABELS[id] || id),
+    value: id,
+    default: appearance[field] === id,
+    description: customColorHex(id) ? "Your purchased HEX color" :
+      !APPEARANCE_CHOICES[field].includes(id)
+      ? "Previously purchased · yours to keep"
+      : id === "match" ? "Free · follows equipped background; panel not owned"
+        : ownership?.[APPEARANCE_FIELD_CATEGORY[field]]?.has(id)
+          ? "Available" : "Locked",
+  }));
+  if (count > 1) {
+    options.push(page < count - 1
+      ? { label: "More colors →", value: "__next__", description: `Page ${page + 2} of ${count}` }
+      : { label: "← Previous colors", value: "__previous__", description: `Page ${page} of ${count}` });
+  }
+  return { options, page, count };
+}
+const APPEARANCE_PAGES = {
+  colors: ["background", "panelColor", "opacity"],
+  fonts: ["headerFont", "bodyFont"],
+  details: ["fontColor", "frame"],
+  stickers: [],
+};
+function getProfileAppearance(profile) {
+  return resolveAppearance(profile.profileAppearance?.background
+    ? profile.profileAppearance
+    : DEFAULT_APPEARANCE);
+}
+function makeAppearanceControls(profile, page = "colors", selected = 0, ownership = null, dmToken = null, optionPages = {}, stickerMode = "position") {
+  const a = getProfileAppearance(profile);
+  const ownerId = profile.discordUserId;
+  const selectId = field => dmToken
+    ? `profile:dm:select:${dmToken}:${field}`
+    : `profile:appearance:${field}:${ownerId}`;
+  const finish = () => new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:confirm`).setLabel("Confirm & update profile").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:cancel`).setLabel("Discard Changes").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:refresh`).setLabel("Refresh Preview").setStyle(ButtonStyle.Secondary),
+  );
+  const pageMenu = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(selectId("page"))
+      .setPlaceholder("Customization category")
+      .addOptions([
+        { label: "Backgrounds & panels", value: "colors", default: page === "colors" },
+        { label: "Fonts · Headings and profile text", value: "fonts", default: page === "fonts" },
+        { label: "Text colors & frames", value: "details", default: page === "details" },
+        { label: "Stickers", value: "stickers", default: page === "stickers" },
+      ]),
+  );
+  if (dmToken && page === "stickers") {
+    // Each member can place at most eight instances, including duplicates of
+    // the same purchased design. Expired seasonal items remain selectable for
+    // members who already own them. Locked items never appear here.
+    const ownedIds = Object.keys(STICKER_CATALOG).filter(id =>
+      ownership?.stickers?.has(id));
+    const stickerChoices = [
+      ...a.stickers.map((sticker, i) => ({
+        label: `Edit ${i + 1}: ${STICKER_CATALOG[sticker.id]?.name || sticker.id}`,
+        value: `select:${i}`,
+        default: i === selected,
+      })),
+      ...(a.stickers.length < 8 ? ownedIds.map(id => ({
+        label: `Place ${STICKER_CATALOG[id].name}`,
+        value: `add:${id}`,
+        description: "Owned · free to reuse and recolor",
+      })) : []),
+    ];
+    const rows = [
+      pageMenu,
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId(selectId("stickerPick"))
+          .setPlaceholder(ownedIds.length
+            ? "Select a sticker, or place an owned design"
+            : "Buy a sticker in the Shop to unlock it")
+          .setDisabled(!stickerChoices.length)
+          .addOptions(stickerChoices.length ? stickerChoices : [
+            { label: "No stickers unlocked yet", value: "__none__",
+              description: "Buy a sticker in the Shop first" },
+          ]),
+      ),
+    ];
+    if (a.stickers.length) {
+      const selectedSticker = a.stickers[Math.max(0, Math.min(selected, a.stickers.length - 1))];
+      const isTwoColor = STICKER_CATALOG[selectedSticker.id]?.colors === 2;
+      const button = (action, label, style = ButtonStyle.Secondary) =>
+        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:${action}`)
+          .setLabel(label).setStyle(style);
+      if (stickerMode === "style") {
+        // Separate modes keep the preview unobstructed while staying within
+        // Discord's five-row limit.
+        rows.push(new ActionRowBuilder().addComponents(
+          button("stickerColors", isTwoColor ? "Main & Accent HEX" : "Sticker HEX", ButtonStyle.Primary),
+          button("stickerOutline", `Outline: ${(selectedSticker.outline || "auto").replace(/^./, c => c.toUpperCase())}`),
+          button("stickerResetColors", "Reset Colors"),
+          button("remove", "Remove", ButtonStyle.Danger),
+        ));
+        rows.push(new ActionRowBuilder().addComponents(
+          button("stickerPosition", "← Position & Size", ButtonStyle.Primary),
+        ));
+      } else {
+        rows.push(new ActionRowBuilder().addComponents(
+          button("left", "← Left"), button("right", "Right →"),
+          button("up", "↑ Up"), button("down", "↓ Down"),
+        ));
+        rows.push(new ActionRowBuilder().addComponents(
+          button("smaller", "− Size"), button("larger", "+ Size"),
+          button("rotateLeft", "↶ Rotate"), button("rotateRight", "↷ Rotate"),
+          button("stickerStyle", "Colors & Style", ButtonStyle.Primary),
+        ));
+      }
+    }
+    // Discord has a maximum of five action rows per message.
+    return [...rows, finish()];
+  }
+  if (page === "stickers") {
+    const rows = [pageMenu, new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId(selectId("stickerAdd"))
+        .setPlaceholder("Add a sticker (up to 8)")
+        .setDisabled(a.stickers.length >= 8 || !Object.keys(APPEARANCE_CATALOG.stickers).some(id => ownership?.stickers.has(id)))
+        .addOptions([
+          ...Object.keys(APPEARANCE_CATALOG.stickers).map(id => ({ label: id, value: id, description: ownership?.stickers.has(id) ? "Owned" : "Locked", default: false })),
+        ]),
+    )];
+    if (!a.stickers.length) return dmToken ? [...rows, finish()] : rows;
+    const index = Math.min(Math.max(selected, 0), a.stickers.length - 1);
+    rows.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId(selectId("stickerSelect"))
+        .setPlaceholder("Choose sticker to edit")
+        .addOptions(a.stickers.map((sticker, i) => ({
+          label: `Sticker ${i + 1}: ${sticker.id}`, value: String(i), default: i === index,
+        }))),
+    ));
+    if (dmToken) {
+      rows.push(new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId(selectId("stickerAction"))
+          .setPlaceholder("Move, resize, rotate or remove sticker")
+          .addOptions([
+            ["left", "← Move left"], ["right", "Move right →"],
+            ["up", "↑ Move up"], ["down", "Move down ↓"],
+            ["smaller", "− Make smaller"], ["larger", "+ Make larger"],
+            ["rotateLeft", "↶ Rotate left"], ["rotateRight", "↷ Rotate right"],
+            ["remove", "Remove sticker"],
+          ].map(([value, label]) => ({ value, label }))),
+      ));
+      return [...rows, finish()];
+    }
+    const button = (action, label, style = ButtonStyle.Secondary) =>
+      new ButtonBuilder().setCustomId(`profile:sticker:${action}:${index}:${ownerId}`).setLabel(label).setStyle(style);
+    rows.push(new ActionRowBuilder().addComponents(
+      button("left", "← Left"), button("right", "Right →"),
+      button("up", "↑ Up"), button("down", "↓ Down"),
+    ));
+    rows.push(new ActionRowBuilder().addComponents(
+      button("smaller", "− Size"), button("larger", "+ Size"),
+      button("rotateLeft", "↶ Rotate"), button("rotateRight", "↷ Rotate"),
+      button("remove", "Remove", ButtonStyle.Danger),
+    ));
+    return rows;
+  }
+  const rows = APPEARANCE_PAGES[page].map(field => {
+    if (field === "opacity") {
+      return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId(selectId("opacity"))
+          .setPlaceholder("Panel opacity")
+          .addOptions([0.2, 0.34, 0.5, 0.7, 0.9].map(n => ({
+            label: `${Math.round(n * 100)}% opacity`, value: String(n),
+            default: Math.abs(a.panelOpacity - n) < 0.001,
+          }))),
+      );
+    }
+    const choice = appearanceChoiceOptions(field, a, ownership, optionPages);
+    const placeholder = {
+      background: "Choose background", panelColor: "Choose panel color",
+      font: "Choose font", headerFont: "Choose font for titles & headings",
+      bodyFont: "Choose font for profile text", fontColor: "Choose text color",
+      frame: "Choose frame",
+    }[field];
+    return new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId(selectId(field))
+        .setPlaceholder(choice.count > 1
+          ? `${placeholder} · ${choice.page + 1}/${choice.count}`
+          : placeholder)
+        .addOptions(choice.options),
+    );
+  });
+  // Fonts are owned once. Choose separate fonts, or apply one to both.
+  if (page === "fonts" && dmToken) {
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:fontBoth`)
+        .setLabel("Apply Heading Font to Both")
+        .setStyle(ButtonStyle.Primary),
+    ));
+  }
+  return dmToken ? [pageMenu, ...rows, finish()] : [pageMenu, ...rows];
+}
+
+async function appearanceDmPayload(guild, user, profile, draft) {
+  const ownership = await getAppearanceOwnership(guild.id, user.id);
+  const previewProfile = { ...profile.toObject(), profileAppearance: draft.appearance };
+  const preview = await makeProfileCardPayload(guild, previewProfile, user);
+  const controls = makeAppearanceControls(
+    previewProfile, draft.page, draft.selected, ownership, draft.token, draft.optionPages || {}, draft.stickerMode || "position",
+  );
+  return {
+    content: "**Customize your profile** — see every change in this preview. **Confirm & update profile** saves your work and closes this temporary editor. **Discard Changes** closes it without saving. Your permanent shop remains in DMs.",
+    embeds: preview.embeds,
+    files: preview.files,
+    attachments: [],
+    components: controls,
+    allowedMentions: { parse: [] },
+  };
+}
+
+async function openAppearanceDM(interaction, profile, guild = interaction.guild) {
+  if (!guild) throw new UserFacingError("The server is not available.");
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
+
+  // Keep only the shop message permanently. If Customize is the member's first
+  // visit, create their permanent shop before the temporary editor.
+  const { ensureMemberShopDM } = await import("./shop.js");
+  const shop = await ensureMemberShopDM(guild, interaction.user);
+  const { message, panel, created } = await getOrCreateDmPanel({
+    guildId: guild.id,
+    user: interaction.user,
+    kind: "appearance",
+    makeInitial: async () => {
+      const ownership = await getAppearanceOwnership(guild.id, interaction.user.id);
+      const draft = {
+        token: randomUUID().slice(0, 12),
+        guildId: guild.id,
+        appearance: filterOwnedAppearance(getProfileAppearance(profile), ownership),
+        page: "colors",
+        selected: 0,
+        stickerMode: "position",
+        optionPages: {},
+      };
+      return {
+        payload: await appearanceDmPayload(guild, interaction.user, profile, draft),
+        fields: {
+          token: draft.token,
+          appearanceDraft: draft.appearance,
+          appearancePage: draft.page,
+          selectedSticker: draft.selected,
+          appearanceStickerMode: draft.stickerMode,
+          appearanceOptionPages: draft.optionPages,
+        },
+      };
+    },
+  });
+
+  if (!created) {
+    // A still-open editing session is reused rather than creating duplicates.
+    // Refresh controls from the saved draft (which also survives bot restarts).
+    const ownership = await getAppearanceOwnership(guild.id, interaction.user.id);
+    const draft = {
+      token: panel.token,
+      guildId: guild.id,
+      appearance: filterOwnedAppearance(panel.appearanceDraft ?? getProfileAppearance(profile), ownership),
+      page: APPEARANCE_PAGES[panel.appearancePage] ? panel.appearancePage : "colors",
+      selected: panel.selectedSticker ?? 0,
+      stickerMode: panel.appearanceStickerMode || "position",
+      optionPages: panel.appearanceOptionPages || {},
+    };
+    if (draft.token) {
+      await message.edit(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    }
+  }
+  await interaction.editReply({
+    content: `[**Open your temporary profile editor**](${dmPanelUrl(message.channelId, message.id)}) — ${created ? "ready to customize!" : "your unfinished edits are still here."}\n[Your permanent shop](${dmPanelUrl(shop.message.channelId, shop.message.id)}) stays in DMs and has the **Customize Profile** button for next time.`,
+    allowedMentions: { parse: [] },
+  });
+}
+
+export async function openAppearanceDMFromShop(interaction, guild) {
+  const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) throw new UserFacingError("You must belong to this server to customize your profile.");
+  const profile = await ensureProfileRecord(guild.id, interaction.user);
+  await openAppearanceDM(interaction, profile, guild);
+  return true;
+}
+
+async function saveDraftPanel(panel, draft) {
+  panel.appearanceDraft = draft.appearance;
+  panel.appearancePage = draft.page;
+  panel.selectedSticker = draft.selected;
+  panel.appearanceStickerMode = draft.stickerMode || "position";
+  panel.appearanceOptionPages = draft.optionPages || {};
+  panel.markModified("appearanceDraft");
+  panel.markModified("appearanceOptionPages");
+  await panel.save();
+}
+
+function adjustDraftSticker(draft, action) {
+  const sticker = draft.appearance.stickers[draft.selected];
+  if (!sticker) throw new UserFacingError("Choose a sticker to edit.");
+  switch (action) {
+    case "left": sticker.x -= 0.04; break;
+    case "right": sticker.x += 0.04; break;
+    case "up": sticker.y -= 0.04; break;
+    case "down": sticker.y += 0.04; break;
+    case "smaller": sticker.scale -= 0.15; break;
+    case "larger": sticker.scale += 0.15; break;
+    case "rotateLeft": sticker.rotation -= 15; break;
+    case "rotateRight": sticker.rotation += 15; break;
+    case "remove":
+      draft.appearance.stickers.splice(draft.selected, 1);
+      draft.selected = Math.max(0, draft.selected - 1);
+      break;
+    default: throw new UserFacingError("Unknown sticker adjustment.");
+  }
+}
+
+export async function handleProfileAppearanceDM(interaction) {
+  const [, , kind, token, field, stickerIndex] = interaction.customId.split(":");
+  // Discord requires a modal to be the FIRST response to a button. Do not
+  // deferUpdate first. Query only the member's current, token-bound draft.
+  if (kind === "button" && field === "stickerColors") {
+    const panel = await MemberDmPanel.findOne({
+      botUserId: interaction.client.user.id, discordUserId: interaction.user.id,
+      kind: "appearance", token, channelId: interaction.channelId,
+      messageId: interaction.message?.id,
+    });
+    if (!panel) throw new UserFacingError("This customization session expired.");
+    const ownership = await getAppearanceOwnership(panel.guildId, interaction.user.id);
+    const appearance = filterOwnedAppearance(panel.appearanceDraft || {}, ownership);
+    const index = panel.selectedSticker || 0;
+    const sticker = appearance.stickers[index];
+    if (!sticker) throw new UserFacingError("Choose a placed sticker first.");
+    const info = STICKER_CATALOG[sticker.id];
+    const fieldInput = (id, current, description) => new LabelBuilder()
+      .setLabel(description).setTextInputComponent(
+        new TextInputBuilder()
+          .setCustomId(id).setStyle(TextInputStyle.Short)
+          .setRequired(true).setMinLength(6).setMaxLength(7)
+          .setValue(current).setPlaceholder("#E68EAB"),
+      );
+    const modal = new ModalBuilder()
+      .setCustomId(`profile:dm:modal:${token}:stickerColors:${index}`)
+      .setTitle(`Recolor ${info.name}`)
+      .addLabelComponents(fieldInput("sticker_main", sticker.color, "Main color · #RRGGBB"));
+    if (info.colors === 2) {
+      modal.addLabelComponents(fieldInput(
+        "sticker_accent", sticker.accentColor, "Accent color · #RRGGBB",
+      ));
+    }
+    await interaction.showModal(modal);
+    return true;
+  }
+
+  // Ordinary controls can deferUpdate; color-modal submissions get a private
+  // acknowledgement and update the known editor DM message independently.
+  if (kind === "modal") await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  else await interaction.deferUpdate();
+  const panel = await MemberDmPanel.findOne({
+    botUserId: interaction.client.user.id,
+    discordUserId: interaction.user.id, kind: "appearance", token,
+  });
+  if (!panel || (kind !== "modal" && panel.messageId !== interaction.message?.id) ||
+      panel.channelId !== interaction.channelId) {
+    throw new UserFacingError("This editor is no longer active. Use Customize Profile in the shop or server to open your current editor.");
+  }
+  const guild = await interaction.client.guilds.fetch(panel.guildId);
+  const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) throw new UserFacingError("You must still belong to the server to edit this profile.");
+  const profile = await UserProfile.findOne({ guildId: panel.guildId, discordUserId: interaction.user.id });
+  if (!profile) throw new UserFacingError("Your profile is no longer available.");
+  const ownership = await getAppearanceOwnership(panel.guildId, interaction.user.id);
+  const draft = {
+    token: panel.token,
+    guildId: panel.guildId,
+    appearance: filterOwnedAppearance(panel.appearanceDraft ?? getProfileAppearance(profile), ownership),
+    page: APPEARANCE_PAGES[panel.appearancePage] ? panel.appearancePage : "colors",
+    selected: panel.selectedSticker ?? 0,
+    stickerMode: panel.appearanceStickerMode || "position",
+    optionPages: panel.appearanceOptionPages || {},
+  };
+
+  if (kind === "modal") {
+    if (field !== "stickerColors" || !interaction.isModalSubmit()) {
+      throw new UserFacingError("Unknown sticker color editor.");
+    }
+    const index = Number(stickerIndex);
+    if (!Number.isSafeInteger(index) || index !== draft.selected ||
+        !draft.appearance.stickers[index]) {
+      throw new UserFacingError("Your selected sticker changed. Open its color editor again.");
+    }
+    const sticker = draft.appearance.stickers[index];
+    const info = STICKER_CATALOG[sticker.id];
+    const main = validStickerHex(interaction.fields.getTextInputValue("sticker_main"));
+    const accent = info.colors === 2
+      ? validStickerHex(interaction.fields.getTextInputValue("sticker_accent")) : null;
+    if (!main || (info.colors === 2 && !accent)) {
+      throw new UserFacingError("Use exactly six HEX digits (0-9, A-F), e.g. #C7DDBC.");
+    }
+    sticker.color = main;
+    sticker.accentColor = accent;
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await saveDraftPanel(panel, draft);
+    const dm = await interaction.user.createDM();
+    const message = await dm.messages.fetch(panel.messageId);
+    await message.edit(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    await interaction.editReply({
+      content: `Updated the ${info.name} sticker colors in your profile preview. Changes aren't saved to your public profile until you press **Confirm & update profile**.`,
+      allowedMentions: { parse: [] },
+    });
+    return true;
+  }
+  if (kind === "button" && field === "cancel") {
+    await MemberDmPanel.deleteOne({ _id: panel._id, token: panel.token });
+    try {
+      await interaction.message.delete();
+    } catch (error) {
+      if (Number(error?.code) !== 10008) {
+        console.warn("Could not delete the cancelled profile editor:", error);
+        await interaction.message.edit({
+          content: "Customization cancelled. Your profile was not changed.",
+          embeds: [], components: [], attachments: [],
+        }).catch(() => {});
+      }
+    }
+    await sendTemporaryDmNotice(interaction.user,
+      "↩️ **Changes discarded.** Your profile was not changed. You can open another editor using **Customize Profile** in your shop.");
+    return true;
+  }
+  if (kind === "button" && field === "confirm") {
+    profile.profileAppearance = filterOwnedAppearance(draft.appearance, ownership);
+    profile.markModified("profileAppearance");
+    await profile.save();
+    await ensureProfileCard(guild, interaction.user, { refresh: true });
+
+    // End the editing session only after the server profile is updated.
+    await MemberDmPanel.deleteOne({ _id: panel._id, token: panel.token });
+    try {
+      await interaction.message.delete();
+    } catch (error) {
+      if (Number(error?.code) !== 10008) {
+        console.warn("Could not delete the completed profile editor:", error);
+        await interaction.message.edit({
+          content: "Profile updated. This editing session is closed.",
+          embeds: [], components: [], attachments: [],
+        }).catch(() => {});
+      }
+    }
+    await sendTemporaryDmNotice(interaction.user,
+      "✅ **Profile appearance saved!** Your profile card in the server has been updated. The editor is closed; use **Customize Profile** in your permanent shop to edit again.");
+    return true;
+  }
+  if (kind === "button" && ["stickerStyle", "stickerPosition"].includes(field)) {
+    if (draft.page !== "stickers" || !draft.appearance.stickers[draft.selected]) {
+      throw new UserFacingError("Choose a placed sticker first.");
+    }
+    draft.stickerMode = field === "stickerStyle" ? "style" : "position";
+    await saveDraftPanel(panel, draft);
+    // Keep the existing PNG. A mode switch only changes controls, so there's
+    // no need to fetch profile data again or re-render an expensive preview.
+    const previewProfile = { ...profile.toObject(), profileAppearance: draft.appearance };
+    await interaction.editReply({
+      components: makeAppearanceControls(
+        previewProfile, draft.page, draft.selected, ownership,
+        draft.token, draft.optionPages || {}, draft.stickerMode,
+      ),
+    });
+    return true;
+  }
+  if (kind === "button" && field === "fontBoth") {
+    if (!ownsAppearanceItem(ownership, "fonts", draft.appearance.headerFont)) {
+      throw new UserFacingError("You have not unlocked that font.");
+    }
+    draft.appearance.bodyFont = draft.appearance.headerFont;
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await saveDraftPanel(panel, draft);
+    await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    return true;
+  }
+  if (kind === "button" && field === "refresh") {
+    await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    return true;
+  }
+  if (kind === "button" && ["stickerOutline", "stickerResetColors"].includes(field)) {
+    const sticker = draft.appearance.stickers[draft.selected];
+    if (!sticker) throw new UserFacingError("Choose a placed sticker first.");
+    if (field === "stickerOutline") {
+      const index = STICKER_OUTLINES.indexOf(sticker.outline || "auto");
+      sticker.outline = STICKER_OUTLINES[(index + 1) % STICKER_OUTLINES.length];
+    } else {
+      const defaults = stickerDefaults(sticker.id, sticker.x, sticker.y);
+      sticker.color = defaults.color;
+      sticker.accentColor = defaults.accentColor;
+      sticker.outline = defaults.outline;
+    }
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await saveDraftPanel(panel, draft);
+    await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    return true;
+  }
+  if (kind === "button" && [
+    "left", "right", "up", "down", "smaller", "larger",
+    "rotateLeft", "rotateRight", "remove",
+  ].includes(field)) {
+    adjustDraftSticker(draft, field);
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await saveDraftPanel(panel, draft);
+    await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    return true;
+  }
+  if (kind !== "select") throw new UserFacingError("Unknown editor action.");
+  const value = interaction.values[0];
+
+  if (field === "page") {
+    if (!APPEARANCE_PAGES[value]) throw new UserFacingError("Unknown customization category.");
+    draft.page = value;
+    draft.selected = 0;
+  } else if (field === "stickerSelect") {
+    const index = Number(value);
+    if (!Number.isSafeInteger(index) || index < 0 || index >= draft.appearance.stickers.length) {
+      throw new UserFacingError("Invalid sticker selection.");
+    }
+    draft.selected = index;
+    draft.page = "stickers";
+  } else if (field === "stickerAdd") {
+    if (!ownsAppearanceItem(ownership, "stickers", value)) {
+      throw new UserFacingError("You have not unlocked that sticker.");
+    }
+    if (draft.appearance.stickers.length >= 8) throw new UserFacingError("You can place up to eight stickers.");
+    draft.appearance.stickers.push(stickerDefaults(value));
+    draft.selected = draft.appearance.stickers.length - 1;
+    draft.page = "stickers";
+  } else if (field === "stickerPick") {
+    const [action, id] = value.split(":");
+    if (action === "select") {
+      const index = Number(id);
+      if (!Number.isSafeInteger(index) || index < 0 || index >= draft.appearance.stickers.length) {
+        throw new UserFacingError("Invalid sticker selection.");
+      }
+      draft.selected = index;
+    } else if (action === "add") {
+      if (!ownsAppearanceItem(ownership, "stickers", id)) {
+        throw new UserFacingError("You have not unlocked that sticker.");
+      }
+      if (draft.appearance.stickers.length >= 8) throw new UserFacingError("You can place up to eight stickers.");
+      draft.appearance.stickers.push(stickerDefaults(id));
+      draft.selected = draft.appearance.stickers.length - 1;
+    } else {
+      throw new UserFacingError("Unknown sticker choice.");
+    }
+    draft.page = "stickers";
+  } else if (field === "stickerAction") {
+    adjustDraftSticker(draft, value);
+  } else if (field === "opacity") {
+    if (![0.2, 0.34, 0.5, 0.7, 0.9].includes(Number(value))) throw new UserFacingError("Invalid opacity.");
+    draft.appearance.panelOpacity = Number(value);
+  } else if (["background", "panelColor", "fontColor"].includes(field) &&
+             ["__next__", "__previous__"].includes(value)) {
+    const { page, count } = appearanceChoicePage(field, draft.appearance, draft.optionPages, ownership);
+    draft.optionPages[field] = Math.max(0, Math.min(count - 1,
+      page + (value === "__next__" ? 1 : -1)));
+  } else if (availableAppearanceChoices(field, ownership)?.includes(value)) {
+    if (value !== "match" && !ownsAppearanceItem(ownership, APPEARANCE_FIELD_CATEGORY[field], value)) {
+      throw new UserFacingError("You have not unlocked that appearance item.");
+    }
+    draft.appearance[field] = value;
+    // Old one-font editor controls should still update both font slots.
+    if (field === "font") {
+      draft.appearance.headerFont = value;
+      draft.appearance.bodyFont = value;
+    }
+    if (field === "panelColor" && appearanceCatalogItem("panels", value)?.dark) {
+      draft.appearance.panelOpacity = 0.9;
+    }
+    if (field === "background" && draft.appearance.panelColor === "match" &&
+        appearanceCatalogItem("backgrounds", value)?.dark) {
+      draft.appearance.panelOpacity = 0.9;
+    }
+  } else {
+    throw new UserFacingError("Invalid appearance choice.");
+  }
+  draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+  await saveDraftPanel(panel, draft);
+  await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
+  return true;
+}
+
+// Old ephemeral appearance controls might still be visible in Discord. Redirect
+// them to the DM editor so they can no longer save changes without confirmation.
+export async function handleProfileAppearanceSelect(interaction) {
+  const ownerId = interaction.customId.split(":").at(-1);
+  if (ownerId !== interaction.user.id) throw new UserFacingError("Only the profile owner can customize this profile.");
+  await openAppearanceDM(interaction, await ensureProfileRecord(interaction.guildId, interaction.user));
+}
+export async function handleProfileStickerButton(interaction) {
+  const ownerId = interaction.customId.split(":").at(-1);
+  if (ownerId !== interaction.user.id) throw new UserFacingError("Only the profile owner can customize this profile.");
+  await openAppearanceDM(interaction, await ensureProfileRecord(interaction.guildId, interaction.user));
+}
+
 export async function handleProfileCardButton(interaction) {
   const [, section, action, ownerId] = interaction.customId.split(":");
   if (
     section !== "card" ||
-    !["edit", "photos", "video"].includes(action) ||
+    !["edit", "photos", "video", "appearance"].includes(action) ||
     ownerId !== interaction.user.id
   ) {
     throw new UserFacingError("Only the profile owner can use these buttons.");
+  }
+
+  if (action === "appearance") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   }
 
   const profile = await UserProfile.findOne({
@@ -566,7 +1266,9 @@ export async function handleProfileCardButton(interaction) {
     throw new UserFacingError("This profile card is no longer active. Run `/profile` to refresh it.");
   }
 
-  if (action === "edit") {
+  if (action === "appearance") {
+    await openAppearanceDM(interaction, profile);
+  } else if (action === "edit") {
     await interaction.showModal(makeEditProfileModal(profile, ownerId));
   } else if (action === "photos") {
     await showPhotoActionPrompt(interaction, ownerId);

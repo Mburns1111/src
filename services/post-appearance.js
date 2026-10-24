@@ -1,62 +1,133 @@
+import {
+  CLASSIC_COLOR_OPTIONS, STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID, STANDARD_PANEL_OPACITY,
+} from "./classic-colors.js";
+import { customColorDefinition } from "./custom-colors.js";
+import { SHOP_FONT_STYLES } from "./font-library.js";
+import { STICKER_CATALOG, STICKER_OUTLINES, validStickerHex } from "./sticker-catalog.js";
+
 /**
  * Appearance catalog for Canvas posts. IDs are stable shop inventory keys.
  * A later shop can add approved image assets without accepting arbitrary URLs.
  */
 export const APPEARANCE_CATALOG = Object.freeze({
   backgrounds: {
-    default: { kind: 'solid' },
-    sagePreview: { kind: 'solid', color: '#DCE9D7', palette: { panel: '#F3F7EF', panelAlt: '#E9F1E5', accent: '#79977C' } },
-    sageDots: { kind: 'dots', color: '#708779' },
-    garden: { kind: 'image', asset: 'assets/backgrounds/garden.svg', palette: { panel: '#E7E4D5', panelAlt: '#D1DAC4', accent: '#708779' } },
+    // The new Classic collection is first, in spectrum order.
+    ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [item.id, {
+      kind: "solid",
+      color: item.hex,
+      dark: item.dark,
+      palette: { panel: item.hex, panelAlt: item.hex, accent: item.hex },
+    }])),
+    // Starter Sage is the free profile background. Keep its original ID,
+    // appearance and friendly label; it is never listed as a shop product.
+    default: { kind: "solid" },
+    sagePreview: { kind: "solid", color: "#DCE9D7", palette: { panel: "#F3F7EF", panelAlt: "#E9F1E5", accent: "#79977C" } },
+    // Other retired starter designs remain renderable for past owners,
+    // but are no longer sold or offered to new members in Customize.
+    paleSage: { kind: "solid", color: "#CADFC4", palette: { panel: "#EDF3E8", panelAlt: "#D4E3CF", accent: "#779A78" } },
+    warmCream: { kind: "solid", color: "#F1EBDD", palette: { panel: "#FBF7EC", panelAlt: "#EBE1CD", accent: "#9C8E75" } },
+    dustyBlue: { kind: "solid", color: "#DCE4EC", palette: { panel: "#EDF3F8", panelAlt: "#CBD8E5", accent: "#7C99B3" } },
+    sageDots: { kind: "dots", color: "#708779" },
+    garden: { kind: "image", asset: "assets/backgrounds/garden.svg", palette: { panel: "#E7E4D5", panelAlt: "#D1DAC4", accent: "#708779" } },
   },
   panels: {
+    ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [item.id, {
+      dark: item.dark,
+      palette: { panel: item.hex, panelAlt: item.hex },
+    }])),
+    // Legacy palette IDs remain valid for existing owned/equipped designs.
     default: { palette: null },
-    moss: { palette: { panel: '#C9D8C2', panelAlt: '#A8BFA5' } },
-    lavender: { palette: { panel: '#E4D9E9', panelAlt: '#CAB7D3' } },
+    moss: { palette: { panel: "#C9D8C2", panelAlt: "#A8BFA5" } },
+    lavender: { palette: { panel: "#E4D9E9", panelAlt: "#CAB7D3" } },
+    sagePanel: { palette: { panel: "#EDF3E8", panelAlt: "#D4E3CF" } },
+    creamPanel: { palette: { panel: "#FBF7EC", panelAlt: "#EBE1CD" } },
+    bluePanel: { palette: { panel: "#EDF3F8", panelAlt: "#CBD8E5" } },
+    charcoal: { dark: true, palette: { panel: "#353535", panelAlt: "#353535" } },
+    forest: { dark: true, palette: { panel: "#355241", panelAlt: "#355241" } },
+    navy: { dark: true, palette: { panel: "#33465D", panelAlt: "#33465D" } },
   },
   frames: {
-    default: { kind: 'standard' },
-    doubleLine: { kind: 'doubleLine', color: '#354B3E' },
+    // Keep the original 'default' ID so existing free profiles stay equipped.
+    default: { kind: 'standard' }, // Classic Thin · free
+    // Keep the older purchased 'doubleLine' ID: owners receive the upgraded
+    // clearly-separated dual rails without repurchasing.
+    doubleLine: { kind: 'artwork', artwork: 'doubleLine', color: '#354B3E' },
+    softRounded: { kind: 'artwork', artwork: 'softRounded' },
+    silverFloral: { kind: 'artwork', artwork: 'silverFloral' },
+    goldCelestial: { kind: 'artwork', artwork: 'goldCelestial' },
+    blackKnight: { kind: 'artwork', artwork: 'blackKnight' },
+    // Retired line-art frames remain valid for previously equipped/owned users.
+    fineLine: { kind: 'fineLine' },
+    boldOutline: { kind: 'boldOutline' },
+    dashedOutline: { kind: 'dashedOutline' },
+    dottedOutline: { kind: 'dottedOutline' },
+    cornerAccents: { kind: 'cornerAccents' },
   },
   fonts: {
-    default: { family: 'sans-serif', titleFamily: 'serif' },
-    classic: { family: 'serif', titleFamily: 'serif' },
+    default: { family: 'sans-serif', titleFamily: 'serif', weight: 'normal' },
+    // The old purchased Classic Serif ID remains valid for existing owners.
+    classic: { family: 'serif', titleFamily: 'serif', weight: 'normal' },
+    ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, style]) => [
+      id, { family: style.family, titleFamily: style.titleFamily, weight: style.weight },
+    ])),
   },
   fontColors: {
     default: { text: '#29312C', mutedText: '#566159', accentDark: '#354B3E' },
+    black: { text: '#111111', mutedText: '#252525', accentDark: '#111111' },
+    white: { text: '#FFFFFF', mutedText: '#F0F0F0', accentDark: '#FFFFFF' },
     plum: { text: '#593C55', mutedText: '#6D5368', accentDark: '#593C55' },
   },
-  stickers: {
-    flower: { kind: 'flower' },
-    star: { kind: 'star' },
-  },
+  stickers: Object.fromEntries(Object.entries(STICKER_CATALOG).map(([id, sticker]) =>
+    [id, { kind: 'shape', ...sticker }])),
 });
 
 export const DEFAULT_APPEARANCE = Object.freeze({
-  background: 'default',
+  background: STANDARD_BACKGROUND_ID,
   frame: 'default',
-  font: 'default',
+  font: 'default', // legacy appearance ID (existing saved profiles)
+  headerFont: 'default', // profile title and section headings
+  bodyFont: 'default',   // usernames, bio, role list, footer and status
   fontColor: 'default',
   stickers: [],
-  panelColor: 'match',
-  panelOpacity: 0.34,
+  panelColor: STANDARD_PANEL_ID,
+  panelOpacity: STANDARD_PANEL_OPACITY,
 });
 
-const select = (category, id) => APPEARANCE_CATALOG[category][id]
-  ? id : 'default';
+// Catalog entries are static, but an individually purchased HEX code has its
+// color embedded in its ID; synthesize its safe rendering definition on demand.
+export function appearanceCatalogItem(category, id) {
+  return APPEARANCE_CATALOG[category]?.[id] || customColorDefinition(category, id);
+}
+
+const select = (category, id) => appearanceCatalogItem(category, id) ? id
+  : category === "backgrounds" ? STANDARD_BACKGROUND_ID
+  : category === "panels" ? STANDARD_PANEL_ID : "default";
 
 /** Resolve approved appearance IDs and bounded normalized sticker transforms. */
 export function resolveAppearance(input = {}) {
   const value = input && typeof input === 'object' ? input : {};
+  // Old untouched Starter Sage profiles originally paired with matching
+  // translucent panels. Keep the sage background but upgrade that exact
+  // starter combination to the current standard gray panels. Do not change
+  // other deliberate appearance selections or previously bought designs.
+  const oldFreeStarter = value.background === "sagePreview" &&
+    (value.panelColor === "match" || value.panelColor == null) &&
+    (value.panelOpacity == null || value.panelOpacity === 0.34);
   const clamp = (n, min, max, fallback) =>
     Number.isFinite(Number(n)) ? Math.min(max, Math.max(min, Number(n))) : fallback;
   return {
-    background: select('backgrounds', value.background),
+    background: select("backgrounds", oldFreeStarter ? STANDARD_BACKGROUND_ID : value.background ?? STANDARD_BACKGROUND_ID),
     frame: select('frames', value.frame),
     font: select('fonts', value.font),
+    // Previously saved profiles had only "font", which applied everywhere.
+    // Respect it until a member chooses distinct header/body fonts.
+    headerFont: select('fonts', value.headerFont ?? value.font),
+    bodyFont: select('fonts', value.bodyFont ?? value.font),
     fontColor: select('fontColors', value.fontColor),
-    panelColor: value.panelColor === 'match' ? 'match' : select('panels', value.panelColor),
-    panelOpacity: Number.isFinite(value.panelOpacity) ? Math.min(1, Math.max(0.2, value.panelOpacity)) : 0.34,
+    panelColor: oldFreeStarter ? STANDARD_PANEL_ID :
+      value.panelColor === "match" ? "match" : select("panels", value.panelColor ?? STANDARD_PANEL_ID),
+    panelOpacity: oldFreeStarter ? STANDARD_PANEL_OPACITY :
+      Number.isFinite(value.panelOpacity) ? Math.min(1, Math.max(0.2, value.panelOpacity)) : STANDARD_PANEL_OPACITY,
     stickers: (Array.isArray(value.stickers) ? value.stickers : [])
       .filter(s => s && APPEARANCE_CATALOG.stickers[s.id])
       .slice(0, 8)
@@ -66,6 +137,13 @@ export function resolveAppearance(input = {}) {
         y: clamp(s.y, 0.04, 0.96, 0.15),
         scale: clamp(s.scale, 0.3, 3, 1),
         rotation: clamp(s.rotation, -180, 180, 0),
+        // Existing saved Star/Flower placements had no chosen colors. Their
+        // new defaults preserve a visible sticker without forcing a purchase.
+        color: validStickerHex(s.color) || STICKER_CATALOG[s.id].color,
+        accentColor: STICKER_CATALOG[s.id].colors === 2
+          ? validStickerHex(s.accentColor) || STICKER_CATALOG[s.id].accentColor
+          : null,
+        outline: STICKER_OUTLINES.includes(s.outline) ? s.outline : 'auto',
       })),
   };
 }

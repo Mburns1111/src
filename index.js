@@ -1,6 +1,6 @@
 
 import "dotenv/config";
-import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
+import { Client, Events, GatewayIntentBits, MessageFlags, Partials } from "discord.js";
 import mongoose from "mongoose";
 import {
   execute as executeProfile,
@@ -10,6 +10,9 @@ import {
   ensureProfileRecord,
   handleProfileAlbumPage,
   handleProfileCardButton,
+  handleProfileAppearanceSelect,
+  handleProfileAppearanceDM,
+  handleProfileStickerButton,
   handleProfileMenuButton,
   handleProfileModal,
   handleProfilePhotoActionButton,
@@ -61,6 +64,8 @@ import {
   handleTradeVoteEntryButton,
 } from "./commands/trade.js";
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
+import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
+import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
   execute as executeMigrateOldPosts,
@@ -74,6 +79,7 @@ import {
   ensureTradingPostEntry,
 } from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
+import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/temporary-dm-notice.js";
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
 import UserProfile from "./models/UserProfile.js";
@@ -87,8 +93,33 @@ if (!token || !mongoUri) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages],
+  partials: [Partials.Channel],
 });
+
+// Login failures can otherwise leave only "Connected to MongoDB." in the
+// console. These events report Discord Gateway problems without logging the
+// bot token or member data.
+client.on(Events.Error, error => {
+  console.error("[Discord] Client error:", error);
+});
+client.on(Events.Warn, warning => {
+  console.warn("[Discord] Warning:", warning);
+});
+client.on(Events.ShardError, (error, shardId) => {
+  console.error(`[Discord] Shard ${shardId} error:`, error);
+});
+client.on(Events.ShardDisconnect, (event, shardId) => {
+  console.warn(`[Discord] Shard ${shardId} disconnected (code ${event.code}; reason: ${event.reason || "unspecified"}).`);
+});
+client.on(Events.ShardReconnecting, shardId => {
+  console.warn(`[Discord] Shard ${shardId} reconnecting.`);
+});
+client.on(Events.ShardReady, shardId => {
+  console.log(`[Discord] Shard ${shardId} received READY.`);
+});
+
+let discordReadyTimeout;
 
 const commandHandlers = new Map([
   [profileCommand.name, executeProfile],
@@ -99,6 +130,8 @@ const commandHandlers = new Map([
   [outfitCommand.name, executeOutfit],
   [tradeCommand.name, executeTrade],
   [setupCommand.name, executeSetup],
+  [shopCommand.name, executeShop],
+  [testPointsCommand.name, executeTestPoints],
   [helpCommand.name, executeHelp],
   ["migrate_old_posts", executeMigrateOldPosts],
 ]);
@@ -164,6 +197,7 @@ async function sendProfileReminder(interaction) {
 }
 
 client.once(Events.ClientReady, (readyClient) => {
+  clearTimeout(discordReadyTimeout);
   console.log(`Bot is online as ${readyClient.user.tag}.`);
   startupMaintenancePromise = (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
@@ -183,6 +217,7 @@ client.once(Events.ClientReady, (readyClient) => {
       if (!config) continue;
       await Promise.all([
         ensureConfiguredEntry(guild, config.profileChannelId, ensureProfileEntry, "profile"),
+        ensureConfiguredEntry(guild, config.shopChannelId, ensureShopEntry, "shop"),
         ensureConfiguredEntry(guild, config.houseChannelId, ensureHouseEntry, "house listing"),
         ensureConfiguredEntry(guild, config.outfitChannelId, ensureOutfitEntry, "outfit listing"),
         ensureConfiguredEntry(guild, config.inventoryChannelId, ensureInventoryEntry, "inventory"),
@@ -202,11 +237,22 @@ client.once(Events.ClientReady, (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    await startupMaintenancePromise;
+    // Startup maintenance renders storefront images and may take time.
+    // Never wait for it before acknowledging button/select interactions:
+    // Discord expires unacknowledged interactions after a few seconds.
     if (interaction.isChatInputCommand()) {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      await startupMaintenancePromise;
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith("dm:notice:")) {
+      await handleTemporaryDmNotice(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("shop:")) {
+      await handleShopButton(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId.startsWith("house:new:")) {
       await ensureProfileForEntry(interaction);
       await handleHouseCreateButton(interaction);
@@ -225,7 +271,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await sendProfileReminder(interaction);
       return;
     }
-    if (interaction.isButton() && interaction.customId === "profile:entry") {
+    if (interaction.isButton() && interaction.customId.startsWith("profile:entry")) {
       await handleProfileEntryButton(interaction);
       return;
     }
@@ -294,6 +340,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.customId.startsWith("profile:photos-action:")
     ) {
       await handleProfilePhotoActionButton(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("profile:dm:")) {
+      await handleProfileAppearanceDM(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("profile:sticker:")) {
+      await handleProfileStickerButton(interaction);
+      return;
+    }
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith("profile:appearance:")) {
+      await handleProfileAppearanceSelect(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("profile:card:")) {
@@ -369,6 +427,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.guild &&
       ![
         setupCommand.name,
+        shopCommand.name,
+        testPointsCommand.name,
         profileCleanupCommand.name,
         profileRefreshCommand.name,
       ].includes(interaction.commandName)
@@ -420,7 +480,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
       allowedMentions: { parse: [] },
     };
     try {
-      if (interaction.deferred && !interaction.replied) {
+      // An acknowledged DM button updates the permanent shop/editor message.
+      // Do NOT overwrite that message with an error; send a dismissible notice.
+      if (interaction.deferred && !interaction.replied &&
+          (interaction.isMessageComponent() || interaction.isModalSubmit()) &&
+          interaction.channel?.isDMBased?.() &&
+          !interaction.ephemeral &&
+          (interaction.customId.startsWith("shop:dm:") ||
+            interaction.customId.startsWith("profile:dm:"))) {
+        await sendTemporaryDmNotice(interaction.user, `⚠️ ${getInteractionErrorMessage(error)}`);
+      } else if (interaction.deferred && !interaction.replied) {
         await interaction.editReply(response);
       } else if (interaction.replied) {
         await interaction.followUp(response);
@@ -438,9 +507,32 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 async function start() {
+  console.log("[Startup] Connecting to MongoDB...");
   await mongoose.connect(mongoUri);
   console.log("Connected to MongoDB.");
-  await client.login(token);
+
+  console.log("[Startup] Connecting to Discord Gateway...");
+  discordReadyTimeout = setTimeout(() => {
+    if (!client.isReady()) {
+      // Report status only; don't log any secrets from environment variables.
+      console.warn(
+        "[Startup] Discord has not sent READY after 20 seconds.",
+        "Gateway status:", client.ws.status,
+        "Shards:", client.ws.shards.size,
+        "Check Replit network connectivity and DISCORD_TOKEN configuration.",
+      );
+    }
+  }, 20_000);
+  discordReadyTimeout.unref?.();
+
+  try {
+    await client.login(token);
+    console.log("[Startup] Discord login handshake completed.");
+  } catch (error) {
+    clearTimeout(discordReadyTimeout);
+    console.error("[Startup] Discord login failed:", error);
+    throw error;
+  }
 }
 
 async function shutdown(signal) {

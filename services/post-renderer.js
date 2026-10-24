@@ -4,7 +4,10 @@ import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
-import { APPEARANCE_CATALOG, resolveAppearance } from './post-appearance.js';
+import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './post-appearance.js';
+import { registerAppearanceFonts } from './font-library.js';
+import { frameArtworkSvg } from './frame-artwork.js';
+import { drawStickerArtwork } from './sticker-artwork.js';
 
 // Register a Unicode symbol font for decorative display names.
 // Downloaded once per process, with graceful fallback when offline.
@@ -32,6 +35,25 @@ async function ensureSymbolFont() {
 }
 
 const MAX_TEXT_LINES_DEFAULT = 6;
+
+// Rendering an approved local vector overlay is much cheaper after the first
+// request. Cache the decoded image across the public storefront, individual
+// previews, Mix & Match, and the equipped profile card. No external requests.
+const frameArtworkCache = new Map();
+async function frameOverlayImage(frameId) {
+  const item = APPEARANCE_CATALOG.frames[frameId];
+  if (item?.kind !== 'artwork') return null;
+  if (!frameArtworkCache.has(frameId)) {
+    const task = loadImage(Buffer.from(frameArtworkSvg(item.artwork), 'utf8'))
+      .catch(error => {
+        frameArtworkCache.delete(frameId);
+        console.warn('[post-renderer] Frame artwork unavailable:', frameId, error.message);
+        return null;
+      });
+    frameArtworkCache.set(frameId, task);
+  }
+  return frameArtworkCache.get(frameId);
+}
 
 /** Fetch a remote image to a Buffer before passing it to canvas. */
 async function loadImageSource(source) {
@@ -164,7 +186,8 @@ function fitFontSize(ctx, text, maxWidth, startingSize, family, minSize = 14) {
 }
 
 function drawFittedLine(ctx, value, region, options = {}) {
-  const { fontSize = 40, minFontSize = 20, family = 'sans-serif', color = '#26382D' } = options;
+  const { fontSize = 40, minFontSize = 20, family = 'sans-serif',
+    weight = 'normal', color = '#26382D' } = options;
   let text = String(value ?? '').trim();
   if (!text) return;
   ctx.save();
@@ -173,11 +196,11 @@ function drawFittedLine(ctx, value, region, options = {}) {
   ctx.textBaseline = 'top';
   let size = fontSize;
   while (size > minFontSize) {
-    ctx.font = size + 'px ' + family;
+    ctx.font = weight + ' ' + size + 'px ' + family;
     if (ctx.measureText(text).width <= region.width) break;
     size--;
   }
-  ctx.font = size + 'px ' + family;
+  ctx.font = weight + ' ' + size + 'px ' + family;
   if (ctx.measureText(text).width > region.width) {
     const chars = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment);
     while (chars.length && ctx.measureText(chars.join('') + '…').width > region.width) chars.pop();
@@ -223,6 +246,7 @@ function drawWrappedText(ctx, text, region, options = {}) {
     fontSize = 24,
     minFontSize = 16,
     family = 'sans-serif',
+    weight = 'normal',
     color = '#26382D',
     lineHeight = Math.round(fontSize * 1.35),
     maxLines = MAX_TEXT_LINES_DEFAULT,
@@ -238,7 +262,7 @@ function drawWrappedText(ctx, text, region, options = {}) {
   let lines;
 
   while (size >= minFontSize) {
-    ctx.font = `${size}px ${family}`;
+    ctx.font = `${weight} ${size}px ${family}`;
     lines = wrapText(ctx, raw, region.width);
 
     if (
@@ -252,7 +276,7 @@ function drawWrappedText(ctx, text, region, options = {}) {
   }
 
   size = Math.max(size, minFontSize);
-  ctx.font = `${size}px ${family}`;
+  ctx.font = `${weight} ${size}px ${family}`;
   lines = wrapText(ctx, raw, region.width);
 
   const lineStep = Math.round(lineHeight * size / fontSize);
@@ -301,18 +325,20 @@ function drawWrappedText(ctx, text, region, options = {}) {
 }
 
 function drawLabel(ctx, text, region, style) {
-  drawWrappedText(ctx, text.toUpperCase(), region, {
+  // Uppercase was fine for the original clean font, but obscures real cursive
+  // handwriting. Use title case for purchased header fonts; fit long labels.
+  drawFittedLine(ctx, style.customHeading ? text : text.toUpperCase(), region, {
     fontSize: 24,
-    minFontSize: 20,
-    family: style.fontFamily,
+    minFontSize: 16,
+    family: style.labelFontFamily,
+    weight: style.labelFontWeight,
     color: style.mutedText,
-    maxLines: 1,
   });
 }
 
 
 function drawBackgroundPattern(ctx, width, height, appearance) {
-  const choice = APPEARANCE_CATALOG.backgrounds[appearance.background];
+  const choice = appearanceCatalogItem('backgrounds', appearance.background);
   if (choice.kind !== 'dots') return;
   ctx.save();
   ctx.fillStyle = choice.color;
@@ -327,43 +353,87 @@ function drawBackgroundPattern(ctx, width, height, appearance) {
   ctx.restore();
 }
 
-function drawDecorations(ctx, width, height, appearance, style) {
+// Border ink adapts to solid/custom HEX backgrounds; this is especially
+// useful with bought near-black and near-white colors. Image backgrounds get
+// a bright border with a dark shadow, so there is still a visible outline.
+function simpleFrameInk(appearance, style) {
+  const bg = appearanceCatalogItem('backgrounds', appearance.background);
+  if (bg?.kind === 'image') {
+    return { color: 'rgba(255,255,255,0.94)', shadow: 'rgba(0,0,0,0.85)' };
+  }
+  const hex = bg?.color || style.background;
+  const match = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!match) return { color: 'rgba(245,247,244,0.95)', shadow: 'rgba(0,0,0,0.8)' };
+  const num = parseInt(match[1], 16);
+  const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+  const brightness = r * 0.2126 + g * 0.7152 + b * 0.0722;
+  return brightness < 148
+    ? { color: 'rgba(255,255,255,0.94)', shadow: 'rgba(0,0,0,0.45)' }
+    : { color: 'rgba(32,41,37,0.85)', shadow: 'rgba(255,255,255,0.45)' };
+}
+
+function drawSimpleFrame(ctx, width, height, appearance, style) {
+  const kind = APPEARANCE_CATALOG.frames[appearance.frame]?.kind;
+  if (!['fineLine', 'boldOutline', 'dashedOutline', 'dottedOutline', 'cornerAccents'].includes(kind)) {
+    return;
+  }
+
+  const ink = simpleFrameInk(appearance, style);
+  ctx.save();
+  ctx.strokeStyle = ink.color;
+  ctx.shadowColor = ink.shadow;
+  ctx.shadowBlur = 4;
+  ctx.lineJoin = 'round';
+
+  if (kind === 'cornerAccents') {
+    const inset = 19;
+    const length = Math.min(width, height) * 0.085;
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    // Only the corners are decorated, leaving the card edges visually open.
+    ctx.moveTo(inset + length, inset);
+    ctx.lineTo(inset, inset);
+    ctx.lineTo(inset, inset + length);
+    ctx.moveTo(width - inset - length, inset);
+    ctx.lineTo(width - inset, inset);
+    ctx.lineTo(width - inset, inset + length);
+    ctx.moveTo(inset, height - inset - length);
+    ctx.lineTo(inset, height - inset);
+    ctx.lineTo(inset + length, height - inset);
+    ctx.moveTo(width - inset - length, height - inset);
+    ctx.lineTo(width - inset, height - inset);
+    ctx.lineTo(width - inset, height - inset - length);
+    ctx.stroke();
+  } else {
+    const inset = kind === 'boldOutline' ? 17 : 15;
+    ctx.lineWidth = kind === 'boldOutline' ? 9 : kind === 'fineLine' ? 3 : 4;
+    if (kind === 'dashedOutline') ctx.setLineDash([17, 12]);
+    if (kind === 'dottedOutline') {
+      ctx.lineCap = 'round';
+      ctx.setLineDash([0.5, 14]);
+    }
+    roundedRect(ctx, inset, inset, width - inset * 2, height - inset * 2, 37);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawDecorations(ctx, width, height, appearance, style, stickerImages = new Map()) {
   // Sticker transforms are normalized, so layouts may have different dimensions.
   for (const sticker of appearance.stickers) {
     const size = Math.min(width, height) * 0.065 * sticker.scale;
     ctx.save();
     ctx.translate(sticker.x * width, sticker.y * height);
     ctx.rotate(sticker.rotation * Math.PI / 180);
-    ctx.fillStyle = style.accentDark;
-    ctx.strokeStyle = style.accentDark;
-    ctx.lineWidth = Math.max(2, size * 0.055);
-    if (sticker.id === 'flower') {
-      for (let i = 0; i < 6; i++) {
-        ctx.save();
-        ctx.rotate(i * Math.PI / 3);
-        ctx.beginPath();
-        ctx.ellipse(0, -size * 0.3, size * 0.16, size * 0.27, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-      ctx.fillStyle = style.panel;
-      ctx.beginPath();
-      ctx.arc(0, 0, size * 0.13, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (sticker.id === 'star') {
-      ctx.beginPath();
-      for (let i = 0; i < 10; i++) {
-        const a = -Math.PI / 2 + i * Math.PI / 5;
-        const radius = i % 2 ? size * 0.22 : size * 0.5;
-        const x = Math.cos(a) * radius, y = Math.sin(a) * radius;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fill();
-    }
+    // An instance's colors are independent of any profile font/background
+    // colors. Recoloring after purchase never needs an additional shop item.
+    drawStickerArtwork(ctx, sticker, size);
     ctx.restore();
   }
-  if (appearance.frame === 'doubleLine') {
+  // The newer overlay has stronger, separated double lines. Keep the old
+  // Canvas version ONLY as an offline fallback if vector decoding ever fails.
+  if (appearance.frame === 'doubleLine' && !appearance.frameOverlayReady) {
     const frame = APPEARANCE_CATALOG.frames.doubleLine;
     ctx.save();
     ctx.strokeStyle = frame.color;
@@ -374,6 +444,7 @@ function drawDecorations(ctx, width, height, appearance, style) {
     ctx.stroke();
     ctx.restore();
   }
+  drawSimpleFrame(ctx, width, height, appearance, style);
 }
 
 function glassPanel(ctx, x, y, width, height, style, alternate = false) {
@@ -396,7 +467,7 @@ function glassPanel(ctx, x, y, width, height, style, alternate = false) {
  * optional photo sit directly on the background. The original free card is
  * rendered by drawDefaultProfile and remains unchanged.
  */
-function drawOpenProfile(ctx, data, images, style, layout, appearance) {
+function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerImages) {
   const { width, height } = layout;
   ctx.fillStyle = style.background;
   ctx.fillRect(0, 0, width, height);
@@ -404,10 +475,15 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance) {
   else drawBackgroundPattern(ctx, width, height, appearance);
 
   // Small grouped panels; do not cover the unused background or photo region.
-  glassPanel(ctx, 335, 54, 831, 240, style);
+  // Default/matched palettes retain their original lighter right-side panels.
+  // Purchased panel themes need the visibly tinted shade on BOTH sides:
+  // the lighter shade blended into the background at the glass opacity.
+  const selectedPanelTheme = appearance.panelColor !== 'match' &&
+    Boolean(appearanceCatalogItem('panels', appearance.panelColor)?.palette);
+  glassPanel(ctx, 335, 54, 831, 240, style, selectedPanelTheme);
   glassPanel(ctx, 44, 317, 272, 157, style, true);
   glassPanel(ctx, 44, 486, 272, 115, style, true);
-  glassPanel(ctx, 335, 308, 831, 174, style);
+  glassPanel(ctx, 335, 308, 831, 174, style, selectedPanelTheme);
   glassPanel(ctx, 44, 674, 272, 70, style, true);
 
   const avatar = { x: 66, y: 65, width: 228, height: 228 };
@@ -436,36 +512,37 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance) {
     { x: 358, y: 72, width: 770 }, {
       fontSize: 57, minFontSize: 26,
       family: '"AM Unicode Symbols", ' + style.titleFontFamily,
+       weight: style.titleFontWeight,
       color: style.accentDark,
     });
   drawFittedLine(ctx, 'Discord: ' + (data.discordUsername || 'Member'),
     { x: 358, y: 170, width: 770 }, {
-      fontSize: 36, minFontSize: 22, family: style.fontFamily, color: style.mutedText,
+      fontSize: 36, minFontSize: 22, family: style.fontFamily, weight: style.bodyFontWeight, color: style.mutedText,
     });
   drawFittedLine(ctx, 'Roblox: ' + (data.robloxUsername || 'Not added yet'),
     { x: 358, y: 230, width: 770 }, {
-      fontSize: 30, minFontSize: 20, family: style.fontFamily, color: style.mutedText,
+      fontSize: 30, minFontSize: 20, family: style.fontFamily, weight: style.bodyFontWeight, color: style.mutedText,
     });
 
   drawLabel(ctx, 'Server roles', { x: 60, y: 331, width: 242, height: 34 }, style);
   const roles = Array.isArray(data.serverRoles) ? data.serverRoles : [];
   (roles.length ? roles.slice(0, 3) : ['No roles to display']).forEach((role, i) => {
     drawFittedLine(ctx, '• ' + role, { x: 60, y: 369 + i * 34, width: 242 }, {
-      fontSize: 23, minFontSize: 17, family: style.fontFamily, color: style.text,
+      fontSize: 23, minFontSize: 17, family: style.fontFamily, weight: style.bodyFontWeight, color: style.text,
     });
   });
 
   drawLabel(ctx, 'Looking for trades', { x: 60, y: 500, width: 244, height: 34 }, style);
   drawFittedLine(ctx, data.lookingForTrades ? 'Yes' : 'No',
     { x: 60, y: 539, width: 240 }, {
-      fontSize: 37, minFontSize: 30, family: style.fontFamily, color: style.accentDark,
+      fontSize: 37, minFontSize: 30, family: style.fontFamily, weight: style.bodyFontWeight, color: style.accentDark,
     });
 
   drawLabel(ctx, 'About me', { x: 355, y: 323, width: 770, height: 35 }, style);
   drawWrappedText(ctx, data.bio || 'Add a bio to tell everyone a little about yourself.',
     { x: 355, y: 367, width: 785, height: 102 }, {
       fontSize: 34, minFontSize: 22, lineHeight: 42, maxLines: 3,
-      family: style.fontFamily, color: style.text,
+      family: style.fontFamily, weight: style.bodyFontWeight, color: style.text,
     });
 
   // A real photo has no backing panel; without one the background stays visible.
@@ -474,14 +551,14 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance) {
   }
   drawFittedLine(ctx, data.footer || 'Made for the community',
     { x: 60, y: 692, width: 242 }, {
-      fontSize: 22, minFontSize: 16, family: style.fontFamily, color: style.mutedText,
+      fontSize: 22, minFontSize: 16, family: style.fontFamily, weight: style.bodyFontWeight, color: style.mutedText,
     });
 
   // Decorations intentionally remain free to overlap text.
-  drawDecorations(ctx, width, height, appearance, style);
+  drawDecorations(ctx, width, height, appearance, style, stickerImages);
 }
 
-function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
+function drawDefaultProfile(ctx, data, images, style, layout, appearance, stickerImages) {
   const r = layout.regions;
   const { width, height } = layout;
 
@@ -631,7 +708,8 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
     ? { ...r.title, x: r.title.x + 10, y: r.title.y + 8, width: r.title.width - 34 }
     : r.title, {
     fontSize: images.background ? 57 : 66, minFontSize: 25,
-    family: '\"AM Unicode Symbols\", ' + style.titleFontFamily, color: style.accentDark,
+    family: '\"AM Unicode Symbols\", ' + style.titleFontFamily,
+    weight: style.titleFontWeight, color: style.accentDark,
   });
 
   drawWrappedText(
@@ -643,7 +721,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
     {
       fontSize: 44,
       minFontSize: 34,
-      family: style.fontFamily,
+      family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.mutedText,
       maxLines: 1,
     }
@@ -654,7 +732,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   const roles = Array.isArray(data.serverRoles) ? data.serverRoles : [];
   if (!roles.length) {
     drawFittedLine(ctx, 'No roles to display', r.rolesRows[0], {
-      fontSize: 23, minFontSize: 18, family: style.fontFamily,
+      fontSize: 23, minFontSize: 18, family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.mutedText,
     });
   } else {
@@ -665,7 +743,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
         ? role + ' (+' + remaining + ')'
         : role;
       drawFittedLine(ctx, '• ' + text, r.rolesRows[index], {
-        fontSize: 24, minFontSize: 18, family: style.fontFamily,
+        fontSize: 24, minFontSize: 18, family: style.fontFamily, weight: style.bodyFontWeight,
         color: style.text,
       });
     });
@@ -683,7 +761,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
     {
       fontSize: 44,
       minFontSize: 34,
-      family: style.fontFamily,
+      family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.accentDark,
       maxLines: 2,
     }
@@ -693,7 +771,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   drawFittedLine(ctx, 'Roblox: ' + (data.robloxUsername || 'Not added yet'), r.robloxLine, {
     fontSize: 38,
     minFontSize: 22,
-    family: style.fontFamily,
+    family: style.fontFamily, weight: style.bodyFontWeight,
     color: style.mutedText,
   });
 
@@ -709,7 +787,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
     {
       fontSize: 48,
       minFontSize: 34,
-      family: style.fontFamily,
+      family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.text,
       lineHeight: 68,
       maxLines: 6,
@@ -742,7 +820,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
       );
     } else {
       ctx.fillStyle = style.mutedText;
-      ctx.font = `40px ${style.fontFamily}`;
+      ctx.font = `${style.bodyFontWeight} 40px ${style.fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
   
@@ -772,7 +850,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
     {
       fontSize: 32,
       minFontSize: 26,
-      family: style.fontFamily,
+      family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.mutedText,
       maxLines: 2,
     }
@@ -806,7 +884,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance) {
   );
 
   ctx.stroke();
-  drawDecorations(ctx, width, height, appearance, style);
+  drawDecorations(ctx, width, height, appearance, style, stickerImages);
 }
 
 /**
@@ -827,7 +905,10 @@ export async function renderPostImage({
   style = {},
   appearance = {},
 } = {}) {
-  if (type === 'profile') await ensureSymbolFont();
+  if (type === 'profile') {
+    registerAppearanceFonts();
+    await ensureSymbolFont();
+  }
   const layout = POST_LAYOUTS[type];
 
   if (!layout) {
@@ -835,17 +916,32 @@ export async function renderPostImage({
   }
 
   const resolvedAppearance = resolveAppearance(appearance);
-  const font = APPEARANCE_CATALOG.fonts[resolvedAppearance.font];
-  const colors = APPEARANCE_CATALOG.fontColors[resolvedAppearance.fontColor];
-  const backgroundItem = APPEARANCE_CATALOG.backgrounds[resolvedAppearance.background];
+  const headerFont = APPEARANCE_CATALOG.fonts[resolvedAppearance.headerFont];
+  const bodyFont = APPEARANCE_CATALOG.fonts[resolvedAppearance.bodyFont];
+  const backgroundItem = appearanceCatalogItem('backgrounds', resolvedAppearance.background);
+  const selectedPanel = appearanceCatalogItem('panels', resolvedAppearance.panelColor);
+  // Default lettering remains legible on both explicit dark panels and
+  // panels matched to a dark background. Explicit text-color choices still win.
+  const panelsAreDark = selectedPanel?.dark ||
+    (resolvedAppearance.panelColor === 'match' && backgroundItem.dark);
+  const colors = panelsAreDark && resolvedAppearance.fontColor === 'default'
+    ? APPEARANCE_CATALOG.fontColors.white
+    : appearanceCatalogItem('fontColors', resolvedAppearance.fontColor);
+  // A purchased custom HEX choice intentionally overrides all text shades.
+  // Default text alone auto-switches to white on dark panels.
   const matchedPalette = resolvedAppearance.panelColor === 'match'
     ? backgroundItem.palette || {}
-    : APPEARANCE_CATALOG.panels[resolvedAppearance.panelColor]?.palette || {};
+    : selectedPanel?.palette || {};
   const resolvedStyle = {
     ...DEFAULT_POST_STYLE,
     ...style,
-    fontFamily: font.family,
-    titleFontFamily: font.titleFamily,
+    fontFamily: bodyFont.family,
+    bodyFontWeight: bodyFont.weight || 'normal',
+    labelFontFamily: headerFont.family,
+    labelFontWeight: headerFont.weight || 'normal',
+    titleFontFamily: headerFont.titleFamily,
+    titleFontWeight: headerFont.weight || 'normal',
+    customHeading: resolvedAppearance.headerFont !== 'default',
     ...colors,
     ...matchedPalette,
     panelOpacity: resolvedAppearance.panelOpacity,
@@ -876,8 +972,26 @@ export async function renderPostImage({
       : Promise.resolve(null),
   ]);
 
+  // Custom sticker assets are curated local files (e.g. transparent PNGs).
+  // Never load arbitrary user-provided paths or URLs from saved profiles.
+  const stickerImages = new Map();
+  await Promise.all(resolvedAppearance.stickers.map(async sticker => {
+    const item = APPEARANCE_CATALOG.stickers[sticker.id];
+    if (item?.kind !== 'image' || !item.asset || stickerImages.has(sticker.id)) return;
+    try {
+      const bytes = await readFile(new URL('../' + item.asset, import.meta.url));
+      stickerImages.set(sticker.id, await loadImage(bytes));
+    } catch (error) {
+      console.warn('[post-renderer] Sticker unavailable:', sticker.id, error.message);
+    }
+  }));
+
   const canvas = createCanvas(layout.width, layout.height);
   const ctx = canvas.getContext('2d');
+  const overlay = await frameOverlayImage(resolvedAppearance.frame);
+  // Set before drawing so the legacy Double Line fallback does not duplicate
+  // the much stronger new double-line overlay.
+  resolvedAppearance.frameOverlayReady = Boolean(overlay);
 
   if (type === 'profile') {
     (resolvedAppearance.background === 'default' ? drawDefaultProfile : drawOpenProfile)(
@@ -886,13 +1000,18 @@ export async function renderPostImage({
       { avatar, photo, background },
       resolvedStyle,
       layout,
-      resolvedAppearance
+      resolvedAppearance,
+      stickerImages
     );
   } else {
     throw new Error(
       `Renderer implementation is missing for layout: ${type}`
     );
   }
+
+  // Decorative frame draws LAST, on top of the profile/photo/stickers.
+  // SVG is transparent except along the outer rim (1200×800 viewBox).
+  if (overlay) ctx.drawImage(overlay, 0, 0, layout.width, layout.height);
 
   return canvas.toBuffer('image/png');
 }
