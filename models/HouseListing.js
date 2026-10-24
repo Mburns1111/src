@@ -13,6 +13,8 @@ const houseListingSchema = new mongoose.Schema(
     estimatedValue: { type: String, required: true, maxlength: 80 },
     videoUrl: { type: String, default: "" },
     mediaAttachments: { type: [mediaAssetSchema], default: [] },
+    // Independent look: copied from profile once on creation, then edited per post.
+    postAppearance: { type: mongoose.Schema.Types.Mixed, default: null },
     postChannelId: { type: String, default: "" },
     postMessageId: { type: String, default: "" },
     status: { type: String, enum: ["active", "sold"], default: "active" },
