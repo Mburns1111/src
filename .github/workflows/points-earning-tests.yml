@@ -27,6 +27,9 @@ jobs:
       - name: Check Points administration and integrations syntax
         run: |
           node --check commands/points-admin.js
+          node --check services/points-audit.js
+          node --check services/bounded-work.js
+          node --check scripts/points-ledger-health.js
           node --check services/points-rewards.js
           node --check services/participation-observer.js
           node --check commands/points-observe.js
