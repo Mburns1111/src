@@ -263,15 +263,19 @@ function itemPage(item, index, total, balance, owned, category = null) {
   );
   return { embeds: [embed], components: [row], allowedMentions: { parse: [] } };
 }
-async function pageFor(interaction, index, category = null) {
+async function pageFor(interaction, index, category = null, knownStatus = null) {
   const items = sortedItems(category);
   if (!items.length) throw new UserFacingError("The shop has no items yet.");
   if (index === -1 && category) return featuredPage(interaction, category);
   if (!Number.isSafeInteger(index) || index < 0 || index >= items.length) throw new UserFacingError("Invalid shop page.");
-  const ownership = await getAppearanceOwnership(interaction.guildId, interaction.user.id);
+  const [ownership, balance] = knownStatus
+    ? [knownStatus.ownership, knownStatus.balance]
+    : await Promise.all([
+      getAppearanceOwnership(interaction.guildId, interaction.user.id),
+      walletBalance(interaction.guildId, interaction.user.id),
+    ]);
   const item = items[index];
-  const result = itemPage(item, index, items.length,
-    await walletBalance(interaction.guildId, interaction.user.id),
+  const result = itemPage(item, index, items.length, balance,
     ownsAppearanceItem(ownership, item.category, item.id), category);
   const swatch = ["backgrounds", "panels"].includes(item.category)
     ? catalogSwatch(item) : null;
@@ -438,13 +442,15 @@ function dmCategoryMenu(guildId, current) {
 async function dmItemPage(context, category, index) {
   // Older DM buttons may still refer to page -1; reopen page one instead.
   if (index === -1) index = 0;
-  const result = await pageFor(context, index, category);
+  const [ownership, balance] = await Promise.all([
+    getAppearanceOwnership(context.guildId, context.user.id),
+    walletBalance(context.guildId, context.user.id),
+  ]);
+  const result = await pageFor(context, index, category, { ownership, balance });
   result.content = "";
   const item = sortedItems(category)[index];
-  const ownership = await getAppearanceOwnership(context.guildId, context.user.id);
   const owned = ownsAppearanceItem(ownership, item.category, item.id);
   const size = sortedItems(category).length;
-  const balance = await walletBalance(context.guildId, context.user.id);
   result.components = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index - 1}`)
