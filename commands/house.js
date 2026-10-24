@@ -14,6 +14,7 @@ import {
 } from "discord.js";
 import HouseListing from "../models/HouseListing.js";
 import UserProfile from "../models/UserProfile.js";
+import { awardMilestoneSafely } from "../services/points-rewards.js";
 import {
   getConfiguredTextChannel,
   getMessageMedia,
@@ -550,6 +551,8 @@ async function publishHouseListing(interaction, values, post) {
     await HouseListing.deleteOne({ _id: listing._id }).catch(() => {});
     throw error;
   }
+  await awardMilestoneSafely(interaction.guildId, interaction.user.id,
+    "houseFirstListing", String(listing._id));
 }
 
 export async function handleSold(interaction) {
