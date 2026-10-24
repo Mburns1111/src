@@ -1036,11 +1036,11 @@ async function handleShopDM(interaction) {
   // Live Mix & Match: all controls operate on the SAME permanent DM. Users
   // need no purchases and never need to press Add to Mix or Confirm.
   const mixEditorActions = [
-    "mixCategory", "mixFamily", "mixShade", "mixMatch", "mixItem",
+    "mixCategory", "mixFamily", "mixOwnedCustom", "mixShade", "mixMatch", "mixItem",
     "mixReset", "mixClear", "mixBack", "mixRefresh",
   ];
   if (mixEditorActions.includes(action)) {
-    const isSelect = ["mixCategory", "mixFamily", "mixItem"].includes(action);
+    const isSelect = ["mixCategory", "mixFamily", "mixOwnedCustom", "mixItem"].includes(action);
     if (isSelect ? !interaction.isStringSelectMenu() : !interaction.isButton()) {
       throw new UserFacingError("That preview control is invalid.");
     }
@@ -1082,6 +1082,22 @@ async function handleShopDM(interaction) {
       const { variant } = mixColorPosition(category, mix);
       mix[category] = `${family.id}${variant[0].toUpperCase() + variant.slice(1)}`;
       imageChanged = true;
+    } else if (action === "mixOwnedCustom") {
+      if (!isClassicColorCategory(category)) throw new UserFacingError("This isn't a color category.");
+      const ownership = await getAppearanceOwnership(guildId, interaction.user.id);
+      const owned = [...ownership[category]].filter(id => Boolean(customColorHex(id))).sort();
+      const maxPage = Math.max(0, Math.ceil(owned.length / 23) - 1);
+      const page = Math.max(0, Math.min(maxPage, panel.shopMixOptionPage || 0));
+      const choice = interaction.values[0];
+      if (choice === "__next__" || choice === "__previous__") {
+        panel.shopMixOptionPage = Math.max(0, Math.min(maxPage,
+          page + (choice === "__next__" ? 1 : -1)));
+      } else if (owned.slice(page * 23, (page + 1) * 23).includes(choice)) {
+        mix[category] = choice;
+        imageChanged = true;
+      } else {
+        throw new UserFacingError("You haven't purchased that custom color.");
+      }
     } else if (action === "mixShade") {
       if (!isClassicColorCategory(category)) throw new UserFacingError("This isn't a color category.");
       const shade = categoryText;
