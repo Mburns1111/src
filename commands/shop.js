@@ -774,11 +774,18 @@ function mixItemEntries(category, ownership = null) {
   // the six selected fonts form the current public shop.
   const legacyFont = category === "fonts" && ownership?.fonts?.has("classic")
     ? [{ id: "classic", name: "Classic Serif · Previously purchased", included: true }] : [];
+  const ownedTextColors = category === "fontColors"
+    ? [...(ownership?.fontColors || [])]
+      .filter(id => Boolean(customColorHex(id))).sort()
+      .map(id => ({ id, name: customColorLabel(id), ownedCustom: true }))
+    : [];
   // The free Classic Thin frame is now explicitly listed in the shop.
   // Deduplicate the existing "Standard frame" mix option by item ID,
   // otherwise Discord rejects the select menu for duplicate values.
   const seen = new Set();
-  return [...(MIX_DEFAULT_ITEM_LABELS[category] || []), ...itemsFor(category), ...legacyFont]
+  return [...(MIX_DEFAULT_ITEM_LABELS[category] || []),
+    ...itemsFor(category).filter(item => item.id !== CUSTOM_COLOR_SHOP_ID),
+    ...legacyFont, ...ownedTextColors]
     .filter(item => {
       if (seen.has(item.id)) return false;
       seen.add(item.id);
@@ -881,8 +888,9 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
       ...visible.map(item => ({
         label: item.name,
         value: item.id,
-        description: item.price === undefined || item.included
-          ? "Free · Try on now" : `Preview only · ${item.price} Points to buy`,
+        description: item.ownedCustom ? "Purchased custom HEX · yours to keep"
+          : item.price === undefined || item.included
+            ? "Free · Try on now" : `Preview only · ${item.price} Points to buy`,
         default: currentlySelected === item.id,
       })),
       ...(page > 0 ? [{ label: "← Previous items", value: "__previous__" }] : []),
@@ -903,6 +911,14 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
     new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:mixClear`)
       .setLabel("Clear All Choices").setStyle(ButtonStyle.Secondary)
       .setDisabled(!Object.keys(mix).length),
+    ...(category === "fontColors" ? [
+      new ButtonBuilder()
+        .setCustomId(`shop:dm:${context.guildId}:customOpen:fontColors:${
+          sortedItems("fontColors").findIndex(item => item.id === CUSTOM_COLOR_SHOP_ID)
+        }`)
+        .setLabel("Enter Custom HEX")
+        .setStyle(ButtonStyle.Primary),
+    ] : []),
     new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:mixBack`)
       .setLabel("← Back to Shop").setStyle(ButtonStyle.Primary),
   ));
@@ -919,7 +935,8 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
 async function dmMixEditor(context, panel, { reuseImage = false } = {}) {
   const mix = normalizeShopMix(panel.shopPreviewMix);
   const category = panel.shopMixCategory;
-  const ownership = isClassicColorCategory(category) || category === "fonts"
+  const ownership = isClassicColorCategory(category) ||
+    category === "fonts" || category === "fontColors"
     ? await getAppearanceOwnership(context.guildId, context.user.id) : null;
   const chrome = mixEditorChrome(context, panel, mix, ownership);
   if (reuseImage) return chrome; // Only the controls changed: keep current PNG
@@ -1187,7 +1204,7 @@ async function handleShopDM(interaction) {
     } else if (action === "mixItem") {
       if (isClassicColorCategory(category)) throw new UserFacingError("Use the color controls instead.");
       const choice = interaction.values[0];
-      const ownership = category === "fonts"
+      const ownership = ["fonts", "fontColors"].includes(category)
         ? await getAppearanceOwnership(guildId, interaction.user.id) : null;
       const entries = mixItemEntries(category, ownership);
       const maxPage = Math.max(0, Math.ceil(entries.length / MIX_OPTION_PAGE_SIZE) - 1);
