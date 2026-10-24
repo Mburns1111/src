@@ -186,7 +186,7 @@ test("signed CSV spends are numeric and include source and purchased items", () 
   });
   assert.match(row, /"spend",-75,"debit","Shop purchase/);
   assert.match(row, /"shop","backgrounds:misty"/);
-  assert.match(row, /,"12","backgrounds:misty \(75\)"/);
+  assert.match(row, /,12,"backgrounds:misty \(75\)"/);
   assert.equal(csvCell(-75), "-75");
   assert.ok(AUDIT_TYPES.some(x => x.value === "spend"));
   assert.ok(AUDIT_TYPES.some(x => x.value === "refund"));
