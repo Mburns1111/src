@@ -88,6 +88,15 @@ export async function execute(interaction) {
 
   const user = interaction.options.getUser("member", true);
   if (user.bot) throw new UserFacingError("Bot accounts aren't eligible for community Points.");
+  // Direct awards and applied backfills must target a current server member,
+  // not a bot, arbitrary Discord ID, or someone who has already left.
+  if (op === "grant" || (op === "backfill" &&
+      interaction.options.getBoolean("apply") === true)) {
+    const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+    if (!member || member.user.bot) {
+      throw new UserFacingError("Only current, non-bot server members can receive Points.");
+    }
+  }
   if (op === "grant") {
     const amount = interaction.options.getInteger("points", true);
     const reason = interaction.options.getString("reason", true).trim();
