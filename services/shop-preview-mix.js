@@ -2,8 +2,9 @@ import { resolveAppearance, APPEARANCE_CATALOG, appearanceCatalogItem } from "./
 import { shopItem } from "./shop-catalog.js";
 import { customColorHex } from "./custom-colors.js";
 
-// Private, unpurchased dress-up selections. These are NEVER saved to the
-// equipped profile or inventory and cannot cause a Points transaction.
+// Private dress-up selections never auto-equip or auto-charge. Preview Multiple
+// can optionally buy selected, still-locked catalog items through a separately
+// confirmed transaction; purchased IDs go to inventory, not the saved profile.
 export const SHOP_MIX_CATEGORIES = Object.freeze([
   "backgrounds", "panels", "frames", "fonts", "fontColors", "stickers",
 ]);
