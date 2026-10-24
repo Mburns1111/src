@@ -97,6 +97,30 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
+// Login failures can otherwise leave only "Connected to MongoDB." in the
+// console. These events report Discord Gateway problems without logging the
+// bot token or member data.
+client.on(Events.Error, error => {
+  console.error("[Discord] Client error:", error);
+});
+client.on(Events.Warn, warning => {
+  console.warn("[Discord] Warning:", warning);
+});
+client.on(Events.ShardError, (error, shardId) => {
+  console.error(`[Discord] Shard ${shardId} error:`, error);
+});
+client.on(Events.ShardDisconnect, (event, shardId) => {
+  console.warn(`[Discord] Shard ${shardId} disconnected (code ${event.code}; reason: ${event.reason || "unspecified"}).`);
+});
+client.on(Events.ShardReconnecting, shardId => {
+  console.warn(`[Discord] Shard ${shardId} reconnecting.`);
+});
+client.on(Events.ShardReady, shardId => {
+  console.log(`[Discord] Shard ${shardId} received READY.`);
+});
+
+let discordReadyTimeout;
+
 const commandHandlers = new Map([
   [profileCommand.name, executeProfile],
   [profileCleanupCommand.name, executeProfileCleanup],
@@ -173,6 +197,7 @@ async function sendProfileReminder(interaction) {
 }
 
 client.once(Events.ClientReady, (readyClient) => {
+  clearTimeout(discordReadyTimeout);
   console.log(`Bot is online as ${readyClient.user.tag}.`);
   startupMaintenancePromise = (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
@@ -482,9 +507,32 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 async function start() {
+  console.log("[Startup] Connecting to MongoDB...");
   await mongoose.connect(mongoUri);
   console.log("Connected to MongoDB.");
-  await client.login(token);
+
+  console.log("[Startup] Connecting to Discord Gateway...");
+  discordReadyTimeout = setTimeout(() => {
+    if (!client.isReady()) {
+      // Report status only; don't log any secrets from environment variables.
+      console.warn(
+        "[Startup] Discord has not sent READY after 20 seconds.",
+        "Gateway status:", client.ws.status,
+        "Shards:", client.ws.shards.size,
+        "Check Replit network connectivity and DISCORD_TOKEN configuration.",
+      );
+    }
+  }, 20_000);
+  discordReadyTimeout.unref?.();
+
+  try {
+    await client.login(token);
+    console.log("[Startup] Discord login handshake completed.");
+  } catch (error) {
+    clearTimeout(discordReadyTimeout);
+    console.error("[Startup] Discord login failed:", error);
+    throw error;
+  }
 }
 
 async function shutdown(signal) {
