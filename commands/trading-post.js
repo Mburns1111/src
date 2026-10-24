@@ -17,6 +17,7 @@ import OutfitListing from "../models/OutfitListing.js";
 import TradingPost from "../models/TradingPost.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import UserProfile from "../models/UserProfile.js";
+import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
 import { discordMessageUrl } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 
@@ -590,7 +591,9 @@ export async function handleTradingPostModal(interaction) {
     try {
       post = await TradingPost.findOneAndUpdate(
         { guildId: interaction.guildId, ownerId },
-        { $set: update },
+        { $set: update, $setOnInsert: {
+          postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, ownerId, profile),
+        } },
         {
           upsert: true,
           returnDocument: "after",
