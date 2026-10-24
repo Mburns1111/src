@@ -327,6 +327,72 @@ function drawBackgroundPattern(ctx, width, height, appearance) {
   ctx.restore();
 }
 
+// Border ink adapts to solid/custom HEX backgrounds; this is especially
+// useful with bought near-black and near-white colors. Image backgrounds get
+// a bright border with a dark shadow, so there is still a visible outline.
+function simpleFrameInk(appearance, style) {
+  const bg = appearanceCatalogItem('backgrounds', appearance.background);
+  if (bg?.kind === 'image') {
+    return { color: 'rgba(255,255,255,0.94)', shadow: 'rgba(0,0,0,0.85)' };
+  }
+  const hex = bg?.color || style.background;
+  const match = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!match) return { color: 'rgba(245,247,244,0.95)', shadow: 'rgba(0,0,0,0.8)' };
+  const num = parseInt(match[1], 16);
+  const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+  const brightness = r * 0.2126 + g * 0.7152 + b * 0.0722;
+  return brightness < 148
+    ? { color: 'rgba(255,255,255,0.94)', shadow: 'rgba(0,0,0,0.45)' }
+    : { color: 'rgba(32,41,37,0.85)', shadow: 'rgba(255,255,255,0.45)' };
+}
+
+function drawSimpleFrame(ctx, width, height, appearance, style) {
+  const kind = APPEARANCE_CATALOG.frames[appearance.frame]?.kind;
+  if (!['fineLine', 'boldOutline', 'dashedOutline', 'dottedOutline', 'cornerAccents'].includes(kind)) {
+    return;
+  }
+
+  const ink = simpleFrameInk(appearance, style);
+  ctx.save();
+  ctx.strokeStyle = ink.color;
+  ctx.shadowColor = ink.shadow;
+  ctx.shadowBlur = 4;
+  ctx.lineJoin = 'round';
+
+  if (kind === 'cornerAccents') {
+    const inset = 19;
+    const length = Math.min(width, height) * 0.085;
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    // Only the corners are decorated, leaving the card edges visually open.
+    ctx.moveTo(inset + length, inset);
+    ctx.lineTo(inset, inset);
+    ctx.lineTo(inset, inset + length);
+    ctx.moveTo(width - inset - length, inset);
+    ctx.lineTo(width - inset, inset);
+    ctx.lineTo(width - inset, inset + length);
+    ctx.moveTo(inset, height - inset - length);
+    ctx.lineTo(inset, height - inset);
+    ctx.lineTo(inset + length, height - inset);
+    ctx.moveTo(width - inset - length, height - inset);
+    ctx.lineTo(width - inset, height - inset);
+    ctx.lineTo(width - inset, height - inset - length);
+    ctx.stroke();
+  } else {
+    const inset = kind === 'boldOutline' ? 17 : 15;
+    ctx.lineWidth = kind === 'boldOutline' ? 9 : kind === 'fineLine' ? 3 : 4;
+    if (kind === 'dashedOutline') ctx.setLineDash([17, 12]);
+    if (kind === 'dottedOutline') {
+      ctx.lineCap = 'round';
+      ctx.setLineDash([0.5, 14]);
+    }
+    roundedRect(ctx, inset, inset, width - inset * 2, height - inset * 2, 37);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawDecorations(ctx, width, height, appearance, style, stickerImages = new Map()) {
   // Sticker transforms are normalized, so layouts may have different dimensions.
   for (const sticker of appearance.stickers) {
@@ -381,6 +447,7 @@ function drawDecorations(ctx, width, height, appearance, style, stickerImages = 
     ctx.stroke();
     ctx.restore();
   }
+  drawSimpleFrame(ctx, width, height, appearance, style);
 }
 
 function glassPanel(ctx, x, y, width, height, style, alternate = false) {
