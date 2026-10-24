@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   SHOP_INDEX_PAGE_SIZE, shopDirectorySlice, shopItemIndexById,
-  shopColorFamilyDirectory, shopColorDirectorySelection,
+  shopColorFamilyDirectory, shopColorDirectorySelection, shopPurchaseTargetMatches,
 } from "../services/shop-navigation.js";
 import { shopItems } from "../services/shop-catalog.js";
 import { CLASSIC_COLOR_FAMILIES } from "../services/classic-colors.js";
@@ -108,4 +108,15 @@ test("color family selection enters its Normal shade, but never changes purchase
     assert.equal(shopColorDirectorySelection(items, "not-a-family"), -1);
     assert.equal(shopColorDirectorySelection(items, "missingOldShade"), -1);
   }
+});
+
+test("new purchase controls reject stale IDs after a category is reordered", () => {
+  for (const category of ["backgrounds", "panels", "frames", "fonts", "fontColors", "stickers"]) {
+    assert.equal(shopPurchaseTargetMatches(category, "itemA", "itemA"), true);
+    assert.equal(shopPurchaseTargetMatches(category, "itemB", "itemA"), false);
+  }
+  assert.equal(shopPurchaseTargetMatches("stickers", "heart", undefined), false);
+  assert.equal(shopPurchaseTargetMatches("frames", "doubleLine", undefined), true,
+    "older non-sticker controls can be refreshed without breaking");
+  assert.equal(shopPurchaseTargetMatches("frames", undefined, undefined), false);
 });
