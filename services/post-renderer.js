@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
 import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './post-appearance.js';
+import { frameArtworkSvg } from './frame-artwork.js';
 
 // Register a Unicode symbol font for decorative display names.
 // Downloaded once per process, with graceful fallback when offline.
@@ -32,6 +33,25 @@ async function ensureSymbolFont() {
 }
 
 const MAX_TEXT_LINES_DEFAULT = 6;
+
+// Rendering an approved local vector overlay is much cheaper after the first
+// request. Cache the decoded image across the public storefront, individual
+// previews, Mix & Match, and the equipped profile card. No external requests.
+const frameArtworkCache = new Map();
+async function frameOverlayImage(frameId) {
+  const item = APPEARANCE_CATALOG.frames[frameId];
+  if (item?.kind !== 'artwork') return null;
+  if (!frameArtworkCache.has(frameId)) {
+    const task = loadImage(Buffer.from(frameArtworkSvg(item.artwork), 'utf8'))
+      .catch(error => {
+        frameArtworkCache.delete(frameId);
+        console.warn('[post-renderer] Frame artwork unavailable:', frameId, error.message);
+        return null;
+      });
+    frameArtworkCache.set(frameId, task);
+  }
+  return frameArtworkCache.get(frameId);
+}
 
 /** Fetch a remote image to a Buffer before passing it to canvas. */
 async function loadImageSource(source) {
@@ -436,7 +456,9 @@ function drawDecorations(ctx, width, height, appearance, style, stickerImages = 
     }
     ctx.restore();
   }
-  if (appearance.frame === 'doubleLine') {
+  // The newer overlay has stronger, separated double lines. Keep the old
+  // Canvas version ONLY as an offline fallback if vector decoding ever fails.
+  if (appearance.frame === 'doubleLine' && !appearance.frameOverlayReady) {
     const frame = APPEARANCE_CATALOG.frames.doubleLine;
     ctx.save();
     ctx.strokeStyle = frame.color;
@@ -978,6 +1000,10 @@ export async function renderPostImage({
 
   const canvas = createCanvas(layout.width, layout.height);
   const ctx = canvas.getContext('2d');
+  const overlay = await frameOverlayImage(resolvedAppearance.frame);
+  // Set before drawing so the legacy Double Line fallback does not duplicate
+  // the much stronger new double-line overlay.
+  resolvedAppearance.frameOverlayReady = Boolean(overlay);
 
   if (type === 'profile') {
     (resolvedAppearance.background === 'default' ? drawDefaultProfile : drawOpenProfile)(
@@ -994,6 +1020,10 @@ export async function renderPostImage({
       `Renderer implementation is missing for layout: ${type}`
     );
   }
+
+  // Decorative frame draws LAST, on top of the profile/photo/stickers.
+  // SVG is transparent except along the outer rim (1200×800 viewBox).
+  if (overlay) ctx.drawImage(overlay, 0, 0, layout.width, layout.height);
 
   return canvas.toBuffer('image/png');
 }
