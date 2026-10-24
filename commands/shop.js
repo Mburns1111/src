@@ -476,7 +476,7 @@ async function confirmationPage(interaction, item, category, index) {
 function dmShopTools(guildId, category, index) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mix:${category}:${index}`)
-      .setLabel("Mix Preview").setStyle(ButtonStyle.Primary),
+      .setLabel("Mix & Match").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:refresh:${category}:${index}`)
       .setLabel("Refresh Points & Items").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
@@ -587,27 +587,149 @@ async function dmConfirmation(context, category, index) {
   ];
   return result;
 }
+// Mix & Match is now one live dress-up screen in the existing permanent
+// shop DM. Dropdowns update its preview immediately; no Add to Mix required.
+const MIX_OPTION_PAGE_SIZE = 22;
+const MIX_DEFAULT_ITEM_LABELS = {
+  frames: [{ id: "default", name: "Standard frame · Free" }],
+  fonts: [{ id: "default", name: "Standard font · Free" }],
+  fontColors: [
+    { id: "default", name: "Default text · Free" },
+    { id: "black", name: "Black text · Free" },
+    { id: "white", name: "White text · Free" },
+  ],
+  stickers: [{ id: "none", name: "No stickers" }],
+};
+
+function mixValueName(category, id) {
+  if (!id) return "My equipped profile";
+  if (category === "panels" && id === "match") return "Match background";
+  if (category === "stickers" && id === "none") return "No stickers";
+  const included = MIX_DEFAULT_ITEM_LABELS[category]?.find(item => item.id === id);
+  if (included) return included.name.replace(" · Free", "");
+  const item = itemsFor(category).find(item => item.id === id);
+  if (item) return item.name;
+  return CLASSIC_COLOR_OPTIONS.find(color => color.id === id)?.name || "Previous saved design";
+}
+
 function mixSummary(mix) {
-  const picks = SHOP_MIX_CATEGORIES.map(category => {
-    const item = mix[category] && shopItems().find(item =>
-      item.category === category && item.id === mix[category]);
-    return `**${CATEGORY_LABELS[category]}:** ${item ? item.name : "Not selected"}`;
-  });
-  return picks.join("\n");
+  return SHOP_MIX_CATEGORIES.map(category =>
+    `**${CATEGORY_LABELS[category]}:** ${mixValueName(category, mix[category])}`,
+  ).join("\n");
+}
+
+function mixColorPosition(category, mix) {
+  const index = CLASSIC_COLOR_OPTIONS.findIndex(item => item.id === mix[category]);
+  return {
+    familyIndex: index >= 0 ? Math.floor(index / 3) : category === "backgrounds" ? 7 : 8,
+    variant: index >= 0 ? CLASSIC_COLOR_OPTIONS[index].variant
+      : category === "backgrounds" ? "pastel" : "normal",
+  };
+}
+
+function mixItemEntries(category) {
+  return [...(MIX_DEFAULT_ITEM_LABELS[category] || []), ...itemsFor(category)];
+}
+
+function mixEditorChrome(context, panel, mix) {
+  const category = SHOP_MIX_CATEGORIES.includes(panel.shopMixCategory)
+    ? panel.shopMixCategory : "backgrounds";
+  const rows = [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId(`shop:dm:${context.guildId}:mixCategory`)
+        .setPlaceholder("1 · Choose what to customize")
+        .addOptions(SHOP_MIX_CATEGORIES.map(id => ({
+          label: CATEGORY_LABELS[id], value: id, default: category === id,
+        }))),
+    ),
+  ];
+
+  if (isClassicColorCategory(category)) {
+    const { familyIndex, variant } = mixColorPosition(category, mix);
+    rows.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId(`shop:dm:${context.guildId}:mixFamily`)
+        .setPlaceholder("2 · Choose a color family")
+        .addOptions(CLASSIC_COLOR_FAMILIES.map((item, i) => ({
+          label: item.name, value: item.id, default: familyIndex === i,
+        }))),
+    ));
+    const shades = ["pastel", "normal", "dark"].map((shade, i) => {
+      const color = CLASSIC_COLOR_OPTIONS[familyIndex * 3 + i];
+      return new ButtonBuilder()
+        .setCustomId(`shop:dm:${context.guildId}:mixShade:${shade}`)
+        .setLabel(shade[0].toUpperCase() + shade.slice(1))
+        .setStyle(shade === variant ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setDisabled(mix[category] === color.id);
+    });
+    if (category === "panels") {
+      shades.push(new ButtonBuilder()
+        .setCustomId(`shop:dm:${context.guildId}:mixMatch`)
+        .setLabel("Match Background")
+        .setStyle(mix.panels === "match" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setDisabled(mix.panels === "match"));
+    }
+    rows.push(new ActionRowBuilder().addComponents(...shades));
+  } else {
+    const entries = mixItemEntries(category);
+    const maxPage = Math.max(0, Math.ceil(entries.length / MIX_OPTION_PAGE_SIZE) - 1);
+    const page = Math.max(0, Math.min(maxPage, Number.isInteger(panel.shopMixOptionPage)
+      ? panel.shopMixOptionPage : 0));
+    const visible = entries.slice(page * MIX_OPTION_PAGE_SIZE, (page + 1) * MIX_OPTION_PAGE_SIZE);
+    const options = [
+      { label: "Use my equipped profile", value: "__reset__",
+        description: "Undo the preview choice for this category", default: !mix[category] },
+      ...visible.map(item => ({
+        label: item.name,
+        value: item.id,
+        description: item.price === undefined || item.included
+          ? "Free · Try on now" : `Preview only · ${item.price} Points to buy`,
+        default: mix[category] === item.id,
+      })),
+      ...(page > 0 ? [{ label: "← Previous items", value: "__previous__" }] : []),
+      ...(page < maxPage ? [{ label: "More items →", value: "__next__" }] : []),
+    ];
+    rows.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId(`shop:dm:${context.guildId}:mixItem`)
+        .setPlaceholder(`2 · Choose ${CATEGORY_LABELS[category].toLowerCase()}`)
+        .addOptions(options),
+    ));
+  }
+
+  rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:mixReset`)
+      .setLabel("Use My Profile").setStyle(ButtonStyle.Secondary)
+      .setDisabled(!mix[category]),
+    new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:mixClear`)
+      .setLabel("Clear All Choices").setStyle(ButtonStyle.Secondary)
+      .setDisabled(!Object.keys(mix).length),
+    new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:mixBack`)
+      .setLabel("← Back to Shop").setStyle(ButtonStyle.Primary),
+  ));
+  return {
+    content: `**Mix & Match · Live Profile Preview**\n` +
+      `Editing **${CATEGORY_LABELS[category]}** — pick a style and your profile preview updates automatically.\n\n` +
+      mixSummary(mix) + "\n\n" +
+      "**Just trying things on:** No purchases, no Points spent, and no changes to your saved profile.",
+    components: rows,
+    allowedMentions: { parse: [] },
+  };
+}
+
+async function dmMixEditor(context, panel, { reuseImage = false } = {}) {
+  const mix = normalizeShopMix(panel.shopPreviewMix);
+  const chrome = mixEditorChrome(context, panel, mix);
+  if (reuseImage) return chrome; // Only the controls changed: keep current PNG
+  return { ...await previewPayload(context, null, mix), ...chrome };
 }
 
 async function dmPreview(context, category, index, savedMix = {}) {
   const mix = normalizeShopMix(savedMix);
   const items = sortedItems(category);
   const item = items[index];
-  const inMix = mix[category] === item.id;
-  // The current item is tried on *alongside* the user's previous category
-  // selections. The mix only changes when Add to Mix is explicitly pressed.
   const result = await previewPayload(context, item, mix);
-  result.content = `**Preview ${index + 1}/${items.length}: ${item.name}**\n` +
-    `Mix & Match: **${Object.keys(mix).length}/${SHOP_MIX_CATEGORIES.length} categories saved**. ` +
-    `${inMix ? "This item is in your mix." : "Like this look? Choose **Add to Mix** to keep this item while browsing other categories."}\n` +
-    "This is a preview only. No Points are spent and your profile is unchanged.";
+  result.content = `**Single-Item Preview ${index + 1}/${items.length}: ${item.name}**\n` +
+    "To combine backgrounds, panels, frames, fonts, text colors and stickers, open **Mix & Match**. " +
+    "You'll change everything directly on one live profile preview, without buying anything.";
   result.components = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:preview:${category}:${index - 1}`)
@@ -617,34 +739,13 @@ async function dmPreview(context, category, index, savedMix = {}) {
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index}`)
         .setLabel("← Back to item").setStyle(ButtonStyle.Primary),
     ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:${inMix ? "unmix" : "addmix"}:${category}:${index}`)
-        .setLabel(inMix ? "Remove From Mix" : "Add to Mix")
-        .setStyle(inMix ? ButtonStyle.Secondary : ButtonStyle.Success),
-      ...shopShadeButtons(context.guildId, category, index, true),
-    ),
-    ...(isClassicColorCategory(category) ? [shopFamilyMenu(context.guildId, category, index, true)] : []),
-    dmCategoryMenu(context.guildId, category),
-    dmShopTools(context.guildId, category, index),
-  ];
-  return result;
-}
-
-async function dmMixOverview(context, category, index, savedMix = {}) {
-  const mix = normalizeShopMix(savedMix);
-  const result = await previewPayload(context, null, mix);
-  result.content = "**Your Mix & Match Preview** — one item from each shop category.\n" +
-    mixSummary(mix) + "\n\n" +
-    "To try more options, **browse a category → My Preview → Add to Mix**. " +
-    "You can replace any selection without buying it. Your Points and saved profile are unchanged.";
-  result.components = [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index}`)
-        .setLabel("← Back to item").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:clearmix:${category}:${index}`)
-        .setLabel("Clear Mix").setStyle(ButtonStyle.Secondary)
-        .setDisabled(!Object.keys(mix).length),
-    ),
+    ...(isClassicColorCategory(category)
+      ? [
+        new ActionRowBuilder().addComponents(
+          ...shopShadeButtons(context.guildId, category, index, true),
+        ),
+        shopFamilyMenu(context.guildId, category, index, true),
+      ] : []),
     dmCategoryMenu(context.guildId, category),
     dmShopTools(context.guildId, category, index),
   ];
