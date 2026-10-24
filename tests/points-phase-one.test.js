@@ -17,6 +17,7 @@ test("starter collection costs 425 Points before any one-time bonuses", () => {
   const starter = starterClassicBasketCost();
   assert.equal(starter, 425);
   assert.equal(POINTS_ACTIVITY_TARGETS.starterWeekActivityCap, starter);
+  assert.equal(POINTS_ACTIVITY_TARGETS.firstWeekActivityMultiplier, 2);
   assert.equal(POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap, 225);
   assert.equal(POINTS_ACTIVITY_TARGETS.invitationReward, 40);
   assert.equal(POINTS_ACTIVITY_TARGETS.inviteMinimumMembershipDays, 7);
