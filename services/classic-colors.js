@@ -13,7 +13,8 @@ export const CLASSIC_COLOR_FAMILIES = Object.freeze([
   { id: "gray", name: "Classic Gray", pastel: "#E5E5E5", normal: "#939393", dark: "#252525" },
 ]);
 
-export const STANDARD_BACKGROUND_ID = "leafGreenPastel";
+// Original free Starter Sage remains an approved appearance but NOT a shop item.
+export const STANDARD_BACKGROUND_ID = "sagePreview";
 export const STANDARD_PANEL_ID = "grayNormal";
 export const STANDARD_PANEL_OPACITY = 0.9;
 
@@ -25,10 +26,10 @@ export const CLASSIC_COLOR_OPTIONS = Object.freeze(
   ]),
 );
 
+// Starter Sage (sagePreview) is free and separate from this collection.
+// Every Classic background, including Pastel Leaf Green, costs 75 Points.
 export const CLASSIC_BACKGROUND_PRICES = Object.freeze(
-  Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [
-    item.id, item.id === STANDARD_BACKGROUND_ID ? 0 : 75,
-  ])),
+  Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [item.id, 75])),
 );
 export const CLASSIC_PANEL_PRICES = Object.freeze(
   Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [
