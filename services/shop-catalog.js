@@ -2,15 +2,16 @@ import {
   CLASSIC_COLOR_OPTIONS, CLASSIC_BACKGROUND_PRICES, CLASSIC_PANEL_PRICES,
 } from "./classic-colors.js";
 import { APPEARANCE_CATALOG } from "./post-appearance.js";
+import { CUSTOM_COLOR_SHOP_ID, CUSTOM_COLOR_PRICES } from "./custom-colors.js";
 import { FREE_APPEARANCE } from "./appearance-ownership.js";
 
 // Classic colors are in color-wheel order: Pastel, Normal, Dark within each
 // family. The original free Starter Sage background is NOT a shop item;
-// all 27 Classic backgrounds cost Points. Only the standard Classic Gray panel
+// all 27 Classic backgrounds cost Points. Custom HEX colors cost three times the normal price. Only Classic Gray panel
 // is included at 0 Points. Retired paid starter styles remain renderable.
 const prices = {
-  backgrounds: CLASSIC_BACKGROUND_PRICES,
-  panels: CLASSIC_PANEL_PRICES,
+  backgrounds: { ...CLASSIC_BACKGROUND_PRICES, [CUSTOM_COLOR_SHOP_ID]: CUSTOM_COLOR_PRICES.backgrounds },
+  panels: { ...CLASSIC_PANEL_PRICES, [CUSTOM_COLOR_SHOP_ID]: CUSTOM_COLOR_PRICES.panels },
   frames: { doubleLine: 125 },
   fonts: { classic: 100 },
   fontColors: { plum: 75 },
@@ -19,12 +20,12 @@ const prices = {
 const names = {
   ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [item.id, item.name])),
   doubleLine: "Double Line", classic: "Classic Serif", plum: "Plum",
-  flower: "Flower", star: "Star",
+  flower: "Flower", star: "Star", [CUSTOM_COLOR_SHOP_ID]: "Custom HEX Color",
 };
 export function shopItems() {
   return Object.entries(prices).flatMap(([category, entries]) =>
     Object.entries(entries)
-      .filter(([id]) => Boolean(APPEARANCE_CATALOG[category]?.[id]))
+      .filter(([id]) => id === CUSTOM_COLOR_SHOP_ID || Boolean(APPEARANCE_CATALOG[category]?.[id]))
       .map(([id, price]) => ({
         category, id, name: names[id] || id, price,
         included: FREE_APPEARANCE[category]?.includes(id) || false,
