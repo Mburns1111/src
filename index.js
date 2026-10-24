@@ -69,6 +69,7 @@ import { execute as executeTestPoints, data as testPointsCommand } from "./comma
 import { execute as executePointsAdmin, data as pointsAdminCommand } from "./commands/points-admin.js";
 import { execute as executePointsObserve, data as pointsObserveCommand } from "./commands/points-observe.js";
 import { observeNativePollVote, parseNativePollEvent } from "./services/participation-observer.js";
+import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
   execute as executeMigrateOldPosts,
@@ -96,10 +97,12 @@ if (!token || !mongoUri) {
 }
 
 const client = new Client({
-  // Native Discord poll votes use the unprivileged GuildMessagePolls intent.
-  // Message Content is deliberately NOT requested for this observation phase.
+  // Poll-vote events need no Message Content access. To diagnose whether
+  // third-party Arclo public messages expose results, privileged access can
+  // be explicitly enabled on the TEST bot only (plus Discord Portal toggle).
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.GuildMessagePolls],
+    GatewayIntentBits.GuildMessagePolls,
+    ...(shouldRequestMessageContent() ? [GatewayIntentBits.MessageContent] : [])],
   partials: [Partials.Channel],
 });
 
