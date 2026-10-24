@@ -6,6 +6,7 @@ import {
 } from "discord.js";
 import mongoose from "mongoose";
 import { createCanvas } from "@napi-rs/canvas";
+import { classicItemThumbnail } from "../services/shop-item-thumbnails.js";
 import GuildConfig from "../models/GuildConfig.js";
 import UserProfile from "../models/UserProfile.js";
 import AppearanceInventory from "../models/AppearanceInventory.js";
@@ -13,13 +14,14 @@ import PointsWallet from "../models/PointsWallet.js";
 import MemberDmPanel from "../models/MemberDmPanel.js";
 import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js";
 import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
-import { openAppearanceDMFromShop } from "./profile.js";
+import { openAppearanceDMFromShop, ensureProfileCard, ensureProfileRecord } from "./profile.js";
 import { shopItems } from "../services/shop-catalog.js";
 import { getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, FREE_APPEARANCE } from "../services/appearance-ownership.js";
 import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, appearanceCatalogItem, resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { normalizeShopMix, tryOnShopMix, SHOP_MIX_CATEGORIES } from "../services/shop-preview-mix.js";
 import { previewPurchasePlan, previewPurchaseFingerprint } from "../services/shop-mix-checkout.js";
+import { equipPurchasedShopMix } from "../services/shop-mix-equip.js";
 import { CLASSIC_COLOR_FAMILIES, CLASSIC_COLOR_OPTIONS, STANDARD_PANEL_ID } from "../services/classic-colors.js";
 import {
   CUSTOM_COLOR_SHOP_ID, CUSTOM_COLOR_PRICES, normalizeHexColor, customColorId,
@@ -577,18 +579,21 @@ async function purchase(interaction, item) {
     await session.endSession();
   }
 }
-async function confirmationPage(interaction, item, category, index, { showImage = true } = {}) {
+async function confirmationPage(interaction, item, category, index,
+  { showImage = true, showThumbnail = false } = {}) {
   const balance = await walletBalance(interaction.guildId, interaction.user.id);
   const ownership = await getAppearanceOwnership(interaction.guildId, interaction.user.id);
   const owned = ownsAppearanceItem(ownership, item.category, item.id);
-  const image = showImage ? await exampleImage(item) : null;
+  const image = showThumbnail ? await classicItemThumbnail(item)
+    : showImage ? await exampleImage(item) : null;
+  const pictureName = showThumbnail ? "shop-selected-preview.png" : "shop-confirm.png";
   const confirmEmbed = new EmbedBuilder().setTitle("Confirm your purchase")
       .setDescription(`**${item.name}**\nPrice: **${item.price} Points**\nYour balance: **${balance} Points**\nAfter purchase: **${Math.max(0, balance - item.price)} Points**\n\n${owned ? "You already own this item." : balance < item.price ? "You need more Points to buy this." : "Do you want to buy this item?"}`)
       ;
-  if (image) confirmEmbed.setImage("attachment://shop-confirm.png");
+  if (image) confirmEmbed.setImage(`attachment://${pictureName}`);
   return {
     embeds: [confirmEmbed],
-    files: image ? [new AttachmentBuilder(image, { name: "shop-confirm.png" })] : [],
+    files: image ? [new AttachmentBuilder(image, { name: pictureName })] : [],
     attachments: [],
     components: [new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:confirm:${category || "all"}:${index}:${item.id}`)
@@ -835,10 +840,19 @@ async function dmItemPage(context, category, index) {
   const selected = sortedItems(category)[index];
   // The category sheet already shows the whole classic set. Do not regenerate
   // a separate image just to open a price/ownership detail for a classic item.
-  const result = isClassicShopItem(category, selected?.id)
+  const classic = isClassicShopItem(category, selected?.id);
+  const result = classic
     ? itemPage(selected, index, sortedItems(category).length, balance,
       ownsAppearanceItem(ownership, selected.category, selected.id), category)
     : await pageFor(context, index, category, { ownership, balance });
+  if (classic) {
+    const thumbnail = await classicItemThumbnail(selected);
+    if (thumbnail) {
+      result.embeds[0].setImage("attachment://shop-selected-preview.png");
+      result.files = [new AttachmentBuilder(thumbnail, { name: "shop-selected-preview.png" })];
+      result.attachments = [];
+    }
+  }
   result.content = "";
   const item = sortedItems(category)[index];
   const owned = ownsAppearanceItem(ownership, item.category, item.id);
@@ -878,8 +892,9 @@ async function dmItemPage(context, category, index) {
 }
 async function dmConfirmation(context, category, index) {
   const item = sortedItems(category)[index];
+  const classic = isClassicShopItem(category, item.id);
   const result = await confirmationPage(context, item, category, index, {
-    showImage: !isClassicShopItem(category, item.id),
+    showImage: !classic, showThumbnail: classic,
   });
   result.content = "";
   const ownership = await getAppearanceOwnership(context.guildId, context.user.id);
@@ -1174,7 +1189,9 @@ async function purchasePreviewBundle(context, panelId) {
       }, { $addToSet: newOwnership },
       { upsert: true, session, setDefaultsOnInsert: true });
       panel.shopPendingMixPurchase = null;
+      panel.shopPendingMixEquip = { mixJSON: pending.mixJSON, issuedAt: Date.now() };
       panel.markModified("shopPendingMixPurchase");
+      panel.markModified("shopPendingMixEquip");
       await panel.save({ session });
       bought = quote.purchasable.map(item => ({ ...item }));
       charged = quote.total;
@@ -1377,6 +1394,7 @@ async function handleShopDM(interaction) {
   const mixEditorActions = [
     "mixCategory", "mixFontScope", "mixFamily", "mixOwnedCustom", "mixShade", "mixMatch", "mixItem",
     "mixReset", "mixClear", "mixBack", "mixRefresh", "mixCheckout", "mixBuyAll", "mixCancel",
+    "mixEquipAll", "mixContinue",
   ];
   if (mixEditorActions.includes(action)) {
     const isSelect = ["mixCategory", "mixFontScope", "mixFamily", "mixOwnedCustom", "mixItem"].includes(action);
@@ -1452,8 +1470,16 @@ async function handleShopDM(interaction) {
         console.warn("Bundle purchased; fresh profile preview unavailable:", error);
         refreshed = await dmMixEditor(context, currentPanel, { reuseImage: true });
       }
-      refreshed.content = `✅ **Purchased ${bought.length} items for ${charged} Points!** You can equip them in Customize Profile.\n\n` +
+      refreshed.content = `✅ **Purchased ${bought.length} items for ${charged} Points!**\n` +
+        "**Equip All** applies the selected combination to your public profile. " +
+        "**Continue Shopping** keeps your current equipped profile unchanged.\n\n" +
         refreshed.content;
+      refreshed.components = [new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mixEquipAll`)
+          .setLabel("Equip All").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mixContinue`)
+          .setLabel("Continue Shopping").setStyle(ButtonStyle.Primary),
+      )];
       await interaction.editReply(refreshed);
       try {
         await sendTemporaryDmNotice(interaction.user,
@@ -1464,6 +1490,48 @@ async function handleShopDM(interaction) {
       return true;
     }
 
+    if (action === "mixEquipAll") {
+      const receipt = panel.shopPendingMixEquip;
+      if (!receipt?.mixJSON) {
+        throw new UserFacingError("That purchase is no longer awaiting equipping. Open Customize Profile to choose your owned items.");
+      }
+      let mix;
+      try { mix = JSON.parse(receipt.mixJSON); } catch {
+        throw new UserFacingError("The saved appearance selection is invalid. Open Customize Profile instead.");
+      }
+      const [ownership, profile] = await Promise.all([
+        getAppearanceOwnership(guildId, interaction.user.id),
+        ensureProfileRecord(guildId, interaction.user),
+      ]);
+      const planned = equipPurchasedShopMix(
+        profile.profileAppearance?.background ? profile.profileAppearance : DEFAULT_APPEARANCE,
+        mix, ownership,
+      );
+      if (!planned.ready) {
+        throw new UserFacingError("An item in this combination is not owned or available. Check your inventory before equipping.");
+      }
+      profile.profileAppearance = planned.appearance;
+      profile.markModified("profileAppearance");
+      await profile.save();
+      // Refresh the public card; if Discord fails, keep this Equip All receipt
+      // so the member can retry without spending Points again.
+      await ensureProfileCard(guild, interaction.user, { refresh: true });
+      panel.shopPendingMixEquip = null;
+      panel.markModified("shopPendingMixEquip");
+      await panel.save();
+      const refreshed = await dmMixEditor(context, panel);
+      refreshed.content = "✅ **Equipped All!** Your public profile card has been updated.\\n\\n" +
+        refreshed.content;
+      await interaction.editReply(refreshed);
+      return true;
+    }
+    if (action === "mixContinue") {
+      panel.shopPendingMixEquip = null;
+      panel.markModified("shopPendingMixEquip");
+      await panel.save();
+      await interaction.editReply(await dmMixEditor(context, panel));
+      return true;
+    }
     if (action === "mixBack") {
       const backCategory = CATEGORY_LABELS[panel.shopMixReturnCategory]
         ? panel.shopMixReturnCategory : "backgrounds";
