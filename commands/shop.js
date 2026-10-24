@@ -815,6 +815,8 @@ async function dmConfirmation(context, category, index) {
         .setLabel("Confirm Purchase").setStyle(ButtonStyle.Success).setDisabled(blocked),
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:cancel:${category}:${index}`)
         .setLabel("Cancel").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:index:${category}:0`)
+        .setLabel("All Items").setStyle(ButtonStyle.Secondary),
     ),
     dmCategoryMenu(context.guildId, category),
     dmShopTools(context.guildId, category, index),
@@ -1062,6 +1064,8 @@ async function dmPreview(context, category, index, savedMix = {}) {
         .setLabel("Next Preview ▶").setStyle(ButtonStyle.Secondary).setDisabled(index >= items.length - 1),
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index}`)
         .setLabel("← Back to item").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:index:${category}:0`)
+        .setLabel("All Items").setStyle(ButtonStyle.Secondary),
     ),
     ...(isClassicColorCategory(category)
       ? [
@@ -1364,6 +1368,27 @@ async function handleShopDM(interaction) {
     return true;
   }
 
+  // Jumping between directory pages or choosing a known item never performs
+  // a wallet transaction; the full item screen opens only for the selection.
+  if (action === "index" && interaction.isButton()) {
+    const category = categoryText;
+    if (!CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
+    const page = Number(indexText);
+    if (!Number.isSafeInteger(page)) throw new UserFacingError("Invalid item index page.");
+    await interaction.editReply(await dmCategoryIndex(context, category, page));
+    return true;
+  }
+  if (["indexPick", "jump"].includes(action) && interaction.isStringSelectMenu()) {
+    const category = categoryText;
+    if (!CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
+    const chosenId = interaction.values[0];
+    const itemIndex = sortedItems(category).findIndex(item => item.id === chosenId);
+    if (itemIndex < 0) {
+      throw new UserFacingError("This item is no longer available. Reopen the category index.");
+    }
+    await interaction.editReply(await dmItemPage(context, category, itemIndex));
+    return true;
+  }
   if (action === "category" && interaction.isStringSelectMenu()) {
     const selected = interaction.values[0];
     if (!CATEGORY_LABELS[selected] || !itemsFor(selected).length) throw new UserFacingError("Unknown category.");
