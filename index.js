@@ -69,6 +69,7 @@ import { execute as executeTestPoints, data as testPointsCommand } from "./comma
 import { execute as executePointsAdmin, data as pointsAdminCommand } from "./commands/points-admin.js";
 import { execute as executePointsObserve, data as pointsObserveCommand } from "./commands/points-observe.js";
 import { observeNativePollVote, parseNativePollClientEvent } from "./services/participation-observer.js";
+import { awardNativePollVote } from "./services/poll-rewards.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
@@ -140,9 +141,19 @@ function handlePollEvent(pollAnswer, userId, added) {
   }
   const key = `${parsed.guildId}:${parsed.messageId}:${parsed.userId}`;
   const previous = pollObservationQueue.get(key) ?? Promise.resolve();
-  const current = previous.then(() => observeNativePollVote(parsed))
+  const current = previous.then(async () => {
+    await observeNativePollVote(parsed);
+    if (parsed.added) {
+      const guild = client.guilds.cache.get(parsed.guildId);
+      if (!guild) return;
+      const reward = await awardNativePollVote({ ...parsed, guild });
+      if (reward.credited) {
+        console.log(`[Points] Approved native poll ${parsed.messageId}: +${reward.amount} Points for ${parsed.userId}.`);
+      }
+    }
+  })
     .catch(error => {
-      console.error("[Points observe] Could not record native Discord poll vote:", error);
+      console.error("[Points] Could not record or credit native Discord poll vote:", error);
     }).finally(() => {
       if (pollObservationQueue.get(key) === current) pollObservationQueue.delete(key);
     });
