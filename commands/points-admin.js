@@ -1,8 +1,9 @@
-import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { AttachmentBuilder, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import PointsSettings from "../models/PointsSettings.js";
 import PointsLedger from "../models/PointsLedger.js";
 import PointsWallet from "../models/PointsWallet.js";
 import { grantPoints } from "../services/points-rewards.js";
+import { pointsAuditSummary, exportPointsAudit, AUDIT_TYPES, AUDIT_MAX_DAYS } from "../services/points-audit.js";
 import { backfillMilestones } from "../services/points-backfill.js";
 import { POINTS_MILESTONES, POINTS_ACTIVITY_TARGETS, milestoneAwardAmount } from "../services/points-policy.js";
 import { requireGuild } from "./shared.js";
@@ -76,6 +77,18 @@ export const data = new SlashCommandBuilder()
       .setMinValue(1).setMaxValue(MESSAGE_SCAN_MAX_HOURS))
     .addBooleanOption(o => o.setName("apply")
       .setDescription("Default false: preview only. True: actually credit members")))
+  .addSubcommand(c => c.setName("audit")
+    .setDescription("Review Points awarded across the server, grouped by reward type and member")
+    .addIntegerOption(o => o.setName("days").setDescription("Past 1-90 days (default 1)")
+      .setMinValue(1).setMaxValue(AUDIT_MAX_DAYS))
+    .addStringOption(o => o.setName("type").setDescription("Filter reward type").addChoices(...AUDIT_TYPES))
+    .addUserOption(o => o.setName("member").setDescription("Optional member to audit")))
+  .addSubcommand(c => c.setName("audit-export")
+    .setDescription("Download a bounded CSV of Points awards with reasons and source IDs")
+    .addIntegerOption(o => o.setName("days").setDescription("Past 1-90 days (default 7)")
+      .setMinValue(1).setMaxValue(AUDIT_MAX_DAYS))
+    .addStringOption(o => o.setName("type").setDescription("Filter reward type").addChoices(...AUDIT_TYPES))
+    .addUserOption(o => o.setName("member").setDescription("Optional member to export")))
   .addSubcommand(c => c.setName("history")
     .setDescription("See recent credits recorded for one member")
     .addUserOption(o => o.setName("member").setRequired(true)
@@ -104,6 +117,50 @@ export async function execute(interaction) {
         `\n\n**Repeatable activity** (test opt-in): Messages **${settings?.messageRewardsEnabled ? "ON" : "OFF"}**, Voice **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**.\n**No overall daily, weekly, or first-week activity Points cap.** First 7 days after joining: **2×** chat/voice rewards. Members continue earning qualifying activity afterward.\nMessages: ${MESSAGE_BASE_POINTS} base Points, one eligible message every ${MESSAGE_COOLDOWN_MS / 60000} minutes, no daily or weekly Points cap. Voice: ${VOICE_BASE_POINTS} base Points each ${VOICE_INTERVAL_MINUTES} eligible minutes with at least two non-deafened humans.\nApproved native polls: ${POLL_POINTS_PER_POLL} Points, maximum ${POLL_WEEKLY_CAP} per UTC week (poll-specific anti-farming rule). No shared activity ceiling.\nVerified invites are still planned: ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month). Manual grants and milestones are also uncapped.\nYour existing shop balance UI remains unchanged.`,
       allowedMentions: { parse: [] },
     });
+    return;
+  }
+  if (op === "audit" || op === "audit-export") {
+    const days = interaction.options.getInteger("days") ?? (op === "audit" ? 1 : 7);
+    const kind = interaction.options.getString("type") ?? "all";
+    const userId = interaction.options.getUser("member")?.id;
+    try {
+      if (op === "audit") {
+        const report = await pointsAuditSummary({ guildId, days, kind, userId });
+        const types = report.byType.length
+          ? report.byType.map(x => `• ${x.kind}: **+${x.points} Points** (${x.awards} credits)`).join("\n")
+          : "No Points earnings in this period.";
+        const leaders = report.topMembers.length
+          ? report.topMembers.map(x => `• <@${x.userId}> — +${x.points} Points (${x.awards} credits)`).join("\n")
+          : "None";
+        await interaction.editReply({
+          content: `**AM Isa — Points Audit · Last ${days} day(s)**\n` +
+            `Filter: ${kind === "all" ? "All award types" : kind}${userId ? ` · <@${userId}>` : ""}\n` +
+            `**Points issued:** ${report.totalPoints}\n` +
+            `**Reward records:** ${report.awardCount}\n` +
+            `**Unique members rewarded:** ${report.memberCount}\n\n` +
+            `**By reward type**\n${types}\n\n` +
+            `**Top recipients (up to 5)**\n${leaders}\n\n` +
+            "Use /points-admin audit-export for the transaction-level CSV (IDs, reasons, timestamps, staff actor). This report covers credits, not shop purchases or other deductions.",
+          allowedMentions: { parse: [] },
+        });
+      } else {
+        const result = await exportPointsAudit({ guildId, days, kind, userId });
+        const label = `am-isa-points-${days}d-${kind}-${new Date().toISOString().slice(0, 10)}.csv`;
+        const attachment = new AttachmentBuilder(result.csv, { name: label });
+        await interaction.editReply({
+          content: `**Points ledger export:** ${result.rows.toLocaleString()} earning receipts over the last ${days} day(s) (${kind === "all" ? "all types" : kind}).\n` +
+            "CSV includes timestamps, member IDs, Points, reasons, source/event IDs and manual staff IDs. Import Discord ID columns as text in Excel so their full digits are preserved. Excludes shop spending.",
+          files: [attachment],
+          allowedMentions: { parse: [] },
+        });
+      }
+    } catch (error) {
+      console.error("[Points] Audit/report failed:", error);
+      if (/exceeds|Invalid Points audit filters/.test(error.message)) {
+        throw new UserFacingError(error.message);
+      }
+      throw new UserFacingError("Points audit could not complete. Try a shorter date range or a specific member/type; check bot logs.");
+    }
     return;
   }
   if (op === "scan-messages") {
