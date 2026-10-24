@@ -120,3 +120,101 @@ export function publicEmbedDiagnostic(message) {
     };
   });
 }
+
+
+// The supported discord.js poll events provide a PollAnswer and user ID,
+// rather than a raw Gateway packet. This adapter works for the cache/partial
+// poll objects when their message, channel and guild can be resolved.
+export function parseNativePollClientEvent(pollAnswer, userId, added) {
+  const poll = pollAnswer?.poll;
+  const candidate = {
+    guildId: poll?.message?.guildId ?? poll?.guild?.id,
+    channelId: poll?.channelId ?? poll?.message?.channelId,
+    messageId: poll?.messageId ?? poll?.message?.id,
+    userId,
+    answerId: Number(pollAnswer?.id),
+    added,
+  };
+  if (![candidate.guildId, candidate.channelId, candidate.messageId, candidate.userId]
+    .every(value => typeof value === "string" && SNOWFLAKE.test(value))) return null;
+  if (!Number.isInteger(candidate.answerId) || candidate.answerId < 1 || candidate.answerId > 10 ||
+      typeof added !== "boolean") return null;
+  return candidate;
+}
+
+// On-demand reconciliation for native polls, including those created before
+// the bot booted or while it was offline. Discord's public API lets the bot
+// retrieve voters for each answer: this is NOT supported for Arclo's polls.
+// Only persist a snapshot once every page has loaded successfully so a failed
+// API request cannot accidentally erase prior observations. No Points credit.
+export async function syncNativePoll(message, {
+  sources = ParticipationSource,
+  participants = NativePollParticipation,
+  fetchVoters = (msg, options) => msg.channel.messages.fetchPollAnswerVoters(options),
+  maxPagesPerAnswer = 20,
+} = {}) {
+  if (!message?.guildId || !SNOWFLAKE.test(message.guildId) ||
+      !message?.channelId || !SNOWFLAKE.test(message.channelId) ||
+      !message?.id || !SNOWFLAKE.test(message.id) ||
+      !message.poll?.answers) {
+    throw new Error("That message is not a readable native Discord server poll.");
+  }
+  const answerList = [...message.poll.answers.values()];
+  if (!answerList.length || answerList.length > 10) {
+    throw new Error("The native poll has no readable answers.");
+  }
+  const ballots = new Map();
+  let pages = 0;
+  for (const answer of answerList) {
+    const answerId = Number(answer.id);
+    if (!Number.isInteger(answerId) || answerId < 1 || answerId > 10) {
+      throw new Error("Invalid native poll answer ID.");
+    }
+    let after;
+    let complete = false;
+    for (let page = 0; page < maxPagesPerAnswer; page++) {
+      const voters = await fetchVoters(message, {
+        messageId: message.id, answerId, limit: 100, ...(after ? { after } : {}),
+      });
+      const batch = [...voters.values()];
+      pages++;
+      for (const user of batch) {
+        if (!user?.bot && SNOWFLAKE.test(user?.id)) {
+          if (!ballots.has(user.id)) ballots.set(user.id, new Set());
+          ballots.get(user.id).add(answerId);
+        }
+      }
+      if (batch.length < 100) { complete = true; break; }
+      const lastId = batch.at(-1)?.id;
+      if (!lastId || lastId === after) {
+        throw new Error("Discord poll voter pagination did not advance.");
+      }
+      after = lastId;
+    }
+    if (!complete) throw new Error(
+      "This poll exceeds the safe voter sync limit. No participation records were changed.");
+  }
+
+  const now = new Date();
+  const key = { guildId: message.guildId, messageId: message.id };
+  await sources.updateOne(key, {
+    $setOnInsert: { ...key, channelId: message.channelId, source: "discord-native-poll" },
+    $set: { lastObservedAt: now },
+  }, { upsert: true });
+
+  const writes = [...ballots.entries()].map(([userId, answerIds]) => ({
+    updateOne: {
+      filter: { ...key, discordUserId: userId },
+      update: {
+        $set: { channelId: message.channelId, answerIds: [...answerIds].sort((a, b) => a - b),
+          lastEventAt: now },
+      },
+      upsert: true,
+    },
+  }));
+  if (writes.length) await participants.bulkWrite(writes, { ordered: false });
+  await participants.deleteMany({
+    ...key, discordUserId: { $nin: [...ballots.keys()] },
+  });
+  return { voters: ballots.size, answers: answerList.length, pages };
+}
