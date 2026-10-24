@@ -792,7 +792,7 @@ function mixItemEntries(category, ownership = null) {
   const ownedSeasonalStickers = category === "stickers"
     ? [...(ownership?.stickers || [])]
       .filter(id => STICKER_CATALOG[id] && !isStickerForSale(id))
-      .map(id => ({ id, name: `${STICKER_CATALOG[id].name} · Owned`, ownedCustom: true }))
+      .map(id => ({ id, name: `${STICKER_CATALOG[id].name} · Owned`, ownedSeasonal: true }))
     : [];
   const ownedTextColors = category === "fontColors"
     ? [...(ownership?.fontColors || [])]
@@ -908,7 +908,8 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
       ...visible.map(item => ({
         label: item.name,
         value: item.id,
-        description: item.ownedCustom ? "Purchased custom HEX · yours to keep"
+        description: item.ownedSeasonal ? "Previously purchased seasonal sticker · yours to keep"
+          : item.ownedCustom ? "Purchased custom HEX · yours to keep"
           : item.price === undefined || item.included
             ? "Free · Try on now" : `Preview only · ${item.price} Points to buy`,
         default: currentlySelected === item.id,
