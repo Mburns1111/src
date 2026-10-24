@@ -1368,8 +1368,8 @@ async function handleShopDM(interaction) {
     return true;
   }
 
-  // Live Preview Multiple: all controls operate on the SAME permanent DM. Users
-  // need no purchases and never need to press Add to Mix or Confirm.
+  // Live Preview Multiple uses the SAME permanent DM. Trying on items is always
+  // free; only Purchase All + explicit confirmation may deduct Points.
   const mixEditorActions = [
     "mixCategory", "mixFontScope", "mixFamily", "mixOwnedCustom", "mixShade", "mixMatch", "mixItem",
     "mixReset", "mixClear", "mixBack", "mixRefresh", "mixCheckout", "mixBuyAll", "mixCancel",
