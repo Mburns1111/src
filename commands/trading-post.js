@@ -1,6 +1,7 @@
 
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
@@ -17,7 +18,9 @@ import OutfitListing from "../models/OutfitListing.js";
 import TradingPost from "../models/TradingPost.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import UserProfile from "../models/UserProfile.js";
-import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
+import { displayListingAppearance, snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
+import { getAppearanceOwnership } from "../services/appearance-ownership.js";
+import { renderPostImage } from "../services/post-renderer.js";
 import { discordMessageUrl } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 
@@ -319,9 +322,27 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     })
     .setTimestamp(post.updatedAt);
 
+  const ownership = await getAppearanceOwnership(guild.id, post.ownerId);
+  const cardImage = await renderPostImage({
+    type: "tradingPost",
+    data: {
+      discordName: post.discordName,
+      robloxName: post.robloxName,
+      lookingFor: post.lookingFor,
+      willingToTrade: post.willingToTrade,
+    },
+    appearance: displayListingAppearance(post, profile, ownership),
+  });
   return {
     content: "",
-    embeds: [embed],
+    embeds: [
+      new EmbedBuilder().setColor(0x819287).setImage("attachment://trading-post-card.png"),
+      // Retain Discord-native, clickable inventory/house/outfit links below the
+      // decorated image. Those links cannot be interactive inside a Canvas PNG.
+      embed,
+    ],
+    files: [new AttachmentBuilder(cardImage, { name: "trading-post-card.png" })],
+    attachments: [],
     components: makeTradingPostComponents(post),
     allowedMentions: { parse: [] },
   };
