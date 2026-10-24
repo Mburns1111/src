@@ -680,6 +680,17 @@ function dmCategoryMenu(guildId, current) {
 // until a member opens a specific item's detailed preview.
 const SHOP_INDEX_PAGE_SIZE = 20;
 
+function dmIndexTools(guildId, category, page) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:indexMix:${category}:0`)
+      .setLabel("Mix & Match").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:index:${category}:${page}`)
+      .setLabel("Refresh Index & Points").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
+      .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
+  );
+}
+
 async function dmCategoryIndex(context, category, requestedPage = 0) {
   if (!CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
   const entries = sortedItems(category);
@@ -732,7 +743,7 @@ async function dmCategoryIndex(context, category, requestedPage = 0) {
           .setLabel("More Items ▶").setStyle(ButtonStyle.Secondary).setDisabled(page + 1 >= count),
       ),
       dmCategoryMenu(context.guildId, category),
-      dmShopTools(context.guildId, category, 0),
+      dmIndexTools(context.guildId, category, page),
     ],
     allowedMentions: { parse: [] },
   };
@@ -1246,6 +1257,10 @@ async function handleShopDM(interaction) {
     if (action === "mixBack") {
       const backCategory = CATEGORY_LABELS[panel.shopMixReturnCategory]
         ? panel.shopMixReturnCategory : "backgrounds";
+      if (panel.shopMixReturnIndex === -1) {
+        await interaction.editReply(await dmCategoryIndex(context, backCategory));
+        return true;
+      }
       const backIndex = Number.isSafeInteger(panel.shopMixReturnIndex) &&
         panel.shopMixReturnIndex >= 0 &&
         panel.shopMixReturnIndex < sortedItems(backCategory).length
@@ -1433,7 +1448,7 @@ async function handleShopDM(interaction) {
   }
   if (["page", "cancel", "family", "shade"].includes(action)) {
     await interaction.editReply(await dmItemPage(context, category, destination));
-  } else if (["preview", "previewShade", "familyPreview", "mix", "addmix", "unmix", "clearmix"].includes(action)) {
+  } else if (["preview", "previewShade", "familyPreview", "mix", "indexMix", "addmix", "unmix", "clearmix"].includes(action)) {
     // Keep old buttons valid across a deployment. Old Add to Mix clicks now
     // open the new live dress-up screen with that selection already chosen.
     const panel = await MemberDmPanel.findOne({
@@ -1465,12 +1480,12 @@ async function handleShopDM(interaction) {
     } else if (action === "clearmix") {
       for (const key of Object.keys(mix)) delete mix[key];
     }
-    if (["mix", "addmix", "unmix", "clearmix"].includes(action)) {
+    if (["mix", "indexMix", "addmix", "unmix", "clearmix"].includes(action)) {
       panel.shopPreviewMix = mix;
       panel.shopMixCategory = category;
       panel.shopMixOptionPage = 0;
       panel.shopMixReturnCategory = category;
-      panel.shopMixReturnIndex = index;
+      panel.shopMixReturnIndex = action === "indexMix" ? -1 : index;
       panel.markModified("shopPreviewMix");
       await panel.save();
       await interaction.editReply(await dmMixEditor(context, panel));
