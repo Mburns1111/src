@@ -127,12 +127,21 @@ client.on(Events.ShardReady, shardId => {
 
 // Raw native-poll events include guild, message, voter and answer IDs even
 // when a poll predates startup and its original message is not in cache.
+// Serialize events for the same ballot so rapid vote/unvote actions cannot
+// complete out of order while MongoDB is responding.
+const pollObservationQueue = new Map();
 client.on(Events.Raw, packet => {
   const parsed = parseNativePollEvent(packet);
   if (!parsed) return;
-  observeNativePollVote(parsed).catch(error => {
-    console.error("[Points observe] Could not record native Discord poll vote:", error);
-  });
+  const key = `${parsed.guildId}:${parsed.messageId}:${parsed.userId}`;
+  const previous = pollObservationQueue.get(key) ?? Promise.resolve();
+  const current = previous.then(() => observeNativePollVote(parsed))
+    .catch(error => {
+      console.error("[Points observe] Could not record native Discord poll vote:", error);
+    }).finally(() => {
+      if (pollObservationQueue.get(key) === current) pollObservationQueue.delete(key);
+    });
+  pollObservationQueue.set(key, current);
 });
 
 let discordReadyTimeout;
