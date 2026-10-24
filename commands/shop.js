@@ -547,14 +547,21 @@ function shopFamilyMenu(guildId, category, index, preview = false) {
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder().setCustomId(customId)
       .setPlaceholder("Jump to a color family")
-      .addOptions(CLASSIC_COLOR_FAMILIES.map((entry, i) => ({
-        label: entry.name, value: entry.id, default: i === family,
-      }))),
+      .addOptions([
+        ...CLASSIC_COLOR_FAMILIES.map((entry, i) => ({
+          label: entry.name, value: entry.id, default: i === family && index < CLASSIC_COLOR_OPTIONS.length,
+        })),
+        {
+          label: `Custom HEX Color · ${CUSTOM_COLOR_PRICES[category]} Points`,
+          value: CUSTOM_COLOR_SHOP_ID,
+          default: sortedItems(category)[index]?.id === CUSTOM_COLOR_SHOP_ID,
+        },
+      ]),
   );
 }
 
 function shopShadeButtons(guildId, category, index, preview = false) {
-  if (!isClassicColorCategory(category)) return [];
+  if (!isClassicColorCategory(category) || index >= CLASSIC_COLOR_OPTIONS.length) return [];
   const firstIndex = Math.floor(index / 3) * 3;
   return ["Pastel", "Normal", "Dark"].map((label, shade) =>
     new ButtonBuilder()
@@ -974,9 +981,15 @@ async function handleShopDM(interaction) {
     if (!isClassicColorCategory(category) || !interaction.isStringSelectMenu()) {
       throw new UserFacingError("That color selection is unavailable.");
     }
-    const family = CLASSIC_COLOR_FAMILIES.findIndex(entry => entry.id === interaction.values[0]);
-    if (family < 0) throw new UserFacingError("Unknown color family.");
-    destination = family * 3 + (index % 3);
+    const selected = interaction.values[0];
+    if (selected === CUSTOM_COLOR_SHOP_ID) {
+      destination = sortedItems(category).findIndex(item => item.id === CUSTOM_COLOR_SHOP_ID);
+      if (destination < 0) throw new UserFacingError("Custom HEX colors aren't available here.");
+    } else {
+      const family = CLASSIC_COLOR_FAMILIES.findIndex(entry => entry.id === selected);
+      if (family < 0) throw new UserFacingError("Unknown color family.");
+      destination = family * 3 + (index % 3);
+    }
   } else if ((action === "shade" || action === "previewShade") && !isClassicColorCategory(category)) {
     throw new UserFacingError("This category has no color shades.");
   }
