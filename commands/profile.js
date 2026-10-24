@@ -700,7 +700,9 @@ async function appearanceDmPayload(guild, user, profile, draft) {
 
 async function openAppearanceDM(interaction, profile, guild = interaction.guild) {
   if (!guild) throw new UserFacingError("The server is not available.");
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
 
   // Keep only the shop message permanently. If Customize is the member's first
   // visit, create their permanent shop before the temporary editor.
@@ -789,6 +791,9 @@ function adjustDraftSticker(draft, action) {
 }
 
 export async function handleProfileAppearanceDM(interaction) {
+  // After a restart the MongoDB reads and guild fetches can be slow. Reply to
+  // Discord immediately so existing message controls do not time out.
+  await interaction.deferUpdate();
   const [, , kind, token, field] = interaction.customId.split(":");
   const panel = await MemberDmPanel.findOne({
     botUserId: interaction.client.user.id,
@@ -812,7 +817,6 @@ export async function handleProfileAppearanceDM(interaction) {
   };
 
   if (kind === "button" && field === "cancel") {
-    await interaction.deferUpdate();
     await MemberDmPanel.deleteOne({ _id: panel._id, token: panel.token });
     try {
       await interaction.message.delete();
@@ -830,7 +834,6 @@ export async function handleProfileAppearanceDM(interaction) {
     return true;
   }
   if (kind === "button" && field === "confirm") {
-    await interaction.deferUpdate();
     profile.profileAppearance = filterOwnedAppearance(draft.appearance, ownership);
     profile.markModified("profileAppearance");
     await profile.save();
@@ -854,7 +857,6 @@ export async function handleProfileAppearanceDM(interaction) {
     return true;
   }
   if (kind === "button" && field === "refresh") {
-    await interaction.deferUpdate();
     await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
     return true;
   }
@@ -864,7 +866,6 @@ export async function handleProfileAppearanceDM(interaction) {
   ].includes(field)) {
     adjustDraftSticker(draft, field);
     draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
-    await interaction.deferUpdate();
     await saveDraftPanel(panel, draft);
     await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
     return true;
@@ -924,7 +925,6 @@ export async function handleProfileAppearanceDM(interaction) {
     throw new UserFacingError("Invalid appearance choice.");
   }
   draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
-  await interaction.deferUpdate();
   await saveDraftPanel(panel, draft);
   await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
   return true;
