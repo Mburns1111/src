@@ -20,11 +20,15 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] Backgrounds/Panels contain 28 choices and the index splits them into **20 items / 8 items**; both Next and Previous index buttons work.
 - [ ] The index never shows more than 25 dropdown options or five Discord action rows.
 - [ ] **All Items** on a detail page returns to the index without having to click Previous repeatedly.
+- [ ] **All Categories** button is visible on indexes and detailed item/preview/confirmation screens; it opens a home with all six categories.
+- [ ] All six category buttons on that home open the correct item index and do not create additional shop DMs.
+- [ ] The category dropdown reads **Switch Category · viewing …**, rather than looking like a static Stickers label; it also changes categories.
+- [ ] **Preview Multiple** from All Categories and then **Back to Shop** returns to All Categories.
 - [ ] Frames, Fonts, Text Colors and Stickers detail pages have **Jump directly to another item** dropdowns.
 - [ ] Background and Panel detail pages retain the existing family and Pastel/Normal/Dark selection controls.
 - [ ] Switching the category dropdown opens that new category's index, not its first item preview.
 - [ ] **Refresh Index & Points** stays on the index and updates your balance/owned statuses.
-- [ ] From the index open **Mix & Match** and click **Back to Shop**; it returns to the index. From an item detail, Back returns to that item.
+- [ ] From the index open **Preview Multiple** and click **Back to Shop**; it returns to the index. From an item detail, Back returns to that item.
 - [ ] Old category/shop DM remains the only permanent message; no duplicate shop DMs or broken stale purchase buttons.
 - [ ] Index page selection is noticeably quicker than stepping through full profile images. A selected item's full preview can still take longer, as it renders a PNG.
 
@@ -48,7 +52,7 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] Cancel/reopen the HEX purchase: nothing was accidentally purchased.
 - [ ] Buy exactly one HEX and try buying the same code again: second charge is blocked for that category.
 - [ ] The same HEX in two categories requires separate purchases; owning a background doesn't unlock text.
-- [ ] Purchased custom colors appear in the **owned-only Customize Profile** dropdown and in live Mix & Match.
+- [ ] Purchased custom colors appear in the **owned-only Customize Profile** dropdown and in live Preview Multiple.
 - [ ] Multiple custom colors stay owned after bot restart and are all selectable.
 - [ ] Test dark background, light panel and very bright text HEX: manually check readability.
 
@@ -60,7 +64,7 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] Font selected for **Headers Only** changes the title and section headings without changing body text.
 - [ ] Font selected for **Profile Text Only** changes usernames, bio, roles, footer without changing headings.
 - [ ] **Apply Heading Font to Both** sets both font slots without purchasing twice.
-- [ ] Mix & Match can try a different paid font in each slot *before purchasing*.
+- [ ] Preview Multiple can try a different paid font in each slot *before purchasing*.
 - [ ] After purchasing one font it can be equipped in either slot for free, including after restart.
 - [ ] Large titles and long usernames shrink or truncate safely; fancy fonts don't break the layout.
 
@@ -72,7 +76,7 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] Buy a sticker: Points deducted once and permanent ownership granted.
 - [ ] Reopening its page says Owned and cannot charge again.
 - [ ] **Season test:** stop the bot, set Replit environment variable `STICKER_SEASONS_OVERRIDE=off`, restart. Halloween stickers vanish from new sale, but all five standard designs remain.
-- [ ] During `off`, previously bought Halloween stickers remain on published profiles and appear in owned Customize Profile and Mix & Match.
+- [ ] During `off`, previously bought Halloween stickers remain on published profiles and appear in owned Customize Profile and Preview Multiple.
 - [ ] While `off`, a new account cannot purchase the Halloween stickers (even using an older Confirm button).
 - [ ] Set `STICKER_SEASONS_OVERRIDE=halloween`, restart: all three Halloween items return, with their original prices and ownership.
 - [ ] **IMPORTANT:** unset `STICKER_SEASONS_OVERRIDE` after the season test. By default Halloween sells **October 1–31, America/New_York**, and hides from sale starting November 1.
@@ -102,12 +106,12 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] Stickers sit below the selected frame overlay; stickers don't overwrite shop/item buttons (these are Discord components, not image layers).
 - [ ] Seasonal sticker that is already owned remains recolorable even when its sale window is closed.
 
-## G. Mix & Match, no-purchase preview
-- [ ] Mix & Match opens on the existing private shop message, **not** a second permanent DM.
+## G. Preview Multiple, no-purchase preview
+- [ ] Preview Multiple opens on the existing private shop message, **not** a second permanent DM.
 - [ ] Change background, panel, frame, header font, body font, text HEX and sticker in the preview.
 - [ ] The preview updates without deducting Points or adding items to ownership.
 - [ ] **Use My Profile**, **Clear All Choices**, **Back to Shop** restore/change the expected state.
-- [ ] Choose a locked sticker in Mix & Match: it is only a temporary preview, never equipped.
+- [ ] Choose a locked sticker in Preview Multiple: it is only a temporary preview, never equipped.
 - [ ] After purchasing a sticker, the shop and profile editor reflect ownership immediately.
 - [ ] Custom HEX choices and purchased retired/seasonal options persist correctly through restart.
 - [ ] Changing any one category doesn't erase another category's temporary try-on.
