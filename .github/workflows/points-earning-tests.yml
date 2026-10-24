@@ -28,6 +28,8 @@ jobs:
         run: |
           node --check commands/points-admin.js
           node --check services/points-rewards.js
+          node --check services/participation-observer.js
+          node --check commands/points-observe.js
           node --check services/points-backfill.js
           node --check scripts/backfill-points-milestones.js
           node --check commands/shop.js
