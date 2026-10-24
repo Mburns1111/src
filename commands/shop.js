@@ -364,7 +364,7 @@ async function dmPreview(context, category, index) {
 }
 // One permanent shop DM per member and server. Other features can call this
 // before sending temporary controls, without creating another shop message.
-export async function ensureMemberShopDM(guild, user, category = categories()[0]) {
+export async function ensureMemberShopDM(guild, user, category = categories()[0], { refresh = false } = {}) {
   if (!category || !CATEGORY_LABELS[category]) {
     throw new UserFacingError("No shop categories are available.");
   }
@@ -378,13 +378,15 @@ export async function ensureMemberShopDM(guild, user, category = categories()[0]
       row.components?.some(component =>
         component.customId?.startsWith(`shop:dm:${guild.id}:`))),
   });
-  if (result.adopted) {
+  if (result.adopted || (refresh && !result.created)) {
+    // Reopening from a storefront category starts on its first item and
+    // refreshes the Points/owned state on the *same* permanent DM message.
     await result.message.edit(await dmItemPage(context, category, 0));
   }
   return result;
 }
 async function sendShopDM(interaction, category) {
-  const { message, created } = await ensureMemberShopDM(interaction.guild, interaction.user, category);
+  const { message, created } = await ensureMemberShopDM(interaction.guild, interaction.user, category, { refresh: true });
   await interaction.editReply({
     content: `${created ? "I opened your personal shop!" : "Your personal shop is already in your DMs."} [**Open your shop**](${dmPanelUrl(message.channelId, message.id)}). You can browse categories, check Points, and customize your profile there.`,
     allowedMentions: { parse: [] },
