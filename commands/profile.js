@@ -566,17 +566,22 @@ const RETIRED_COLOR_NAMES = {
   charcoal: "Charcoal", forest: "Forest", navy: "Navy",
 };
 
-// Keep previously purchased starter colors available to their owners in the
-// editor, even though none of these retired items appear in the new shop.
-// Free retired defaults are NOT included in the new choices.
+// The real profile editor shows ONLY owned/unlocked colors. Locked colors
+// remain available to try in the shop's Mix & Match preview, not here.
+// "Match background" is always allowed, and free standards/text colors are
+// already included in the ownership set. Retired paid colors stay available
+// to their original buyers without returning to the storefront.
 function availableAppearanceChoices(field, ownership) {
   const choices = APPEARANCE_CHOICES[field];
-  if (!["background", "panelColor"].includes(field)) return choices;
+  if (!["background", "panelColor", "fontColor"].includes(field)) return choices;
   const category = APPEARANCE_FIELD_CATEGORY[field];
+  const unlocked = choices.filter(id =>
+    id === "match" || ownsAppearanceItem(ownership, category, id));
+  if (field === "fontColor") return unlocked;
   const retiredOwned = Object.keys(APPEARANCE_CATALOG[category]).filter(id =>
     !choices.includes(id) && ownership?.[category]?.has(id) &&
     !FREE_APPEARANCE[category]?.includes(id));
-  return [...choices, ...retiredOwned];
+  return [...unlocked, ...retiredOwned];
 }
 
 function appearanceChoicePage(field, currentAppearance, optionPages = {}, ownership = null) {
