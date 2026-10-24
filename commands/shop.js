@@ -9,6 +9,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import UserProfile from "../models/UserProfile.js";
 import AppearanceInventory from "../models/AppearanceInventory.js";
 import PointsWallet from "../models/PointsWallet.js";
+import MemberDmPanel from "../models/MemberDmPanel.js";
 import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js";
 import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
 import { openAppearanceDMFromShop } from "./profile.js";
@@ -16,6 +17,7 @@ import { shopItems } from "../services/shop-catalog.js";
 import { getAppearanceOwnership, ownsAppearanceItem } from "../services/appearance-ownership.js";
 import { APPEARANCE_CATALOG, resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
+import { normalizeShopMix, tryOnShopMix, SHOP_MIX_CATEGORIES } from "../services/shop-preview-mix.js";
 import { UserFacingError } from "./errors.js";
 import { requireGuild } from "./shared.js";
 
@@ -236,21 +238,15 @@ export async function execute(interaction) {
   }
   await sendShopDM(interaction, categories()[0]);
 }
-async function previewPayload(context, item) {
+async function previewPayload(context, item, mix = {}) {
   const profile = await UserProfile.findOne({ guildId: context.guildId, discordUserId: context.user.id });
-  const appearance = resolveAppearance(profile?.profileAppearance?.background
-    ? profile.profileAppearance
-    : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 });
-  const field = { backgrounds: "background", panels: "panelColor", frames: "frame",
-    fonts: "font", fontColors: "fontColor" }[item.category];
-  if (field) appearance[field] = item.id;
-  if (item.category === "panels" && APPEARANCE_CATALOG.panels[item.id]?.dark) {
-    appearance.panelOpacity = 0.9;
-  }
-  if (item.category === "stickers") {
-    appearance.stickers = [...appearance.stickers.slice(0, 7),
-      { id: item.id, x: 0.8, y: 0.72, scale: 1, rotation: 0 }];
-  }
+  const appearance = tryOnShopMix(
+    profile?.profileAppearance?.background
+      ? profile.profileAppearance
+      : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 },
+    mix,
+    item,
+  );
   const member = await context.guild.members.fetch(context.user.id).catch(() => null);
   const image = await renderPostImage({
     type: "profile",
@@ -268,7 +264,9 @@ async function previewPayload(context, item) {
     appearance,
   });
   return {
-    content: `**Preview: ${item.name}** — this does not change your saved profile.`,
+    content: item
+      ? `**Preview: ${item.name}** — no purchase required to try it on.`
+      : "**Mix & Match Preview** — this does not purchase or equip anything.",
     embeds: [new EmbedBuilder().setImage("attachment://shop-preview.png")],
     files: [new AttachmentBuilder(image, { name: "shop-preview.png" })],
     components: [],
@@ -326,6 +324,8 @@ async function confirmationPage(interaction, item, category, index) {
 
 function dmShopTools(guildId, category, index) {
   return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mix:${category}:${index}`)
+      .setLabel("Mix Preview").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:refresh:${category}:${index}`)
       .setLabel("Refresh Points & Items").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
@@ -396,11 +396,27 @@ async function dmConfirmation(context, category, index) {
   ];
   return result;
 }
-async function dmPreview(context, category, index) {
+function mixSummary(mix) {
+  const picks = SHOP_MIX_CATEGORIES.map(category => {
+    const item = mix[category] && shopItems().find(item =>
+      item.category === category && item.id === mix[category]);
+    return `**${CATEGORY_LABELS[category]}:** ${item ? item.name : "Not selected"}`;
+  });
+  return picks.join("\n");
+}
+
+async function dmPreview(context, category, index, savedMix = {}) {
+  const mix = normalizeShopMix(savedMix);
   const items = sortedItems(category);
   const item = items[index];
-  const result = await previewPayload(context, item);
-  result.content = `**Preview ${index + 1}/${items.length}: ${item.name}** — this does not change your saved profile.`;
+  const inMix = mix[category] === item.id;
+  // The current item is tried on *alongside* the user's previous category
+  // selections. The mix only changes when Add to Mix is explicitly pressed.
+  const result = await previewPayload(context, item, mix);
+  result.content = `**Preview ${index + 1}/${items.length}: ${item.name}**\n` +
+    `Mix & Match: **${Object.keys(mix).length}/${SHOP_MIX_CATEGORIES.length} categories saved**. ` +
+    `${inMix ? "This item is in your mix." : "Like this look? Choose **Add to Mix** to keep this item while browsing other categories."}\n` +
+    "This is a preview only. No Points are spent and your profile is unchanged.";
   result.components = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:preview:${category}:${index - 1}`)
@@ -409,6 +425,32 @@ async function dmPreview(context, category, index) {
         .setLabel("Next Preview ▶").setStyle(ButtonStyle.Secondary).setDisabled(index >= items.length - 1),
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index}`)
         .setLabel("← Back to item").setStyle(ButtonStyle.Primary),
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:${inMix ? "unmix" : "addmix"}:${category}:${index}`)
+        .setLabel(inMix ? "Remove From Mix" : "Add to Mix")
+        .setStyle(inMix ? ButtonStyle.Secondary : ButtonStyle.Success),
+    ),
+    dmCategoryMenu(context.guildId, category),
+    dmShopTools(context.guildId, category, index),
+  ];
+  return result;
+}
+
+async function dmMixOverview(context, category, index, savedMix = {}) {
+  const mix = normalizeShopMix(savedMix);
+  const result = await previewPayload(context, null, mix);
+  result.content = "**Your Mix & Match Preview** — one item from each shop category.\n" +
+    mixSummary(mix) + "\n\n" +
+    "To try more options, **browse a category → My Preview → Add to Mix**. " +
+    "You can replace any selection without buying it. Your Points and saved profile are unchanged.";
+  result.components = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index}`)
+        .setLabel("← Back to item").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:clearmix:${category}:${index}`)
+        .setLabel("Clear Mix").setStyle(ButtonStyle.Secondary)
+        .setDisabled(!Object.keys(mix).length),
     ),
     dmCategoryMenu(context.guildId, category),
     dmShopTools(context.guildId, category, index),
@@ -477,8 +519,36 @@ async function handleShopDM(interaction) {
   }
   if (action === "page" || action === "cancel") {
     await interaction.editReply(await dmItemPage(context, category, index));
-  } else if (action === "preview") {
-    await interaction.editReply(await dmPreview(context, category, index));
+  } else if (["preview", "mix", "addmix", "unmix", "clearmix"].includes(action)) {
+    // Verify the stored panel belongs to this bot, guild, member and message.
+    // Preview selections live in MongoDB so a bot restart won't erase them.
+    const panel = await MemberDmPanel.findOne({
+      botUserId: interaction.client.user.id,
+      guildId,
+      discordUserId: interaction.user.id,
+      kind: "shop",
+      channelId: interaction.channelId,
+      messageId: interaction.message.id,
+    });
+    if (!panel) throw new UserFacingError(
+      "This private shop needs to be reopened from the server to use Mix & Match.",
+    );
+    const mix = normalizeShopMix(panel.shopPreviewMix);
+    if (action === "addmix") {
+      mix[category] = sortedItems(category)[index].id;
+    } else if (action === "unmix") {
+      if (mix[category] === sortedItems(category)[index].id) delete mix[category];
+    } else if (action === "clearmix") {
+      for (const key of Object.keys(mix)) delete mix[key];
+    }
+    if (["addmix", "unmix", "clearmix"].includes(action)) {
+      panel.shopPreviewMix = mix;
+      panel.markModified("shopPreviewMix");
+      await panel.save();
+    }
+    await interaction.editReply(action === "mix" || action === "clearmix"
+      ? await dmMixOverview(context, category, index, mix)
+      : await dmPreview(context, category, index, mix));
   } else if (action === "refresh") {
     await interaction.editReply(await dmItemPage(context, category, index));
   } else if (action === "buy") {
