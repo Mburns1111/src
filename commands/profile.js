@@ -952,15 +952,52 @@ function adjustDraftSticker(draft, action) {
 }
 
 export async function handleProfileAppearanceDM(interaction) {
-  // After a restart the MongoDB reads and guild fetches can be slow. Reply to
-  // Discord immediately so existing message controls do not time out.
-  await interaction.deferUpdate();
-  const [, , kind, token, field] = interaction.customId.split(":");
+  const [, , kind, token, field, stickerIndex] = interaction.customId.split(":");
+  // Discord requires a modal to be the FIRST response to a button. Do not
+  // deferUpdate first. Query only the member's current, token-bound draft.
+  if (kind === "button" && field === "stickerColors") {
+    const panel = await MemberDmPanel.findOne({
+      botUserId: interaction.client.user.id, discordUserId: interaction.user.id,
+      kind: "appearance", token, channelId: interaction.channelId,
+      messageId: interaction.message?.id,
+    });
+    if (!panel) throw new UserFacingError("This customization session expired.");
+    const ownership = await getAppearanceOwnership(panel.guildId, interaction.user.id);
+    const appearance = filterOwnedAppearance(panel.appearanceDraft || {}, ownership);
+    const index = panel.selectedSticker || 0;
+    const sticker = appearance.stickers[index];
+    if (!sticker) throw new UserFacingError("Choose a placed sticker first.");
+    const info = STICKER_CATALOG[sticker.id];
+    const fieldInput = (id, current, description) => new LabelBuilder()
+      .setLabel(description).setTextInputComponent(
+        new TextInputBuilder()
+          .setCustomId(id).setStyle(TextInputStyle.Short)
+          .setRequired(true).setMinLength(6).setMaxLength(7)
+          .setValue(current).setPlaceholder("#E68EAB"),
+      );
+    const modal = new ModalBuilder()
+      .setCustomId(`profile:dm:modal:${token}:stickerColors:${index}`)
+      .setTitle(`Recolor ${info.name}`)
+      .addLabelComponents(fieldInput("sticker_main", sticker.color, "Main color · #RRGGBB"));
+    if (info.colors === 2) {
+      modal.addLabelComponents(fieldInput(
+        "sticker_accent", sticker.accentColor, "Accent color · #RRGGBB",
+      ));
+    }
+    await interaction.showModal(modal);
+    return true;
+  }
+
+  // Ordinary controls can deferUpdate; color-modal submissions get a private
+  // acknowledgement and update the known editor DM message independently.
+  if (kind === "modal") await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  else await interaction.deferUpdate();
   const panel = await MemberDmPanel.findOne({
     botUserId: interaction.client.user.id,
     discordUserId: interaction.user.id, kind: "appearance", token,
   });
-  if (!panel || panel.messageId !== interaction.message?.id || panel.channelId !== interaction.channelId) {
+  if (!panel || (kind !== "modal" && panel.messageId !== interaction.message?.id) ||
+      panel.channelId !== interaction.channelId) {
     throw new UserFacingError("This editor is no longer active. Use Customize Profile in the shop or server to open your current editor.");
   }
   const guild = await interaction.client.guilds.fetch(panel.guildId);
@@ -978,6 +1015,36 @@ export async function handleProfileAppearanceDM(interaction) {
     optionPages: panel.appearanceOptionPages || {},
   };
 
+  if (kind === "modal") {
+    if (field !== "stickerColors" || !interaction.isModalSubmit()) {
+      throw new UserFacingError("Unknown sticker color editor.");
+    }
+    const index = Number(stickerIndex);
+    if (!Number.isSafeInteger(index) || index !== draft.selected ||
+        !draft.appearance.stickers[index]) {
+      throw new UserFacingError("Your selected sticker changed. Open its color editor again.");
+    }
+    const sticker = draft.appearance.stickers[index];
+    const info = STICKER_CATALOG[sticker.id];
+    const main = validStickerHex(interaction.fields.getTextInputValue("sticker_main"));
+    const accent = info.colors === 2
+      ? validStickerHex(interaction.fields.getTextInputValue("sticker_accent")) : null;
+    if (!main || (info.colors === 2 && !accent)) {
+      throw new UserFacingError("Use exactly six HEX digits (0-9, A-F), e.g. #C7DDBC.");
+    }
+    sticker.color = main;
+    sticker.accentColor = accent;
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await saveDraftPanel(panel, draft);
+    const dm = await interaction.user.createDM();
+    const message = await dm.messages.fetch(panel.messageId);
+    await message.edit(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    await interaction.editReply({
+      content: `Updated the ${info.name} sticker colors in your profile preview. Changes aren't saved to your public profile until you press **Confirm & update profile**.`,
+      allowedMentions: { parse: [] },
+    });
+    return true;
+  }
   if (kind === "button" && field === "cancel") {
     await MemberDmPanel.deleteOne({ _id: panel._id, token: panel.token });
     try {
@@ -1032,6 +1099,23 @@ export async function handleProfileAppearanceDM(interaction) {
     await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
     return true;
   }
+  if (kind === "button" && ["stickerOutline", "stickerResetColors"].includes(field)) {
+    const sticker = draft.appearance.stickers[draft.selected];
+    if (!sticker) throw new UserFacingError("Choose a placed sticker first.");
+    if (field === "stickerOutline") {
+      const index = STICKER_OUTLINES.indexOf(sticker.outline || "auto");
+      sticker.outline = STICKER_OUTLINES[(index + 1) % STICKER_OUTLINES.length];
+    } else {
+      const defaults = stickerDefaults(sticker.id, sticker.x, sticker.y);
+      sticker.color = defaults.color;
+      sticker.accentColor = defaults.accentColor;
+      sticker.outline = defaults.outline;
+    }
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await saveDraftPanel(panel, draft);
+    await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    return true;
+  }
   if (kind === "button" && [
     "left", "right", "up", "down", "smaller", "larger",
     "rotateLeft", "rotateRight", "remove",
@@ -1061,7 +1145,7 @@ export async function handleProfileAppearanceDM(interaction) {
       throw new UserFacingError("You have not unlocked that sticker.");
     }
     if (draft.appearance.stickers.length >= 8) throw new UserFacingError("You can place up to eight stickers.");
-    draft.appearance.stickers.push({ id: value, x: 0.8, y: 0.72, scale: 1, rotation: 0 });
+    draft.appearance.stickers.push(stickerDefaults(value));
     draft.selected = draft.appearance.stickers.length - 1;
     draft.page = "stickers";
   } else if (field === "stickerPick") {
@@ -1077,7 +1161,7 @@ export async function handleProfileAppearanceDM(interaction) {
         throw new UserFacingError("You have not unlocked that sticker.");
       }
       if (draft.appearance.stickers.length >= 8) throw new UserFacingError("You can place up to eight stickers.");
-      draft.appearance.stickers.push({ id, x: 0.8, y: 0.72, scale: 1, rotation: 0 });
+      draft.appearance.stickers.push(stickerDefaults(id));
       draft.selected = draft.appearance.stickers.length - 1;
     } else {
       throw new UserFacingError("Unknown sticker choice.");
