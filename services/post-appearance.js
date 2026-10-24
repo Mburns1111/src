@@ -82,15 +82,22 @@ const select = (category, id) => APPEARANCE_CATALOG[category][id] ? id
 /** Resolve approved appearance IDs and bounded normalized sticker transforms. */
 export function resolveAppearance(input = {}) {
   const value = input && typeof input === 'object' ? input : {};
+  // Upgrade only the original *free, untouched* starter pair. Never replace
+  // a paid or intentionally chosen background/panel color in an older profile.
+  const oldFreeStarter = value.background === "sagePreview" &&
+    (value.panelColor === "match" || value.panelColor == null) &&
+    (value.panelOpacity == null || value.panelOpacity === 0.34);
   const clamp = (n, min, max, fallback) =>
     Number.isFinite(Number(n)) ? Math.min(max, Math.max(min, Number(n))) : fallback;
   return {
-    background: select("backgrounds", value.background ?? STANDARD_BACKGROUND_ID),
+    background: select("backgrounds", oldFreeStarter ? STANDARD_BACKGROUND_ID : value.background ?? STANDARD_BACKGROUND_ID),
     frame: select('frames', value.frame),
     font: select('fonts', value.font),
     fontColor: select('fontColors', value.fontColor),
-    panelColor: value.panelColor === "match" ? "match" : select("panels", value.panelColor ?? STANDARD_PANEL_ID),
-    panelOpacity: Number.isFinite(value.panelOpacity) ? Math.min(1, Math.max(0.2, value.panelOpacity)) : STANDARD_PANEL_OPACITY,
+    panelColor: oldFreeStarter ? STANDARD_PANEL_ID :
+      value.panelColor === "match" ? "match" : select("panels", value.panelColor ?? STANDARD_PANEL_ID),
+    panelOpacity: oldFreeStarter ? STANDARD_PANEL_OPACITY :
+      Number.isFinite(value.panelOpacity) ? Math.min(1, Math.max(0.2, value.panelOpacity)) : STANDARD_PANEL_OPACITY,
     stickers: (Array.isArray(value.stickers) ? value.stickers : [])
       .filter(s => s && APPEARANCE_CATALOG.stickers[s.id])
       .slice(0, 8)
