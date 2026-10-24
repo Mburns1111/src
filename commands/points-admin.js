@@ -12,7 +12,7 @@ import { awardObservedPollVoters, POLL_POINTS_PER_POLL, POLL_WEEKLY_CAP } from "
 import ParticipationSource from "../models/ParticipationSource.js";
 import PointsActivityCounter from "../models/PointsActivityCounter.js";
 import PointsVoiceProgress from "../models/PointsVoiceProgress.js";
-import { activityPeriod, MESSAGE_BASE_POINTS, MESSAGE_COOLDOWN_MS,
+import { activityPeriod, MESSAGE_BASE_POINTS, MESSAGE_COOLDOWN_MS, MESSAGE_DAILY_MAX,
   VOICE_BASE_POINTS, VOICE_INTERVAL_MINUTES } from "../services/activity-rewards.js";
 import { UserFacingError } from "./errors.js";
 
@@ -93,7 +93,7 @@ export async function execute(interaction) {
     await interaction.editReply({
       content: `**Points milestones: ${settings?.milestonesEnabled === false ? "PAUSED" : "ENABLED"}**\n` +
         lines.join("\n") +
-        `\n\n**Repeatable activity** (test opt-in): Messages **${settings?.messageRewardsEnabled ? "ON" : "OFF"}**, Voice **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**.\nFirst 7 days after joining: **2×** chat/voice earnings with **${POINTS_ACTIVITY_TARGETS.starterWeekActivityCap} combined activity Points maximum**. Later: **${POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap} combined activity Points per UTC week**.\nMessages: ${MESSAGE_BASE_POINTS} base Points, one eligible message every ${MESSAGE_COOLDOWN_MS / 60000} minutes. Voice: ${VOICE_BASE_POINTS} base Points each ${VOICE_INTERVAL_MINUTES} eligible minutes with at least two non-deafened humans.\nApproved native polls: ${POLL_POINTS_PER_POLL} Points, maximum ${POLL_WEEKLY_CAP} per UTC week; these also count toward the combined activity cap.\nVerified invites are still planned: ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month). Manual grants and milestones are outside activity caps.\nYour existing shop balance UI remains unchanged.`,
+        `\n\n**Repeatable activity** (test opt-in): Messages **${settings?.messageRewardsEnabled ? "ON" : "OFF"}**, Voice **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**.\nFirst 7 days after joining: **2×** chat/voice earnings with **${POINTS_ACTIVITY_TARGETS.starterWeekActivityCap} combined activity Points maximum**. Later: **${POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap} combined activity Points per UTC week**.\nMessages: ${MESSAGE_BASE_POINTS} base Points, one eligible message every ${MESSAGE_COOLDOWN_MS / 60000} minutes, max ${MESSAGE_DAILY_MAX} rewarded messages per UTC day. Voice: ${VOICE_BASE_POINTS} base Points each ${VOICE_INTERVAL_MINUTES} eligible minutes with at least two non-deafened humans.\nApproved native polls: ${POLL_POINTS_PER_POLL} Points, maximum ${POLL_WEEKLY_CAP} per UTC week; these also count toward the combined activity cap.\nVerified invites are still planned: ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month). Manual grants and milestones are outside activity caps.\nYour existing shop balance UI remains unchanged.`,
       allowedMentions: { parse: [] },
     });
     return;
