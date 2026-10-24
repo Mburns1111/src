@@ -6,7 +6,7 @@
 
 Based on the cheapest **paid** items: 75 Points background + 50 panel + 125 frame + 125 font + 50 sticker = **425 Points**. Free items and Text Colors are excluded from this comparison.
 
-The proposed Phase 2 earning budget is **425 repeatable-activity Points during a member's first seven days**, before one-time milestones, then approximately **225 Points each subsequent week**. To make 425 realistically attainable without rewarding spam, repeatable qualifying activities will earn **2× normal activity Points during the first seven days**, subject to the 425 total cap. One-time achievements are neither multiplied nor included in that activity cap. That lets a member purchase the 425-Point starter collection during week one, and then work toward an 800–1,000 Point artist item over roughly four or five further weeks after spending their starter Points. These limits are targets, **not implemented earners** yet.
+**Current earning policy:** the 425-Point Classic starter basket is a shop price benchmark, **not a Points cap**. Qualifying activity can continue earning without a daily, weekly, or first-seven-days total limit. Messages and voice earn at **2× normal rates during a member's first seven days**, then return to normal rates. Approved native polls retain their separate 15-Point-per-week participation safeguard, but never prevent further chat or voice earnings. The older proposal of 425 Points in week one and 225 Points in later weeks has been superseded by this uncapped policy; see `docs/points-phase-two.md`.
 
 Future Arclo invitations: 40 Points per successfully attributed invite, credited only after the new member stays seven days, with at most two rewarded referrals per inviter per calendar month. Arclo runs its own invite, activity and giveaway trackers. Phase 3 must confirm a verifiable data interface or admin review flow **before crediting** Arclo events; do not assume a public Arclo API exists.
 
@@ -148,7 +148,7 @@ The native poll event listener was verified in the test server (vote → 1, remo
 - Manager approval is required for **each individual native poll**: `/points-admin poll-approve link:<poll message link>`. Approval also syncs the current voter list and awards anyone eligible who has already voted. An approved poll's later votes earn automatically.
 - `/points-admin poll-disable link:<poll message link>` halts future rewards without removing existing credits. Arclo polls and giveaways never award automatically.
 - `/points-observe voters link:<poll message link>` lists up to 30 current voters by Discord account and indicates whether each received +5 Points. `/points-observe report` also shows total paid to members for that poll. `/points-observe sync` reconciles votes and pays any newly verified eligible participants **only if the poll is approved**.
-- The broader newcomer double-activity multiplier and 225-Point overall weekly activity target remain **future Phase 2 targets** until message/voice earning launches. For now, poll Points remain fixed at 5 and are capped at 15.
+- Repeatable chat and voice earnings are now **uncapped**, with a 2× first-seven-days multiplier. Staff-approved poll votes still pay 5 Points, at most 15 poll Points per UTC week, without limiting chat or voice earnings.
 
 **Multi-member staff awards** are provided through `/points-admin grant-multiple`:
 - `members`: paste 1–20 Discord member mentions or user IDs, separated by commas, spaces or newlines. Members are checked in the current guild and bot accounts are rejected.
