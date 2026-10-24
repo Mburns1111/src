@@ -55,6 +55,21 @@ export function shopColorFamilyDirectory(items) {
       isCustom: true,
     });
   }
+  // Future scenic backgrounds or decorated panels are individually purchasable
+  // and must never disappear just because classic colors have a family index.
+  const groupedIds = new Set(families.flatMap(family => family.itemIds));
+  for (const item of items) {
+    if (groupedIds.has(item.id)) continue;
+    families.push({
+      id: item.id,
+      name: item.name,
+      itemIds: [item.id],
+      minPrice: item.price,
+      maxPrice: item.price,
+      isCustom: false,
+      isStandalone: true,
+    });
+  }
   return families;
 }
 
