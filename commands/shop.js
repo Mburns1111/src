@@ -935,6 +935,17 @@ async function sendShopDM(interaction, category) {
 async function handleShopDM(interaction) {
   const [, , guildId, action, categoryText, indexText] = interaction.customId.split(":");
   if (!/^\d{17,21}$/.test(guildId)) throw new UserFacingError("This shop link is invalid.");
+  if (action === "customSubmit" && interaction.isModalSubmit()) {
+    const hex = normalizeHexColor(interaction.fields.getTextInputValue("custom_hex"));
+    if (!hex) {
+      // Modal input errors must not replace or erase the permanent shop DM.
+      await interaction.reply({
+        content: "That isn't a valid HEX color. Use exactly six digits/letters, such as **#C7DDBC**.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return true;
+    }
+  }
   if (action === "customOpen" || (action === "buy" &&
       CUSTOM_COLOR_PRICES[categoryText] &&
       sortedItems(categoryText)[Number(indexText)]?.id === CUSTOM_COLOR_SHOP_ID)) {
