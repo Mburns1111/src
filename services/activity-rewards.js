@@ -87,10 +87,11 @@ export async function awardRepeatableActivity({
         { session, returnDocument: "after" });
         if (!ok) { result = no("cooldown_or_duplicate"); return; }
       }
-      const counter = await counters.findOneAndUpdate({
-        ...key, earned: { $lte: period.cap - amount },
-      }, { $inc: { earned: amount } }, { session, returnDocument: "after" });
-      if (!counter) { result = no("activity_cap"); return; }
+      // This is an accounting total, NOT an earning limit. Members can
+      // continue earning for every qualifying activity without a weekly cap.
+      await counters.findOneAndUpdate(
+        key, { $inc: { earned: amount } },
+        { session, returnDocument: "after" });
       await ledgers.create([{ ...selector, kind: type, amount,
         description: type === "message" ? "Qualified Discord message" : "Qualified voice participation",
         sourceId: channelId,
