@@ -90,6 +90,19 @@ New staff command: `/points-observe`, available only to members with **Manage Se
 - `/points-observe report link:<message URL>` — shows observed native voters (deduplicated across multiple answers), or states clearly that Arclo participant identities are not available
 - `/points-observe list` — shows recent tracked Discord polls and registered Arclo messages
 
+### Why Arclo message inspection previously showed zero embeds/buttons
+
+Discord masks a third-party message's `content`, `embeds`, `components`, and `poll` fields when the app lacks the privileged **Message Content intent**. A successfully fetched message and Arclo author ID prove the channel is accessible, not that message content is exposed.
+
+**Optional diagnostic on the isolated TEST bot:**
+
+1. Open the **test bot's own application** in the [Discord Developer Portal](https://discord.com/developers/applications), open **Bot → Privileged Gateway Intents**, and enable **Message Content Intent** (subject to Discord eligibility/approval).
+2. Set Replit environment variable `ENABLE_MESSAGE_CONTENT_INTENT=1` (do not set it on live Wispbyte).
+3. Pull this dev branch, restart the test bot, then run `/points-observe inspect` on the **original public Arclo giveaway/poll message** and any separately posted public results message.
+4. The inspection now reports whether the diagnostic gateway request was enabled. Compare visible embed and button counts before and after. If counts are still zero, confirm you used the test application, the toggle is enabled, and the link points to a public message rather than an ephemeral private panel.
+
+The bot **does not store message bodies**, only visibility counts and source metadata. Message Content access might expose an Arclo public giveaway counter or results; it **cannot intercept joins/votes directed to Arclo**, expose Arclo's dashboard database, or fetch ephemeral replies visible only to the clicking member. Once tested, remove the environment variable if no longer needed.
+
 **Native Discord polls:** Observes gateway `MESSAGE_POLL_VOTE_ADD` and `MESSAGE_POLL_VOTE_REMOVE`; one user is counted once per poll even with multiple answers. Records only events received while the test bot is running. Restarting preserves records, but absent events and votes cast before observation begins are not reconstructed. Native vote event delivery requires the app's Gateway permission and the bot remaining connected.
 
 **Arclo polls and giveaways:** Each is registered by its *actual Discord message link*. AM Isa fetches the visible message, checks the author is another bot and matches prior Arclo sources, and records metadata only. Clicking buttons on Arclo messages sends interactions **to Arclo, not to AM Isa**. The presence of a giveaway counter, winners announcement, or a viewable panel cannot establish individual members' eligible entries or poll votes.
