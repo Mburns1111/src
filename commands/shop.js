@@ -628,7 +628,9 @@ function mixSummary(mix) {
 function mixColorPosition(category, mix) {
   const index = CLASSIC_COLOR_OPTIONS.findIndex(item => item.id === mix[category]);
   return {
-    familyIndex: index >= 0 ? Math.floor(index / 3) : category === "backgrounds" ? 7 : 8,
+    // A free Starter Sage background is NOT one of the Classic families.
+    // Don't falsely highlight Leaf Green while the live image shows sage.
+    familyIndex: index >= 0 ? Math.floor(index / 3) : -1,
     variant: index >= 0 ? CLASSIC_COLOR_OPTIONS[index].variant
       : category === "backgrounds" ? "pastel" : "normal",
   };
@@ -661,12 +663,13 @@ function mixEditorChrome(context, panel, mix) {
         }))),
     ));
     const shades = ["pastel", "normal", "dark"].map((shade, i) => {
-      const color = CLASSIC_COLOR_OPTIONS[familyIndex * 3 + i];
+      const color = familyIndex >= 0
+        ? CLASSIC_COLOR_OPTIONS[familyIndex * 3 + i] : null;
       return new ButtonBuilder()
         .setCustomId(`shop:dm:${context.guildId}:mixShade:${shade}`)
         .setLabel(shade[0].toUpperCase() + shade.slice(1))
-        .setStyle(shade === variant ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setDisabled(mix[category] === color.id);
+        .setStyle(color && shade === variant ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setDisabled(!color || mix[category] === color.id);
     });
     if (category === "panels") {
       shades.push(new ButtonBuilder()
@@ -859,6 +862,7 @@ async function handleShopDM(interaction) {
         throw new UserFacingError("Unknown color shade.");
       }
       const { familyIndex } = mixColorPosition(category, mix);
+      if (familyIndex < 0) throw new UserFacingError("Choose a color family first.");
       mix[category] = CLASSIC_COLOR_OPTIONS[familyIndex * 3 + ["pastel", "normal", "dark"].indexOf(shade)].id;
       imageChanged = true;
     } else if (action === "mixMatch") {
