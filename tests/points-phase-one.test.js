@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { POINTS_MILESTONES, POINTS_ACTIVITY_TARGETS,
-  milestoneAwardAmount } from "../services/points-policy.js";
+  milestoneAwardAmount, starterClassicBasket, starterClassicBasketCost } from "../services/points-policy.js";
 import { hasCustomizedAppearance } from "../services/points-backfill.js";
 import { DEFAULT_APPEARANCE } from "../services/post-appearance.js";
 import PointsLedger from "../models/PointsLedger.js";
@@ -10,7 +10,11 @@ import { data as adminData } from "../commands/points-admin.js";
 test("starter collection costs 425 Points before any one-time bonuses", () => {
   // Cheapest paid background (75), panel (50), frame (125), font (125),
   // sticker (50). Text color intentionally excluded.
-  const starter = 75 + 50 + 125 + 125 + 50;
+  const basket = starterClassicBasket();
+  assert.deepEqual(basket.map(item => item.category),
+    ["backgrounds", "panels", "frames", "fonts", "stickers"]);
+  assert.deepEqual(basket.map(item => item.price), [75, 50, 125, 125, 50]);
+  const starter = starterClassicBasketCost();
   assert.equal(starter, 425);
   assert.equal(POINTS_ACTIVITY_TARGETS.starterWeekActivityCap, starter);
   assert.equal(POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap, 225);
