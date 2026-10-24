@@ -7,6 +7,7 @@ import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
 import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './post-appearance.js';
 import { registerAppearanceFonts } from './font-library.js';
 import { frameArtworkSvg } from './frame-artwork.js';
+import { drawStickerArtwork } from './sticker-artwork.js';
 
 // Register a Unicode symbol font for decorative display names.
 // Downloaded once per process, with graceful fallback when offline.
@@ -425,40 +426,9 @@ function drawDecorations(ctx, width, height, appearance, style, stickerImages = 
     ctx.save();
     ctx.translate(sticker.x * width, sticker.y * height);
     ctx.rotate(sticker.rotation * Math.PI / 180);
-    ctx.fillStyle = style.accentDark;
-    ctx.strokeStyle = style.accentDark;
-    ctx.lineWidth = Math.max(2, size * 0.055);
-    const item = APPEARANCE_CATALOG.stickers[sticker.id];
-    if (item?.kind === 'image' && stickerImages.has(sticker.id)) {
-      const image = stickerImages.get(sticker.id);
-      const ratio = image.width / image.height;
-      const imageWidth = ratio >= 1 ? size : size * ratio;
-      const imageHeight = ratio >= 1 ? size / ratio : size;
-      ctx.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
-    } else if (sticker.id === 'flower') {
-      for (let i = 0; i < 6; i++) {
-        ctx.save();
-        ctx.rotate(i * Math.PI / 3);
-        ctx.beginPath();
-        ctx.ellipse(0, -size * 0.3, size * 0.16, size * 0.27, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-      ctx.fillStyle = style.panel;
-      ctx.beginPath();
-      ctx.arc(0, 0, size * 0.13, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (sticker.id === 'star') {
-      ctx.beginPath();
-      for (let i = 0; i < 10; i++) {
-        const a = -Math.PI / 2 + i * Math.PI / 5;
-        const radius = i % 2 ? size * 0.22 : size * 0.5;
-        const x = Math.cos(a) * radius, y = Math.sin(a) * radius;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fill();
-    }
+    // An instance's colors are independent of any profile font/background
+    // colors. Recoloring after purchase never needs an additional shop item.
+    drawStickerArtwork(ctx, sticker, size);
     ctx.restore();
   }
   // The newer overlay has stronger, separated double lines. Keep the old
