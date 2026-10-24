@@ -1,32 +1,33 @@
+import {
+  CLASSIC_COLOR_OPTIONS, CLASSIC_BACKGROUND_PRICES, CLASSIC_PANEL_PRICES,
+} from "./classic-colors.js";
 import { APPEARANCE_CATALOG } from "./post-appearance.js";
 import { FREE_APPEARANCE } from "./appearance-ownership.js";
 
-// Temporary starter pricing; edit here when your final artwork and prices are ready.
+// Classic colors are in color-wheel order: Pastel, Normal, Dark within each
+// family. The free standard swatches are displayed as included (0 Points).
+// Retired starter backgrounds/panels remain renderable but aren't sold.
 const prices = {
-  backgrounds: { paleSage: 75, warmCream: 75, dustyBlue: 75, sageDots: 150, garden: 300 },
-  panels: {
-    sagePanel: 50, creamPanel: 50, bluePanel: 50,
-    charcoal: 60, forest: 60, navy: 60,
-    moss: 100, lavender: 100,
-  },
+  backgrounds: CLASSIC_BACKGROUND_PRICES,
+  panels: CLASSIC_PANEL_PRICES,
   frames: { doubleLine: 125 },
   fonts: { classic: 100 },
   fontColors: { plum: 75 },
   stickers: { flower: 50, star: 50 },
 };
 const names = {
-  paleSage: "Pale Sage", warmCream: "Warm Cream", dustyBlue: "Dusty Blue",
-  sagePanel: "Sage Panel", creamPanel: "Cream Panel", bluePanel: "Blue Panel",
-  charcoal: "Charcoal", forest: "Forest", navy: "Navy",
-  sageDots: "Sage Dots", garden: "Garden", moss: "Moss", lavender: "Lavender",
+  ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [item.id, item.name])),
   doubleLine: "Double Line", classic: "Classic Serif", plum: "Plum",
   flower: "Flower", star: "Star",
 };
 export function shopItems() {
   return Object.entries(prices).flatMap(([category, entries]) =>
     Object.entries(entries)
-      .filter(([id]) => APPEARANCE_CATALOG[category]?.[id] && !FREE_APPEARANCE[category]?.includes(id))
-      .map(([id, price]) => ({ category, id, name: names[id] || id, price })),
+      .filter(([id]) => Boolean(APPEARANCE_CATALOG[category]?.[id]))
+      .map(([id, price]) => ({
+        category, id, name: names[id] || id, price,
+        included: FREE_APPEARANCE[category]?.includes(id) || false,
+      })),
   );
 }
 export function shopItem(category, id) {
