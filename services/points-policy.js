@@ -10,6 +10,25 @@ export const POINTS_MILESTONES = Object.freeze({
   inventoryFirstPost: { label: "First inventory photo or video post", points: 20 },
 });
 
+import { shopItems } from "./shop-catalog.js";
+import { isClassicShopItem } from "./shop-presentation.js";
+
+export function starterClassicBasket() {
+  const categories = ["backgrounds", "panels", "frames", "fonts", "stickers"];
+  const items = shopItems();
+  return categories.map(category => {
+    const cheapest = items.filter(item => item.category === category &&
+      item.price > 0 && isClassicShopItem(category, item.id))
+      .sort((a, b) => a.price - b.price)[0];
+    if (!cheapest) throw new Error(`No paid Classic ${category} item found`);
+    return { category, id: cheapest.id, price: cheapest.price, name: cheapest.name };
+  });
+}
+
+export function starterClassicBasketCost() {
+  return starterClassicBasket().reduce((sum, item) => sum + item.price, 0);
+}
+
 // Phase 2 targets are documented but NOT credited automatically in Phase 1.
 // 75 background + 50 paid panel + 125 frame + 125 font + 50 sticker = 425.
 // A fresh member's first seven days can produce up to 425 repeatable activity
