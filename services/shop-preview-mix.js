@@ -30,7 +30,16 @@ export function normalizeShopMix(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const mix = {};
   for (const category of SHOP_MIX_CATEGORIES) {
+    if (category === "fonts") continue; // New editor stores the two text slots.
     if (isShopMixChoice(category, value[category])) mix[category] = value[category];
+  }
+  // Migrate the old single-font preview into both independent text slots.
+  const legacy = isShopMixChoice("fonts", value.fonts) ? value.fonts : null;
+  if (isShopMixChoice("fonts", value.headerFont ?? legacy)) {
+    mix.headerFont = value.headerFont ?? legacy;
+  }
+  if (isShopMixChoice("fonts", value.bodyFont ?? legacy)) {
+    mix.bodyFont = value.bodyFont ?? legacy;
   }
   return mix;
 }
@@ -42,10 +51,18 @@ export function tryOnShopMix(savedAppearance, savedMix = {}, candidate = null) {
   // new mix selection as soon as the user chooses it.
   if (candidate && (shopItem(candidate.category, candidate.id) ||
       (["backgrounds", "panels"].includes(candidate.category) && customColorHex(candidate.id)))) {
-    mix[candidate.category] = candidate.id;
+    if (candidate.category === "fonts") {
+      mix.headerFont = candidate.id;
+      mix.bodyFont = candidate.id;
+    } else {
+      mix[candidate.category] = candidate.id;
+    }
   }
 
+  if (mix.headerFont) appearance.headerFont = mix.headerFont;
+  if (mix.bodyFont) appearance.bodyFont = mix.bodyFont;
   for (const category of SHOP_MIX_CATEGORIES) {
+    if (category === "fonts") continue;
     const id = mix[category];
     if (!id) continue;
 
