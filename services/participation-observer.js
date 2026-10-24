@@ -89,3 +89,32 @@ export function messageVisibility(message) {
     nativePollVisible: Boolean(message.poll),
   };
 }
+
+
+// Inspection-only view of PUBLIC embed content. Summaries are returned only in
+// the manager's ephemeral response; no embed bodies or participant IDs are
+// persisted. Never interpret a mention or winner listing as proof that all
+// giveaway entrants are available for Points.
+export function publicEmbedDiagnostic(message) {
+  const limited = (value, max = 170) => {
+    if (typeof value !== "string") return "";
+    return value.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ")
+      .replace(/@/g, "@\u200b").replace(/[`*_~|]/g, "")
+      .trim().slice(0, max);
+  };
+  return (message.embeds || []).slice(0, 2).map((embed, index) => {
+    const fields = Array.isArray(embed.fields) ? embed.fields : [];
+    const text = [embed.title, embed.description,
+      ...fields.flatMap(field => [field.name, field.value])].filter(Boolean).join(" ");
+    const mentionedIds = new Set([...text.matchAll(/<@!?(\d{17,21})>/g)].map(m => m[1]));
+    const labels = fields.slice(0, 5).map(field => limited(field.name, 42)).filter(Boolean);
+    return {
+      number: index + 1,
+      title: limited(embed.title, 90),
+      description: limited(embed.description, 170),
+      fieldCount: fields.length,
+      fieldLabels: labels,
+      mentionCount: mentionedIds.size,
+    };
+  });
+}
