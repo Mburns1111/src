@@ -737,6 +737,7 @@ const MIX_DEFAULT_ITEM_LABELS = {
 
 function mixValueName(category, id) {
   if (!id) return "My equipped profile";
+  if (category === "fonts" && id === "classic") return "Classic Serif (legacy)";
   if (customColorHex(id)) return customColorLabel(id);
   if (category === "panels" && id === "match") return "Match background";
   if (category === "stickers" && id === "none") return "No stickers";
@@ -1096,11 +1097,11 @@ async function handleShopDM(interaction) {
   // Live Mix & Match: all controls operate on the SAME permanent DM. Users
   // need no purchases and never need to press Add to Mix or Confirm.
   const mixEditorActions = [
-    "mixCategory", "mixFamily", "mixOwnedCustom", "mixShade", "mixMatch", "mixItem",
+    "mixCategory", "mixFontScope", "mixFamily", "mixOwnedCustom", "mixShade", "mixMatch", "mixItem",
     "mixReset", "mixClear", "mixBack", "mixRefresh",
   ];
   if (mixEditorActions.includes(action)) {
-    const isSelect = ["mixCategory", "mixFamily", "mixOwnedCustom", "mixItem"].includes(action);
+    const isSelect = ["mixCategory", "mixFontScope", "mixFamily", "mixOwnedCustom", "mixItem"].includes(action);
     if (isSelect ? !interaction.isStringSelectMenu() : !interaction.isButton()) {
       throw new UserFacingError("That preview control is invalid.");
     }
@@ -1134,6 +1135,14 @@ async function handleShopDM(interaction) {
       const selected = interaction.values[0];
       if (!SHOP_MIX_CATEGORIES.includes(selected)) throw new UserFacingError("Unknown mix category.");
       panel.shopMixCategory = selected;
+      panel.shopMixOptionPage = 0;
+    } else if (action === "mixFontScope") {
+      if (category !== "fonts") throw new UserFacingError("This isn't a font category.");
+      const scope = interaction.values[0];
+      if (!["headers", "profile", "both"].includes(scope)) {
+        throw new UserFacingError("Choose Headers, Profile Text, or Both.");
+      }
+      panel.shopMixFontScope = scope;
       panel.shopMixOptionPage = 0;
     } else if (action === "mixFamily") {
       if (!isClassicColorCategory(category)) throw new UserFacingError("This isn't a color category.");
@@ -1175,7 +1184,9 @@ async function handleShopDM(interaction) {
     } else if (action === "mixItem") {
       if (isClassicColorCategory(category)) throw new UserFacingError("Use the color controls instead.");
       const choice = interaction.values[0];
-      const entries = mixItemEntries(category);
+      const ownership = category === "fonts"
+        ? await getAppearanceOwnership(guildId, interaction.user.id) : null;
+      const entries = mixItemEntries(category, ownership);
       const maxPage = Math.max(0, Math.ceil(entries.length / MIX_OPTION_PAGE_SIZE) - 1);
       const page = Math.max(0, Math.min(maxPage, Number.isInteger(panel.shopMixOptionPage)
         ? panel.shopMixOptionPage : 0));
@@ -1183,16 +1194,34 @@ async function handleShopDM(interaction) {
         panel.shopMixOptionPage = Math.max(0, Math.min(maxPage,
           page + (choice === "__next__" ? 1 : -1)));
       } else if (choice === "__reset__") {
-        delete mix[category];
+        if (category === "fonts") {
+          const scope = panel.shopMixFontScope || "both";
+          if (scope !== "profile") delete mix.headerFont;
+          if (scope !== "headers") delete mix.bodyFont;
+        } else {
+          delete mix[category];
+        }
         imageChanged = true;
       } else if (entries.some(item => item.id === choice)) {
-        mix[category] = choice;
+        if (category === "fonts") {
+          const scope = panel.shopMixFontScope || "both";
+          if (scope !== "profile") mix.headerFont = choice;
+          if (scope !== "headers") mix.bodyFont = choice;
+        } else {
+          mix[category] = choice;
+        }
         imageChanged = true;
       } else {
         throw new UserFacingError("This item isn't available in the preview.");
       }
     } else if (action === "mixReset") {
-      delete mix[category];
+      if (category === "fonts") {
+        const scope = panel.shopMixFontScope || "both";
+        if (scope !== "profile") delete mix.headerFont;
+        if (scope !== "headers") delete mix.bodyFont;
+      } else {
+        delete mix[category];
+      }
       imageChanged = true;
     } else if (action === "mixClear") {
       for (const key of Object.keys(mix)) delete mix[key];
@@ -1266,9 +1295,19 @@ async function handleShopDM(interaction) {
     );
     const mix = normalizeShopMix(panel.shopPreviewMix);
     if (action === "addmix") {
-      mix[category] = sortedItems(category)[index].id;
+      if (category === "fonts") {
+        mix.headerFont = sortedItems(category)[index].id;
+        mix.bodyFont = sortedItems(category)[index].id;
+      } else {
+        mix[category] = sortedItems(category)[index].id;
+      }
     } else if (action === "unmix") {
-      if (mix[category] === sortedItems(category)[index].id) delete mix[category];
+      if (category === "fonts") {
+        if (mix.headerFont === sortedItems(category)[index].id) delete mix.headerFont;
+        if (mix.bodyFont === sortedItems(category)[index].id) delete mix.bodyFont;
+      } else if (mix[category] === sortedItems(category)[index].id) {
+        delete mix[category];
+      }
     } else if (action === "clearmix") {
       for (const key of Object.keys(mix)) delete mix[key];
     }
