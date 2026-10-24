@@ -8,7 +8,7 @@ export const FREE_APPEARANCE = Object.freeze({
   panels: ["default"],
   frames: ["default"],
   fonts: ["default"],
-  fontColors: ["default"],
+  fontColors: ["default", "black", "white"],
   stickers: [],
 });
 export const APPEARANCE_FIELD_CATEGORY = Object.freeze({
