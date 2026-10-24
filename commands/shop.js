@@ -183,6 +183,27 @@ const swatchCache = new Map();
 function catalogSwatch(item) {
   const key = `${item.category}:${item.id}`;
   if (swatchCache.has(key)) return swatchCache.get(key);
+  if (item.id === CUSTOM_COLOR_SHOP_ID) {
+    // No default/preselected HEX for a custom purchase. Let the member choose
+    // the exact shade in a form rather than showing a misleading example.
+    const canvas = createCanvas(760, 225);
+    const ctx = canvas.getContext("2d");
+    const samples = ["#DCE9D7", "#C5AFE6", "#80411E", "#252525"];
+    samples.forEach((color, i) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(i * 190, 0, 190, 225);
+    });
+    ctx.fillStyle = "rgba(255,255,255,.91)";
+    ctx.fillRect(20, 45, 720, 132);
+    ctx.fillStyle = "#252525";
+    ctx.font = "bold 39px sans-serif";
+    ctx.fillText("Your Own HEX Color", 44, 102);
+    ctx.font = "28px sans-serif";
+    ctx.fillText("Enter #RRGGBB to preview and purchase", 44, 145);
+    const bytes = canvas.toBuffer("image/png");
+    swatchCache.set(key, bytes);
+    return bytes;
+  }
   const hex = item.category === "backgrounds"
     ? APPEARANCE_CATALOG.backgrounds[item.id]?.color
     : APPEARANCE_CATALOG.panels[item.id]?.palette?.panel;
@@ -352,14 +373,24 @@ async function walletBalance(guildId, userId) {
   return (await PointsWallet.findOne({ guildId, discordUserId: userId }).lean())?.balance ?? 0;
 }
 function itemPage(item, index, total, balance, owned, category = null) {
+  const isCustom = item.id === CUSTOM_COLOR_SHOP_ID;
   const canAfford = balance >= item.price;
   const embed = new EmbedBuilder().setTitle(`Appearance Shop · ${index + 1}/${total}`)
-    .setDescription(`**${item.name}**\nCategory: ${CATEGORY_LABELS[item.category] || item.category}\nPrice: **${item.price} Points**\nStatus: **${owned ? "Owned" : "Not owned"}**\nYour balance: **${balance} Points**${!owned && !canAfford ? `\n**You need ${item.price - balance} more Points to buy this.**` : ""}\n\nUse Preview to see this on your own profile without saving it.`);
+    .setDescription(isCustom
+      ? `**Custom HEX Color**\nCategory: ${CATEGORY_LABELS[item.category]}\nPrice: **${item.price} Points per color** (3× a regular color)\nYour balance: **${balance} Points**\n\nChoose any six-digit HEX color, such as \`#C7DDBC\`. You'll see it on your own profile **before** confirming purchase. Once purchased, each color is saved permanently in this category.`
+      : `**${item.name}**\nCategory: ${CATEGORY_LABELS[item.category] || item.category}\nPrice: **${item.price} Points**\nStatus: **${owned ? "Owned" : "Not owned"}**\nYour balance: **${balance} Points**${!owned && !canAfford ? `\n**You need ${item.price - balance} more Points to buy this.**` : ""}\n\nUse Preview to see this on your own profile without saving it.`);
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index - 1}`).setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(index === 0 && !category),
     new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index + 1}`).setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(index === total - 1),
-    new ButtonBuilder().setCustomId(`shop:preview:${category || 'all'}:${index}`).setLabel("Preview").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`shop:buy:${category || 'all'}:${index}`).setLabel(item.included ? "Included" : owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned || !canAfford),
+    ...(!isCustom ? [
+      new ButtonBuilder().setCustomId(`shop:preview:${category || 'all'}:${index}`).setLabel("Preview").setStyle(ButtonStyle.Primary),
+    ] : []),
+    new ButtonBuilder().setCustomId(isCustom
+      ? `shop:dm:customOpenUnused:${item.category}:${index}`
+      : `shop:buy:${category || 'all'}:${index}`)
+      .setLabel(isCustom ? "Enter HEX Code" : item.included ? "Included" : owned ? "Owned" : `Buy · ${item.price}`)
+      .setStyle(isCustom ? ButtonStyle.Primary : ButtonStyle.Success)
+      .setDisabled(!isCustom && (owned || !canAfford)),
   );
   return { embeds: [embed], components: [row], allowedMentions: { parse: [] } };
 }
