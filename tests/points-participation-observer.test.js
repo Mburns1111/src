@@ -96,7 +96,7 @@ test("points-observe manager commands inspect, register, report and list without
   const command = observeCommand.toJSON();
   assert.equal(command.name, "points-observe");
   assert.deepEqual(command.options.map(option => option.name),
-    ["inspect", "register", "sync", "report", "list"]);
+    ["inspect", "register", "voters", "sync", "report", "list"]);
   const register = command.options.find(option => option.name === "register");
   assert.deepEqual(register.options.find(option => option.name === "type")
     .choices.map(choice => choice.value), ["arclo-poll", "arclo-giveaway", "arclo-panel"]);
