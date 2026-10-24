@@ -3,6 +3,7 @@ import {
 } from "./classic-colors.js";
 import { customColorDefinition } from "./custom-colors.js";
 import { SHOP_FONT_STYLES } from "./font-library.js";
+import { STICKER_CATALOG, STICKER_OUTLINES, validStickerHex } from "./sticker-catalog.js";
 
 /**
  * Appearance catalog for Canvas posts. IDs are stable shop inventory keys.
@@ -76,14 +77,8 @@ export const APPEARANCE_CATALOG = Object.freeze({
     white: { text: '#FFFFFF', mutedText: '#F0F0F0', accentDark: '#FFFFFF' },
     plum: { text: '#593C55', mutedText: '#6D5368', accentDark: '#593C55' },
   },
-  stickers: {
-    flower: { kind: 'flower' },
-    star: { kind: 'star' },
-    // Future custom artwork: add a catalog entry like
-    // blossom: { kind: 'image', asset: 'assets/stickers/blossom.png' },
-    // Keep IDs stable: equipped profiles save the ID, not the image bytes.
-
-  },
+  stickers: Object.fromEntries(Object.entries(STICKER_CATALOG).map(([id, sticker]) =>
+    [id, { kind: 'shape', ...sticker }])),
 });
 
 export const DEFAULT_APPEARANCE = Object.freeze({
@@ -142,6 +137,13 @@ export function resolveAppearance(input = {}) {
         y: clamp(s.y, 0.04, 0.96, 0.15),
         scale: clamp(s.scale, 0.3, 3, 1),
         rotation: clamp(s.rotation, -180, 180, 0),
+        // Existing saved Star/Flower placements had no chosen colors. Their
+        // new defaults preserve a visible sticker without forcing a purchase.
+        color: validStickerHex(s.color) || STICKER_CATALOG[s.id].color,
+        accentColor: STICKER_CATALOG[s.id].colors === 2
+          ? validStickerHex(s.accentColor) || STICKER_CATALOG[s.id].accentColor
+          : null,
+        outline: STICKER_OUTLINES.includes(s.outline) ? s.outline : 'auto',
       })),
   };
 }
