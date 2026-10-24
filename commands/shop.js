@@ -14,7 +14,7 @@ import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js"
 import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
 import { openAppearanceDMFromShop } from "./profile.js";
 import { shopItems } from "../services/shop-catalog.js";
-import { getAppearanceOwnership, ownsAppearanceItem } from "../services/appearance-ownership.js";
+import { getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance } from "../services/appearance-ownership.js";
 import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { normalizeShopMix, tryOnShopMix, SHOP_MIX_CATEGORIES } from "../services/shop-preview-mix.js";
@@ -390,15 +390,19 @@ export async function execute(interaction) {
   await sendShopDM(interaction, categories()[0]);
 }
 async function previewPayload(context, item, mix = {}) {
-  const profile = await UserProfile.findOne({ guildId: context.guildId, discordUserId: context.user.id });
-  const appearance = tryOnShopMix(
-    profile?.profileAppearance?.background
-      ? profile.profileAppearance
-      : DEFAULT_APPEARANCE,
-    mix,
-    item,
+  const [profile, ownership, member] = await Promise.all([
+    UserProfile.findOne({ guildId: context.guildId, discordUserId: context.user.id }),
+    getAppearanceOwnership(context.guildId, context.user.id),
+    context.guild.members.fetch(context.user.id).catch(() => null),
+  ]);
+  // Equipped colors left over from the previous free Leaf Green standard
+  // should not appear as purchased in the try-on. Start from the same owned
+  // appearance that the server profile card displays, then overlay previews.
+  const baseAppearance = filterOwnedAppearance(
+    profile?.profileAppearance?.background ? profile.profileAppearance : DEFAULT_APPEARANCE,
+    ownership,
   );
-  const member = await context.guild.members.fetch(context.user.id).catch(() => null);
+  const appearance = tryOnShopMix(baseAppearance, mix, item);
   const image = await renderPostImage({
     type: "profile",
     data: {
