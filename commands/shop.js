@@ -150,6 +150,10 @@ function exampleAppearance(item) {
   const field = { backgrounds: "background", panels: "panelColor", frames: "frame",
     fonts: "font", fontColors: "fontColor" }[item.category];
   if (field) appearance[field] = item.id;
+  if (item.category === "fonts") {
+    appearance.headerFont = item.id;
+    appearance.bodyFont = item.id;
+  }
   if (item.category === "panels" && APPEARANCE_CATALOG.panels[item.id]?.dark) {
     appearance.panelOpacity = 0.9;
   }
@@ -722,7 +726,7 @@ async function dmConfirmation(context, category, index) {
 const MIX_OPTION_PAGE_SIZE = 22;
 const MIX_DEFAULT_ITEM_LABELS = {
   frames: [{ id: "default", name: "Standard frame · Free" }],
-  fonts: [{ id: "default", name: "Standard font · Free" }],
+  fonts: [{ id: "default", name: "Standard Clean · Free" }],
   fontColors: [
     { id: "default", name: "Default text · Free" },
     { id: "black", name: "Black text · Free" },
@@ -744,8 +748,9 @@ function mixValueName(category, id) {
 }
 
 function mixSummary(mix) {
-  return SHOP_MIX_CATEGORIES.map(category =>
-    `**${CATEGORY_LABELS[category]}:** ${mixValueName(category, mix[category])}`,
+  return SHOP_MIX_CATEGORIES.map(category => category === "fonts"
+    ? `**Fonts:** Headings: ${mixValueName("fonts", mix.headerFont)} · Profile text: ${mixValueName("fonts", mix.bodyFont)}`
+    : `**${CATEGORY_LABELS[category]}:** ${mixValueName(category, mix[category])}`,
   ).join("\n");
 }
 
@@ -760,12 +765,16 @@ function mixColorPosition(category, mix) {
   };
 }
 
-function mixItemEntries(category) {
+function mixItemEntries(category, ownership = null) {
+  // Retired Classic Serif remains a valid try-on for existing owners, while
+  // the six selected fonts form the current public shop.
+  const legacyFont = category === "fonts" && ownership?.fonts?.has("classic")
+    ? [{ id: "classic", name: "Classic Serif · Previously purchased", included: true }] : [];
   // The free Classic Thin frame is now explicitly listed in the shop.
   // Deduplicate the existing "Standard frame" mix option by item ID,
   // otherwise Discord rejects the select menu for duplicate values.
   const seen = new Set();
-  return [...(MIX_DEFAULT_ITEM_LABELS[category] || []), ...itemsFor(category)]
+  return [...(MIX_DEFAULT_ITEM_LABELS[category] || []), ...itemsFor(category), ...legacyFont]
     .filter(item => {
       if (seen.has(item.id)) return false;
       seen.add(item.id);
@@ -834,20 +843,43 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
       ));
     }
   } else {
-    const entries = mixItemEntries(category);
+    if (category === "fonts") {
+      const scope = ["headers", "profile", "both"].includes(panel.shopMixFontScope)
+        ? panel.shopMixFontScope : "both";
+      rows.push(new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`shop:dm:${context.guildId}:mixFontScope`)
+          .setPlaceholder("2 · Apply selected font to…")
+          .addOptions([
+            { label: "Headers Only", value: "headers", default: scope === "headers",
+              description: "Profile title and section headings" },
+            { label: "Profile Text Only", value: "profile", default: scope === "profile",
+              description: "Usernames, roles, bio, status and footer" },
+            { label: "Both", value: "both", default: scope === "both",
+              description: "Use the chosen font throughout the profile" },
+          ]),
+      ));
+    }
+    const entries = mixItemEntries(category, ownership);
     const maxPage = Math.max(0, Math.ceil(entries.length / MIX_OPTION_PAGE_SIZE) - 1);
     const page = Math.max(0, Math.min(maxPage, Number.isInteger(panel.shopMixOptionPage)
       ? panel.shopMixOptionPage : 0));
     const visible = entries.slice(page * MIX_OPTION_PAGE_SIZE, (page + 1) * MIX_OPTION_PAGE_SIZE);
+    const fontScope = panel.shopMixFontScope || "both";
+    const currentlySelected = category === "fonts"
+      ? fontScope === "headers" ? mix.headerFont
+        : fontScope === "profile" ? mix.bodyFont
+          : mix.headerFont === mix.bodyFont ? mix.headerFont : null
+      : mix[category];
     const options = [
       { label: "Use my equipped profile", value: "__reset__",
-        description: "Undo the preview choice for this category", default: !mix[category] },
+        description: "Undo the preview choice for this category", default: !currentlySelected },
       ...visible.map(item => ({
         label: item.name,
         value: item.id,
         description: item.price === undefined || item.included
           ? "Free · Try on now" : `Preview only · ${item.price} Points to buy`,
-        default: mix[category] === item.id,
+        default: currentlySelected === item.id,
       })),
       ...(page > 0 ? [{ label: "← Previous items", value: "__previous__" }] : []),
       ...(page < maxPage ? [{ label: "More items →", value: "__next__" }] : []),
@@ -862,7 +894,8 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
   rows.push(new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:mixReset`)
       .setLabel("Use My Profile").setStyle(ButtonStyle.Secondary)
-      .setDisabled(!mix[category]),
+      .setDisabled(category === "fonts"
+        ? !mix.headerFont && !mix.bodyFont : !mix[category]),
     new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:mixClear`)
       .setLabel("Clear All Choices").setStyle(ButtonStyle.Secondary)
       .setDisabled(!Object.keys(mix).length),
@@ -882,7 +915,7 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
 async function dmMixEditor(context, panel, { reuseImage = false } = {}) {
   const mix = normalizeShopMix(panel.shopPreviewMix);
   const category = panel.shopMixCategory;
-  const ownership = isClassicColorCategory(category)
+  const ownership = isClassicColorCategory(category) || category === "fonts"
     ? await getAppearanceOwnership(context.guildId, context.user.id) : null;
   const chrome = mixEditorChrome(context, panel, mix, ownership);
   if (reuseImage) return chrome; // Only the controls changed: keep current PNG
