@@ -46,6 +46,10 @@ Use `node register-commands.js` on the test bot after deploying this branch to r
 
 These controls require **Manage Server**. The member-facing Points balance remains in the public storefront and private shop; Phase 1 adds no duplicate `/balance` command.
 
+### Previous test balance command
+
+`/test-points` is now **disabled and omitted from command registration by default**. If you still need it on your isolated Replit test bot, set `ENABLE_TEST_POINTS=1` and re-register commands. Never enable this unaudited balance override on the live bot; use `/points-admin grant` for legitimate moderator awards.
+
 ## Bulk backfill of existing members
 
 A dry-run-first database script can review all member IDs present in historical bot records:
@@ -57,7 +61,7 @@ node scripts/backfill-points-milestones.js
 node scripts/backfill-points-milestones.js --apply
 ```
 
-It scans saved permanent shop DMs, currently saved non-default appearance profiles, published house/outfit/trade posts, Trading Posts and inventory video/album posts. Claims remain idempotent even if the script is rerun.
+It scans saved permanent shop DMs, currently saved non-default appearance profiles, published house/outfit/trade posts, Trading Posts and inventory video/album posts. Because this standalone script has no Discord member gateway, **review dry-run results and do not apply rewards for accounts that have left the server**; the interactive admin backfill does verify current membership. Claims remain idempotent even if the script is rerun.
 
 **Limitation:** deleted posts or customized profiles later reset to default may no longer have evidence. Nothing attempts to infer historical activity from untrusted text. Owners can make an audited manual award when they have other reliable evidence. Dry runs do not credit Points, and no backfill runs automatically at startup.
 
