@@ -29,14 +29,15 @@ const prices = {
     default: 0,
     ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, item]) => [id, item.price])),
   },
-  fontColors: { plum: 75, [CUSTOM_COLOR_SHOP_ID]: CUSTOM_COLOR_PRICES.fontColors },
+  // Old Plum remains renderable for existing profiles but was test-only, not for sale.
+  fontColors: { [CUSTOM_COLOR_SHOP_ID]: CUSTOM_COLOR_PRICES.fontColors },
   stickers: Object.fromEntries(Object.entries(STICKER_CATALOG).map(([id, item]) => [id, item.price])),
 };
 const names = {
   ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [item.id, item.name])),
   default: "Classic Thin", doubleLine: "Double Line", softRounded: "Soft Rounded",
   silverFloral: "Silver Floral", goldCelestial: "Golden Celestial",
-  blackKnight: "Black Knight", classic: "Classic Serif", plum: "Plum",
+  blackKnight: "Black Knight", classic: "Classic Serif",
   ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, item]) => [id, item.name])),
   ...Object.fromEntries(Object.entries(STICKER_CATALOG).map(([id, item]) => [id, item.name])),
   [CUSTOM_COLOR_SHOP_ID]: "Custom HEX Color",
