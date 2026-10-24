@@ -1,6 +1,7 @@
 
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
@@ -17,6 +18,9 @@ import OutfitListing from "../models/OutfitListing.js";
 import TradingPost from "../models/TradingPost.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import UserProfile from "../models/UserProfile.js";
+import { displayListingAppearance, snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
+import { getAppearanceOwnership } from "../services/appearance-ownership.js";
+import { renderPostImage } from "../services/post-renderer.js";
 import { discordMessageUrl } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 
@@ -318,9 +322,27 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     })
     .setTimestamp(post.updatedAt);
 
+  const ownership = await getAppearanceOwnership(guild.id, post.ownerId);
+  const cardImage = await renderPostImage({
+    type: "tradingPost",
+    data: {
+      discordName: post.discordName,
+      robloxName: post.robloxName,
+      lookingFor: post.lookingFor,
+      willingToTrade: post.willingToTrade,
+    },
+    appearance: displayListingAppearance(post, profile, ownership),
+  });
   return {
     content: "",
-    embeds: [embed],
+    embeds: [
+      new EmbedBuilder().setColor(0x819287).setImage("attachment://trading-post-card.png"),
+      // Retain Discord-native, clickable inventory/house/outfit links below the
+      // decorated image. Those links cannot be interactive inside a Canvas PNG.
+      embed,
+    ],
+    files: [new AttachmentBuilder(cardImage, { name: "trading-post-card.png" })],
+    attachments: [],
     components: makeTradingPostComponents(post),
     allowedMentions: { parse: [] },
   };
@@ -356,6 +378,13 @@ export async function refreshTradingPostCard(guild, ownerId) {
       discordUserId: ownerId,
     }),
   ]);
+
+  // Legacy cards predate saved listing styles. Capture their starting appearance
+  // once; do not keep inheriting future profile changes.
+  if (!tradingPost.postAppearance) {
+    tradingPost.postAppearance = await snapshotOwnedListingAppearance(guild.id, ownerId, profile);
+    tradingPost.markModified("postAppearance");
+  }
 
   const oldChannelId = tradingPost.postChannelId;
   const oldMessageId = tradingPost.postMessageId;
@@ -590,7 +619,9 @@ export async function handleTradingPostModal(interaction) {
     try {
       post = await TradingPost.findOneAndUpdate(
         { guildId: interaction.guildId, ownerId },
-        { $set: update },
+        { $set: update, $setOnInsert: {
+          postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, ownerId, profile),
+        } },
         {
           upsert: true,
           returnDocument: "after",

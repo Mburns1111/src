@@ -13,6 +13,7 @@ import {
   TextInputStyle,
 } from "discord.js";
 import HouseListing from "../models/HouseListing.js";
+import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
 import UserProfile from "../models/UserProfile.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import {
@@ -535,6 +536,7 @@ async function publishHouseListing(interaction, values, post) {
     ownerId: interaction.user.id,
     ownerName: discordDisplayName,
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
+    postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, interaction.user.id, profile),
     ...values,
   });
   try {

@@ -888,10 +888,60 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
 }
 
 /**
+ * The Trading Post uses the same owned layers as profiles, but its data has
+ * dedicated regions. Existing Discord embeds remain below the image so
+ * inventory/house/outfit links still work as actual clickable links.
+ */
+function drawTradingPost(ctx, data, images, style, layout, appearance, stickerImages) {
+  const { width, height } = layout;
+  ctx.fillStyle = style.background;
+  ctx.fillRect(0, 0, width, height);
+  if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
+  else drawBackgroundPattern(ctx, width, height, appearance);
+
+  glassPanel(ctx, 48, 48, 1104, 170, style);
+  glassPanel(ctx, 48, 240, 542, 498, style, true);
+  glassPanel(ctx, 610, 240, 542, 498, style);
+
+  drawFittedLine(ctx, 'Trading Post', { x: 83, y: 77, width: 1028, height: 64 }, {
+    fontSize: 58, minFontSize: 32, family: style.titleFontFamily,
+    weight: style.titleFontWeight, color: style.text,
+  });
+  drawFittedLine(ctx, String(data.discordName || 'Member'), {
+    x: 83, y: 149, width: 620, height: 42,
+  }, {
+    fontSize: 34, minFontSize: 20, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text,
+  });
+  drawFittedLine(ctx, String(data.robloxName || 'Roblox username not added'), {
+    x: 720, y: 159, width: 400, height: 32,
+  }, {
+    fontSize: 24, minFontSize: 16, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.mutedText,
+  });
+
+  drawLabel(ctx, 'Looking for', { x: 84, y: 279, width: 468, height: 39 }, style);
+  drawWrappedText(ctx, data.lookingFor || 'Not specified', {
+    x: 84, y: 343, width: 466, height: 346,
+  }, {
+    fontSize: 35, minFontSize: 21, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 9,
+  });
+  drawLabel(ctx, 'Willing to trade', { x: 648, y: 279, width: 464, height: 39 }, style);
+  drawWrappedText(ctx, data.willingToTrade || 'Not specified', {
+    x: 648, y: 343, width: 465, height: 346,
+  }, {
+    fontSize: 35, minFontSize: 21, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 9,
+  });
+  drawDecorations(ctx, width, height, appearance, style, stickerImages);
+}
+
+/**
  * Render a post image as a PNG Buffer.
  *
  * @param {object} options
- * @param {'profile'} options.type Layout key.
+ * @param {'profile'|'tradingPost'} options.type Layout key.
  * @param {object} options.data Text/data fields for the selected layout.
  * @param {object} [options.images] Optional avatar/photo image sources.
  * @param {object} [options.style] Optional overrides for DEFAULT_POST_STYLE.
@@ -905,10 +955,8 @@ export async function renderPostImage({
   style = {},
   appearance = {},
 } = {}) {
-  if (type === 'profile') {
-    registerAppearanceFonts();
-    await ensureSymbolFont();
-  }
+  registerAppearanceFonts();
+  await ensureSymbolFont();
   const layout = POST_LAYOUTS[type];
 
   if (!layout) {
@@ -1003,6 +1051,9 @@ export async function renderPostImage({
       resolvedAppearance,
       stickerImages
     );
+  } else if (type === 'tradingPost') {
+    drawTradingPost(ctx, data, { avatar, photo, background }, resolvedStyle,
+      layout, resolvedAppearance, stickerImages);
   } else {
     throw new Error(
       `Renderer implementation is missing for layout: ${type}`

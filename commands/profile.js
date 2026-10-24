@@ -584,7 +584,7 @@ const RETIRED_COLOR_NAMES = {
 // "Match background" is always allowed, and free standards/text colors are
 // already included in the ownership set. Retired paid colors stay available
 // to their original buyers without returning to the storefront.
-function availableAppearanceChoices(field, ownership) {
+export function availableAppearanceChoices(field, ownership) {
   const choices = APPEARANCE_CHOICES[field];
   // Equipment must be owned: the shop and Mix & Match can preview locked
   // frames, but Customize Profile offers only the free or purchased frames.
@@ -617,7 +617,7 @@ function availableAppearanceChoices(field, ownership) {
   return [...new Set([...unlocked, ...customOwned, ...retiredOwned])];
 }
 
-function appearanceChoicePage(field, currentAppearance, optionPages = {}, ownership = null) {
+export function appearanceChoicePage(field, currentAppearance, optionPages = {}, ownership = null) {
   const options = availableAppearanceChoices(field, ownership);
   const pageCount = Math.ceil(options.length / COLOR_SELECT_PAGE_SIZE);
   if (pageCount <= 1) return { page: 0, count: 1 };
@@ -663,7 +663,7 @@ function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
   }
   return { options, page, count };
 }
-const APPEARANCE_PAGES = {
+export const APPEARANCE_PAGES = {
   colors: ["background", "panelColor", "opacity"],
   fonts: ["headerFont", "bodyFont"],
   details: ["fontColor", "frame"],
@@ -674,16 +674,16 @@ function getProfileAppearance(profile) {
     ? profile.profileAppearance
     : DEFAULT_APPEARANCE);
 }
-function makeAppearanceControls(profile, page = "colors", selected = 0, ownership = null, dmToken = null, optionPages = {}, stickerMode = "position") {
+export function makeAppearanceControls(profile, page = "colors", selected = 0, ownership = null, dmToken = null, optionPages = {}, stickerMode = "position", editorPrefix = "profile:dm", saveLabel = "Confirm & update profile") {
   const a = getProfileAppearance(profile);
   const ownerId = profile.discordUserId;
   const selectId = field => dmToken
-    ? `profile:dm:select:${dmToken}:${field}`
+    ? `${editorPrefix}:select:${dmToken}:${field}`
     : `profile:appearance:${field}:${ownerId}`;
   const finish = () => new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:confirm`).setLabel("Confirm & update profile").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:cancel`).setLabel("Discard Changes").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:refresh`).setLabel("Refresh Preview").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:confirm`).setLabel(saveLabel).setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:cancel`).setLabel("Discard Changes").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:refresh`).setLabel("Refresh Preview").setStyle(ButtonStyle.Secondary),
   );
   const pageMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -732,7 +732,7 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
       const selectedSticker = a.stickers[Math.max(0, Math.min(selected, a.stickers.length - 1))];
       const isTwoColor = STICKER_CATALOG[selectedSticker.id]?.colors === 2;
       const button = (action, label, style = ButtonStyle.Secondary) =>
-        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:${action}`)
+        new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:${action}`)
           .setLabel(label).setStyle(style);
       if (stickerMode === "style") {
         // Separate modes keep the preview unobstructed while staying within
@@ -835,7 +835,7 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
   // Fonts are owned once. Choose separate fonts, or apply one to both.
   if (page === "fonts" && dmToken) {
     rows.push(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:fontBoth`)
+      new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:fontBoth`)
         .setLabel("Apply Heading Font to Both")
         .setStyle(ButtonStyle.Primary),
     ));
@@ -941,7 +941,7 @@ async function saveDraftPanel(panel, draft) {
   await panel.save();
 }
 
-function adjustDraftSticker(draft, action) {
+export function adjustDraftSticker(draft, action) {
   const sticker = draft.appearance.stickers[draft.selected];
   if (!sticker) throw new UserFacingError("Choose a sticker to edit.");
   switch (action) {
