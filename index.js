@@ -188,8 +188,13 @@ async function voiceActivityTick() {
     for (const guild of client.guilds.cache.values()) {
       const settings = await PointsSettings.findOne({ guildId: guild.id }).lean();
       if (settings?.voiceRewardsEnabled !== true) continue;
-      for (const member of eligibleVoiceStates(guild)) {
+      for (const stateMember of eligibleVoiceStates(guild)) {
         try {
+          // Some cached gateway members lack join dates. Fetch before deciding
+          // newcomer 2× eligibility rather than incorrectly treating them as old.
+          const member = stateMember.joinedAt ? stateMember
+            : await guild.members.fetch(stateMember.id).catch(() => null);
+          if (!member?.joinedAt || member.user?.bot) continue;
           const reward = await recordVoiceMinute({ guildId: guild.id, member, now });
           if (reward.credited) console.log(`[Points] Voice +${reward.amount} to ${member.id}.`);
         } catch (error) {
