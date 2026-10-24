@@ -35,7 +35,7 @@ const commands = [
   tradeCommand,
   setupCommand,
   shopCommand,
-  testPointsCommand,
+  ...(process.env.ENABLE_TEST_POINTS === "1" ? [testPointsCommand] : []),
   pointsAdminCommand,
   helpCommand,
   migrateOldPostsCommand,
