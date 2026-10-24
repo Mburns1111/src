@@ -44,6 +44,7 @@ import { getVoteCounts } from "./trade.js";
 import { ensureChannelEntry } from "./channel-entry.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, appearanceCatalogItem, resolveAppearance } from "../services/post-appearance.js";
+import { SHOP_FONT_STYLES } from "../services/font-library.js";
 import { customColorHex, customColorLabel } from "../services/custom-colors.js";
 import { CLASSIC_COLOR_OPTIONS, STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID } from "../services/classic-colors.js";
 import { FREE_APPEARANCE, getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, APPEARANCE_FIELD_CATEGORY } from "../services/appearance-ownership.js";
@@ -541,7 +542,10 @@ export async function ensureProfileCard(guild, user, { refresh = false } = {}) {
 const APPEARANCE_CHOICES = {
   background: [STANDARD_BACKGROUND_ID, ...CLASSIC_COLOR_OPTIONS.map(item => item.id)],
   panelColor: ["match", ...CLASSIC_COLOR_OPTIONS.map(item => item.id)],
-  font: ["default", "classic"],
+  // 'font' is kept to accept selections from pre-update editor messages.
+  font: ["default", "classic", ...Object.keys(SHOP_FONT_STYLES)],
+  headerFont: ["default", ...Object.keys(SHOP_FONT_STYLES), "classic"],
+  bodyFont: ["default", ...Object.keys(SHOP_FONT_STYLES), "classic"],
   fontColor: ["default", "black", "white", "plum"],
   frame: ["default", "doubleLine", "softRounded", "silverFloral", "goldCelestial", "blackKnight"],
 };
@@ -553,7 +557,8 @@ const APPEARANCE_LABELS = {
   sagePreview: "Starter Sage (free)",
   match: "Match background",
   default: "Default",
-  classic: "Classic serif",
+  classic: "Classic Serif (legacy)",
+  ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, font]) => [id, font.name])),
   black: "Black (free)",
   white: "White (free)",
   plum: "Plum",
@@ -581,11 +586,11 @@ function availableAppearanceChoices(field, ownership) {
   const choices = APPEARANCE_CHOICES[field];
   // Equipment must be owned: the shop and Mix & Match can preview locked
   // frames, but Customize Profile offers only the free or purchased frames.
-  if (!["background", "panelColor", "fontColor", "frame"].includes(field)) return choices;
+  if (!["background", "panelColor", "fontColor", "frame", "headerFont", "bodyFont", "font"].includes(field)) return choices;
   const category = APPEARANCE_FIELD_CATEGORY[field];
   const unlocked = choices.filter(id =>
     id === "match" || ownsAppearanceItem(ownership, category, id));
-  if (field === "fontColor") return unlocked;
+  if (["fontColor", "headerFont", "bodyFont", "font"].includes(field)) return unlocked;
   if (field === "frame") {
     // Preserve a previously purchased retired border even if no longer sold.
     const legacy = Object.keys(APPEARANCE_CATALOG.frames).filter(id =>
@@ -630,7 +635,9 @@ function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
           ? `${APPEARANCE_LABELS[id]} (Free · Standard)`
           : field === "frame" && id === "default"
             ? "Classic Thin (free)"
-            : APPEARANCE_LABELS[id] || id),
+            : (field === "headerFont" || field === "bodyFont") && id === "default"
+              ? "Standard Clean (free)"
+              : APPEARANCE_LABELS[id] || id),
     value: id,
     default: appearance[field] === id,
     description: customColorHex(id) ? "Your purchased HEX color" :
@@ -648,7 +655,8 @@ function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
 }
 const APPEARANCE_PAGES = {
   colors: ["background", "panelColor", "opacity"],
-  details: ["font", "fontColor", "frame"],
+  fonts: ["headerFont", "bodyFont"],
+  details: ["fontColor", "frame"],
   stickers: [],
 };
 function getProfileAppearance(profile) {
@@ -673,7 +681,8 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
       .setPlaceholder("Customization category")
       .addOptions([
         { label: "Backgrounds & panels", value: "colors", default: page === "colors" },
-        { label: "Fonts, text & frames", value: "details", default: page === "details" },
+        { label: "Fonts · Headings and profile text", value: "fonts", default: page === "fonts" },
+        { label: "Text colors & frames", value: "details", default: page === "details" },
         { label: "Stickers", value: "stickers", default: page === "stickers" },
       ]),
   );
@@ -773,7 +782,9 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
     const choice = appearanceChoiceOptions(field, a, ownership, optionPages);
     const placeholder = {
       background: "Choose background", panelColor: "Choose panel color",
-      font: "Choose font", fontColor: "Choose text color", frame: "Choose frame",
+      font: "Choose font", headerFont: "Choose font for titles & headings",
+      bodyFont: "Choose font for profile text", fontColor: "Choose text color",
+      frame: "Choose frame",
     }[field];
     return new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder().setCustomId(selectId(field))
@@ -783,6 +794,14 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
         .addOptions(choice.options),
     );
   });
+  // Fonts are owned once. Choose separate fonts, or apply one to both.
+  if (page === "fonts" && dmToken) {
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:fontBoth`)
+        .setLabel("Apply Heading Font to Both")
+        .setStyle(ButtonStyle.Primary),
+    ));
+  }
   return dmToken ? [pageMenu, ...rows, finish()] : [pageMenu, ...rows];
 }
 
@@ -967,6 +986,16 @@ export async function handleProfileAppearanceDM(interaction) {
       "✅ **Profile appearance saved!** Your profile card in the server has been updated. The editor is closed; use **Customize Profile** in your permanent shop to edit again.");
     return true;
   }
+  if (kind === "button" && field === "fontBoth") {
+    if (!ownsAppearanceItem(ownership, "fonts", draft.appearance.headerFont)) {
+      throw new UserFacingError("You have not unlocked that font.");
+    }
+    draft.appearance.bodyFont = draft.appearance.headerFont;
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await saveDraftPanel(panel, draft);
+    await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    return true;
+  }
   if (kind === "button" && field === "refresh") {
     await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
     return true;
@@ -1037,6 +1066,11 @@ export async function handleProfileAppearanceDM(interaction) {
       throw new UserFacingError("You have not unlocked that appearance item.");
     }
     draft.appearance[field] = value;
+    // Old one-font editor controls should still update both font slots.
+    if (field === "font") {
+      draft.appearance.headerFont = value;
+      draft.appearance.bodyFont = value;
+    }
     if (field === "panelColor" && appearanceCatalogItem("panels", value)?.dark) {
       draft.appearance.panelOpacity = 0.9;
     }
