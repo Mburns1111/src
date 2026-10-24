@@ -397,10 +397,16 @@ async function dmConfirmation(context, category, index) {
   return result;
 }
 async function dmPreview(context, category, index) {
-  const item = sortedItems(category)[index];
+  const items = sortedItems(category);
+  const item = items[index];
   const result = await previewPayload(context, item);
+  result.content = `**Preview ${index + 1}/${items.length}: ${item.name}** — this does not change your saved profile.`;
   result.components = [
     new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:preview:${category}:${index - 1}`)
+        .setLabel("◀ Previous Preview").setStyle(ButtonStyle.Secondary).setDisabled(index === 0),
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:preview:${category}:${index + 1}`)
+        .setLabel("Next Preview ▶").setStyle(ButtonStyle.Secondary).setDisabled(index >= items.length - 1),
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index}`)
         .setLabel("← Back to item").setStyle(ButtonStyle.Primary),
     ),
