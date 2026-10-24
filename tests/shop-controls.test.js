@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  dmCategoryHomeControls, dmCategoryMenu, dmIndexTools, dmShopTools, mixEditorChrome,
+  dmCategoryHomeControls, dmCategoryMenu, dmIndexTools, dmShopTools, mixEditorChrome, postPurchaseEquipControls,
 } from "../commands/shop.js";
 
 import { previewPurchasePlan } from "../services/shop-mix-checkout.js";
@@ -100,4 +100,17 @@ test("Preview Multiple retains at most five controls on Text Colors and owned HE
   const allOwned = examples[1].components.at(-1).toJSON().components
     .find(item => item.custom_id === `shop:dm:${guildId}:mixCheckout`);
   assert.equal(allOwned.disabled, true, "previously purchased HEX has no new cost");
+});
+
+test("successful Purchase All offers optional Equip All and Continue Shopping", () => {
+  const rows = postPurchaseEquipControls(guildId);
+  assert.equal(rows.length, 1);
+  const buttons = rows[0].toJSON().components;
+  assert.equal(buttons.length, 2);
+  assert.deepEqual(buttons.map(button => button.label), ["Equip All", "Continue Shopping"]);
+  assert.deepEqual(buttons.map(button => button.custom_id), [
+    `shop:dm:${guildId}:mixEquipAll`,
+    `shop:dm:${guildId}:mixContinue`,
+  ]);
+  assert.ok(buttons.every(button => !button.disabled));
 });
