@@ -4,16 +4,12 @@ import NativePollParticipation from "../models/NativePollParticipation.js";
 import PointsLedger from "../models/PointsLedger.js";
 import PointsWallet from "../models/PointsWallet.js";
 import PointsWeeklyCounter from "../models/PointsWeeklyCounter.js";
+import PointsActivityCounter from "../models/PointsActivityCounter.js";
+import { activityPeriod, pollWeekStartUtc } from "./activity-period.js";
+export { pollWeekStartUtc } from "./activity-period.js";
 
 export const POLL_POINTS_PER_POLL = 5;
 export const POLL_WEEKLY_CAP = 15;
-
-export function pollWeekStartUtc(now = new Date()) {
-  const date = new Date(now);
-  date.setUTCHours(0, 0, 0, 0);
-  date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7);
-  return date.toISOString().slice(0, 10);
-}
 
 export function pollEventKey(messageId) {
   return `native-poll:${messageId}`;
@@ -24,6 +20,7 @@ export async function awardNativePollVote({ guildId, channelId, messageId, userI
   const {
     sources = ParticipationSource, participants = NativePollParticipation,
     ledger = PointsLedger, wallets = PointsWallet, counters = PointsWeeklyCounter,
+    activityCounters = PointsActivityCounter,
   } = models;
   const no = reason => ({ credited: false, amount: 0, reason });
 
@@ -43,10 +40,13 @@ export async function awardNativePollVote({ guildId, channelId, messageId, userI
   // Verify current guild membership and bot status, never credit an external
   // account or bot from a stale or malicious event. A GuildMembers privileged
   // gateway subscription is not required to REST-fetch one known member.
+  let member;
   if (guild) {
-    const member = await guild.members.fetch(userId).catch(() => null);
+    member = await guild.members.fetch(userId).catch(() => null);
     if (!member || member.user?.bot) return no("not_a_member");
   }
+  const activity = activityPeriod(member?.joinedAt, now);
+  const activitySelector = { guildId, discordUserId: userId, periodKey: activity.key };
   const selector = { guildId, discordUserId: userId, eventKey: pollEventKey(messageId) };
   const period = { guildId, discordUserId: userId, weekStartUtc: pollWeekStartUtc(now) };
 
@@ -54,6 +54,8 @@ export async function awardNativePollVote({ guildId, channelId, messageId, userI
   // of the same week for votes in unrelated polls.
   await counters.updateOne(period, { $setOnInsert: { ...period, pollPoints: 0 } },
     { upsert: true });
+  await activityCounters.updateOne(activitySelector,
+    { $setOnInsert: { ...activitySelector, earned: 0 } }, { upsert: true });
 
   const session = await sessionFactory();
   let result = no("already_awarded");
@@ -63,13 +65,24 @@ export async function awardNativePollVote({ guildId, channelId, messageId, userI
         result = no("already_awarded");
         return;
       }
+      const activityCounter = await activityCounters.findOneAndUpdate({
+        ...activitySelector, earned: { $lte: activity.cap - POLL_POINTS_PER_POLL },
+      }, { $inc: { earned: POLL_POINTS_PER_POLL } },
+      { session, returnDocument: "after" });
+      if (!activityCounter) {
+        result = no("activity_cap");
+        return;
+      }
       const counter = await counters.findOneAndUpdate({
         ...period, pollPoints: { $lte: POLL_WEEKLY_CAP - POLL_POINTS_PER_POLL },
       }, { $inc: { pollPoints: POLL_POINTS_PER_POLL } },
       { session, returnDocument: "after" });
       if (!counter) {
-        result = no("weekly_limit");
-        return;
+        // Do not commit the activity counter update when the independent
+        // 15-Point poll cap is already full.
+        const error = new Error("Poll weekly reward cap reached");
+        error.code = "POLL_WEEKLY_LIMIT";
+        throw error;
       }
       await ledger.create([{
         ...selector, kind: "poll", amount: POLL_POINTS_PER_POLL,
@@ -82,6 +95,7 @@ export async function awardNativePollVote({ guildId, channelId, messageId, userI
       result = { credited: true, amount: POLL_POINTS_PER_POLL, reason: "credited" };
     });
   } catch (error) {
+    if (error?.code === "POLL_WEEKLY_LIMIT") return no("weekly_limit");
     // The ledger unique index also guards re-votes across restarts. In a
     // competing transaction, the losing attempt cannot spend the weekly cap.
     if (Number(error?.code) === 11000 && await ledger.exists(selector)) {
