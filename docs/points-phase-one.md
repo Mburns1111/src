@@ -77,3 +77,34 @@ It scans saved permanent shop DMs, currently saved non-default appearance profil
 - [ ] Toggle milestones off and verify no awards are issued; restore on and check configured amounts
 - [ ] Check existing Classic Shop Purchase All and individual purchasing still work
 - [ ] Verify no message, voice, invite, poll or giveaway auto-rewards occur yet
+
+
+## Observation-only poll and giveaway experiment
+
+New staff command: `/points-observe`, available only to members with **Manage Server**. Restart the Replit test bot and run `node register-commands.js` with test application credentials. The bot listens to Discord's native guild poll vote events using `GuildMessagePolls` (no privileged Message Content intent is requested).
+
+- `/points-observe inspect link:<message URL>` — tests whether AM Isa can fetch the linked message; reports visible embeds/buttons/native poll objects without claiming participant access
+- `/points-observe register type:Arclo poll link:<message URL>` — records an existing Arclo poll
+- `/points-observe register type:Arclo giveaway link:<message URL>` — records an existing Arclo giveaway
+- `/points-observe register type:Arclo results panel link:<message URL>` — tests an accessible, public panel message, if Arclo created one
+- `/points-observe report link:<message URL>` — shows observed native voters (deduplicated across multiple answers), or states clearly that Arclo participant identities are not available
+- `/points-observe list` — shows recent tracked Discord polls and registered Arclo messages
+
+**Native Discord polls:** Observes gateway `MESSAGE_POLL_VOTE_ADD` and `MESSAGE_POLL_VOTE_REMOVE`; one user is counted once per poll even with multiple answers. Records only events received while the test bot is running. Restarting preserves records, but absent events and votes cast before observation begins are not reconstructed. Native vote event delivery requires the app's Gateway permission and the bot remaining connected.
+
+**Arclo polls and giveaways:** Each is registered by its *actual Discord message link*. AM Isa fetches the visible message, checks the author is another bot and matches prior Arclo sources, and records metadata only. Clicking buttons on Arclo messages sends interactions **to Arclo, not to AM Isa**. The presence of a giveaway counter, winners announcement, or a viewable panel cannot establish individual members' eligible entries or poll votes.
+
+If you granted AM Isa's Discord role permission to view a results channel, `inspect` may successfully fetch that channel's public message. A dashboard page grant is for **human dashboard access** and is not a machine-to-machine API. If Arclo's participant panel appears only as an **ephemeral** reply when you click a button, other bots cannot fetch it at all. Never scrape another app's private interactions or impersonate members to retrieve them.
+
+**No Points are issued by the observer.** It does not read general message text, reactions or voice chat, and does not request Discord's Message Content intent.
+
+### Test sequence
+
+1. Use the test application and the `feature/points-earning` branch; restart and register the `/points-observe` command.
+2. Create a native Discord poll and vote once. Run `/points-observe report` on the poll's message link: expect one observed voter. Change/remove your vote and inspect again. Multiple choices must not multiply the participant count.
+3. Run `/points-observe inspect` on your Arclo poll and giveaway links, followed by `register` with each corresponding type.
+4. After Arclo ends the giveaway, inspect the results-panel **Discord message link**, if one exists. Note whether AM Isa can fetch it and whether embeds or buttons are exposed. Inaccessible/ephemeral results cannot be used as award evidence.
+5. Check `/points-observe list`; restart the test bot and confirm registered observations remain in MongoDB.
+6. Verify `/points-admin history` and wallet balance haven't changed due to these observations.
+
+**Future integration decision:** Native polls can be a verified participation source once we add rewards and caps. Arclo entries require an official source-supported export/API or an audited manual verification process before anyone receives Points.
