@@ -82,3 +82,15 @@ export function shopColorDirectorySelection(items, selectedId) {
   const family = CLASSIC_COLOR_FAMILIES.find(entry => entry.id === selectedId);
   return family ? shopItemIndexById(items, `${family.id}Normal`) : -1;
 }
+
+// All new purchase buttons carry the stable item ID, not just an array index.
+// A stale button must never charge for a different item if premium catalog
+// additions or seasonal sticker rotation change the item order.
+export function shopPurchaseTargetMatches(category, currentItemId, expectedItemId) {
+  if (category === "stickers" || expectedItemId !== undefined) {
+    return Boolean(currentItemId && currentItemId === expectedItemId);
+  }
+  // Older non-sticker buttons had index-only IDs. They remain usable until
+  // their messages are refreshed, preserving the previous compatibility rule.
+  return Boolean(currentItemId);
+}
