@@ -1,7 +1,8 @@
 
 import {
   ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle,
-  EmbedBuilder, MessageFlags, SlashCommandBuilder, StringSelectMenuBuilder,
+  EmbedBuilder, LabelBuilder, MessageFlags, ModalBuilder, SlashCommandBuilder,
+  StringSelectMenuBuilder, TextInputBuilder, TextInputStyle,
 } from "discord.js";
 import mongoose from "mongoose";
 import { createCanvas } from "@napi-rs/canvas";
@@ -15,10 +16,14 @@ import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
 import { openAppearanceDMFromShop } from "./profile.js";
 import { shopItems } from "../services/shop-catalog.js";
 import { getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance } from "../services/appearance-ownership.js";
-import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, resolveAppearance } from "../services/post-appearance.js";
+import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, appearanceCatalogItem, resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { normalizeShopMix, tryOnShopMix, SHOP_MIX_CATEGORIES } from "../services/shop-preview-mix.js";
 import { CLASSIC_COLOR_FAMILIES, CLASSIC_COLOR_OPTIONS, STANDARD_PANEL_ID } from "../services/classic-colors.js";
+import {
+  CUSTOM_COLOR_SHOP_ID, CUSTOM_COLOR_PRICES, normalizeHexColor, customColorId,
+  customColorHex, customColorLabel,
+} from "../services/custom-colors.js";
 import { UserFacingError } from "./errors.js";
 import { requireGuild } from "./shared.js";
 
