@@ -436,6 +436,12 @@ async function sendShopDM(interaction, category) {
 async function handleShopDM(interaction) {
   const [, , guildId, action, categoryText, indexText] = interaction.customId.split(":");
   if (!/^\d{17,21}$/.test(guildId)) throw new UserFacingError("This shop link is invalid.");
+  // Acknowledge the interaction *before* member fetches or MongoDB queries,
+  // particularly important for old DM buttons just after a bot restart.
+  if (action === "appearance") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  } else {
+  }
   const guild = await interaction.client.guilds.fetch(guildId);
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) throw new UserFacingError("You must belong to the server to use this shop.");
@@ -443,7 +449,6 @@ async function handleShopDM(interaction) {
   if (action === "category" && interaction.isStringSelectMenu()) {
     const selected = interaction.values[0];
     if (!CATEGORY_LABELS[selected] || !itemsFor(selected).length) throw new UserFacingError("Unknown category.");
-    await interaction.deferUpdate();
     await interaction.editReply(await dmItemPage(context, selected, 0));
     return true;
   }
@@ -457,7 +462,6 @@ async function handleShopDM(interaction) {
   if (!Number.isSafeInteger(index) || index < (action === "page" ? -1 : 0) || index >= itemsFor(category).length) {
     throw new UserFacingError("That shop page isn't available.");
   }
-  await interaction.deferUpdate();
   if (action === "page" || action === "cancel") {
     await interaction.editReply(await dmItemPage(context, category, index));
   } else if (action === "preview") {
