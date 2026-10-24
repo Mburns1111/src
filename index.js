@@ -317,7 +317,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleProfilePhotoActionButton(interaction);
       return;
     }
-    if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("profile:dm:")) {
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("profile:dm:")) {
       await handleProfileAppearanceDM(interaction);
       return;
     }
