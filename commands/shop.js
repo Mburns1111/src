@@ -676,6 +676,84 @@ function dmCategoryMenu(guildId, current) {
       }))),
   );
 }
+// Image-free directory for every category. No full Canvas PNG is needed
+// until a member opens a specific item's detailed preview.
+const SHOP_INDEX_PAGE_SIZE = 20;
+
+async function dmCategoryIndex(context, category, requestedPage = 0) {
+  if (!CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
+  const entries = sortedItems(category);
+  if (!entries.length) throw new UserFacingError("There are no items in this category.");
+  const count = Math.max(1, Math.ceil(entries.length / SHOP_INDEX_PAGE_SIZE));
+  const page = Math.max(0, Math.min(count - 1, Number.isSafeInteger(requestedPage) ? requestedPage : 0));
+  const start = page * SHOP_INDEX_PAGE_SIZE;
+  const visible = entries.slice(start, start + SHOP_INDEX_PAGE_SIZE);
+  const [ownership, balance] = await Promise.all([
+    getAppearanceOwnership(context.guildId, context.user.id),
+    walletBalance(context.guildId, context.user.id),
+  ]);
+  const isOwned = item => item.included ||
+    (item.id !== CUSTOM_COLOR_SHOP_ID &&
+      ownsAppearanceItem(ownership, item.category, item.id));
+  const descriptions = visible.map((item, i) =>
+    `**${start + i + 1}. ${item.name}** · ${item.price === 0 ? "Free" : `${item.price} Points`}` +
+    (isOwned(item) ? " · ✓ Owned" : ""),
+  );
+  const embed = new EmbedBuilder()
+    .setColor(CATEGORY_THEMES[category]?.accent ?? "#819287")
+    .setTitle(`${CATEGORY_LABELS[category]} · Item Index`)
+    .setDescription(
+      `**Your Points: ${balance}** · ${entries.length} items · Page ${page + 1}/${count}\n` +
+      "Choose an item below to open its preview and purchase page.\n\n" +
+      descriptions.join("\n") +
+      (category === "stickers"
+        ? "\n\nSeasonal stickers leave the shop after their event; purchased designs remain yours."
+        : ""),
+    );
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(`shop:dm:${context.guildId}:indexPick:${category}:${page}`)
+    .setPlaceholder(`Open a ${CATEGORY_LABELS[category].toLowerCase()} item directly`)
+    .addOptions(visible.map(item => ({
+      label: item.name,
+      value: item.id,
+      description: `${item.price === 0 ? "Free" : item.price + " Points"} · ${isOwned(item) ? "Owned" : "View item"}`,
+    })));
+  return {
+    content: `**${CATEGORY_LABELS[category]}** — choose an item directly, without paging through previews.`,
+    embeds: [embed],
+    files: [],
+    attachments: [],
+    components: [
+      new ActionRowBuilder().addComponents(menu),
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:index:${category}:${page - 1}`)
+          .setLabel("◀ Earlier Items").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:index:${category}:${page + 1}`)
+          .setLabel("More Items ▶").setStyle(ButtonStyle.Secondary).setDisabled(page + 1 >= count),
+      ),
+      dmCategoryMenu(context.guildId, category),
+      dmShopTools(context.guildId, category, 0),
+    ],
+    allowedMentions: { parse: [] },
+  };
+}
+
+function dmQuickJump(guildId, category, selectedIndex) {
+  if (isClassicColorCategory(category)) return null;
+  const entries = sortedItems(category);
+  if (entries.length > 25) return null; // The category index handles large lists.
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`shop:dm:${guildId}:jump:${category}:${selectedIndex}`)
+      .setPlaceholder("Jump directly to another item")
+      .addOptions(entries.map((item, i) => ({
+        label: item.name, value: item.id,
+        description: item.price === 0 ? "Free" : `${item.price} Points`,
+        default: i === selectedIndex,
+      }))),
+  );
+}
+
 async function dmItemPage(context, category, index) {
   // Older DM buttons may still refer to page -1; reopen page one instead.
   if (index === -1) index = 0;
@@ -705,6 +783,8 @@ async function dmItemPage(context, category, index) {
         .setLabel(item.id === CUSTOM_COLOR_SHOP_ID ? "Enter HEX Code" : item.included ? "Included" : owned ? "Owned" : `Buy · ${item.price}`)
         .setStyle(item.id === CUSTOM_COLOR_SHOP_ID ? ButtonStyle.Primary : ButtonStyle.Success)
         .setDisabled(item.id !== CUSTOM_COLOR_SHOP_ID && (owned || balance < item.price)),
+      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:index:${category}:0`)
+        .setLabel("All Items").setStyle(ButtonStyle.Secondary),
     ),
     ...(isClassicColorCategory(category) && item.id !== CUSTOM_COLOR_SHOP_ID ? [
       shopFamilyMenu(context.guildId, category, index),
@@ -712,6 +792,8 @@ async function dmItemPage(context, category, index) {
         ...shopShadeButtons(context.guildId, category, index),
       ),
     ] : []),
+    ...(!isClassicColorCategory(category) && dmQuickJump(context.guildId, category, index)
+      ? [dmQuickJump(context.guildId, category, index)] : []),
     dmCategoryMenu(context.guildId, category),
     dmShopTools(context.guildId, category, index),
   ];
@@ -1004,7 +1086,7 @@ export async function ensureMemberShopDM(guild, user, category = categories()[0]
     guildId: guild.id,
     user,
     kind: "shop",
-    makeInitial: async () => ({ payload: await dmItemPage(context, category, 0) }),
+    makeInitial: async () => ({ payload: await dmCategoryIndex(context, category) }),
     adoptExisting: message => message.components.some(row =>
       row.components?.some(component =>
         component.customId?.startsWith(`shop:dm:${guild.id}:`))),
@@ -1012,7 +1094,7 @@ export async function ensureMemberShopDM(guild, user, category = categories()[0]
   if (result.adopted || (refresh && !result.created)) {
     // Reopening from a storefront category starts on its first item and
     // refreshes the Points/owned state on the *same* permanent DM message.
-    await result.message.edit(await dmItemPage(context, category, 0));
+    await result.message.edit(await dmCategoryIndex(context, category));
   }
   return result;
 }
@@ -1285,7 +1367,7 @@ async function handleShopDM(interaction) {
   if (action === "category" && interaction.isStringSelectMenu()) {
     const selected = interaction.values[0];
     if (!CATEGORY_LABELS[selected] || !itemsFor(selected).length) throw new UserFacingError("Unknown category.");
-    await interaction.editReply(await dmItemPage(context, selected, 0));
+    await interaction.editReply(await dmCategoryIndex(context, selected));
     return true;
   }
   if (!interaction.isButton() &&
