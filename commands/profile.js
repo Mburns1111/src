@@ -590,7 +590,14 @@ function availableAppearanceChoices(field, ownership) {
   const category = APPEARANCE_FIELD_CATEGORY[field];
   const unlocked = choices.filter(id =>
     id === "match" || ownsAppearanceItem(ownership, category, id));
-  if (["fontColor", "headerFont", "bodyFont", "font"].includes(field)) return unlocked;
+  if (["headerFont", "bodyFont", "font"].includes(field)) return unlocked;
+  if (field === "fontColor") {
+    // A member can own any number of permanent purchased HEX text colors.
+    // Do not expose the raw template ID or anyone else's color codes.
+    const customOwned = [...(ownership?.fontColors || [])]
+      .filter(id => Boolean(customColorHex(id))).sort();
+    return [...new Set([...unlocked, ...customOwned])];
+  }
   if (field === "frame") {
     // Preserve a previously purchased retired border even if no longer sold.
     const legacy = Object.keys(APPEARANCE_CATALOG.frames).filter(id =>
@@ -1056,7 +1063,7 @@ export async function handleProfileAppearanceDM(interaction) {
   } else if (field === "opacity") {
     if (![0.2, 0.34, 0.5, 0.7, 0.9].includes(Number(value))) throw new UserFacingError("Invalid opacity.");
     draft.appearance.panelOpacity = Number(value);
-  } else if (["background", "panelColor"].includes(field) &&
+  } else if (["background", "panelColor", "fontColor"].includes(field) &&
              ["__next__", "__previous__"].includes(value)) {
     const { page, count } = appearanceChoicePage(field, draft.appearance, draft.optionPages, ownership);
     draft.optionPages[field] = Math.max(0, Math.min(count - 1,
