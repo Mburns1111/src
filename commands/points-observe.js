@@ -4,6 +4,7 @@ import { UserFacingError } from "./errors.js";
 import ParticipationSource from "../models/ParticipationSource.js";
 import NativePollParticipation from "../models/NativePollParticipation.js";
 import { messageVisibility, parseGuildMessageLink } from "../services/participation-observer.js";
+import { shouldRequestMessageContent } from "../services/observation-intents.js";
 
 const arcloChoices = [
   { name: "Arclo poll", value: "arclo-poll" },
@@ -118,7 +119,8 @@ export async function execute(interaction) {
         `Message: ${linkTo(guildId, parsed.channelId, parsed.messageId)}\n` +
         `Author: <@${details.authorId}> (${details.authorBot ? "bot" : "member"})\n` +
         `Embeds visible: ${details.embedCount} · Components visible: ${details.componentCount} · Text visible: ${details.hasContent ? "yes" : "no"} · Native poll object: ${details.nativePollVisible ? "yes" : "no"}\n\n` +
-        "**Caution:** Being able to fetch the message does not prove that AM Isa can see private giveaway entries, Arclo poll voters, or an ephemeral results panel. Message bodies and buttons authored by other bots may be hidden without Discord's privileged Message Content permission.",
+        `**Message Content diagnostic requested:** ${shouldRequestMessageContent() ? "YES (check that the Discord Developer Portal toggle is enabled)" : "NO — set ENABLE_MESSAGE_CONTENT_INTENT=1 and enable the intent in the test app's Developer Portal"}\\n\\n` +
+        "**Caution:** Being able to fetch a message does not prove AM Isa can see private giveaway entries, Arclo poll voters, or an ephemeral results panel. The Message Content privileged intent can expose public messages and their buttons, but cannot retrieve interactions sent to Arclo.",
       allowedMentions: { parse: [] },
     });
     return;
