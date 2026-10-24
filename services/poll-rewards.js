@@ -20,7 +20,7 @@ export function pollEventKey(messageId) {
 }
 
 export async function awardNativePollVote({ guildId, channelId, messageId, userId,
-  guild = null, now = new Date(), models = {} }) {
+  guild = null, now = new Date(), models = {}, sessionFactory = () => mongoose.startSession() }) {
   const {
     sources = ParticipationSource, participants = NativePollParticipation,
     ledger = PointsLedger, wallets = PointsWallet, counters = PointsWeeklyCounter,
@@ -55,7 +55,7 @@ export async function awardNativePollVote({ guildId, channelId, messageId, userI
   await counters.updateOne(period, { $setOnInsert: { ...period, pollPoints: 0 } },
     { upsert: true });
 
-  const session = await mongoose.startSession();
+  const session = await sessionFactory();
   let result = no("already_awarded");
   try {
     await session.withTransaction(async () => {
