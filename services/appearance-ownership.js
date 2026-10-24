@@ -17,7 +17,9 @@ export const APPEARANCE_FIELD_CATEGORY = Object.freeze({
   background: "backgrounds",
   panelColor: "panels",
   frame: "frames",
-  font: "fonts",
+  font: "fonts", // kept for older single-font appearance records
+  headerFont: "fonts",
+  bodyFont: "fonts",
   fontColor: "fontColors",
 });
 export async function getAppearanceOwnership(guildId, discordUserId) {
