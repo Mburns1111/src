@@ -6,6 +6,10 @@ import { grantPoints } from "../services/points-rewards.js";
 import { backfillMilestones } from "../services/points-backfill.js";
 import { POINTS_MILESTONES, POINTS_ACTIVITY_TARGETS, milestoneAwardAmount } from "../services/points-policy.js";
 import { requireGuild } from "./shared.js";
+import { BULK_REASON_CHOICES, parseBulkRecipients, bulkAwardDetails } from "../services/points-bulk.js";
+import { parseGuildMessageLink, syncNativePoll } from "../services/participation-observer.js";
+import { awardObservedPollVoters, POLL_POINTS_PER_POLL, POLL_WEEKLY_CAP } from "../services/poll-rewards.js";
+import ParticipationSource from "../models/ParticipationSource.js";
 import { UserFacingError } from "./errors.js";
 
 const milestoneChoices = Object.entries(POINTS_MILESTONES)
@@ -35,6 +39,19 @@ export const data = new SlashCommandBuilder()
       .setDescription("Points to give").setMinValue(1).setMaxValue(250))
     .addStringOption(o => o.setName("reason").setRequired(true)
       .setDescription("Short description for audit log").setMinLength(3).setMaxLength(140)))
+  .addSubcommand(c => c.setName("grant-multiple")
+    .setDescription("Credit several members for a giveaway, participation, or an event")
+    .addStringOption(o => o.setName("members").setDescription("Up to 20 mentions or user IDs, separated by spaces/commas").setRequired(true).setMaxLength(2000))
+    .addIntegerOption(o => o.setName("points").setDescription("Points for EACH member").setRequired(true).setMinValue(1).setMaxValue(250))
+    .addStringOption(o => o.setName("reason").setDescription("Reason for the award").setRequired(true).addChoices(...BULK_REASON_CHOICES))
+    .addStringOption(o => o.setName("note").setDescription("Optional detail (giveaway prize, event name)").setMaxLength(100))
+    .addStringOption(o => o.setName("reference").setDescription("Optional event ID, e.g. halloween-giveaway; prevents repeat payments").setMinLength(3).setMaxLength(80)))
+  .addSubcommand(c => c.setName("poll-approve")
+    .setDescription("Approve a native Discord poll for automatic 5-Point voting rewards")
+    .addStringOption(o => o.setName("link").setDescription("Discord native poll message link").setRequired(true)))
+  .addSubcommand(c => c.setName("poll-disable")
+    .setDescription("Stop further rewards from one approved native poll")
+    .addStringOption(o => o.setName("link").setDescription("Discord native poll message link").setRequired(true)))
   .addSubcommand(c => c.setName("history")
     .setDescription("See recent credits recorded for one member")
     .addUserOption(o => o.setName("member").setRequired(true)
@@ -60,7 +77,7 @@ export async function execute(interaction) {
     await interaction.editReply({
       content: `**Points milestones: ${settings?.milestonesEnabled === false ? "PAUSED" : "ENABLED"}**\n` +
         lines.join("\n") +
-        `\n\n**Phase 2 earning targets (not active yet):** first 7 days up to ${POINTS_ACTIVITY_TARGETS.starterWeekActivityCap} activity Points; later weeks up to ${POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap}; verified invite ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month).\nYour existing shop balance UI remains unchanged.`,
+        `\n\n**Phase 2 earning targets (not active yet):** first 7 days up to ${POINTS_ACTIVITY_TARGETS.starterWeekActivityCap} activity Points; later weeks up to ${POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap}; verified invite ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month).\n**Active test earning:** ${POLL_POINTS_PER_POLL} Points per approved native poll, up to ${POLL_WEEKLY_CAP} each UTC Monday–Sunday week. Arclo polls/giveaways do not award automatically.\nYour existing shop balance UI remains unchanged.`,
       allowedMentions: { parse: [] },
     });
     return;
@@ -86,6 +103,102 @@ export async function execute(interaction) {
     return;
   }
 
+  if (op === "poll-approve" || op === "poll-disable") {
+    const parsed = parseGuildMessageLink(interaction.options.getString("link", true), guildId);
+    if (!parsed) throw new UserFacingError("Paste a Discord poll message link from this server.");
+    const existing = await ParticipationSource.findOne({
+      guildId, messageId: parsed.messageId,
+    }).lean();
+    if (existing && (existing.source !== "discord-native-poll" ||
+        existing.channelId !== parsed.channelId)) {
+      throw new UserFacingError("This link is already registered as a different type of event.");
+    }
+    if (op === "poll-disable") {
+      if (!existing) throw new UserFacingError("That native poll hasn't been approved yet.");
+      await ParticipationSource.updateOne({ guildId, messageId: parsed.messageId,
+        source: "discord-native-poll" }, { $set: { rewardEnabled: false } });
+      await interaction.editReply({ content:
+        "Future Points rewards are disabled for this poll. Already earned Points remain unchanged." });
+      return;
+    }
+    const channel = await interaction.guild.channels.fetch(parsed.channelId).catch(() => null);
+    if (!channel?.messages?.fetch) throw new UserFacingError("AM Isa cannot read the poll channel.");
+    const message = await channel.messages.fetch(parsed.messageId).catch(() => null);
+    if (!message?.poll) throw new UserFacingError(
+      "This message isn't a native Discord poll. Arclo polls cannot be approved for automatic Points.");
+    await ParticipationSource.updateOne({ guildId, messageId: parsed.messageId,
+      source: "discord-native-poll" }, {
+      $setOnInsert: { guildId, messageId: parsed.messageId, channelId: parsed.channelId,
+        source: "discord-native-poll" },
+      $set: { rewardEnabled: true, rewardApprovedBy: actorId,
+        rewardApprovedAt: new Date(), lastObservedAt: new Date() },
+    }, { upsert: true });
+
+    let summary = "Approved this native Discord poll for **5 Points per unique participant**, subject to the **15-Point weekly poll cap**. Re-votes cannot earn twice.";
+    try {
+      const scan = await syncNativePoll(message);
+      const awards = await awardObservedPollVoters({
+        guildId, messageId: parsed.messageId, channelId: parsed.channelId,
+        guild: interaction.guild,
+      });
+      summary += `\nCurrent voters: ${scan.voters}. Newly awarded: ${awards.credited} member(s), +${awards.points} total Points. Skipped: ${awards.skipped} (already paid or at cap).`;
+    } catch (error) {
+      console.error("[Points] Poll approved, but initial voter payout requires review:", error);
+      summary += "\nExisting voter sync/payout could not complete; approval remains active. You can retry with /points-observe sync.";
+    }
+    await interaction.editReply({ content: summary, allowedMentions: { parse: [] } });
+    return;
+  }
+  if (op === "grant-multiple") {
+    let userIds;
+    let details;
+    try {
+      userIds = parseBulkRecipients(interaction.options.getString("members", true));
+      details = bulkAwardDetails(
+        interaction.options.getString("reason", true),
+        interaction.options.getString("note") ?? "",
+        interaction.options.getString("reference") ?? "");
+    } catch (error) {
+      throw new UserFacingError(error.message);
+    }
+    const amount = interaction.options.getInteger("points", true);
+    // Validate all current server members BEFORE crediting any of them.
+    const members = [];
+    for (const id of userIds) {
+      const member = await interaction.guild.members.fetch(id).catch(() => null);
+      if (!member || member.user.bot) {
+        throw new UserFacingError(`<@${id}> is not a current human member. No Points were issued.`);
+      }
+      members.push(member);
+    }
+    const eventKey = `manual-batch:${details.reference || interaction.id}`;
+    let credited = 0, duplicate = 0, failed = 0;
+    for (const member of members) {
+      try {
+        const award = await grantPoints({
+          guildId, userId: member.id, eventKey, amount,
+          kind: "manual", description: details.description,
+          actorId, sourceId: details.reference || interaction.id,
+        });
+        if (award.credited) credited++;
+        else duplicate++;
+      } catch (error) {
+        failed++;
+        console.error(`[Points] Bulk grant failed for ${member.id}:`, error);
+      }
+    }
+    await interaction.editReply({ content:
+      `**${details.description}** — ${amount} Points per member\n` +
+      `Credited: **${credited}** · Already credited: **${duplicate}** · Failed: **${failed}**\n` +
+      `Total awarded now: **${credited * amount} Points**\n` +
+      `Recipients: ${members.map(m => `<@${m.id}>`).join(", ")}\n` +
+      `Event reference: \`${details.reference || interaction.id}\`\n` +
+      (failed ? "**Some credits failed.** Retry the same command with the SAME reference to avoid paying successful recipients again." :
+        "Every award is recorded in each member's Points history."),
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
   const user = interaction.options.getUser("member", true);
   if (user.bot) throw new UserFacingError("Bot accounts aren't eligible for community Points.");
   // Direct awards and applied backfills must target a current server member,
