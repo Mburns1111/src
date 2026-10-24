@@ -28,6 +28,8 @@ const memberDmPanelSchema = new mongoose.Schema({
   shopMixReturnIndex: { type: Number, default: 0 },
   // HEX being reviewed before a paid purchase, scoped to this member's shop DM.
   shopPendingCustom: { type: mongoose.Schema.Types.Mixed, default: null },
+  // The exact Preview Multiple checkout quote, awaiting explicit confirmation.
+  shopPendingMixPurchase: { type: mongoose.Schema.Types.Mixed, default: null },
 }, { timestamps: true });
 
 memberDmPanelSchema.index(
