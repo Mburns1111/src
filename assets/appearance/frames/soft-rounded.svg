@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800"><defs>
+  <linearGradient id="silver" x1="0%" y1="0%" x2="70%" y2="100%">
+    <stop offset="0" stop-color="#283138"/><stop offset=".12" stop-color="#8F9DA8"/>
+    <stop offset=".25" stop-color="#F6FCFF"/><stop offset=".37" stop-color="#89959E"/>
+    <stop offset=".49" stop-color="#F8FBFD"/><stop offset=".65" stop-color="#5D6873"/>
+    <stop offset=".82" stop-color="#DCE7EA"/><stop offset="1" stop-color="#333C43"/>
+  </linearGradient>
+  <linearGradient id="silverPetal" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FFFFFF"/><stop offset=".24" stop-color="#C0CED8"/>
+    <stop offset=".56" stop-color="#56636C"/><stop offset=".77" stop-color="#E5F1F4"/>
+    <stop offset="1" stop-color="#77868D"/>
+  </linearGradient>
+  <linearGradient id="gold" x1="0%" y1="0%" x2="83%" y2="87%">
+    <stop offset="0" stop-color="#493013"/><stop offset=".1" stop-color="#9E651F"/>
+    <stop offset=".23" stop-color="#FFE8A1"/><stop offset=".35" stop-color="#AD751A"/>
+    <stop offset=".5" stop-color="#FFF2B7"/><stop offset=".69" stop-color="#BC8023"/>
+    <stop offset=".86" stop-color="#F9D875"/><stop offset="1" stop-color="#503618"/>
+  </linearGradient>
+  <linearGradient id="goldPetal" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FFF9DD"/><stop offset=".24" stop-color="#F2C756"/>
+    <stop offset=".58" stop-color="#855719"/><stop offset=".76" stop-color="#FFE5A4"/>
+    <stop offset="1" stop-color="#AE7228"/>
+  </linearGradient>
+  <linearGradient id="creamCushion" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#FFF9EC"/><stop offset=".27" stop-color="#F0E1CD"/>
+    <stop offset=".5" stop-color="#DCCBB9"/><stop offset=".73" stop-color="#FFF5E8"/>
+    <stop offset="1" stop-color="#AD9689"/>
+  </linearGradient>
+  <linearGradient id="charcoal" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#485257"/><stop offset=".13" stop-color="#B9C0C2"/>
+    <stop offset=".22" stop-color="#353D43"/><stop offset=".44" stop-color="#11181D"/>
+    <stop offset=".62" stop-color="#636C70"/><stop offset=".83" stop-color="#1B2329"/>
+    <stop offset="1" stop-color="#6B7476"/>
+  </linearGradient>
+  <radialGradient id="silverJewel">
+    <stop offset="0" stop-color="#FFFFFF"/><stop offset=".22" stop-color="#E5FAFF"/>
+    <stop offset=".56" stop-color="#97B1C2"/><stop offset=".76" stop-color="#3B4F60"/>
+    <stop offset="1" stop-color="#101D28"/>
+  </radialGradient>
+  <radialGradient id="goldJewel">
+    <stop offset="0" stop-color="#FFFEE4"/><stop offset=".33" stop-color="#FFE49A"/>
+    <stop offset=".64" stop-color="#D3A03C"/><stop offset="1" stop-color="#624015"/>
+  </radialGradient>
+</defs><rect x="15" y="15" width="1170" height="770" rx="62" ry="62" fill="none" stroke="#947C72" stroke-width="35" opacity="1"/><rect x="15" y="15" width="1170" height="770" rx="62" ry="62" fill="none" stroke="url(#creamCushion)" stroke-width="28" opacity="1"/><rect x="13" y="13" width="1174" height="774" rx="64" ry="64" fill="none" stroke="#FFFCF6" stroke-width="4" opacity="0.92"/><rect x="27" y="27" width="1146" height="746" rx="48" ry="48" fill="none" stroke="#C7AA9B" stroke-width="4" opacity="0.8"/><rect x="32" y="32" width="1136" height="736" rx="44" ry="44" fill="none" stroke="#FFF9EE" stroke-width="3" opacity="0.97"/><ellipse cx="63" cy="28" rx="6" ry="6" fill="url(#creamCushion)" stroke="#C0A596" stroke-width="1.4" transform=""/><ellipse cx="61" cy="26" rx="1.5" ry="1.5" fill="#FFFDF8" stroke="none" stroke-width="0" transform=""/><ellipse cx="1137" cy="28" rx="6" ry="6" fill="url(#creamCushion)" stroke="#C0A596" stroke-width="1.4" transform=""/><ellipse cx="1135" cy="26" rx="1.5" ry="1.5" fill="#FFFDF8" stroke="none" stroke-width="0" transform=""/><ellipse cx="63" cy="772" rx="6" ry="6" fill="url(#creamCushion)" stroke="#C0A596" stroke-width="1.4" transform=""/><ellipse cx="61" cy="770" rx="1.5" ry="1.5" fill="#FFFDF8" stroke="none" stroke-width="0" transform=""/><ellipse cx="1137" cy="772" rx="6" ry="6" fill="url(#creamCushion)" stroke="#C0A596" stroke-width="1.4" transform=""/><ellipse cx="1135" cy="770" rx="1.5" ry="1.5" fill="#FFFDF8" stroke="none" stroke-width="0" transform=""/><ellipse cx="24" cy="400" rx="9" ry="9" fill="url(#creamCushion)" stroke="#AD958A" stroke-width="1.7" transform=""/><ellipse cx="22" cy="398" rx="2" ry="2" fill="#FFF8EC" stroke="none" stroke-width="0" transform=""/><ellipse cx="1176" cy="400" rx="9" ry="9" fill="url(#creamCushion)" stroke="#AD958A" stroke-width="1.7" transform=""/><ellipse cx="1174" cy="398" rx="2" ry="2" fill="#FFF8EC" stroke="none" stroke-width="0" transform=""/><ellipse cx="600" cy="24" rx="9" ry="9" fill="url(#creamCushion)" stroke="#AD958A" stroke-width="1.7" transform=""/><ellipse cx="598" cy="22" rx="2" ry="2" fill="#FFF8EC" stroke="none" stroke-width="0" transform=""/><ellipse cx="600" cy="776" rx="9" ry="9" fill="url(#creamCushion)" stroke="#AD958A" stroke-width="1.7" transform=""/><ellipse cx="598" cy="774" rx="2" ry="2" fill="#FFF8EC" stroke="none" stroke-width="0" transform=""/></svg>
