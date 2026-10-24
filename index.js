@@ -70,6 +70,8 @@ import { execute as executePointsAdmin, data as pointsAdminCommand } from "./com
 import { execute as executePointsObserve, data as pointsObserveCommand } from "./commands/points-observe.js";
 import { observeNativePollVote, parseNativePollClientEvent } from "./services/participation-observer.js";
 import { awardNativePollVote } from "./services/poll-rewards.js";
+import { awardMessageActivity, eligibleVoiceStates, recordVoiceMinute } from "./services/activity-rewards.js";
+import PointsSettings from "./models/PointsSettings.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
@@ -103,6 +105,7 @@ const client = new Client({
   // be explicitly enabled on the TEST bot only (plus Discord Portal toggle).
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages,
     GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMessagePolls,
+    GatewayIntentBits.GuildVoiceStates,
     ...(shouldRequestMessageContent() ? [GatewayIntentBits.MessageContent] : [])],
   partials: [Partials.Channel, Partials.Message, Partials.Poll, Partials.PollAnswer],
 });
@@ -161,6 +164,45 @@ function handlePollEvent(pollAnswer, userId, added) {
 }
 client.on(Events.MessagePollVoteAdd, (answer, userId) => handlePollEvent(answer, userId, true));
 client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answer, userId, false));
+
+// Messages are never stored or logged: only a short SHA-256 digest is kept to
+// prevent immediately repeating the same message for Points.
+client.on(Events.MessageCreate, message => {
+  if (!message.guildId || message.author?.bot || !message.content) return;
+  awardMessageActivity(message).then(result => {
+    if (result.credited) console.log(`[Points] Chat +${result.amount} to ${message.author.id}.`);
+  }).catch(error => {
+    console.error("[Points] Could not award qualifying message:", error);
+  });
+});
+
+// Process each calendar minute only once while the bot is online. Cached voice
+// states require GuildVoiceStates intent; no recorded audio or speech analysis.
+let voiceActivityTimer;
+let voiceTickRunning = false;
+async function voiceActivityTick() {
+  if (voiceTickRunning || !client.isReady()) return;
+  voiceTickRunning = true;
+  try {
+    const now = new Date();
+    for (const guild of client.guilds.cache.values()) {
+      const settings = await PointsSettings.findOne({ guildId: guild.id }).lean();
+      if (settings?.voiceRewardsEnabled !== true) continue;
+      for (const member of eligibleVoiceStates(guild)) {
+        try {
+          const reward = await recordVoiceMinute({ guildId: guild.id, member, now });
+          if (reward.credited) console.log(`[Points] Voice +${reward.amount} to ${member.id}.`);
+        } catch (error) {
+          console.error("[Points] Could not record voice minute:", error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[Points] Voice tick failed:", error);
+  } finally {
+    voiceTickRunning = false;
+  }
+}
 
 let discordReadyTimeout;
 
@@ -243,6 +285,8 @@ async function sendProfileReminder(interaction) {
 
 client.once(Events.ClientReady, (readyClient) => {
   clearTimeout(discordReadyTimeout);
+  voiceActivityTimer = setInterval(() => void voiceActivityTick(), 60_000);
+  voiceActivityTimer.unref?.();
   console.log(`Bot is online as ${readyClient.user.tag}.`);
   startupMaintenancePromise = (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
@@ -584,6 +628,7 @@ async function start() {
 
 async function shutdown(signal) {
   console.log(`Received ${signal}; shutting down.`);
+  if (voiceActivityTimer) clearInterval(voiceActivityTimer);
   await client.destroy();
   await mongoose.disconnect();
   process.exit(0);
