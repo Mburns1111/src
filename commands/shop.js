@@ -78,7 +78,7 @@ async function featuredPage(context, category) {
   const balance = await walletBalance(context.guildId, context.user.id);
   return {
     embeds: [new EmbedBuilder().setTitle(`${CATEGORY_LABELS[category]} · Featured`)
-      .setDescription(`Our top ${featured.length} picks!\n**Your Points: ${balance}**\nBrowse Items starts at the cheapest design.`), ...cards.embeds],
+      .setDescription(`Featured designs!\n**Your Points: ${balance}**\nBrowse Items starts at the cheapest design.`), ...cards.embeds],
     files: cards.files,
     attachments: [],
     components: [new ActionRowBuilder().addComponents(
@@ -91,7 +91,7 @@ async function storefrontCategoryPayload(category, featured) {
   const cards = await featuredCards(featured);
   return {
     embeds: [new EmbedBuilder().setTitle(CATEGORY_LABELS[category])
-      .setDescription(`Top ${featured.length} picks below. Browse all ${CATEGORY_LABELS[category].toLowerCase()} in your DMs.`),
+      .setDescription(`Featured designs below. Browse all ${CATEGORY_LABELS[category].toLowerCase()} in your DMs.`),
       ...cards.embeds],
     files: cards.files,
     attachments: [],
@@ -159,7 +159,7 @@ async function walletBalance(guildId, userId) {
 function itemPage(item, index, total, balance, owned, category = null) {
   const canAfford = balance >= item.price;
   const embed = new EmbedBuilder().setTitle(`Appearance Shop · ${index + 1}/${total}`)
-    .setDescription(`**${item.name}**\nCategory: ${item.category}\nPrice: **${item.price} Points**\nStatus: **${owned ? "Owned" : "Not owned"}**\nYour balance: **${balance} Points**${!owned && !canAfford ? `\n**You need ${item.price - balance} more Points to buy this.**` : ""}\n\nUse Preview to see this on your own profile without saving it.`);
+    .setDescription(`**${item.name}**\nCategory: ${CATEGORY_LABELS[item.category] || item.category}\nPrice: **${item.price} Points**\nStatus: **${owned ? "Owned" : "Not owned"}**\nYour balance: **${balance} Points**${!owned && !canAfford ? `\n**You need ${item.price - balance} more Points to buy this.**` : ""}\n\nUse Preview to see this on your own profile without saving it.`);
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index - 1}`).setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(index === 0 && !category),
     new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index + 1}`).setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(index === total - 1),
