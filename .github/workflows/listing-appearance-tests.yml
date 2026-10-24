@@ -1,0 +1,35 @@
+name: Listing Appearance Development Tests
+on:
+  push:
+    branches:
+      - feature/listing-appearance
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Check modified JavaScript syntax
+        run: |
+          node --check commands/listing-appearance-editor.js
+          node --check commands/profile.js
+          node --check commands/shop.js
+          node --check commands/trading-post.js
+          node --check commands/house.js
+          node --check commands/outfit.js
+          node --check services/listing-appearance.js
+          node --check services/post-renderer.js
+          node --check services/post-layouts.js
+          node --check index.js
+      - name: Run entire automated test suite
+        run: npm test
