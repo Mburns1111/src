@@ -14,6 +14,20 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] A nonmember cannot use another server's shop; members cannot spend another member's Points.
 - [ ] /shop balance reflects purchases, and a purchase receipt is sent once.
 
+## A1. Classic shared category showcases (one sheet per category)
+- [ ] The public shop still has **six separate category messages**.
+- [ ] Each category displays one **large Classic Collection** sheet instead of multiple classic featured cards.
+- [ ] Backgrounds and Panels reuse their original 27-shade charts.
+- [ ] Frames shows six actual frame examples stacked together on one image.
+- [ ] Fonts shows all six font samples on one image; lettering appears visually distinct.
+- [ ] Stickers shows one gallery of currently available stickers, not per-sticker profile example cards.
+- [ ] Text Colors shows included colors, Plum and the Custom HEX option on one sheet.
+- [ ] The same shared image appears inside the permanent DM's category index above the dropdown.
+- [ ] Classic item detail and confirmation screens stay image-light; **My Preview** still shows your own profile.
+- [ ] **Preview Multiple** works as before, and the category buttons/All Items navigation still work.
+- [ ] A future nonclassic background or panel remains independently selectable and may have its own preview.
+- [ ] Switching `STICKER_SEASONS_OVERRIDE` regenerates the seasonal sticker gallery without removing owned stickers.
+
 ## A2. Fast category index and direct jump navigation
 - [ ] First opening of **every category** shows an item index with names, prices, and owned statuses **rather than immediately loading a large preview image**.
 - [ ] The dropdown opens a chosen item directly (try the very last listed font, frame, and sticker).
