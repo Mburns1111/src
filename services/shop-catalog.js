@@ -5,8 +5,9 @@ import { APPEARANCE_CATALOG } from "./post-appearance.js";
 import { FREE_APPEARANCE } from "./appearance-ownership.js";
 
 // Classic colors are in color-wheel order: Pastel, Normal, Dark within each
-// family. The free standard swatches are displayed as included (0 Points).
-// Retired starter backgrounds/panels remain renderable but aren't sold.
+// family. The original free Starter Sage background is NOT a shop item;
+// all 27 Classic backgrounds cost Points. Only the standard Classic Gray panel
+// is included at 0 Points. Retired paid starter styles remain renderable.
 const prices = {
   backgrounds: CLASSIC_BACKGROUND_PRICES,
   panels: CLASSIC_PANEL_PRICES,
