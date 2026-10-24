@@ -18,7 +18,7 @@ export const CLASSIC_SHOP_ITEMS = Object.freeze({
     "default", "doubleLine", "softRounded", "silverFloral", "goldCelestial", "blackKnight",
   ]),
   fonts: Object.freeze(["default", ...Object.keys(SHOP_FONT_STYLES)]),
-  fontColors: Object.freeze(["default", "black", "white", "plum"]),
+  fontColors: Object.freeze(["default", "black", "white"]),
   stickers: Object.freeze(Object.keys(STICKER_CATALOG)),
 });
 
