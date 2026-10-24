@@ -62,7 +62,7 @@ test("voice eligibility requires two live humans, not AFK, bot, stage-suppressed
 });
 
 function makeFakeActivityDb() {
-  const states = new Map(), receipts = new Map(), earned = new Map();
+  const states = new Map(), receipts = new Map(), earned = new Map(), dailyCounts = new Map();
   let wallet = 0, enabled = true;
   const models = {
     settings: { findOne() { return { async lean() {
@@ -75,6 +75,17 @@ function makeFakeActivityDb() {
         if (cur > key.earned.$lte) return null;
         earned.set(key.periodKey, cur + change.$inc.earned);
         return { earned: cur + change.$inc.earned };
+      },
+    },
+    messageDaily: {
+      async updateOne(key) {
+        if (!dailyCounts.has(key.dayUtc)) dailyCounts.set(key.dayUtc, 0);
+      },
+      async findOneAndUpdate(key, patch) {
+        const count = dailyCounts.get(key.dayUtc);
+        if (count >= key.messagesRewarded.$lt) return null;
+        dailyCounts.set(key.dayUtc, count + patch.$inc.messagesRewarded);
+        return { messagesRewarded: count + patch.$inc.messagesRewarded };
       },
     },
     messageStates: {
@@ -97,7 +108,7 @@ function makeFakeActivityDb() {
     },
     wallets: { async findOneAndUpdate(_key, change) { wallet += change.$inc.balance; } },
   };
-  return { models, receipts, earned, states,
+  return { models, receipts, earned, states, dailyCounts,
     sessionFactory: async () => ({ async withTransaction(fn) { await fn(); }, async endSession() {} }),
     setEnabled(v) { enabled = v; },
     get balance() { return wallet; },
@@ -199,4 +210,28 @@ test("activity models have unique guild, member and period indexes", () => {
     field.guildId === 1 && field.discordUserId === 1 && spec.unique));
   assert.ok(PointsVoiceProgress.schema.indexes().some(([field, spec]) =>
     field.guildId === 1 && field.discordUserId === 1 && field.periodKey === 1 && spec.unique));
+});
+
+test("per-day message throttle prevents more than ten credits", async () => {
+  const db = makeFakeActivityDb();
+  const origin = new Date("2026-10-24T10:00:00Z");
+  for (let i = 0; i < 10; i++) {
+    const result = await awardRepeatableActivity({
+      guildId, userId, joinedAt: oldMemberJoin,
+      type: "message", eventKey: `daily-msg-${i}`,
+      messageHash: `unique-${i}`,
+      now: new Date(origin.getTime() + i * 2 * 60_000),
+      models: db.models, sessionFactory: db.sessionFactory,
+    });
+    assert.equal(result.amount, 2, `message ${i + 1} should earn two Points`);
+  }
+  const excess = await awardRepeatableActivity({
+    guildId, userId, joinedAt: oldMemberJoin,
+    type: "message", eventKey: "daily-msg-11", messageHash: "unique-11",
+    now: new Date(origin.getTime() + 30 * 60_000),
+    models: db.models, sessionFactory: db.sessionFactory,
+  });
+  assert.equal(excess.reason, "daily_message_limit");
+  assert.equal(db.balance, 20);
+  assert.equal(db.receipts.size, 10);
 });
