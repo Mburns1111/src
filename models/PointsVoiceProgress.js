@@ -8,6 +8,7 @@ const schema = new mongoose.Schema({
   periodKey: { type: String, required: true },
   eligibleMinutes: { type: Number, default: 0, min: 0 },
   lastMinuteStamp: { type: Number, default: 0 },
+  lastSettledBlock: { type: Number, default: 0 },
 }, { timestamps: true });
 schema.index({ guildId: 1, discordUserId: 1, periodKey: 1 }, { unique: true });
 export default mongoose.model("PointsVoiceProgress", schema);
