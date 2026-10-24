@@ -431,8 +431,14 @@ async function handleShopDM(interaction) {
   } else if (action === "confirm") {
     await purchase(context, sortedItems(category)[index]);
     await interaction.editReply(await dmItemPage(context, category, index));
-    await sendTemporaryDmNotice(interaction.user,
-      `✅ **Purchased ${sortedItems(category)[index].name} for ${sortedItems(category)[index].price} Points!** You can equip it using **Customize Profile** in your permanent shop.`);
+    // The purchase has already committed. A failed optional receipt should
+    // never make a successful purchase look like it failed.
+    try {
+      await sendTemporaryDmNotice(interaction.user,
+        `✅ **Purchased ${sortedItems(category)[index].name} for ${sortedItems(category)[index].price} Points!** You can equip it using **Customize Profile** in your permanent shop.`);
+    } catch (error) {
+      console.warn("Purchase succeeded, but the DM receipt could not be sent:", error);
+    }
   } else {
     throw new UserFacingError("Unknown shop action.");
   }
