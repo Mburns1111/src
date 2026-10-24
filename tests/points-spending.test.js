@@ -114,10 +114,12 @@ test("future spending sources share the same helper without shop assumptions", a
 
 test("ledger stores negative spends but rejects zero and decimal amounts", () => {
   const field = PointsLedger.schema.path("amount");
-  assert.equal(field.validators[0].validator(-50), true);
-  assert.equal(field.validators[0].validator(10), true);
-  assert.equal(field.validators[0].validator(0), false);
-  assert.equal(field.validators[0].validator(1.5), false);
+  const validator = field.validators.find(v => v.message === "Points movements must be nonzero signed integers")?.validator;
+  assert.equal(typeof validator, "function");
+  assert.equal(validator(-50), true);
+  assert.equal(validator(10), true);
+  assert.equal(validator(0), false);
+  assert.equal(validator(1.5), false);
   assert.ok(AUDIT_TYPES.some(x => x.value === "spend"));
   assert.ok(AUDIT_TYPES.some(x => x.value === "refund"));
   assert.ok(typeof refundPoints === "function");
