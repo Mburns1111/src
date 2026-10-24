@@ -468,9 +468,75 @@ async function previewPayload(context, item, mix = {}) {
 async function preview(interaction, item) {
   await interaction.editReply(await previewPayload(interaction, item));
 }
+function customColorModal(guildId, category, index) {
+  if (!CUSTOM_COLOR_PRICES[category]) throw new UserFacingError("Custom colors are only available for backgrounds and panels.");
+  return new ModalBuilder()
+    .setCustomId(`shop:dm:${guildId}:customSubmit:${category}:${index}`)
+    .setTitle(`Custom ${category === "backgrounds" ? "Background" : "Panel"} · ${CUSTOM_COLOR_PRICES[category]} Points`)
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Your six-digit HEX color")
+        .setDescription("Enter #RRGGBB, for example #C7DDBC. Review it before paying.")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("custom_hex")
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder("#C7DDBC")
+            .setMinLength(6)
+            .setMaxLength(7)
+            .setRequired(true),
+        ),
+    );
+}
+
+async function dmCustomReview(context, category, hex) {
+  const normalized = normalizeHexColor(hex);
+  if (!normalized || !CUSTOM_COLOR_PRICES[category]) throw new UserFacingError("Invalid custom HEX color.");
+  const id = customColorId(normalized);
+  const [ownership, balance] = await Promise.all([
+    getAppearanceOwnership(context.guildId, context.user.id),
+    walletBalance(context.guildId, context.user.id),
+  ]);
+  const price = CUSTOM_COLOR_PRICES[category];
+  const owned = ownsAppearanceItem(ownership, category, id);
+  const canAfford = balance >= price;
+  // The color is applied only to a try-on. The real profile is untouched.
+  const result = await previewPayload(context, { id, category, name: customColorLabel(id) });
+  result.content = `**Custom ${CATEGORY_LABELS[category]} · ${normalized}**\n` +
+    `Price: **${price} Points** (3× a regular color) · Your balance: **${balance} Points**\n` +
+    (owned ? "**You already own this exact color.** Equip it in Customize Profile—no need to pay again."
+      : !canAfford ? `You need **${price - balance} more Points** to purchase this color.`
+      : `Confirm to save **${normalized}** permanently to your ${CATEGORY_LABELS[category].toLowerCase()} collection.\nBalance after purchase: **${balance - price} Points**.`) +
+    "\n\n**Preview only until Confirm Purchase is pressed.**";
+  const customIndex = sortedItems(category).findIndex(item => item.id === CUSTOM_COLOR_SHOP_ID);
+  result.components = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`shop:dm:${context.guildId}:customConfirm:${category}:${normalized.slice(1)}`)
+        .setLabel(owned ? "Already Owned" : `Confirm Purchase · ${price}`)
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(owned || !canAfford),
+      new ButtonBuilder()
+        .setCustomId(`shop:dm:${context.guildId}:customOpen:${category}:${customIndex}`)
+        .setLabel("Change HEX Code")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`shop:dm:${context.guildId}:page:${category}:${customIndex}`)
+        .setLabel("← Back to Shop")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+    dmCategoryMenu(context.guildId, category),
+    dmShopTools(context.guildId, category, customIndex),
+  ];
+  return result;
+}
+
 async function purchase(interaction, item) {
   if (item.included) {
     throw new UserFacingError("This standard color is already included free with every profile.");
+  }
+  if (item.id === CUSTOM_COLOR_SHOP_ID || !appearanceCatalogItem(item.category, item.id)) {
+    throw new UserFacingError("Choose a valid HEX code before purchasing a custom color.");
   }
   // Wallet deduction and item grant must commit together. Requires MongoDB transactions.
   const session = await mongoose.startSession();
