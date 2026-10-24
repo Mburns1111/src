@@ -43,3 +43,11 @@ The Frames classic image no longer shrinks six full profile cards. It enlarges *
 The live preview shows an itemized **Purchase All** total. Only explicitly selected, not-yet-owned sale items count; included/free items and already-owned items cost 0. Fonts chosen for both headings and body are deduplicated by their stable font ID, while two different fonts are separate purchases. Matching panels and `No Stickers` are preview operations, not products.
 
 **Purchase All** requires an explicit confirmation. It rechecks the member's exact selection, product availability (including seasonal stickers), ownership, prices and wallet balance, and grants all paid items in one MongoDB transaction. It **does not equip** them; members can equip purchased designs in Customize Profile. Cancelling or editing the preview never charges Points. Custom HEX shades must first be purchased by the normal HEX purchase flow; already-owned custom colors can be included free in a preview.
+
+## Classic panel matching — entitlement rule
+
+**Owning a Classic background lets you choose Match background for the panels at no extra cost.** This is a *dynamic display mode*, stored as `panelColor: "match"`; it follows whatever owned background the member currently equips. It does **not** grant a separate purchased panel color.
+
+To keep a particular Classic panel shade when switching to a different background, the member must separately own that **panel** item (the same color name is not interchangeable between `backgrounds` and `panels`). An unowned explicit panel ID is rejected or reset to the free default panel when the appearance is filtered before saving/rendering.
+
+Preview Multiple allows trying combinations without ownership; Purchase All counts a separately selected locked panel at its own price. The `match` mode has **zero** additional price, and buying a background never writes a matching panel ID to inventory. Regression coverage: `tests/shop-panel-matching.test.js`.
