@@ -36,6 +36,7 @@ export function starterClassicBasketCost() {
 // take several weeks once members have purchased their starter collection.
 export const POINTS_ACTIVITY_TARGETS = Object.freeze({
   starterWeekActivityCap: 425,
+  firstWeekActivityMultiplier: 2, // applied to eligible repeatable activity in Phase 2
   laterWeeklyActivityCap: 225,
   invitationReward: 40,
   inviteMinimumMembershipDays: 7,
