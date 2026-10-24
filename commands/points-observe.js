@@ -3,6 +3,8 @@ import { requireGuild } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 import ParticipationSource from "../models/ParticipationSource.js";
 import NativePollParticipation from "../models/NativePollParticipation.js";
+import PointsLedger from "../models/PointsLedger.js";
+import { awardObservedPollVoters, pollEventKey, POLL_POINTS_PER_POLL } from "../services/poll-rewards.js";
 import { messageVisibility, parseGuildMessageLink, publicEmbedDiagnostic, syncNativePoll } from "../services/participation-observer.js";
 import { shouldRequestMessageContent } from "../services/observation-intents.js";
 
@@ -32,6 +34,10 @@ export const data = new SlashCommandBuilder()
       .setDescription("Type of Arclo message").addChoices(...arcloChoices))
     .addStringOption(option => option.setName("link").setRequired(true)
       .setDescription("Discord link to the Arclo-authored message")))
+  .addSubcommand(command => command.setName("voters")
+    .setDescription("Show individual current voters and Points status for a native Discord poll")
+    .addStringOption(option => option.setName("link").setRequired(true)
+      .setDescription("Discord message link to the native poll")))
   .addSubcommand(command => command.setName("sync")
     .setDescription("Fetch current native Discord poll voters, including missed/restarted votes")
     .addStringOption(option => option.setName("link").setRequired(true)
@@ -115,6 +121,36 @@ export async function execute(interaction) {
     return;
   }
 
+  if (command === "voters") {
+    const parsed = parseGuildMessageLink(link, guildId);
+    if (!parsed) throw new UserFacingError("Paste a Discord message link from this server.");
+    const source = await ParticipationSource.findOne({
+      guildId, messageId: parsed.messageId, channelId: parsed.channelId,
+      source: "discord-native-poll",
+    }).lean();
+    if (!source) throw new UserFacingError("No observation yet. Use /points-observe sync first.");
+    const voters = await NativePollParticipation.find({
+      guildId, messageId: parsed.messageId, "answerIds.0": { $exists: true },
+    }).select("discordUserId answerIds").sort({ discordUserId: 1 }).limit(31).lean();
+    const shown = voters.slice(0, 30);
+    const receipts = await PointsLedger.find({
+      guildId, eventKey: pollEventKey(parsed.messageId),
+      discordUserId: { $in: shown.map(v => v.discordUserId) },
+    }).select("discordUserId amount").lean();
+    const awarded = new Set(receipts.map(v => v.discordUserId));
+    const lines = shown.map(v =>
+      `• <@${v.discordUserId}> — Voted${awarded.has(v.discordUserId) ? ` · +${POLL_POINTS_PER_POLL} Points awarded` : " · No reward recorded"}`);
+    await interaction.editReply({ content:
+      `**Native poll participants**\n${linkTo(guildId, parsed.channelId, parsed.messageId)}\n` +
+      `Rewards: **${source.rewardEnabled ? "Enabled" : "Not approved / disabled"}**\n` +
+      `**Current voters shown: ${shown.length}${voters.length > 30 ? " (first 30 only)" : ""}**\n` +
+      (lines.length ? lines.join("\n") : "No active votes recorded.") +
+      "\n\nRemoving a vote removes a member from this current-voter list but doesn't refund an award already earned.",
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
+
   const { parsed, message } = await findMessage(interaction, link);
   if (command === "sync") {
     if (!message.poll) throw new UserFacingError(
@@ -130,11 +166,28 @@ export async function execute(interaction) {
       throw new UserFacingError(
         "Discord could not provide the poll voter list. Check AM Isa's View Channel/Read Message History permissions and test bot logs. No Points were awarded.");
     }
+    // A staff-requested sync can recover missed payouts, but only after an
+    // explicit poll approval. All credits use the exact same idempotent ledger
+    // key as live vote events and respect the per-member 15-Point weekly cap.
+    let payout;
+    try {
+      payout = await awardObservedPollVoters({
+        guildId, channelId: parsed.channelId, messageId: parsed.messageId,
+        guild: interaction.guild,
+      });
+    } catch (error) {
+      console.error("[Points observe] Poll sync succeeded but rewards require review:", error);
+      payout = { approved: true, failed: true };
+    }
     await interaction.editReply({
       content: `**Native Discord poll synced**\n${linkTo(guildId, parsed.channelId, parsed.messageId)}\n` +
         `**Currently observed voters: ${result.voters} unique members** across ${result.answers} answers.\n` +
         `Fetched ${result.pages} voter page(s) directly from Discord. Re-running sync updates the current count after a removed vote.\n\n` +
-        "**Observation only — no Points awarded.**",
+        (payout.failed
+          ? "**Rewards:** Some eligible credits need review; check test bot logs."
+          : payout.approved
+            ? `**Rewards:** +${payout.points} Points newly awarded to ${payout.credited} member(s); ${payout.skipped} skipped (already rewarded or capped).`
+            : "**Rewards:** This poll is not approved, so no Points were awarded."),
       allowedMentions: { parse: [] },
     });
     return;
