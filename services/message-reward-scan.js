@@ -190,7 +190,13 @@ export async function scanAndAwardMessages({ guild, manager, hours = 24,
   if (ids.length) {
     const possible = await PointsLedger.find({
       guildId, discordUserId: { $in: ids }, kind: "message",
-      eventKey: /^activity-message:/,
+      // Snowflake IDs sort chronologically as decimal strings in the same
+      // modern Discord ID width. A one-cooldown margin on both ends includes
+      // live awards that might affect the first/last scanned messages.
+      eventKey: {
+        $gte: messageAwardKey(snowflakeAtTimestamp(snapshot.since - MESSAGE_COOLDOWN_MS)),
+        $lt: messageAwardKey(snowflakeAtTimestamp(snapshot.cutoff + MESSAGE_COOLDOWN_MS)),
+      },
     }).select("discordUserId eventKey").limit(20001).lean();
     if (possible.length > 20000) {
       throw new Error("Too many historical message receipts to audit safely. Narrow the scan before awarding.");
