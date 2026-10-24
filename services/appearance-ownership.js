@@ -1,11 +1,12 @@
+import { STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID } from "./classic-colors.js";
 import AppearanceInventory from "../models/AppearanceInventory.js";
 import { APPEARANCE_CATALOG, resolveAppearance } from "./post-appearance.js";
 
 // Free starter options. All other catalog entries require an owned item.
 // Adjust this curated list when the free starter catalog is finalized.
 export const FREE_APPEARANCE = Object.freeze({
-  backgrounds: ["default", "sagePreview"],
-  panels: ["default"],
+  backgrounds: [STANDARD_BACKGROUND_ID, "default", "sagePreview"],
+  panels: [STANDARD_PANEL_ID, "default"],
   frames: ["default"],
   fonts: ["default"],
   fontColors: ["default", "black", "white"],
@@ -36,7 +37,7 @@ export function filterOwnedAppearance(input, ownership) {
   for (const [field, category] of Object.entries(APPEARANCE_FIELD_CATEGORY)) {
     if (field === "panelColor" && appearance[field] === "match") continue;
     if (!ownsAppearanceItem(ownership, category, appearance[field])) {
-      appearance[field] = field === "background" ? "sagePreview" : field === "panelColor" ? "match" : "default";
+      appearance[field] = field === "background" ? STANDARD_BACKGROUND_ID : field === "panelColor" ? STANDARD_PANEL_ID : "default";
     }
   }
   appearance.stickers = appearance.stickers.filter(sticker =>
