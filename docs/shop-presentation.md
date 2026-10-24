@@ -51,3 +51,9 @@ The live preview shows an itemized **Purchase All** total. Only explicitly selec
 To keep a particular Classic panel shade when switching to a different background, the member must separately own that **panel** item (the same color name is not interchangeable between `backgrounds` and `panels`). An unowned explicit panel ID is rejected or reset to the free default panel when the appearance is filtered before saving/rendering.
 
 Preview Multiple allows trying combinations without ownership; Purchase All counts a separately selected locked panel at its own price. The `match` mode has **zero** additional price, and buying a background never writes a matching panel ID to inventory. Regression coverage: `tests/shop-panel-matching.test.js`.
+
+## Selected-item thumbnail and optional Equip All
+
+The shared **Classic category showcase** remains unchanged. When a member picks a Classic item from the index, their item detail and **Confirm Purchase** page show one **small, item-specific image**: a color swatch, an enlarged frame corner, a legible font example, or a sticker example. **My Preview** and **Preview Multiple** remain full personalized profiles.
+
+On successful **Purchase All**, the same permanent shop DM displays a final choice: **Equip All** or **Continue Shopping**. Purchase remains an all-or-nothing wallet/inventory transaction. The exact purchased preview selection is recorded for optional equipping. **Equip All** checks that all selected items are owned, overlays the chosen combination onto the member's current saved appearance (retaining unselected categories), saves it, and refreshes the public profile card. Continue Shopping never changes their saved appearance. No second charge is made when equipping; a failed public-card refresh leaves the purchased snapshot available for retry.
