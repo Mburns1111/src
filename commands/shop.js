@@ -602,7 +602,10 @@ async function handleShopDM(interaction) {
     await interaction.editReply(await dmItemPage(context, selected, 0));
     return true;
   }
-  if (!interaction.isButton()) throw new UserFacingError("Unknown shop control.");
+  if (!interaction.isButton() &&
+      !((action === "family" || action === "familyPreview") && interaction.isStringSelectMenu())) {
+    throw new UserFacingError("Unknown shop control.");
+  }
   if (action === "appearance") {
     return openAppearanceDMFromShop(interaction, guild);
   }
