@@ -538,7 +538,7 @@ export async function ensureProfileCard(guild, user, { refresh = false } = {}) {
 // The full classic spectrum (27 choices) is paged to obey Discord's
 // 25-select-option limit. The free standard colors are labeled clearly.
 const APPEARANCE_CHOICES = {
-  background: CLASSIC_COLOR_OPTIONS.map(item => item.id),
+  background: [STANDARD_BACKGROUND_ID, ...CLASSIC_COLOR_OPTIONS.map(item => item.id)],
   panelColor: ["match", ...CLASSIC_COLOR_OPTIONS.map(item => item.id)],
   font: ["default", "classic"],
   fontColor: ["default", "black", "white", "plum"],
@@ -549,6 +549,7 @@ const APPEARANCE_LABELS = {
     item.id,
     item.name,
   ])),
+  sagePreview: "Starter Sage (free)",
   match: "Match background",
   default: "Default",
   classic: "Classic serif",
@@ -604,10 +605,11 @@ function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
   const options = visible.map(id => ({
     label: !APPEARANCE_CHOICES[field].includes(id)
       ? `Retired · ${RETIRED_COLOR_NAMES[id] || id}`
-      : ((field === "background" && id === STANDARD_BACKGROUND_ID) ||
-          (field === "panelColor" && id === STANDARD_PANEL_ID))
-        ? `${APPEARANCE_LABELS[id]} (Free · Standard)`
-        : APPEARANCE_LABELS[id] || id,
+      : field === "background" && id === STANDARD_BACKGROUND_ID
+        ? "Starter Sage (free)"
+        : field === "panelColor" && id === STANDARD_PANEL_ID
+          ? `${APPEARANCE_LABELS[id]} (Free · Standard)`
+          : APPEARANCE_LABELS[id] || id,
     value: id,
     default: appearance[field] === id,
     description: !APPEARANCE_CHOICES[field].includes(id)
