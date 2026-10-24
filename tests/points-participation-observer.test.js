@@ -5,7 +5,7 @@ import ParticipationSource from "../models/ParticipationSource.js";
 import NativePollParticipation from "../models/NativePollParticipation.js";
 import {
   parseNativePollEvent, parseGuildMessageLink, messageVisibility,
-  observeNativePollVote,
+  observeNativePollVote, publicEmbedDiagnostic,
 } from "../services/participation-observer.js";
 
 const guildId = "1561372971355086958";
@@ -100,4 +100,32 @@ test("points-observe manager commands inspect, register, report and list without
   const register = command.options.find(option => option.name === "register");
   assert.deepEqual(register.options.find(option => option.name === "type")
     .choices.map(choice => choice.value), ["arclo-poll", "arclo-giveaway", "arclo-panel"]);
+});
+
+
+test("public embed inspection reveals structure but does not preserve member IDs", () => {
+  const sample = { embeds: [
+    { title: "Giveaway Results", description: "Winner <@1561372971355086961>\\nWinners announced.",
+      fields: [
+        { name: "Prize", value: "Points" },
+        { name: "Participant count", value: "42" },
+      ] },
+  ] };
+  const result = publicEmbedDiagnostic(sample);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].title, "Giveaway Results");
+  assert.equal(result[0].fieldCount, 2);
+  assert.deepEqual(result[0].fieldLabels, ["Prize", "Participant count"]);
+  assert.equal(result[0].mentionCount, 1);
+  assert.ok(!JSON.stringify(result).includes("1561372971355086961"),
+    "only count detected mentions, never return participants' IDs");
+  assert.equal(publicEmbedDiagnostic({ embeds: [] }).length, 0);
+});
+
+test("public embed inspection bounds long messages and neutralizes mentions", () => {
+  const text = "@everyone " + "a".repeat(2000);
+  const result = publicEmbedDiagnostic({ embeds: [{ description: text }] })[0];
+  assert.ok(result.description.length <= 170);
+  assert.ok(result.description.includes("@\\u200beveryone") ||
+    result.description.includes("@\u200beveryone"));
 });
