@@ -143,7 +143,7 @@ test("newcomer messages double 2 to 4 Points and exceed the former 425-Point lim
   assert.equal(db.earned.get(period.key), 432);
 });
 
-test("long-term members can continue earning beyond the previous 225-Point weekly limit", async () => {
+test("one-Point voice awards continue beyond the former weekly limit", async () => {
   const db = makeFakeActivityDb();
   const now = new Date("2026-10-24T12:00:00Z");
   const period = activityPeriod(oldMemberJoin, now);
@@ -152,13 +152,13 @@ test("long-term members can continue earning beyond the previous 225-Point weekl
     guildId, userId, joinedAt: oldMemberJoin, type: "voice", eventKey: "voice-above-old-cap",
     now, models: db.models, sessionFactory: db.sessionFactory,
   });
-  assert.equal(award.amount, 5);
-  assert.equal(db.earned.get(period.key), 230);
-  assert.equal(db.balance, 5);
+  assert.equal(award.amount, 1);
+  assert.equal(db.earned.get(period.key), 226);
+  assert.equal(db.balance, 1);
 });
 
 test("voice clock pays once per ten eligible minutes, avoids restart minute duplication", async () => {
-  assert.equal(VOICE_BASE_POINTS, 5);
+  assert.equal(VOICE_BASE_POINTS, 1);
   assert.equal(VOICE_INTERVAL_MINUTES, 10);
   const guild = { id: guildId }, member = {
     id: userId, user: { bot: false }, joinedAt: oldMemberJoin,
@@ -186,8 +186,8 @@ test("voice clock pays once per ten eligible minutes, avoids restart minute dupl
   const tenth = new Date(now.getTime() + 9 * 60_000);
   let result = await recordVoiceMinute({ guildId, member, now: tenth,
     models: { progress },
-    award: async () => { awardCalls++; return { credited: true, amount: 5 }; } });
-  assert.equal(result.amount, 5);
+    award: async () => { awardCalls++; return { credited: true, amount: 1 }; } });
+  assert.equal(result.amount, 1);
   assert.equal(awardCalls, 1);
   result = await recordVoiceMinute({ guildId, member, now: tenth,
     models: { progress }, award: async () => { awardCalls++; } });
@@ -231,4 +231,18 @@ test("no daily cap: more than ten qualifying messages can earn in one UTC day", 
   assert.equal(db.balance, 24);
   assert.equal(db.receipts.size, 12);
   assert.equal(db.earned.get(activityPeriod(oldMemberJoin, origin).key), 24);
+});
+
+test("voice rewards are 1 Point for established members and 2 for first-week members", async () => {
+  const now = new Date("2026-10-24T14:10:00Z");
+  for (const [joinedAt, expected] of [[oldMemberJoin, 1], [freshJoin, 2]]) {
+    const db = makeFakeActivityDb();
+    const result = await awardRepeatableActivity({
+      guildId, userId, joinedAt, type: "voice",
+      eventKey: `voice-${expected}`, now,
+      models: db.models, sessionFactory: db.sessionFactory,
+    });
+    assert.equal(result.amount, expected);
+    assert.equal(db.balance, expected);
+  }
 });
