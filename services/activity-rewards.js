@@ -13,7 +13,7 @@ export const MESSAGE_BASE_POINTS = 2;
 export const MESSAGE_COOLDOWN_MS = 30 * 60_000;
 export const MESSAGE_MIN_LETTERS = 8;
 export const MESSAGE_MIN_LENGTH = 15;
-export const VOICE_BASE_POINTS = 5;
+export const VOICE_BASE_POINTS = 1;
 export const VOICE_INTERVAL_MINUTES = 10;
 export function qualifyingMessageText(content) {
   if (typeof content !== "string") return null;
@@ -157,7 +157,7 @@ export async function recordVoiceMinute({
     eventKey: `activity-voice:${period.key}:${nextBlock}`,
   });
   // If awarding failed with an exception, preserve the pending block for the
-  // following minute's retry. Skipped cap/disabled blocks don't accumulate.
+  // following minute's retry. Disabled blocks don't accumulate.
   await progress.updateOne(periodKey, { $max: { lastSettledBlock: nextBlock } });
   return { ...reward, minutes: updated.eligibleMinutes, block: nextBlock };
 }
