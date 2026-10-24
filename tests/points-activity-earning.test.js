@@ -16,12 +16,12 @@ const freshJoin = new Date("2026-10-24T14:00:00Z");
 
 test("seven-day newcomer window is anchored to join instant, then Monday UTC weeks", () => {
   const starter = activityPeriod(freshJoin, new Date(freshJoin.getTime() + FIRST_WEEK_MS - 1));
-  assert.equal(starter.cap, 425);
   assert.equal(starter.multiplier, 2);
+  assert.equal("cap" in starter, false);
   assert.equal(starter.key, `starter:${freshJoin.getTime()}`);
   const regular = activityPeriod(freshJoin, new Date(freshJoin.getTime() + FIRST_WEEK_MS));
-  assert.equal(regular.cap, 225);
   assert.equal(regular.multiplier, 1);
+  assert.equal("cap" in regular, false);
   assert.match(regular.key, /^week:\d{4}-\d\d-\d\d$/);
   assert.equal(activityPeriod(null, new Date("2026-10-24T14:00:00Z")).starter, false);
 });
@@ -72,7 +72,7 @@ function makeFakeActivityDb() {
       async updateOne(key) { if (!earned.has(key.periodKey)) earned.set(key.periodKey, 0); },
       async findOneAndUpdate(key, change) {
         const cur = earned.get(key.periodKey);
-        if (cur > key.earned.$lte) return null;
+        assert.equal("earned" in key, false, "activity records must not enforce a weekly ceiling");
         earned.set(key.periodKey, cur + change.$inc.earned);
         return { earned: cur + change.$inc.earned };
       },
@@ -104,7 +104,7 @@ function makeFakeActivityDb() {
   };
 }
 
-test("message earning respects 30m cooldown, duplicate text, idempotency and weekly cap", async () => {
+test("message earning respects 30m cooldown, duplicate text and idempotency without a weekly cap", async () => {
   const db = makeFakeActivityDb(), start = new Date("2026-10-24T12:00:00Z");
   const award = (id, hash, at) => awardRepeatableActivity({
     guildId, userId, joinedAt: oldMemberJoin, type: "message",
@@ -122,25 +122,39 @@ test("message earning respects 30m cooldown, duplicate text, idempotency and wee
   assert.equal((await award("e", "new", 500_000)).reason, "disabled");
 });
 
-test("newcomer messages double 2 to 4 Points, but max at starter cap", async () => {
+test("newcomer messages double 2 to 4 Points and exceed the former 425-Point limit", async () => {
   const db = makeFakeActivityDb(), start = new Date("2026-10-24T14:05:00Z");
   const period = activityPeriod(freshJoin, start);
   db.earned.set(period.key, 424);
-  const result = await awardRepeatableActivity({
+  const first = await awardRepeatableActivity({
     guildId, userId, joinedAt: freshJoin, type: "message", eventKey: "msg-one",
     messageHash: "test", now: start, models: db.models, sessionFactory: db.sessionFactory,
   });
-  assert.equal(result.reason, "activity_cap");
-  assert.equal(db.balance, 0);
-  assert.equal(db.earned.get(period.key), 424);
-  db.earned.set(period.key, 420);
-  const next = await awardRepeatableActivity({
+  assert.equal(first.amount, 4);
+  assert.equal(db.balance, 4);
+  assert.equal(db.earned.get(period.key), 428);
+  const second = await awardRepeatableActivity({
     guildId, userId, joinedAt: freshJoin, type: "message", eventKey: "msg-two",
     messageHash: "fresh", now: new Date(start.getTime() + 1_805_000),
     models: db.models, sessionFactory: db.sessionFactory,
   });
-  assert.equal(next.amount, 4);
-  assert.equal(db.balance, 4);
+  assert.equal(second.amount, 4);
+  assert.equal(db.balance, 8);
+  assert.equal(db.earned.get(period.key), 432);
+});
+
+test("long-term members can continue earning beyond the previous 225-Point weekly limit", async () => {
+  const db = makeFakeActivityDb();
+  const now = new Date("2026-10-24T12:00:00Z");
+  const period = activityPeriod(oldMemberJoin, now);
+  db.earned.set(period.key, 225);
+  const award = await awardRepeatableActivity({
+    guildId, userId, joinedAt: oldMemberJoin, type: "voice", eventKey: "voice-above-old-cap",
+    now, models: db.models, sessionFactory: db.sessionFactory,
+  });
+  assert.equal(award.amount, 5);
+  assert.equal(db.earned.get(period.key), 230);
+  assert.equal(db.balance, 5);
 });
 
 test("voice clock pays once per ten eligible minutes, avoids restart minute duplication", async () => {
