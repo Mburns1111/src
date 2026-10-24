@@ -848,14 +848,15 @@ export async function renderPostImage({
 
   const resolvedAppearance = resolveAppearance(appearance);
   const font = APPEARANCE_CATALOG.fonts[resolvedAppearance.font];
+  const backgroundItem = APPEARANCE_CATALOG.backgrounds[resolvedAppearance.background];
   const selectedPanel = APPEARANCE_CATALOG.panels[resolvedAppearance.panelColor];
-  // Dark panel previews need readable lettering even when a member has not
-  // picked a text-color upgrade yet. Explicit black/white/custom choices are
-  // still respected so members control the final look.
-  const colors = selectedPanel?.dark && resolvedAppearance.fontColor === 'default'
+  // Default lettering remains legible on both explicit dark panels and
+  // panels matched to a dark background. Explicit text-color choices still win.
+  const panelsAreDark = selectedPanel?.dark ||
+    (resolvedAppearance.panelColor === 'match' && backgroundItem.dark);
+  const colors = panelsAreDark && resolvedAppearance.fontColor === 'default'
     ? APPEARANCE_CATALOG.fontColors.white
     : APPEARANCE_CATALOG.fontColors[resolvedAppearance.fontColor];
-  const backgroundItem = APPEARANCE_CATALOG.backgrounds[resolvedAppearance.background];
   const matchedPalette = resolvedAppearance.panelColor === 'match'
     ? backgroundItem.palette || {}
     : APPEARANCE_CATALOG.panels[resolvedAppearance.panelColor]?.palette || {};
