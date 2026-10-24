@@ -7,7 +7,8 @@ import { POINTS_MILESTONES, milestoneAwardAmount } from "./points-policy.js";
 // No change to the existing shop wallet: every grant credits PointsWallet and
 // writes an immutable receipt in ONE MongoDB transaction.
 export async function grantPoints({ guildId, userId, eventKey, kind, amount,
-  description, sourceId = "", actorId = "" }) {
+  description, sourceId = "", actorId = "", sourceType = "",
+  relatedEventKey = "" }) {
   if (!guildId || !userId || typeof eventKey !== "string" ||
       !eventKey || eventKey.length > 200 ||
       !Number.isSafeInteger(amount) || amount <= 0 || amount > 5000) {
@@ -21,6 +22,7 @@ export async function grantPoints({ guildId, userId, eventKey, kind, amount,
       if (await PointsLedger.exists(selector).session(session)) return;
       await PointsLedger.create([{
         ...selector, kind, amount, description, sourceId, actorId,
+        sourceType, relatedEventKey,
       }], { session });
       await PointsWallet.findOneAndUpdate(
         { guildId, discordUserId: userId },
@@ -65,4 +67,21 @@ export async function awardMilestoneSafely(guildId, userId, milestone, sourceId 
     console.error(`[Points] Unable to award ${milestone} for user ${userId}:`, error);
     return { credited: false, amount: 0, error: true };
   }
+}
+
+
+// Future features may issue a refund for a completed, verified transaction.
+// Use an explicit unique refund event key per decision and retain the original
+// spending record instead of deleting or altering history. There is deliberately
+// no automatic refund-on-button API.
+export async function refundPoints({ guildId, userId, eventKey, amount,
+  description, originalEventKey, sourceType = "shop", sourceId = "",
+  actorId = "" }) {
+  if (typeof originalEventKey !== "string" || !originalEventKey) {
+    throw new Error("Refunds require the original spending event reference.");
+  }
+  return grantPoints({
+    guildId, userId, eventKey, kind: "refund", amount, description,
+    sourceType, sourceId, actorId, relatedEventKey: originalEventKey,
+  });
 }
