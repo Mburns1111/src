@@ -11,6 +11,8 @@ import { data as tradeCommand } from "./commands/trade.js";
 import { data as setupCommand } from "./commands/setup.js";
 import { data as shopCommand } from "./commands/shop.js";
 import { data as testPointsCommand } from "./commands/test-points.js";
+import { data as pointsAdminCommand } from "./commands/points-admin.js";
+import { data as pointsObserveCommand } from "./commands/points-observe.js";
 import { data as helpCommand } from "./commands/help.js";
 import { data as migrateOldPostsCommand } from "./commands/migrate-old-posts.js";
 
@@ -34,7 +36,9 @@ const commands = [
   tradeCommand,
   setupCommand,
   shopCommand,
-  testPointsCommand,
+  ...(process.env.ENABLE_TEST_POINTS === "1" ? [testPointsCommand] : []),
+  pointsAdminCommand,
+  pointsObserveCommand,
   helpCommand,
   migrateOldPostsCommand,
 ].map((command) => command.toJSON());
@@ -42,7 +46,7 @@ const commands = [
 await rest.put(Routes.applicationCommands(clientId), { body: commands });
 
 console.log(
-  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, shop, help, and migrate-old-posts commands.",
+  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, shop, points-admin, help, and migrate-old-posts commands.",
 );
 
 if (guildId) {

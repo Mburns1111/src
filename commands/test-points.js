@@ -14,6 +14,11 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   requireGuild(interaction);
+  // This old development-only balance override must be deliberately enabled
+  // in Replit. It is not a legitimate Points earner and writes no ledger entry.
+  if (process.env.ENABLE_TEST_POINTS !== "1") {
+    throw new UserFacingError("Test Points are disabled on this bot. Ask a server manager to use /points-admin grant instead.");
+  }
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
     throw new UserFacingError("Only server managers can set test Points.");
   }

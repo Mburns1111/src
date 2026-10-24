@@ -43,6 +43,8 @@ import {
 import { getVoteCounts } from "./trade.js";
 import { ensureChannelEntry } from "./channel-entry.js";
 import { renderPostImage } from "../services/post-renderer.js";
+import { awardMilestoneSafely } from "../services/points-rewards.js";
+import { hasCustomizedAppearance } from "../services/points-backfill.js";
 import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, appearanceCatalogItem, resolveAppearance } from "../services/post-appearance.js";
 import { SHOP_FONT_STYLES } from "../services/font-library.js";
 import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } from "../services/sticker-catalog.js";
@@ -1072,10 +1074,16 @@ export async function handleProfileAppearanceDM(interaction) {
     return true;
   }
   if (kind === "button" && field === "confirm") {
+    const before = JSON.stringify(resolveAppearance(profile.profileAppearance));
     profile.profileAppearance = filterOwnedAppearance(draft.appearance, ownership);
+    const changed = JSON.stringify(resolveAppearance(profile.profileAppearance)) !== before;
     profile.markModified("profileAppearance");
     await profile.save();
     await ensureProfileCard(guild, interaction.user, { refresh: true });
+    if (changed && hasCustomizedAppearance(profile.profileAppearance)) {
+      await awardMilestoneSafely(panel.guildId, interaction.user.id,
+        "profileFirstCustomization", "appearance-editor");
+    }
 
     // End the editing session only after the server profile is updated.
     await MemberDmPanel.deleteOne({ _id: panel._id, token: panel.token });
@@ -1691,6 +1699,8 @@ export async function handleProfileModal(interaction) {
     if (!profile) throw new UserFacingError("Your profile could not be loaded.");
     await saveProfilePhotos(interaction.guildId, interaction.user.id, uploads);
     await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+    await awardMilestoneSafely(interaction.guildId, interaction.user.id,
+      "inventoryFirstPost", "profile-photo-album");
 
     await interaction.editReply(
       makeMenuReply(

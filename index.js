@@ -66,6 +66,14 @@ import {
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
+import { execute as executePointsAdmin, data as pointsAdminCommand } from "./commands/points-admin.js";
+import { execute as executePointsObserve, data as pointsObserveCommand } from "./commands/points-observe.js";
+import { observeNativePollVote, parseNativePollClientEvent } from "./services/participation-observer.js";
+import { awardNativePollVote } from "./services/poll-rewards.js";
+import { awardMessageActivity, eligibleVoiceStates, recordVoiceMinute } from "./services/activity-rewards.js";
+import { runBounded, VOICE_TICK_CONCURRENCY } from "./services/bounded-work.js";
+import PointsSettings from "./models/PointsSettings.js";
+import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
   execute as executeMigrateOldPosts,
@@ -93,8 +101,14 @@ if (!token || !mongoUri) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages],
-  partials: [Partials.Channel],
+  // Poll-vote events need no Message Content access. To diagnose whether
+  // third-party Arclo public messages expose results, privileged access can
+  // be explicitly enabled on the TEST bot only (plus Discord Portal toggle).
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMessagePolls,
+    GatewayIntentBits.GuildVoiceStates,
+    ...(shouldRequestMessageContent() ? [GatewayIntentBits.MessageContent] : [])],
+  partials: [Partials.Channel, Partials.Message, Partials.Poll, Partials.PollAnswer],
 });
 
 // Login failures can otherwise leave only "Connected to MongoDB." in the
@@ -119,6 +133,89 @@ client.on(Events.ShardReady, shardId => {
   console.log(`[Discord] Shard ${shardId} received READY.`);
 });
 
+// The supported discord.js events are MessagePollVoteAdd/Remove, not Raw.
+// A native poll may be uncached after a restart; /points-observe sync can
+// rebuild the current participant snapshot from Discord's voter API.
+const pollObservationQueue = new Map();
+function handlePollEvent(pollAnswer, userId, added) {
+  const parsed = parseNativePollClientEvent(pollAnswer, userId, added);
+  if (!parsed) {
+    console.warn("[Points observe] Poll event was partial; use /points-observe sync for that poll.");
+    return;
+  }
+  const key = `${parsed.guildId}:${parsed.messageId}:${parsed.userId}`;
+  const previous = pollObservationQueue.get(key) ?? Promise.resolve();
+  const current = previous.then(async () => {
+    await observeNativePollVote(parsed);
+    if (parsed.added) {
+      const guild = client.guilds.cache.get(parsed.guildId);
+      if (!guild) return;
+      const reward = await awardNativePollVote({ ...parsed, guild });
+      if (reward.credited) {
+        console.log(`[Points] Approved native poll ${parsed.messageId}: +${reward.amount} Points for ${parsed.userId}.`);
+      }
+    }
+  })
+    .catch(error => {
+      console.error("[Points] Could not record or credit native Discord poll vote:", error);
+    }).finally(() => {
+      if (pollObservationQueue.get(key) === current) pollObservationQueue.delete(key);
+    });
+  pollObservationQueue.set(key, current);
+}
+client.on(Events.MessagePollVoteAdd, (answer, userId) => handlePollEvent(answer, userId, true));
+client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answer, userId, false));
+
+// Messages are never stored or logged: only a short SHA-256 digest is kept to
+// prevent immediately repeating the same message for Points.
+client.on(Events.MessageCreate, message => {
+  if (!message.guildId || message.author?.bot || !message.content) return;
+  awardMessageActivity(message).then(result => {
+    if (result.credited) console.log(`[Points] Chat +${result.amount} to ${message.author.id}.`);
+  }).catch(error => {
+    console.error("[Points] Could not award qualifying message:", error);
+  });
+});
+
+// Process each calendar minute only once while the bot is online. Cached voice
+// states require GuildVoiceStates intent; no recorded audio or speech analysis.
+let voiceActivityTimer;
+let voiceTickRunning = false;
+async function voiceActivityTick() {
+  if (voiceTickRunning || !client.isReady()) return;
+  voiceTickRunning = true;
+  const startedAt = Date.now();
+  try {
+    const now = new Date();
+    for (const guild of client.guilds.cache.values()) {
+      const settings = await PointsSettings.findOne({ guildId: guild.id }).lean();
+      if (settings?.voiceRewardsEnabled !== true) continue;
+      const eligible = eligibleVoiceStates(guild);
+      await runBounded(eligible, async stateMember => {
+        try {
+          // Cached voice members normally contain joinedAt. If it is absent,
+          // fetch the full member rather than applying an incorrect multiplier.
+          const member = stateMember.joinedAt ? stateMember
+            : await guild.members.fetch(stateMember.id, { force: true }).catch(() => null);
+          if (!member?.joinedAt || member.user?.bot) return;
+          const reward = await recordVoiceMinute({ guildId: guild.id, member, now });
+          if (reward.credited) console.log(`[Points] Voice +${reward.amount} to ${member.id}.`);
+        } catch (error) {
+          console.error("[Points] Could not record voice minute:", error);
+        }
+      }, VOICE_TICK_CONCURRENCY);
+    }
+  } catch (error) {
+    console.error("[Points] Voice tick failed:", error);
+  } finally {
+    const elapsed = Date.now() - startedAt;
+    if (elapsed > 45_000) {
+      console.warn(`[Points] Voice tick required ${elapsed}ms; check MongoDB latency and concurrent voice participants.`);
+    }
+    voiceTickRunning = false;
+  }
+}
+
 let discordReadyTimeout;
 
 const commandHandlers = new Map([
@@ -132,6 +229,8 @@ const commandHandlers = new Map([
   [setupCommand.name, executeSetup],
   [shopCommand.name, executeShop],
   [testPointsCommand.name, executeTestPoints],
+  [pointsAdminCommand.name, executePointsAdmin],
+  [pointsObserveCommand.name, executePointsObserve],
   [helpCommand.name, executeHelp],
   ["migrate_old_posts", executeMigrateOldPosts],
 ]);
@@ -198,6 +297,8 @@ async function sendProfileReminder(interaction) {
 
 client.once(Events.ClientReady, (readyClient) => {
   clearTimeout(discordReadyTimeout);
+  voiceActivityTimer = setInterval(() => void voiceActivityTick(), 60_000);
+  voiceActivityTimer.unref?.();
   console.log(`Bot is online as ${readyClient.user.tag}.`);
   startupMaintenancePromise = (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
@@ -429,6 +530,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         setupCommand.name,
         shopCommand.name,
         testPointsCommand.name,
+        pointsAdminCommand.name,
+        pointsObserveCommand.name,
         profileCleanupCommand.name,
         profileRefreshCommand.name,
       ].includes(interaction.commandName)
@@ -537,6 +640,7 @@ async function start() {
 
 async function shutdown(signal) {
   console.log(`Received ${signal}; shutting down.`);
+  if (voiceActivityTimer) clearInterval(voiceActivityTimer);
   await client.destroy();
   await mongoose.disconnect();
   process.exit(0);

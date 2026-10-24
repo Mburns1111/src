@@ -14,6 +14,7 @@ import {
 } from "discord.js";
 import OutfitListing from "../models/OutfitListing.js";
 import UserProfile from "../models/UserProfile.js";
+import { awardMilestoneSafely } from "../services/points-rewards.js";
 import {
   getConfiguredTextChannel,
   getMessageMedia,
@@ -527,6 +528,8 @@ async function publishListing(interaction, values, post) {
     await OutfitListing.deleteOne({ _id: listing._id }).catch(() => {});
     throw error;
   }
+  await awardMilestoneSafely(interaction.guildId, interaction.user.id,
+    "outfitFirstListing", String(listing._id));
 }
 
 export async function handleOutfitSold(interaction) {
