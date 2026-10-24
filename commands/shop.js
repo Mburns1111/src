@@ -186,7 +186,7 @@ async function exampleImage(item) {
 }
 
 // Catalog browsing needs a fast color sample, not a full profile render.
-// My Preview remains the full personalized profile with Mix & Match support.
+// My Preview remains the full personalized profile with Preview Multiple support.
 const swatchCache = new Map();
 function catalogSwatch(item) {
   const key = `${item.category}:${item.id}`;
@@ -482,7 +482,7 @@ async function previewPayload(context, item, mix = {}) {
   return {
     content: item
       ? `**Preview: ${item.name}** — no purchase required to try it on.`
-      : "**Mix & Match Preview** — this does not purchase or equip anything.",
+      : "**Preview Multiple Preview** — this does not purchase or equip anything.",
     embeds: [new EmbedBuilder().setImage("attachment://shop-preview.png")],
     files: [new AttachmentBuilder(image, { name: "shop-preview.png" })],
     components: [],
@@ -612,12 +612,14 @@ async function confirmationPage(interaction, item, category, index) {
   };
 }
 
-function dmShopTools(guildId, category, index) {
+export function dmShopTools(guildId, category, index) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mix:${category}:${index}`)
-      .setLabel("Mix & Match").setStyle(ButtonStyle.Primary),
+      .setLabel("Preview Multiple").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:refresh:${category}:${index}`)
       .setLabel("Refresh Points & Items").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:home`)
+      .setLabel("All Categories").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
   );
@@ -668,24 +670,64 @@ function shopShadeButtons(guildId, category, index, preview = false) {
   );
 }
 
-function dmCategoryMenu(guildId, current) {
+export function dmCategoryMenu(guildId, current) {
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder().setCustomId(`shop:dm:${guildId}:category`)
-      .setPlaceholder("Browse another category")
+      .setPlaceholder(`Switch Category · viewing ${CATEGORY_LABELS[current] || "Shop"}`)
       .addOptions(categories().map(category => ({
-        label: CATEGORY_LABELS[category], value: category, default: category === current,
+        label: CATEGORY_LABELS[category], value: category,
+        description: category === current ? "Current category" : "Open this category's item index",
       }))),
   );
 }
+// Category home uses buttons instead of a preselected dropdown so it's
+// obvious how to leave one section and browse another. No Canvas render.
+export function dmCategoryHomeControls(guildId) {
+  const available = categories();
+  const rows = [];
+  for (let i = 0; i < available.length; i += 3) {
+    rows.push(new ActionRowBuilder().addComponents(
+      ...available.slice(i, i + 3).map(category =>
+        new ButtonBuilder().setCustomId(`shop:dm:${guildId}:index:${category}:0`)
+          .setLabel(CATEGORY_LABELS[category]).setStyle(ButtonStyle.Secondary)),
+    ));
+  }
+  rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:hubMix:backgrounds:0`)
+      .setLabel("Preview Multiple").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
+      .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
+  ));
+  return rows;
+}
+
+async function dmCategoryHome(context) {
+  const balance = await walletBalance(context.guildId, context.user.id);
+  const summary = categories().map(category =>
+    `**${CATEGORY_LABELS[category]}** · ${sortedItems(category).length} items`);
+  return {
+    content: "**Appearance Shop** — choose a category to see its items.",
+    embeds: [new EmbedBuilder().setColor("#819287")
+      .setTitle("Shop · All Categories")
+      .setDescription(`**Your Points: ${balance}**\n\n${summary.join("\n")}\n\nChoose a category below to browse.`)],
+    files: [],
+    attachments: [],
+    components: dmCategoryHomeControls(context.guildId),
+    allowedMentions: { parse: [] },
+  };
+}
+
 // Image-free directory for every category. No full Canvas PNG is needed
 // until a member opens a specific item's detailed preview.
 
-function dmIndexTools(guildId, category, page) {
+export function dmIndexTools(guildId, category, page) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:indexMix:${category}:0`)
-      .setLabel("Mix & Match").setStyle(ButtonStyle.Primary),
+      .setLabel("Preview Multiple").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:index:${category}:${page}`)
       .setLabel("Refresh Index & Points").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:home`)
+      .setLabel("All Categories").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
   );
@@ -831,7 +873,7 @@ async function dmConfirmation(context, category, index) {
   ];
   return result;
 }
-// Mix & Match is now one live dress-up screen in the existing permanent
+// Preview Multiple is now one live dress-up screen in the existing permanent
 // shop DM. Dropdowns update its preview immediately; no Add to Mix required.
 const MIX_OPTION_PAGE_SIZE = 22;
 const MIX_DEFAULT_ITEM_LABELS = {
@@ -1036,7 +1078,7 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
       .setLabel("← Back to Shop").setStyle(ButtonStyle.Primary),
   ));
   return {
-    content: `**Mix & Match · Live Profile Preview**\n` +
+    content: `**Preview Multiple · Live Profile Preview**\n` +
       `Editing **${CATEGORY_LABELS[category]}** — pick a style and your profile preview updates automatically.\n\n` +
       mixSummary(mix) + "\n\n" +
       "**Just trying things on:** No purchases, no Points spent, and no changes to your saved profile.",
@@ -1062,7 +1104,7 @@ async function dmPreview(context, category, index, savedMix = {}) {
   const item = items[index];
   const result = await previewPayload(context, item, mix);
   result.content = `**Single-Item Preview ${index + 1}/${items.length}: ${item.name}**\n` +
-    "To combine backgrounds, panels, frames, fonts, text colors and stickers, open **Mix & Match**. " +
+    "To combine backgrounds, panels, frames, fonts, text colors and stickers, open **Preview Multiple**. " +
     "You'll change everything directly on one live profile preview, without buying anything.";
   result.components = [
     new ActionRowBuilder().addComponents(
@@ -1229,7 +1271,7 @@ async function handleShopDM(interaction) {
     return true;
   }
 
-  // Live Mix & Match: all controls operate on the SAME permanent DM. Users
+  // Live Preview Multiple: all controls operate on the SAME permanent DM. Users
   // need no purchases and never need to press Add to Mix or Confirm.
   const mixEditorActions = [
     "mixCategory", "mixFontScope", "mixFamily", "mixOwnedCustom", "mixShade", "mixMatch", "mixItem",
@@ -1249,11 +1291,15 @@ async function handleShopDM(interaction) {
       messageId: interaction.message.id,
     });
     if (!panel) throw new UserFacingError(
-      "Please reopen your private shop from the server to use Mix & Match.",
+      "Please reopen your private shop from the server to use Preview Multiple.",
     );
     if (action === "mixBack") {
       const backCategory = CATEGORY_LABELS[panel.shopMixReturnCategory]
         ? panel.shopMixReturnCategory : "backgrounds";
+      if (panel.shopMixReturnIndex === -2) {
+        await interaction.editReply(await dmCategoryHome(context));
+        return true;
+      }
       if (panel.shopMixReturnIndex === -1) {
         await interaction.editReply(await dmCategoryIndex(context, backCategory));
         return true;
@@ -1380,6 +1426,11 @@ async function handleShopDM(interaction) {
     return true;
   }
 
+  if (action === "home" && interaction.isButton()) {
+    await interaction.editReply(await dmCategoryHome(context));
+    return true;
+  }
+
   // Jumping between directory pages or choosing a known item never performs
   // a wallet transaction; the full item screen opens only for the selection.
   if (action === "index" && interaction.isButton()) {
@@ -1445,7 +1496,7 @@ async function handleShopDM(interaction) {
   }
   if (["page", "cancel", "family", "shade"].includes(action)) {
     await interaction.editReply(await dmItemPage(context, category, destination));
-  } else if (["preview", "previewShade", "familyPreview", "mix", "indexMix", "addmix", "unmix", "clearmix"].includes(action)) {
+  } else if (["preview", "previewShade", "familyPreview", "mix", "indexMix", "hubMix", "addmix", "unmix", "clearmix"].includes(action)) {
     // Keep old buttons valid across a deployment. Old Add to Mix clicks now
     // open the new live dress-up screen with that selection already chosen.
     const panel = await MemberDmPanel.findOne({
@@ -1457,7 +1508,7 @@ async function handleShopDM(interaction) {
       messageId: interaction.message.id,
     });
     if (!panel) throw new UserFacingError(
-      "Please reopen your private shop from the server to use Mix & Match.",
+      "Please reopen your private shop from the server to use Preview Multiple.",
     );
     const mix = normalizeShopMix(panel.shopPreviewMix);
     if (action === "addmix") {
@@ -1477,12 +1528,12 @@ async function handleShopDM(interaction) {
     } else if (action === "clearmix") {
       for (const key of Object.keys(mix)) delete mix[key];
     }
-    if (["mix", "indexMix", "addmix", "unmix", "clearmix"].includes(action)) {
+    if (["mix", "indexMix", "hubMix", "addmix", "unmix", "clearmix"].includes(action)) {
       panel.shopPreviewMix = mix;
       panel.shopMixCategory = category;
       panel.shopMixOptionPage = 0;
       panel.shopMixReturnCategory = category;
-      panel.shopMixReturnIndex = action === "indexMix" ? -1 : index;
+      panel.shopMixReturnIndex = action === "hubMix" ? -2 : action === "indexMix" ? -1 : index;
       panel.markModified("shopPreviewMix");
       await panel.save();
       await interaction.editReply(await dmMixEditor(context, panel));
