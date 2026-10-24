@@ -15,8 +15,6 @@ export function activityPeriod(joinedAt, now = new Date()) {
   const starter = age >= 0 && age < FIRST_WEEK_MS;
   return starter
     ? { key: `starter:${joinedMs}`, starter: true,
-      cap: POINTS_ACTIVITY_TARGETS.starterWeekActivityCap,
       multiplier: POINTS_ACTIVITY_TARGETS.firstWeekActivityMultiplier }
-    : { key: `week:${pollWeekStartUtc(now)}`, starter: false,
-      cap: POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap, multiplier: 1 };
+    : { key: `week:${pollWeekStartUtc(now)}`, starter: false, multiplier: 1 };
 }
