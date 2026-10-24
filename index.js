@@ -458,7 +458,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // An acknowledged DM button updates the permanent shop/editor message.
       // Do NOT overwrite that message with an error; send a dismissible notice.
       if (interaction.deferred && !interaction.replied &&
-          interaction.isMessageComponent() &&
+          (interaction.isMessageComponent() || interaction.isModalSubmit()) &&
           interaction.channel?.isDMBased?.() &&
           !interaction.ephemeral &&
           (interaction.customId.startsWith("shop:dm:") ||
