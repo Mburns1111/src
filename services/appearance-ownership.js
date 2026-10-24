@@ -5,7 +5,8 @@ import { APPEARANCE_CATALOG, resolveAppearance } from "./post-appearance.js";
 // Free starter options. All other catalog entries require an owned item.
 // Adjust this curated list when the free starter catalog is finalized.
 export const FREE_APPEARANCE = Object.freeze({
-  backgrounds: [STANDARD_BACKGROUND_ID, "default", "sagePreview"],
+  // Starter Sage is the free standard. Classic Leaf Green is now a shop item.
+  backgrounds: [STANDARD_BACKGROUND_ID, "default"],
   panels: [STANDARD_PANEL_ID, "default"],
   frames: ["default"],
   fonts: ["default"],
