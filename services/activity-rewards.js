@@ -6,8 +6,8 @@ import PointsActivityMessageState from "../models/PointsActivityMessageState.js"
 import PointsVoiceProgress from "../models/PointsVoiceProgress.js";
 import PointsLedger from "../models/PointsLedger.js";
 import PointsWallet from "../models/PointsWallet.js";
-import { POINTS_ACTIVITY_TARGETS } from "./points-policy.js";
-import { pollWeekStartUtc } from "./poll-rewards.js";
+import { activityPeriod, FIRST_WEEK_MS } from "./activity-period.js";
+export { activityPeriod, FIRST_WEEK_MS } from "./activity-period.js";
 
 export const MESSAGE_BASE_POINTS = 2;
 export const MESSAGE_COOLDOWN_MS = 2 * 60_000;
@@ -15,20 +15,6 @@ export const MESSAGE_MIN_LETTERS = 8;
 export const MESSAGE_MIN_LENGTH = 15;
 export const VOICE_BASE_POINTS = 5;
 export const VOICE_INTERVAL_MINUTES = 10;
-export const FIRST_WEEK_MS = 7 * 24 * 60 * 60_000;
-
-export function activityPeriod(joinedAt, now = new Date()) {
-  const joined = joinedAt instanceof Date ? joinedAt : joinedAt ? new Date(joinedAt) : null;
-  const age = joined?.getTime() != null ? now.getTime() - joined.getTime() : Number.POSITIVE_INFINITY;
-  const starter = Number.isFinite(age) && age >= 0 && age < FIRST_WEEK_MS;
-  return starter
-    ? { key: `starter:${joined.getTime()}`, starter: true,
-      cap: POINTS_ACTIVITY_TARGETS.starterWeekActivityCap,
-      multiplier: POINTS_ACTIVITY_TARGETS.firstWeekActivityMultiplier }
-    : { key: `week:${pollWeekStartUtc(now)}`, starter: false,
-      cap: POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap, multiplier: 1 };
-}
-
 export function qualifyingMessageText(content) {
   if (typeof content !== "string") return null;
   // Never store content; discard URLs, mentions and Discord formatting before
