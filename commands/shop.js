@@ -908,7 +908,9 @@ async function sendShopDM(interaction, category) {
 async function handleShopDM(interaction) {
   const [, , guildId, action, categoryText, indexText] = interaction.customId.split(":");
   if (!/^\d{17,21}$/.test(guildId)) throw new UserFacingError("This shop link is invalid.");
-  if (action === "customOpen") {
+  if (action === "customOpen" || (action === "buy" &&
+      CUSTOM_COLOR_PRICES[categoryText] &&
+      sortedItems(categoryText)[Number(indexText)]?.id === CUSTOM_COLOR_SHOP_ID)) {
     // A modal must be shown as the initial response, before deferUpdate().
     if (!interaction.isButton() || !CUSTOM_COLOR_PRICES[categoryText] ||
         sortedItems(categoryText)[Number(indexText)]?.id !== CUSTOM_COLOR_SHOP_ID) {
@@ -1208,6 +1210,16 @@ async function handleShopDM(interaction) {
 export async function handleShopButton(interaction) {
   const [, action, rawCategory, rawIndex] = interaction.customId.split(":");
   if (action === "dm") return handleShopDM(interaction);
+  if (action === "customOpen") {
+    // Old non-DM catalog controls redirect into the permanent member shop,
+    // where the submitted HEX and its purchase can be bound to one message.
+    if (!interaction.guild || !interaction.isButton() || !CUSTOM_COLOR_PRICES[rawCategory]) {
+      throw new UserFacingError("Open your server's shop to choose a custom color.");
+    }
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await sendShopDM(interaction, rawCategory);
+    return true;
+  }
   if (action === "balance") {
     await interaction.reply({ content: `You have **${await walletBalance(interaction.guildId, interaction.user.id)} Points**.`,
       flags: MessageFlags.Ephemeral });
