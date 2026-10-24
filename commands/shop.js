@@ -441,6 +441,7 @@ async function handleShopDM(interaction) {
   if (action === "appearance") {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   } else {
+    await interaction.deferUpdate();
   }
   const guild = await interaction.client.guilds.fetch(guildId);
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
