@@ -14,6 +14,20 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] A nonmember cannot use another server's shop; members cannot spend another member's Points.
 - [ ] /shop balance reflects purchases, and a purchase receipt is sent once.
 
+## A2. Fast category index and direct jump navigation
+- [ ] First opening of **every category** shows an item index with names, prices, and owned statuses **rather than immediately loading a large preview image**.
+- [ ] The dropdown opens a chosen item directly (try the very last listed font, frame, and sticker).
+- [ ] Backgrounds/Panels contain 28 choices and the index splits them into **20 items / 8 items**; both Next and Previous index buttons work.
+- [ ] The index never shows more than 25 dropdown options or five Discord action rows.
+- [ ] **All Items** on a detail page returns to the index without having to click Previous repeatedly.
+- [ ] Frames, Fonts, Text Colors and Stickers detail pages have **Jump directly to another item** dropdowns.
+- [ ] Background and Panel detail pages retain the existing family and Pastel/Normal/Dark selection controls.
+- [ ] Switching the category dropdown opens that new category's index, not its first item preview.
+- [ ] **Refresh Index & Points** stays on the index and updates your balance/owned statuses.
+- [ ] From the index open **Mix & Match** and click **Back to Shop**; it returns to the index. From an item detail, Back returns to that item.
+- [ ] Old category/shop DM remains the only permanent message; no duplicate shop DMs or broken stale purchase buttons.
+- [ ] Index page selection is noticeably quicker than stepping through full profile images. A selected item's full preview can still take longer, as it renders a PNG.
+
 ## B. Wallets and transactional purchases — all categories
 - [ ] Buy an ordinary background or panel; Points decrease by its listed price **once**, and the item becomes Owned.
 - [ ] Buy a frame, font, text color, and sticker in separate transactions; each becomes owned, with matching wallet deductions.
@@ -74,6 +88,12 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] Invalid HEX in the sticker modal is rejected and draft retains previous colors.
 - [ ] **Outline** cycles Auto → Black → White → None → Auto; preview changes without charging.
 - [ ] **Reset Colors** restores only selected sticker colors/outline, retaining position and size.
+- [ ] **Position & Size** shows Left, Right, Up, Down, Smaller, Larger, Rotate Left and Rotate Right **buttons**, not a dropdown that overlays the preview.
+- [ ] Clicking any positioning button immediately updates the preview; repeating it works without reopening a menu.
+- [ ] **Colors & Style** changes controls without re-rendering the unchanged PNG; the preview stays visible.
+- [ ] In Colors & Style, choose Main/Accent HEX, cycle outline, reset colors and remove the selected sticker.
+- [ ] **← Position & Size** restores movement and size controls, keeping the same selected sticker.
+- [ ] Position/Style mode survives another sticker selection and restarting the test bot while the draft is open.
 - [ ] Move left/right/up/down, rotate both ways, resize up/down and remove stickers; preview updates.
 - [ ] Add the same unlocked sticker **twice**, recolor each copy differently; both stay independent.
 - [ ] Fill all **8** slots; additional placement is unavailable. Remove one; placement becomes possible.
