@@ -127,20 +127,23 @@ export async function execute(interaction) {
       if (op === "audit") {
         const report = await pointsAuditSummary({ guildId, days, kind, userId });
         const types = report.byType.length
-          ? report.byType.map(x => `• ${x.kind}: **+${x.points} Points** (${x.awards} credits)`).join("\n")
-          : "No Points earnings in this period.";
+          ? report.byType.map(x => `• ${x.kind}: **${x.points >= 0 ? "+" : ""}${x.points} Points** (${x.awards} transactions)`).join("\n")
+          : "No Points transactions in this period.";
         const leaders = report.topMembers.length
-          ? report.topMembers.map(x => `• <@${x.userId}> — +${x.points} Points (${x.awards} credits)`).join("\n")
+          ? report.topMembers.map(x => `• <@${x.userId}> — ${x.points >= 0 ? "+" : ""}${x.points} Points net (${x.awards} transactions)`).join("\n")
           : "None";
         await interaction.editReply({
           content: `**AM Isa — Points Audit · Last ${days} day(s)**\n` +
-            `Filter: ${kind === "all" ? "All award types" : kind}${userId ? ` · <@${userId}>` : ""}\n` +
-            `**Points issued:** ${report.totalPoints}\n` +
-            `**Reward records:** ${report.awardCount}\n` +
-            `**Unique members rewarded:** ${report.memberCount}\n\n` +
-            `**By reward type**\n${types}\n\n` +
-            `**Top recipients (up to 5)**\n${leaders}\n\n` +
-            "Use /points-admin audit-export for the transaction-level CSV (IDs, reasons, timestamps, staff actor). This report covers credits, not shop purchases or other deductions.",
+            `Filter: ${kind === "all" ? "All transaction types" : kind}${userId ? ` · <@${userId}>` : ""}\n` +
+            `**Points earned:** +${report.earnedPoints}\n` +
+            `**Points spent:** -${report.spentPoints}\n` +
+            `**Points refunded:** +${report.refundedPoints}\n` +
+            `**Net recorded change:** ${report.totalPoints >= 0 ? "+" : ""}${report.totalPoints}\n` +
+            `**Transaction records:** ${report.awardCount} (${report.creditCount} earnings, ${report.spendingCount} spending, ${report.refundCount} refunds)\n` +
+            `**Unique members affected:** ${report.memberCount}\n\n` +
+            `**By transaction type (net)**\n${types}\n\n` +
+            `**Top net recipients (up to 5)**\n${leaders}\n\n` +
+            "Use /points-admin audit-export for signed transaction rows and purchased item details. Spending before this feature was installed cannot be reconstructed automatically.",
           allowedMentions: { parse: [] },
         });
       } else {
@@ -148,8 +151,8 @@ export async function execute(interaction) {
         const label = `am-isa-points-${days}d-${kind}-${new Date().toISOString().slice(0, 10)}.csv`;
         const attachment = new AttachmentBuilder(result.csv, { name: label });
         await interaction.editReply({
-          content: `**Points ledger export:** ${result.rows.toLocaleString()} earning receipts over the last ${days} day(s) (${kind === "all" ? "all types" : kind}).\n` +
-            "CSV includes timestamps, member IDs, Points, reasons, source/event IDs and manual staff IDs. Import Discord ID columns as text in Excel so their full digits are preserved. Excludes shop spending.",
+          content: `**Points ledger export:** ${result.rows.toLocaleString()} signed transactions over the last ${days} day(s) (${kind === "all" ? "all types" : kind}).\n` +
+            "CSV includes signed Points changes, items bought, event IDs, refund links, and staff IDs. Import Discord IDs as text in Excel. Earlier purchases made before logging was added are not reconstructed.",
           files: [attachment],
           allowedMentions: { parse: [] },
         });
@@ -374,7 +377,7 @@ export async function execute(interaction) {
       PointsWallet.findOne({ guildId, discordUserId: user.id }).lean(),
     ]);
     const lines = events.map(event =>
-      `• +${event.amount} Points · ${event.description} · <t:${Math.floor(new Date(event.createdAt).getTime() / 1000)}:d>`);
+      `• ${event.amount >= 0 ? "+" : ""}${event.amount} Points · ${event.description} · <t:${Math.floor(new Date(event.createdAt).getTime() / 1000)}:d>`);
     await interaction.editReply({ content:
       `**Points history for <@${user.id}>** · Balance: **${wallet?.balance ?? 0}**\n` +
       (lines.length ? lines.join("\n") : "No award receipts recorded yet."),
