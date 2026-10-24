@@ -1,11 +1,13 @@
 // Hex colors bought by a member are immutable IDs in AppearanceInventory:
-// owned.backgrounds / owned.panels contain customHexRRGGBB. Since the hex is
+// owned.backgrounds / owned.panels / owned.fontColors contain customHexRRGGBB.
+// Since the hex is
 // encoded in the ID, every purchase survives restarts and can be re-equipped
 // without storing a separate, mutable color slot.
 export const CUSTOM_COLOR_SHOP_ID = "customHex";
 export const CUSTOM_COLOR_PRICES = Object.freeze({
   backgrounds: 225, // 3 x a regular 75-Point background
   panels: 150,      // 3 x a regular 50-Point panel
+  fontColors: 100,  // User-selected price for custom profile text colors
 });
 
 export function normalizeHexColor(value) {
@@ -33,10 +35,15 @@ function isDark(hex) {
 }
 
 export function customColorDefinition(category, id) {
-  if (category !== "backgrounds" && category !== "panels") return null;
+  if (!["backgrounds", "panels", "fontColors"].includes(category)) return null;
   const color = customColorHex(id);
   if (!color) return null;
   const dark = isDark(color);
+  // A chosen text HEX controls all text shades. Unlike "default" text,
+  // explicitly chosen colors are never changed automatically on dark panels.
+  if (category === "fontColors") {
+    return { text: color, mutedText: color, accentDark: color };
+  }
   return category === "backgrounds"
     ? { kind: "solid", color, dark,
         palette: { panel: color, panelAlt: color, accent: color } }
