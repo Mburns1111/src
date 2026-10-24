@@ -53,8 +53,8 @@ export async function renderClassicFrameSheet(items, framePreview) {
     ctx.fillText(item.included ? "Free · Included" : `${item.price} Points`, 46, y + 149);
     const png = await framePreview(item);
     const image = await loadImage(png);
-    // Original image is a 1200×800 profile card. Keep its proportions.
-    ctx.drawImage(image, 485, y + 5, 670, 365);
+    // Original image is a 1200×800 profile card. Keep its 3:2 proportions.
+    ctx.drawImage(image, 575, y + 5, 585, 390);
   }
   return canvas.toBuffer("image/png");
 }
