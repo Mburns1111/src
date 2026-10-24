@@ -1,5 +1,6 @@
-import { resolveAppearance, APPEARANCE_CATALOG } from "./post-appearance.js";
+import { resolveAppearance, APPEARANCE_CATALOG, appearanceCatalogItem } from "./post-appearance.js";
 import { shopItem } from "./shop-catalog.js";
+import { customColorHex } from "./custom-colors.js";
 
 // Private, unpurchased dress-up selections. These are NEVER saved to the
 // equipped profile or inventory and cannot cause a Points transaction.
@@ -21,7 +22,8 @@ export function isShopMixChoice(category, id) {
   if (category === "stickers" && id === "none") return true;
   // Allows free standard font/text colors and a previous paid starter color in
   // an older persisted mix without making either a new purchasable shop item.
-  return Object.prototype.hasOwnProperty.call(APPEARANCE_CATALOG[category], id);
+  return Object.prototype.hasOwnProperty.call(APPEARANCE_CATALOG[category], id) ||
+    (["backgrounds", "panels"].includes(category) && Boolean(customColorHex(id)));
 }
 
 export function normalizeShopMix(value) {
@@ -38,7 +40,8 @@ export function tryOnShopMix(savedAppearance, savedMix = {}, candidate = null) {
   const mix = normalizeShopMix(savedMix);
   // Individual item previews are transient; the live dress-up editor saves a
   // new mix selection as soon as the user chooses it.
-  if (candidate && shopItem(candidate.category, candidate.id)) {
+  if (candidate && (shopItem(candidate.category, candidate.id) ||
+      (["backgrounds", "panels"].includes(candidate.category) && customColorHex(candidate.id)))) {
     mix[candidate.category] = candidate.id;
   }
 
@@ -55,9 +58,9 @@ export function tryOnShopMix(savedAppearance, savedMix = {}, candidate = null) {
     }
   }
 
-  if (APPEARANCE_CATALOG.panels[appearance.panelColor]?.dark ||
+  if (appearanceCatalogItem("panels", appearance.panelColor)?.dark ||
       (appearance.panelColor === "match" &&
-       APPEARANCE_CATALOG.backgrounds[appearance.background]?.dark)) {
+       appearanceCatalogItem("backgrounds", appearance.background)?.dark)) {
     appearance.panelOpacity = 0.9;
   }
 
