@@ -71,6 +71,7 @@ import { execute as executePointsObserve, data as pointsObserveCommand } from ".
 import { observeNativePollVote, parseNativePollClientEvent } from "./services/participation-observer.js";
 import { awardNativePollVote } from "./services/poll-rewards.js";
 import { awardMessageActivity, eligibleVoiceStates, recordVoiceMinute } from "./services/activity-rewards.js";
+import { runBounded, VOICE_TICK_CONCURRENCY } from "./services/bounded-work.js";
 import PointsSettings from "./models/PointsSettings.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
@@ -183,28 +184,34 @@ let voiceTickRunning = false;
 async function voiceActivityTick() {
   if (voiceTickRunning || !client.isReady()) return;
   voiceTickRunning = true;
+  const startedAt = Date.now();
   try {
     const now = new Date();
     for (const guild of client.guilds.cache.values()) {
       const settings = await PointsSettings.findOne({ guildId: guild.id }).lean();
       if (settings?.voiceRewardsEnabled !== true) continue;
-      for (const stateMember of eligibleVoiceStates(guild)) {
+      const eligible = eligibleVoiceStates(guild);
+      await runBounded(eligible, async stateMember => {
         try {
-          // Some cached gateway members lack join dates. Fetch before deciding
-          // newcomer 2× eligibility rather than incorrectly treating them as old.
+          // Cached voice members normally contain joinedAt. If it is absent,
+          // fetch the full member rather than applying an incorrect multiplier.
           const member = stateMember.joinedAt ? stateMember
-            : await guild.members.fetch(stateMember.id).catch(() => null);
-          if (!member?.joinedAt || member.user?.bot) continue;
+            : await guild.members.fetch(stateMember.id, { force: true }).catch(() => null);
+          if (!member?.joinedAt || member.user?.bot) return;
           const reward = await recordVoiceMinute({ guildId: guild.id, member, now });
           if (reward.credited) console.log(`[Points] Voice +${reward.amount} to ${member.id}.`);
         } catch (error) {
           console.error("[Points] Could not record voice minute:", error);
         }
-      }
+      }, VOICE_TICK_CONCURRENCY);
     }
   } catch (error) {
     console.error("[Points] Voice tick failed:", error);
   } finally {
+    const elapsed = Date.now() - startedAt;
+    if (elapsed > 45_000) {
+      console.warn(`[Points] Voice tick required ${elapsed}ms; check MongoDB latency and concurrent voice participants.`);
+    }
     voiceTickRunning = false;
   }
 }
