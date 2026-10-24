@@ -1110,19 +1110,75 @@ function mixEditorChrome(context, panel, mix, ownership, quote, balance) {
     content: `**Preview Multiple · Live Profile Preview**\n` +
       `Editing **${CATEGORY_LABELS[category]}** — pick a style and your profile preview updates automatically.\n\n` +
       mixSummary(mix) + "\n\n" +
-      "**Purchase summary**\\n" +
+      "**Purchase summary**\n" +
       (quote.entries.length ? quote.entries.map(item =>
         `• **${mixValueName(item.category, item.id)}** — ${item.unavailable
           ? "Not currently for sale" : item.owned ? "Owned · 0 Points"
             : item.free ? "Free · 0 Points" : `${item.price} Points`}`
-      ).join("\\n") : "No separate shop items selected.") +
-      `\\n**Purchase All total: ${quote.total} Points** · Balance: ${balance} Points` +
-      (quote.unavailable.length ? "\\nSome selected items are not currently for sale." :
-        balance < quote.total ? "\\nNot enough Points for all selected items." : "") +
-      "\\n\\n**Preview only until you confirm a purchase.** Buying unlocks items but does not equip them.",
+      ).join("\n") : "No separate shop items selected.") +
+      `\n**Purchase All total: ${quote.total} Points** · Balance: ${balance} Points` +
+      (quote.unavailable.length ? "\nSome selected items are not currently for sale." :
+        balance < quote.total ? "\nNot enough Points for all selected items." : "") +
+      "\n\n**Preview only until you confirm a purchase.** Buying unlocks items but does not equip them.",
     components: rows,
     allowedMentions: { parse: [] },
   };
+}
+
+// Buy all *new*, on-sale selections as one all-or-nothing Points transaction.
+// Recheck the saved preview, individual prices, ownership and wallet under the
+// same MongoDB session: two rapid confirmation clicks can never double-charge.
+async function purchasePreviewBundle(context, panelId) {
+  const session = await mongoose.startSession();
+  let bought = [];
+  let charged = 0;
+  try {
+    await session.withTransaction(async () => {
+      const panel = await MemberDmPanel.findById(panelId).session(session);
+      const pending = panel?.shopPendingMixPurchase;
+      if (!pending || !Number.isFinite(pending.issuedAt) ||
+          Date.now() - pending.issuedAt > 15 * 60 * 1000) {
+        throw new UserFacingError("That checkout expired. Open Purchase All again for an updated total.");
+      }
+      const mix = normalizeShopMix(panel.shopPreviewMix);
+      if (JSON.stringify(mix) !== pending.mixJSON) {
+        throw new UserFacingError("Your preview changed. Please review the updated total before buying.");
+      }
+      const inventory = await AppearanceInventory.findOne({
+        guildId: context.guildId, discordUserId: context.user.id,
+      }).session(session);
+      const ownership = Object.fromEntries(Object.keys(FREE_APPEARANCE).map(category => [
+        category, new Set([...FREE_APPEARANCE[category], ...(inventory?.owned?.[category] || [])]),
+      ]));
+      const quote = previewPurchasePlan(mix, ownership);
+      if (quote.unavailable.length || !quote.purchasable.length ||
+          previewPurchaseFingerprint(quote) !== pending.fingerprint) {
+        throw new UserFacingError("Items or prices changed since checkout. Please review your new total.");
+      }
+      const debited = await PointsWallet.findOneAndUpdate({
+        guildId: context.guildId,
+        discordUserId: context.user.id,
+        balance: { $gte: quote.total },
+      }, { $inc: { balance: -quote.total } }, { session, returnDocument: "after" });
+      if (!debited) throw new UserFacingError("You no longer have enough Points for these items.");
+      const newOwnership = {};
+      for (const item of quote.purchasable) {
+        (newOwnership[`owned.${item.category}`] ??= { $each: [] }).$each.push(item.id);
+      }
+      await AppearanceInventory.updateOne({
+        guildId: context.guildId, discordUserId: context.user.id,
+      }, { $addToSet: newOwnership },
+      { upsert: true, session, setDefaultsOnInsert: true });
+      panel.shopPendingMixPurchase = null;
+      panel.markModified("shopPendingMixPurchase");
+      await panel.save({ session });
+      bought = quote.purchasable.map(item => ({ ...item }));
+      charged = quote.total;
+    });
+  } finally {
+    await session.endSession();
+  }
+  return { bought, charged };
 }
 
 async function dmMixEditor(context, panel, { reuseImage = false } = {}) {
@@ -1316,7 +1372,7 @@ async function handleShopDM(interaction) {
   // need no purchases and never need to press Add to Mix or Confirm.
   const mixEditorActions = [
     "mixCategory", "mixFontScope", "mixFamily", "mixOwnedCustom", "mixShade", "mixMatch", "mixItem",
-    "mixReset", "mixClear", "mixBack", "mixRefresh",
+    "mixReset", "mixClear", "mixBack", "mixRefresh", "mixCheckout", "mixBuyAll", "mixCancel",
   ];
   if (mixEditorActions.includes(action)) {
     const isSelect = ["mixCategory", "mixFontScope", "mixFamily", "mixOwnedCustom", "mixItem"].includes(action);
@@ -1334,6 +1390,65 @@ async function handleShopDM(interaction) {
     if (!panel) throw new UserFacingError(
       "Please reopen your private shop from the server to use Preview Multiple.",
     );
+
+    if (action === "mixCheckout") {
+      const mix = normalizeShopMix(panel.shopPreviewMix);
+      const [ownership, balance] = await Promise.all([
+        getAppearanceOwnership(guildId, interaction.user.id),
+        walletBalance(guildId, interaction.user.id),
+      ]);
+      const quote = previewPurchasePlan(mix, ownership);
+      if (!quote.purchasable.length || quote.unavailable.length) {
+        throw new UserFacingError("There are no available unpaid items to purchase together.");
+      }
+      if (balance < quote.total) throw new UserFacingError(
+        `You need ${quote.total - balance} more Points to purchase everything selected.`);
+      panel.shopPendingMixPurchase = {
+        mixJSON: JSON.stringify(mix),
+        fingerprint: previewPurchaseFingerprint(quote),
+        issuedAt: Date.now(),
+      };
+      panel.markModified("shopPendingMixPurchase");
+      await panel.save();
+      await interaction.editReply({
+        content: "**Confirm Purchase All**\\n" +
+          quote.purchasable.map(item => `• **${mixValueName(item.category, item.id)}** — ${item.price} Points`).join("\\n") +
+          `\\n\\n**Total: ${quote.total} Points** · Current balance: ${balance} Points` +
+          `\\nAfter purchase: **${balance - quote.total} Points**` +
+          "\\n\\nItems are permanently unlocked but **not automatically equipped**. Nothing is charged until you confirm.",
+        components: [new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mixBuyAll`)
+            .setLabel(`Confirm Purchase · ${quote.total} Points`).setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mixCancel`)
+            .setLabel("Cancel · Back to Preview").setStyle(ButtonStyle.Secondary),
+        )],
+        allowedMentions: { parse: [] },
+      });
+      return true;
+    }
+    if (action === "mixCancel") {
+      panel.shopPendingMixPurchase = null;
+      panel.markModified("shopPendingMixPurchase");
+      await panel.save();
+      await interaction.editReply(await dmMixEditor(context, panel, { reuseImage: true }));
+      return true;
+    }
+    if (action === "mixBuyAll") {
+      const { bought, charged } = await purchasePreviewBundle(context, panel._id);
+      const currentPanel = await MemberDmPanel.findById(panel._id);
+      const refreshed = await dmMixEditor(context, currentPanel, { reuseImage: true });
+      refreshed.content = `✅ **Purchased ${bought.length} items for ${charged} Points!** You can equip them in Customize Profile.\\n\\n` +
+        refreshed.content;
+      await interaction.editReply(refreshed);
+      try {
+        await sendTemporaryDmNotice(interaction.user,
+          `✅ **Purchase All complete:** ${bought.length} items for **${charged} Points**. They are now unlocked in Customize Profile.`);
+      } catch (error) {
+        console.warn("Preview Multiple bundle purchase succeeded; receipt delivery failed:", error);
+      }
+      return true;
+    }
+
     if (action === "mixBack") {
       const backCategory = CATEGORY_LABELS[panel.shopMixReturnCategory]
         ? panel.shopMixReturnCategory : "backgrounds";
