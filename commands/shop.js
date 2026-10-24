@@ -15,7 +15,7 @@ import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
 import { openAppearanceDMFromShop } from "./profile.js";
 import { shopItems } from "../services/shop-catalog.js";
 import { getAppearanceOwnership, ownsAppearanceItem } from "../services/appearance-ownership.js";
-import { APPEARANCE_CATALOG, resolveAppearance } from "../services/post-appearance.js";
+import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { normalizeShopMix, tryOnShopMix, SHOP_MIX_CATEGORIES } from "../services/shop-preview-mix.js";
 import { UserFacingError } from "./errors.js";
@@ -69,7 +69,7 @@ function itemsFor(category) {
   return shopItems().filter(item => item.category === category);
 }
 function exampleAppearance(item) {
-  const appearance = resolveAppearance({ background: "sagePreview", panelColor: "match", panelOpacity: 0.34 });
+  const appearance = resolveAppearance(DEFAULT_APPEARANCE);
   const field = { backgrounds: "background", panels: "panelColor", frames: "frame",
     fonts: "font", fontColors: "fontColor" }[item.category];
   if (field) appearance[field] = item.id;
@@ -107,6 +107,9 @@ function topThree(category) {
   return [...itemsFor(category)].sort((a, b) => b.price - a.price || a.id.localeCompare(b.id)).slice(0, 3);
 }
 function sortedItems(category) {
+  // Classic colors are browsed in color-wheel order, with the three variants
+  // together, instead of being scattered alphabetically or by price.
+  if (category === "backgrounds" || category === "panels") return itemsFor(category);
   return [...(category ? itemsFor(category) : shopItems())]
     .sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
 }
@@ -210,7 +213,7 @@ function itemPage(item, index, total, balance, owned, category = null) {
     new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index - 1}`).setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(index === 0 && !category),
     new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index + 1}`).setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(index === total - 1),
     new ButtonBuilder().setCustomId(`shop:preview:${category || 'all'}:${index}`).setLabel("Preview").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`shop:buy:${category || 'all'}:${index}`).setLabel(owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned || !canAfford),
+    new ButtonBuilder().setCustomId(`shop:buy:${category || 'all'}:${index}`).setLabel(item.included ? "Included" : owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned || !canAfford),
   );
   return { embeds: [embed], components: [row], allowedMentions: { parse: [] } };
 }
@@ -243,7 +246,7 @@ async function previewPayload(context, item, mix = {}) {
   const appearance = tryOnShopMix(
     profile?.profileAppearance?.background
       ? profile.profileAppearance
-      : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 },
+      : DEFAULT_APPEARANCE,
     mix,
     item,
   );
@@ -278,6 +281,9 @@ async function preview(interaction, item) {
   await interaction.editReply(await previewPayload(interaction, item));
 }
 async function purchase(interaction, item) {
+  if (item.included) {
+    throw new UserFacingError("This standard color is already included free with every profile.");
+  }
   // Wallet deduction and item grant must commit together. Requires MongoDB transactions.
   const session = await mongoose.startSession();
   try {
@@ -367,7 +373,7 @@ async function dmItemPage(context, category, index) {
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:preview:${category}:${index}`)
         .setLabel("My Preview").setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:buy:${category}:${index}`)
-        .setLabel(owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned || balance < item.price),
+        .setLabel(item.included ? "Included" : owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned || balance < item.price),
     ),
     dmCategoryMenu(context.guildId, category),
     dmShopTools(context.guildId, category, index),
