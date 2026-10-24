@@ -26,6 +26,7 @@ import {
 } from "../services/custom-colors.js";
 import { UserFacingError } from "./errors.js";
 import { STICKER_CATALOG, isStickerForSale } from "../services/sticker-catalog.js";
+import { shopDirectorySlice, shopItemIndexById } from "../services/shop-navigation.js";
 import { requireGuild } from "./shared.js";
 
 export const data = new SlashCommandBuilder()
@@ -678,7 +679,6 @@ function dmCategoryMenu(guildId, current) {
 }
 // Image-free directory for every category. No full Canvas PNG is needed
 // until a member opens a specific item's detailed preview.
-const SHOP_INDEX_PAGE_SIZE = 20;
 
 function dmIndexTools(guildId, category, page) {
   return new ActionRowBuilder().addComponents(
@@ -695,10 +695,7 @@ async function dmCategoryIndex(context, category, requestedPage = 0) {
   if (!CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
   const entries = sortedItems(category);
   if (!entries.length) throw new UserFacingError("There are no items in this category.");
-  const count = Math.max(1, Math.ceil(entries.length / SHOP_INDEX_PAGE_SIZE));
-  const page = Math.max(0, Math.min(count - 1, Number.isSafeInteger(requestedPage) ? requestedPage : 0));
-  const start = page * SHOP_INDEX_PAGE_SIZE;
-  const visible = entries.slice(start, start + SHOP_INDEX_PAGE_SIZE);
+  const { page, count, start, visible } = shopDirectorySlice(entries, requestedPage);
   const [ownership, balance] = await Promise.all([
     getAppearanceOwnership(context.guildId, context.user.id),
     walletBalance(context.guildId, context.user.id),
@@ -1397,7 +1394,7 @@ async function handleShopDM(interaction) {
     const category = categoryText;
     if (!CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
     const chosenId = interaction.values[0];
-    const itemIndex = sortedItems(category).findIndex(item => item.id === chosenId);
+    const itemIndex = shopItemIndexById(sortedItems(category), chosenId);
     if (itemIndex < 0) {
       throw new UserFacingError("This item is no longer available. Reopen the category index.");
     }
