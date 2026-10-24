@@ -5,7 +5,7 @@ import ParticipationSource from "../models/ParticipationSource.js";
 import NativePollParticipation from "../models/NativePollParticipation.js";
 import {
   parseNativePollEvent, parseGuildMessageLink, messageVisibility,
-  observeNativePollVote, publicEmbedDiagnostic,
+  observeNativePollVote, publicEmbedDiagnostic, parseNativePollClientEvent, syncNativePoll,
 } from "../services/participation-observer.js";
 
 const guildId = "1561372971355086958";
@@ -96,7 +96,7 @@ test("points-observe manager commands inspect, register, report and list without
   const command = observeCommand.toJSON();
   assert.equal(command.name, "points-observe");
   assert.deepEqual(command.options.map(option => option.name),
-    ["inspect", "register", "report", "list"]);
+    ["inspect", "register", "sync", "report", "list"]);
   const register = command.options.find(option => option.name === "register");
   assert.deepEqual(register.options.find(option => option.name === "type")
     .choices.map(choice => choice.value), ["arclo-poll", "arclo-giveaway", "arclo-panel"]);
@@ -128,4 +128,84 @@ test("public embed inspection bounds long messages and neutralizes mentions", ()
   assert.ok(result.description.length <= 170);
   assert.ok(result.description.includes("@\\u200beveryone") ||
     result.description.includes("@\u200beveryone"));
+});
+
+
+test("supported Discord.js vote callback adapts to stored participant event", () => {
+  const answer = {
+    id: 2,
+    poll: { message: { id: messageId, guildId, channelId }, messageId, channelId },
+  };
+  assert.deepEqual(parseNativePollClientEvent(answer, userId, true), {
+    guildId, channelId, messageId, userId, answerId: 2, added: true,
+  });
+  assert.equal(parseNativePollClientEvent(answer, userId, false).added, false);
+  assert.equal(parseNativePollClientEvent({ id: 1, poll: {} }, userId, true), null);
+});
+
+test("manual native poll sync reconstructs current voters from answer lists without crediting Points", async () => {
+  const calls = [];
+  const changes = { sources: [], writes: [], removals: [] };
+  const msg = {
+    guildId, channelId, id: messageId,
+    poll: { answers: new Map([[1, { id: 1 }], [2, { id: 2 }]]) },
+  };
+  const secondUser = "1561372971355086979";
+  const result = await syncNativePoll(msg, {
+    sources: { async updateOne(...args) { changes.sources.push(args); } },
+    participants: {
+      async bulkWrite(writes) { changes.writes.push(...writes); },
+      async deleteMany(filter) { changes.removals.push(filter); },
+    },
+    async fetchVoters(_msg, opt) {
+      calls.push(opt);
+      if (opt.answerId === 1) return new Map([
+        [userId, { id: userId, bot: false }],
+        [secondUser, { id: secondUser, bot: false }],
+      ]);
+      return new Map([[userId, { id: userId, bot: false }]]);
+    },
+  });
+  assert.deepEqual(result, { voters: 2, answers: 2, pages: 2 });
+  assert.deepEqual(calls.map(x => x.answerId), [1, 2]);
+  assert.equal(changes.sources.length, 1);
+  assert.equal(changes.writes.length, 2);
+  assert.deepEqual(changes.writes.find(x => x.updateOne.filter.discordUserId === userId)
+    .updateOne.update.$set.answerIds, [1, 2]);
+  assert.deepEqual(changes.removals[0].discordUserId.$nin.sort(), [secondUser, userId].sort());
+});
+
+test("manual sync does not erase observations when fetching voters fails", async () => {
+  const msg = { guildId, channelId, id: messageId,
+    poll: { answers: new Map([[1, { id: 1 }], [2, { id: 2 }]]) } };
+  let touched = 0;
+  await assert.rejects(syncNativePoll(msg, {
+    sources: { async updateOne() { touched++; } },
+    participants: {
+      async bulkWrite() { touched++; },
+      async deleteMany() { touched++; },
+    },
+    async fetchVoters(_message, options) {
+      if (options.answerId === 2) throw new Error("Discord API unavailable");
+      return new Map([[userId, { id: userId }]]);
+    },
+  }), /Discord API unavailable/);
+  assert.equal(touched, 0);
+});
+
+test("manual sync ignores bot accounts, counts multi-answer voters once", async () => {
+  const botId = "1561372971355086978";
+  const msg = { guildId, channelId, id: messageId,
+    poll: { answers: new Map([[1, { id: 1 }]]) } };
+  const result = await syncNativePoll(msg, {
+    sources: { async updateOne() {} },
+    participants: { async bulkWrite(writes) {
+      assert.equal(writes.length, 1);
+    }, async deleteMany() {} },
+    async fetchVoters() {
+      return new Map([[userId, { id: userId, bot: false }],
+        [botId, { id: botId, bot: true }]]);
+    },
+  });
+  assert.equal(result.voters, 1);
 });
