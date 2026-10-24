@@ -535,15 +535,19 @@ export async function ensureProfileCard(guild, user, { refresh = false } = {}) {
 }
 
 const APPEARANCE_CHOICES = {
-  background: ["sagePreview", "sageDots", "garden"],
-  panelColor: ["match", "moss", "lavender", "default"],
+  background: ["sagePreview", "paleSage", "warmCream", "dustyBlue", "sageDots", "garden"],
+  panelColor: ["match", "default", "sagePanel", "creamPanel", "bluePanel",
+    "charcoal", "forest", "navy", "moss", "lavender"],
   font: ["default", "classic"],
   fontColor: ["default", "black", "white", "plum"],
   frame: ["default", "doubleLine"],
 };
 const APPEARANCE_LABELS = {
-  sagePreview: "Pale sage", sageDots: "Sage dots", garden: "Garden",
+  sagePreview: "Starter Sage (free)", sageDots: "Sage dots", garden: "Garden",
+  paleSage: "Pale Sage", warmCream: "Warm Cream", dustyBlue: "Dusty Blue",
   match: "Match background", moss: "Moss", lavender: "Lavender",
+  sagePanel: "Sage Panel", creamPanel: "Cream Panel", bluePanel: "Blue Panel",
+  charcoal: "Charcoal", forest: "Forest", navy: "Navy",
   default: "Default", classic: "Classic serif", black: "Black (free)", white: "White (free)", plum: "Plum",
   doubleLine: "Double-line border",
 };
@@ -926,6 +930,12 @@ export async function handleProfileAppearanceDM(interaction) {
       throw new UserFacingError("You have not unlocked that appearance item.");
     }
     draft.appearance[field] = value;
+    // Newly equipped dark panels should look dark on first selection rather
+    // than blending into the background at the starter 34% transparency.
+    // Members can still lower panel opacity using the existing selector.
+    if (field === "panelColor" && APPEARANCE_CATALOG.panels[value]?.dark) {
+      draft.appearance.panelOpacity = 0.9;
+    }
   } else {
     throw new UserFacingError("Invalid appearance choice.");
   }
