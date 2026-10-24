@@ -741,6 +741,10 @@ async function dmCategoryIndex(context, category, requestedPage = 0) {
   const descriptions = visible.map((item, i) => {
     if (groupedColors) {
       const price = familyPrice(item);
+      if (item.isStandalone) {
+        return `**${start + i + 1}. ${item.name}** · ${price} · ` +
+          (ownedShades(item) ? "✓ Owned" : "Special design");
+      }
       return `**${start + i + 1}. ${item.name}** · ${price}` +
         (item.isCustom ? " · Each purchased HEX is yours permanently"
           : ` per shade · ${ownedShades(item)}/${item.itemIds.length} owned`);
@@ -773,7 +777,9 @@ async function dmCategoryIndex(context, category, requestedPage = 0) {
       description: groupedColors
         ? item.isCustom
           ? `${familyPrice(item)} · Create your own shade`
-          : `Pastel · Normal · Dark · ${familyPrice(item)}/shade · ${ownedShades(item)}/3 owned`
+          : item.isStandalone
+            ? `${familyPrice(item)} · ${ownedShades(item) ? "Owned" : "Special design"}`
+            : `Pastel · Normal · Dark · ${familyPrice(item)}/shade · ${ownedShades(item)}/3 owned`
         : `${item.price === 0 ? "Free" : item.price + " Points"} · ${isOwned(item) ? "Owned" : "View item"}`,
     })));
   return {
@@ -852,7 +858,7 @@ async function dmItemPage(context, category, index) {
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:index:${category}:0`)
         .setLabel("All Items").setStyle(ButtonStyle.Secondary),
     ),
-    ...(isClassicColorCategory(category) && item.id !== CUSTOM_COLOR_SHOP_ID ? [
+    ...(isClassicColorCategory(category) && CLASSIC_COLOR_OPTIONS.some(shade => shade.id === item.id) ? [
       shopFamilyMenu(context.guildId, category, index),
       new ActionRowBuilder().addComponents(
         ...shopShadeButtons(context.guildId, category, index),
@@ -1135,7 +1141,8 @@ async function dmPreview(context, category, index, savedMix = {}) {
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:index:${category}:0`)
         .setLabel("All Items").setStyle(ButtonStyle.Secondary),
     ),
-    ...(isClassicColorCategory(category)
+    ...(isClassicColorCategory(category) &&
+      CLASSIC_COLOR_OPTIONS.some(shade => shade.id === item.id)
       ? [
         new ActionRowBuilder().addComponents(
           ...shopShadeButtons(context.guildId, category, index, true),
