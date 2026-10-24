@@ -4,18 +4,18 @@ Scope: `feature/points-earning` development branch. This is a **code and workloa
 
 ## Storage design
 
-- **PointsLedger** is a MongoDB collection, NOT a growing JSON/text file on Wispbyte. One immutable earning receipt per successful credit. Fields: guild/member ID, unique event key, kind, positive amount, human-readable reason, source/event ID, staff actor ID for manually issued credits, and MongoDB `createdAt`/`updatedAt`.
-- Award code creates a receipt and increments `PointsWallet.balance` **inside one MongoDB transaction**. A unique compound ledger index (`guildId, discordUserId, eventKey`) prevents re-crediting the same message, voice block, poll, or manual event reference. This requires a transaction-capable MongoDB deployment, as already used by the shop.
+- **PointsLedger** is a MongoDB collection, NOT a growing JSON/text file on Wispbyte. One immutable signed transaction per successful credit or debit. Fields: guild/member ID, unique event key, type, signed amount (positive earnings/refunds, negative spending), reason, source domain, event/item IDs, moderator reference when applicable, and MongoDB timestamps.
+- Award code creates a positive receipt and increments `PointsWallet.balance` **inside one MongoDB transaction**. Shop checkouts use a general spend helper to deduct the wallet, write a negative receipt, and unlock the purchased item(s) within **the same MongoDB transaction**. A unique compound ledger index (`guildId, discordUserId, eventKey`) prevents re-crediting the same message, voice block, poll, or manual event reference. This requires a transaction-capable MongoDB deployment, as already used by the shop.
 - MongoDB writes are durable assuming the MongoDB service and backups are configured appropriately. **Application console logs are supplemental and may be rotated**, and are *not* the audit source of truth.
-- The ledger currently tracks **credits**, NOT debits from purchasing shop items. Balance cannot be calculated by subtracting ledger credits alone. A future full economy reconciliation should log purchases/refunds/adjustments as separate signed wallet transactions or otherwise derive them from the shop purchase records.
+- The ledger now tracks **earned Points, shop spending and refunds**. Future spending features can reuse `spendPointsInSession()` with their own `sourceType` (for example event, ticket, or auction). **Purchases predating this code were not recorded as negative transactions**, so all-time ledger sums cannot yet be assumed to match every existing wallet balance. No fabricated backfill is performed.
 - No automatic receipt purging, retention deadline, or archival exists. Keep raw earning receipts until a deliberate retention/archive plan and verified backup exists; deleting entries without reworking idempotency could allow repeat rewards.
 
 ## Read-only commands for managers
 
-- `/points-admin audit days:1` (1–90 days; defaults to 1): Points issued, award count, unique members rewarded, totals by reward type, five largest earners. Filter by `type` and/or `member`. Executes an indexed time-window MongoDB aggregation, grouping by **member and reward type**, rather than retrieving every receipt into Node memory.
-- `/points-admin audit-export days:7` (defaults to 7): Ephemeral CSV attachment with UTC timestamp, guild/member IDs, kind, positive Points amount, reason, source ID, moderator actor ID, and event key. Optional type/member filters. Reads in **500-record cursor batches** and refuses to send **incomplete** results: 25,000 receipts or 5 MiB is the ceiling for one file. For bigger periods, split by shorter days, member, and type. Import snowflake ID columns as **text** in spreadsheets to preserve 17–21 digits.
-- `/points-admin history member:@... ` displays the 10 latest credits, and `/points-admin activity-status` displays the current activity accounting total. Reports do not identify shop deductions.
-- Operational shell command: `node scripts/points-ledger-health.js` (with `MONGODB_URI` set). **Read-only**, prints approximate ledger and wallet counts, seven-day award count, expected indexes, and storage/index sizes if `collStats` is permitted. Never paste database connection strings or credentials into chat.
+- `/points-admin audit days:1` (1–90 days; defaults to 1): Points earned, Points spent, Points refunded, net change, transaction count, affected members and totals by type. Filter by `type` and/or `member`. Executes an indexed time-window MongoDB aggregation, grouping by **member and reward type**, rather than retrieving every receipt into Node memory.
+- `/points-admin audit-export days:7` (defaults to 7): Ephemeral CSV attachment with UTC timestamp, guild/member IDs, kind, signed Points amount, debit/credit direction, reason, source domain, source ID, moderator actor ID, event key, linked refund reference, balance-after when available, and itemized shop purchases. Optional type/member filters. Reads in **500-record cursor batches** and refuses to send **incomplete** results: 25,000 receipts or 5 MiB is the ceiling for one file. For bigger periods, split by shorter days, member, and type. Import snowflake ID columns as **text** in spreadsheets to preserve 17–21 digits.
+- `/points-admin history member:@... ` displays the 10 latest signed transactions (including negative shop purchases), and `/points-admin activity-status` displays activity earnings separately.
+- Operational shell command: `node scripts/points-ledger-health.js` (with `MONGODB_URI` set). **Read-only**, prints approximate ledger and wallet counts, seven-day transaction count, expected indexes, and storage/index sizes if `collStats` is permitted. Never paste database connection strings or credentials into chat.
 
 ## Indexes checked in this branch
 
@@ -47,7 +47,7 @@ The second source of load is minute-level voice tracking. It uses about **two pr
 3. Run the read-only health script and inspect **actual index presence and storage bytes**. Confirm all four ledger indexes, especially the guild/time and guild/type/time indexes. Monitor MongoDB slow queries, write latency, connections, disk utilization, and Wispbyte process CPU/memory.
 4. Load-test a **copy** of the schema on a throwaway MongoDB database against a realistic simulated workload (e.g. 700 distinct users, 10k awards/day equivalents and concurrent voice ticks). Measure p50/p95 transaction latency, audit response latency, CSV memory peak and rate of errors. The in-repo unit tests use fakes and **do not** substitute for this step.
 5. Start the real bot with a limited group, review daily `audit`, check duplicates/anomalies, then grow toward 100 and 700 members with alerts. Use one-day CSV exports during the initial rollout.
-6. Decide how long to keep the ledger and how to **archive old receipts without enabling old event keys to pay twice**. Do not simply add a TTL index to the immutable ledger. If purchasing/deduction reconciliation matters, add signed wallet transaction logging before labeling the audit a complete financial balance trail.
+6. Decide how long to keep the ledger and how to **archive old receipts without enabling old event keys to pay twice**. Do not simply add a TTL index to the immutable ledger. All new shop spending has signed records. Existing wallet balances may still include unlogged historical purchases; do not assert all-time ledger-to-wallet equality without establishing a migration baseline.
 
 ## Capacity limitations to keep visible
 
@@ -55,4 +55,14 @@ The second source of load is minute-level voice tracking. It uses about **two pr
 - A 90-day all-member audit scans only the indexed time window, but a large period still has database query cost. Use shorter windows for routine reports, and filtered CSV batches. Single Discord interactions can expire if DB queries take too long.
 - CSV export is intentionally bounded; it will give an actionable error rather than returning a truncated file.
 - 10 concurrent voice workers helps at ~100 active people, but a sustained 700-member simultaneous voice load or high DB latency can still exceed the minute cadence; monitor the `[Points] Voice tick required ...` warnings.
-- The audit currently covers **Points issued**. To investigate unexpected balance changes after purchases, compare the ledger with shop transactions; a unified debit-and-credit audit is a separate enhancement.
+- The audit now includes positive earnings/refunds and negative spending. Check that new purchases show one debit and item ownership; note that old purchases made before this feature will not appear in the ledger.
+
+
+## Signed spending ledger rollout (feature branch)
+
+- Single item / custom HEX purchase: **one negative receipt** with the selected category and ID, cost, source `shop`, event key and balance-after value.
+- Purchase All: **one negative receipt for the entire order**, plus an itemized list of purchased categories, IDs and prices. The existing checkout panel prevents replay; the event key is stable to that checkout.
+- Failed checkout (insufficient Points, already owned, unavailable item or stale preview): **neither inventory nor wallet nor ledger changes**. Transactions require MongoDB replica-set or managed transaction support, just like previous shop checkouts.
+- Future uses: import `spendPointsInSession` from `services/points-spending.js`, wrap it inside the feature's MongoDB session and transaction that grants the purchased entitlement, and supply a unique, stable event key and new `sourceType`. For returns, use a verified call to `refundPoints`, linking to the original purchase key; no automated refund button has been exposed.
+- `/points-admin audit type:Spending` and `audit-export type:Spending` inspect debit records. `history` shows negative amounts. CSV includes positive/negative numbers, direction and item lists. Revenue and costs are in **community Points**, not real currency.
+- **Legacy warning:** Older shop purchases have no debit receipts. Do not generate imaginary events, or claim full lifetime reconciliation until a safe historical baseline is established.
