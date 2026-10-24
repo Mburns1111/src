@@ -4,6 +4,8 @@ import { CLASSIC_SHOP_ITEMS } from "./shop-presentation.js";
 import { registerAppearanceFonts } from "./font-library.js";
 import { STICKER_CATALOG, stickerDefaults } from "./sticker-catalog.js";
 import { drawStickerArtwork } from "./sticker-artwork.js";
+import { frameArtworkSvg } from "./frame-artwork.js";
+import { DEFAULT_POST_STYLE } from "./post-layouts.js";
 
 const INK = "#27352F";
 const MUTED = "#617067";
@@ -34,27 +36,68 @@ function line(ctx, y, width = 1200) {
   ctx.stroke();
 }
 
-// The familiar profile renderer produces every frame sample. We arrange
-// those exact previews on ONE shared image, instead of creating many embeds.
-export async function renderClassicFrameSheet(items, framePreview) {
+// Draw the same rounded outer/inner rails used for the free standard frame,
+// but without the profile photo, panels or text beneath them.
+function standardFrameCornerArtwork() {
+  const canvas = createCanvas(1200, 800);
+  const ctx = canvas.getContext("2d");
+  const cornerRail = (inset, radius, color, width) => {
+    ctx.beginPath();
+    ctx.moveTo(inset, 800);
+    ctx.lineTo(inset, inset + radius);
+    ctx.quadraticCurveTo(inset, inset, inset + radius, inset);
+    ctx.lineTo(1200, inset);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  };
+  cornerRail(DEFAULT_POST_STYLE.outerInset, DEFAULT_POST_STYLE.cornerRadius,
+    DEFAULT_POST_STYLE.frame, DEFAULT_POST_STYLE.borderWidth);
+  cornerRail(DEFAULT_POST_STYLE.innerInset, DEFAULT_POST_STYLE.innerCornerRadius,
+    DEFAULT_POST_STYLE.panelAlt, DEFAULT_POST_STYLE.innerBorderWidth);
+  return canvas;
+}
+
+// One large, clean gallery of the TOP-LEFT frame corners only. The actual
+// transparent frame SVG overlays are cropped before enlargement; full profile
+// cards (and their distracting text/avatars) are intentionally not rendered.
+// Crops gently overlap, giving each distinct corner room to be inspected.
+export async function renderClassicFrameSheet(items) {
   const ordered = CLASSIC_SHOP_ITEMS.frames
     .map(id => items.find(item => item.id === id)).filter(Boolean);
-  const height = 150 + ordered.length * 405;
-  const { canvas, ctx } = sheet(1200, height, "CLASSIC FRAMES",
-    "One profile example per frame · select frames in the shop index");
+  const canvas = createCanvas(1200, 1415);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = INK;
+  ctx.font = "bold 53px sans-serif";
+  ctx.fillText("CLASSIC FRAMES", 42, 85);
+  ctx.font = "27px sans-serif";
+  ctx.fillStyle = MUTED;
+  ctx.fillText("Zoomed-in top-left corners · compare each frame at a glance", 44, 131, 1100);
+
+  const cropWidth = 330, cropHeight = 255;
+  const shownWidth = 550, shownHeight = 425;
+  const columnX = [40, 554];  // 36px horizontal overlap
+  const rowY = [165, 555, 945]; // 35px vertical overlap
   for (const [i, item] of ordered.entries()) {
-    const y = 153 + i * 405;
-    if (i > 0) line(ctx, y - 8);
+    const x = columnX[i % 2];
+    const y = rowY[Math.floor(i / 2)];
+    const frame = APPEARANCE_CATALOG.frames[item.id];
+    const svg = frame?.kind === "artwork" ? frameArtworkSvg(frame.artwork) : null;
+    const artwork = svg ? await loadImage(Buffer.from(svg, "utf8"))
+      : standardFrameCornerArtwork();
+    ctx.drawImage(artwork, 0, 0, cropWidth, cropHeight,
+      x, y, shownWidth, shownHeight);
+
+    // Labels sit inside the open white part of the enlarged corner.
     ctx.fillStyle = INK;
-    ctx.font = "bold 38px sans-serif";
-    ctx.fillText(item.name, 45, y + 104, 414);
-    ctx.font = "28px sans-serif";
+    ctx.font = "bold 32px sans-serif";
+    ctx.fillText(item.name, x + 170, y + 270, 365);
+    ctx.font = "26px sans-serif";
     ctx.fillStyle = MUTED;
-    ctx.fillText(item.included ? "Free · Included" : `${item.price} Points`, 46, y + 149);
-    const png = await framePreview(item);
-    const image = await loadImage(png);
-    // Original image is a 1200×800 profile card. Keep its 3:2 proportions.
-    ctx.drawImage(image, 575, y + 5, 585, 390);
+    ctx.fillText(item.included ? "Free · Included" : `${item.price} Points`,
+      x + 171, y + 313, 355);
   }
   return canvas.toBuffer("image/png");
 }
@@ -117,7 +160,6 @@ export function renderClassicTextColorSheet() {
     { id: "default", name: "Default · Included", sampleBackground: "#FFFFFF" },
     { id: "black", name: "Black · Included", sampleBackground: "#FFFFFF" },
     { id: "white", name: "White · Included", sampleBackground: "#3F5150" },
-    { id: "plum", name: "Plum · 75 Points", sampleBackground: "#FFFFFF" },
   ];
   const { canvas, ctx } = sheet(1200, 160 + choices.length * 184 + 106,
     "CLASSIC TEXT COLORS", "Preview the same lettering in the available classic colors");
