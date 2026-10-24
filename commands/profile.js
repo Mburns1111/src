@@ -672,7 +672,7 @@ function getProfileAppearance(profile) {
     ? profile.profileAppearance
     : DEFAULT_APPEARANCE);
 }
-function makeAppearanceControls(profile, page = "colors", selected = 0, ownership = null, dmToken = null, optionPages = {}) {
+function makeAppearanceControls(profile, page = "colors", selected = 0, ownership = null, dmToken = null, optionPages = {}, stickerMode = "position") {
   const a = getProfileAppearance(profile);
   const ownerId = profile.discordUserId;
   const selectId = field => dmToken
@@ -728,29 +728,33 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
     ];
     if (a.stickers.length) {
       const selectedSticker = a.stickers[Math.max(0, Math.min(selected, a.stickers.length - 1))];
-      const label = STICKER_CATALOG[selectedSticker.id]?.name || selectedSticker.id;
-      rows.push(new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder().setCustomId(selectId("stickerAction"))
-          .setPlaceholder(`Move, resize or rotate ${label}`)
-          .addOptions([
-            ["left", "← Move left"], ["right", "Move right →"],
-            ["up", "↑ Move up"], ["down", "Move down ↓"],
-            ["smaller", "− Make smaller"], ["larger", "+ Make larger"],
-            ["rotateLeft", "↶ Rotate left"], ["rotateRight", "↷ Rotate right"],
-            ["remove", "Remove this sticker"],
-          ].map(([value, name]) => ({ value, label: name }))),
-      ));
       const isTwoColor = STICKER_CATALOG[selectedSticker.id]?.colors === 2;
-      rows.push(new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:stickerColors`)
-          .setLabel(isTwoColor ? "Main & Accent HEX" : "Sticker HEX Color")
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:stickerOutline`)
-          .setLabel(`Outline: ${(selectedSticker.outline || "auto").replace(/^./, c => c.toUpperCase())}`)
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:stickerResetColors`)
-          .setLabel("Reset Colors").setStyle(ButtonStyle.Secondary),
-      ));
+      const button = (action, label, style = ButtonStyle.Secondary) =>
+        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:${action}`)
+          .setLabel(label).setStyle(style);
+      if (stickerMode === "style") {
+        // Separate modes keep the preview unobstructed while staying within
+        // Discord's five-row limit.
+        rows.push(new ActionRowBuilder().addComponents(
+          button("stickerColors", isTwoColor ? "Main & Accent HEX" : "Sticker HEX", ButtonStyle.Primary),
+          button("stickerOutline", `Outline: ${(selectedSticker.outline || "auto").replace(/^./, c => c.toUpperCase())}`),
+          button("stickerResetColors", "Reset Colors"),
+          button("remove", "Remove", ButtonStyle.Danger),
+        ));
+        rows.push(new ActionRowBuilder().addComponents(
+          button("stickerPosition", "← Position & Size", ButtonStyle.Primary),
+        ));
+      } else {
+        rows.push(new ActionRowBuilder().addComponents(
+          button("left", "← Left"), button("right", "Right →"),
+          button("up", "↑ Up"), button("down", "↓ Down"),
+        ));
+        rows.push(new ActionRowBuilder().addComponents(
+          button("smaller", "− Size"), button("larger", "+ Size"),
+          button("rotateLeft", "↶ Rotate"), button("rotateRight", "↷ Rotate"),
+          button("stickerStyle", "Colors & Style", ButtonStyle.Primary),
+        ));
+      }
     }
     // Discord has a maximum of five action rows per message.
     return [...rows, finish()];
@@ -842,7 +846,7 @@ async function appearanceDmPayload(guild, user, profile, draft) {
   const previewProfile = { ...profile.toObject(), profileAppearance: draft.appearance };
   const preview = await makeProfileCardPayload(guild, previewProfile, user);
   const controls = makeAppearanceControls(
-    previewProfile, draft.page, draft.selected, ownership, draft.token, draft.optionPages || {},
+    previewProfile, draft.page, draft.selected, ownership, draft.token, draft.optionPages || {}, draft.stickerMode || "position",
   );
   return {
     content: "**Customize your profile** — see every change in this preview. **Confirm & update profile** saves your work and closes this temporary editor. **Discard Changes** closes it without saving. Your permanent shop remains in DMs.",
@@ -876,6 +880,7 @@ async function openAppearanceDM(interaction, profile, guild = interaction.guild)
         appearance: filterOwnedAppearance(getProfileAppearance(profile), ownership),
         page: "colors",
         selected: 0,
+        stickerMode: "position",
         optionPages: {},
       };
       return {
@@ -885,6 +890,7 @@ async function openAppearanceDM(interaction, profile, guild = interaction.guild)
           appearanceDraft: draft.appearance,
           appearancePage: draft.page,
           selectedSticker: draft.selected,
+          appearanceStickerMode: draft.stickerMode,
           appearanceOptionPages: draft.optionPages,
         },
       };
@@ -901,6 +907,7 @@ async function openAppearanceDM(interaction, profile, guild = interaction.guild)
       appearance: filterOwnedAppearance(panel.appearanceDraft ?? getProfileAppearance(profile), ownership),
       page: APPEARANCE_PAGES[panel.appearancePage] ? panel.appearancePage : "colors",
       selected: panel.selectedSticker ?? 0,
+      stickerMode: panel.appearanceStickerMode || "position",
       optionPages: panel.appearanceOptionPages || {},
     };
     if (draft.token) {
@@ -925,6 +932,7 @@ async function saveDraftPanel(panel, draft) {
   panel.appearanceDraft = draft.appearance;
   panel.appearancePage = draft.page;
   panel.selectedSticker = draft.selected;
+  panel.appearanceStickerMode = draft.stickerMode || "position";
   panel.appearanceOptionPages = draft.optionPages || {};
   panel.markModified("appearanceDraft");
   panel.markModified("appearanceOptionPages");
@@ -1012,6 +1020,7 @@ export async function handleProfileAppearanceDM(interaction) {
     appearance: filterOwnedAppearance(panel.appearanceDraft ?? getProfileAppearance(profile), ownership),
     page: APPEARANCE_PAGES[panel.appearancePage] ? panel.appearancePage : "colors",
     selected: panel.selectedSticker ?? 0,
+    stickerMode: panel.appearanceStickerMode || "position",
     optionPages: panel.appearanceOptionPages || {},
   };
 
@@ -1083,6 +1092,23 @@ export async function handleProfileAppearanceDM(interaction) {
     }
     await sendTemporaryDmNotice(interaction.user,
       "✅ **Profile appearance saved!** Your profile card in the server has been updated. The editor is closed; use **Customize Profile** in your permanent shop to edit again.");
+    return true;
+  }
+  if (kind === "button" && ["stickerStyle", "stickerPosition"].includes(field)) {
+    if (draft.page !== "stickers" || !draft.appearance.stickers[draft.selected]) {
+      throw new UserFacingError("Choose a placed sticker first.");
+    }
+    draft.stickerMode = field === "stickerStyle" ? "style" : "position";
+    await saveDraftPanel(panel, draft);
+    // Keep the existing PNG. A mode switch only changes controls, so there's
+    // no need to fetch profile data again or re-render an expensive preview.
+    const previewProfile = { ...profile.toObject(), profileAppearance: draft.appearance };
+    await interaction.editReply({
+      components: makeAppearanceControls(
+        previewProfile, draft.page, draft.selected, ownership,
+        draft.token, draft.optionPages || {}, draft.stickerMode,
+      ),
+    });
     return true;
   }
   if (kind === "button" && field === "fontBoth") {
