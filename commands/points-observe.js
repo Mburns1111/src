@@ -3,7 +3,7 @@ import { requireGuild } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 import ParticipationSource from "../models/ParticipationSource.js";
 import NativePollParticipation from "../models/NativePollParticipation.js";
-import { messageVisibility, parseGuildMessageLink, publicEmbedDiagnostic } from "../services/participation-observer.js";
+import { messageVisibility, parseGuildMessageLink, publicEmbedDiagnostic, syncNativePoll } from "../services/participation-observer.js";
 import { shouldRequestMessageContent } from "../services/observation-intents.js";
 
 const arcloChoices = [
@@ -32,6 +32,10 @@ export const data = new SlashCommandBuilder()
       .setDescription("Type of Arclo message").addChoices(...arcloChoices))
     .addStringOption(option => option.setName("link").setRequired(true)
       .setDescription("Discord link to the Arclo-authored message")))
+  .addSubcommand(command => command.setName("sync")
+    .setDescription("Fetch current native Discord poll voters, including missed/restarted votes")
+    .addStringOption(option => option.setName("link").setRequired(true)
+      .setDescription("Discord message link to the native poll")))
   .addSubcommand(command => command.setName("report")
     .setDescription("Show tracked observations for one native or Arclo message")
     .addStringOption(option => option.setName("link").setRequired(true)
@@ -93,7 +97,7 @@ export async function execute(interaction) {
       guildId, messageId: parsed.messageId, channelId: parsed.channelId,
     }).lean();
     if (!entry) throw new UserFacingError(
-      "That message has not been observed yet. Vote in a native poll after starting the test bot, or register an Arclo post first.");
+      "No observation exists yet. For a native Discord poll use /points-observe sync with this message link; for Arclo use register.");
     let result = `**${sourceNames[entry.source]}**\n${linkTo(guildId, entry.channelId, entry.messageId)}\n`;
     if (entry.source === "discord-native-poll") {
       const members = await NativePollParticipation.countDocuments({
@@ -112,6 +116,29 @@ export async function execute(interaction) {
   }
 
   const { parsed, message } = await findMessage(interaction, link);
+  if (command === "sync") {
+    if (!message.poll) throw new UserFacingError(
+      "That message does not contain a visible native Discord poll. Arclo polls are not supported by this command.");
+    let result;
+    try {
+      result = await syncNativePoll(message);
+    } catch (error) {
+      if (/not a readable native Discord|no readable answers|exceeds the safe voter sync limit/.test(error.message)) {
+        throw new UserFacingError(error.message);
+      }
+      console.error("[Points observe] Native poll voter sync failed:", error);
+      throw new UserFacingError(
+        "Discord could not provide the poll voter list. Check AM Isa's View Channel/Read Message History permissions and test bot logs. No Points were awarded.");
+    }
+    await interaction.editReply({
+      content: `**Native Discord poll synced**\\n${linkTo(guildId, parsed.channelId, parsed.messageId)}\\n` +
+        `**Currently observed voters: ${result.voters} unique members** across ${result.answers} answers.\\n` +
+        `Fetched ${result.pages} voter page(s) directly from Discord. Re-running sync updates the current count after a removed vote.\\n\\n` +
+        "**Observation only — no Points awarded.**",
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
   const details = messageVisibility(message);
   if (command === "inspect") {
     // Reveal a short view of PUBLIC embed structure, not private Arclo
