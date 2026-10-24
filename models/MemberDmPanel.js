@@ -30,6 +30,8 @@ const memberDmPanelSchema = new mongoose.Schema({
   shopPendingCustom: { type: mongoose.Schema.Types.Mixed, default: null },
   // The exact Preview Multiple checkout quote, awaiting explicit confirmation.
   shopPendingMixPurchase: { type: mongoose.Schema.Types.Mixed, default: null },
+  // A successful bundle's exact preview, ready for optional one-click equipping.
+  shopPendingMixEquip: { type: mongoose.Schema.Types.Mixed, default: null },
 }, { timestamps: true });
 
 memberDmPanelSchema.index(
