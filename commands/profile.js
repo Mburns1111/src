@@ -43,7 +43,8 @@ import {
 import { getVoteCounts } from "./trade.js";
 import { ensureChannelEntry } from "./channel-entry.js";
 import { renderPostImage } from "../services/post-renderer.js";
-import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, resolveAppearance } from "../services/post-appearance.js";
+import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, appearanceCatalogItem, resolveAppearance } from "../services/post-appearance.js";
+import { customColorHex, customColorLabel } from "../services/custom-colors.js";
 import { CLASSIC_COLOR_OPTIONS, STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID } from "../services/classic-colors.js";
 import { FREE_APPEARANCE, getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, APPEARANCE_FIELD_CATEGORY } from "../services/appearance-ownership.js";
 
@@ -579,10 +580,14 @@ function availableAppearanceChoices(field, ownership) {
   const unlocked = choices.filter(id =>
     id === "match" || ownsAppearanceItem(ownership, category, id));
   if (field === "fontColor") return unlocked;
+  // Each purchased custom HEX value is stored as a stable inventory ID,
+  // so multiple saved colors can appear here without a separate DB schema.
+  const customOwned = [...(ownership?.[category] || [])]
+    .filter(id => Boolean(customColorHex(id))).sort();
   const retiredOwned = Object.keys(APPEARANCE_CATALOG[category]).filter(id =>
     !choices.includes(id) && ownership?.[category]?.has(id) &&
     !FREE_APPEARANCE[category]?.includes(id));
-  return [...unlocked, ...retiredOwned];
+  return [...new Set([...unlocked, ...customOwned, ...retiredOwned])];
 }
 
 function appearanceChoicePage(field, currentAppearance, optionPages = {}, ownership = null) {
@@ -603,16 +608,18 @@ function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
     page * COLOR_SELECT_PAGE_SIZE, (page + 1) * COLOR_SELECT_PAGE_SIZE,
   );
   const options = visible.map(id => ({
-    label: !APPEARANCE_CHOICES[field].includes(id)
+    label: customColorLabel(id) ||
+      (!APPEARANCE_CHOICES[field].includes(id)
       ? `Retired · ${RETIRED_COLOR_NAMES[id] || id}`
       : field === "background" && id === STANDARD_BACKGROUND_ID
         ? "Starter Sage (free)"
         : field === "panelColor" && id === STANDARD_PANEL_ID
           ? `${APPEARANCE_LABELS[id]} (Free · Standard)`
-          : APPEARANCE_LABELS[id] || id,
+          : APPEARANCE_LABELS[id] || id),
     value: id,
     default: appearance[field] === id,
-    description: !APPEARANCE_CHOICES[field].includes(id)
+    description: customColorHex(id) ? "Your purchased HEX color" :
+      !APPEARANCE_CHOICES[field].includes(id)
       ? "Previously purchased · yours to keep"
       : id === "match" || ownership?.[APPEARANCE_FIELD_CATEGORY[field]]?.has(id)
         ? "Available" : "Locked",
@@ -1015,11 +1022,11 @@ export async function handleProfileAppearanceDM(interaction) {
       throw new UserFacingError("You have not unlocked that appearance item.");
     }
     draft.appearance[field] = value;
-    if (field === "panelColor" && APPEARANCE_CATALOG.panels[value]?.dark) {
+    if (field === "panelColor" && appearanceCatalogItem("panels", value)?.dark) {
       draft.appearance.panelOpacity = 0.9;
     }
     if (field === "background" && draft.appearance.panelColor === "match" &&
-        APPEARANCE_CATALOG.backgrounds[value]?.dark) {
+        appearanceCatalogItem("backgrounds", value)?.dark) {
       draft.appearance.panelOpacity = 0.9;
     }
   } else {
