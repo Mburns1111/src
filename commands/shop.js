@@ -1411,11 +1411,11 @@ async function handleShopDM(interaction) {
       panel.markModified("shopPendingMixPurchase");
       await panel.save();
       await interaction.editReply({
-        content: "**Confirm Purchase All**\\n" +
-          quote.purchasable.map(item => `• **${mixValueName(item.category, item.id)}** — ${item.price} Points`).join("\\n") +
-          `\\n\\n**Total: ${quote.total} Points** · Current balance: ${balance} Points` +
-          `\\nAfter purchase: **${balance - quote.total} Points**` +
-          "\\n\\nItems are permanently unlocked but **not automatically equipped**. Nothing is charged until you confirm.",
+        content: "**Confirm Purchase All**\n" +
+          quote.purchasable.map(item => `• **${mixValueName(item.category, item.id)}** — ${item.price} Points`).join("\n") +
+          `\n\n**Total: ${quote.total} Points** · Current balance: ${balance} Points` +
+          `\nAfter purchase: **${balance - quote.total} Points**` +
+          "\n\nItems are permanently unlocked but **not automatically equipped**. Nothing is charged until you confirm.",
         components: [new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mixBuyAll`)
             .setLabel(`Confirm Purchase · ${quote.total} Points`).setStyle(ButtonStyle.Success),
@@ -1437,7 +1437,7 @@ async function handleShopDM(interaction) {
       const { bought, charged } = await purchasePreviewBundle(context, panel._id);
       const currentPanel = await MemberDmPanel.findById(panel._id);
       const refreshed = await dmMixEditor(context, currentPanel, { reuseImage: true });
-      refreshed.content = `✅ **Purchased ${bought.length} items for ${charged} Points!** You can equip them in Customize Profile.\\n\\n` +
+      refreshed.content = `✅ **Purchased ${bought.length} items for ${charged} Points!** You can equip them in Customize Profile.\n\n` +
         refreshed.content;
       await interaction.editReply(refreshed);
       try {
