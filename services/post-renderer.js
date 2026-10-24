@@ -4,7 +4,7 @@ import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
-import { APPEARANCE_CATALOG, resolveAppearance } from './post-appearance.js';
+import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './post-appearance.js';
 
 // Register a Unicode symbol font for decorative display names.
 // Downloaded once per process, with graceful fallback when offline.
@@ -312,7 +312,7 @@ function drawLabel(ctx, text, region, style) {
 
 
 function drawBackgroundPattern(ctx, width, height, appearance) {
-  const choice = APPEARANCE_CATALOG.backgrounds[appearance.background];
+  const choice = appearanceCatalogItem('backgrounds', appearance.background);
   if (choice.kind !== 'dots') return;
   ctx.save();
   ctx.fillStyle = choice.color;
@@ -415,7 +415,7 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerIm
   // Purchased panel themes need the visibly tinted shade on BOTH sides:
   // the lighter shade blended into the background at the glass opacity.
   const selectedPanelTheme = appearance.panelColor !== 'match' &&
-    Boolean(APPEARANCE_CATALOG.panels[appearance.panelColor]?.palette);
+    Boolean(appearanceCatalogItem('panels', appearance.panelColor)?.palette);
   glassPanel(ctx, 335, 54, 831, 240, style, selectedPanelTheme);
   glassPanel(ctx, 44, 317, 272, 157, style, true);
   glassPanel(ctx, 44, 486, 272, 115, style, true);
@@ -848,8 +848,8 @@ export async function renderPostImage({
 
   const resolvedAppearance = resolveAppearance(appearance);
   const font = APPEARANCE_CATALOG.fonts[resolvedAppearance.font];
-  const backgroundItem = APPEARANCE_CATALOG.backgrounds[resolvedAppearance.background];
-  const selectedPanel = APPEARANCE_CATALOG.panels[resolvedAppearance.panelColor];
+  const backgroundItem = appearanceCatalogItem('backgrounds', resolvedAppearance.background);
+  const selectedPanel = appearanceCatalogItem('panels', resolvedAppearance.panelColor);
   // Default lettering remains legible on both explicit dark panels and
   // panels matched to a dark background. Explicit text-color choices still win.
   const panelsAreDark = selectedPanel?.dark ||
@@ -859,7 +859,7 @@ export async function renderPostImage({
     : APPEARANCE_CATALOG.fontColors[resolvedAppearance.fontColor];
   const matchedPalette = resolvedAppearance.panelColor === 'match'
     ? backgroundItem.palette || {}
-    : APPEARANCE_CATALOG.panels[resolvedAppearance.panelColor]?.palette || {};
+    : selectedPanel?.palette || {};
   const resolvedStyle = {
     ...DEFAULT_POST_STYLE,
     ...style,
