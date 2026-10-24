@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import PointsSettings from "../models/PointsSettings.js";
 import PointsActivityCounter from "../models/PointsActivityCounter.js";
 import PointsActivityMessageState from "../models/PointsActivityMessageState.js";
-import PointsMessageDailyCounter from "../models/PointsMessageDailyCounter.js";
 import PointsVoiceProgress from "../models/PointsVoiceProgress.js";
 import PointsLedger from "../models/PointsLedger.js";
 import PointsWallet from "../models/PointsWallet.js";
@@ -11,8 +10,7 @@ import { activityPeriod, FIRST_WEEK_MS } from "./activity-period.js";
 export { activityPeriod, FIRST_WEEK_MS } from "./activity-period.js";
 
 export const MESSAGE_BASE_POINTS = 2;
-export const MESSAGE_COOLDOWN_MS = 2 * 60_000;
-export const MESSAGE_DAILY_MAX = 10;
+export const MESSAGE_COOLDOWN_MS = 30 * 60_000;
 export const MESSAGE_MIN_LETTERS = 8;
 export const MESSAGE_MIN_LENGTH = 15;
 export const VOICE_BASE_POINTS = 5;
@@ -52,8 +50,7 @@ export async function awardRepeatableActivity({
   channelId = "", messageHash = "", models = {}, sessionFactory = () => mongoose.startSession(),
 }) {
   const { settings = PointsSettings, counters = PointsActivityCounter,
-    messageStates = PointsActivityMessageState, messageDaily = PointsMessageDailyCounter,
-    ledgers = PointsLedger,
+    messageStates = PointsActivityMessageState, ledgers = PointsLedger,
     wallets = PointsWallet } = models;
   if (type !== "message" && type !== "voice") throw new Error("Unsupported activity source");
   const no = reason => ({ credited: false, amount: 0, reason });
@@ -65,12 +62,6 @@ export async function awardRepeatableActivity({
   const amount = (type === "message" ? MESSAGE_BASE_POINTS : VOICE_BASE_POINTS) * period.multiplier;
   const key = { guildId, discordUserId: userId, periodKey: period.key };
   const selector = { guildId, discordUserId: userId, eventKey };
-  const day = { guildId, discordUserId: userId, dayUtc: now.toISOString().slice(0, 10) };
-  if (type === "message") {
-    await messageDaily.updateOne(day, {
-      $setOnInsert: { ...day, messagesRewarded: 0 },
-    }, { upsert: true });
-  }
   await counters.updateOne(key, { $setOnInsert: { ...key, earned: 0 } }, { upsert: true });
   if (type === "message") {
     await messageStates.updateOne({ guildId, discordUserId: userId }, {
@@ -100,17 +91,6 @@ export async function awardRepeatableActivity({
         ...key, earned: { $lte: period.cap - amount },
       }, { $inc: { earned: amount } }, { session, returnDocument: "after" });
       if (!counter) { result = no("activity_cap"); return; }
-      if (type === "message") {
-        const daily = await messageDaily.findOneAndUpdate({
-          ...day, messagesRewarded: { $lt: MESSAGE_DAILY_MAX },
-        }, { $inc: { messagesRewarded: 1 } },
-        { session, returnDocument: "after" });
-        if (!daily) {
-          const error = new Error("Daily rewarded-message limit reached");
-          error.code = "MESSAGE_DAILY_LIMIT";
-          throw error; // abort the shared weekly counter and cooldown updates
-        }
-      }
       await ledgers.create([{ ...selector, kind: type, amount,
         description: type === "message" ? "Qualified Discord message" : "Qualified voice participation",
         sourceId: channelId,
@@ -121,7 +101,6 @@ export async function awardRepeatableActivity({
       result = { credited: true, amount, reason: "credited", period };
     });
   } catch (error) {
-    if (error?.code === "MESSAGE_DAILY_LIMIT") return no("daily_message_limit");
     if (Number(error?.code) === 11000 && await ledgers.exists(selector)) {
       return no("already_awarded");
     }
