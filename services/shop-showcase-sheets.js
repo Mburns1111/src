@@ -58,6 +58,13 @@ function standardFrameCornerArtwork() {
   return canvas;
 }
 
+export async function classicFrameArtwork(item) {
+  const frame = APPEARANCE_CATALOG.frames[item.id];
+  const svg = frame?.kind === "artwork" ? frameArtworkSvg(frame.artwork) : null;
+  return svg ? loadImage(Buffer.from(svg, "utf8"))
+    : standardFrameCornerArtwork();
+}
+
 // One large, clean gallery of the TOP-LEFT frame corners only. The actual
 // transparent frame SVG overlays are cropped before enlargement; full profile
 // cards (and their distracting text/avatars) are intentionally not rendered.
@@ -83,10 +90,7 @@ export async function renderClassicFrameSheet(items) {
   for (const [i, item] of ordered.entries()) {
     const x = columnX[i % 2];
     const y = rowY[Math.floor(i / 2)];
-    const frame = APPEARANCE_CATALOG.frames[item.id];
-    const svg = frame?.kind === "artwork" ? frameArtworkSvg(frame.artwork) : null;
-    const artwork = svg ? await loadImage(Buffer.from(svg, "utf8"))
-      : standardFrameCornerArtwork();
+    const artwork = await classicFrameArtwork(item);
     ctx.drawImage(artwork, 0, 0, cropWidth, cropHeight,
       x, y, shownWidth, shownHeight);
 
