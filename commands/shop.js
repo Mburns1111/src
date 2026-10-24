@@ -394,6 +394,38 @@ async function canPurchase(context, item) {
     (await walletBalance(context.guildId, context.user.id)) >= item.price;
 }
 
+function isClassicColorCategory(category) {
+  return category === "backgrounds" || category === "panels";
+}
+
+// 9 families fit in a single dropdown. Swatch buttons let members choose
+// Pastel / Normal / Dark in one click, so all 27 items are at most two clicks
+// away instead of needing 26 Next presses.
+function shopFamilyMenu(guildId, category, index, preview = false) {
+  if (!isClassicColorCategory(category)) return null;
+  const family = Math.floor(index / 3);
+  const customId = `shop:dm:${guildId}:${preview ? "familyPreview" : "family"}:${category}:${index}`;
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder().setCustomId(customId)
+      .setPlaceholder("Jump to a color family")
+      .addOptions(CLASSIC_COLOR_FAMILIES.map((entry, i) => ({
+        label: entry.name, value: entry.id, default: i === family,
+      }))),
+  );
+}
+
+function shopShadeButtons(guildId, category, index, preview = false) {
+  if (!isClassicColorCategory(category)) return [];
+  const firstIndex = Math.floor(index / 3) * 3;
+  return ["Pastel", "Normal", "Dark"].map((label, shade) =>
+    new ButtonBuilder()
+      .setCustomId(`shop:dm:${guildId}:${preview ? "previewShade" : "shade"}:${category}:${firstIndex + shade}`)
+      .setLabel(label)
+      .setStyle(shade === index % 3 ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(shade === index % 3),
+  );
+}
+
 function dmCategoryMenu(guildId, current) {
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder().setCustomId(`shop:dm:${guildId}:category`)
@@ -424,6 +456,12 @@ async function dmItemPage(context, category, index) {
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:buy:${category}:${index}`)
         .setLabel(item.included ? "Included" : owned ? "Owned" : `Buy · ${item.price}`).setStyle(ButtonStyle.Success).setDisabled(owned || balance < item.price),
     ),
+    ...(isClassicColorCategory(category) ? [
+      shopFamilyMenu(context.guildId, category, index),
+      new ActionRowBuilder().addComponents(
+        ...shopShadeButtons(context.guildId, category, index),
+      ),
+    ] : []),
     dmCategoryMenu(context.guildId, category),
     dmShopTools(context.guildId, category, index),
   ];
@@ -485,7 +523,9 @@ async function dmPreview(context, category, index, savedMix = {}) {
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:${inMix ? "unmix" : "addmix"}:${category}:${index}`)
         .setLabel(inMix ? "Remove From Mix" : "Add to Mix")
         .setStyle(inMix ? ButtonStyle.Secondary : ButtonStyle.Success),
+      ...shopShadeButtons(context.guildId, category, index, true),
     ),
+    ...(isClassicColorCategory(category) ? [shopFamilyMenu(context.guildId, category, index, true)] : []),
     dmCategoryMenu(context.guildId, category),
     dmShopTools(context.guildId, category, index),
   ];
