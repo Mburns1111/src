@@ -3,7 +3,7 @@ import { requireGuild } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 import ParticipationSource from "../models/ParticipationSource.js";
 import NativePollParticipation from "../models/NativePollParticipation.js";
-import { messageVisibility, parseGuildMessageLink } from "../services/participation-observer.js";
+import { messageVisibility, parseGuildMessageLink, publicEmbedDiagnostic } from "../services/participation-observer.js";
 import { shouldRequestMessageContent } from "../services/observation-intents.js";
 
 const arcloChoices = [
@@ -114,11 +114,25 @@ export async function execute(interaction) {
   const { parsed, message } = await findMessage(interaction, link);
   const details = messageVisibility(message);
   if (command === "inspect") {
+    // Reveal a short view of PUBLIC embed structure, not private Arclo
+    // interactions. This is visible only to the invoking server manager.
+    const embedDetails = publicEmbedDiagnostic(message);
+    const embedSummary = embedDetails.length
+      ? "\n\n**Visible embed details (public message):**\n" +
+        embedDetails.map(item =>
+          `• Embed ${item.number}: ${item.title || "Untitled"}` +
+          (item.description ? `\n  Preview: ${item.description}` : "") +
+          `\n  Fields: ${item.fieldCount}` +
+          (item.fieldLabels.length ? ` (${item.fieldLabels.join(", ")})` : "") +
+          ` · Member mentions: ${item.mentionCount}`
+        ).join("\n")
+      : "";
     await interaction.editReply({
       content: `**AM Isa can read this Discord message's metadata**\n` +
         `Message: ${linkTo(guildId, parsed.channelId, parsed.messageId)}\n` +
         `Author: <@${details.authorId}> (${details.authorBot ? "bot" : "member"})\n` +
         `Embeds visible: ${details.embedCount} · Components visible: ${details.componentCount} · Text visible: ${details.hasContent ? "yes" : "no"} · Native poll object: ${details.nativePollVisible ? "yes" : "no"}\n\n` +
+        embedSummary + "\n\n" +
         `**Message Content diagnostic requested:** ${shouldRequestMessageContent() ? "YES (check that the Discord Developer Portal toggle is enabled)" : "NO — set ENABLE_MESSAGE_CONTENT_INTENT=1 and enable the intent in the test app's Developer Portal"}\n\n` +
         "**Caution:** Being able to fetch a message does not prove AM Isa can see private giveaway entries, Arclo poll voters, or an ephemeral results panel. The Message Content privileged intent can expose public messages and their buttons, but cannot retrieve interactions sent to Arclo.",
       allowedMentions: { parse: [] },
