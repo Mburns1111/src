@@ -24,6 +24,8 @@ export const APPEARANCE_CATALOG = Object.freeze({
   },
   fontColors: {
     default: { text: '#29312C', mutedText: '#566159', accentDark: '#354B3E' },
+    black: { text: '#111111', mutedText: '#252525', accentDark: '#111111' },
+    white: { text: '#FFFFFF', mutedText: '#F0F0F0', accentDark: '#FFFFFF' },
     plum: { text: '#593C55', mutedText: '#6D5368', accentDark: '#593C55' },
   },
   stickers: {
