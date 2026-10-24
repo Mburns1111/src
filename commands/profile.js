@@ -538,13 +538,13 @@ const APPEARANCE_CHOICES = {
   background: ["sagePreview", "sageDots", "garden"],
   panelColor: ["match", "moss", "lavender", "default"],
   font: ["default", "classic"],
-  fontColor: ["default", "plum"],
+  fontColor: ["default", "black", "white", "plum"],
   frame: ["default", "doubleLine"],
 };
 const APPEARANCE_LABELS = {
   sagePreview: "Pale sage", sageDots: "Sage dots", garden: "Garden",
   match: "Match background", moss: "Moss", lavender: "Lavender",
-  default: "Default", classic: "Classic serif", plum: "Plum",
+  default: "Default", classic: "Classic serif", black: "Black (free)", white: "White (free)", plum: "Plum",
   doubleLine: "Double-line border",
 };
 const APPEARANCE_PAGES = {
