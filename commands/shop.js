@@ -18,7 +18,7 @@ import { getAppearanceOwnership, ownsAppearanceItem } from "../services/appearan
 import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { normalizeShopMix, tryOnShopMix, SHOP_MIX_CATEGORIES } from "../services/shop-preview-mix.js";
-import { CLASSIC_COLOR_FAMILIES, CLASSIC_COLOR_OPTIONS } from "../services/classic-colors.js";
+import { CLASSIC_COLOR_FAMILIES, CLASSIC_COLOR_OPTIONS, STANDARD_PANEL_ID } from "../services/classic-colors.js";
 import { UserFacingError } from "./errors.js";
 import { requireGuild } from "./shared.js";
 
@@ -79,7 +79,8 @@ function classicColorChart(category) {
   const width = 1200, height = 1350;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
-  const standardId = category === "backgrounds" ? "leafGreenPastel" : "grayNormal";
+  // Starter Sage is the free background and deliberately is NOT a shop swatch.
+  const standardId = category === "panels" ? STANDARD_PANEL_ID : null;
   const xPositions = [32, 424, 816];
   const tileWidth = 352;
 
@@ -261,7 +262,9 @@ async function storefrontCategoryPayload(category, featured) {
   const chartEmbed = chart
     ? [new EmbedBuilder().setColor(CATEGORY_THEMES[category].accent)
         .setTitle("Classic Color Chart · All 27 Shades")
-        .setDescription("Nine color families, with Pastel, Normal, and Dark side by side. Tap the chart to see each hex code. **FREE** marks the standard color.")
+        .setDescription(category === "backgrounds"
+          ? "Nine color families in Pastel, Normal, and Dark. **Starter Sage** is the free default background and is not sold here; all 27 Classic backgrounds are purchasable."
+          : "Nine color families in Pastel, Normal, and Dark. **FREE** marks the standard Classic Gray panel color.")
         .setImage("attachment://shop-classic-colors.png")]
     : [];
   return {
