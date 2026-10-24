@@ -2,6 +2,7 @@ import {
   CLASSIC_COLOR_OPTIONS, STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID, STANDARD_PANEL_OPACITY,
 } from "./classic-colors.js";
 import { customColorDefinition } from "./custom-colors.js";
+import { SHOP_FONT_STYLES } from "./font-library.js";
 
 /**
  * Appearance catalog for Canvas posts. IDs are stable shop inventory keys.
@@ -62,8 +63,12 @@ export const APPEARANCE_CATALOG = Object.freeze({
     cornerAccents: { kind: 'cornerAccents' },
   },
   fonts: {
-    default: { family: 'sans-serif', titleFamily: 'serif' },
-    classic: { family: 'serif', titleFamily: 'serif' },
+    default: { family: 'sans-serif', titleFamily: 'serif', weight: 'normal' },
+    // The old purchased Classic Serif ID remains valid for existing owners.
+    classic: { family: 'serif', titleFamily: 'serif', weight: 'normal' },
+    ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, style]) => [
+      id, { family: style.family, titleFamily: style.titleFamily, weight: style.weight },
+    ])),
   },
   fontColors: {
     default: { text: '#29312C', mutedText: '#566159', accentDark: '#354B3E' },
@@ -84,7 +89,9 @@ export const APPEARANCE_CATALOG = Object.freeze({
 export const DEFAULT_APPEARANCE = Object.freeze({
   background: STANDARD_BACKGROUND_ID,
   frame: 'default',
-  font: 'default',
+  font: 'default', // legacy appearance ID (existing saved profiles)
+  headerFont: 'default', // profile title and section headings
+  bodyFont: 'default',   // usernames, bio, role list, footer and status
   fontColor: 'default',
   stickers: [],
   panelColor: STANDARD_PANEL_ID,
@@ -117,6 +124,10 @@ export function resolveAppearance(input = {}) {
     background: select("backgrounds", oldFreeStarter ? STANDARD_BACKGROUND_ID : value.background ?? STANDARD_BACKGROUND_ID),
     frame: select('frames', value.frame),
     font: select('fonts', value.font),
+    // Previously saved profiles had only "font", which applied everywhere.
+    // Respect it until a member chooses distinct header/body fonts.
+    headerFont: select('fonts', value.headerFont ?? value.font),
+    bodyFont: select('fonts', value.bodyFont ?? value.font),
     fontColor: select('fontColors', value.fontColor),
     panelColor: oldFreeStarter ? STANDARD_PANEL_ID :
       value.panelColor === "match" ? "match" : select("panels", value.panelColor ?? STANDARD_PANEL_ID),
