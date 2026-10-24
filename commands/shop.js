@@ -1434,13 +1434,24 @@ async function handleShopDM(interaction) {
       panel.shopPendingMixPurchase = null;
       panel.markModified("shopPendingMixPurchase");
       await panel.save();
-      await interaction.editReply(await dmMixEditor(context, panel, { reuseImage: true }));
+      // Checkout confirmation may replace/remove the original preview embed.
+      // Rebuild the full preview when returning instead of assuming the PNG
+      // attachment still exists in the edited permanent message.
+      await interaction.editReply(await dmMixEditor(context, panel));
       return true;
     }
     if (action === "mixBuyAll") {
       const { bought, charged } = await purchasePreviewBundle(context, panel._id);
       const currentPanel = await MemberDmPanel.findById(panel._id);
-      const refreshed = await dmMixEditor(context, currentPanel, { reuseImage: true });
+      // The transaction has already succeeded, so failure to re-render a
+      // profile image must never hide the successful purchase receipt.
+      let refreshed;
+      try {
+        refreshed = await dmMixEditor(context, currentPanel);
+      } catch (error) {
+        console.warn("Bundle purchased; fresh profile preview unavailable:", error);
+        refreshed = await dmMixEditor(context, currentPanel, { reuseImage: true });
+      }
       refreshed.content = `✅ **Purchased ${bought.length} items for ${charged} Points!** You can equip them in Customize Profile.\n\n` +
         refreshed.content;
       await interaction.editReply(refreshed);
@@ -1633,11 +1644,14 @@ async function handleShopDM(interaction) {
   if (!Number.isSafeInteger(index) || index < (action === "page" ? -1 : 0) || index >= itemsFor(category).length) {
     throw new UserFacingError("That shop page isn't available.");
   }
-  // Seasonal rotation changes the list length. Check the actual stable ID on
-  // purchase controls so an old button cannot charge for a different item.
-  if (category === "stickers" && ["buy", "confirm"].includes(action) &&
+  // Validate stable catalog IDs for ALL purchase controls, not just seasonal
+  // stickers. Newly-added premium designs must never change which item an old
+  // confirmation would charge for. Older non-sticker controls without IDs remain
+  // compatible; newly generated purchase buttons always carry their item ID.
+  if (["buy", "confirm"].includes(action) &&
+      (category === "stickers" || expectedItemId !== undefined) &&
       sortedItems(category)[index]?.id !== expectedItemId) {
-    throw new UserFacingError("The sticker catalog changed. Reopen the shop to choose the correct sticker.");
+    throw new UserFacingError("The shop catalog changed. Reopen the category to choose the correct item.");
   }
   let destination = index;
   if (action === "family" || action === "familyPreview") {
