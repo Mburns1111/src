@@ -10,6 +10,10 @@ import { BULK_REASON_CHOICES, parseBulkRecipients, bulkAwardDetails } from "../s
 import { parseGuildMessageLink, syncNativePoll } from "../services/participation-observer.js";
 import { awardObservedPollVoters, POLL_POINTS_PER_POLL, POLL_WEEKLY_CAP } from "../services/poll-rewards.js";
 import ParticipationSource from "../models/ParticipationSource.js";
+import PointsActivityCounter from "../models/PointsActivityCounter.js";
+import PointsVoiceProgress from "../models/PointsVoiceProgress.js";
+import { activityPeriod, MESSAGE_BASE_POINTS, MESSAGE_COOLDOWN_MS,
+  VOICE_BASE_POINTS, VOICE_INTERVAL_MINUTES } from "../services/activity-rewards.js";
 import { UserFacingError } from "./errors.js";
 
 const milestoneChoices = Object.entries(POINTS_MILESTONES)
@@ -20,7 +24,19 @@ export const data = new SlashCommandBuilder()
   .setDescription("Manage and audit community Points earnings")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand(c => c.setName("settings")
-    .setDescription("Show achievement rewards and future activity targets"))
+    .setDescription("Show milestone, poll, message, and voice earning settings"))
+  .addSubcommand(c => c.setName("activity-toggle")
+    .setDescription("Turn repeatable chat and voice Points on or off for this test server")
+    .addStringOption(o => o.setName("source").setDescription("Which activity earns Points?")
+      .setRequired(true).addChoices(
+        { name: "Messages and Voice", value: "both" },
+        { name: "Messages only", value: "messages" },
+        { name: "Voice only", value: "voice" } ))
+    .addBooleanOption(o => o.setName("enabled").setDescription("Allow activity Points from this source?")
+      .setRequired(true)))
+  .addSubcommand(c => c.setName("activity-status")
+    .setDescription("Show a member's repeatable Points and weekly remaining cap")
+    .addUserOption(o => o.setName("member").setDescription("Member to check").setRequired(true)))
   .addSubcommand(c => c.setName("milestone")
     .setDescription("Adjust one milestone reward for this server")
     .addStringOption(o => o.setName("achievement").setDescription("One-time milestone")
@@ -77,9 +93,43 @@ export async function execute(interaction) {
     await interaction.editReply({
       content: `**Points milestones: ${settings?.milestonesEnabled === false ? "PAUSED" : "ENABLED"}**\n` +
         lines.join("\n") +
-        `\n\n**Phase 2 earning targets (not active yet):** first 7 days up to ${POINTS_ACTIVITY_TARGETS.starterWeekActivityCap} activity Points; later weeks up to ${POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap}; verified invite ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month).\n**Active test earning:** ${POLL_POINTS_PER_POLL} Points per approved native poll, up to ${POLL_WEEKLY_CAP} each UTC Monday–Sunday week. Arclo polls/giveaways do not award automatically.\nYour existing shop balance UI remains unchanged.`,
+        `\n\n**Repeatable activity** (test opt-in): Messages **${settings?.messageRewardsEnabled ? "ON" : "OFF"}**, Voice **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**.\nFirst 7 days after joining: **2×** chat/voice earnings with **${POINTS_ACTIVITY_TARGETS.starterWeekActivityCap} combined activity Points maximum**. Later: **${POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap} combined activity Points per UTC week**.\nMessages: ${MESSAGE_BASE_POINTS} base Points, one eligible message every ${MESSAGE_COOLDOWN_MS / 60000} minutes. Voice: ${VOICE_BASE_POINTS} base Points each ${VOICE_INTERVAL_MINUTES} eligible minutes with at least two non-deafened humans.\nApproved native polls: ${POLL_POINTS_PER_POLL} Points, maximum ${POLL_WEEKLY_CAP} per UTC week; these also count toward the combined activity cap.\nVerified invites are still planned: ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month). Manual grants and milestones are outside activity caps.\nYour existing shop balance UI remains unchanged.`,
       allowedMentions: { parse: [] },
     });
+    return;
+  }
+  if (op === "activity-toggle") {
+    const source = interaction.options.getString("source", true);
+    const enabled = interaction.options.getBoolean("enabled", true);
+    const fields = {};
+    if (source === "both" || source === "messages") fields.messageRewardsEnabled = enabled;
+    if (source === "both" || source === "voice") fields.voiceRewardsEnabled = enabled;
+    await PointsSettings.updateOne({ guildId }, { $set: fields },
+      { upsert: true, setDefaultsOnInsert: true });
+    await interaction.editReply({ content:
+      `**Activity Points ${enabled ? "enabled" : "paused"}** for **${source}**.\n` +
+      "Only eligible human activity is rewarded. Messages require Message Content intent; voice requires two eligible members and excludes deafened users/AFK channels. Existing balances are unchanged." });
+    return;
+  }
+  if (op === "activity-status") {
+    const memberUser = interaction.options.getUser("member", true);
+    const member = await interaction.guild.members.fetch(memberUser.id).catch(() => null);
+    if (!member || member.user?.bot) throw new UserFacingError("Choose a current human server member.");
+    const period = activityPeriod(member.joinedAt);
+    const [counter, settings, voice] = await Promise.all([
+      PointsActivityCounter.findOne({ guildId, discordUserId: member.id, periodKey: period.key }).lean(),
+      PointsSettings.findOne({ guildId }).lean(),
+      PointsVoiceProgress.findOne({ guildId, discordUserId: member.id, periodKey: period.key }).lean(),
+    ]);
+    const earned = counter?.earned ?? 0;
+    await interaction.editReply({ content:
+      `**Repeatable activity for <@${member.id}>**\n` +
+      `Period: **${period.starter ? "First 7 days since joining" : "UTC Monday–Sunday week"}** · multiplier: **${period.multiplier}×** (chat/voice only)\n` +
+      `Earned: **${earned} / ${period.cap} Points** · Remaining: **${Math.max(0, period.cap - earned)}**\n` +
+      `Qualified voice minutes this period: **${voice?.eligibleMinutes ?? 0}**\n` +
+      `Messages: **${settings?.messageRewardsEnabled ? "ON" : "OFF"}** · Voice: **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**\n` +
+      "This includes poll, chat, and voice Points; one-time milestones and staff grants are separate.",
+      allowedMentions: { parse: [] } });
     return;
   }
   if (op === "milestone") {
