@@ -37,3 +37,9 @@ See `services/shop-showcase-sheets.js` for the one-sheet renderers and `commands
 The Frames classic image no longer shrinks six full profile cards. It enlarges **only the top-left corner of each frame** on a plain white background with a little overlap. The Standard frame corner uses the regular renderer's border geometry; decorative frames use the approved transparent SVG artwork, so no profile/avatar obscures the artwork.
 
 **Plum text was a test-only item and is no longer offered or selectable in the current shop/editor.** Its original appearance definition remains for safe rendering of old saved profiles; no ownership or appearance migration takes place.
+
+## Preview Multiple purchase summary
+
+The live preview shows an itemized **Purchase All** total. Only explicitly selected, not-yet-owned sale items count; included/free items and already-owned items cost 0. Fonts chosen for both headings and body are deduplicated by their stable font ID, while two different fonts are separate purchases. Matching panels and `No Stickers` are preview operations, not products.
+
+**Purchase All** requires an explicit confirmation. It rechecks the member's exact selection, product availability (including seasonal stickers), ownership, prices and wallet balance, and grants all paid items in one MongoDB transaction. It **does not equip** them; members can equip purchased designs in Customize Profile. Cancelling or editing the preview never charges Points. Custom HEX shades must first be purchased by the normal HEX purchase flow; already-owned custom colors can be included free in a preview.
