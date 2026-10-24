@@ -931,8 +931,8 @@ async function handleShopDM(interaction) {
   if (["page", "cancel", "family", "shade"].includes(action)) {
     await interaction.editReply(await dmItemPage(context, category, destination));
   } else if (["preview", "previewShade", "familyPreview", "mix", "addmix", "unmix", "clearmix"].includes(action)) {
-    // Verify the stored panel belongs to this bot, guild, member and message.
-    // Preview selections live in MongoDB so a bot restart won't erase them.
+    // Keep old buttons valid across a deployment. Old Add to Mix clicks now
+    // open the new live dress-up screen with that selection already chosen.
     const panel = await MemberDmPanel.findOne({
       botUserId: interaction.client.user.id,
       guildId,
@@ -942,7 +942,7 @@ async function handleShopDM(interaction) {
       messageId: interaction.message.id,
     });
     if (!panel) throw new UserFacingError(
-      "This private shop needs to be reopened from the server to use Mix & Match.",
+      "Please reopen your private shop from the server to use Mix & Match.",
     );
     const mix = normalizeShopMix(panel.shopPreviewMix);
     if (action === "addmix") {
@@ -952,14 +952,18 @@ async function handleShopDM(interaction) {
     } else if (action === "clearmix") {
       for (const key of Object.keys(mix)) delete mix[key];
     }
-    if (["addmix", "unmix", "clearmix"].includes(action)) {
+    if (["mix", "addmix", "unmix", "clearmix"].includes(action)) {
       panel.shopPreviewMix = mix;
+      panel.shopMixCategory = category;
+      panel.shopMixOptionPage = 0;
+      panel.shopMixReturnCategory = category;
+      panel.shopMixReturnIndex = index;
       panel.markModified("shopPreviewMix");
       await panel.save();
+      await interaction.editReply(await dmMixEditor(context, panel));
+    } else {
+      await interaction.editReply(await dmPreview(context, category, destination, mix));
     }
-    await interaction.editReply(action === "mix" || action === "clearmix"
-      ? await dmMixOverview(context, category, index, mix)
-      : await dmPreview(context, category, destination, mix));
   } else if (action === "refresh") {
     await interaction.editReply(await dmItemPage(context, category, index));
   } else if (action === "buy") {
