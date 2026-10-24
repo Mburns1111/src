@@ -73,10 +73,15 @@ export async function ensureProfileEntry(guild, channel, { moveToBottom = false 
 
 export async function handleProfileEntryButton(interaction) {
   if (!["profile:entry", "profile:entry:appearance", "profile:entry:video", "profile:entry:photos"].includes(interaction.customId)) return false;
-  const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
   if (interaction.customId === "profile:entry:appearance") {
+    // Acknowledge before loading the profile or preparing DM images.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
     await openAppearanceDM(interaction, profile);
-  } else if (interaction.customId === "profile:entry:photos") {
+    return true;
+  }
+  const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
+  if (interaction.customId === "profile:entry:photos") {
     await showPhotoActionPrompt(interaction, interaction.user.id);
   } else if (interaction.customId === "profile:entry:video") {
     await interaction.showModal(makeInventoryVideoModal(interaction.user.id));
@@ -951,6 +956,10 @@ export async function handleProfileCardButton(interaction) {
     ownerId !== interaction.user.id
   ) {
     throw new UserFacingError("Only the profile owner can use these buttons.");
+  }
+
+  if (action === "appearance") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   }
 
   const profile = await UserProfile.findOne({
