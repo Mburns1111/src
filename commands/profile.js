@@ -43,7 +43,8 @@ import {
 import { getVoteCounts } from "./trade.js";
 import { ensureChannelEntry } from "./channel-entry.js";
 import { renderPostImage } from "../services/post-renderer.js";
-import { APPEARANCE_CATALOG, resolveAppearance } from "../services/post-appearance.js";
+import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, resolveAppearance } from "../services/post-appearance.js";
+import { CLASSIC_COLOR_OPTIONS, STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID } from "../services/classic-colors.js";
 import { getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, APPEARANCE_FIELD_CATEGORY } from "../services/appearance-ownership.js";
 
 export const data = new SlashCommandBuilder()
@@ -534,23 +535,65 @@ export async function ensureProfileCard(guild, user, { refresh = false } = {}) {
   return trackedOperation;
 }
 
+// The full classic spectrum (27 choices) is paged to obey Discord's
+// 25-select-option limit. The free standard colors are labeled clearly.
 const APPEARANCE_CHOICES = {
-  background: ["sagePreview", "paleSage", "warmCream", "dustyBlue", "sageDots", "garden"],
-  panelColor: ["match", "default", "sagePanel", "creamPanel", "bluePanel",
-    "charcoal", "forest", "navy", "moss", "lavender"],
+  background: CLASSIC_COLOR_OPTIONS.map(item => item.id),
+  panelColor: ["match", ...CLASSIC_COLOR_OPTIONS.map(item => item.id)],
   font: ["default", "classic"],
   fontColor: ["default", "black", "white", "plum"],
   frame: ["default", "doubleLine"],
 };
 const APPEARANCE_LABELS = {
-  sagePreview: "Starter Sage (free)", sageDots: "Sage dots", garden: "Garden",
-  paleSage: "Pale Sage", warmCream: "Warm Cream", dustyBlue: "Dusty Blue",
-  match: "Match background", moss: "Moss", lavender: "Lavender",
-  sagePanel: "Sage Panel", creamPanel: "Cream Panel", bluePanel: "Blue Panel",
-  charcoal: "Charcoal", forest: "Forest", navy: "Navy",
-  default: "Default", classic: "Classic serif", black: "Black (free)", white: "White (free)", plum: "Plum",
+  ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [
+    item.id,
+    item.id === STANDARD_BACKGROUND_ID
+      ? "Leaf Green · Pastel (Free)"
+      : item.id === STANDARD_PANEL_ID
+        ? "Classic Gray · Normal (Free)"
+        : item.name,
+  ])),
+  match: "Match background",
+  default: "Default",
+  classic: "Classic serif",
+  black: "Black (free)",
+  white: "White (free)",
+  plum: "Plum",
   doubleLine: "Double-line border",
 };
+const COLOR_SELECT_PAGE_SIZE = 24;
+
+function appearanceChoicePage(field, currentAppearance, optionPages = {}) {
+  const options = APPEARANCE_CHOICES[field];
+  const pageCount = Math.ceil(options.length / COLOR_SELECT_PAGE_SIZE);
+  if (pageCount <= 1) return { page: 0, count: 1 };
+  // On first open, show the page containing the equipped color.
+  const selectedIndex = options.indexOf(currentAppearance[field]);
+  const selectedPage = Math.max(0, Math.floor(selectedIndex / COLOR_SELECT_PAGE_SIZE));
+  const requested = Number.isSafeInteger(optionPages[field]) ? optionPages[field] : selectedPage;
+  return { page: Math.max(0, Math.min(pageCount - 1, requested)), count: pageCount };
+}
+
+function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
+  const all = APPEARANCE_CHOICES[field];
+  const { page, count } = appearanceChoicePage(field, appearance, optionPages);
+  const visible = count === 1 ? all : all.slice(
+    page * COLOR_SELECT_PAGE_SIZE, (page + 1) * COLOR_SELECT_PAGE_SIZE,
+  );
+  const options = visible.map(id => ({
+    label: APPEARANCE_LABELS[id] || id,
+    value: id,
+    default: appearance[field] === id,
+    description: id === "match" || ownership?.[APPEARANCE_FIELD_CATEGORY[field]]?.has(id)
+      ? "Available" : "Locked",
+  }));
+  if (count > 1) {
+    options.push(page < count - 1
+      ? { label: "More colors →", value: "__next__", description: `Page ${page + 2} of ${count}` }
+      : { label: "← Previous colors", value: "__previous__", description: `Page ${page} of ${count}` });
+  }
+  return { options, page, count };
+}
 const APPEARANCE_PAGES = {
   colors: ["background", "panelColor", "opacity"],
   details: ["font", "fontColor", "frame"],
@@ -559,9 +602,9 @@ const APPEARANCE_PAGES = {
 function getProfileAppearance(profile) {
   return resolveAppearance(profile.profileAppearance?.background
     ? profile.profileAppearance
-    : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 });
+    : DEFAULT_APPEARANCE);
 }
-function makeAppearanceControls(profile, page = "colors", selected = 0, ownership = null, dmToken = null) {
+function makeAppearanceControls(profile, page = "colors", selected = 0, ownership = null, dmToken = null, optionPages = {}) {
   const a = getProfileAppearance(profile);
   const ownerId = profile.discordUserId;
   const selectId = field => dmToken
@@ -675,16 +718,17 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
           }))),
       );
     }
+    const choice = appearanceChoiceOptions(field, a, ownership, optionPages);
+    const placeholder = {
+      background: "Choose background", panelColor: "Choose panel color",
+      font: "Choose font", fontColor: "Choose text color", frame: "Choose frame",
+    }[field];
     return new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder().setCustomId(selectId(field))
-        .setPlaceholder({
-          background: "Choose background", panelColor: "Choose panel color",
-          font: "Choose font", fontColor: "Choose text color", frame: "Choose frame",
-        }[field])
-        .addOptions(APPEARANCE_CHOICES[field].map(id => ({
-          label: APPEARANCE_LABELS[id] || id, value: id, default: a[field] === id,
-          description: (id === "match" || ownership?.[APPEARANCE_FIELD_CATEGORY[field]]?.has(id)) ? "Available" : "Locked",
-        }))),
+        .setPlaceholder(choice.count > 1
+          ? `${placeholder} · ${choice.page + 1}/${choice.count}`
+          : placeholder)
+        .addOptions(choice.options),
     );
   });
   return dmToken ? [pageMenu, ...rows, finish()] : [pageMenu, ...rows];
@@ -695,7 +739,7 @@ async function appearanceDmPayload(guild, user, profile, draft) {
   const previewProfile = { ...profile.toObject(), profileAppearance: draft.appearance };
   const preview = await makeProfileCardPayload(guild, previewProfile, user);
   const controls = makeAppearanceControls(
-    previewProfile, draft.page, draft.selected, ownership, draft.token,
+    previewProfile, draft.page, draft.selected, ownership, draft.token, draft.optionPages || {},
   );
   return {
     content: "**Customize your profile** — see every change in this preview. **Confirm & update profile** saves your work and closes this temporary editor. **Discard Changes** closes it without saving. Your permanent shop remains in DMs.",
