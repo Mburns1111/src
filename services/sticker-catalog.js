@@ -24,6 +24,12 @@ export const STICKER_CATALOG = Object.freeze({
 
 export const STICKER_OUTLINES = Object.freeze(["auto", "black", "white", "none"]);
 
+// Add new seasonal collections here as they are introduced. Window end dates
+// are EXCLUSIVE. Start/end comparisons also work for cross-year winter seasons.
+export const STICKER_SEASON_WINDOWS = Object.freeze({
+  halloween: { start: "10-01", end: "11-01" },
+});
+
 export function isStickerForSale(id, now = new Date(), override = process.env.STICKER_SEASONS_OVERRIDE) {
   const item = STICKER_CATALOG[id];
   if (!item) return false;
@@ -31,10 +37,15 @@ export function isStickerForSale(id, now = new Date(), override = process.env.ST
   if (override !== undefined && override !== "") {
     return override.toLowerCase().split(",").map(s => s.trim()).includes(item.seasonKey);
   }
-  const month = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York", month: "numeric",
-  }).format(now);
-  return item.seasonKey === "halloween" && month === "10";
+  const window = STICKER_SEASON_WINDOWS[item.seasonKey];
+  if (!window) return false;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const day = `${parts.find(p => p.type === "month")?.value}-${parts.find(p => p.type === "day")?.value}`;
+  return window.start < window.end
+    ? day >= window.start && day < window.end
+    : day >= window.start || day < window.end;
 }
 
 export function stickerDefaults(id, x = 0.8, y = 0.72) {
