@@ -18,10 +18,10 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] The public shop still has **six separate category messages**.
 - [ ] Each category displays one **large Classic Collection** sheet instead of multiple classic featured cards.
 - [ ] Backgrounds and Panels reuse their original 27-shade charts.
-- [ ] Frames shows six actual frame examples stacked together on one image.
+- [ ] Frames displays **six enlarged top-left frame corners only**, with slight overlap against a **plain white background**; full profiles and tiny cards do not appear.
 - [ ] Fonts shows all six font samples on one image; lettering appears visually distinct.
 - [ ] Stickers shows one gallery of currently available stickers, not per-sticker profile example cards.
-- [ ] Text Colors shows included colors, Plum and the Custom HEX option on one sheet.
+- [ ] Text Colors sheet shows only Default, Black, White and a Custom HEX callout; **no Plum** in shop, index, sheet, or new editor selections.
 - [ ] The same shared image appears inside the permanent DM's category index above the dropdown.
 - [ ] Classic item detail and confirmation screens stay image-light; **My Preview** still shows your own profile.
 - [ ] **Preview Multiple** works as before, and the category buttons/All Items navigation still work.
@@ -52,7 +52,7 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 
 ## B. Wallets and transactional purchases — all categories
 - [ ] Buy an ordinary background or panel; Points decrease by its listed price **once**, and the item becomes Owned.
-- [ ] Buy a frame, font, text color, and sticker in separate transactions; each becomes owned, with matching wallet deductions.
+- [ ] Buy a frame, font, custom HEX text color, and sticker in separate transactions; each becomes owned, with matching wallet deductions.
 - [ ] Attempt to buy with insufficient Points; purchase is blocked and inventory unchanged.
 - [ ] Revisit an owned item; the Buy button says **Owned** and cannot charge again.
 - [ ] Double-click Confirm / use old Confirm message; no second purchase and no second charge.
@@ -149,3 +149,7 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 Write down: **section/checkbox**, **test account**, **the exact button sequence**, **expected versus actual result**, **Replit console error**, and a **Discord screenshot**. Avoid publishing test members' private data or tokens.
 
 Run `npm test` after making future changes to sticker shapes or seasonal windows. The automated tests validate the catalog, HEX normalization, ownership isolation, seasonal filtering and whether all eight shapes draw with their selected colors.
+
+## J. Retired test color compatibility
+- [ ] Plum cannot be bought in the shop or selected from the current Customize Profile text-color list.
+- [ ] Any existing saved profile using Plum still renders without error until its owner selects another color.
