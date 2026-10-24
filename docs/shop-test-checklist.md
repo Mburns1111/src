@@ -17,7 +17,11 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 ## A2. Fast category index and direct jump navigation
 - [ ] First opening of **every category** shows an item index with names, prices, and owned statuses **rather than immediately loading a large preview image**.
 - [ ] The dropdown opens a chosen item directly (try the very last listed font, frame, and sticker).
-- [ ] Backgrounds/Panels contain 28 choices and the index splits them into **20 items / 8 items**; both Next and Previous index buttons work.
+- [ ] Backgrounds and Panels each list **nine color families + Custom HEX** (10 choices), not 27 individual shade entries.
+- [ ] The original **Classic Color Collection** swatch chart appears under the Backgrounds and Panels index, labeled Pastel/Normal/Dark with all 27 shades (including the free gray panel shade).
+- [ ] Choose Classic Yellow/Gray (and another family) directly from the index dropdown; it opens the matching **Normal** item. Then test Pastel, Normal and Dark buttons for the exact price, ownership and purchase.
+- [ ] The Backgrounds/Panels index requires no second page; larger *other* categories still paginate normally.
+- [ ] Previously posted dropdowns with specific color shade IDs still open the exact item instead of charging for a different shade.
 - [ ] The index never shows more than 25 dropdown options or five Discord action rows.
 - [ ] **All Items** on a detail page returns to the index without having to click Previous repeatedly.
 - [ ] **All Categories** button is visible on indexes and detailed item/preview/confirmation screens; it opens a home with all six categories.
