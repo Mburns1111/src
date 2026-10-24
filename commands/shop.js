@@ -795,6 +795,109 @@ async function handleShopDM(interaction) {
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) throw new UserFacingError("You must belong to the server to use this shop.");
   const context = { guildId, user: interaction.user, guild };
+
+  // Live Mix & Match: all controls operate on the SAME permanent DM. Users
+  // need no purchases and never need to press Add to Mix or Confirm.
+  const mixEditorActions = [
+    "mixCategory", "mixFamily", "mixShade", "mixMatch", "mixItem",
+    "mixReset", "mixClear", "mixBack", "mixRefresh",
+  ];
+  if (mixEditorActions.includes(action)) {
+    const isSelect = ["mixCategory", "mixFamily", "mixItem"].includes(action);
+    if (isSelect ? !interaction.isStringSelectMenu() : !interaction.isButton()) {
+      throw new UserFacingError("That preview control is invalid.");
+    }
+    const panel = await MemberDmPanel.findOne({
+      botUserId: interaction.client.user.id,
+      guildId,
+      discordUserId: interaction.user.id,
+      kind: "shop",
+      channelId: interaction.channelId,
+      messageId: interaction.message.id,
+    });
+    if (!panel) throw new UserFacingError(
+      "Please reopen your private shop from the server to use Mix & Match.",
+    );
+    if (action === "mixBack") {
+      const backCategory = CATEGORY_LABELS[panel.shopMixReturnCategory]
+        ? panel.shopMixReturnCategory : "backgrounds";
+      const backIndex = Number.isSafeInteger(panel.shopMixReturnIndex) &&
+        panel.shopMixReturnIndex >= 0 &&
+        panel.shopMixReturnIndex < sortedItems(backCategory).length
+        ? panel.shopMixReturnIndex : 0;
+      await interaction.editReply(await dmItemPage(context, backCategory, backIndex));
+      return true;
+    }
+
+    const category = SHOP_MIX_CATEGORIES.includes(panel.shopMixCategory)
+      ? panel.shopMixCategory : "backgrounds";
+    const mix = normalizeShopMix(panel.shopPreviewMix);
+    let imageChanged = false;
+    if (action === "mixCategory") {
+      const selected = interaction.values[0];
+      if (!SHOP_MIX_CATEGORIES.includes(selected)) throw new UserFacingError("Unknown mix category.");
+      panel.shopMixCategory = selected;
+      panel.shopMixOptionPage = 0;
+    } else if (action === "mixFamily") {
+      if (!isClassicColorCategory(category)) throw new UserFacingError("This isn't a color category.");
+      const family = CLASSIC_COLOR_FAMILIES.find(item => item.id === interaction.values[0]);
+      if (!family) throw new UserFacingError("Unknown color family.");
+      const { variant } = mixColorPosition(category, mix);
+      mix[category] = `${family.id}${variant[0].toUpperCase() + variant.slice(1)}`;
+      imageChanged = true;
+    } else if (action === "mixShade") {
+      if (!isClassicColorCategory(category)) throw new UserFacingError("This isn't a color category.");
+      const shade = categoryText;
+      if (!["pastel", "normal", "dark"].includes(shade)) {
+        throw new UserFacingError("Unknown color shade.");
+      }
+      const { familyIndex } = mixColorPosition(category, mix);
+      mix[category] = CLASSIC_COLOR_OPTIONS[familyIndex * 3 + ["pastel", "normal", "dark"].indexOf(shade)].id;
+      imageChanged = true;
+    } else if (action === "mixMatch") {
+      if (category !== "panels") throw new UserFacingError("Only panels can match the background.");
+      mix.panels = "match";
+      imageChanged = true;
+    } else if (action === "mixItem") {
+      if (isClassicColorCategory(category)) throw new UserFacingError("Use the color controls instead.");
+      const choice = interaction.values[0];
+      const entries = mixItemEntries(category);
+      const maxPage = Math.max(0, Math.ceil(entries.length / MIX_OPTION_PAGE_SIZE) - 1);
+      const page = Math.max(0, Math.min(maxPage, Number.isInteger(panel.shopMixOptionPage)
+        ? panel.shopMixOptionPage : 0));
+      if (choice === "__next__" || choice === "__previous__") {
+        panel.shopMixOptionPage = Math.max(0, Math.min(maxPage,
+          page + (choice === "__next__" ? 1 : -1)));
+      } else if (choice === "__reset__") {
+        delete mix[category];
+        imageChanged = true;
+      } else if (entries.some(item => item.id === choice)) {
+        mix[category] = choice;
+        imageChanged = true;
+      } else {
+        throw new UserFacingError("This item isn't available in the preview.");
+      }
+    } else if (action === "mixReset") {
+      delete mix[category];
+      imageChanged = true;
+    } else if (action === "mixClear") {
+      for (const key of Object.keys(mix)) delete mix[key];
+      imageChanged = true;
+    }
+
+    if (imageChanged) {
+      panel.shopPreviewMix = mix;
+      panel.markModified("shopPreviewMix");
+    }
+    await panel.save();
+    // Simply switching categories or paging the item dropdown never re-renders
+    // the unchanged PNG, making the permanent DM much snappier to navigate.
+    await interaction.editReply(await dmMixEditor(context, panel, {
+      reuseImage: !imageChanged && action !== "mixRefresh",
+    }));
+    return true;
+  }
+
   if (action === "category" && interaction.isStringSelectMenu()) {
     const selected = interaction.values[0];
     if (!CATEGORY_LABELS[selected] || !itemsFor(selected).length) throw new UserFacingError("Unknown category.");
