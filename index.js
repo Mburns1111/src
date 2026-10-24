@@ -224,7 +224,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleTemporaryDmNotice(interaction);
       return;
     }
-    if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("shop:")) {
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("shop:")) {
       await handleShopButton(interaction);
       return;
     }
