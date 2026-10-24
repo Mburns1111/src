@@ -13,6 +13,7 @@ const memberDmPanelSchema = new mongoose.Schema({
   appearanceDraft: { type: mongoose.Schema.Types.Mixed, default: null },
   appearancePage: { type: String, default: "colors" },
   selectedSticker: { type: Number, default: 0 },
+  appearanceOptionPages: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   // Unpurchased try-on selections for the permanent shop (one per category).
   // Kept independently of the editable/saved member profile.
   shopPreviewMix: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
