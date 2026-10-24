@@ -45,6 +45,7 @@ import { ensureChannelEntry } from "./channel-entry.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, appearanceCatalogItem, resolveAppearance } from "../services/post-appearance.js";
 import { SHOP_FONT_STYLES } from "../services/font-library.js";
+import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } from "../services/sticker-catalog.js";
 import { customColorHex, customColorLabel } from "../services/custom-colors.js";
 import { CLASSIC_COLOR_OPTIONS, STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID } from "../services/classic-colors.js";
 import { FREE_APPEARANCE, getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, APPEARANCE_FIELD_CATEGORY } from "../services/appearance-ownership.js";
@@ -694,40 +695,64 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
       ]),
   );
   if (dmToken && page === "stickers") {
+    // Each member can place at most eight instances, including duplicates of
+    // the same purchased design. Expired seasonal items remain selectable for
+    // members who already own them. Locked items never appear here.
+    const ownedIds = Object.keys(STICKER_CATALOG).filter(id =>
+      ownership?.stickers?.has(id));
     const stickerChoices = [
       ...a.stickers.map((sticker, i) => ({
-        label: `Edit sticker ${i + 1}: ${sticker.id}`,
+        label: `Edit ${i + 1}: ${STICKER_CATALOG[sticker.id]?.name || sticker.id}`,
         value: `select:${i}`,
         default: i === selected,
       })),
-      ...Object.keys(APPEARANCE_CATALOG.stickers).map(id => ({
-        label: `Add ${id}`,
+      ...(a.stickers.length < 8 ? ownedIds.map(id => ({
+        label: `Place ${STICKER_CATALOG[id].name}`,
         value: `add:${id}`,
-        description: ownership?.stickers.has(id) ? "Owned" : "Locked",
-      })),
+        description: "Owned · free to reuse and recolor",
+      })) : []),
     ];
     const rows = [
       pageMenu,
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId(selectId("stickerPick"))
-          .setPlaceholder("Add a sticker or choose one to edit")
-          .addOptions(stickerChoices),
+          .setPlaceholder(ownedIds.length
+            ? "Select a sticker, or place an owned design"
+            : "Buy a sticker in the Shop to unlock it")
+          .setDisabled(!stickerChoices.length)
+          .addOptions(stickerChoices.length ? stickerChoices : [
+            { label: "No stickers unlocked yet", value: "__none__",
+              description: "Buy a sticker in the Shop first" },
+          ]),
       ),
     ];
     if (a.stickers.length) {
-      const button = (action, label, style = ButtonStyle.Secondary) =>
-        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:${action}`)
-          .setLabel(label).setStyle(style);
+      const selectedSticker = a.stickers[Math.max(0, Math.min(selected, a.stickers.length - 1))];
+      const label = STICKER_CATALOG[selectedSticker.id]?.name || selectedSticker.id;
       rows.push(new ActionRowBuilder().addComponents(
-        button("left", "← Left"), button("right", "Right →"),
-        button("up", "↑ Up"), button("down", "↓ Down"),
+        new StringSelectMenuBuilder().setCustomId(selectId("stickerAction"))
+          .setPlaceholder(`Move, resize or rotate ${label}`)
+          .addOptions([
+            ["left", "← Move left"], ["right", "Move right →"],
+            ["up", "↑ Move up"], ["down", "Move down ↓"],
+            ["smaller", "− Make smaller"], ["larger", "+ Make larger"],
+            ["rotateLeft", "↶ Rotate left"], ["rotateRight", "↷ Rotate right"],
+            ["remove", "Remove this sticker"],
+          ].map(([value, name]) => ({ value, label: name }))),
       ));
+      const isTwoColor = STICKER_CATALOG[selectedSticker.id]?.colors === 2;
       rows.push(new ActionRowBuilder().addComponents(
-        button("smaller", "− Size"), button("larger", "+ Size"),
-        button("rotateLeft", "↶ Rotate"), button("rotateRight", "↷ Rotate"),
-        button("remove", "Remove", ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:stickerColors`)
+          .setLabel(isTwoColor ? "Main & Accent HEX" : "Sticker HEX Color")
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:stickerOutline`)
+          .setLabel(`Outline: ${(selectedSticker.outline || "auto").replace(/^./, c => c.toUpperCase())}`)
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:stickerResetColors`)
+          .setLabel("Reset Colors").setStyle(ButtonStyle.Secondary),
       ));
     }
+    // Discord has a maximum of five action rows per message.
     return [...rows, finish()];
   }
   if (page === "stickers") {
