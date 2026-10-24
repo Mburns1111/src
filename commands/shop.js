@@ -726,6 +726,7 @@ const MIX_DEFAULT_ITEM_LABELS = {
 
 function mixValueName(category, id) {
   if (!id) return "My equipped profile";
+  if (customColorHex(id)) return customColorLabel(id);
   if (category === "panels" && id === "match") return "Match background";
   if (category === "stickers" && id === "none") return "No stickers";
   const included = MIX_DEFAULT_ITEM_LABELS[category]?.find(item => item.id === id);
@@ -756,7 +757,7 @@ function mixItemEntries(category) {
   return [...(MIX_DEFAULT_ITEM_LABELS[category] || []), ...itemsFor(category)];
 }
 
-function mixEditorChrome(context, panel, mix) {
+function mixEditorChrome(context, panel, mix, ownership = null) {
   const category = SHOP_MIX_CATEGORIES.includes(panel.shopMixCategory)
     ? panel.shopMixCategory : "backgrounds";
   const rows = [
@@ -795,6 +796,27 @@ function mixEditorChrome(context, panel, mix) {
         .setDisabled(mix.panels === "match"));
     }
     rows.push(new ActionRowBuilder().addComponents(...shades));
+    // Purchased HEX shades are saved per member. Keep them separate from the
+    // nine preset color families so they can be tried on again in one click.
+    const ownedCustom = [...(ownership?.[category] || [])]
+      .filter(id => Boolean(customColorHex(id))).sort();
+    if (ownedCustom.length) {
+      const maxPage = Math.max(0, Math.ceil(ownedCustom.length / 23) - 1);
+      const page = Math.max(0, Math.min(maxPage, panel.shopMixOptionPage || 0));
+      const options = [
+        ...ownedCustom.slice(page * 23, (page + 1) * 23).map(id => ({
+          label: customColorLabel(id), value: id, default: mix[category] === id,
+          description: "Purchased · yours to keep",
+        })),
+        ...(page > 0 ? [{ label: "← Previous custom colors", value: "__previous__" }] : []),
+        ...(page < maxPage ? [{ label: "More custom colors →", value: "__next__" }] : []),
+      ];
+      rows.push(new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId(`shop:dm:${context.guildId}:mixOwnedCustom`)
+          .setPlaceholder("Or choose one of your purchased HEX colors")
+          .addOptions(options),
+      ));
+    }
   } else {
     const entries = mixItemEntries(category);
     const maxPage = Math.max(0, Math.ceil(entries.length / MIX_OPTION_PAGE_SIZE) - 1);
@@ -843,7 +865,10 @@ function mixEditorChrome(context, panel, mix) {
 
 async function dmMixEditor(context, panel, { reuseImage = false } = {}) {
   const mix = normalizeShopMix(panel.shopPreviewMix);
-  const chrome = mixEditorChrome(context, panel, mix);
+  const category = panel.shopMixCategory;
+  const ownership = isClassicColorCategory(category)
+    ? await getAppearanceOwnership(context.guildId, context.user.id) : null;
+  const chrome = mixEditorChrome(context, panel, mix, ownership);
   if (reuseImage) return chrome; // Only the controls changed: keep current PNG
   return { ...await previewPayload(context, null, mix), ...chrome };
 }
