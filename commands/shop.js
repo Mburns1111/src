@@ -1426,9 +1426,9 @@ export async function handleShopButton(interaction) {
   if (!Number.isSafeInteger(index) || index < (action === "page" && category ? -1 : 0) || index >= items.length) {
     throw new UserFacingError("That shop item is unavailable.");
   }
-  if (items[index]?.category === "stickers" && action === "confirm" &&
+  if (action === "confirm" && expectedItemId !== undefined &&
       items[index]?.id !== expectedItemId) {
-    throw new UserFacingError("The sticker catalog changed. Reopen the shop to choose a sticker.");
+    throw new UserFacingError("The shop catalog changed. Reopen the shop to confirm the correct item.");
   }
   if (action === "page" || action === "cancel") {
     await interaction.deferUpdate();
