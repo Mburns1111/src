@@ -6,6 +6,10 @@ export const APPEARANCE_CATALOG = Object.freeze({
   backgrounds: {
     default: { kind: 'solid' },
     sagePreview: { kind: 'solid', color: '#DCE9D7', palette: { panel: '#F3F7EF', panelAlt: '#E9F1E5', accent: '#79977C' } },
+    // Affordable classic solid backgrounds; matching palettes are automatic.
+    paleSage: { kind: 'solid', color: '#CADFC4', palette: { panel: '#EDF3E8', panelAlt: '#D4E3CF', accent: '#779A78' } },
+    warmCream: { kind: 'solid', color: '#F1EBDD', palette: { panel: '#FBF7EC', panelAlt: '#EBE1CD', accent: '#9C8E75' } },
+    dustyBlue: { kind: 'solid', color: '#DCE4EC', palette: { panel: '#EDF3F8', panelAlt: '#CBD8E5', accent: '#7C99B3' } },
     sageDots: { kind: 'dots', color: '#708779' },
     garden: { kind: 'image', asset: 'assets/backgrounds/garden.svg', palette: { panel: '#E7E4D5', panelAlt: '#D1DAC4', accent: '#708779' } },
   },
@@ -13,6 +17,13 @@ export const APPEARANCE_CATALOG = Object.freeze({
     default: { palette: null },
     moss: { palette: { panel: '#C9D8C2', panelAlt: '#A8BFA5' } },
     lavender: { palette: { panel: '#E4D9E9', panelAlt: '#CAB7D3' } },
+    sagePanel: { palette: { panel: '#EDF3E8', panelAlt: '#D4E3CF' } },
+    creamPanel: { palette: { panel: '#FBF7EC', panelAlt: '#EBE1CD' } },
+    bluePanel: { palette: { panel: '#EDF3F8', panelAlt: '#CBD8E5' } },
+    // Dark starter panels. Renderer ensures contrast when default text is used.
+    charcoal: { dark: true, palette: { panel: '#353535', panelAlt: '#353535' } },
+    forest: { dark: true, palette: { panel: '#355241', panelAlt: '#355241' } },
+    navy: { dark: true, palette: { panel: '#33465D', panelAlt: '#33465D' } },
   },
   frames: {
     default: { kind: 'standard' },
