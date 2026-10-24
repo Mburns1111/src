@@ -1202,6 +1202,15 @@ async function purchasePreviewBundle(context, panelId) {
   return { bought, charged };
 }
 
+export function postPurchaseEquipControls(guildId) {
+  return [new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mixEquipAll`)
+      .setLabel("Equip All").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mixContinue`)
+      .setLabel("Continue Shopping").setStyle(ButtonStyle.Primary),
+  )];
+}
+
 async function dmMixEditor(context, panel, { reuseImage = false } = {}) {
   const mix = normalizeShopMix(panel.shopPreviewMix);
   const category = panel.shopMixCategory;
@@ -1474,12 +1483,7 @@ async function handleShopDM(interaction) {
         "**Equip All** applies the selected combination to your public profile. " +
         "**Continue Shopping** keeps your current equipped profile unchanged.\n\n" +
         refreshed.content;
-      refreshed.components = [new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mixEquipAll`)
-          .setLabel("Equip All").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mixContinue`)
-          .setLabel("Continue Shopping").setStyle(ButtonStyle.Primary),
-      )];
+      refreshed.components = postPurchaseEquipControls(guildId);
       await interaction.editReply(refreshed);
       try {
         await sendTemporaryDmNotice(interaction.user,
