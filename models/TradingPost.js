@@ -10,6 +10,8 @@ const tradingPostSchema = new mongoose.Schema(
     willingToTrade: { type: String, default: "", maxlength: 1000 },
     notifyOnInterest: { type: Boolean, default: false },
     interestedUserIds: { type: [String], default: [] },
+    // Independent look: copied from profile once on creation, then edited per post.
+    postAppearance: { type: mongoose.Schema.Types.Mixed, default: null },
     postChannelId: { type: String, default: "" },
     postMessageId: { type: String, default: "" },
   },
