@@ -119,7 +119,7 @@ export async function execute(interaction) {
         `Message: ${linkTo(guildId, parsed.channelId, parsed.messageId)}\n` +
         `Author: <@${details.authorId}> (${details.authorBot ? "bot" : "member"})\n` +
         `Embeds visible: ${details.embedCount} · Components visible: ${details.componentCount} · Text visible: ${details.hasContent ? "yes" : "no"} · Native poll object: ${details.nativePollVisible ? "yes" : "no"}\n\n` +
-        `**Message Content diagnostic requested:** ${shouldRequestMessageContent() ? "YES (check that the Discord Developer Portal toggle is enabled)" : "NO — set ENABLE_MESSAGE_CONTENT_INTENT=1 and enable the intent in the test app's Developer Portal"}\\n\\n` +
+        `**Message Content diagnostic requested:** ${shouldRequestMessageContent() ? "YES (check that the Discord Developer Portal toggle is enabled)" : "NO — set ENABLE_MESSAGE_CONTENT_INTENT=1 and enable the intent in the test app's Developer Portal"}\n\n` +
         "**Caution:** Being able to fetch a message does not prove AM Isa can see private giveaway entries, Arclo poll voters, or an ephemeral results panel. The Message Content privileged intent can expose public messages and their buttons, but cannot retrieve interactions sent to Arclo.",
       allowedMentions: { parse: [] },
     });
