@@ -1,6 +1,7 @@
 import { CLASSIC_COLOR_OPTIONS } from "./classic-colors.js";
 import { SHOP_FONT_STYLES } from "./font-library.js";
 import { STICKER_CATALOG } from "./sticker-catalog.js";
+import { CUSTOM_COLOR_SHOP_ID } from "./custom-colors.js";
 
 /**
  * Classic shop categories use one category showcase image and a direct item index.
@@ -42,5 +43,5 @@ export function classicShowcaseItems(category, items) {
 export function complexShowcaseItems(category, items) {
   return items.filter(item => item.category === category &&
     !isClassicShopItem(category, item.id) && !item.included &&
-    item.id !== "customHex");
+    item.id !== CUSTOM_COLOR_SHOP_ID);
 }
