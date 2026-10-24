@@ -18,6 +18,7 @@ import { getAppearanceOwnership, ownsAppearanceItem } from "../services/appearan
 import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { normalizeShopMix, tryOnShopMix, SHOP_MIX_CATEGORIES } from "../services/shop-preview-mix.js";
+import { CLASSIC_COLOR_FAMILIES, CLASSIC_COLOR_OPTIONS } from "../services/classic-colors.js";
 import { UserFacingError } from "./errors.js";
 import { requireGuild } from "./shared.js";
 
@@ -81,14 +82,48 @@ function exampleAppearance(item) {
   ];
   return appearance;
 }
+// Keep these ready-made preview examples in memory so reopening a shop
+// category doesn't render the same 1200x800 profile cards again.
+const exampleImageCache = new Map();
 async function exampleImage(item) {
-  return renderPostImage({
-    type: "profile",
-    data: { displayName: "Shop Example", discordUsername: "Example",
-      robloxUsername: "Example", bio: "See how this design looks on a profile.",
-      footer: "Catalog example" },
-    appearance: exampleAppearance(item),
-  });
+  const key = `${item.category}:${item.id}`;
+  if (!exampleImageCache.has(key)) {
+    const task = renderPostImage({
+      type: "profile",
+      data: { displayName: "Shop Example", discordUsername: "Example",
+        robloxUsername: "Example", bio: "See how this design looks on a profile.",
+        footer: "Catalog example" },
+      appearance: exampleAppearance(item),
+    });
+    exampleImageCache.set(key, task);
+    task.catch(() => exampleImageCache.delete(key));
+  }
+  return exampleImageCache.get(key);
+}
+
+// Catalog browsing needs a fast color sample, not a full profile render.
+// My Preview remains the full personalized profile with Mix & Match support.
+const swatchCache = new Map();
+function catalogSwatch(item) {
+  const key = `${item.category}:${item.id}`;
+  if (swatchCache.has(key)) return swatchCache.get(key);
+  const hex = item.category === "backgrounds"
+    ? APPEARANCE_CATALOG.backgrounds[item.id]?.color
+    : APPEARANCE_CATALOG.panels[item.id]?.palette?.panel;
+  if (!hex) return null;
+  const canvas = createCanvas(760, 225);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = hex;
+  ctx.fillRect(0, 0, 760, 225);
+  const dark = CLASSIC_COLOR_OPTIONS.find(color => color.id === item.id)?.dark;
+  ctx.fillStyle = dark ? "#FFFFFF" : "#242424";
+  ctx.font = "bold 40px sans-serif";
+  ctx.fillText(item.name, 32, 103, 695);
+  ctx.font = "27px sans-serif";
+  ctx.fillText(hex.toUpperCase(), 33, 159, 695);
+  const bytes = canvas.toBuffer("image/png");
+  swatchCache.set(key, bytes);
+  return bytes;
 }
 // Render each featured example at full profile-card size instead of squeezing
 // three profiles into a single horizontal image. Discord stacks these vertically.
@@ -238,9 +273,12 @@ async function pageFor(interaction, index, category = null) {
   const result = itemPage(item, index, items.length,
     await walletBalance(interaction.guildId, interaction.user.id),
     ownsAppearanceItem(ownership, item.category, item.id), category);
-  const example = await exampleImage(item);
-  result.embeds[0].setImage("attachment://shop-example.png");
-  result.files = [new AttachmentBuilder(example, { name: "shop-example.png" })];
+  const swatch = ["backgrounds", "panels"].includes(item.category)
+    ? catalogSwatch(item) : null;
+  const image = swatch || await exampleImage(item);
+  const fileName = swatch ? "shop-swatch.png" : "shop-example.png";
+  result.embeds[0].setImage(`attachment://${fileName}`);
+  result.files = [new AttachmentBuilder(image, { name: fileName })];
   result.attachments = [];
   return result;
 }
