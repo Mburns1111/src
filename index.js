@@ -79,7 +79,7 @@ import {
   ensureTradingPostEntry,
 } from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
-import { handleTemporaryDmNotice } from "./services/temporary-dm-notice.js";
+import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/temporary-dm-notice.js";
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
 import UserProfile from "./models/UserProfile.js";
@@ -455,7 +455,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
       allowedMentions: { parse: [] },
     };
     try {
-      if (interaction.deferred && !interaction.replied) {
+      // An acknowledged DM button updates the permanent shop/editor message.
+      // Do NOT overwrite that message with an error; send a dismissible notice.
+      if (interaction.deferred && !interaction.replied &&
+          interaction.isMessageComponent() &&
+          interaction.channel?.isDMBased?.() &&
+          !interaction.ephemeral &&
+          (interaction.customId.startsWith("shop:dm:") ||
+            interaction.customId.startsWith("profile:dm:"))) {
+        await sendTemporaryDmNotice(interaction.user, `⚠️ ${getInteractionErrorMessage(error)}`);
+      } else if (interaction.deferred && !interaction.replied) {
         await interaction.editReply(response);
       } else if (interaction.replied) {
         await interaction.followUp(response);
