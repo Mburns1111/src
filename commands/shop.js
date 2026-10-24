@@ -27,6 +27,8 @@ import {
 import { UserFacingError } from "./errors.js";
 import { STICKER_CATALOG, isStickerForSale } from "../services/sticker-catalog.js";
 import { shopDirectorySlice, shopItemIndexById, shopColorFamilyDirectory, shopColorDirectorySelection } from "../services/shop-navigation.js";
+import { isClassicShopItem, classicShowcaseItems, complexShowcaseItems, SHOP_PRESENTATION_RULES } from "../services/shop-presentation.js";
+import { renderClassicFrameSheet, renderClassicFontSheet, renderClassicStickerSheet, renderClassicTextColorSheet } from "../services/shop-showcase-sheets.js";
 import { requireGuild } from "./shared.js";
 
 export const data = new SlashCommandBuilder()
@@ -244,39 +246,33 @@ async function featuredCards(featured) {
   };
 }
 function topThree(category) {
-  // Public Backgrounds and Panels already show ALL 27 classic colors in a
-  // compact chart. Leave their large, lower featured examples EMPTY until
-  // we add fancy/premium artwork worth showcasing.
-  //
-  // TO RESTORE classic profile examples later, replace the return [] below
-  // with the following code (this keeps the old method documented):
-  //
-  // const classicIds = category === "backgrounds"
-  //   ? ["yellowPastel", "roseNormal", "aquaDark"]
-  //   : ["coralPastel", "lavenderNormal", "grayDark"];
-  // return classicIds
-  //   .map(id => itemsFor(category).find(item => item.id === id))
-  //   .filter(Boolean)
-  //   .slice(0, 3);
-  //
-  // FOR FUTURE FANCY DESIGNS, use the exact same pattern above but substitute
-  // the new premium item IDs. featuredCards() and storefrontCategoryPayload()
-  // below already render up to three large examples automatically.
-  if (category === "backgrounds" || category === "panels") return [];
-  // A custom HEX text color has no fixed preview to feature; customers choose
-  // the actual code themselves. Keep the public post uncluttered.
-  if (category === "fontColors") return [];
-  if (category === "frames") {
-    // Only ornate premium frames are featured on the public shop post.
-    // Basic/free frames remain in the catalog and can be tried on privately.
-    const items = itemsFor("frames");
-    return ["silverFloral", "goldCelestial", "blackKnight"]
-      .map(id => items.find(item => item.id === id)).filter(Boolean);
-  }
-
-  const items = itemsFor(category);
-  return [...items].sort((a, b) => b.price - a.price || a.id.localeCompare(b.id)).slice(0, 3);
+  // All of today's classic items share one category image. Future complex
+  // or premium catalog entries may receive standalone feature cards instead.
+  return complexShowcaseItems(category, itemsFor(category)).slice(0, 3);
 }
+
+const classicSheetCache = new Map();
+async function classicShowcaseImage(category) {
+  if (!SHOP_PRESENTATION_RULES[category]) return null;
+  const classicItems = classicShowcaseItems(category, itemsFor(category));
+  // Seasonal offers affect only the sticker sheet. Keep a distinct cache key
+  // so an October gallery is not reused when that season ends.
+  const key = `${category}:${classicItems.map(item => item.id).join(",")}`;
+  if (!classicSheetCache.has(key)) {
+    const work = (async () => {
+      if (isClassicColorCategory(category)) return classicColorChart(category);
+      if (category === "frames") return renderClassicFrameSheet(classicItems, exampleImage);
+      if (category === "fonts") return renderClassicFontSheet(classicItems);
+      if (category === "stickers") return renderClassicStickerSheet(classicItems);
+      if (category === "fontColors") return renderClassicTextColorSheet();
+      return null;
+    })();
+    classicSheetCache.set(key, work);
+    work.catch(() => classicSheetCache.delete(key));
+  }
+  return classicSheetCache.get(key);
+}
+
 function sortedItems(category) {
   // Classic colors are browsed in color-wheel order, with the three variants
   // together, instead of being scattered alphabetically or by price.
@@ -300,39 +296,28 @@ async function featuredPage(context, category) {
   };
 }
 async function storefrontCategoryPayload(category, featured) {
-  const cards = await featuredCards(featured);
-  const header = storefrontHeaderImage(category);
-  const chart = classicColorChart(category);
-  const chartEmbed = chart
-    ? [new EmbedBuilder().setColor(CATEGORY_THEMES[category].accent)
-        .setTitle("Classic Color Chart · All 27 Shades")
-        .setDescription(category === "backgrounds"
-          ? "Nine color families in Pastel, Normal, and Dark. **Starter Sage** is the free default background and is not sold here; all 27 Classic backgrounds are purchasable."
-          : "Nine color families in Pastel, Normal, and Dark. **FREE** marks the standard Classic Gray panel color.")
-        .setImage("attachment://shop-classic-colors.png")]
-    : [];
+  const sheet = await classicShowcaseImage(category);
+  const premium = await featuredCards(featured);
   return {
-    embeds: [new EmbedBuilder()
-      .setColor(CATEGORY_THEMES[category].accent)
-      .setImage("attachment://shop-category-header.png"),
-      ...chartEmbed,
-      ...(category === "fontColors" ? [
-        new EmbedBuilder()
-          .setColor(CATEGORY_THEMES[category].accent)
-          .setTitle("Custom HEX Text Colors · 100 Points")
-          .setDescription("Choose **any #RRGGBB color** for your profile lettering. Preview it before purchasing, then keep each purchased shade to use again. Default, Black and White remain free. Tap **View All** to create yours."),
-      ] : []),
-      ...cards.embeds],
+    embeds: [
+      new EmbedBuilder()
+        .setColor(CATEGORY_THEMES[category]?.accent ?? "#819287")
+        .setTitle(`${CATEGORY_LABELS[category]} · Classic Collection`)
+        .setDescription(
+          category === "backgrounds" || category === "panels"
+            ? "Nine color families, each with Pastel, Normal, and Dark shades. Browse individual colors and prices with **View All**."
+            : "The current classic collection is pictured together below. Choose **View All** to browse, preview and purchase individual items.",
+        )
+        .setImage("attachment://shop-classic-sheet.png"),
+      // Only opt-in complex/premium additions get their own image cards.
+      ...premium.embeds,
+    ],
     files: [
-      new AttachmentBuilder(header, {
-        name: "shop-category-header.png",
-        description: `${CATEGORY_LABELS[category]} — featured designs. View All opens your private shop.`,
+      new AttachmentBuilder(sheet, {
+        name: "shop-classic-sheet.png",
+        description: `Classic ${CATEGORY_LABELS[category]} collection in one reference image.`,
       }),
-      ...(chart ? [new AttachmentBuilder(chart, {
-        name: "shop-classic-colors.png",
-        description: `27 Classic ${CATEGORY_LABELS[category].toLowerCase()} swatches in 9 color families, arranged Pastel, Normal and Dark.`,
-      })] : []),
-      ...cards.files,
+      ...premium.files,
     ],
     attachments: [],
     components: [new ActionRowBuilder().addComponents(
@@ -591,16 +576,18 @@ async function purchase(interaction, item) {
     await session.endSession();
   }
 }
-async function confirmationPage(interaction, item, category, index) {
+async function confirmationPage(interaction, item, category, index, { showImage = true } = {}) {
   const balance = await walletBalance(interaction.guildId, interaction.user.id);
   const ownership = await getAppearanceOwnership(interaction.guildId, interaction.user.id);
   const owned = ownsAppearanceItem(ownership, item.category, item.id);
-  const image = await exampleImage(item);
-  return {
-    embeds: [new EmbedBuilder().setTitle("Confirm your purchase")
+  const image = showImage ? await exampleImage(item) : null;
+  const confirmEmbed = new EmbedBuilder().setTitle("Confirm your purchase")
       .setDescription(`**${item.name}**\nPrice: **${item.price} Points**\nYour balance: **${balance} Points**\nAfter purchase: **${Math.max(0, balance - item.price)} Points**\n\n${owned ? "You already own this item." : balance < item.price ? "You need more Points to buy this." : "Do you want to buy this item?"}`)
-      .setImage("attachment://shop-confirm.png")],
-    files: [new AttachmentBuilder(image, { name: "shop-confirm.png" })],
+      ;
+  if (image) confirmEmbed.setImage("attachment://shop-confirm.png");
+  return {
+    embeds: [confirmEmbed],
+    files: image ? [new AttachmentBuilder(image, { name: "shop-confirm.png" })] : [],
     attachments: [],
     components: [new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:confirm:${category || "all"}:${index}:${item.id}`)
@@ -774,8 +761,8 @@ async function dmCategoryIndex(context, category, requestedPage = 0) {
         ? "\n\nSeasonal stickers leave the shop after their event; purchased designs remain yours."
         : ""),
     );
-  const chart = groupedColors ? classicColorChart(category) : null;
-  if (chart) embed.setImage("attachment://shop-classic-colors.png");
+  const sheet = await classicShowcaseImage(category);
+  if (sheet) embed.setImage("attachment://shop-classic-sheet.png");
   const menu = new StringSelectMenuBuilder()
     .setCustomId(`shop:dm:${context.guildId}:indexPick:${category}:${page}`)
     .setPlaceholder(groupedColors ? "Choose a color family or Custom HEX" :
@@ -794,7 +781,7 @@ async function dmCategoryIndex(context, category, requestedPage = 0) {
       ? `**${CATEGORY_LABELS[category]}** — choose a color family; compare shades in the chart below.`
       : `**${CATEGORY_LABELS[category]}** — choose an item directly, without paging through previews.`,
     embeds: [embed],
-    files: chart ? [new AttachmentBuilder(chart, { name: "shop-classic-colors.png" })] : [],
+    files: sheet ? [new AttachmentBuilder(sheet, { name: "shop-classic-sheet.png" })] : [],
     attachments: [],
     components: [
       new ActionRowBuilder().addComponents(menu),
@@ -834,7 +821,13 @@ async function dmItemPage(context, category, index) {
     getAppearanceOwnership(context.guildId, context.user.id),
     walletBalance(context.guildId, context.user.id),
   ]);
-  const result = await pageFor(context, index, category, { ownership, balance });
+  const selected = sortedItems(category)[index];
+  // The category sheet already shows the whole classic set. Do not regenerate
+  // a separate image just to open a price/ownership detail for a classic item.
+  const result = isClassicShopItem(category, selected?.id)
+    ? itemPage(selected, index, sortedItems(category).length, balance,
+      ownsAppearanceItem(ownership, selected.category, selected.id), category)
+    : await pageFor(context, index, category, { ownership, balance });
   result.content = "";
   const item = sortedItems(category)[index];
   const owned = ownsAppearanceItem(ownership, item.category, item.id);
@@ -874,7 +867,9 @@ async function dmItemPage(context, category, index) {
 }
 async function dmConfirmation(context, category, index) {
   const item = sortedItems(category)[index];
-  const result = await confirmationPage(context, item, category, index);
+  const result = await confirmationPage(context, item, category, index, {
+    showImage: !isClassicShopItem(category, item.id),
+  });
   result.content = "";
   const ownership = await getAppearanceOwnership(context.guildId, context.user.id);
   const balance = await walletBalance(context.guildId, context.user.id);
