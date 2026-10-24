@@ -50,6 +50,10 @@ function createFakeDatabase() {
         return { pollPoints: old + patch.$inc.pollPoints };
       },
     },
+    activityCounters: {
+      async updateOne() {},
+      async findOneAndUpdate() { return { earned: 5 }; },
+    },
   };
   const sessionFactory = async () => ({
     async withTransaction(fn) { await fn(); },
