@@ -11,6 +11,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import UserProfile from "../models/UserProfile.js";
 import AppearanceInventory from "../models/AppearanceInventory.js";
 import PointsWallet from "../models/PointsWallet.js";
+import { spendPointsInSession, spendEventKey, PointsSpendError } from "../services/points-spending.js";
 import MemberDmPanel from "../models/MemberDmPanel.js";
 import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js";
 import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
@@ -567,10 +568,22 @@ async function purchase(interaction, item) {
       if (inventory?.owned?.[item.category]?.includes(item.id)) {
         throw new UserFacingError("You already own this item.");
       }
-      const debited = await PointsWallet.findOneAndUpdate({
-        guildId: interaction.guildId, discordUserId: interaction.user.id, balance: { $gte: item.price },
-      }, { $inc: { balance: -item.price } }, { session, returnDocument: "after" });
-      if (!debited) throw new UserFacingError("You don't have enough Points yet.");
+      try {
+        await spendPointsInSession({
+          guildId: interaction.guildId, userId: interaction.user.id,
+          amount: item.price,
+          eventKey: spendEventKey("shop", `single:${interaction.interactionId ?? interaction.id}`),
+          description: `Shop purchase: ${item.name}`,
+          sourceType: "shop", sourceId: `${item.category}:${item.id}`,
+          items: [{ category: item.category, id: item.id, price: item.price }],
+          session,
+        });
+      } catch (error) {
+        if (error instanceof PointsSpendError) {
+          throw new UserFacingError(error.message);
+        }
+        throw error;
+      }
       await AppearanceInventory.updateOne({
         guildId: interaction.guildId, discordUserId: interaction.user.id,
       }, { $addToSet: { [`owned.${item.category}`]: item.id } },
@@ -1175,12 +1188,24 @@ async function purchasePreviewBundle(context, panelId) {
           previewPurchaseFingerprint(quote) !== pending.fingerprint) {
         throw new UserFacingError("Items or prices changed since checkout. Please review your new total.");
       }
-      const debited = await PointsWallet.findOneAndUpdate({
-        guildId: context.guildId,
-        discordUserId: context.user.id,
-        balance: { $gte: quote.total },
-      }, { $inc: { balance: -quote.total } }, { session, returnDocument: "after" });
-      if (!debited) throw new UserFacingError("You no longer have enough Points for these items.");
+      try {
+        await spendPointsInSession({
+          guildId: context.guildId, userId: context.user.id,
+          amount: quote.total,
+          eventKey: spendEventKey("shop", `bundle:${panelId}:${pending.issuedAt}`),
+          description: `Shop Purchase All: ${quote.purchasable.length} appearance items`,
+          sourceType: "shop", sourceId: String(panelId),
+          items: quote.purchasable.map(item => ({
+            category: item.category, id: item.id, price: item.price,
+          })),
+          session,
+        });
+      } catch (error) {
+        if (error instanceof PointsSpendError) {
+          throw new UserFacingError(error.message);
+        }
+        throw error;
+      }
       const newOwnership = {};
       for (const item of quote.purchasable) {
         (newOwnership[`owned.${item.category}`] ??= { $each: [] }).$each.push(item.id);
@@ -1334,7 +1359,7 @@ async function handleShopDM(interaction) {
   const guild = await interaction.client.guilds.fetch(guildId);
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) throw new UserFacingError("You must belong to the server to use this shop.");
-  const context = { guildId, user: interaction.user, guild };
+  const context = { guildId, user: interaction.user, guild, interactionId: interaction.id };
 
   if (action === "customSubmit" || action === "customConfirm") {
     if (!Object.hasOwn(CUSTOM_COLOR_PRICES, categoryText)) {
