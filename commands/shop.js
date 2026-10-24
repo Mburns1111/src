@@ -26,7 +26,7 @@ import {
 } from "../services/custom-colors.js";
 import { UserFacingError } from "./errors.js";
 import { STICKER_CATALOG, isStickerForSale } from "../services/sticker-catalog.js";
-import { shopDirectorySlice, shopItemIndexById } from "../services/shop-navigation.js";
+import { shopDirectorySlice, shopItemIndexById, shopColorFamilyDirectory, shopColorDirectorySelection } from "../services/shop-navigation.js";
 import { requireGuild } from "./shared.js";
 
 export const data = new SlashCommandBuilder()
@@ -735,7 +735,9 @@ export function dmIndexTools(guildId, category, page) {
 
 async function dmCategoryIndex(context, category, requestedPage = 0) {
   if (!CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
-  const entries = sortedItems(category);
+  const groupedColors = isClassicColorCategory(category);
+  const individualItems = sortedItems(category);
+  const entries = groupedColors ? shopColorFamilyDirectory(individualItems) : individualItems;
   if (!entries.length) throw new UserFacingError("There are no items in this category.");
   const { page, count, start, visible } = shopDirectorySlice(entries, requestedPage);
   const [ownership, balance] = await Promise.all([
@@ -745,33 +747,54 @@ async function dmCategoryIndex(context, category, requestedPage = 0) {
   const isOwned = item => item.included ||
     (item.id !== CUSTOM_COLOR_SHOP_ID &&
       ownsAppearanceItem(ownership, item.category, item.id));
-  const descriptions = visible.map((item, i) =>
-    `**${start + i + 1}. ${item.name}** · ${item.price === 0 ? "Free" : `${item.price} Points`}` +
-    (isOwned(item) ? " · ✓ Owned" : ""),
-  );
+  const ownedShades = family => family.itemIds.filter(id =>
+    ownsAppearanceItem(ownership, category, id)).length;
+  const familyPrice = family => family.minPrice === family.maxPrice
+    ? `${family.minPrice} Points` : `${family.minPrice}–${family.maxPrice} Points`;
+  const descriptions = visible.map((item, i) => {
+    if (groupedColors) {
+      const price = familyPrice(item);
+      return `**${start + i + 1}. ${item.name}** · ${price}` +
+        (item.isCustom ? " · Each purchased HEX is yours permanently"
+          : ` per shade · ${ownedShades(item)}/${item.itemIds.length} owned`);
+    }
+    return `**${start + i + 1}. ${item.name}** · ${item.price === 0 ? "Free" : `${item.price} Points`}` +
+      (isOwned(item) ? " · ✓ Owned" : "");
+  });
   const embed = new EmbedBuilder()
     .setColor(CATEGORY_THEMES[category]?.accent ?? "#819287")
-    .setTitle(`${CATEGORY_LABELS[category]} · Item Index`)
+    .setTitle(`${CATEGORY_LABELS[category]} · ${groupedColors ? "Color Families" : "Item Index"}`)
     .setDescription(
-      `**Your Points: ${balance}** · ${entries.length} items · Page ${page + 1}/${count}\n` +
-      "Choose an item below to open its preview and purchase page.\n\n" +
+      `**Your Points: ${balance}** · ${entries.length} ${groupedColors ? "choices" : "items"} · Page ${page + 1}/${count}\n` +
+      (groupedColors
+        ? "Compare all three shades in the chart below. Choose a family, then select **Pastel**, **Normal**, or **Dark** before buying. Prices and ownership apply to individual shades.\n\n"
+        : "Choose an item below to open its preview and purchase page.\n\n") +
       descriptions.join("\n") +
       (category === "stickers"
         ? "\n\nSeasonal stickers leave the shop after their event; purchased designs remain yours."
         : ""),
     );
+  const chart = groupedColors ? classicColorChart(category) : null;
+  if (chart) embed.setImage("attachment://shop-classic-colors.png");
   const menu = new StringSelectMenuBuilder()
     .setCustomId(`shop:dm:${context.guildId}:indexPick:${category}:${page}`)
-    .setPlaceholder(`Open a ${CATEGORY_LABELS[category].toLowerCase()} item directly`)
+    .setPlaceholder(groupedColors ? "Choose a color family or Custom HEX" :
+      `Open a ${CATEGORY_LABELS[category].toLowerCase()} item directly`)
     .addOptions(visible.map(item => ({
       label: item.name,
       value: item.id,
-      description: `${item.price === 0 ? "Free" : item.price + " Points"} · ${isOwned(item) ? "Owned" : "View item"}`,
+      description: groupedColors
+        ? item.isCustom
+          ? `${familyPrice(item)} · Create your own shade`
+          : `Pastel · Normal · Dark · ${familyPrice(item)}/shade · ${ownedShades(item)}/3 owned`
+        : `${item.price === 0 ? "Free" : item.price + " Points"} · ${isOwned(item) ? "Owned" : "View item"}`,
     })));
   return {
-    content: `**${CATEGORY_LABELS[category]}** — choose an item directly, without paging through previews.`,
+    content: groupedColors
+      ? `**${CATEGORY_LABELS[category]}** — choose a color family; compare shades in the chart below.`
+      : `**${CATEGORY_LABELS[category]}** — choose an item directly, without paging through previews.`,
     embeds: [embed],
-    files: [],
+    files: chart ? [new AttachmentBuilder(chart, { name: "shop-classic-colors.png" })] : [],
     attachments: [],
     components: [
       new ActionRowBuilder().addComponents(menu),
@@ -1445,7 +1468,9 @@ async function handleShopDM(interaction) {
     const category = categoryText;
     if (!CATEGORY_LABELS[category]) throw new UserFacingError("Unknown shop category.");
     const chosenId = interaction.values[0];
-    const itemIndex = shopItemIndexById(sortedItems(category), chosenId);
+    const itemIndex = isClassicColorCategory(category)
+      ? shopColorDirectorySelection(sortedItems(category), chosenId)
+      : shopItemIndexById(sortedItems(category), chosenId);
     if (itemIndex < 0) {
       throw new UserFacingError("This item is no longer available. Reopen the category index.");
     }
