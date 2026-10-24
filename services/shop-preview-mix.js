@@ -23,7 +23,7 @@ export function isShopMixChoice(category, id) {
   // Allows free standard font/text colors and a previous paid starter color in
   // an older persisted mix without making either a new purchasable shop item.
   return Object.prototype.hasOwnProperty.call(APPEARANCE_CATALOG[category], id) ||
-    (["backgrounds", "panels"].includes(category) && Boolean(customColorHex(id)));
+    (["backgrounds", "panels", "fontColors"].includes(category) && Boolean(customColorHex(id)));
 }
 
 export function normalizeShopMix(value) {
@@ -50,7 +50,7 @@ export function tryOnShopMix(savedAppearance, savedMix = {}, candidate = null) {
   // Individual item previews are transient; the live dress-up editor saves a
   // new mix selection as soon as the user chooses it.
   if (candidate && (shopItem(candidate.category, candidate.id) ||
-      (["backgrounds", "panels"].includes(candidate.category) && customColorHex(candidate.id)))) {
+      (["backgrounds", "panels", "fontColors"].includes(candidate.category) && customColorHex(candidate.id)))) {
     if (candidate.category === "fonts") {
       mix.headerFont = candidate.id;
       mix.bodyFont = candidate.id;
