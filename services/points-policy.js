@@ -29,7 +29,8 @@ export function starterClassicBasketCost() {
   return starterClassicBasket().reduce((sum, item) => sum + item.price, 0);
 }
 
-// Phase 2 targets are documented but NOT credited automatically in Phase 1.
+// Phase 2 targets are active for approved native polls and opt-in chat/voice
+// earnings on the development branch; invites are still planned.
 // 75 background + 50 paid panel + 125 frame + 125 font + 50 sticker = 425.
 // A fresh member's first seven days can produce up to 425 repeatable activity
 // Points, while later weeks target 225, so future 800–1000 Point designs
