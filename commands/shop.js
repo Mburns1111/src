@@ -67,7 +67,9 @@ function storefrontHeaderImage(category) {
   ctx.fillText(
     category === "backgrounds" || category === "panels"
       ? "27 classic shades  ·  View All opens your private shop"
-      : "Featured designs  ·  View All opens your private shop",
+      : category === "fontColors"
+        ? "Custom HEX text  ·  View All opens your private shop"
+        : "Featured designs  ·  View All opens your private shop",
     80, 165, 1050,
   );
   return canvas.toBuffer("image/png");
@@ -259,6 +261,9 @@ function topThree(category) {
   // the new premium item IDs. featuredCards() and storefrontCategoryPayload()
   // below already render up to three large examples automatically.
   if (category === "backgrounds" || category === "panels") return [];
+  // A custom HEX text color has no fixed preview to feature; customers choose
+  // the actual code themselves. Keep the public post uncluttered.
+  if (category === "fontColors") return [];
   if (category === "frames") {
     // Only ornate premium frames are featured on the public shop post.
     // Basic/free frames remain in the catalog and can be tried on privately.
@@ -309,6 +314,12 @@ async function storefrontCategoryPayload(category, featured) {
       .setColor(CATEGORY_THEMES[category].accent)
       .setImage("attachment://shop-category-header.png"),
       ...chartEmbed,
+      ...(category === "fontColors" ? [
+        new EmbedBuilder()
+          .setColor(CATEGORY_THEMES[category].accent)
+          .setTitle("Custom HEX Text Colors · 100 Points")
+          .setDescription("Choose **any #RRGGBB color** for your profile lettering. Preview it before purchasing, then keep each purchased shade to use again. Default, Black and White remain free. Tap **View All** to create yours."),
+      ] : []),
       ...cards.embeds],
     files: [
       new AttachmentBuilder(header, {
