@@ -15,10 +15,11 @@ import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js"
 import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
 import { openAppearanceDMFromShop } from "./profile.js";
 import { shopItems } from "../services/shop-catalog.js";
-import { getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance } from "../services/appearance-ownership.js";
+import { getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, FREE_APPEARANCE } from "../services/appearance-ownership.js";
 import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, appearanceCatalogItem, resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { normalizeShopMix, tryOnShopMix, SHOP_MIX_CATEGORIES } from "../services/shop-preview-mix.js";
+import { previewPurchasePlan, previewPurchaseFingerprint } from "../services/shop-mix-checkout.js";
 import { CLASSIC_COLOR_FAMILIES, CLASSIC_COLOR_OPTIONS, STANDARD_PANEL_ID } from "../services/classic-colors.js";
 import {
   CUSTOM_COLOR_SHOP_ID, CUSTOM_COLOR_PRICES, normalizeHexColor, customColorId,
@@ -971,7 +972,7 @@ function mixItemEntries(category, ownership = null) {
     });
 }
 
-function mixEditorChrome(context, panel, mix, ownership = null) {
+function mixEditorChrome(context, panel, mix, ownership, quote, balance) {
   const category = SHOP_MIX_CATEGORIES.includes(panel.shopMixCategory)
     ? panel.shopMixCategory : "backgrounds";
   const rows = [
@@ -1090,6 +1091,10 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
     new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:mixClear`)
       .setLabel("Clear All Choices").setStyle(ButtonStyle.Secondary)
       .setDisabled(!Object.keys(mix).length),
+    new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:mixCheckout`)
+      .setLabel(`Purchase All · ${quote.total} Points`).setStyle(ButtonStyle.Success)
+      .setDisabled(!quote.purchasable.length || quote.unavailable.length > 0 ||
+        balance < quote.total),
     ...(category === "fontColors" ? [
       new ButtonBuilder()
         .setCustomId(`shop:dm:${context.guildId}:customOpen:fontColors:${
@@ -1105,7 +1110,16 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
     content: `**Preview Multiple · Live Profile Preview**\n` +
       `Editing **${CATEGORY_LABELS[category]}** — pick a style and your profile preview updates automatically.\n\n` +
       mixSummary(mix) + "\n\n" +
-      "**Just trying things on:** No purchases, no Points spent, and no changes to your saved profile.",
+      "**Purchase summary**\\n" +
+      (quote.entries.length ? quote.entries.map(item =>
+        `• **${mixValueName(item.category, item.id)}** — ${item.unavailable
+          ? "Not currently for sale" : item.owned ? "Owned · 0 Points"
+            : item.free ? "Free · 0 Points" : `${item.price} Points`}`
+      ).join("\\n") : "No separate shop items selected.") +
+      `\\n**Purchase All total: ${quote.total} Points** · Balance: ${balance} Points` +
+      (quote.unavailable.length ? "\\nSome selected items are not currently for sale." :
+        balance < quote.total ? "\\nNot enough Points for all selected items." : "") +
+      "\\n\\n**Preview only until you confirm a purchase.** Buying unlocks items but does not equip them.",
     components: rows,
     allowedMentions: { parse: [] },
   };
@@ -1114,10 +1128,12 @@ function mixEditorChrome(context, panel, mix, ownership = null) {
 async function dmMixEditor(context, panel, { reuseImage = false } = {}) {
   const mix = normalizeShopMix(panel.shopPreviewMix);
   const category = panel.shopMixCategory;
-  const ownership = isClassicColorCategory(category) ||
-    ["fonts", "fontColors", "stickers"].includes(category)
-    ? await getAppearanceOwnership(context.guildId, context.user.id) : null;
-  const chrome = mixEditorChrome(context, panel, mix, ownership);
+  const [ownership, balance] = await Promise.all([
+    getAppearanceOwnership(context.guildId, context.user.id),
+    walletBalance(context.guildId, context.user.id),
+  ]);
+  const quote = previewPurchasePlan(mix, ownership);
+  const chrome = mixEditorChrome(context, panel, mix, ownership, quote, balance);
   if (reuseImage) return chrome; // Only the controls changed: keep current PNG
   return { ...await previewPayload(context, null, mix), ...chrome };
 }
