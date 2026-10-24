@@ -45,16 +45,21 @@ export const APPEARANCE_CATALOG = Object.freeze({
     navy: { dark: true, palette: { panel: "#33465D", panelAlt: "#33465D" } },
   },
   frames: {
-    default: { kind: 'standard' },
-    // Classic, understated outlines rendered directly with Canvas. These
-    // don't depend on image assets and work with every profile background.
+    // Keep the original 'default' ID so existing free profiles stay equipped.
+    default: { kind: 'standard' }, // Classic Thin · free
+    // Keep the older purchased 'doubleLine' ID: owners receive the upgraded
+    // clearly-separated dual rails without repurchasing.
+    doubleLine: { kind: 'artwork', artwork: 'doubleLine', color: '#354B3E' },
+    softRounded: { kind: 'artwork', artwork: 'softRounded' },
+    silverFloral: { kind: 'artwork', artwork: 'silverFloral' },
+    goldCelestial: { kind: 'artwork', artwork: 'goldCelestial' },
+    blackKnight: { kind: 'artwork', artwork: 'blackKnight' },
+    // Retired line-art frames remain valid for previously equipped/owned users.
     fineLine: { kind: 'fineLine' },
     boldOutline: { kind: 'boldOutline' },
     dashedOutline: { kind: 'dashedOutline' },
     dottedOutline: { kind: 'dottedOutline' },
     cornerAccents: { kind: 'cornerAccents' },
-    // Legacy purchased Double Line remains unchanged and equippable.
-    doubleLine: { kind: 'doubleLine', color: '#354B3E' },
   },
   fonts: {
     default: { family: 'sans-serif', titleFamily: 'serif' },
