@@ -17,6 +17,10 @@ const memberDmPanelSchema = new mongoose.Schema({
   // Unpurchased try-on selections for the permanent shop (one per category).
   // Kept independently of the editable/saved member profile.
   shopPreviewMix: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  // View state of the live Mix & Match try-on, independent of equipped styles.
+  shopMixCategory: { type: String, default: "backgrounds" },
+  shopMixReturnCategory: { type: String, default: "backgrounds" },
+  shopMixReturnIndex: { type: Number, default: 0 },
 }, { timestamps: true });
 
 memberDmPanelSchema.index(
