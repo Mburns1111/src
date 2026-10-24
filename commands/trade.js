@@ -13,6 +13,7 @@ import {
 } from "discord.js";
 import TradeListing from "../models/TradeListing.js";
 import UserProfile from "../models/UserProfile.js";
+import { awardMilestoneSafely } from "../services/points-rewards.js";
 import {
   getConfiguredTextChannel,
   getMessageMedia,
@@ -543,6 +544,8 @@ async function publishTradeListing(interaction, { title, picture, video, videoUr
   } finally {
     await cleanup();
   }
+  await awardMilestoneSafely(interaction.guildId, interaction.user.id,
+    "tradeFirstListing", String(listing._id));
 }
 
 export async function handleVote(interaction) {
