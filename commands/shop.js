@@ -388,7 +388,7 @@ function itemPage(item, index, total, balance, owned, category = null) {
   const canAfford = balance >= item.price;
   const embed = new EmbedBuilder().setTitle(`Appearance Shop · ${index + 1}/${total}`)
     .setDescription(isCustom
-      ? `**Custom HEX Color**\nCategory: ${CATEGORY_LABELS[item.category]}\nPrice: **${item.price} Points per color** (3× a regular color)\nYour balance: **${balance} Points**\n\nChoose any six-digit HEX color, such as \`#C7DDBC\`. You'll see it on your own profile **before** confirming purchase. Once purchased, each color is saved permanently in this category.`
+      ? `**Custom HEX Color**\nCategory: ${CATEGORY_LABELS[item.category]}\nPrice: **${item.price} Points per color**${item.category === "fontColors" ? "" : " (3× a regular color)"}\nYour balance: **${balance} Points**\n\nChoose any six-digit HEX color, such as \`#C7DDBC\`. You'll see it on your own profile **before** confirming purchase. Once purchased, each color is saved permanently in this category.`
       : `**${item.name}**\nCategory: ${CATEGORY_LABELS[item.category] || item.category}\nPrice: **${item.price} Points**\nStatus: **${owned ? "Owned" : "Not owned"}**\nYour balance: **${balance} Points**${!owned && !canAfford ? `\n**You need ${item.price - balance} more Points to buy this.**` : ""}\n\nUse Preview to see this on your own profile without saving it.`);
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:page:${category || 'all'}:${index - 1}`).setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(index === 0 && !category),
@@ -419,7 +419,8 @@ async function pageFor(interaction, index, category = null, knownStatus = null) 
   const item = items[index];
   const result = itemPage(item, index, items.length, balance,
     ownsAppearanceItem(ownership, item.category, item.id), category);
-  const swatch = ["backgrounds", "panels"].includes(item.category)
+  const swatch = ["backgrounds", "panels"].includes(item.category) ||
+    (item.category === "fontColors" && item.id === CUSTOM_COLOR_SHOP_ID)
     ? catalogSwatch(item) : null;
   const image = swatch || await exampleImage(item);
   const fileName = swatch ? "shop-swatch.png" : "shop-example.png";
@@ -480,10 +481,12 @@ async function preview(interaction, item) {
   await interaction.editReply(await previewPayload(interaction, item));
 }
 function customColorModal(guildId, category, index) {
-  if (!CUSTOM_COLOR_PRICES[category]) throw new UserFacingError("Custom colors are only available for backgrounds and panels.");
+  if (!Object.hasOwn(CUSTOM_COLOR_PRICES, category))
+    throw new UserFacingError("Custom colors are available for backgrounds, panels, and text.");
   return new ModalBuilder()
     .setCustomId(`shop:dm:${guildId}:customSubmit:${category}:${index}`)
-    .setTitle(`Custom ${category === "backgrounds" ? "Background" : "Panel"} · ${CUSTOM_COLOR_PRICES[category]} Points`)
+    .setTitle(`Custom ${category === "backgrounds" ? "Background"
+      : category === "panels" ? "Panel" : "Text Color"} · ${CUSTOM_COLOR_PRICES[category]} Points`)
     .addLabelComponents(
       new LabelBuilder()
         .setLabel("Your six-digit HEX color")
@@ -514,7 +517,7 @@ async function dmCustomReview(context, category, hex) {
   // The color is applied only to a try-on. The real profile is untouched.
   const result = await previewPayload(context, { id, category, name: customColorLabel(id) });
   result.content = `**Custom ${CATEGORY_LABELS[category]} · ${normalized}**\n` +
-    `Price: **${price} Points** (3× a regular color) · Your balance: **${balance} Points**\n` +
+    `Price: **${price} Points**${category === "fontColors" ? "" : " (3× a regular color)"} · Your balance: **${balance} Points**\n` +
     (owned ? "**You already own this exact color.** Equip it in Customize Profile—no need to pay again."
       : !canAfford ? `You need **${price - balance} more Points** to purchase this color.`
       : `Confirm to save **${normalized}** permanently to your ${CATEGORY_LABELS[category].toLowerCase()} collection.\nBalance after purchase: **${balance - price} Points**.`) +
@@ -1002,7 +1005,7 @@ async function handleShopDM(interaction) {
     // A modal must be shown as the initial response, before deferUpdate().
     if (!interaction.isButton() || !CUSTOM_COLOR_PRICES[categoryText] ||
         sortedItems(categoryText)[Number(indexText)]?.id !== CUSTOM_COLOR_SHOP_ID) {
-      throw new UserFacingError("Select Custom HEX Color from Backgrounds or Panels first.");
+      throw new UserFacingError("Select Custom HEX Color from Backgrounds, Panels, or Text Colors first.");
     }
     await interaction.showModal(customColorModal(guildId, categoryText, Number(indexText)));
     return true;
@@ -1020,8 +1023,8 @@ async function handleShopDM(interaction) {
   const context = { guildId, user: interaction.user, guild };
 
   if (action === "customSubmit" || action === "customConfirm") {
-    if (!CUSTOM_COLOR_PRICES[categoryText]) {
-      throw new UserFacingError("Custom HEX colors are only for backgrounds and panels.");
+    if (!Object.hasOwn(CUSTOM_COLOR_PRICES, categoryText)) {
+      throw new UserFacingError("Custom HEX colors are only for backgrounds, panels, and text.");
     }
     const customIndex = sortedItems(categoryText).findIndex(item => item.id === CUSTOM_COLOR_SHOP_ID);
     if (customIndex < 0) throw new UserFacingError("Custom colors aren't available in this category.");
