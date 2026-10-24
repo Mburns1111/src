@@ -35,9 +35,9 @@ if (!uri) {
     }));
     console.log(JSON.stringify({
       ledgerCollection: collection.collectionName,
-      totalApproximateAwardReceipts: receipts,
+      totalApproximateTransactions: receipts,
       totalApproximateWallets: wallets,
-      awardsDuringLast7Days: recent,
+      transactionsDuringLast7Days: recent,
       expectedIndexes: installed,
     }, null, 2));
     if (installed.some(x => !x.present)) {
