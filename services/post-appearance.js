@@ -15,10 +15,12 @@ export const APPEARANCE_CATALOG = Object.freeze({
       dark: item.dark,
       palette: { panel: item.hex, panelAlt: item.hex, accent: item.hex },
     }])),
-    // Retired starter designs remain renderable for members who bought/equipped
-    // them, but are no longer offered for sale or in the new color picker.
+    // Starter Sage is the free profile background. Keep its original ID,
+    // appearance and friendly label; it is never listed as a shop product.
     default: { kind: "solid" },
     sagePreview: { kind: "solid", color: "#DCE9D7", palette: { panel: "#F3F7EF", panelAlt: "#E9F1E5", accent: "#79977C" } },
+    // Other retired starter designs remain renderable for past owners,
+    // but are no longer sold or offered to new members in Customize.
     paleSage: { kind: "solid", color: "#CADFC4", palette: { panel: "#EDF3E8", panelAlt: "#D4E3CF", accent: "#779A78" } },
     warmCream: { kind: "solid", color: "#F1EBDD", palette: { panel: "#FBF7EC", panelAlt: "#EBE1CD", accent: "#9C8E75" } },
     dustyBlue: { kind: "solid", color: "#DCE4EC", palette: { panel: "#EDF3F8", panelAlt: "#CBD8E5", accent: "#7C99B3" } },
@@ -82,8 +84,10 @@ const select = (category, id) => APPEARANCE_CATALOG[category][id] ? id
 /** Resolve approved appearance IDs and bounded normalized sticker transforms. */
 export function resolveAppearance(input = {}) {
   const value = input && typeof input === 'object' ? input : {};
-  // Upgrade only the original *free, untouched* starter pair. Never replace
-  // a paid or intentionally chosen background/panel color in an older profile.
+  // Old untouched Starter Sage profiles originally paired with matching
+  // translucent panels. Keep the sage background but upgrade that exact
+  // starter combination to the current standard gray panels. Do not change
+  // other deliberate appearance selections or previously bought designs.
   const oldFreeStarter = value.background === "sagePreview" &&
     (value.panelColor === "match" || value.panelColor == null) &&
     (value.panelOpacity == null || value.panelOpacity === 0.34);
