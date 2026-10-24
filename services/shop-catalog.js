@@ -28,7 +28,7 @@ const prices = {
     default: 0,
     ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, item]) => [id, item.price])),
   },
-  fontColors: { plum: 75 },
+  fontColors: { plum: 75, [CUSTOM_COLOR_SHOP_ID]: CUSTOM_COLOR_PRICES.fontColors },
   stickers: { flower: 50, star: 50 },
 };
 const names = {
