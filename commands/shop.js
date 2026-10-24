@@ -629,6 +629,8 @@ export function dmShopTools(guildId, category, index) {
       .setLabel("All Categories").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:tradingPost`)
+      .setLabel("Customize Trading Post").setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -704,6 +706,8 @@ export function dmCategoryHomeControls(guildId) {
       .setLabel("Preview Multiple").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:tradingPost`)
+      .setLabel("Customize Trading Post").setStyle(ButtonStyle.Primary),
   ));
   return rows;
 }
@@ -737,6 +741,8 @@ export function dmIndexTools(guildId, category, page) {
       .setLabel("All Categories").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:tradingPost`)
+      .setLabel("Customize Trading Post").setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -1320,7 +1326,7 @@ export async function ensureMemberShopDM(guild, user, category = categories()[0]
 async function sendShopDM(interaction, category) {
   const { message, created } = await ensureMemberShopDM(interaction.guild, interaction.user, category, { refresh: true });
   await interaction.editReply({
-    content: `${created ? "I opened your personal shop!" : "Your personal shop is already in your DMs."} [**Open your shop**](${dmPanelUrl(message.channelId, message.id)}). You can browse categories, check Points, and customize your profile there.`,
+    content: `${created ? "I opened your personal shop!" : "Your personal shop is already in your DMs."} [**Open your shop**](${dmPanelUrl(message.channelId, message.id)}). You can browse categories, check Points, and customize your profile or Trading Post there.`,
     allowedMentions: { parse: [] },
   });
 }
@@ -1350,7 +1356,7 @@ async function handleShopDM(interaction) {
     return true;
   }
   // Acknowledge quickly before member fetches or MongoDB queries.
-  if (action === "appearance" || (action === "customSubmit" &&
+  if (action === "appearance" || action === "post" || (action === "customSubmit" &&
       !interaction.isFromMessage?.())) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   } else {
@@ -1360,6 +1366,15 @@ async function handleShopDM(interaction) {
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) throw new UserFacingError("You must belong to the server to use this shop.");
   const context = { guildId, user: interaction.user, guild, interactionId: interaction.id };
+
+  if (action === "post") {
+    if (!interaction.isButton() || categoryText !== "tradingPost") {
+      throw new UserFacingError("That post customization button is unavailable.");
+    }
+    const { openTradingPostAppearanceDM } = await import("./listing-appearance-editor.js");
+    return openTradingPostAppearanceDM(interaction, guild);
+  }
+
 
   if (action === "customSubmit" || action === "customConfirm") {
     if (!Object.hasOwn(CUSTOM_COLOR_PRICES, categoryText)) {
