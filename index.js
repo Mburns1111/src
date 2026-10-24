@@ -68,7 +68,7 @@ import { execute as executeShop, data as shopCommand, ensureShopEntry, handleSho
 import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
 import { execute as executePointsAdmin, data as pointsAdminCommand } from "./commands/points-admin.js";
 import { execute as executePointsObserve, data as pointsObserveCommand } from "./commands/points-observe.js";
-import { observeNativePollVote, parseNativePollEvent } from "./services/participation-observer.js";
+import { observeNativePollVote, parseNativePollClientEvent } from "./services/participation-observer.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
@@ -101,9 +101,9 @@ const client = new Client({
   // third-party Arclo public messages expose results, privileged access can
   // be explicitly enabled on the TEST bot only (plus Discord Portal toggle).
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.GuildMessagePolls,
+    GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMessagePolls,
     ...(shouldRequestMessageContent() ? [GatewayIntentBits.MessageContent] : [])],
-  partials: [Partials.Channel],
+  partials: [Partials.Channel, Partials.Message, Partials.Poll, Partials.PollAnswer],
 });
 
 // Login failures can otherwise leave only "Connected to MongoDB." in the
@@ -128,14 +128,16 @@ client.on(Events.ShardReady, shardId => {
   console.log(`[Discord] Shard ${shardId} received READY.`);
 });
 
-// Raw native-poll events include guild, message, voter and answer IDs even
-// when a poll predates startup and its original message is not in cache.
-// Serialize events for the same ballot so rapid vote/unvote actions cannot
-// complete out of order while MongoDB is responding.
+// The supported discord.js events are MessagePollVoteAdd/Remove, not Raw.
+// A native poll may be uncached after a restart; /points-observe sync can
+// rebuild the current participant snapshot from Discord's voter API.
 const pollObservationQueue = new Map();
-client.on(Events.Raw, packet => {
-  const parsed = parseNativePollEvent(packet);
-  if (!parsed) return;
+function handlePollEvent(pollAnswer, userId, added) {
+  const parsed = parseNativePollClientEvent(pollAnswer, userId, added);
+  if (!parsed) {
+    console.warn("[Points observe] Poll event was partial; use /points-observe sync for that poll.");
+    return;
+  }
   const key = `${parsed.guildId}:${parsed.messageId}:${parsed.userId}`;
   const previous = pollObservationQueue.get(key) ?? Promise.resolve();
   const current = previous.then(() => observeNativePollVote(parsed))
@@ -145,7 +147,9 @@ client.on(Events.Raw, packet => {
       if (pollObservationQueue.get(key) === current) pollObservationQueue.delete(key);
     });
   pollObservationQueue.set(key, current);
-});
+}
+client.on(Events.MessagePollVoteAdd, (answer, userId) => handlePollEvent(answer, userId, true));
+client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answer, userId, false));
 
 let discordReadyTimeout;
 
