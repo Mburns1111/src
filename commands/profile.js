@@ -547,7 +547,7 @@ const APPEARANCE_CHOICES = {
   font: ["default", "classic", ...Object.keys(SHOP_FONT_STYLES)],
   headerFont: ["default", ...Object.keys(SHOP_FONT_STYLES), "classic"],
   bodyFont: ["default", ...Object.keys(SHOP_FONT_STYLES), "classic"],
-  fontColor: ["default", "black", "white", "plum"],
+  fontColor: ["default", "black", "white"],
   frame: ["default", "doubleLine", "softRounded", "silverFloral", "goldCelestial", "blackKnight"],
 };
 const APPEARANCE_LABELS = {
@@ -562,7 +562,6 @@ const APPEARANCE_LABELS = {
   ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, font]) => [id, font.name])),
   black: "Black (free)",
   white: "White (free)",
-  plum: "Plum",
   doubleLine: "Double Line",
   softRounded: "Soft Rounded",
   silverFloral: "Silver Floral",
