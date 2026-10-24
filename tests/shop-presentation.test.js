@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
+import { appearanceCatalogItem } from "../services/post-appearance.js";
 import { shopItems } from "../services/shop-catalog.js";
 import { SHOP_PRESENTATION_RULES, CLASSIC_SHOP_ITEMS,
   isClassicShopItem, classicShowcaseItems, complexShowcaseItems } from "../services/shop-presentation.js";
@@ -18,7 +19,7 @@ test("all six shop categories have explicit classic-sheet and direct-index rules
     assert.equal(SHOP_PRESENTATION_RULES[category].complex, "standalone");
   }
   assert.deepEqual(categories.map(category => CLASSIC_SHOP_ITEMS[category].length),
-    [27, 27, 6, 6, 4, 8]);
+    [27, 27, 6, 6, 3, 8]);
 });
 
 test("new premium items stay separate and do not silently become classics", () => {
@@ -64,20 +65,38 @@ test("one font sheet, sticker gallery and text color sheet render as PNGs", asyn
   }
 });
 
-test("one frame sheet stacks six examples in one PNG without extra files", async () => {
-  const canvas = createCanvas(1200, 800);
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#D6E6DB";
-  ctx.fillRect(0, 0, 1200, 800);
-  const sample = canvas.toBuffer("image/png");
-  let renders = 0;
+test("frame gallery shows six enlarged top-left corners on plain white", async () => {
   const frames = shopItems().filter(item => item.category === "frames");
-  const buffer = await renderClassicFrameSheet(frames, async () => {
-    renders++;
-    return sample;
-  });
-  assert.equal(renders, 6);
+  const buffer = await renderClassicFrameSheet(frames);
   const image = await loadImage(buffer);
   assert.equal(image.width, 1200);
-  assert.equal(image.height, 150 + 6 * 405);
+  assert.equal(image.height, 1415);
+
+  const canvas = createCanvas(1200, 1415);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(image, 0, 0);
+  assert.deepEqual([...ctx.getImageData(1185, 1400, 1, 1).data],
+    [255, 255, 255, 255], "sheet background is plain white");
+
+  const columns = [40, 554];
+  const rows = [165, 555, 945];
+  for (let i = 0; i < frames.length; i++) {
+    const x = columns[i % 2], y = rows[Math.floor(i / 2)];
+    const { data } = ctx.getImageData(x + 10, y + 10, 125, 145);
+    let artworkPixels = 0;
+    for (let p = 0; p < data.length; p += 4) {
+      if (data[p] < 245 || data[p + 1] < 245 || data[p + 2] < 245) {
+        artworkPixels++;
+      }
+    }
+    assert.ok(artworkPixels > 50, `frame ${frames[i].id} has a visible enlarged corner`);
+  }
+});
+
+test("Plum is retired from shop and classic previews, but legacy saved colors remain valid", () => {
+  assert.ok(!shopItems().some(item => item.category === "fontColors" && item.id === "plum"));
+  assert.deepEqual(CLASSIC_SHOP_ITEMS.fontColors, ["default", "black", "white"]);
+  assert.equal(shopItems().filter(item => item.category === "fontColors").length, 1);
+  assert.ok(appearanceCatalogItem("fontColors", "plum"),
+    "old Plum profiles and ownership IDs must still render without migration");
 });
