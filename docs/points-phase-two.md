@@ -7,7 +7,7 @@ Branch: `feature/points-earning`. These changes do not deploy to Wispbyte or `ma
 | Source | Established member | First seven days after joining | Anti-spam and eligibility |
 | --- | ---: | ---: | --- |
 | Qualifying Discord message | 2 Points | 4 Points | Minimum 15 visible characters and 8 letters, 30-minute per-user cooldown, no immediate duplicate text, **no daily or weekly message Points cap** |
-| Qualifying voice presence | 5 Points per 10 minutes | 10 Points per 10 minutes | At least **two human participants** in the same voice channel; deafened, AFK-channel, bots and suppressed Stage listeners do not count |
+| Qualifying voice presence | 1 Point per 10 minutes | 2 Points per 10 minutes | At least **two human participants** in the same voice channel; deafened, AFK-channel, bots and suppressed Stage listeners do not count |
 | Staff-approved native Discord poll | 5 Points | 5 Points | One award per poll, 15 Points per UTC week, cannot earn again by changing or removing vote |
 | One-time shop/post milestones | Unchanged | Unchanged | These do not affect repeatable activity earnings |
 | Staff giveaways/participation awards | Set by manager | Set by manager | Audited and separate from repeatable activity earnings |
@@ -33,11 +33,15 @@ Every reward is an immutable Points ledger receipt plus a credit to the existing
 4. Run `/points-admin settings` to see toggles and rate/cap rules. Run `/points-admin activity-status member:<your member>` to check Points earned this period (no remaining allowance or ceiling).
 5. In a normal test server text channel, send a non-command original sentence with at least 15 characters and eight letters (e.g. "Testing AM Isa message rewards today."). Wait a moment, then use `/points-admin history member:<you>` and the shop balance. Established member should earn **+2**; newly joined member within seven days earns **+4**.
 6. Repeat the same message immediately: **no second reward**. Send a different sentence within 30 minutes: still **no reward**. After 30 minutes, a different qualifying message should earn again. There is **no daily, weekly or first-week Points cap** on qualifying messages; the 30-minute cooldown remains.
-7. For voice, have **two human test members** join the same non-AFK voice channel without deafening themselves. At approximately ten qualifying minutes of bot uptime, each eligible member should earn **+5** (or +10 during the first seven days). Leaving the voice channel, being alone, or deafening stops accrual; no back-pay for offline or disqualified time. Individual qualifying minutes persist across bot restarts and are deduplicated.
+7. For voice, have **two human test members** join the same non-AFK voice channel without deafening themselves. At approximately ten qualifying minutes of bot uptime, each eligible member should earn **+1** (or +2 during the first seven days). Leaving the voice channel, being alone, or deafening stops accrual; no back-pay for offline or disqualified time. Individual qualifying minutes persist across bot restarts and are deduplicated.
 8. Verify previously approved native poll credits remain unchanged. A **new** approved poll still awards +5 once, adds to the activity totals without blocking chat or voice earnings, and respects the 15-per-week poll-specific limit. `/points-observe voters` still shows individual participants.
 9. To stop chat or voice rewards: `/points-admin activity-toggle source:Messages and Voice enabled:false`. Existing earned Points are not removed.
 
 **Testing notes:** Voice presence alone cannot prove a person is speaking; the two-person and deafening rules limit but do not eliminate coordinated idling. Message scoring is intentionally simple and should be tuned after seeing live test data. Invite rewards, general activity analytics, and production rollout remain separate work. Automatic rates are starting values; members can continue earning beyond the old 225/425-Point limits.
+
+## Staff message catch-up scan
+
+Run `/points-admin scan-messages hours:24` to **preview** qualifying messages from the last 24 hours (configurable from 1 to 168 hours), or use `apply:true` to credit Points. This scans readable server text channels and active threads. It intentionally excludes the most recent 30 minutes, since those messages are handled by the live listener and may still be inside the cooldown. Re-run a later scan to catch messages from that interval if needed. The scan applies the same 30-minute per-member cooldown and first-seven-days multiplier, recognizes already-paid messages in the Points ledger, and never pays the same message twice. It is a catch-up tool, not automatic recurring full-history indexing. It requires messages to be enabled and may limit large scans to protect Discord/API resources; use shorter hour ranges if prompted.
 
 ## Failure and repeat prevention
 
