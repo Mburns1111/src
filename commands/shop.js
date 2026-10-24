@@ -63,6 +63,71 @@ function storefrontHeaderImage(category) {
   return canvas.toBuffer("image/png");
 }
 
+// A compact color chart for the public storefront. The 27 approved swatches
+// are identical for Backgrounds and Panels; the FREE standard differs by type.
+// Cache each PNG because startup refreshes the same permanent category posts.
+const classicChartCache = new Map();
+function classicColorChart(category) {
+  if (!isClassicColorCategory(category)) return null;
+  if (classicChartCache.has(category)) return classicChartCache.get(category);
+
+  const width = 1200, height = 1350;
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  const standardId = category === "backgrounds" ? "leafGreenPastel" : "grayNormal";
+  const xPositions = [32, 424, 816];
+  const tileWidth = 352;
+
+  ctx.fillStyle = "#F4F5F3";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#292F2C";
+  ctx.font = "bold 45px sans-serif";
+  ctx.fillText("CLASSIC COLOR COLLECTION", 36, 67);
+  ctx.font = "28px sans-serif";
+  ctx.fillStyle = "#515B54";
+  ctx.fillText(`${CATEGORY_LABELS[category]}  ·  27 shades  ·  9 color families`, 38, 110);
+
+  for (const [column, label] of ["PASTEL", "NORMAL", "DARK"].entries()) {
+    ctx.font = "bold 27px sans-serif";
+    ctx.fillStyle = "#303C35";
+    ctx.fillText(label, xPositions[column] + 8, 160);
+  }
+
+  CLASSIC_COLOR_FAMILIES.forEach((family, row) => {
+    const rowY = 173 + row * 129;
+    ctx.fillStyle = "#303C35";
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillText(family.name, 38, rowY + 26);
+
+    ["pastel", "normal", "dark"].forEach((variant, column) => {
+      const option = CLASSIC_COLOR_OPTIONS[row * 3 + column];
+      const x = xPositions[column], y = rowY + 33;
+      ctx.fillStyle = option.hex;
+      ctx.beginPath();
+      ctx.roundRect(x, y, tileWidth, 82, 11);
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(35,45,38,.15)";
+      ctx.stroke();
+
+      const ink = option.dark ? "#FFFFFF" : "#232B26";
+      ctx.fillStyle = ink;
+      ctx.font = "bold 28px sans-serif";
+      ctx.fillText(option.hex, x + 17, y + 49);
+      if (option.id === standardId) {
+        ctx.font = "bold 20px sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText("FREE", x + tileWidth - 15, y + 49);
+        ctx.textAlign = "left";
+      }
+    });
+  });
+
+  const buffer = canvas.toBuffer("image/png");
+  classicChartCache.set(category, buffer);
+  return buffer;
+}
+
 function categories() {
   return Object.keys(CATEGORY_LABELS).filter(category => shopItems().some(item => item.category === category));
 }
@@ -177,16 +242,28 @@ async function featuredPage(context, category) {
 async function storefrontCategoryPayload(category, featured) {
   const cards = await featuredCards(featured);
   const header = storefrontHeaderImage(category);
+  const chart = classicColorChart(category);
+  const chartEmbed = chart
+    ? [new EmbedBuilder().setColor(CATEGORY_THEMES[category].accent)
+        .setTitle("Classic Color Chart · All 27 Shades")
+        .setDescription("Nine color families, with Pastel, Normal, and Dark side by side. Tap the chart to see each hex code. **FREE** marks the standard color.")
+        .setImage("attachment://shop-classic-colors.png")]
+    : [];
   return {
     embeds: [new EmbedBuilder()
       .setColor(CATEGORY_THEMES[category].accent)
       .setImage("attachment://shop-category-header.png"),
+      ...chartEmbed,
       ...cards.embeds],
     files: [
       new AttachmentBuilder(header, {
         name: "shop-category-header.png",
         description: `${CATEGORY_LABELS[category]} — featured designs. View All opens your private shop.`,
       }),
+      ...(chart ? [new AttachmentBuilder(chart, {
+        name: "shop-classic-colors.png",
+        description: `27 Classic ${CATEGORY_LABELS[category].toLowerCase()} swatches in 9 color families, arranged Pastel, Normal and Dark.`,
+      })] : []),
       ...cards.files,
     ],
     attachments: [],
