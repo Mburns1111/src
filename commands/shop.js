@@ -908,9 +908,18 @@ async function sendShopDM(interaction, category) {
 async function handleShopDM(interaction) {
   const [, , guildId, action, categoryText, indexText] = interaction.customId.split(":");
   if (!/^\d{17,21}$/.test(guildId)) throw new UserFacingError("This shop link is invalid.");
-  // Acknowledge the interaction *before* member fetches or MongoDB queries,
-  // particularly important for old DM buttons just after a bot restart.
-  if (action === "appearance") {
+  if (action === "customOpen") {
+    // A modal must be shown as the initial response, before deferUpdate().
+    if (!interaction.isButton() || !CUSTOM_COLOR_PRICES[categoryText] ||
+        sortedItems(categoryText)[Number(indexText)]?.id !== CUSTOM_COLOR_SHOP_ID) {
+      throw new UserFacingError("Select Custom HEX Color from Backgrounds or Panels first.");
+    }
+    await interaction.showModal(customColorModal(guildId, categoryText, Number(indexText)));
+    return true;
+  }
+  // Acknowledge quickly before member fetches or MongoDB queries.
+  if (action === "appearance" || (action === "customSubmit" &&
+      !interaction.isFromMessage?.())) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   } else {
     await interaction.deferUpdate();
@@ -919,6 +928,81 @@ async function handleShopDM(interaction) {
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) throw new UserFacingError("You must belong to the server to use this shop.");
   const context = { guildId, user: interaction.user, guild };
+
+  if (action === "customSubmit" || action === "customConfirm") {
+    if (!CUSTOM_COLOR_PRICES[categoryText]) {
+      throw new UserFacingError("Custom HEX colors are only for backgrounds and panels.");
+    }
+    const customIndex = sortedItems(categoryText).findIndex(item => item.id === CUSTOM_COLOR_SHOP_ID);
+    if (customIndex < 0) throw new UserFacingError("Custom colors aren't available in this category.");
+    if (action === "customSubmit" && (!interaction.isModalSubmit() || Number(indexText) !== customIndex)) {
+      throw new UserFacingError("This custom color entry is invalid.");
+    }
+    if (action === "customConfirm" && !interaction.isButton()) {
+      throw new UserFacingError("Only the purchase confirmation button can buy a custom color.");
+    }
+
+    const panel = await MemberDmPanel.findOne({
+      botUserId: interaction.client.user.id,
+      guildId,
+      discordUserId: interaction.user.id,
+      kind: "shop",
+      channelId: interaction.channelId,
+    });
+    if (!panel || (interaction.message && panel.messageId !== interaction.message.id)) {
+      throw new UserFacingError("Reopen your current shop DM before using custom colors.");
+    }
+
+    if (action === "customSubmit") {
+      const hex = normalizeHexColor(interaction.fields.getTextInputValue("custom_hex"));
+      if (!hex) {
+        throw new UserFacingError("Enter exactly six hexadecimal digits (0-9 or A-F), like #C7DDBC.");
+      }
+      panel.shopPendingCustom = { category: categoryText, hex };
+      panel.markModified("shopPendingCustom");
+      await panel.save();
+      const payload = await dmCustomReview(context, categoryText, hex);
+      if (interaction.isFromMessage?.()) {
+        await interaction.editReply(payload);
+      } else {
+        // Some Discord versions submit modals without an originating message.
+        // Update the known permanent shop message rather than creating another.
+        const dm = await interaction.user.createDM();
+        const message = await dm.messages.fetch(panel.messageId);
+        await message.edit(payload);
+        await interaction.editReply({ content: "Your custom color is ready to review in your shop DM." });
+      }
+      return true;
+    }
+
+    const hex = normalizeHexColor(indexText);
+    if (!hex || panel.shopPendingCustom?.category !== categoryText ||
+        panel.shopPendingCustom?.hex !== hex) {
+      throw new UserFacingError("That custom color review has expired. Enter the HEX code again.");
+    }
+    const id = customColorId(hex);
+    const ownership = await getAppearanceOwnership(guildId, interaction.user.id);
+    const alreadyOwned = ownsAppearanceItem(ownership, categoryText, id);
+    if (!alreadyOwned) {
+      await purchase(context, {
+        id, category: categoryText, price: CUSTOM_COLOR_PRICES[categoryText],
+        name: customColorLabel(id),
+      });
+    }
+    panel.shopPendingCustom = null;
+    panel.markModified("shopPendingCustom");
+    await panel.save();
+    await interaction.editReply(await dmItemPage(context, categoryText, customIndex));
+    if (!alreadyOwned) {
+      try {
+        await sendTemporaryDmNotice(interaction.user,
+          `✅ **Purchased ${customColorLabel(id)} for ${CUSTOM_COLOR_PRICES[categoryText]} Points!** It's now saved under your ${CATEGORY_LABELS[categoryText].toLowerCase()} in Customize Profile.`);
+      } catch (error) {
+        console.warn("Custom color purchase succeeded; receipt delivery failed:", error);
+      }
+    }
+    return true;
+  }
 
   // Live Mix & Match: all controls operate on the SAME permanent DM. Users
   // need no purchases and never need to press Add to Mix or Confirm.
