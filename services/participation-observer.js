@@ -98,7 +98,9 @@ export function messageVisibility(message) {
 export function publicEmbedDiagnostic(message) {
   const limited = (value, max = 170) => {
     if (typeof value !== "string") return "";
-    return value.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ")
+    return value.replace(/<@!?\d{17,21}>/g, "[member]")
+      .replace(/\b\d{17,21}\b/g, "[id]")
+      .replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ")
       .replace(/@/g, "@\u200b").replace(/[`*_~|]/g, "")
       .trim().slice(0, max);
   };
