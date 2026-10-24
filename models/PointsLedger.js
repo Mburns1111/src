@@ -14,4 +14,8 @@ const pointsLedgerSchema = new mongoose.Schema({
 }, { timestamps: true });
 pointsLedgerSchema.index({ guildId: 1, discordUserId: 1, eventKey: 1 }, { unique: true });
 pointsLedgerSchema.index({ guildId: 1, discordUserId: 1, createdAt: -1 });
+// Cross-member time-window summaries/exports and filtered reward-type audits.
+// These avoid scanning all years of ledger receipts at 700+ members.
+pointsLedgerSchema.index({ guildId: 1, createdAt: -1 });
+pointsLedgerSchema.index({ guildId: 1, kind: 1, createdAt: -1 });
 export default mongoose.model("PointsLedger", pointsLedgerSchema);
