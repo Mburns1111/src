@@ -4,6 +4,7 @@ import {
   EmbedBuilder, MessageFlags, SlashCommandBuilder, StringSelectMenuBuilder,
 } from "discord.js";
 import mongoose from "mongoose";
+import { createCanvas } from "@napi-rs/canvas";
 import GuildConfig from "../models/GuildConfig.js";
 import UserProfile from "../models/UserProfile.js";
 import AppearanceInventory from "../models/AppearanceInventory.js";
@@ -28,6 +29,37 @@ const CATEGORY_LABELS = {
   backgrounds: "Backgrounds", panels: "Panels", frames: "Frames",
   fonts: "Fonts", fontColors: "Text Colors", stickers: "Stickers",
 };
+// Distinct soft color bands make each permanent storefront category easy to spot.
+// Discord embeds cannot have colored backgrounds, so the header itself is a
+// compact Canvas image with a full colored background (not just an accent line).
+const CATEGORY_THEMES = Object.freeze({
+  backgrounds: { background: "#D9E9DD", accent: "#4A7964" },
+  panels: { background: "#E8DCF1", accent: "#8462A3" },
+  frames: { background: "#F6E0D4", accent: "#B66F4C" },
+  fonts: { background: "#DAEAF6", accent: "#587DAA" },
+  fontColors: { background: "#F5E9C8", accent: "#AB8847" },
+  stickers: { background: "#F6DFE9", accent: "#B4698D" },
+});
+
+function storefrontHeaderImage(category) {
+  const theme = CATEGORY_THEMES[category];
+  const canvas = createCanvas(1200, 216);
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = theme.background;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = theme.accent;
+  ctx.fillRect(0, 0, 24, canvas.height);
+  ctx.fillRect(0, 206, canvas.width, 10);
+
+  ctx.fillStyle = "#24312C";
+  ctx.font = "bold 75px sans-serif";
+  ctx.fillText(CATEGORY_LABELS[category], 76, 98, 1020);
+  ctx.font = "30px sans-serif";
+  ctx.fillText("Featured designs  ·  View All opens your private shop", 80, 165, 1050);
+  return canvas.toBuffer("image/png");
+}
+
 function categories() {
   return Object.keys(CATEGORY_LABELS).filter(category => shopItems().some(item => item.category === category));
 }
@@ -60,6 +92,7 @@ async function featuredCards(featured) {
   return {
     embeds: featured.map((item, index) =>
       new EmbedBuilder().setTitle(`${item.name} · ${item.price} Points`)
+        .setColor(CATEGORY_THEMES[item.category]?.accent ?? "#819287")
         .setImage(`attachment://shop-featured-${index}.png`)),
     files: images.map((image, index) =>
       new AttachmentBuilder(image, { name: `shop-featured-${index}.png` })),
@@ -89,11 +122,19 @@ async function featuredPage(context, category) {
 }
 async function storefrontCategoryPayload(category, featured) {
   const cards = await featuredCards(featured);
+  const header = storefrontHeaderImage(category);
   return {
-    embeds: [new EmbedBuilder().setTitle(CATEGORY_LABELS[category])
-      .setDescription(`Featured designs below. Browse all ${CATEGORY_LABELS[category].toLowerCase()} in your DMs.`),
+    embeds: [new EmbedBuilder()
+      .setColor(CATEGORY_THEMES[category].accent)
+      .setImage("attachment://shop-category-header.png"),
       ...cards.embeds],
-    files: cards.files,
+    files: [
+      new AttachmentBuilder(header, {
+        name: "shop-category-header.png",
+        description: `${CATEGORY_LABELS[category]} — featured designs. View All opens your private shop.`,
+      }),
+      ...cards.files,
+    ],
     attachments: [],
     components: [new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`shop:open:${category}`)
