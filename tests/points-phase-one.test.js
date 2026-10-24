@@ -16,9 +16,9 @@ test("starter collection costs 425 Points before any one-time bonuses", () => {
   assert.deepEqual(basket.map(item => item.price), [75, 50, 125, 125, 50]);
   const starter = starterClassicBasketCost();
   assert.equal(starter, 425);
-  assert.equal(POINTS_ACTIVITY_TARGETS.starterWeekActivityCap, starter);
   assert.equal(POINTS_ACTIVITY_TARGETS.firstWeekActivityMultiplier, 2);
-  assert.equal(POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap, 225);
+  assert.equal("starterWeekActivityCap" in POINTS_ACTIVITY_TARGETS, false);
+  assert.equal("laterWeeklyActivityCap" in POINTS_ACTIVITY_TARGETS, false);
   assert.equal(POINTS_ACTIVITY_TARGETS.invitationReward, 40);
   assert.equal(POINTS_ACTIVITY_TARGETS.inviteMinimumMembershipDays, 7);
   assert.equal(POINTS_ACTIVITY_TARGETS.rewardedInvitesPerCalendarMonth, 2);
