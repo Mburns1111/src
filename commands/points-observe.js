@@ -131,9 +131,9 @@ export async function execute(interaction) {
         "Discord could not provide the poll voter list. Check AM Isa's View Channel/Read Message History permissions and test bot logs. No Points were awarded.");
     }
     await interaction.editReply({
-      content: `**Native Discord poll synced**\\n${linkTo(guildId, parsed.channelId, parsed.messageId)}\\n` +
-        `**Currently observed voters: ${result.voters} unique members** across ${result.answers} answers.\\n` +
-        `Fetched ${result.pages} voter page(s) directly from Discord. Re-running sync updates the current count after a removed vote.\\n\\n` +
+      content: `**Native Discord poll synced**\n${linkTo(guildId, parsed.channelId, parsed.messageId)}\n` +
+        `**Currently observed voters: ${result.voters} unique members** across ${result.answers} answers.\n` +
+        `Fetched ${result.pages} voter page(s) directly from Discord. Re-running sync updates the current count after a removed vote.\n\n` +
         "**Observation only — no Points awarded.**",
       allowedMentions: { parse: [] },
     });
