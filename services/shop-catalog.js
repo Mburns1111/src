@@ -4,6 +4,7 @@ import {
 import { APPEARANCE_CATALOG } from "./post-appearance.js";
 import { CUSTOM_COLOR_SHOP_ID, CUSTOM_COLOR_PRICES } from "./custom-colors.js";
 import { FREE_APPEARANCE } from "./appearance-ownership.js";
+import { SHOP_FONT_STYLES } from "./font-library.js";
 
 // Classic colors are in color-wheel order: Pastel, Normal, Dark within each
 // family. The original free Starter Sage background is NOT a shop item;
@@ -21,7 +22,12 @@ const prices = {
     goldCelestial: 300,
     blackKnight: 300,
   },
-  fonts: { classic: 100 },
+  // Standard Clean is free. Older purchased Classic Serif remains a supported
+  // equipped style but is retired from new shop sales.
+  fonts: {
+    default: 0,
+    ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, item]) => [id, item.price])),
+  },
   fontColors: { plum: 75 },
   stickers: { flower: 50, star: 50 },
 };
@@ -30,6 +36,7 @@ const names = {
   default: "Classic Thin", doubleLine: "Double Line", softRounded: "Soft Rounded",
   silverFloral: "Silver Floral", goldCelestial: "Golden Celestial",
   blackKnight: "Black Knight", classic: "Classic Serif", plum: "Plum",
+  ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, item]) => [id, item.name])),
   flower: "Flower", star: "Star", [CUSTOM_COLOR_SHOP_ID]: "Custom HEX Color",
 };
 export function shopItems() {
