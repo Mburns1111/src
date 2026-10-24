@@ -103,6 +103,20 @@ Discord masks a third-party message's `content`, `embeds`, `components`, and `po
 
 The bot **does not store message bodies**, only visibility counts and source metadata. Message Content access might expose an Arclo public giveaway counter or results; it **cannot intercept joins/votes directed to Arclo**, expose Arclo's dashboard database, or fetch ephemeral replies visible only to the clicking member. Once tested, remove the environment variable if no longer needed.
 
+### Native poll event correction and manual sync
+
+Discord.js does not define `Events.Raw` in its supported `Events` enum. The original listener did not receive poll-vote events, even though the bot could fetch the poll message. We now use the supported `Events.MessagePollVoteAdd` and `Events.MessagePollVoteRemove` callbacks, with `GuildMessages` and poll/message partial support.
+
+**To test an existing poll (including one created before the test bot restarted):**
+
+1. Pull this branch, run `node register-commands.js` with the test bot token/application ID, and restart the Replit bot.
+2. Run `/points-observe sync link:<native poll message link>`. It fetches Discord's voter list for every answer and deduplicates member IDs. The result reports the **current number of verified voters** and does not award Points.
+3. Run `/points-observe report link:<same link>` to confirm the stored count.
+4. Remove your vote in Discord, then run `/points-observe sync` again. The expected current voter count is zero, provided no one else voted. The live removal event should also update records when delivered.
+5. Only native Discord polls can use `sync`. Arclo polls still lack verified participant identities.
+
+Sync fetches all voter pages before updating records and has a safety limit of 2,000 voters per answer. A failed fetch does not delete stored votes. For accurate current results, run sync again if members change votes while the fetch is in progress. The test bot must have View Channel and Read Message History; Message Content was already enabled for the Arclo diagnostic, although raw native vote events do not themselves require it.
+
 **Native Discord polls:** Observes gateway `MESSAGE_POLL_VOTE_ADD` and `MESSAGE_POLL_VOTE_REMOVE`; one user is counted once per poll even with multiple answers. Records only events received while the test bot is running. Restarting preserves records, but absent events and votes cast before observation begins are not reconstructed. Native vote event delivery requires the app's Gateway permission and the bot remaining connected.
 
 **Arclo polls and giveaways:** Each is registered by its *actual Discord message link*. AM Isa fetches the visible message, checks the author is another bot and matches prior Arclo sources, and records metadata only. Clicking buttons on Arclo messages sends interactions **to Arclo, not to AM Isa**. The presence of a giveaway counter, winners announcement, or a viewable panel cannot establish individual members' eligible entries or poll votes.
