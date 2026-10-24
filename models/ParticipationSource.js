@@ -9,6 +9,10 @@ const schema = new mongoose.Schema({
   source: { type: String, enum: ["discord-native-poll", "arclo-poll", "arclo-giveaway", "arclo-panel"], required: true },
   sourceBotId: { type: String, default: "" },
   registeredBy: { type: String, default: "" },
+  // Opt-in by a server manager: otherwise native polls are observation-only.
+  rewardEnabled: { type: Boolean, default: false },
+  rewardApprovedBy: { type: String, default: "" },
+  rewardApprovedAt: { type: Date, default: null },
   lastObservedAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 schema.index({ guildId: 1, messageId: 1 }, { unique: true });
