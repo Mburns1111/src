@@ -87,7 +87,7 @@ export async function execute(interaction) {
       .sort({ updatedAt: -1 }).limit(12).lean();
     await interaction.editReply({
       content: docs.length
-        ? "**Poll and giveaway observations (no Points awarded)**\n" +
+        ? "**Poll and giveaway observations (only approved native polls earn Points)**\n" +
           docs.map(entry => `• **${sourceNames[entry.source]}:** ${linkTo(guildId, entry.channelId, entry.messageId)}`).join("\n")
         : "No observed polls or registered Arclo messages yet. Native Discord poll votes start tracking once this test bot is running. You can manually register an Arclo message.",
       allowedMentions: { parse: [] },
@@ -109,15 +109,23 @@ export async function execute(interaction) {
       const members = await NativePollParticipation.countDocuments({
         guildId, messageId: entry.messageId, "answerIds.0": { $exists: true },
       });
+      const credits = await PointsLedger.countDocuments({
+        guildId, eventKey: pollEventKey(entry.messageId), kind: "poll",
+      });
       result += `**Currently observed voters:** ${members} unique members\n` +
+        `**Points paid for this poll:** ${credits} member(s) × ${POLL_POINTS_PER_POLL} = ${credits * POLL_POINTS_PER_POLL} Points\n` +
+        `**Rewards:** ${entry.rewardEnabled ? "Approved" : "Not approved / disabled"}\n` +
         "One member choosing multiple answers still counts as one participant. " +
-        "Only events received while the test bot was running are tracked; missed votes are not reconstructed.";
+        "Use /points-observe voters to identify participants and /points-observe sync to reconcile missed votes.";
     } else {
       result += "**Individual participant verification:** Not available through Discord bot-to-bot interactions.\n" +
         "The Arclo message is registered, but its private Join/Vote button clicks and dashboard participant list are not accessible to AM Isa.";
     }
     await interaction.editReply({ content: result +
-      "\n\n**Observation only:** 0 Points have been awarded.", allowedMentions: { parse: [] } });
+      (entry.source === "discord-native-poll"
+        ? "\n\nOnly approved polls can earn Points; duplicate votes never pay again."
+        : "\n\nArclo observations do not award Points automatically."),
+      allowedMentions: { parse: [] } });
     return;
   }
 
