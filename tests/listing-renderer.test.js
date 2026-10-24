@@ -40,6 +40,7 @@ test("shared controls target a separate listing editor instead of profile handle
 test("sticker buttons fit Discord row limits and point to the listing editor", () => {
   const controls = makeAppearanceControls(
     { discordUserId: "12345", profileAppearance: {
+      background: "sagePreview",
       stickers: [stickerDefaults("star")],
     } },
     "stickers", 0, ownership, "abc123456789", {}, "position",
