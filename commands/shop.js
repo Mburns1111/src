@@ -59,7 +59,12 @@ function storefrontHeaderImage(category) {
   ctx.font = "bold 75px sans-serif";
   ctx.fillText(CATEGORY_LABELS[category], 76, 98, 1020);
   ctx.font = "30px sans-serif";
-  ctx.fillText("Featured designs  ·  View All opens your private shop", 80, 165, 1050);
+  ctx.fillText(
+    category === "backgrounds" || category === "panels"
+      ? "27 classic shades  ·  View All opens your private shop"
+      : "Featured designs  ·  View All opens your private shop",
+    80, 165, 1050,
+  );
   return canvas.toBuffer("image/png");
 }
 
@@ -204,17 +209,27 @@ async function featuredCards(featured) {
   };
 }
 function topThree(category) {
-  // Three DIFFERENT hues and tones show off the range of the Classic set;
-  // otherwise identical-priced swatches would all come from the Aqua family.
-  const classicExamples = {
-    backgrounds: ["yellowPastel", "roseNormal", "aquaDark"],
-    panels: ["coralPastel", "lavenderNormal", "grayDark"],
-  }[category];
+  // Public Backgrounds and Panels already show ALL 27 classic colors in a
+  // compact chart. Leave their large, lower featured examples EMPTY until
+  // we add fancy/premium artwork worth showcasing.
+  //
+  // TO RESTORE classic profile examples later, replace the return [] below
+  // with the following code (this keeps the old method documented):
+  //
+  // const classicIds = category === "backgrounds"
+  //   ? ["yellowPastel", "roseNormal", "aquaDark"]
+  //   : ["coralPastel", "lavenderNormal", "grayDark"];
+  // return classicIds
+  //   .map(id => itemsFor(category).find(item => item.id === id))
+  //   .filter(Boolean)
+  //   .slice(0, 3);
+  //
+  // FOR FUTURE FANCY DESIGNS, use the exact same pattern above but substitute
+  // the new premium item IDs. featuredCards() and storefrontCategoryPayload()
+  // below already render up to three large examples automatically.
+  if (category === "backgrounds" || category === "panels") return [];
+
   const items = itemsFor(category);
-  if (classicExamples) {
-    return classicExamples.map(id => items.find(item => item.id === id)).filter(Boolean)
-      .slice(0, 3);
-  }
   return [...items].sort((a, b) => b.price - a.price || a.id.localeCompare(b.id)).slice(0, 3);
 }
 function sortedItems(category) {
