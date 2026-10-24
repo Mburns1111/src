@@ -266,7 +266,7 @@ async function makeProfileCardPayload(
       avatar: target.displayAvatarURL({ extension: "png", size: 256 }),
       photo,
     },
-    appearance: filterOwnedAppearance(profile.profileAppearance?.background ? profile.profileAppearance : { background: "sagePreview", panelColor: "match", panelOpacity: 0.34 }, await getAppearanceOwnership(guild.id, profile.discordUserId)),
+    appearance: filterOwnedAppearance(profile.profileAppearance?.background ? profile.profileAppearance : DEFAULT_APPEARANCE, await getAppearanceOwnership(guild.id, profile.discordUserId)),
   });
   return {
     content: "",
@@ -547,11 +547,7 @@ const APPEARANCE_CHOICES = {
 const APPEARANCE_LABELS = {
   ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [
     item.id,
-    item.id === STANDARD_BACKGROUND_ID
-      ? "Leaf Green · Pastel (Free)"
-      : item.id === STANDARD_PANEL_ID
-        ? "Classic Gray · Normal (Free)"
-        : item.name,
+    item.name,
   ])),
   match: "Match background",
   default: "Default",
@@ -581,7 +577,9 @@ function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
     page * COLOR_SELECT_PAGE_SIZE, (page + 1) * COLOR_SELECT_PAGE_SIZE,
   );
   const options = visible.map(id => ({
-    label: APPEARANCE_LABELS[id] || id,
+    label: (field === "background" && id === STANDARD_BACKGROUND_ID) ||
+      (field === "panelColor" && id === STANDARD_PANEL_ID)
+      ? `${APPEARANCE_LABELS[id]} (Free · Standard)` : APPEARANCE_LABELS[id] || id,
     value: id,
     default: appearance[field] === id,
     description: id === "match" || ownership?.[APPEARANCE_FIELD_CATEGORY[field]]?.has(id)
@@ -773,6 +771,7 @@ async function openAppearanceDM(interaction, profile, guild = interaction.guild)
         appearance: filterOwnedAppearance(getProfileAppearance(profile), ownership),
         page: "colors",
         selected: 0,
+        optionPages: {},
       };
       return {
         payload: await appearanceDmPayload(guild, interaction.user, profile, draft),
@@ -781,6 +780,7 @@ async function openAppearanceDM(interaction, profile, guild = interaction.guild)
           appearanceDraft: draft.appearance,
           appearancePage: draft.page,
           selectedSticker: draft.selected,
+          appearanceOptionPages: draft.optionPages,
         },
       };
     },
@@ -796,6 +796,7 @@ async function openAppearanceDM(interaction, profile, guild = interaction.guild)
       appearance: filterOwnedAppearance(panel.appearanceDraft ?? getProfileAppearance(profile), ownership),
       page: APPEARANCE_PAGES[panel.appearancePage] ? panel.appearancePage : "colors",
       selected: panel.selectedSticker ?? 0,
+      optionPages: panel.appearanceOptionPages || {},
     };
     if (draft.token) {
       await message.edit(await appearanceDmPayload(guild, interaction.user, profile, draft));
@@ -819,7 +820,9 @@ async function saveDraftPanel(panel, draft) {
   panel.appearanceDraft = draft.appearance;
   panel.appearancePage = draft.page;
   panel.selectedSticker = draft.selected;
+  panel.appearanceOptionPages = draft.optionPages || {};
   panel.markModified("appearanceDraft");
+  panel.markModified("appearanceOptionPages");
   await panel.save();
 }
 
@@ -867,6 +870,7 @@ export async function handleProfileAppearanceDM(interaction) {
     appearance: filterOwnedAppearance(panel.appearanceDraft ?? getProfileAppearance(profile), ownership),
     page: APPEARANCE_PAGES[panel.appearancePage] ? panel.appearancePage : "colors",
     selected: panel.selectedSticker ?? 0,
+    optionPages: panel.appearanceOptionPages || {},
   };
 
   if (kind === "button" && field === "cancel") {
@@ -969,15 +973,21 @@ export async function handleProfileAppearanceDM(interaction) {
   } else if (field === "opacity") {
     if (![0.2, 0.34, 0.5, 0.7, 0.9].includes(Number(value))) throw new UserFacingError("Invalid opacity.");
     draft.appearance.panelOpacity = Number(value);
+  } else if (["background", "panelColor"].includes(field) &&
+             ["__next__", "__previous__"].includes(value)) {
+    const { page, count } = appearanceChoicePage(field, draft.appearance, draft.optionPages);
+    draft.optionPages[field] = Math.max(0, Math.min(count - 1,
+      page + (value === "__next__" ? 1 : -1)));
   } else if (APPEARANCE_CHOICES[field]?.includes(value)) {
     if (value !== "match" && !ownsAppearanceItem(ownership, APPEARANCE_FIELD_CATEGORY[field], value)) {
       throw new UserFacingError("You have not unlocked that appearance item.");
     }
     draft.appearance[field] = value;
-    // Newly equipped dark panels should look dark on first selection rather
-    // than blending into the background at the starter 34% transparency.
-    // Members can still lower panel opacity using the existing selector.
     if (field === "panelColor" && APPEARANCE_CATALOG.panels[value]?.dark) {
+      draft.appearance.panelOpacity = 0.9;
+    }
+    if (field === "background" && draft.appearance.panelColor === "match" &&
+        APPEARANCE_CATALOG.backgrounds[value]?.dark) {
       draft.appearance.panelOpacity = 0.9;
     }
   } else {
