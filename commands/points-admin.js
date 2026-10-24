@@ -93,7 +93,7 @@ export async function execute(interaction) {
     await interaction.editReply({
       content: `**Points milestones: ${settings?.milestonesEnabled === false ? "PAUSED" : "ENABLED"}**\n` +
         lines.join("\n") +
-        `\n\n**Repeatable activity** (test opt-in): Messages **${settings?.messageRewardsEnabled ? "ON" : "OFF"}**, Voice **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**.\nFirst 7 days after joining: **2×** chat/voice earnings with **${POINTS_ACTIVITY_TARGETS.starterWeekActivityCap} combined activity Points maximum**. Later: **${POINTS_ACTIVITY_TARGETS.laterWeeklyActivityCap} combined activity Points per UTC week**.\nMessages: ${MESSAGE_BASE_POINTS} base Points, one eligible message every ${MESSAGE_COOLDOWN_MS / 60000} minutes, no daily message limit (combined activity cap still applies). Voice: ${VOICE_BASE_POINTS} base Points each ${VOICE_INTERVAL_MINUTES} eligible minutes with at least two non-deafened humans.\nApproved native polls: ${POLL_POINTS_PER_POLL} Points, maximum ${POLL_WEEKLY_CAP} per UTC week; these also count toward the combined activity cap.\nVerified invites are still planned: ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month). Manual grants and milestones are outside activity caps.\nYour existing shop balance UI remains unchanged.`,
+        `\n\n**Repeatable activity** (test opt-in): Messages **${settings?.messageRewardsEnabled ? "ON" : "OFF"}**, Voice **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**.\n**No overall daily, weekly, or first-week activity Points cap.** First 7 days after joining: **2×** chat/voice rewards. Members continue earning qualifying activity afterward.\nMessages: ${MESSAGE_BASE_POINTS} base Points, one eligible message every ${MESSAGE_COOLDOWN_MS / 60000} minutes, no daily message limit (combined activity cap still applies). Voice: ${VOICE_BASE_POINTS} base Points each ${VOICE_INTERVAL_MINUTES} eligible minutes with at least two non-deafened humans.\nApproved native polls: ${POLL_POINTS_PER_POLL} Points, maximum ${POLL_WEEKLY_CAP} per UTC week (poll-specific anti-farming rule). No shared activity ceiling.\nVerified invites are still planned: ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month). Manual grants and milestones are outside activity caps.\nYour existing shop balance UI remains unchanged.`,
       allowedMentions: { parse: [] },
     });
     return;
@@ -125,10 +125,10 @@ export async function execute(interaction) {
     await interaction.editReply({ content:
       `**Repeatable activity for <@${member.id}>**\n` +
       `Period: **${period.starter ? "First 7 days since joining" : "UTC Monday–Sunday week"}** · multiplier: **${period.multiplier}×** (chat/voice only)\n` +
-      `Earned: **${earned} / ${period.cap} Points** · Remaining: **${Math.max(0, period.cap - earned)}**\n` +
+      `Earned this period: **${earned} Points** · **No overall activity limit**\n` +
       `Qualified voice minutes this period: **${voice?.eligibleMinutes ?? 0}**\n` +
       `Messages: **${settings?.messageRewardsEnabled ? "ON" : "OFF"}** · Voice: **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**\n` +
-      "This includes poll, chat, and voice Points; one-time milestones and staff grants are separate.",
+      "This is a running total of poll, chat and voice earnings, not a limit. Approved poll rewards retain their separate weekly sublimit; milestones and staff grants are separate.",
       allowedMentions: { parse: [] } });
     return;
   }
