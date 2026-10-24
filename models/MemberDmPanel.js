@@ -13,6 +13,8 @@ const memberDmPanelSchema = new mongoose.Schema({
   appearanceDraft: { type: mongoose.Schema.Types.Mixed, default: null },
   appearancePage: { type: String, default: "colors" },
   selectedSticker: { type: Number, default: 0 },
+  // Sticker editor shows directional buttons or color/style controls.
+  appearanceStickerMode: { type: String, enum: ["position", "style"], default: "position" },
   appearanceOptionPages: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   // Unpurchased try-on selections for the permanent shop (one per category).
   // Kept independently of the editable/saved member profile.
