@@ -65,25 +65,21 @@ export async function awardNativePollVote({ guildId, channelId, messageId, userI
         result = no("already_awarded");
         return;
       }
-      const activityCounter = await activityCounters.findOneAndUpdate({
-        ...activitySelector, earned: { $lte: activity.cap - POLL_POINTS_PER_POLL },
-      }, { $inc: { earned: POLL_POINTS_PER_POLL } },
-      { session, returnDocument: "after" });
-      if (!activityCounter) {
-        result = no("activity_cap");
-        return;
-      }
       const counter = await counters.findOneAndUpdate({
         ...period, pollPoints: { $lte: POLL_WEEKLY_CAP - POLL_POINTS_PER_POLL },
       }, { $inc: { pollPoints: POLL_POINTS_PER_POLL } },
       { session, returnDocument: "after" });
       if (!counter) {
-        // Do not commit the activity counter update when the independent
-        // 15-Point poll cap is already full.
+        // Abort the transaction if the 15-Point poll-specific cap is full.
         const error = new Error("Poll weekly reward cap reached");
         error.code = "POLL_WEEKLY_LIMIT";
         throw error;
       }
+      // Polls still have their own 15-Point/week anti-farming limit.
+      // Update the activity total only after the poll-specific limit passes.
+      await activityCounters.findOneAndUpdate(
+        activitySelector, { $inc: { earned: POLL_POINTS_PER_POLL } },
+        { session, returnDocument: "after" });
       await ledger.create([{
         ...selector, kind: "poll", amount: POLL_POINTS_PER_POLL,
         description: "Approved Discord poll participation",
