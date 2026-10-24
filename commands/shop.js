@@ -14,7 +14,7 @@ import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
 import { openAppearanceDMFromShop } from "./profile.js";
 import { shopItems } from "../services/shop-catalog.js";
 import { getAppearanceOwnership, ownsAppearanceItem } from "../services/appearance-ownership.js";
-import { resolveAppearance } from "../services/post-appearance.js";
+import { APPEARANCE_CATALOG, resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { UserFacingError } from "./errors.js";
 import { requireGuild } from "./shared.js";
@@ -71,6 +71,9 @@ function exampleAppearance(item) {
   const field = { backgrounds: "background", panels: "panelColor", frames: "frame",
     fonts: "font", fontColors: "fontColor" }[item.category];
   if (field) appearance[field] = item.id;
+  if (item.category === "panels" && APPEARANCE_CATALOG.panels[item.id]?.dark) {
+    appearance.panelOpacity = 0.9;
+  }
   if (item.category === "stickers") appearance.stickers = [
     { id: item.id, x: 0.8, y: 0.72, scale: 1.4, rotation: 0 },
   ];
@@ -241,6 +244,9 @@ async function previewPayload(context, item) {
   const field = { backgrounds: "background", panels: "panelColor", frames: "frame",
     fonts: "font", fontColors: "fontColor" }[item.category];
   if (field) appearance[field] = item.id;
+  if (item.category === "panels" && APPEARANCE_CATALOG.panels[item.id]?.dark) {
+    appearance.panelOpacity = 0.9;
+  }
   if (item.category === "stickers") {
     appearance.stickers = [...appearance.stickers.slice(0, 7),
       { id: item.id, x: 0.8, y: 0.72, scale: 1, rotation: 0 }];
