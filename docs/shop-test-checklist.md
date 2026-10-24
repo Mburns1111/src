@@ -1,0 +1,109 @@
+# Adopt Me appearance shop — Replit/Discord test checklist
+
+**Test only the `feature/profile-appearance-editor` branch with the test bot and test database. Do not run checkout/purchases against production.**
+
+Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-appearance-editor`, then `npm install`, `npm test`, and Run. Give a *test member* enough Points to buy a few designs. Have a second test member with no purchases to verify locked controls. Record any failing test's Discord screenshot and Replit console error.
+
+## A. Startup, permanent storefront, and DMs
+- [ ] Bot starts without a missing-module, missing-font, or canvas exception.
+- [ ] The six storefront categories appear: Backgrounds, Panels, Frames, Fonts, Text Colors, Stickers.
+- [ ] Each **View All** button opens the correct category in the member's **one permanent shop DM**.
+- [ ] Reopen the shop: the same permanent DM is reused; no duplicate shop messages.
+- [ ] **Previous**, **Next**, category dropdown and **Refresh Points & Items** work at first and last pages.
+- [ ] Public featured cards look correct; frames, backgrounds, and panels display as before.
+- [ ] A nonmember cannot use another server's shop; members cannot spend another member's Points.
+- [ ] /shop balance reflects purchases, and a purchase receipt is sent once.
+
+## B. Wallets and transactional purchases — all categories
+- [ ] Buy an ordinary background or panel; Points decrease by its listed price **once**, and the item becomes Owned.
+- [ ] Buy a frame, font, text color, and sticker in separate transactions; each becomes owned, with matching wallet deductions.
+- [ ] Attempt to buy with insufficient Points; purchase is blocked and inventory unchanged.
+- [ ] Revisit an owned item; the Buy button says **Owned** and cannot charge again.
+- [ ] Double-click Confirm / use old Confirm message; no second purchase and no second charge.
+- [ ] Cancel an unconfirmed purchase; balance and inventory unchanged.
+- [ ] Restart Replit; bought items, shop DM, pending profile drafts, and Points are still correct.
+- [ ] Invalid/stale purchase buttons show an error instead of debiting a different item.
+
+## C. Custom HEX colors (backgrounds, panels, text)
+- [ ] Backgrounds > Custom HEX: enter `#A1B2C3`, preview on your own profile; **225 Points** to buy.
+- [ ] Panels > Custom HEX: enter `#DCA4F0`, preview; **150 Points** to buy.
+- [ ] Text Colors > Custom HEX: enter `#0033BB`, preview title, labels, body and status; **100 Points** to buy.
+- [ ] Enter a six-digit HEX without `#` or in lowercase: it normalizes correctly.
+- [ ] Enter invalid HEX (`#12345`, `#GGHHJJ`): private error, no charge.
+- [ ] Choose a HEX, click **Change HEX Code**: new value is shown before confirming.
+- [ ] Cancel/reopen the HEX purchase: nothing was accidentally purchased.
+- [ ] Buy exactly one HEX and try buying the same code again: second charge is blocked for that category.
+- [ ] The same HEX in two categories requires separate purchases; owning a background doesn't unlock text.
+- [ ] Purchased custom colors appear in the **owned-only Customize Profile** dropdown and in live Mix & Match.
+- [ ] Multiple custom colors stay owned after bot restart and are all selectable.
+- [ ] Test dark background, light panel and very bright text HEX: manually check readability.
+
+## D. Frames and fonts
+- [ ] Classic Thin frame is free; Double Line and Soft Rounded are **125 Points**, other three premium frames **300 Points**.
+- [ ] Equip different frames; their border artwork is visible and doesn't cover the profile's main text.
+- [ ] All paid fonts appear at correct prices: Nunito 125, Silkscreen 175, Caveat 250, Cinzel 300, **Bold Dancing Script 600**.
+- [ ] Standard Clean is free. Any previously owned Classic Serif is still available.
+- [ ] Font selected for **Headers Only** changes the title and section headings without changing body text.
+- [ ] Font selected for **Profile Text Only** changes usernames, bio, roles, footer without changing headings.
+- [ ] **Apply Heading Font to Both** sets both font slots without purchasing twice.
+- [ ] Mix & Match can try a different paid font in each slot *before purchasing*.
+- [ ] After purchasing one font it can be equipped in either slot for free, including after restart.
+- [ ] Large titles and long usernames shrink or truncate safely; fancy fonts don't break the layout.
+
+## E. Sticker storefront: prices and seasonal rotation
+- [ ] Standard stickers: Heart 50, Star 50, Crescent 50, Sparkle 50, **Daisy 75**.
+- [ ] October/Halloween stickers: **Spooky Bat 50**, **Little Ghost 75**, **Pumpkin Patch 75**.
+- [ ] Flower previously owned before this update now displays as **Daisy** and remains owned (ID `flower`).
+- [ ] View each sticker's shop preview; shapes are recognizable on 1200×800 profile cards.
+- [ ] Buy a sticker: Points deducted once and permanent ownership granted.
+- [ ] Reopening its page says Owned and cannot charge again.
+- [ ] **Season test:** stop the bot, set Replit environment variable `STICKER_SEASONS_OVERRIDE=off`, restart. Halloween stickers vanish from new sale, but all five standard designs remain.
+- [ ] During `off`, previously bought Halloween stickers remain on published profiles and appear in owned Customize Profile and Mix & Match.
+- [ ] While `off`, a new account cannot purchase the Halloween stickers (even using an older Confirm button).
+- [ ] Set `STICKER_SEASONS_OVERRIDE=halloween`, restart: all three Halloween items return, with their original prices and ownership.
+- [ ] **IMPORTANT:** unset `STICKER_SEASONS_OVERRIDE` after the season test. By default Halloween sells **October 1–31, America/New_York**, and hides from sale starting November 1.
+
+## F. Sticker customization (buy once, unlimited free recoloring)
+- [ ] A member with no sticker purchases sees **no locked designs** in Customize Profile; they can use the Shop to unlock one.
+- [ ] Buying Heart makes **Place Heart** available in Customize Profile, including after restart.
+- [ ] Place Heart, choose **Sticker HEX Color**, enter `#D977A6`; preview updates, **no Points** deducted.
+- [ ] Daisy: **Main & Accent HEX** lets member separately choose petals (`#D977A6`) and center (`#EEC52E`).
+- [ ] Pumpkin Patch: main pumpkin and accent stem/leaf recolor separately.
+- [ ] Little Ghost: main body and accent face/eyes recolor separately.
+- [ ] Star, Heart, Crescent, Sparkle and Spooky Bat have **one** color field, not an unnecessary accent field.
+- [ ] Invalid HEX in the sticker modal is rejected and draft retains previous colors.
+- [ ] **Outline** cycles Auto → Black → White → None → Auto; preview changes without charging.
+- [ ] **Reset Colors** restores only selected sticker colors/outline, retaining position and size.
+- [ ] Move left/right/up/down, rotate both ways, resize up/down and remove stickers; preview updates.
+- [ ] Add the same unlocked sticker **twice**, recolor each copy differently; both stay independent.
+- [ ] Fill all **8** slots; additional placement is unavailable. Remove one; placement becomes possible.
+- [ ] Open temporary editor, recolor, **Discard Changes**: published card is unchanged.
+- [ ] Open again, recolor, **Confirm & update profile**: public card updates; changes persist through restart.
+- [ ] Stickers sit below the selected frame overlay; stickers don't overwrite shop/item buttons (these are Discord components, not image layers).
+- [ ] Seasonal sticker that is already owned remains recolorable even when its sale window is closed.
+
+## G. Mix & Match, no-purchase preview
+- [ ] Mix & Match opens on the existing private shop message, **not** a second permanent DM.
+- [ ] Change background, panel, frame, header font, body font, text HEX and sticker in the preview.
+- [ ] The preview updates without deducting Points or adding items to ownership.
+- [ ] **Use My Profile**, **Clear All Choices**, **Back to Shop** restore/change the expected state.
+- [ ] Choose a locked sticker in Mix & Match: it is only a temporary preview, never equipped.
+- [ ] After purchasing a sticker, the shop and profile editor reflect ownership immediately.
+- [ ] Custom HEX choices and purchased retired/seasonal options persist correctly through restart.
+- [ ] Changing any one category doesn't erase another category's temporary try-on.
+
+## H. Editor safety and regressions
+- [ ] Only the owner can interact with the temporary profile editor.
+- [ ] Another account cannot submit or confirm that user's sticker HEX modal.
+- [ ] A stale, closed or expired editor modal cannot change a published profile.
+- [ ] Preview editing is not a purchase; profile Confirm saves appearance but does not charge Points.
+- [ ] Existing profiles with older Star/Flower stickers render correctly and receive default recoloring options.
+- [ ] Previously owned retired frame and Classic Serif still render and stay selectable.
+- [ ] Decorative text and profile photos still render correctly alongside multiple stickers.
+- [ ] Profile messages and shop messages retain working Discord buttons after bot restarts.
+- [ ] All PNGs render without "Cannot send an empty message", missing-font, or Canvas exceptions.
+
+## When a check fails
+Write down: **section/checkbox**, **test account**, **the exact button sequence**, **expected versus actual result**, **Replit console error**, and a **Discord screenshot**. Avoid publishing test members' private data or tokens.
+
+Run `npm test` after making future changes to sticker shapes or seasonal windows. The automated tests validate the catalog, HEX normalization, ownership isolation, seasonal filtering and whether all eight shapes draw with their selected colors.
