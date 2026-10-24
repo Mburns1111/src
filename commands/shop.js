@@ -1279,7 +1279,17 @@ export async function ensureMemberShopDM(guild, user, category = categories()[0]
     await result.message.edit(await dmCategoryIndex(context, category));
   }
   // The DM really exists before the one-time shop milestone is credited.
-  await awardMilestoneSafely(guild.id, user.id, "shopFirstBrowse", result.message.id);
+  const milestone = await awardMilestoneSafely(
+    guild.id, user.id, "shopFirstBrowse", result.message.id);
+  if (milestone.credited) {
+    // Show the earned 15 Points immediately in their existing private shop
+    // rather than displaying the older balance until they press Refresh.
+    try {
+      await result.message.edit(await dmCategoryIndex(context, category));
+    } catch (error) {
+      console.warn("[Points] Shop reward succeeded; balance refresh failed:", error);
+    }
+  }
   return result;
 }
 async function sendShopDM(interaction, category) {
