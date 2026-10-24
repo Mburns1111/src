@@ -761,7 +761,16 @@ function mixColorPosition(category, mix) {
 }
 
 function mixItemEntries(category) {
-  return [...(MIX_DEFAULT_ITEM_LABELS[category] || []), ...itemsFor(category)];
+  // The free Classic Thin frame is now explicitly listed in the shop.
+  // Deduplicate the existing "Standard frame" mix option by item ID,
+  // otherwise Discord rejects the select menu for duplicate values.
+  const seen = new Set();
+  return [...(MIX_DEFAULT_ITEM_LABELS[category] || []), ...itemsFor(category)]
+    .filter(item => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
 }
 
 function mixEditorChrome(context, panel, mix, ownership = null) {
