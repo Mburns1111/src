@@ -1,6 +1,6 @@
 import { STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID } from "./classic-colors.js";
 import AppearanceInventory from "../models/AppearanceInventory.js";
-import { APPEARANCE_CATALOG, resolveAppearance } from "./post-appearance.js";
+import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from "./post-appearance.js";
 
 // Free starter options. All other catalog entries require an owned item.
 // Adjust this curated list when the free starter catalog is finalized.
@@ -26,12 +26,12 @@ export async function getAppearanceOwnership(guildId, discordUserId) {
     category,
     new Set([
       ...FREE_APPEARANCE[category],
-      ...(record?.owned?.[category] || []).filter(id => Boolean(APPEARANCE_CATALOG[category][id])),
+      ...(record?.owned?.[category] || []).filter(id => Boolean(appearanceCatalogItem(category, id))),
     ]),
   ]));
 }
 export function ownsAppearanceItem(ownership, category, id) {
-  return Boolean(APPEARANCE_CATALOG[category]?.[id] && ownership[category]?.has(id));
+  return Boolean(appearanceCatalogItem(category, id) && ownership?.[category]?.has(id));
 }
 export function filterOwnedAppearance(input, ownership) {
   const appearance = resolveAppearance(input);
@@ -47,7 +47,7 @@ export function filterOwnedAppearance(input, ownership) {
 }
 // Shop fulfillment can call this only after validating a completed purchase.
 export async function grantAppearanceItem(guildId, discordUserId, category, id) {
-  if (!APPEARANCE_CATALOG[category]?.[id]) throw new Error("Unknown appearance catalog item.");
+  if (!appearanceCatalogItem(category, id)) throw new Error("Unknown appearance catalog item.");
   return AppearanceInventory.findOneAndUpdate(
     { guildId, discordUserId },
     { $addToSet: { [`owned.${category}`]: id } },
