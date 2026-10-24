@@ -956,7 +956,9 @@ export async function renderPostImage({
     (resolvedAppearance.panelColor === 'match' && backgroundItem.dark);
   const colors = panelsAreDark && resolvedAppearance.fontColor === 'default'
     ? APPEARANCE_CATALOG.fontColors.white
-    : APPEARANCE_CATALOG.fontColors[resolvedAppearance.fontColor];
+    : appearanceCatalogItem('fontColors', resolvedAppearance.fontColor);
+  // A purchased custom HEX choice intentionally overrides all text shades.
+  // Default text alone auto-switches to white on dark panels.
   const matchedPalette = resolvedAppearance.panelColor === 'match'
     ? backgroundItem.palette || {}
     : selectedPanel?.palette || {};
