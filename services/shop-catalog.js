@@ -12,14 +12,24 @@ import { FREE_APPEARANCE } from "./appearance-ownership.js";
 const prices = {
   backgrounds: { ...CLASSIC_BACKGROUND_PRICES, [CUSTOM_COLOR_SHOP_ID]: CUSTOM_COLOR_PRICES.backgrounds },
   panels: { ...CLASSIC_PANEL_PRICES, [CUSTOM_COLOR_SHOP_ID]: CUSTOM_COLOR_PRICES.panels },
-  frames: { doubleLine: 125 },
+  // ID order is shop browsing order. 'default' is free but never purchased.
+  frames: {
+    default: 0,
+    doubleLine: 125,
+    softRounded: 125,
+    silverFloral: 300,
+    goldCelestial: 300,
+    blackKnight: 300,
+  },
   fonts: { classic: 100 },
   fontColors: { plum: 75 },
   stickers: { flower: 50, star: 50 },
 };
 const names = {
   ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [item.id, item.name])),
-  doubleLine: "Double Line", classic: "Classic Serif", plum: "Plum",
+  default: "Classic Thin", doubleLine: "Double Line", softRounded: "Soft Rounded",
+  silverFloral: "Silver Floral", goldCelestial: "Golden Celestial",
+  blackKnight: "Black Knight", classic: "Classic Serif", plum: "Plum",
   flower: "Flower", star: "Star", [CUSTOM_COLOR_SHOP_ID]: "Custom HEX Color",
 };
 export function shopItems() {
