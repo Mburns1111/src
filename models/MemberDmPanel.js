@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
-// Tracks the permanent shop DM and any unfinished temporary appearance editor.\n// Unsaved appearance drafts survive bot restarts; completed editors are deleted.
+// Tracks the permanent shop DM and any unfinished temporary appearance editor.
+// Unsaved drafts and the shop mix-and-match preview survive restarts.
 const memberDmPanelSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   botUserId: { type: String, required: true },
@@ -12,6 +13,9 @@ const memberDmPanelSchema = new mongoose.Schema({
   appearanceDraft: { type: mongoose.Schema.Types.Mixed, default: null },
   appearancePage: { type: String, default: "colors" },
   selectedSticker: { type: Number, default: 0 },
+  // Unpurchased try-on selections for the permanent shop (one per category).
+  // Kept independently of the editable/saved member profile.
+  shopPreviewMix: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
 }, { timestamps: true });
 
 memberDmPanelSchema.index(
