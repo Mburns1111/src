@@ -124,6 +124,19 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] Stickers sit below the selected frame overlay; stickers don't overwrite shop/item buttons (these are Discord components, not image layers).
 - [ ] Seasonal sticker that is already owned remains recolorable even when its sale window is closed.
 
+## F2. Preview Multiple · Purchase All checkout
+- [ ] Choose an unpaid background, panel, frame, one font for both text slots, and a sticker in **Preview Multiple**. The itemized summary shows each price and the correct **total Points**.
+- [ ] Using one font for both Headers and Profile Text charges only once; choosing two different paid fonts includes both prices.
+- [ ] Already-owned and included/free options display **0 Points** and are not purchased again.
+- [ ] **Match Background** and **No Stickers** do not create chargeable items.
+- [ ] With no unpaid items, Purchase All is disabled. With insufficient Points, the total is visible but purchasing is disabled.
+- [ ] With enough Points, **Purchase All** opens a full itemized confirmation; **Cancel · Back to Preview** returns without spending Points.
+- [ ] **Confirm Purchase** spends the total **once**, grants all chosen items to permanent inventory, and returns to Preview Multiple showing them as Owned.
+- [ ] Buying the preview does **not** equip any appearance or overwrite the saved profile.
+- [ ] Repeat purchase/rapid double-click cannot spend Points twice. If a sticker stops being sold, or ownership/prices/balance change before confirming, the transaction refuses the outdated quote.
+- [ ] All selected items grant together or none grant if the MongoDB transaction fails; use a disposable test user and test database.
+- [ ] Both font slots, custom-owned HEX colors, and previously purchased seasonal stickers remain valid in the try-on without extra cost.
+
 ## G. Preview Multiple, no-purchase preview
 - [ ] Preview Multiple opens on the existing private shop message, **not** a second permanent DM.
 - [ ] Change background, panel, frame, header font, body font, text HEX and sticker in the preview.
