@@ -543,7 +543,7 @@ const APPEARANCE_CHOICES = {
   panelColor: ["match", ...CLASSIC_COLOR_OPTIONS.map(item => item.id)],
   font: ["default", "classic"],
   fontColor: ["default", "black", "white", "plum"],
-  frame: ["default", "doubleLine"],
+  frame: ["default", "doubleLine", "softRounded", "silverFloral", "goldCelestial", "blackKnight"],
 };
 const APPEARANCE_LABELS = {
   ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [
@@ -557,7 +557,11 @@ const APPEARANCE_LABELS = {
   black: "Black (free)",
   white: "White (free)",
   plum: "Plum",
-  doubleLine: "Double-line border",
+  doubleLine: "Double Line",
+  softRounded: "Soft Rounded",
+  silverFloral: "Silver Floral",
+  goldCelestial: "Golden Celestial",
+  blackKnight: "Black Knight",
 };
 const COLOR_SELECT_PAGE_SIZE = 24;
 const RETIRED_COLOR_NAMES = {
@@ -575,11 +579,20 @@ const RETIRED_COLOR_NAMES = {
 // to their original buyers without returning to the storefront.
 function availableAppearanceChoices(field, ownership) {
   const choices = APPEARANCE_CHOICES[field];
-  if (!["background", "panelColor", "fontColor"].includes(field)) return choices;
+  // Equipment must be owned: the shop and Mix & Match can preview locked
+  // frames, but Customize Profile offers only the free or purchased frames.
+  if (!["background", "panelColor", "fontColor", "frame"].includes(field)) return choices;
   const category = APPEARANCE_FIELD_CATEGORY[field];
   const unlocked = choices.filter(id =>
     id === "match" || ownsAppearanceItem(ownership, category, id));
   if (field === "fontColor") return unlocked;
+  if (field === "frame") {
+    // Preserve a previously purchased retired border even if no longer sold.
+    const legacy = Object.keys(APPEARANCE_CATALOG.frames).filter(id =>
+      !choices.includes(id) && ownership?.frames?.has(id) &&
+      !FREE_APPEARANCE.frames.includes(id));
+    return [...unlocked, ...legacy];
+  }
   // Each purchased custom HEX value is stored as a stable inventory ID,
   // so multiple saved colors can appear here without a separate DB schema.
   const customOwned = [...(ownership?.[category] || [])]
@@ -615,7 +628,9 @@ function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
         ? "Starter Sage (free)"
         : field === "panelColor" && id === STANDARD_PANEL_ID
           ? `${APPEARANCE_LABELS[id]} (Free · Standard)`
-          : APPEARANCE_LABELS[id] || id),
+          : field === "frame" && id === "default"
+            ? "Classic Thin (free)"
+            : APPEARANCE_LABELS[id] || id),
     value: id,
     default: appearance[field] === id,
     description: customColorHex(id) ? "Your purchased HEX color" :
