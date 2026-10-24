@@ -104,7 +104,18 @@ async function featuredCards(featured) {
   };
 }
 function topThree(category) {
-  return [...itemsFor(category)].sort((a, b) => b.price - a.price || a.id.localeCompare(b.id)).slice(0, 3);
+  // Three DIFFERENT hues and tones show off the range of the Classic set;
+  // otherwise identical-priced swatches would all come from the Aqua family.
+  const classicExamples = {
+    backgrounds: ["yellowPastel", "roseNormal", "aquaDark"],
+    panels: ["coralPastel", "lavenderNormal", "grayDark"],
+  }[category];
+  const items = itemsFor(category);
+  if (classicExamples) {
+    return classicExamples.map(id => items.find(item => item.id === id)).filter(Boolean)
+      .slice(0, 3);
+  }
+  return [...items].sort((a, b) => b.price - a.price || a.id.localeCompare(b.id)).slice(0, 3);
 }
 function sortedItems(category) {
   // Classic colors are browsed in color-wheel order, with the three variants
