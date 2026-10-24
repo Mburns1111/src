@@ -115,10 +115,10 @@ test("CSV export streams and includes all critical audit fields", async () => {
   const result = await exportPointsAudit({ guildId, days: 7, now, Ledger: ledger });
   assert.equal(result.rows, 2);
   assert.ok(result.csv.length < AUDIT_EXPORT_MAX_BYTES);
-  assert.match(result.csv.toString("utf8"), /awarded_at_utc,guild_id,member_id,type,points,reason,source_id,awarded_by_id,event_key/);
+  assert.match(result.csv.toString("utf8"), /occurred_at_utc,guild_id,member_id,type,signed_points,direction,reason,source_type,source_id,awarded_by_id,event_key,related_event_key,balance_after,items/);
   assert.ok(result.csv.toString("utf8").includes(memberId));
   assert.equal(ledger.closed, true);
-  assert.equal(AUDIT_CSV_HEADERS.length, 9);
+  assert.equal(AUDIT_CSV_HEADERS.length, 14);
 });
 
 test("CSV aborts rather than exporting incomplete history when row or size cap reached", async () => {
@@ -157,4 +157,37 @@ test("voice work runs up to ten concurrent tasks without exceeding the cap", asy
   assert.equal(done, 700);
   assert.ok(peak <= 10 && peak >= 2);
   await assert.rejects(() => runBounded([1], () => {}, 0), /Invalid/);
+});
+
+test("mixed credits, purchases and refunds have correct signed audit totals", () => {
+  const groups = [
+    { _id: { kind: "message", discordUserId: memberId }, points: 40, awards: 20 },
+    { _id: { kind: "spend", discordUserId: memberId }, points: -75, awards: 1 },
+    { _id: { kind: "refund", discordUserId: memberId }, points: 20, awards: 1 },
+  ];
+  const report = summarizeAuditGroups(groups);
+  assert.equal(report.earnedPoints, 40);
+  assert.equal(report.spentPoints, 75);
+  assert.equal(report.refundedPoints, 20);
+  assert.equal(report.totalPoints, -15);
+  assert.equal(report.creditCount, 20);
+  assert.equal(report.spendingCount, 1);
+  assert.equal(report.refundCount, 1);
+  assert.equal(report.awardCount, 22);
+  assert.equal(report.memberCount, 1);
+});
+
+test("signed CSV spends are numeric and include source and purchased items", () => {
+  const row = receiptCsvLine({
+    ...record(0), kind: "spend", amount: -75,
+    description: "Shop purchase: Misty background", sourceType: "shop",
+    sourceId: "backgrounds:misty", balanceAfter: 12,
+    items: [{ category: "backgrounds", id: "misty", price: 75 }],
+  });
+  assert.match(row, /"spend",-75,"debit","Shop purchase/);
+  assert.match(row, /"shop","backgrounds:misty"/);
+  assert.match(row, /,"12","backgrounds:misty \(75\)"/);
+  assert.equal(csvCell(-75), "-75");
+  assert.ok(AUDIT_TYPES.some(x => x.value === "spend"));
+  assert.ok(AUDIT_TYPES.some(x => x.value === "refund"));
 });
