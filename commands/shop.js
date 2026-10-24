@@ -762,6 +762,10 @@ async function dmCategoryIndex(context, category, requestedPage = 0) {
         ? "Compare all three shades in the chart below. Choose a family, then select **Pastel**, **Normal**, or **Dark** before buying. Prices and ownership apply to individual shades.\n\n"
         : "Choose an item below to open its preview and purchase page.\n\n") +
       descriptions.join("\n") +
+      (groupedColors
+        ? "\n\n**Free matching:** Set panels to **Match Background** in Customize Profile. " +
+          "This follows your currently equipped background and does not unlock that panel color for other backgrounds; buying a panel shade does."
+        : "") +
       (category === "stickers"
         ? "\n\nSeasonal stickers leave the shop after their event; purchased designs remain yours."
         : ""),
@@ -916,7 +920,7 @@ function mixValueName(category, id) {
   if (!id) return "My equipped profile";
   if (category === "fonts" && id === "classic") return "Classic Serif (legacy)";
   if (customColorHex(id)) return customColorLabel(id);
-  if (category === "panels" && id === "match") return "Match background";
+  if (category === "panels" && id === "match") return "Match background (free · follows current background)";
   if (category === "stickers" && id === "none") return "No stickers";
   const included = MIX_DEFAULT_ITEM_LABELS[category]?.find(item => item.id === id);
   if (included) return included.name.replace(" · Free", "");
@@ -1006,7 +1010,7 @@ export function mixEditorChrome(context, panel, mix, ownership, quote, balance) 
     if (category === "panels") {
       shades.push(new ButtonBuilder()
         .setCustomId(`shop:dm:${context.guildId}:mixMatch`)
-        .setLabel("Match Background")
+        .setLabel("Match Background · Free")
         .setStyle(mix.panels === "match" ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setDisabled(mix.panels === "match"));
     }
