@@ -379,6 +379,13 @@ export async function refreshTradingPostCard(guild, ownerId) {
     }),
   ]);
 
+  // Legacy cards predate saved listing styles. Capture their starting appearance
+  // once; do not keep inheriting future profile changes.
+  if (!tradingPost.postAppearance) {
+    tradingPost.postAppearance = await snapshotOwnedListingAppearance(guild.id, ownerId, profile);
+    tradingPost.markModified("postAppearance");
+  }
+
   const oldChannelId = tradingPost.postChannelId;
   const oldMessageId = tradingPost.postMessageId;
 
