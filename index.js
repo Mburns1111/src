@@ -212,9 +212,12 @@ client.once(Events.ClientReady, (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    await startupMaintenancePromise;
+    // Startup maintenance renders storefront images and may take time.
+    // Never wait for it before acknowledging button/select interactions:
+    // Discord expires unacknowledged interactions after a few seconds.
     if (interaction.isChatInputCommand()) {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      await startupMaintenancePromise;
     }
 
     if (interaction.isButton() && interaction.customId.startsWith("dm:notice:")) {
