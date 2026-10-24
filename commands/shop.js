@@ -612,9 +612,20 @@ async function handleShopDM(interaction) {
   if (!Number.isSafeInteger(index) || index < (action === "page" ? -1 : 0) || index >= itemsFor(category).length) {
     throw new UserFacingError("That shop page isn't available.");
   }
-  if (action === "page" || action === "cancel") {
-    await interaction.editReply(await dmItemPage(context, category, index));
-  } else if (["preview", "mix", "addmix", "unmix", "clearmix"].includes(action)) {
+  let destination = index;
+  if (action === "family" || action === "familyPreview") {
+    if (!isClassicColorCategory(category) || !interaction.isStringSelectMenu()) {
+      throw new UserFacingError("That color selection is unavailable.");
+    }
+    const family = CLASSIC_COLOR_FAMILIES.findIndex(entry => entry.id === interaction.values[0]);
+    if (family < 0) throw new UserFacingError("Unknown color family.");
+    destination = family * 3 + (index % 3);
+  } else if ((action === "shade" || action === "previewShade") && !isClassicColorCategory(category)) {
+    throw new UserFacingError("This category has no color shades.");
+  }
+  if (["page", "cancel", "family", "shade"].includes(action)) {
+    await interaction.editReply(await dmItemPage(context, category, destination));
+  } else if (["preview", "previewShade", "familyPreview", "mix", "addmix", "unmix", "clearmix"].includes(action)) {
     // Verify the stored panel belongs to this bot, guild, member and message.
     // Preview selections live in MongoDB so a bot restart won't erase them.
     const panel = await MemberDmPanel.findOne({
@@ -643,7 +654,7 @@ async function handleShopDM(interaction) {
     }
     await interaction.editReply(action === "mix" || action === "clearmix"
       ? await dmMixOverview(context, category, index, mix)
-      : await dmPreview(context, category, index, mix));
+      : await dmPreview(context, category, destination, mix));
   } else if (action === "refresh") {
     await interaction.editReply(await dmItemPage(context, category, index));
   } else if (action === "buy") {
