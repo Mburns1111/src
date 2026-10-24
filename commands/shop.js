@@ -665,14 +665,16 @@ async function dmItemPage(context, category, index) {
         .setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(index === 0),
       new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:page:${category}:${index + 1}`)
         .setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(index >= size - 1),
-      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:preview:${category}:${index}`)
-        .setLabel("My Preview").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:buy:${category}:${index}`)
-        .setLabel(item.id === CUSTOM_COLOR_SHOP_ID ? "Enter HEX Code" : item.included ? "Included" : owned ? "Owned" : `Buy · ${item.price}`)
-        .setStyle(item.id === CUSTOM_COLOR_SHOP_ID ? ButtonStyle.Primary : ButtonStyle.Success)
+      ...(item.id === CUSTOM_COLOR_SHOP_ID ? [] : [
+        new ButtonBuilder().setCustomId(`shop:dm:${context.guildId}:preview:${category}:${index}`)
+          .setLabel("My Preview").setStyle(ButtonStyle.Primary),
+      ]),
+      new ButtonBuilder()
         .setCustomId(item.id === CUSTOM_COLOR_SHOP_ID
           ? `shop:dm:${context.guildId}:customOpen:${category}:${index}`
           : `shop:dm:${context.guildId}:buy:${category}:${index}`)
+        .setLabel(item.id === CUSTOM_COLOR_SHOP_ID ? "Enter HEX Code" : item.included ? "Included" : owned ? "Owned" : `Buy · ${item.price}`)
+        .setStyle(item.id === CUSTOM_COLOR_SHOP_ID ? ButtonStyle.Primary : ButtonStyle.Success)
         .setDisabled(item.id !== CUSTOM_COLOR_SHOP_ID && (owned || balance < item.price)),
     ),
     ...(isClassicColorCategory(category) && item.id !== CUSTOM_COLOR_SHOP_ID ? [
