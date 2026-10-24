@@ -135,3 +135,38 @@ If you granted AM Isa's Discord role permission to view a results channel, `insp
 6. Verify `/points-admin history` and wallet balance haven't changed due to these observations.
 
 **Future integration decision:** Native polls can be a verified participation source once we add rewards and caps. Arclo entries require an official source-supported export/API or an audited manual verification process before anyone receives Points.
+
+
+## Active test-only native poll Points and manual group awards
+
+The native poll event listener was verified in the test server (vote → 1, remove → 0, manual sync → 1). Points rewards are now **active on this development branch for staff-approved native Discord polls only**. `main` and Wispbyte are not changed.
+
+**Automatic poll rewards:**
+- Every eligible member receives **5 Points for their first vote on an approved native poll**, visible in their existing shop balance and in `/points-admin history`.
+- Poll rewards are **capped at 15 Points per member per UTC Monday–Sunday week**, with a single atomic counter across all approved polls. Polls that would exceed the cap award nothing.
+- No member can receive more than **one payout per poll**, including after removing/recasting/changing answers or restarting the bot. Paid Points are not clawed back if someone later removes their vote.
+- Manager approval is required for **each individual native poll**: `/points-admin poll-approve link:<poll message link>`. Approval also syncs the current voter list and awards anyone eligible who has already voted. An approved poll's later votes earn automatically.
+- `/points-admin poll-disable link:<poll message link>` halts future rewards without removing existing credits. Arclo polls and giveaways never award automatically.
+- `/points-observe voters link:<poll message link>` lists up to 30 current voters by Discord account and indicates whether each received +5 Points. `/points-observe report` also shows total paid to members for that poll. `/points-observe sync` reconciles votes and pays any newly verified eligible participants **only if the poll is approved**.
+- The broader newcomer double-activity multiplier and 225-Point overall weekly activity target remain **future Phase 2 targets** until message/voice earning launches. For now, poll Points remain fixed at 5 and are capped at 15.
+
+**Multi-member staff awards** are provided through `/points-admin grant-multiple`:
+- `members`: paste 1–20 Discord member mentions or user IDs, separated by commas, spaces or newlines. Members are checked in the current guild and bot accounts are rejected.
+- `points`: 1–250 **per recipient**.
+- `reason`: **Giveaway**, **Participation**, **Server Event**, **Helping Others**, or **Other**.
+- `note`: optional context, e.g. "Halloween giveaway" or "art contest".
+- `reference`: optional, unique event ID, e.g. `oct24-halloween-giveaway`. **Use the same reference when retrying or adding missing recipients** to avoid paying someone twice for the same event. Without a reference, each newly submitted grant command is considered a new payment.
+
+Grants show how many members were credited, skipped as duplicates or failed. Every credited member receives a separate audit receipt identifying the moderator, award reason, amount and event reference. Staff-issued giveaway/event/helpfulness awards do not consume poll weekly caps.
+
+### Recommended manual tests
+
+1. On Replit, `git pull --ff-only origin feature/points-earning`, `npm install`, `node register-commands.js`, `npm start`. Confirm the test bot's MongoDB and token are **not** production credentials.
+2. Run `/points-admin settings`; check that approved native poll rewards are listed as active at 5 Points, maximum 15/week.
+3. For a test poll, run `/points-admin poll-approve` and paste the poll message link. If you've already voted, approving and syncing the poll should award the first 5 Points immediately.
+4. Check `/points-observe voters` for your Discord account with **+5 Points awarded**, `/points-admin history member:<yourself>` for a `poll` credit, and the existing shop balance.
+5. Remove your vote, vote again, and run sync. You **must not** earn another 5 Points for the same poll.
+6. For weekly limits, approve and participate in **three other unique polls**; only three total polls per UTC week may credit Points. Fourth returns no Points.
+7. Use `/points-admin grant-multiple` for one test member with reason Giveaway, 5 Points and a distinctive reference. Retry with the same reference; the second attempt must be marked already credited.
+8. For a real group award, use 2+ real members and reason Giveaway/Participation. Arclo giveaway results are still reviewed by staff, **not** automatically imported.
+9. Turn an approved poll off via `poll-disable` and confirm votes on it no longer award additional members.
