@@ -5,6 +5,7 @@ import { APPEARANCE_CATALOG } from "./post-appearance.js";
 import { CUSTOM_COLOR_SHOP_ID, CUSTOM_COLOR_PRICES } from "./custom-colors.js";
 import { FREE_APPEARANCE } from "./appearance-ownership.js";
 import { SHOP_FONT_STYLES } from "./font-library.js";
+import { STICKER_CATALOG, isStickerForSale } from "./sticker-catalog.js";
 
 // Classic colors are in color-wheel order: Pastel, Normal, Dark within each
 // family. The original free Starter Sage background is NOT a shop item;
@@ -29,7 +30,7 @@ const prices = {
     ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, item]) => [id, item.price])),
   },
   fontColors: { plum: 75, [CUSTOM_COLOR_SHOP_ID]: CUSTOM_COLOR_PRICES.fontColors },
-  stickers: { flower: 50, star: 50 },
+  stickers: Object.fromEntries(Object.entries(STICKER_CATALOG).map(([id, item]) => [id, item.price])),
 };
 const names = {
   ...Object.fromEntries(CLASSIC_COLOR_OPTIONS.map(item => [item.id, item.name])),
@@ -37,12 +38,14 @@ const names = {
   silverFloral: "Silver Floral", goldCelestial: "Golden Celestial",
   blackKnight: "Black Knight", classic: "Classic Serif", plum: "Plum",
   ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, item]) => [id, item.name])),
-  flower: "Flower", star: "Star", [CUSTOM_COLOR_SHOP_ID]: "Custom HEX Color",
+  ...Object.fromEntries(Object.entries(STICKER_CATALOG).map(([id, item]) => [id, item.name])),
+  [CUSTOM_COLOR_SHOP_ID]: "Custom HEX Color",
 };
 export function shopItems() {
   return Object.entries(prices).flatMap(([category, entries]) =>
     Object.entries(entries)
-      .filter(([id]) => id === CUSTOM_COLOR_SHOP_ID || Boolean(APPEARANCE_CATALOG[category]?.[id]))
+      .filter(([id]) => (id === CUSTOM_COLOR_SHOP_ID || Boolean(APPEARANCE_CATALOG[category]?.[id])) &&
+        (category !== "stickers" || isStickerForSale(id)))
       .map(([id, price]) => ({
         category, id, name: names[id] || id, price,
         included: FREE_APPEARANCE[category]?.includes(id) || false,
