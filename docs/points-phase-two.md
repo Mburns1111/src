@@ -6,7 +6,7 @@ Branch: `feature/points-earning`. These changes do not deploy to Wispbyte or `ma
 
 | Source | Established member | First seven days after joining | Anti-spam and eligibility |
 | --- | ---: | ---: | --- |
-| Qualifying Discord message | 2 Points | 4 Points | Minimum 15 visible characters and 8 letters, 2-minute per-user cooldown, no immediate duplicate text, max **10 paid messages per UTC day** |
+| Qualifying Discord message | 2 Points | 4 Points | Minimum 15 visible characters and 8 letters, 30-minute per-user cooldown, no immediate duplicate text, **no daily message cap** (overall activity cap still applies) |
 | Qualifying voice presence | 5 Points per 10 minutes | 10 Points per 10 minutes | At least **two human participants** in the same voice channel; deafened, AFK-channel, bots and suppressed Stage listeners do not count |
 | Staff-approved native Discord poll | 5 Points | 5 Points | One award per poll, 15 Points per UTC week, cannot earn again by changing or removing vote |
 | One-time shop/post milestones | Unchanged | Unchanged | These do not consume repeatable activity limits |
@@ -32,7 +32,7 @@ Every reward is an immutable Points ledger receipt plus a credit to the existing
 3. Run `/points-admin activity-toggle source:Messages only enabled:true` or `source:Messages and Voice enabled:true` to opt in. Both sources start **disabled**, so existing guilds do not start earning chat/voice Points merely by updating the code.
 4. Run `/points-admin settings` to see toggles and rate/cap rules. Run `/points-admin activity-status member:<your member>` to check activity Points and remaining allowance.
 5. In a normal test server text channel, send a non-command original sentence with at least 15 characters and eight letters (e.g. "Testing AM Isa message rewards today."). Wait a moment, then use `/points-admin history member:<you>` and the shop balance. Established member should earn **+2**; newly joined member within seven days earns **+4**.
-6. Repeat the same message immediately: **no second reward**. Send a different sentence within two minutes: still **no reward**. After two minutes, a different qualifying message should earn again. Ten messages per UTC day is the maximum, even if the cooldown passes.
+6. Repeat the same message immediately: **no second reward**. Send a different sentence within 30 minutes: still **no reward**. After 30 minutes, a different qualifying message should earn again. There is **no separate daily message limit**, but the 425-Point newcomer or 225-Point later weekly activity cap still applies.
 7. For voice, have **two human test members** join the same non-AFK voice channel without deafening themselves. At approximately ten qualifying minutes of bot uptime, each eligible member should earn **+5** (or +10 during the first seven days). Leaving the voice channel, being alone, or deafening stops accrual; no back-pay for offline or disqualified time. Individual qualifying minutes persist across bot restarts and are deduplicated.
 8. Verify previously approved native poll credits remain unchanged. A **new** approved poll still awards +5 once, consumes the overall activity allowance, and respects the 15-per-week poll subcap. `/points-observe voters` still shows individual participants.
 9. To stop chat or voice rewards: `/points-admin activity-toggle source:Messages and Voice enabled:false`. Existing earned Points are not removed.
@@ -41,8 +41,8 @@ Every reward is an immutable Points ledger receipt plus a credit to the existing
 
 ## Failure and repeat prevention
 
-- Duplicate message IDs, same-hash consecutive rewarded messages and attempts before the two-minute cooldown cannot produce a second credit.
+- Duplicate message IDs, same-hash consecutive rewarded messages and attempts before the 30-minute cooldown cannot produce a second credit.
 - A native Discord poll vote cannot pay twice even across restarts.
 - A ten-minute voice block is keyed by a stable per-member, per-period identifier; eligible minute stamps are stored to prevent double counting during a restart.
-- The shared activity cap, message daily limit and the wallet credit are transactional; retries cannot separately increase Points without a ledger record.
+- The shared activity cap, message cooldown and the wallet credit are transactional; retries cannot separately increase Points without a ledger record.
 - All staff grants and manual giveaways continue to use the existing audited `/points-admin grant` or `/points-admin grant-multiple` workflow.
