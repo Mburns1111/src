@@ -1,16 +1,25 @@
 import mongoose from "mongoose";
 
-// Immutable, inspectable earning receipts; each external event or milestone
-// has a stable key so retries, edits and restarts cannot create more Points.
+// Immutable signed Points movements: positive earnings/refunds and negative
+// spending. Unique per-event keys prevent duplicate credits or charges.
 const pointsLedgerSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   discordUserId: { type: String, required: true },
   eventKey: { type: String, required: true },
-  kind: { type: String, required: true }, // milestone, manual, future activity
-  amount: { type: Number, required: true, min: 0 },
+  kind: { type: String, required: true }, // message/voice/poll/manual/milestone, spend, refund
+  amount: { type: Number, required: true, validate: {
+    validator: value => Number.isSafeInteger(value) && value !== 0,
+    message: "Points movements must be nonzero signed integers",
+  } },
   description: { type: String, required: true },
   sourceId: { type: String, default: "" },
   actorId: { type: String, default: "" },
+  // New spending domains use sourceType: shop, event, auction, etc.
+  // Older credit records retain their current positive amounts and null fields.
+  sourceType: { type: String, default: "" },
+  balanceAfter: { type: Number, default: null },
+  items: [{ category: { type: String }, id: { type: String }, price: { type: Number } }],
+  relatedEventKey: { type: String, default: "" },
 }, { timestamps: true });
 pointsLedgerSchema.index({ guildId: 1, discordUserId: 1, eventKey: 1 }, { unique: true });
 pointsLedgerSchema.index({ guildId: 1, discordUserId: 1, createdAt: -1 });
