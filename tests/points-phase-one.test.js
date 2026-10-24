@@ -57,7 +57,7 @@ test("manager controls expose dry-run backfill, audited grants and settings", ()
   const command = adminData.toJSON();
   assert.equal(command.name, "points-admin");
   assert.deepEqual(command.options.map(item => item.name),
-    ["settings", "activity-toggle", "activity-status", "milestone", "toggle", "grant", "grant-multiple", "poll-approve", "poll-disable", "history", "backfill"]);
+    ["settings", "activity-toggle", "activity-status", "milestone", "toggle", "grant", "grant-multiple", "poll-approve", "poll-disable", "scan-messages", "history", "backfill"]);
   const backfill = command.options.find(item => item.name === "backfill");
   const apply = backfill.options.find(option => option.name === "apply");
   assert.equal(apply.required, false, "backfill must dry run unless explicitly requested");
