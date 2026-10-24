@@ -45,7 +45,7 @@ import { ensureChannelEntry } from "./channel-entry.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, resolveAppearance } from "../services/post-appearance.js";
 import { CLASSIC_COLOR_OPTIONS, STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID } from "../services/classic-colors.js";
-import { getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, APPEARANCE_FIELD_CATEGORY } from "../services/appearance-ownership.js";
+import { FREE_APPEARANCE, getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, APPEARANCE_FIELD_CATEGORY } from "../services/appearance-ownership.js";
 
 export const data = new SlashCommandBuilder()
   .setName("profile")
@@ -558,9 +558,29 @@ const APPEARANCE_LABELS = {
   doubleLine: "Double-line border",
 };
 const COLOR_SELECT_PAGE_SIZE = 24;
+const RETIRED_COLOR_NAMES = {
+  sageDots: "Sage Dots", garden: "Garden", paleSage: "Pale Sage",
+  warmCream: "Warm Cream", dustyBlue: "Dusty Blue",
+  moss: "Moss", lavender: "Lavender", sagePanel: "Sage Panel",
+  creamPanel: "Cream Panel", bluePanel: "Blue Panel",
+  charcoal: "Charcoal", forest: "Forest", navy: "Navy",
+};
 
-function appearanceChoicePage(field, currentAppearance, optionPages = {}) {
-  const options = APPEARANCE_CHOICES[field];
+// Keep previously purchased starter colors available to their owners in the
+// editor, even though none of these retired items appear in the new shop.
+// Free retired defaults are NOT included in the new choices.
+function availableAppearanceChoices(field, ownership) {
+  const choices = APPEARANCE_CHOICES[field];
+  if (!["background", "panelColor"].includes(field)) return choices;
+  const category = APPEARANCE_FIELD_CATEGORY[field];
+  const retiredOwned = Object.keys(APPEARANCE_CATALOG[category]).filter(id =>
+    !choices.includes(id) && ownership?.[category]?.has(id) &&
+    !FREE_APPEARANCE[category]?.includes(id));
+  return [...choices, ...retiredOwned];
+}
+
+function appearanceChoicePage(field, currentAppearance, optionPages = {}, ownership = null) {
+  const options = availableAppearanceChoices(field, ownership);
   const pageCount = Math.ceil(options.length / COLOR_SELECT_PAGE_SIZE);
   if (pageCount <= 1) return { page: 0, count: 1 };
   // On first open, show the page containing the equipped color.
@@ -571,19 +591,24 @@ function appearanceChoicePage(field, currentAppearance, optionPages = {}) {
 }
 
 function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
-  const all = APPEARANCE_CHOICES[field];
-  const { page, count } = appearanceChoicePage(field, appearance, optionPages);
+  const all = availableAppearanceChoices(field, ownership);
+  const { page, count } = appearanceChoicePage(field, appearance, optionPages, ownership);
   const visible = count === 1 ? all : all.slice(
     page * COLOR_SELECT_PAGE_SIZE, (page + 1) * COLOR_SELECT_PAGE_SIZE,
   );
   const options = visible.map(id => ({
-    label: (field === "background" && id === STANDARD_BACKGROUND_ID) ||
-      (field === "panelColor" && id === STANDARD_PANEL_ID)
-      ? `${APPEARANCE_LABELS[id]} (Free · Standard)` : APPEARANCE_LABELS[id] || id,
+    label: !APPEARANCE_CHOICES[field].includes(id)
+      ? `Retired · ${RETIRED_COLOR_NAMES[id] || id}`
+      : ((field === "background" && id === STANDARD_BACKGROUND_ID) ||
+          (field === "panelColor" && id === STANDARD_PANEL_ID))
+        ? `${APPEARANCE_LABELS[id]} (Free · Standard)`
+        : APPEARANCE_LABELS[id] || id,
     value: id,
     default: appearance[field] === id,
-    description: id === "match" || ownership?.[APPEARANCE_FIELD_CATEGORY[field]]?.has(id)
-      ? "Available" : "Locked",
+    description: !APPEARANCE_CHOICES[field].includes(id)
+      ? "Previously purchased · yours to keep"
+      : id === "match" || ownership?.[APPEARANCE_FIELD_CATEGORY[field]]?.has(id)
+        ? "Available" : "Locked",
   }));
   if (count > 1) {
     options.push(page < count - 1
@@ -975,10 +1000,10 @@ export async function handleProfileAppearanceDM(interaction) {
     draft.appearance.panelOpacity = Number(value);
   } else if (["background", "panelColor"].includes(field) &&
              ["__next__", "__previous__"].includes(value)) {
-    const { page, count } = appearanceChoicePage(field, draft.appearance, draft.optionPages);
+    const { page, count } = appearanceChoicePage(field, draft.appearance, draft.optionPages, ownership);
     draft.optionPages[field] = Math.max(0, Math.min(count - 1,
       page + (value === "__next__" ? 1 : -1)));
-  } else if (APPEARANCE_CHOICES[field]?.includes(value)) {
+  } else if (availableAppearanceChoices(field, ownership)?.includes(value)) {
     if (value !== "match" && !ownsAppearanceItem(ownership, APPEARANCE_FIELD_CATEGORY[field], value)) {
       throw new UserFacingError("You have not unlocked that appearance item.");
     }
