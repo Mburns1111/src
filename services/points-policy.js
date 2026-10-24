@@ -29,16 +29,12 @@ export function starterClassicBasketCost() {
   return starterClassicBasket().reduce((sum, item) => sum + item.price, 0);
 }
 
-// Phase 2 targets are active for approved native polls and opt-in chat/voice
-// earnings on the development branch; invites are still planned.
-// 75 background + 50 paid panel + 125 frame + 125 font + 50 sticker = 425.
-// A fresh member's first seven days can produce up to 425 repeatable activity
-// Points, while later weeks target 225, so future 800–1000 Point designs
-// take several weeks once members have purchased their starter collection.
+// Activity earns without an overall cap. Starter shop item costs are
+// benchmarks for pacing, never ceilings on what members can earn.
+// First seven days after joining: 2× eligible messages and voice rewards.
+// Invite rewards are planned but not yet enabled.
 export const POINTS_ACTIVITY_TARGETS = Object.freeze({
-  starterWeekActivityCap: 425,
-  firstWeekActivityMultiplier: 2, // applied to eligible repeatable activity in Phase 2
-  laterWeeklyActivityCap: 225,
+  firstWeekActivityMultiplier: 2,
   invitationReward: 40,
   inviteMinimumMembershipDays: 7,
   rewardedInvitesPerCalendarMonth: 2,
