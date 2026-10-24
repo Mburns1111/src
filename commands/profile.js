@@ -556,7 +556,7 @@ const APPEARANCE_LABELS = {
     item.name,
   ])),
   sagePreview: "Starter Sage (free)",
-  match: "Match background",
+  match: "Match background (free)",
   default: "Default",
   classic: "Classic Serif (legacy)",
   ...Object.fromEntries(Object.entries(SHOP_FONT_STYLES).map(([id, font]) => [id, font.name])),
@@ -650,8 +650,9 @@ function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
     description: customColorHex(id) ? "Your purchased HEX color" :
       !APPEARANCE_CHOICES[field].includes(id)
       ? "Previously purchased · yours to keep"
-      : id === "match" || ownership?.[APPEARANCE_FIELD_CATEGORY[field]]?.has(id)
-        ? "Available" : "Locked",
+      : id === "match" ? "Free · follows equipped background; panel not owned"
+        : ownership?.[APPEARANCE_FIELD_CATEGORY[field]]?.has(id)
+          ? "Available" : "Locked",
   }));
   if (count > 1) {
     options.push(page < count - 1
