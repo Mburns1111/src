@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
 import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './post-appearance.js';
+import { registerAppearanceFonts } from './font-library.js';
 import { frameArtworkSvg } from './frame-artwork.js';
 
 // Register a Unicode symbol font for decorative display names.
@@ -184,7 +185,8 @@ function fitFontSize(ctx, text, maxWidth, startingSize, family, minSize = 14) {
 }
 
 function drawFittedLine(ctx, value, region, options = {}) {
-  const { fontSize = 40, minFontSize = 20, family = 'sans-serif', color = '#26382D' } = options;
+  const { fontSize = 40, minFontSize = 20, family = 'sans-serif',
+    weight = 'normal', color = '#26382D' } = options;
   let text = String(value ?? '').trim();
   if (!text) return;
   ctx.save();
@@ -193,11 +195,11 @@ function drawFittedLine(ctx, value, region, options = {}) {
   ctx.textBaseline = 'top';
   let size = fontSize;
   while (size > minFontSize) {
-    ctx.font = size + 'px ' + family;
+    ctx.font = weight + ' ' + size + 'px ' + family;
     if (ctx.measureText(text).width <= region.width) break;
     size--;
   }
-  ctx.font = size + 'px ' + family;
+  ctx.font = weight + ' ' + size + 'px ' + family;
   if (ctx.measureText(text).width > region.width) {
     const chars = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment);
     while (chars.length && ctx.measureText(chars.join('') + '…').width > region.width) chars.pop();
@@ -243,6 +245,7 @@ function drawWrappedText(ctx, text, region, options = {}) {
     fontSize = 24,
     minFontSize = 16,
     family = 'sans-serif',
+    weight = 'normal',
     color = '#26382D',
     lineHeight = Math.round(fontSize * 1.35),
     maxLines = MAX_TEXT_LINES_DEFAULT,
@@ -258,7 +261,7 @@ function drawWrappedText(ctx, text, region, options = {}) {
   let lines;
 
   while (size >= minFontSize) {
-    ctx.font = `${size}px ${family}`;
+    ctx.font = `${weight} ${size}px ${family}`;
     lines = wrapText(ctx, raw, region.width);
 
     if (
@@ -272,7 +275,7 @@ function drawWrappedText(ctx, text, region, options = {}) {
   }
 
   size = Math.max(size, minFontSize);
-  ctx.font = `${size}px ${family}`;
+  ctx.font = `${weight} ${size}px ${family}`;
   lines = wrapText(ctx, raw, region.width);
 
   const lineStep = Math.round(lineHeight * size / fontSize);
@@ -321,12 +324,14 @@ function drawWrappedText(ctx, text, region, options = {}) {
 }
 
 function drawLabel(ctx, text, region, style) {
-  drawWrappedText(ctx, text.toUpperCase(), region, {
+  // Uppercase was fine for the original clean font, but obscures real cursive
+  // handwriting. Use title case for purchased header fonts; fit long labels.
+  drawFittedLine(ctx, style.customHeading ? text : text.toUpperCase(), region, {
     fontSize: 24,
-    minFontSize: 20,
-    family: style.fontFamily,
+    minFontSize: 16,
+    family: style.labelFontFamily,
+    weight: style.labelFontWeight,
     color: style.mutedText,
-    maxLines: 1,
   });
 }
 
@@ -537,36 +542,37 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerIm
     { x: 358, y: 72, width: 770 }, {
       fontSize: 57, minFontSize: 26,
       family: '"AM Unicode Symbols", ' + style.titleFontFamily,
+       weight: style.titleFontWeight,
       color: style.accentDark,
     });
   drawFittedLine(ctx, 'Discord: ' + (data.discordUsername || 'Member'),
     { x: 358, y: 170, width: 770 }, {
-      fontSize: 36, minFontSize: 22, family: style.fontFamily, color: style.mutedText,
+      fontSize: 36, minFontSize: 22, family: style.fontFamily, weight: style.bodyFontWeight, color: style.mutedText,
     });
   drawFittedLine(ctx, 'Roblox: ' + (data.robloxUsername || 'Not added yet'),
     { x: 358, y: 230, width: 770 }, {
-      fontSize: 30, minFontSize: 20, family: style.fontFamily, color: style.mutedText,
+      fontSize: 30, minFontSize: 20, family: style.fontFamily, weight: style.bodyFontWeight, color: style.mutedText,
     });
 
   drawLabel(ctx, 'Server roles', { x: 60, y: 331, width: 242, height: 34 }, style);
   const roles = Array.isArray(data.serverRoles) ? data.serverRoles : [];
   (roles.length ? roles.slice(0, 3) : ['No roles to display']).forEach((role, i) => {
     drawFittedLine(ctx, '• ' + role, { x: 60, y: 369 + i * 34, width: 242 }, {
-      fontSize: 23, minFontSize: 17, family: style.fontFamily, color: style.text,
+      fontSize: 23, minFontSize: 17, family: style.fontFamily, weight: style.bodyFontWeight, color: style.text,
     });
   });
 
   drawLabel(ctx, 'Looking for trades', { x: 60, y: 500, width: 244, height: 34 }, style);
   drawFittedLine(ctx, data.lookingForTrades ? 'Yes' : 'No',
     { x: 60, y: 539, width: 240 }, {
-      fontSize: 37, minFontSize: 30, family: style.fontFamily, color: style.accentDark,
+      fontSize: 37, minFontSize: 30, family: style.fontFamily, weight: style.bodyFontWeight, color: style.accentDark,
     });
 
   drawLabel(ctx, 'About me', { x: 355, y: 323, width: 770, height: 35 }, style);
   drawWrappedText(ctx, data.bio || 'Add a bio to tell everyone a little about yourself.',
     { x: 355, y: 367, width: 785, height: 102 }, {
       fontSize: 34, minFontSize: 22, lineHeight: 42, maxLines: 3,
-      family: style.fontFamily, color: style.text,
+      family: style.fontFamily, weight: style.bodyFontWeight, color: style.text,
     });
 
   // A real photo has no backing panel; without one the background stays visible.
@@ -575,7 +581,7 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerIm
   }
   drawFittedLine(ctx, data.footer || 'Made for the community',
     { x: 60, y: 692, width: 242 }, {
-      fontSize: 22, minFontSize: 16, family: style.fontFamily, color: style.mutedText,
+      fontSize: 22, minFontSize: 16, family: style.fontFamily, weight: style.bodyFontWeight, color: style.mutedText,
     });
 
   // Decorations intentionally remain free to overlap text.
@@ -732,7 +738,8 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     ? { ...r.title, x: r.title.x + 10, y: r.title.y + 8, width: r.title.width - 34 }
     : r.title, {
     fontSize: images.background ? 57 : 66, minFontSize: 25,
-    family: '\"AM Unicode Symbols\", ' + style.titleFontFamily, color: style.accentDark,
+    family: '\"AM Unicode Symbols\", ' + style.titleFontFamily,
+    weight: style.titleFontWeight, color: style.accentDark,
   });
 
   drawWrappedText(
@@ -744,7 +751,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     {
       fontSize: 44,
       minFontSize: 34,
-      family: style.fontFamily,
+      family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.mutedText,
       maxLines: 1,
     }
@@ -755,7 +762,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
   const roles = Array.isArray(data.serverRoles) ? data.serverRoles : [];
   if (!roles.length) {
     drawFittedLine(ctx, 'No roles to display', r.rolesRows[0], {
-      fontSize: 23, minFontSize: 18, family: style.fontFamily,
+      fontSize: 23, minFontSize: 18, family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.mutedText,
     });
   } else {
@@ -766,7 +773,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
         ? role + ' (+' + remaining + ')'
         : role;
       drawFittedLine(ctx, '• ' + text, r.rolesRows[index], {
-        fontSize: 24, minFontSize: 18, family: style.fontFamily,
+        fontSize: 24, minFontSize: 18, family: style.fontFamily, weight: style.bodyFontWeight,
         color: style.text,
       });
     });
@@ -784,7 +791,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     {
       fontSize: 44,
       minFontSize: 34,
-      family: style.fontFamily,
+      family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.accentDark,
       maxLines: 2,
     }
@@ -794,7 +801,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
   drawFittedLine(ctx, 'Roblox: ' + (data.robloxUsername || 'Not added yet'), r.robloxLine, {
     fontSize: 38,
     minFontSize: 22,
-    family: style.fontFamily,
+    family: style.fontFamily, weight: style.bodyFontWeight,
     color: style.mutedText,
   });
 
@@ -810,7 +817,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     {
       fontSize: 48,
       minFontSize: 34,
-      family: style.fontFamily,
+      family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.text,
       lineHeight: 68,
       maxLines: 6,
@@ -843,7 +850,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
       );
     } else {
       ctx.fillStyle = style.mutedText;
-      ctx.font = `40px ${style.fontFamily}`;
+      ctx.font = `${style.bodyFontWeight} 40px ${style.fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
   
@@ -873,7 +880,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     {
       fontSize: 32,
       minFontSize: 26,
-      family: style.fontFamily,
+      family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.mutedText,
       maxLines: 2,
     }
@@ -928,7 +935,10 @@ export async function renderPostImage({
   style = {},
   appearance = {},
 } = {}) {
-  if (type === 'profile') await ensureSymbolFont();
+  if (type === 'profile') {
+    registerAppearanceFonts();
+    await ensureSymbolFont();
+  }
   const layout = POST_LAYOUTS[type];
 
   if (!layout) {
@@ -936,7 +946,8 @@ export async function renderPostImage({
   }
 
   const resolvedAppearance = resolveAppearance(appearance);
-  const font = APPEARANCE_CATALOG.fonts[resolvedAppearance.font];
+  const headerFont = APPEARANCE_CATALOG.fonts[resolvedAppearance.headerFont];
+  const bodyFont = APPEARANCE_CATALOG.fonts[resolvedAppearance.bodyFont];
   const backgroundItem = appearanceCatalogItem('backgrounds', resolvedAppearance.background);
   const selectedPanel = appearanceCatalogItem('panels', resolvedAppearance.panelColor);
   // Default lettering remains legible on both explicit dark panels and
@@ -952,8 +963,13 @@ export async function renderPostImage({
   const resolvedStyle = {
     ...DEFAULT_POST_STYLE,
     ...style,
-    fontFamily: font.family,
-    titleFontFamily: font.titleFamily,
+    fontFamily: bodyFont.family,
+    bodyFontWeight: bodyFont.weight || 'normal',
+    labelFontFamily: headerFont.family,
+    labelFontWeight: headerFont.weight || 'normal',
+    titleFontFamily: headerFont.titleFamily,
+    titleFontWeight: headerFont.weight || 'normal',
+    customHeading: resolvedAppearance.headerFont !== 'default',
     ...colors,
     ...matchedPalette,
     panelOpacity: resolvedAppearance.panelOpacity,
