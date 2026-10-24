@@ -255,6 +255,13 @@ function topThree(category) {
   // the new premium item IDs. featuredCards() and storefrontCategoryPayload()
   // below already render up to three large examples automatically.
   if (category === "backgrounds" || category === "panels") return [];
+  if (category === "frames") {
+    // Only ornate premium frames are featured on the public shop post.
+    // Basic/free frames remain in the catalog and can be tried on privately.
+    const items = itemsFor("frames");
+    return ["silverFloral", "goldCelestial", "blackKnight"]
+      .map(id => items.find(item => item.id === id)).filter(Boolean);
+  }
 
   const items = itemsFor(category);
   return [...items].sort((a, b) => b.price - a.price || a.id.localeCompare(b.id)).slice(0, 3);
@@ -262,7 +269,7 @@ function topThree(category) {
 function sortedItems(category) {
   // Classic colors are browsed in color-wheel order, with the three variants
   // together, instead of being scattered alphabetically or by price.
-  if (category === "backgrounds" || category === "panels") return itemsFor(category);
+  if (["backgrounds", "panels", "frames"].includes(category)) return itemsFor(category);
   return [...(category ? itemsFor(category) : shopItems())]
     .sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
 }
