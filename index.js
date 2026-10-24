@@ -67,6 +67,8 @@ import { execute as executeSetup, data as setupCommand } from "./commands/setup.
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
 import { execute as executePointsAdmin, data as pointsAdminCommand } from "./commands/points-admin.js";
+import { execute as executePointsObserve, data as pointsObserveCommand } from "./commands/points-observe.js";
+import { observeNativePollVote, parseNativePollEvent } from "./services/participation-observer.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
   execute as executeMigrateOldPosts,
@@ -94,7 +96,10 @@ if (!token || !mongoUri) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages],
+  // Native Discord poll votes use the unprivileged GuildMessagePolls intent.
+  // Message Content is deliberately NOT requested for this observation phase.
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildMessagePolls],
   partials: [Partials.Channel],
 });
 
@@ -120,6 +125,16 @@ client.on(Events.ShardReady, shardId => {
   console.log(`[Discord] Shard ${shardId} received READY.`);
 });
 
+// Raw native-poll events include guild, message, voter and answer IDs even
+// when a poll predates startup and its original message is not in cache.
+client.on(Events.Raw, packet => {
+  const parsed = parseNativePollEvent(packet);
+  if (!parsed) return;
+  observeNativePollVote(parsed).catch(error => {
+    console.error("[Points observe] Could not record native Discord poll vote:", error);
+  });
+});
+
 let discordReadyTimeout;
 
 const commandHandlers = new Map([
@@ -134,6 +149,7 @@ const commandHandlers = new Map([
   [shopCommand.name, executeShop],
   [testPointsCommand.name, executeTestPoints],
   [pointsAdminCommand.name, executePointsAdmin],
+  [pointsObserveCommand.name, executePointsObserve],
   [helpCommand.name, executeHelp],
   ["migrate_old_posts", executeMigrateOldPosts],
 ]);
@@ -432,6 +448,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         shopCommand.name,
         testPointsCommand.name,
         pointsAdminCommand.name,
+        pointsObserveCommand.name,
         profileCleanupCommand.name,
         profileRefreshCommand.name,
       ].includes(interaction.commandName)
