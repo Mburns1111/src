@@ -15,6 +15,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import HouseListing from "../models/HouseListing.js";
 import OutfitListing from "../models/OutfitListing.js";
 import TradingPost from "../models/TradingPost.js";
+import { awardMilestoneSafely } from "../services/points-rewards.js";
 import UserProfile from "../models/UserProfile.js";
 import { discordMessageUrl } from "./shared.js";
 import { UserFacingError } from "./errors.js";
@@ -623,5 +624,7 @@ export async function handleTradingPostModal(interaction) {
     content: `Your Trading Post card is ready: ${message.url}`,
     allowedMentions: { parse: [] },
   });
+  await awardMilestoneSafely(interaction.guildId, ownerId,
+    "tradingPostFirstPublished", String(post._id));
 }
 
