@@ -103,12 +103,12 @@ function classicColorChart(category) {
       const option = CLASSIC_COLOR_OPTIONS[row * 3 + column];
       const x = xPositions[column], y = rowY + 33;
       ctx.fillStyle = option.hex;
-      ctx.beginPath();
-      ctx.roundRect(x, y, tileWidth, 82, 11);
-      ctx.fill();
+      // Rectangles are supported on all @napi-rs/canvas versions used by
+      // our hosts; a subtle border keeps pale/white swatches distinct.
+      ctx.fillRect(x, y, tileWidth, 82);
       ctx.lineWidth = 1;
       ctx.strokeStyle = "rgba(35,45,38,.15)";
-      ctx.stroke();
+      ctx.strokeRect(x, y, tileWidth, 82);
 
       const ink = option.dark ? "#FFFFFF" : "#232B26";
       ctx.fillStyle = ink;
