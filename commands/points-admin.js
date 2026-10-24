@@ -10,6 +10,7 @@ import { BULK_REASON_CHOICES, parseBulkRecipients, bulkAwardDetails } from "../s
 import { parseGuildMessageLink, syncNativePoll } from "../services/participation-observer.js";
 import { awardObservedPollVoters, POLL_POINTS_PER_POLL, POLL_WEEKLY_CAP } from "../services/poll-rewards.js";
 import ParticipationSource from "../models/ParticipationSource.js";
+import { scanAndAwardMessages, MESSAGE_SCAN_MAX_HOURS } from "../services/message-reward-scan.js";
 import PointsActivityCounter from "../models/PointsActivityCounter.js";
 import PointsVoiceProgress from "../models/PointsVoiceProgress.js";
 import { activityPeriod, MESSAGE_BASE_POINTS, MESSAGE_COOLDOWN_MS,
@@ -68,6 +69,13 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(c => c.setName("poll-disable")
     .setDescription("Stop further rewards from one approved native poll")
     .addStringOption(o => o.setName("link").setDescription("Discord native poll message link").setRequired(true)))
+  .addSubcommand(c => c.setName("scan-messages")
+    .setDescription("Preview or credit missed qualifying messages across readable server channels")
+    .addIntegerOption(o => o.setName("hours")
+      .setDescription("How far back to scan (default 24 hours, max 168)")
+      .setMinValue(1).setMaxValue(MESSAGE_SCAN_MAX_HOURS))
+    .addBooleanOption(o => o.setName("apply")
+      .setDescription("Default false: preview only. True: actually credit members")))
   .addSubcommand(c => c.setName("history")
     .setDescription("See recent credits recorded for one member")
     .addUserOption(o => o.setName("member").setRequired(true)
@@ -96,6 +104,35 @@ export async function execute(interaction) {
         `\n\n**Repeatable activity** (test opt-in): Messages **${settings?.messageRewardsEnabled ? "ON" : "OFF"}**, Voice **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**.\n**No overall daily, weekly, or first-week activity Points cap.** First 7 days after joining: **2×** chat/voice rewards. Members continue earning qualifying activity afterward.\nMessages: ${MESSAGE_BASE_POINTS} base Points, one eligible message every ${MESSAGE_COOLDOWN_MS / 60000} minutes, no daily or weekly Points cap. Voice: ${VOICE_BASE_POINTS} base Points each ${VOICE_INTERVAL_MINUTES} eligible minutes with at least two non-deafened humans.\nApproved native polls: ${POLL_POINTS_PER_POLL} Points, maximum ${POLL_WEEKLY_CAP} per UTC week (poll-specific anti-farming rule). No shared activity ceiling.\nVerified invites are still planned: ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month). Manual grants and milestones are also uncapped.\nYour existing shop balance UI remains unchanged.`,
       allowedMentions: { parse: [] },
     });
+    return;
+  }
+  if (op === "scan-messages") {
+    const hours = interaction.options.getInteger("hours") ?? 24;
+    const apply = interaction.options.getBoolean("apply") ?? false;
+    let result;
+    try {
+      result = await scanAndAwardMessages({
+        guild: interaction.guild, manager: interaction.member,
+        actorId, hours, apply,
+      });
+    } catch (error) {
+      console.error("[Points] Staff message scan failed:", error);
+      throw new UserFacingError(error.message || "Could not complete the server message scan.");
+    }
+    const lines = [
+      `**${apply ? "Message rewards applied" : "Message rewards preview — no Points changed"}**`,
+      `Window: last ${hours} hour(s), excluding the most recent 30 minutes to avoid overlapping live rewards.`,
+      `Channels scanned: **${result.channels}** · inaccessible/unsupported: **${result.skippedInaccessible}**`,
+      `Messages examined: **${result.totalFetched}**`,
+      `Qualifying unpaid message rewards: **${result.candidates}**, across **${result.recipientCount}** members`,
+      `Potential Points: **${result.plannedPoints}**`,
+      ...(apply ? [
+        `Actually credited: **${result.credited}** messages, **+${result.points} Points**`,
+        `Failed credits: **${result.failed}** (check bot logs if nonzero)`,
+      ] : ["No rewards were sent. Run again with apply: true after reviewing the preview."]),
+      "Re-runs skip already-paid messages. No weekly message or voice cap applies.",
+    ];
+    await interaction.editReply({ content: lines.join("\n"), allowedMentions: { parse: [] } });
     return;
   }
   if (op === "activity-toggle") {
