@@ -972,7 +972,7 @@ function mixItemEntries(category, ownership = null) {
     });
 }
 
-function mixEditorChrome(context, panel, mix, ownership, quote, balance) {
+export function mixEditorChrome(context, panel, mix, ownership, quote, balance) {
   const category = SHOP_MIX_CATEGORIES.includes(panel.shopMixCategory)
     ? panel.shopMixCategory : "backgrounds";
   const rows = [
