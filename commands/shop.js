@@ -27,7 +27,7 @@ import {
 } from "../services/custom-colors.js";
 import { UserFacingError } from "./errors.js";
 import { STICKER_CATALOG, isStickerForSale } from "../services/sticker-catalog.js";
-import { shopDirectorySlice, shopItemIndexById, shopColorFamilyDirectory, shopColorDirectorySelection } from "../services/shop-navigation.js";
+import { shopDirectorySlice, shopItemIndexById, shopColorFamilyDirectory, shopColorDirectorySelection, shopPurchaseTargetMatches } from "../services/shop-navigation.js";
 import { isClassicShopItem, classicShowcaseItems, complexShowcaseItems, SHOP_PRESENTATION_RULES } from "../services/shop-presentation.js";
 import { renderClassicFrameSheet, renderClassicFontSheet, renderClassicStickerSheet, renderClassicTextColorSheet } from "../services/shop-showcase-sheets.js";
 import { requireGuild } from "./shared.js";
@@ -1649,8 +1649,7 @@ async function handleShopDM(interaction) {
   // confirmation would charge for. Older non-sticker controls without IDs remain
   // compatible; newly generated purchase buttons always carry their item ID.
   if (["buy", "confirm"].includes(action) &&
-      (category === "stickers" || expectedItemId !== undefined) &&
-      sortedItems(category)[index]?.id !== expectedItemId) {
+      !shopPurchaseTargetMatches(category, sortedItems(category)[index]?.id, expectedItemId)) {
     throw new UserFacingError("The shop catalog changed. Reopen the category to choose the correct item.");
   }
   let destination = index;
