@@ -19,6 +19,7 @@ const memberDmPanelSchema = new mongoose.Schema({
   shopPreviewMix: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   // View state of the live Mix & Match try-on, independent of equipped styles.
   shopMixCategory: { type: String, default: "backgrounds" },
+  shopMixOptionPage: { type: Number, default: 0 },
   shopMixReturnCategory: { type: String, default: "backgrounds" },
   shopMixReturnIndex: { type: Number, default: 0 },
 }, { timestamps: true });
