@@ -60,6 +60,16 @@ Before testing, stop the Replit bot, `git pull --ff-only origin feature/profile-
 - [ ] Restart Replit; bought items, shop DM, pending profile drafts, and Points are still correct.
 - [ ] Invalid/stale purchase buttons show an error instead of debiting a different item.
 
+## B2. Free matching versus owned Classic panels
+- [ ] A test user who buys **Rose Dark background** but not **Rose Dark panel** can equip Rose Dark background and select **Match background (free)**; the panel visually follows Rose Dark.
+- [ ] Switching to another owned background, such as Yellow Pastel, while still on **Match background** makes the panels follow the **new** background; it does not retain Rose Dark.
+- [ ] Rose Dark panel is still **locked** in the panel-color editor until purchased independently, even when Rose Dark background is owned.
+- [ ] An old saved appearance trying Rose Dark panel as an explicit panel ID without owning that panel is reset to the free Classic Gray panel on render/save, not a free borrowed Rose Dark panel.
+- [ ] Purchasing **Rose Dark panel** separately then permits pairing it with **Yellow Pastel background** (or another owned background).
+- [ ] In **Preview Multiple**, selecting Rose Dark background + **Match Background · Free** includes only the background price in Purchase All. Selecting Rose Dark background + explicit Rose Dark panel includes **both** charges unless the panel is already owned.
+- [ ] Owning a background never silently adds a matching panel item to permanent inventory; no extra Points are charged for dynamic matching.
+- [ ] Free Starter Sage / unowned color choices cannot be used to equip an unowned background through matching.
+
 ## C. Custom HEX colors (backgrounds, panels, text)
 - [ ] Backgrounds > Custom HEX: enter `#A1B2C3`, preview on your own profile; **225 Points** to buy.
 - [ ] Panels > Custom HEX: enter `#DCA4F0`, preview; **150 Points** to buy.
