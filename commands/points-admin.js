@@ -35,7 +35,7 @@ export const data = new SlashCommandBuilder()
     .addBooleanOption(o => o.setName("enabled").setDescription("Allow activity Points from this source?")
       .setRequired(true)))
   .addSubcommand(c => c.setName("activity-status")
-    .setDescription("Show a member's repeatable Points and weekly remaining cap")
+    .setDescription("Show a member's repeatable Points earned this period")
     .addUserOption(o => o.setName("member").setDescription("Member to check").setRequired(true)))
   .addSubcommand(c => c.setName("milestone")
     .setDescription("Adjust one milestone reward for this server")
@@ -93,7 +93,7 @@ export async function execute(interaction) {
     await interaction.editReply({
       content: `**Points milestones: ${settings?.milestonesEnabled === false ? "PAUSED" : "ENABLED"}**\n` +
         lines.join("\n") +
-        `\n\n**Repeatable activity** (test opt-in): Messages **${settings?.messageRewardsEnabled ? "ON" : "OFF"}**, Voice **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**.\n**No overall daily, weekly, or first-week activity Points cap.** First 7 days after joining: **2×** chat/voice rewards. Members continue earning qualifying activity afterward.\nMessages: ${MESSAGE_BASE_POINTS} base Points, one eligible message every ${MESSAGE_COOLDOWN_MS / 60000} minutes, no daily message limit (combined activity cap still applies). Voice: ${VOICE_BASE_POINTS} base Points each ${VOICE_INTERVAL_MINUTES} eligible minutes with at least two non-deafened humans.\nApproved native polls: ${POLL_POINTS_PER_POLL} Points, maximum ${POLL_WEEKLY_CAP} per UTC week (poll-specific anti-farming rule). No shared activity ceiling.\nVerified invites are still planned: ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month). Manual grants and milestones are outside activity caps.\nYour existing shop balance UI remains unchanged.`,
+        `\n\n**Repeatable activity** (test opt-in): Messages **${settings?.messageRewardsEnabled ? "ON" : "OFF"}**, Voice **${settings?.voiceRewardsEnabled ? "ON" : "OFF"}**.\n**No overall daily, weekly, or first-week activity Points cap.** First 7 days after joining: **2×** chat/voice rewards. Members continue earning qualifying activity afterward.\nMessages: ${MESSAGE_BASE_POINTS} base Points, one eligible message every ${MESSAGE_COOLDOWN_MS / 60000} minutes, no daily or weekly Points cap. Voice: ${VOICE_BASE_POINTS} base Points each ${VOICE_INTERVAL_MINUTES} eligible minutes with at least two non-deafened humans.\nApproved native polls: ${POLL_POINTS_PER_POLL} Points, maximum ${POLL_WEEKLY_CAP} per UTC week (poll-specific anti-farming rule). No shared activity ceiling.\nVerified invites are still planned: ${POINTS_ACTIVITY_TARGETS.invitationReward} after 7 days (maximum 2/month). Manual grants and milestones are also uncapped.\nYour existing shop balance UI remains unchanged.`,
       allowedMentions: { parse: [] },
     });
     return;
