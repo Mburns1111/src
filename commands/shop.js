@@ -16,6 +16,7 @@ import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js"
 import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
 import { openAppearanceDMFromShop, ensureProfileCard, ensureProfileRecord } from "./profile.js";
 import { shopItems } from "../services/shop-catalog.js";
+import { awardMilestoneSafely } from "../services/points-rewards.js";
 import { getAppearanceOwnership, ownsAppearanceItem, filterOwnedAppearance, FREE_APPEARANCE } from "../services/appearance-ownership.js";
 import { APPEARANCE_CATALOG, DEFAULT_APPEARANCE, appearanceCatalogItem, resolveAppearance } from "../services/post-appearance.js";
 import { renderPostImage } from "../services/post-renderer.js";
@@ -1277,6 +1278,8 @@ export async function ensureMemberShopDM(guild, user, category = categories()[0]
     // refreshes the Points/owned state on the *same* permanent DM message.
     await result.message.edit(await dmCategoryIndex(context, category));
   }
+  // The DM really exists before the one-time shop milestone is credited.
+  await awardMilestoneSafely(guild.id, user.id, "shopFirstBrowse", result.message.id);
   return result;
 }
 async function sendShopDM(interaction, category) {
@@ -1523,6 +1526,8 @@ async function handleShopDM(interaction) {
       panel.shopPendingMixEquip = null;
       panel.markModified("shopPendingMixEquip");
       await panel.save();
+      await awardMilestoneSafely(guildId, interaction.user.id,
+        "profileFirstCustomization", "shop-equip-all");
       const refreshed = await dmMixEditor(context, panel);
       refreshed.content = "✅ **Equipped All!** Your public profile card has been updated.\\n\\n" +
         refreshed.content;
