@@ -1,6 +1,7 @@
 import {
   CLASSIC_COLOR_OPTIONS, STANDARD_BACKGROUND_ID, STANDARD_PANEL_ID, STANDARD_PANEL_OPACITY,
 } from "./classic-colors.js";
+import { customColorDefinition } from "./custom-colors.js";
 
 /**
  * Appearance catalog for Canvas posts. IDs are stable shop inventory keys.
@@ -77,7 +78,13 @@ export const DEFAULT_APPEARANCE = Object.freeze({
   panelOpacity: STANDARD_PANEL_OPACITY,
 });
 
-const select = (category, id) => APPEARANCE_CATALOG[category][id] ? id
+// Catalog entries are static, but an individually purchased HEX code has its
+// color embedded in its ID; synthesize its safe rendering definition on demand.
+export function appearanceCatalogItem(category, id) {
+  return APPEARANCE_CATALOG[category]?.[id] || customColorDefinition(category, id);
+}
+
+const select = (category, id) => appearanceCatalogItem(category, id) ? id
   : category === "backgrounds" ? STANDARD_BACKGROUND_ID
   : category === "panels" ? STANDARD_PANEL_ID : "default";
 
