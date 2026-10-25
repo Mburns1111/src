@@ -24,6 +24,9 @@ const userProfileSchema = new mongoose.Schema(
     lookingForTrades: { type: Boolean, default: false },
     inventoryVideoUrl: { type: String, default: "" },
     inventoryVideoAsset: { type: mediaAssetSchema, default: null },
+    // Only records which manager imported the first inventory entry; ownership
+    // remains discordUserId. Member replacements use their existing workflow.
+    inventoryVideoImportedById: { type: String, default: "" },
     inventoryVideoPostChannelId: { type: String, default: "" },
     inventoryVideoPostMessageId: { type: String, default: "" },
     profileCardChannelId: { type: String, default: "" },
