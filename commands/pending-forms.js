@@ -1,4 +1,6 @@
 import PendingForm from "../models/PendingForm.js";
+import HouseListing from "../models/HouseListing.js";
+import OutfitListing from "../models/OutfitListing.js";
 
 export async function trackPendingForm({
   guildId,
@@ -82,7 +84,25 @@ export async function cleanupPendingForms(guild) {
       channel = await guild.channels.fetch(pendingForm.channelId);
       message = await channel?.messages?.fetch(pendingForm.messageId);
       if (hasCreateButton(message, pendingForm)) {
-        await message.delete();
+        const control = message.components.flatMap(row => row.components)
+          .find(button => button.customId?.startsWith(
+            `${pendingForm.type}:new:${pendingForm.ownerId}`,
+          ));
+        const PublishingModel = pendingForm.type === "house" ? HouseListing
+          : pendingForm.type === "outfit" ? OutfitListing : null;
+        const staged = PublishingModel
+          ? await PublishingModel.exists({
+            guildId: guild.id, postChannelId: pendingForm.channelId,
+            postMessageId: pendingForm.messageId, publicationState: "staging",
+          }) : null;
+        if (staged || control?.disabled) {
+          // A disabled create button might belong to a submission interrupted
+          // during the modal. Do not destroy its only Discord evidence.
+          console.warn("[Pending form] Retaining interrupted submission for manual recovery",
+            pendingForm.type, pendingForm.messageId);
+          continue;
+        }
+        if (message.author?.id === guild.client.user.id) await message.delete();
       }
     } catch (error) {
       if (![10003, 10008].includes(Number(error?.code))) {

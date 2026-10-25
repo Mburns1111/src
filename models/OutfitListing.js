@@ -16,6 +16,11 @@ const outfitListingSchema = new mongoose.Schema(
     postAppearance: { type: mongoose.Schema.Types.Mixed, default: null },
     postChannelId: { type: String, default: "" },
     postMessageId: { type: String, default: "" },
+    // New posts begin in staging. Older records without this field are
+    // treated as published so existing members' listings are unaffected.
+    publicationState: { type: String, enum: ["staging", "published"], default: "published" },
+    expectedPhotoCount: { type: Number, default: 0 },
+    expectedVideoCount: { type: Number, default: 0 },
     // Styled PNG lives in a bot reply, preserving all ten gallery slots.
     styleCardMessageId: { type: String, default: "" },
     galleryMessageId: { type: String, default: "" },

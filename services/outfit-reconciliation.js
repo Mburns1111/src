@@ -21,7 +21,7 @@ export function isDeletedDiscordChannel(error) {
 export async function checkOutfitListingMessage(
   guild, listing, { ListingModel = OutfitListing } = {},
 ) {
-  if (listing.status !== "active" || !listing.postChannelId || !listing.postMessageId) {
+  if ((listing.status !== "active" || listing.publicationState === "staging") || !listing.postChannelId || !listing.postMessageId) {
     return { state: "unavailable", reason: "The original outfit message is not published." };
   }
   const markMissing = async () => {
@@ -86,7 +86,7 @@ export async function reconcileOutfitsForGuild(guild, {
   refresh = refreshOutfitStyleCard,
 } = {}) {
   const listings = records ?? await OutfitListing.find({
-    guildId: guild.id, status: "active",
+    guildId: guild.id, status: "active", publicationState: { $ne: "staging" },
     postChannelId: { $type: "string", $ne: "" },
     postMessageId: { $type: "string", $ne: "" },
   }).sort({ createdAt: 1, _id: 1 });
@@ -129,7 +129,7 @@ export async function findCustomizableOutfits(guild, ownerId, {
   check = checkOutfitListingMessage,
 } = {}) {
   const candidates = records ?? await OutfitListing.find({
-    guildId: guild.id, ownerId, status: "active",
+    guildId: guild.id, ownerId, status: "active", publicationState: { $ne: "staging" },
     postChannelId: { $type: "string", $ne: "" },
     postMessageId: { $type: "string", $ne: "" },
   }).sort({ createdAt: -1, _id: -1 }).lean();

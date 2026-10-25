@@ -2,7 +2,7 @@ import HouseListing from "../models/HouseListing.js";
 import { refreshHouseStyleCard } from "./house-card.js";
 import { houseMediaNeedsRepair, houseVideoAssets } from "./house-media.js";
 export async function checkHousePost(guild, listing) {
-  if (!listing?.postChannelId || !listing?.postMessageId || listing.status !== "active") {
+  if (!listing?.postChannelId || !listing?.postMessageId || (listing.status !== "active" || listing.publicationState === "staging")) {
     return { state: "unavailable" };
   }
   let channel;
@@ -15,7 +15,7 @@ export async function checkHousePost(guild, listing) {
   } catch (error) {
     if (![10003, 10008].includes(Number(error?.code))) return { state: "unavailable", error };
     await HouseListing.updateOne({
-      _id: listing._id, guildId: guild.id, status: "active",
+      _id: listing._id, guildId: guild.id, status: "active", publicationState: { $ne: "staging" },
       postMessageId: listing.postMessageId,
     }, { $set: { status: "missing", missingAt: new Date() } });
     return { state: "missing" };
@@ -23,7 +23,7 @@ export async function checkHousePost(guild, listing) {
 }
 export async function findCustomizableHouses(guild, ownerId) {
   const candidates = await HouseListing.find({
-    guildId: guild.id, ownerId, status: "active",
+    guildId: guild.id, ownerId, status: "active", publicationState: { $ne: "staging" },
     postChannelId: { $ne: "" }, postMessageId: { $ne: "" },
   }).sort({ createdAt: -1, _id: -1 }).lean();
   const available = [];
