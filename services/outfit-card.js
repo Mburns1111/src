@@ -5,6 +5,7 @@ import { displayListingAppearance } from "./listing-appearance.js";
 import { getAppearanceOwnership } from "./appearance-ownership.js";
 import { outfitCardData } from "./outfit-style.js";
 import { renderPostImage } from "./post-renderer.js";
+import { ensureOutfitControls } from "./outfit-controls.js";
 import {
   OUTFIT_BANNER_NAME, isGalleryPhoto, isGalleryVideo, mergeOriginalMedia,
 } from "./outfit-gallery-utils.js";
@@ -94,6 +95,15 @@ export async function refreshOutfitStyleCard(guild, listing) {
     if (!liveVideos.every(video => actualVideos.has(video.id))) {
       throw new Error("Discord failed to preserve all existing outfit videos.");
     }
+
+    // Only AFTER the gallery exists do we append actions beneath it.
+    // Keep the old banner actions until the third post is confirmed, so
+    // a failed controls send never strands an outfit without its buttons.
+    await ensureOutfitControls(guild, listing, { channel });
+    await updated.edit({
+      components: [],
+      allowedMentions: { parse: [] },
+    });
 
     // Keep original stored media metadata for ownership, counting and
     // recovery; it is NOT repopulated with only the banner attachment.
