@@ -30,7 +30,8 @@ test("already-updated embedded houses remain unchanged and old embeds get conver
   assert.equal(houseNeedsFormatUpgrade(listing({ cardLayoutVersion: 1 }), correct), true,
     "Older tall house artwork must be re-rendered on startup");
   assert.equal(houseNeedsFormatUpgrade(listing(), { ...correct, embeds: [{ title: "legacy" }] }), true);
-  assert.equal(houseNeedsFormatUpgrade(listing(), { ...correct, attachments: new Map() }), true);
+  assert.equal(houseNeedsFormatUpgrade(listing(), { ...correct, attachments: new Map() }), false,
+    "Discord can hide art attachments after rendering them in an image embed");
 });
 test("startup upgrades old houses but leaves unavailable and already-current records alone", async () => {
   const a = listing({ _id: "a".repeat(24) });
