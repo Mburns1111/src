@@ -9,6 +9,7 @@ import {
 } from "./outfit.js";
 import { getConfiguredTextChannel, requireGuild, validateOptionalWebUrl } from "./shared.js";
 import { UserFacingError } from "./errors.js";
+import { refreshTradingPostCard } from "./trading-post.js";
 
 const TICKET_LIFETIME_MS = 20 * 60 * 1000;
 const importTickets = new Map();
@@ -195,6 +196,11 @@ export async function handleAdminImportModal(interaction) {
     const ensure = type === "house" ? ensureHouseEntry : ensureOutfitEntry;
     await ensure(interaction.guild, channel, { moveToBottom: true }).catch(error =>
       console.warn("[Admin import] Could not reposition channel entry:", error));
+    // A member's existing Trading Post should reflect the imported listing
+    // just as it does after the member posts normally. A refresh failure is
+    // optional and must not invalidate a successfully published import.
+    await refreshTradingPostCard(interaction.guild, ownerId).catch(error =>
+      console.warn("[Admin import] Could not refresh member Trading Post:", error));
     await interaction.editReply({
       content: complete
         ? "Imported " + type + " listing for <@" + ownerId + ">: " + post.url +
