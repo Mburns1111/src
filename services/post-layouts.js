@@ -12,14 +12,14 @@ export const POST_LAYOUTS = {
     height: 800,
     safePadding: 48,
     regions: {
-      title: { x: 344, y: 80, width: 810, height: 90 },
-      subtitle: { x: 348, y: 176, width: 810, height: 60 },
+      // Display name is already the headline: no duplicate Discord username.
+      title: { x: 344, y: 70, width: 810, height: 80 },
 
       avatar: { x: 66, y: 74, width: 230, height: 230 },
 
       usernameLabel: { x: 60, y: 324, width: 250, height: 50 },
       username: { x: 60, y: 378, width: 250, height: 100 },
-      robloxLine: { x: 348, y: 239, width: 810, height: 48 },
+      robloxLine: { x: 348, y: 160, width: 810, height: 48 },
       rolesLabel: { x: 60, y: 318, width: 250, height: 38 },
       rolesRows: [
         { x: 60, y: 356, width: 250, height: 32 },
@@ -30,8 +30,9 @@ export const POST_LAYOUTS = {
       tradeLabel: { x: 60, y: 486, width: 250, height: 50 },
       tradeStatus: { x: 60, y: 538, width: 250, height: 100 },
 
-      bioLabel: { x: 348, y: 302, width: 810, height: 42 },
-      bio: { x: 348, y: 351, width: 810, height: 126 },
+      // Use the reclaimed header row to show more of the About Me text.
+      bioLabel: { x: 348, y: 224, width: 810, height: 42 },
+      bio: { x: 348, y: 270, width: 810, height: 210 },
 
       // Larger photo area.
       photo: { x: 348, y: 492, width: 810, height: 248 },

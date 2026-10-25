@@ -485,10 +485,10 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerIm
   // the lighter shade blended into the background at the glass opacity.
   const selectedPanelTheme = appearance.panelColor !== 'match' &&
     Boolean(appearanceCatalogItem('panels', appearance.panelColor)?.palette);
-  glassPanel(ctx, 335, 54, 831, 240, style, selectedPanelTheme);
+  glassPanel(ctx, 335, 54, 831, 158, style, selectedPanelTheme);
   glassPanel(ctx, 44, 317, 272, 157, style, true);
   glassPanel(ctx, 44, 486, 272, 115, style, true);
-  glassPanel(ctx, 335, 308, 831, 174, style, selectedPanelTheme);
+  glassPanel(ctx, 335, 224, 831, 258, style, selectedPanelTheme);
   glassPanel(ctx, 44, 674, 272, 70, style, true);
 
   const avatar = { x: 66, y: 65, width: 228, height: 228 };
@@ -520,12 +520,10 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerIm
        weight: style.titleFontWeight,
       color: style.accentDark,
     });
-  drawFittedLine(ctx, 'Discord: ' + (data.discordUsername || 'Member'),
-    { x: 358, y: 170, width: 770 }, {
-      fontSize: 36, minFontSize: 22, family: style.fontFamily, weight: style.bodyFontWeight, color: style.mutedText,
-    });
+  // Discord username is already represented by the preferred display name
+  // above. The reclaimed space goes to About Me instead.
   drawFittedLine(ctx, 'Roblox: ' + (data.robloxUsername || 'Not added yet'),
-    { x: 358, y: 230, width: 770 }, {
+    { x: 358, y: 155, width: 770 }, {
       fontSize: 30, minFontSize: 20, family: style.fontFamily, weight: style.bodyFontWeight, color: style.mutedText,
     });
 
@@ -543,10 +541,10 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerIm
       fontSize: 37, minFontSize: 30, family: style.fontFamily, weight: style.bodyFontWeight, color: style.accentDark,
     });
 
-  drawLabel(ctx, 'About me', { x: 355, y: 323, width: 770, height: 35 }, style);
+  drawLabel(ctx, 'About me', { x: 355, y: 238, width: 770, height: 35 }, style);
   drawWrappedText(ctx, data.bio || 'Add a bio to tell everyone a little about yourself.',
-    { x: 355, y: 367, width: 785, height: 102 }, {
-      fontSize: 34, minFontSize: 22, lineHeight: 42, maxLines: 3,
+    { x: 355, y: 278, width: 785, height: 197 }, {
+      fontSize: 33, minFontSize: 20, lineHeight: 39, maxLines: 8,
       family: style.fontFamily, weight: style.bodyFontWeight, color: style.text,
     });
 
@@ -610,10 +608,10 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     fillRoundedRect(ctx, 328, 40, width - 348, height - 80, style.panelRadius, style.panel);
   } else {
     // Group related information instead of giving every line a separate box.
-    glassPanel(ctx, 332, 58, 840, 232, style);
+    glassPanel(ctx, 332, 58, 840, 155, style);
     glassPanel(ctx, 44, 310, 272, 166, style, true);
     glassPanel(ctx, 44, 486, 272, 112, style, true);
-    glassPanel(ctx, 332, 304, 840, 182, style);
+    glassPanel(ctx, 332, 224, 840, 260, style);
     glassPanel(ctx, 44, 676, 272, 65, style, true);
   }
 
@@ -706,7 +704,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
   // Preserve the member's exact decorative display name.
   const displayName = String(data.displayName || 'Member');
 
-  // Profile title and subtitle.
+  // The profile header shows the preferred display name once.
   const title = `${displayName}'s Profile`;
 
   drawFittedLine(ctx, title, images.background
@@ -716,21 +714,6 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     family: '\"AM Unicode Symbols\", ' + style.titleFontFamily,
     weight: style.titleFontWeight, color: style.accentDark,
   });
-
-  drawWrappedText(
-    ctx,
-    data.discordUsername
-      ? `Discord: ${data.discordUsername}`
-      : 'Member showcase',
-    r.subtitle,
-    {
-      fontSize: 44,
-      minFontSize: 34,
-      family: style.fontFamily, weight: style.bodyFontWeight,
-      color: style.mutedText,
-      maxLines: 1,
-    }
-  );
 
   // Show up to three current server roles in the space beneath the avatar.
   drawLabel(ctx, 'Server roles', r.rolesLabel, style);
@@ -772,7 +755,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     }
   );
 
-  // Roblox username beneath the Discord username.
+  // Roblox username beneath the compact display-name header.
   drawFittedLine(ctx, 'Roblox: ' + (data.robloxUsername || 'Not added yet'), r.robloxLine, {
     fontSize: 38,
     minFontSize: 22,
@@ -790,12 +773,12 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     data.bio || 'Add a bio to tell everyone a little about yourself.',
     images.background ? { ...r.bio, x: r.bio.x + 10, y: r.bio.y + 12, width: r.bio.width - 24, height: r.bio.height - 12 } : r.bio,
     {
-      fontSize: 48,
-      minFontSize: 34,
+      fontSize: 36,
+      minFontSize: 20,
       family: style.fontFamily, weight: style.bodyFontWeight,
       color: style.text,
-      lineHeight: 68,
-      maxLines: 6,
+      lineHeight: 43,
+      maxLines: 8,
     }
   );
 
