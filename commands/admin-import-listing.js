@@ -76,7 +76,7 @@ export function buildAdminImportModal(type, token, memberName) {
       new LabelBuilder()
         .setLabel("Video file (leave blank if using a link)")
         .setFileUploadComponent(new FileUploadBuilder()
-          .setCustomId("inventory_media").setMinValues(0).setMaxValues(1)),
+          .setCustomId("inventory_media").setRequired(false).setMinValues(0).setMaxValues(1)),
     );
     return modal;
   }
