@@ -19,6 +19,7 @@ import { resolveAppearance, appearanceCatalogItem } from "../services/post-appea
 import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } from "../services/sticker-catalog.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { refreshOutfitStyleCard } from "../services/outfit-card.js";
+import { ensureOutfitEntry } from "./outfit.js";
 import { OUTFIT_PICK_PAGE_SIZE, outfitPickerOptions, outfitCardData } from "../services/outfit-style.js";
 import {
   APPEARANCE_PAGES, makeAppearanceControls, availableAppearanceChoices,
@@ -383,8 +384,16 @@ export async function handleListingAppearanceDM(interaction) {
     post.postAppearance = filterOwnedAppearance(draft.appearance, ownership);
     post.markModified("postAppearance");
     await post.save();
-    if (isOutfitTarget(type)) await refreshOutfitStyleCard(guild, post);
-    else await refreshTradingPostCard(guild, interaction.user.id);
+    if (isOutfitTarget(type)) {
+      await refreshOutfitStyleCard(guild, post);
+      // Move the persistent Create Outfit button below the gallery and
+      // separate controls when an older listing is restyled.
+      const channel = await guild.channels.fetch(post.postChannelId);
+      await ensureOutfitEntry(guild, channel, { moveToBottom: true }).catch(error =>
+        console.warn("Could not move outfit entry to bottom after restyling:", error));
+    } else {
+      await refreshTradingPostCard(guild, interaction.user.id);
+    }
     await closeEditor(interaction, panel, `✅ **${targetLabel(type)} updated!** Your profile and other listings were not changed.`);
     return true;
   }
