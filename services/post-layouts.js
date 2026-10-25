@@ -5,7 +5,7 @@
  */
 export const POST_LAYOUTS = {
   tradingPost: { width: 1200, height: 800, safePadding: 48 },
-  outfit: { width: 1200, height: 800, safePadding: 48 },
+  outfit: { width: 1200, height: 480, safePadding: 48 },
   profile: {
     width: 1200,
     height: 800,
