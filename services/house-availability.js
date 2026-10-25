@@ -1,6 +1,7 @@
 import HouseListing from "../models/HouseListing.js";
 import { refreshHouseStyleCard } from "./house-card.js";
 import { isGalleryVideo } from "./house-style.js";
+import { houseArtworkIsEmbedded } from "./house-artwork.js";
 export async function checkHousePost(guild, listing) {
   if (!listing?.postChannelId || !listing?.postMessageId || (listing.status !== "active" || listing.publicationState === "staging")) {
     return { state: "unavailable" };
@@ -37,16 +38,15 @@ export async function findCustomizableHouses(guild, ownerId) {
 }
 
 export function houseNeedsFormatUpgrade(listing, message) {
-  const art = Array.from(message.attachments?.values?.() ?? [])
-    .some(asset => asset.name === "house-style-card.png");
-  const imageEmbed = (message.embeds ?? []).some(embed =>
-    (embed.image?.url || embed.data?.image?.url || "").includes("house-style-card.png"));
+  // Artwork used by an image embed is not always returned as a separate
+  // message attachment. Check what Discord actually renders instead.
+  const imageEmbed = houseArtworkIsEmbedded(message);
   const buttons = (message.components ?? []).flatMap(row => row.components ?? [])
     .map(button => button.customId || button.custom_id || "");
   const ids = ["sold", "interest", "notify"];
   const nativeVideos = Array.from(message.attachments?.values?.() ?? []).filter(isGalleryVideo);
   const storedVideos = (listing.mediaAttachments ?? []).filter(isGalleryVideo);
-  return (listing.cardLayoutVersion ?? 0) < 2 || !art || !imageEmbed ||
+  return (listing.cardLayoutVersion ?? 0) < 2 || !imageEmbed ||
     ids.some(name => !buttons.includes(`house:${name}:${listing._id}`)) ||
     buttons.includes(`house:media:${listing._id}`) ||
     Boolean(listing.mediaMessageId) ||

@@ -1,6 +1,8 @@
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import OutfitGalleryImage from "../models/OutfitGalleryImage.js";
 import { UserFacingError } from "../commands/errors.js";
+import { readDiscordAttachment } from "./media-transfer.js";
+import { assertImageSafeToDecode } from "./image-dimensions.js";
 import {
   GALLERY_HEIGHT, GALLERY_WIDTH, GALLERY_JPEG_QUALITY,
   MAX_IMAGE_BYTES, MAX_GALLERY_MEDIA, isGalleryPhoto,
@@ -8,36 +10,22 @@ import {
 } from "./outfit-gallery-utils.js";
 
 
-function safeDiscordSource(url) {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" &&
-      (parsed.hostname === "cdn.discordapp.com" ||
-       parsed.hostname === "media.discordapp.net" ||
-       parsed.hostname.endsWith(".discordapp.com") ||
-       parsed.hostname.endsWith(".discordapp.net"));
-  } catch {
-    return false;
-  }
-}
-
 async function fetchOriginalPhoto(asset) {
-  if (!safeDiscordSource(asset.url)) {
-    throw new UserFacingError("A saved outfit photo does not have a valid Discord attachment URL.");
+  try {
+    return await readDiscordAttachment(asset.url, {
+      maxBytes: MAX_IMAGE_BYTES, timeoutMs: 20_000,
+    });
+  } catch (error) {
+    if (error?.code === "TOO_LARGE") {
+      throw new UserFacingError("Outfit images must be no larger than 24 MB before resizing.");
+    }
+    throw error;
   }
-  const response = await fetch(asset.url, { signal: AbortSignal.timeout(20000) });
-  if (!response.ok) throw new Error(`Could not access outfit photo ${asset.name}: HTTP ${response.status}`);
-  if (Number(response.headers.get("content-length") || 0) > MAX_IMAGE_BYTES) {
-    throw new UserFacingError("Outfit images must be no larger than 24 MB before resizing.");
-  }
-  const raw = Buffer.from(await response.arrayBuffer());
-  if (!raw.length || raw.length > MAX_IMAGE_BYTES) {
-    throw new UserFacingError("An outfit photo is too large to resize safely.");
-  }
-  return raw;
 }
 
 export async function resizeOutfitImage(bytes) {
+  // Reject decompression bombs using the file header before Canvas allocates.
+  assertImageSafeToDecode(bytes);
   const image = await loadImage(bytes);
   if (!image.width || !image.height || image.width > 12000 || image.height > 12000) {
     throw new UserFacingError("An outfit image has unsupported dimensions.");
@@ -124,12 +112,15 @@ export function galleryImageBuffer(value) {
  * saved JPEG without sending a second Discord gallery message.
  */
 export async function getOutfitGalleryPage(guildId, listingId, requestedPage = 0) {
-  const images = await OutfitGalleryImage.find({ guildId, listingId })
+  const query = { guildId, listingId };
+  const count = await OutfitGalleryImage.countDocuments(query);
+  if (!count) return { imageBuffer: null, count: 0, page: 0 };
+  const page = safePageIndex(Number(requestedPage) || 0, count);
+  const selected = await OutfitGalleryImage.findOne(query)
     .sort({ originalIndex: 1, _id: 1 })
-    .select("imageData name originalIndex").lean();
-  if (!images.length) return { imageBuffer: null, count: 0, page: 0 };
-  const page = safePageIndex(Number(requestedPage) || 0, images.length);
-  return { imageBuffer: galleryImageBuffer(images[page].imageData), count: images.length, page };
+    .skip(page).select("imageData name originalIndex").lean();
+  if (!selected) throw new Error("Outfit gallery changed during pagination; retry.");
+  return { imageBuffer: galleryImageBuffer(selected.imageData), count, page };
 }
 
 /**

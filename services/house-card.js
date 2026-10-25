@@ -9,6 +9,7 @@ import { archiveExistingHousePhotos, getHouseGalleryPage } from "./house-gallery
 import { houseVideoAssets, deleteHouseMediaMessage, mergedHouseMediaMetadata } from "./house-media.js";
 import { prepareMediaFiles } from "../commands/video-compression.js";
 import { renderPostImage } from "./post-renderer.js";
+import { houseArtworkIsEmbedded } from "./house-artwork.js";
 
 const refreshQueue = new Map();
 
@@ -107,18 +108,23 @@ export async function refreshHouseStyleCard(guild, listing) {
         prepared = await prepareMediaFiles(sourceVideos,
           `house-${String(current._id).slice(-8)}-card`);
       }
-      const updated = await original.edit(houseCardPayload(
+      let updated = await original.edit(houseCardPayload(
         current, photos, image, needsCopy ? [] : onCard, prepared?.files ?? [],
       ));
+      // The immediate edit response may omit embed-backed attachments. If
+      // the image isn't represented yet, fetch the actual persisted message.
+      if (!houseArtworkIsEmbedded(updated)) {
+        updated = await channel.messages.fetch(current.postMessageId);
+      }
       const actualVideos = houseVideoAssets(updated.attachments?.values?.());
       const actualIds = new Set(actualVideos.map(item => item.id));
       if (actualVideos.length < expectedVideos ||
           (!needsCopy && !onCard.every(item => actualIds.has(item.id)))) {
         throw new Error("Discord did not confirm every native house video. Old tour retained.");
       }
-      if (!Array.from(updated.attachments?.values?.() ?? [])
-        .some(item => item.name === HOUSE_ART_NAME)) {
-        throw new Error("Discord did not confirm the styled house artwork attachment.");
+      if (!houseArtworkIsEmbedded(updated)) {
+        // Do not remove legacy video replies or mark the card upgraded.
+        throw new Error("Discord did not confirm the styled house artwork embed.");
       }
 
       // Save original-message metadata BEFORE retiring a legacy video reply.

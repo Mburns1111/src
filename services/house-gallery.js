@@ -2,26 +2,22 @@ import HouseGalleryImage from "../models/HouseGalleryImage.js";
 import { resizeOutfitImage, galleryImageBuffer } from "./outfit-gallery.js";
 import { isGalleryPhoto, mergeOriginalMedia, safePageIndex } from "./house-style.js";
 import { UserFacingError } from "../commands/errors.js";
+import { readDiscordAttachment } from "./media-transfer.js";
 
 const MAX_BYTES = 24 * 1024 * 1024;
-function safeSource(url) {
-  try {
-    const u = new URL(url);
-    return u.protocol === "https:" &&
-      ["cdn.discordapp.com", "media.discordapp.net"].includes(u.hostname);
-  } catch { return false; }
-}
 async function downloadPhoto(item) {
-  if (!safeSource(item.url)) throw new UserFacingError("A house photo has an invalid Discord attachment URL.");
-  const response = await fetch(item.url, { signal: AbortSignal.timeout(20000) });
-  if (!response.ok) throw new Error(`Could not retrieve house photo ${item.name}: HTTP ${response.status}`);
-  if (Number(response.headers.get("content-length") || 0) > MAX_BYTES) {
-    throw new UserFacingError("A house photo exceeds the safe 24 MB conversion limit.");
+  try {
+    return await readDiscordAttachment(item.url, {
+      maxBytes: MAX_BYTES, timeoutMs: 20_000,
+    });
+  } catch (error) {
+    if (error?.code === "TOO_LARGE") {
+      throw new UserFacingError("A house photo exceeds the 24 MB conversion limit.");
+    }
+    throw error;
   }
-  const raw = Buffer.from(await response.arrayBuffer());
-  if (!raw.length || raw.length > MAX_BYTES) throw new UserFacingError("A house photo is too large.");
-  return raw;
 }
+
 export async function archiveHousePhotos(guildId, listing, sources) {
   const candidates = sources.filter(isGalleryPhoto);
   const unique = new Set();
@@ -50,11 +46,14 @@ export async function houseGalleryCount(guildId, listingId) {
   return HouseGalleryImage.countDocuments({ guildId, listingId });
 }
 export async function getHouseGalleryPage(guildId, listingId, index = 0) {
-  const photos = await HouseGalleryImage.find({ guildId, listingId })
-    .sort({ originalIndex: 1, _id: 1 }).select("imageData").lean();
-  if (!photos.length) return { imageBuffer: null, count: 0, page: 0 };
-  const page = safePageIndex(Number(index) || 0, photos.length);
-  return { imageBuffer: galleryImageBuffer(photos[page].imageData), count: photos.length, page };
+  const query = { guildId, listingId };
+  const count = await HouseGalleryImage.countDocuments(query);
+  if (!count) return { imageBuffer: null, count: 0, page: 0 };
+  const page = safePageIndex(Number(index) || 0, count);
+  const photo = await HouseGalleryImage.findOne(query)
+    .sort({ originalIndex: 1, _id: 1 }).skip(page).select("imageData").lean();
+  if (!photo) throw new Error("House gallery changed during pagination; retry.");
+  return { imageBuffer: galleryImageBuffer(photo.imageData), count, page };
 }
 export async function archiveExistingHousePhotos(guild, listing, message) {
   const sources = mergeOriginalMedia(

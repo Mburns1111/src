@@ -92,6 +92,7 @@ import {
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
 import { resumePendingTradingPostDeletes } from "./services/trading-post-deletion.js";
 import { recoverStagedListingPosts } from "./services/listing-publication-recovery.js";
+import { startMediaTelemetry } from "./services/media-telemetry.js";
 import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/temporary-dm-notice.js";
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
@@ -304,6 +305,7 @@ async function sendProfileReminder(interaction) {
 
 client.once(Events.ClientReady, (readyClient) => {
   clearTimeout(discordReadyTimeout);
+  startMediaTelemetry();
   voiceActivityTimer = setInterval(() => void voiceActivityTick(), 60_000);
   voiceActivityTimer.unref?.();
   console.log(`Bot is online as ${readyClient.user.tag}.`);
@@ -556,7 +558,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("profile:")) {
       await handleProfileModal(interaction);
-      await refreshTradingPostCard(interaction.guild, interaction.user.id);
+      // A successful photo edit should never appear to fail merely because
+      // the optional Trading Post card refresh is temporarily unavailable.
+      await refreshTradingPostCard(interaction.guild, interaction.user.id)
+        .catch(error => console.warn(
+          "[Profile] Trading Post refresh after profile update failed:", error));
       return;
     }
     if (

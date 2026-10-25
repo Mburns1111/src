@@ -1,9 +1,14 @@
 import mongoose from "mongoose";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import { streamDiscordAttachment } from "../services/media-transfer.js";
+import { recordMediaOperation } from "../services/media-telemetry.js";
+import {
+  beginProfileAlbumUpload, PROFILE_PHOTO_LIMIT_BYTES,
+  PROFILE_BATCH_LIMIT_BYTES, validateProfileUploadSizes,
+} from "../services/profile-album-quota.js";
 import { getMessageMedia } from "./shared.js";
 import ProfilePhoto from "../models/ProfilePhoto.js";
 import { UserFacingError } from "./errors.js";
+import { deletePhotoFilesBeforeRecords } from "../services/profile-photo-deletion.js";
 
 const profilePhotoBucketName = "profilePhotos";
 
@@ -29,6 +34,20 @@ async function deleteStoredPhoto(bucket, fileId) {
   try {
     await bucket.delete(fileId);
   } catch (error) {
+    // An interrupted GridFS upload may leave orphan chunks without a files
+    // document. bucket.delete cannot remove those and reports FileNotFound.
+    // Remove only chunks for this exact upload ID, never another photo.
+    if (Number(error?.code) === 26 ||
+        ["FileNotFound", "MongoGridFSFileNotFoundError"].includes(error?.name) ||
+        error?.message === "FileNotFound") {
+      try {
+        await mongoose.connection.db.collection(`${profilePhotoBucketName}.chunks`)
+          .deleteMany({ files_id: fileId });
+      } catch (cleanupError) {
+        console.error("[Media] Could not remove interrupted GridFS chunks:", cleanupError);
+      }
+      return;
+    }
     console.error(`Could not clean up profile photo ${fileId}:`, error);
   }
 }
@@ -57,35 +76,65 @@ async function deleteStoredPhotoFiles(fileIds) {
 }
 
 export async function saveProfilePhotos(guildId, ownerId, attachments) {
+  // Fail before opening a GridFS stream if the sizes are invalid, the
+  // member is over their 250 MB limit, or another upload holds the lease.
+  validateProfileUploadSizes(attachments);
+  const { release, usedBytes, requestedBytes } = await beginProfileAlbumUpload(
+    guildId, ownerId, attachments, {
+      filesCollection: getProfilePhotoFilesCollection(),
+    },
+  );
   const bucket = getProfilePhotoBucket();
   const fileIds = [];
   const photos = [];
+  const startedAt = Date.now();
+  let totalStoredBytes = 0;
 
   try {
     for (const attachment of attachments) {
-      const response = await fetch(attachment.url);
-      if (!response.ok || !response.body) {
-        throw new UserFacingError(
-          "I couldn't retrieve one of those uploaded photos. Please try uploading it again.",
-        );
-      }
-
       const upload = bucket.openUploadStream(attachment.name, {
         metadata: { guildId, ownerId, contentType: attachment.contentType ?? "" },
       });
       fileIds.push(upload.id);
-      await pipeline(Readable.fromWeb(response.body), upload);
+      let transferred;
+      try {
+        // Discord's advertised size is used to reserve quota space. Do not
+        // allow a mismatched response to exceed that reservation, even when
+        // a CDN Content-Length header is absent or inaccurate.
+        transferred = await streamDiscordAttachment(attachment.url, upload, {
+          maxBytes: Math.min(PROFILE_PHOTO_LIMIT_BYTES, Number(attachment.size)),
+          timeoutMs: 45_000,
+        });
+      } catch (error) {
+        if (error?.code === "TOO_LARGE") {
+          throw new UserFacingError(
+            "This photo exceeds its declared size or the 24 MB limit. Please upload it again.",
+          );
+        }
+        throw error;
+      }
+      totalStoredBytes += transferred;
       photos.push({
         guildId,
         ownerId,
         fileId: upload.id,
         name: attachment.name,
         contentType: attachment.contentType || "image/unknown",
-        size: attachment.size ?? 0,
+        size: transferred,
       });
     }
 
-    return await ProfilePhoto.insertMany(photos);
+    const saved = await ProfilePhoto.insertMany(photos);
+    recordMediaOperation("profileAlbum", {
+      bytes: totalStoredBytes, durationMs: Date.now() - startedAt,
+    });
+    console.info("[Media] Profile photo upload complete", {
+      photoCount: saved.length,
+      bytes: totalStoredBytes,
+      durationMs: Date.now() - startedAt,
+      albumBytesAfter: usedBytes + totalStoredBytes,
+    });
+    return saved;
   } catch (error) {
     try {
       await ProfilePhoto.deleteMany({ fileId: { $in: fileIds } });
@@ -93,7 +142,24 @@ export async function saveProfilePhotos(guildId, ownerId, attachments) {
       console.error("Could not remove profile photo records after an upload failure:", cleanupError);
     }
     await Promise.all(fileIds.map((fileId) => deleteStoredPhoto(bucket, fileId)));
+    recordMediaOperation("profileAlbum", {
+      outcome: error?.code || error?.name || "error",
+      durationMs: Date.now() - startedAt,
+    });
+    console.warn("[Media] Profile photo upload failed; attempted GridFS cleanup", {
+      photoCount: attachments.length,
+      reservedBytes: requestedBytes,
+      durationMs: Date.now() - startedAt,
+      failure: error?.code || error?.name || "UnknownError",
+    });
     throw error;
+  } finally {
+    // A failed upload never permanently consumes the quota; actual GridFS
+    // lengths are counted fresh on the next upload. A worker crash releases
+    // this short-lived lease on expiration.
+    await release().catch(error => {
+      console.error("[Album quota] Failed to release upload lease:", error);
+    });
   }
 }
 
@@ -172,12 +238,14 @@ export async function removeProfilePhotos(guild, profile, photoNumbers) {
     .filter((image) => image.profilePhotoFileId)
     .map((image) => image.profilePhotoFileId);
   if (storedFileIds.length) {
-    await ProfilePhoto.deleteMany({
-      guildId: profile.guildId,
-      ownerId: profile.discordUserId,
-      fileId: { $in: storedFileIds },
-    });
-    await deleteStoredPhotoFiles(storedFileIds);
+    await deletePhotoFilesBeforeRecords(
+      storedFileIds, deleteStoredPhotoFiles,
+      () => ProfilePhoto.deleteMany({
+        guildId: profile.guildId,
+        ownerId: profile.discordUserId,
+        fileId: { $in: storedFileIds },
+      }),
+    );
   }
 
   if (legacyGroups.size) await profile.save();
@@ -222,13 +290,18 @@ export async function removeAllProfilePhotos(guild, profile) {
     .toArray();
   const fileIds = photoFiles.map((file) => file._id);
 
-  await ProfilePhoto.deleteMany({
-    guildId: profile.guildId,
-    ownerId: profile.discordUserId,
-  });
+  // Never discard the photo records before confirming the GridFS objects
+  // were deleted. A storage error should leave the metadata available to
+  // retry, rather than trapping invisible bytes in the member's quota.
+  await deletePhotoFilesBeforeRecords(
+    fileIds, deleteStoredPhotoFiles,
+    () => ProfilePhoto.deleteMany({
+      guildId: profile.guildId,
+      ownerId: profile.discordUserId,
+    }),
+  );
   profile.albumPosts = [];
   await profile.save();
-  await deleteStoredPhotoFiles(fileIds);
 
   return photoCount;
 }

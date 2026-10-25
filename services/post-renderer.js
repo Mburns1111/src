@@ -8,6 +8,8 @@ import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './
 import { registerAppearanceFonts } from './font-library.js';
 import { frameArtworkSvg } from './frame-artwork.js';
 import { drawStickerArtwork } from './sticker-artwork.js';
+import { readDiscordAttachment } from './media-transfer.js';
+import { assertImageSafeToDecode } from './image-dimensions.js';
 
 // Register a Unicode symbol font for decorative display names.
 // Downloaded once per process, with graceful fallback when offline.
@@ -56,22 +58,25 @@ async function frameOverlayImage(frameId) {
 }
 
 /** Fetch a remote image to a Buffer before passing it to canvas. */
-async function loadImageSource(source) {
+export async function loadImageSource(source) {
   if (!source) return null;
 
   if (Buffer.isBuffer(source) || source instanceof Uint8Array) {
-    return loadImage(source);
+    const bytes = Buffer.from(source);
+    // Stored profile/gallery images can be small on disk but enormous once
+    // decoded. Check the header before native Canvas allocates the bitmap.
+    assertImageSafeToDecode(bytes);
+    return loadImage(bytes);
   }
 
   if (typeof source === 'string') {
     if (/^https?:\/\//i.test(source)) {
-      const response = await fetch(source);
-
-      if (!response.ok) {
-        throw new Error(`Image request failed (${response.status}).`);
-      }
-
-      return loadImage(Buffer.from(await response.arrayBuffer()));
+      const bytes = await readDiscordAttachment(source, {
+        maxBytes: 12 * 1024 * 1024,
+        timeoutMs: 15_000,
+      });
+      assertImageSafeToDecode(bytes);
+      return loadImage(bytes);
     }
 
     return loadImage(source);

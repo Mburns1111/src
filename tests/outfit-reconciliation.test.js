@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   isDeletedDiscordMessage, checkOutfitListingMessage,
-  outfitNeedsFormatUpgrade, reconcileOutfitsForGuild,
+  outfitNeedsFormatUpgrade, outfitArtworkIsEmbedded, reconcileOutfitsForGuild,
   findCustomizableOutfits,
 } from "../services/outfit-reconciliation.js";
 
@@ -28,6 +28,7 @@ const listing = overrides => ({
 const currentMessage = {
   author: { id: botId },
   attachments: new Map([["style", { name: "outfit-style-card.png" }]]),
+  embeds: [{ image: { url: "attachment://outfit-style-card.png" } }],
   components: [{
     components: ["interest", "notify", "sold"].map(action => ({
       customId: `outfit:${action}:${listingId}`,
@@ -91,6 +92,9 @@ test("current one-message cards are recognized, old image/gallery/actions are up
   }), true);
   assert.equal(outfitNeedsFormatUpgrade(listing(), {
     ...currentMessage, attachments: new Map(),
+  }), false, "Embed-backed artwork can be absent from attachment metadata");
+  assert.equal(outfitNeedsFormatUpgrade(listing(), {
+    ...currentMessage, embeds: [],
   }), true);
 });
 
@@ -153,4 +157,17 @@ test("customization picker hides offline-deleted outfits even before next restar
   assert.deepEqual(result.available, [a]);
   assert.equal(result.missing, 1);
   assert.equal(result.unavailable, 1);
+});
+
+test("outfit embed CDN URLs do not trigger needless startup restyling", () => {
+  for (const url of [
+    "attachment://outfit-style-card.png",
+    "https://cdn.discordapp.com/attachments/1/2/outfit-style-card.png?ex=123",
+    "https://media.discordapp.net/attachments/1/2/outfit-style-card.png?width=1200",
+  ]) {
+    const post = { ...currentMessage, attachments: new Map(),
+      embeds: [{ image: { url } }] };
+    assert.equal(outfitArtworkIsEmbedded(post), true);
+    assert.equal(outfitNeedsFormatUpgrade(listing(), post), false);
+  }
 });
