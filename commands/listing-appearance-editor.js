@@ -19,7 +19,7 @@ import { resolveAppearance, appearanceCatalogItem } from "../services/post-appea
 import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } from "../services/sticker-catalog.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { refreshOutfitStyleCard } from "../services/outfit-card.js";
-import { OUTFIT_PICK_PAGE_SIZE, outfitPickerOptions, outfitCardData, outfitPhotoUrls } from "../services/outfit-style.js";
+import { OUTFIT_PICK_PAGE_SIZE, outfitPickerOptions, outfitCardData } from "../services/outfit-style.js";
 import {
   APPEARANCE_PAGES, makeAppearanceControls, availableAppearanceChoices,
   appearanceChoicePage, adjustDraftSticker, clearDraftStickers,
@@ -53,12 +53,12 @@ async function editorPayload(post, draft, ownership, type = TARGET_TYPE) {
       discordName: post.discordName, robloxName: post.robloxName,
       lookingFor: post.lookingFor, willingToTrade: post.willingToTrade,
     },
-    images: outfit ? (() => { const photos = outfitPhotoUrls(post); return { photo: photos[0], photo2: photos[1], photo3: photos[2] }; })() : {},
+    images: {},
     appearance: filterOwnedAppearance(draft.appearance, ownership),
   });
   return {
     content: outfit
-      ? `**Customize Outfit: ${String(post.title).slice(0, 90)}** — private preview. Save only this outfit's style, or discard. Other outfits and your profile will not change. Photos and videos stay in the original listing.`
+      ? `**Customize Outfit: ${String(post.title).slice(0, 90)}** — private preview. Save only this outfit's style, or discard. Other outfits and your profile will not change. Photos appear in a separate flipbook below your decorated banner; videos remain attached to the listing.`
       : "**Customize Trading Post** — choose your owned shop styles. This is a private preview. **Save Trading Post Style** updates only your Trading Post, not your profile or other listings. **Discard Changes** leaves the public post unchanged.",
     embeds: [new EmbedBuilder().setColor("#819287").setImage(`attachment://${filename}`)],
     files: [new AttachmentBuilder(png, { name: filename })],
