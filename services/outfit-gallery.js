@@ -1,17 +1,12 @@
 import { createCanvas, loadImage } from "@napi-rs/canvas";
-import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import OutfitGalleryImage from "../models/OutfitGalleryImage.js";
-import OutfitListing from "../models/OutfitListing.js";
 import { UserFacingError } from "../commands/errors.js";
-import { discordMessageUrl } from "../commands/shared.js";
 import {
-  GALLERY_HEIGHT, GALLERY_WIDTH, GALLERY_JPEG_QUALITY, GALLERY_PAGE_NAME,
-  MAX_IMAGE_BYTES, MAX_GALLERY_MEDIA, galleryNavigationButtons, isGalleryPhoto,
-  isGalleryMedia, mergeOriginalMedia, safePageIndex,
+  GALLERY_HEIGHT, GALLERY_WIDTH, GALLERY_JPEG_QUALITY,
+  MAX_IMAGE_BYTES, MAX_GALLERY_MEDIA, isGalleryPhoto,
+  mergeOriginalMedia, safePageIndex,
 } from "./outfit-gallery-utils.js";
 
-const activeUpdates = new Map();
-const fileName = GALLERY_PAGE_NAME;
 
 function safeDiscordSource(url) {
   try {
@@ -103,22 +98,6 @@ export async function outfitGalleryCount(guildId, listingId) {
   return OutfitGalleryImage.countDocuments({ guildId, listingId });
 }
 
-export function galleryMessagePayload(listing, page, total) {
-  const index = safePageIndex(page, total);
-  const buttons = galleryNavigationButtons(index, total);
-  return {
-    content: `**📷 ${String(listing.title).slice(0, 88)} · Outfit gallery**\nPhoto **${index + 1} / ${total}** · [Back to styled listing](${discordMessageUrl(listing.guildId, listing.postChannelId, listing.postMessageId)})`,
-    embeds: [new EmbedBuilder().setColor(0x819287).setImage(`attachment://${fileName}`)],
-    components: total > 1 ? [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`outfit:gallery:prev:${listing._id}`)
-        .setLabel("◀ Previous").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`outfit:gallery:next:${listing._id}`)
-        .setLabel("Next ▶").setStyle(ButtonStyle.Primary),
-    )] : [],
-    files: [], attachments: [], allowedMentions: { parse: [], repliedUser: false },
-  };
-}
-
 /**
  * Mongoose hydrates Schema Buffer fields as Buffers, but lean() exposes BSON
  * Binary wrappers. Discord AttachmentBuilder accepts neither BSON Binary nor
@@ -140,99 +119,36 @@ export function galleryImageBuffer(value) {
   return Buffer.from(bytes);
 }
 
-async function galleryImage(guildId, listingId, page) {
+/**
+ * Outfit photos are now rendered into the original listing card. Read the
+ * saved JPEG without sending a second Discord gallery message.
+ */
+export async function getOutfitGalleryPage(guildId, listingId, requestedPage = 0) {
   const images = await OutfitGalleryImage.find({ guildId, listingId })
     .sort({ originalIndex: 1, _id: 1 })
-    .select("imageData name").lean();
-  const doc = images[safePageIndex(page, images.length)];
-  return { doc, count: images.length };
+    .select("imageData name originalIndex").lean();
+  if (!images.length) return { imageBuffer: null, count: 0, page: 0 };
+  const page = safePageIndex(Number(requestedPage) || 0, images.length);
+  return { imageBuffer: galleryImageBuffer(images[page].imageData), count: images.length, page };
 }
 
-export async function ensureOutfitGallery(guild, listing) {
-  const key = `${guild.id}:${listing._id}`;
-  if (activeUpdates.has(key)) return activeUpdates.get(key);
-  const task = (async () => {
-    const channel = await guild.channels.fetch(listing.postChannelId);
-    if (!channel?.messages) throw new Error("Outfit gallery channel is unavailable.");
-    const { doc, count } = await galleryImage(guild.id, listing._id, listing.galleryPageIndex || 0);
-    if (!count || !doc?.imageData) return null;
-    const page = safePageIndex(listing.galleryPageIndex || 0, count);
-    const payload = galleryMessagePayload(listing, page, count);
-    payload.files = [new AttachmentBuilder(galleryImageBuffer(doc.imageData), { name: fileName })];
-    let existing = null;
-    if (listing.galleryMessageId) {
-      existing = await channel.messages.fetch(listing.galleryMessageId).catch(() => null);
-    }
-    let message;
-    if (existing?.author?.id === guild.client.user.id) {
-      message = await existing.edit(payload);
-    } else {
-      message = await channel.send({
-        ...payload, reply: { messageReference: listing.postMessageId, failIfNotExists: true },
-      });
-    }
-    if (listing.galleryMessageId !== message.id || listing.galleryPageIndex !== page) {
-      await OutfitListing.updateOne({
-        _id: listing._id, guildId: guild.id, ownerId: listing.ownerId,
-        status: "active",
-      }, { $set: { galleryMessageId: message.id, galleryPageIndex: page } });
-      listing.galleryMessageId = message.id;
-      listing.galleryPageIndex = page;
-    }
-    return message;
-  })();
-  activeUpdates.set(key, task);
-  try { return await task; }
-  finally { if (activeUpdates.get(key) === task) activeUpdates.delete(key); }
-}
-
-export async function handleOutfitGalleryButton(interaction) {
-  const [, area, direction, id] = interaction.customId.split(":");
-  if (area !== "gallery" || !["prev", "next"].includes(direction) ||
-      !/^[a-f\d]{24}$/i.test(id || "")) {
-    throw new UserFacingError("This outfit photo control is invalid.");
-  }
-  await interaction.deferUpdate();
-  if (!interaction.guildId) throw new UserFacingError("The outfit gallery belongs to a server.");
-  const listing = await OutfitListing.findOne({
-    _id: id, guildId: interaction.guildId, status: "active",
-    galleryMessageId: interaction.message.id,
-  });
-  if (!listing) throw new UserFacingError("That outfit gallery is no longer active.");
-  const count = await outfitGalleryCount(interaction.guildId, listing._id);
-  if (!count) throw new UserFacingError("There are no gallery photos.");
-  // Atomic increment avoids losing rapid user clicks; modulo normalizes
-  // the result before rendering the shared gallery message.
-  const result = await OutfitListing.findOneAndUpdate({
-    _id: listing._id, guildId: interaction.guildId, status: "active",
-  }, { $inc: { galleryPageIndex: direction === "next" ? 1 : -1 } }, { new: true });
-  if (!result) return true;
-  const page = safePageIndex(result.galleryPageIndex, count);
-  result.galleryPageIndex = page;
-  await OutfitListing.updateOne({ _id: result._id }, { $set: { galleryPageIndex: page } });
-  await ensureOutfitGallery(interaction.guild, result);
-  return true;
+/**
+ * Archive all original photos before ANY message attachment gets replaced.
+ * A missing/expired old CDN URL throws so migration leaves existing Discord
+ * posts and gallery replies alone instead of silently discarding photos.
+ */
+export async function ensureGalleryArchived(guild, listing, originalMessage) {
+  const sources = mergeOriginalMedia(
+    listing.mediaAttachments,
+    Array.from(originalMessage.attachments.values()),
+  );
+  const photos = sources.filter(isGalleryPhoto);
+  if (photos.length) await saveOutfitGalleryImages(guild.id, listing, photos);
+  return { count: await outfitGalleryCount(guild.id, listing._id), sources };
 }
 
 export async function deleteOutfitGallery(guild, listing) {
-  if (listing.galleryMessageId) {
-    try {
-      const channel = await guild.channels.fetch(listing.postChannelId);
-      const msg = await channel?.messages?.fetch(listing.galleryMessageId);
-      if (msg?.author?.id === guild.client.user.id) await msg.delete();
-    } catch (error) {
-      if (![10003, 10008].includes(Number(error?.code))) console.warn("Outfit gallery cleanup failed:", error);
-    }
-  }
-  // Images may be removed once the listing has been sold/removed and is no
-  // longer accessible through the public gallery.
+  // The legacy gallery reply is handled separately by the post migration
+  // cleaner. Only delete stored photos when the user removes the listing.
   await OutfitGalleryImage.deleteMany({ guildId: guild.id, listingId: listing._id });
-}
-
-export async function migrateStoredOutfitPhotos(guild, listing, originalMessage) {
-  const originalPhotos = mergeOriginalMedia(
-    listing.mediaAttachments, Array.from(originalMessage.attachments.values()),
-  ).filter(isGalleryPhoto);
-  await saveOutfitGalleryImages(guild.id, listing, originalPhotos);
-  await ensureOutfitGallery(guild, listing);
 }
