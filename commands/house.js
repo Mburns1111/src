@@ -61,7 +61,8 @@ export async function ensureHouseEntry(guild, channel, { moveToBottom = false } 
     messageField: "houseEntryMessageId",
     customId: "house:entry",
     label: "Start a house listing",
-    description: "Use the button to add your house listing.",
+    description: "Create a house listing or find your existing posts.",
+    extraButtons: [{ customId: "house:mine", label: "My house listings" }],
     moveToBottom,
   });
 }

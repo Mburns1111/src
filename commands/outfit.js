@@ -60,7 +60,8 @@ export async function ensureOutfitEntry(guild, channel, { moveToBottom = false }
     messageField: "outfitEntryMessageId",
     customId: "outfit:entry",
     label: "Start an outfit listing",
-    description: "Use the button to add an outfit to your listings.",
+    description: "Create an outfit listing or find your existing posts.",
+    extraButtons: [{ customId: "outfit:mine", label: "My outfit listings" }],
     moveToBottom,
   });
 }

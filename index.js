@@ -93,6 +93,7 @@ import {
   ensureTradingPostEntry,
 } from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
+import { handleMemberListingDirectory } from "./commands/member-listings.js";
 import { resumePendingTradingPostDeletes } from "./services/trading-post-deletion.js";
 import { recoverStagedListingPosts } from "./services/listing-publication-recovery.js";
 import { startMediaTelemetry } from "./services/media-telemetry.js";
@@ -429,6 +430,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await ensureProfileForEntry(interaction);
       await handleHouseCreateButton(interaction);
       await sendProfileReminder(interaction);
+      return;
+    }
+    if (interaction.isButton() &&
+        /^(house|outfit):mine(?::.*)?$/.test(interaction.customId)) {
+      await handleMemberListingDirectory(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId === "house:entry") {
