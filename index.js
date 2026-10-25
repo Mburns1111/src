@@ -68,6 +68,7 @@ import {
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker } from "./commands/listing-appearance-editor.js";
+import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 
 import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
 import { execute as executePointsAdmin, data as pointsAdminCommand } from "./commands/points-admin.js";
@@ -319,7 +320,14 @@ client.once(Events.ClientReady, (readyClient) => {
         console.error(`Could not load channel settings for guild ${guild.id}:`, error);
         continue;
       }
-      if (!config) continue;
+      if (!config) {
+        try {
+          await reconcileOutfitsForGuild(guild);
+        } catch (error) {
+          console.error(`Could not reconcile outfit listings for guild ${guild.id}:`, error);
+        }
+        continue;
+      }
       await Promise.all([
         ensureConfiguredEntry(guild, config.profileChannelId, ensureProfileEntry, "profile"),
         ensureConfiguredEntry(guild, config.shopChannelId, ensureShopEntry, "shop"),
@@ -334,6 +342,11 @@ client.once(Events.ClientReady, (readyClient) => {
           "Trading Post",
         ),
       ]);
+      try {
+        await reconcileOutfitsForGuild(guild);
+      } catch (error) {
+        console.error(`Could not reconcile outfit listings for guild ${guild.id}:`, error);
+      }
     }
   })().catch((error) => {
     console.error("Startup channel maintenance failed:", error);
