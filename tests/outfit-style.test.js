@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { OUTFIT_PICK_PAGE_SIZE, outfitPhotoUrl, outfitPhotoUrls, outfitCardData, outfitPickerOptions, outfitGalleryMedia, outfitStylePlacement, isOutfitMediaAttachment, OUTFIT_STYLE_IMAGE_NAME } from "../services/outfit-style.js";
 import { renderPostImage } from "../services/post-renderer.js";
+import { createCanvas } from "@napi-rs/canvas";
 import { makeAppearanceControls } from "../commands/profile.js";
 import { FREE_APPEARANCE } from "../services/appearance-ownership.js";
 import { stickerDefaults } from "../services/sticker-catalog.js";
@@ -169,4 +170,22 @@ test("ten-media fallback is non-destructive and uses no style attachment on orig
   assert.equal(payload.components, undefined);
   assert.equal(payload.embeds[0].toJSON().image.url, "attachment://file0.png");
   assert.throws(() => originalStyledOutfitEdit(listing, media, Buffer.from("x")), RangeError);
+});
+
+test("styled outfit collage actually renders three user photo buffers", async () => {
+  const square = createCanvas(32, 32);
+  const context = square.getContext("2d");
+  context.fillStyle = "#763BA8";
+  context.fillRect(0, 0, 32, 32);
+  const photo = square.toBuffer("image/png");
+  const output = await renderPostImage({
+    type: "outfit",
+    data: {
+      title: "Three outfit views", seller: "Member",
+      description: "Front, back and detail", cost: "150",
+    },
+    images: { photo, photo2: photo, photo3: photo },
+  });
+  assert.ok(output.length > 1000);
+  assert.deepEqual(Array.from(output.subarray(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10]);
 });
