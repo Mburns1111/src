@@ -10,6 +10,7 @@ import { data as houseCommand } from "./commands/house.js";
 import { data as outfitCommand } from "./commands/outfit.js";
 import { data as tradeCommand } from "./commands/trade.js";
 import { data as setupCommand } from "./commands/setup.js";
+import { data as adminImportCommand } from "./commands/admin-import-listing.js";
 import { data as shopCommand } from "./commands/shop.js";
 import { data as testPointsCommand } from "./commands/test-points.js";
 import { data as pointsAdminCommand } from "./commands/points-admin.js";
@@ -34,6 +35,7 @@ const commands = [
   outfitCommand,
   tradeCommand,
   setupCommand,
+  adminImportCommand,
   shopCommand,
   ...(process.env.ENABLE_TEST_POINTS === "1" ? [testPointsCommand] : []),
   pointsAdminCommand,
@@ -44,7 +46,7 @@ const commands = [
 await rest.put(Routes.applicationCommands(clientId), { body: commands });
 
 console.log(
-  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, shop, points-admin, help commands.",
+  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, points-admin, help commands.",
 );
 
 if (guildId) {
