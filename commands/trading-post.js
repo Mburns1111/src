@@ -1,10 +1,8 @@
 
 import {
   ActionRowBuilder,
-  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
   LabelBuilder,
   MessageFlags,
   ModalBuilder,
