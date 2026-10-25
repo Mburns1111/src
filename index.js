@@ -558,7 +558,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("profile:")) {
       await handleProfileModal(interaction);
-      await refreshTradingPostCard(interaction.guild, interaction.user.id);
+      // A successful photo edit should never appear to fail merely because
+      // the optional Trading Post card refresh is temporarily unavailable.
+      await refreshTradingPostCard(interaction.guild, interaction.user.id)
+        .catch(error => console.warn(
+          "[Profile] Trading Post refresh after profile update failed:", error));
       return;
     }
     if (
