@@ -4,133 +4,151 @@ import UserProfile from "../models/UserProfile.js";
 import { displayListingAppearance } from "./listing-appearance.js";
 import { getAppearanceOwnership } from "./appearance-ownership.js";
 import { outfitCardData } from "./outfit-style.js";
+import { outfitActionComponents } from "./outfit-controls.js";
 import { renderPostImage } from "./post-renderer.js";
-import { ensureOutfitControls } from "./outfit-controls.js";
-import {
-  OUTFIT_BANNER_NAME, isGalleryPhoto, isGalleryVideo, mergeOriginalMedia,
-} from "./outfit-gallery-utils.js";
-import {
-  saveOutfitGalleryImages, ensureOutfitGallery, outfitGalleryCount,
-} from "./outfit-gallery.js";
+import { isGalleryVideo, mergeOriginalMedia } from "./outfit-gallery-utils.js";
+import { ensureGalleryArchived, getOutfitGalleryPage } from "./outfit-gallery.js";
 
+const CARD_FILE = "outfit-style-card.png";
 const activeRefreshes = new Map();
 
-/**
- * The original outfit post is its decorated advertisement banner.
- * Photos live in a dedicated bot gallery reply, NOT inside the banner.
- * Videos remain playable as original Discord attachments.
- *
- * Migration is intentionally fail-closed: all original photos must have
- * been saved to Mongo and the flipbook reply must exist before an edit
- * is allowed to remove any photo attachment from the original message.
- */
-export function outfitBannerPayload(listing, videos, png) {
+export function unifiedOutfitPayload(listing, photoPage, videos, png) {
   const videoLink = listing.videoUrl ? `\n[Outfit video](${listing.videoUrl})` : "";
   return {
-    content: `**Outfit listing from ${listing.ownerName}**${videoLink}`,
+    content: `Outfit listing from ${listing.ownerName}${videoLink}`,
     embeds: [new EmbedBuilder().setColor(0x819287)
-      .setImage(`attachment://${OUTFIT_BANNER_NAME}`)],
-    // Preserve every original video by ID without mixing the photo flipbook
-    // into the decorative banner, and leave original listing buttons intact.
-    attachments: videos.map(({ id, attachmentId }) => ({ id: id || attachmentId })),
-    files: [new AttachmentBuilder(png, { name: OUTFIT_BANNER_NAME })],
+      .setImage(`attachment://${CARD_FILE}`)],
+    files: [new AttachmentBuilder(png, { name: CARD_FILE })],
+    // Never remove videos to make space for the decorated photo card.
+    attachments: videos.map(item => ({ id: item.id })),
+    components: outfitActionComponents(listing, photoPage.count),
     allowedMentions: { parse: [] },
   };
 }
 
-export async function refreshOutfitStyleCard(guild, listing) {
-  const key = `${guild.id}:${listing._id}`;
-  if (activeRefreshes.has(key)) return activeRefreshes.get(key);
-  const task = (async () => {
-    if (listing.status !== "active" || !listing.postChannelId || !listing.postMessageId) {
-      throw new Error("This outfit listing is not active or has no public post.");
+/**
+ * Delete old bot-owned gallery, controls and separate art replies only AFTER
+ * the original message has been successfully rendered and edited.
+ *
+ * Keep IDs for cleanup retries if deletion fails or the message belongs to
+ * another bot. Never erase evidence of a legacy message that is still present.
+ */
+export async function deleteLegacyOutfitMessages(guild, listing) {
+  const fields = ["galleryMessageId", "controlsMessageId", "styleCardMessageId"];
+  const channel = await guild.channels.fetch(listing.postChannelId);
+  if (!channel?.messages) return;
+  const updates = {};
+  const visited = new Set();
+  for (const field of fields) {
+    const id = listing[field];
+    if (!id || id === listing.postMessageId) continue;
+    if (visited.has(id)) {
+      updates[field] = "";
+      continue;
     }
-    const channel = await guild.channels.fetch(listing.postChannelId);
-    if (!channel?.messages) throw new Error("The outfit listing channel is unavailable.");
-    const message = await channel.messages.fetch(listing.postMessageId);
-    if (message.author?.id !== guild.client.user.id) {
-      throw new Error("Cannot edit an outfit listing that another user authored.");
+    visited.add(id);
+    try {
+      const old = await channel.messages.fetch(id);
+      if (old.author?.id !== guild.client.user.id) {
+        console.warn("[Outfit] Skipping another bot's legacy message", field, id);
+        continue;
+      }
+      await old.delete();
+      updates[field] = "";
+    } catch (error) {
+      if ([10003, 10008].includes(Number(error?.code))) updates[field] = "";
+      else console.warn("[Outfit] Could not clean up legacy message", field, id, error);
     }
-
-    // Historical media metadata is important: a broken previous edit may
-    // already have removed some visible photos. Never discard those sources.
-    const sources = mergeOriginalMedia(
-      listing.mediaAttachments, Array.from(message.attachments.values()),
+  }
+  if (Object.keys(updates).length) {
+    await OutfitListing.updateOne(
+      { _id: listing._id, guildId: guild.id, ownerId: listing.ownerId },
+      { $set: updates },
     );
-    const photos = sources.filter(isGalleryPhoto);
-    const liveVideos = Array.from(message.attachments.values()).filter(isGalleryVideo);
-    if (photos.length) {
-      await saveOutfitGalleryImages(guild.id, listing, photos);
-    }
-    const stored = await outfitGalleryCount(guild.id, listing._id);
-    // Never hide the visible originals if even one image has not been safely
-    // archived. This also handles expired CDN URLs for old deleted images.
-    if (stored && photos.length) {
-      const imageSources = new Set(photos.map(asset => String(asset.attachmentId || asset.id)));
-      // saveOutfitGalleryImages only returns once every source has been saved.
-      if (imageSources.size > 10) throw new Error("Too many original outfit images to safely migrate.");
-    }
-    if (stored) await ensureOutfitGallery(guild, listing);
+    Object.assign(listing, updates);
+  }
+}
 
-    // Preserve source metadata in Mongo BEFORE Discord's public attachment
-    // list is reduced to the banner and videos. This is also needed for
-    // reliable 10-file limits when migrating listings from older versions.
-    const merged = mergeOriginalMedia(listing.mediaAttachments, sources);
-    if (merged.length !== (listing.mediaAttachments?.length || 0)) {
-      listing.mediaAttachments = merged;
-      await listing.save();
+/**
+ * Render a COMPLETE outfit advert into the original bot post: styling,
+ * one gallery photo (or video placeholder) and buttons. The photo changes
+ * on Previous/Next, not the member's saved appearance.
+ *
+ * Calls for the same listing are serialized. This keeps rapid button clicks
+ * and restyles from overwriting each other with an older gallery page.
+ */
+export async function refreshOutfitStyleCard(guild, listing) {
+  const key = `${guild.id}:${String(listing._id)}`;
+  const previous = activeRefreshes.get(key) ?? Promise.resolve();
+  const job = previous.catch(() => {}).then(async () => {
+    // Load latest page and appearance; queued requests must not use a stale
+    // object captured before another gallery navigation or style save.
+    const current = await OutfitListing.findOne({
+      _id: listing._id, guildId: guild.id, ownerId: listing.ownerId,
+      status: "active",
+    });
+    if (!current?.postChannelId || !current.postMessageId) {
+      throw new Error("Outfit listing is not active or has no published message.");
+    }
+    const channel = await guild.channels.fetch(current.postChannelId);
+    if (!channel?.messages) throw new Error("Outfit listing channel is unavailable.");
+    const message = await channel.messages.fetch(current.postMessageId);
+    if (message.author?.id !== guild.client.user.id) {
+      throw new Error("Cannot edit an outfit listing not authored by this bot.");
+    }
+
+    // Fail CLOSED on inaccessible historical source photos. The existing
+    // banner, controls, old gallery and attachments must remain untouched.
+    const { sources } = await ensureGalleryArchived(guild, current, message);
+    const photoPage = await getOutfitGalleryPage(
+      guild.id, current._id, current.galleryPageIndex ?? 0,
+    );
+    if ((current.galleryPageIndex ?? 0) !== photoPage.page) {
+      current.galleryPageIndex = photoPage.page;
+      await OutfitListing.updateOne({ _id: current._id, guildId: guild.id },
+        { $set: { galleryPageIndex: photoPage.page } });
+    }
+    const merged = mergeOriginalMedia(current.mediaAttachments, sources);
+    if (merged.length > (current.mediaAttachments?.length ?? 0)) {
+      current.mediaAttachments = merged;
+      await current.save();
+    }
+
+    const videos = Array.from(message.attachments.values()).filter(isGalleryVideo);
+    if (videos.length > 9) {
+      throw new Error("This listing has ten videos; cannot replace attachments safely.");
     }
 
     const [profile, ownership] = await Promise.all([
-      UserProfile.findOne({ guildId: guild.id, discordUserId: listing.ownerId }),
-      getAppearanceOwnership(guild.id, listing.ownerId),
+      UserProfile.findOne({ guildId: guild.id, discordUserId: current.ownerId }),
+      getAppearanceOwnership(guild.id, current.ownerId),
     ]);
     const png = await renderPostImage({
-      type: "outfit", data: outfitCardData(listing),
-      appearance: displayListingAppearance(listing, profile, ownership),
-    });
-    const updated = await message.edit(outfitBannerPayload(listing, liveVideos, png));
-    const actualVideos = new Set(Array.from(updated.attachments.values())
-      .filter(isGalleryVideo).map(asset => asset.id));
-    if (!liveVideos.every(video => actualVideos.has(video.id))) {
-      throw new Error("Discord failed to preserve all existing outfit videos.");
-    }
-
-    // Only AFTER the gallery exists do we append actions beneath it.
-    // Keep the old banner actions until the third post is confirmed, so
-    // a failed controls send never strands an outfit without its buttons.
-    await ensureOutfitControls(guild, listing, { channel });
-    await updated.edit({
-      components: [],
-      allowedMentions: { parse: [] },
+      type: "outfit",
+      data: {
+        ...outfitCardData(current),
+        galleryIndex: photoPage.count ? photoPage.page + 1 : 0,
+        galleryCount: photoPage.count,
+      },
+      images: { photo: photoPage.imageBuffer },
+      appearance: displayListingAppearance(current, profile, ownership),
     });
 
-    // Keep original stored media metadata for ownership, counting and
-    // recovery; it is NOT repopulated with only the banner attachment.
-    if (listing.styleCardMessageId) {
-      await deleteOutfitStyleCard(guild, listing);
-      await OutfitListing.updateOne({
-        _id: listing._id, guildId: guild.id, ownerId: listing.ownerId,
-      }, { $set: { styleCardMessageId: "" } });
-      listing.styleCardMessageId = "";
+    // A single Discord edit is the transition boundary. Only videos are
+    // kept as native attachments; source photos are safe in Mongo by now.
+    const updated = await message.edit(unifiedOutfitPayload(current, photoPage, videos, png));
+    const retainedIds = new Set(Array.from(updated.attachments.values())
+      .filter(isGalleryVideo).map(item => item.id));
+    if (!videos.every(item => retainedIds.has(item.id))) {
+      throw new Error("Discord failed to preserve existing outfit videos.");
     }
+    await deleteLegacyOutfitMessages(guild, current);
     return updated;
-  })();
-  activeRefreshes.set(key, task);
-  try { return await task; }
-  finally { if (activeRefreshes.get(key) === task) activeRefreshes.delete(key); }
+  });
+  activeRefreshes.set(key, job);
+  try { return await job; }
+  finally { if (activeRefreshes.get(key) === job) activeRefreshes.delete(key); }
 }
 
-/** Only old, now-redundant style replies are deleted. Never delete the gallery. */
-export async function deleteOutfitStyleCard(guild, listing) {
-  if (!listing.styleCardMessageId) return;
-  try {
-    const channel = await guild.channels.fetch(listing.postChannelId);
-    const message = await channel?.messages?.fetch(listing.styleCardMessageId);
-    if (message?.author?.id === guild.client.user.id) await message.delete();
-  } catch (error) {
-    if (![10003, 10008].includes(Number(error?.code))) {
-      console.warn("Could not remove old outfit style reply:", error);
-    }
-  }
-}
+// Maintains compatibility with older callers of the separate style reply.
+export const deleteOutfitStyleCard = deleteLegacyOutfitMessages;
