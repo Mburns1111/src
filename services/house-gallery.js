@@ -46,11 +46,14 @@ export async function houseGalleryCount(guildId, listingId) {
   return HouseGalleryImage.countDocuments({ guildId, listingId });
 }
 export async function getHouseGalleryPage(guildId, listingId, index = 0) {
-  const photos = await HouseGalleryImage.find({ guildId, listingId })
-    .sort({ originalIndex: 1, _id: 1 }).select("imageData").lean();
-  if (!photos.length) return { imageBuffer: null, count: 0, page: 0 };
-  const page = safePageIndex(Number(index) || 0, photos.length);
-  return { imageBuffer: galleryImageBuffer(photos[page].imageData), count: photos.length, page };
+  const query = { guildId, listingId };
+  const count = await HouseGalleryImage.countDocuments(query);
+  if (!count) return { imageBuffer: null, count: 0, page: 0 };
+  const page = safePageIndex(Number(index) || 0, count);
+  const photo = await HouseGalleryImage.findOne(query)
+    .sort({ originalIndex: 1, _id: 1 }).skip(page).select("imageData").lean();
+  if (!photo) throw new Error("House gallery changed during pagination; retry.");
+  return { imageBuffer: galleryImageBuffer(photo.imageData), count, page };
 }
 export async function archiveExistingHousePhotos(guild, listing, message) {
   const sources = mergeOriginalMedia(

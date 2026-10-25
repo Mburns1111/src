@@ -109,12 +109,15 @@ export function galleryImageBuffer(value) {
  * saved JPEG without sending a second Discord gallery message.
  */
 export async function getOutfitGalleryPage(guildId, listingId, requestedPage = 0) {
-  const images = await OutfitGalleryImage.find({ guildId, listingId })
+  const query = { guildId, listingId };
+  const count = await OutfitGalleryImage.countDocuments(query);
+  if (!count) return { imageBuffer: null, count: 0, page: 0 };
+  const page = safePageIndex(Number(requestedPage) || 0, count);
+  const selected = await OutfitGalleryImage.findOne(query)
     .sort({ originalIndex: 1, _id: 1 })
-    .select("imageData name originalIndex").lean();
-  if (!images.length) return { imageBuffer: null, count: 0, page: 0 };
-  const page = safePageIndex(Number(requestedPage) || 0, images.length);
-  return { imageBuffer: galleryImageBuffer(images[page].imageData), count: images.length, page };
+    .skip(page).select("imageData name originalIndex").lean();
+  if (!selected) throw new Error("Outfit gallery changed during pagination; retry.");
+  return { imageBuffer: galleryImageBuffer(selected.imageData), count, page };
 }
 
 /**

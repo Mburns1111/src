@@ -8,6 +8,7 @@ import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './
 import { registerAppearanceFonts } from './font-library.js';
 import { frameArtworkSvg } from './frame-artwork.js';
 import { drawStickerArtwork } from './sticker-artwork.js';
+import { readDiscordAttachment } from './media-transfer.js';
 
 // Register a Unicode symbol font for decorative display names.
 // Downloaded once per process, with graceful fallback when offline.
@@ -65,13 +66,11 @@ async function loadImageSource(source) {
 
   if (typeof source === 'string') {
     if (/^https?:\/\//i.test(source)) {
-      const response = await fetch(source);
-
-      if (!response.ok) {
-        throw new Error(`Image request failed (${response.status}).`);
-      }
-
-      return loadImage(Buffer.from(await response.arrayBuffer()));
+      const bytes = await readDiscordAttachment(source, {
+        maxBytes: 12 * 1024 * 1024,
+        timeoutMs: 15_000,
+      });
+      return loadImage(bytes);
     }
 
     return loadImage(source);
