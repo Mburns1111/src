@@ -44,6 +44,8 @@ test("inventory modal permits one optional upload or external video link",()=>{
   assert.deepEqual(json.components.map(c=>c.component.custom_id),["video_url","inventory_media"]);
   assert.equal(json.components[0].component.max_length,500);
   assert.equal(json.components[0].component.required,false);
+  // Discord requires required:false whenever a file upload allows min_values:0.
+  assert.equal(json.components[1].component.required,false);
   assert.equal(json.components[1].component.min_values,0);
   assert.equal(json.components[1].component.max_values,1);
 });
