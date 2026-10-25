@@ -3,74 +3,140 @@ import OutfitListing from "../models/OutfitListing.js";
 import UserProfile from "../models/UserProfile.js";
 import { displayListingAppearance } from "./listing-appearance.js";
 import { getAppearanceOwnership } from "./appearance-ownership.js";
-import { outfitCardData, outfitPhotoUrl } from "./outfit-style.js";
+import {
+  outfitCardData, outfitPhotoUrls, outfitGalleryMedia, outfitStylePlacement,
+  OUTFIT_STYLE_IMAGE_NAME,
+} from "./outfit-style.js";
 import { renderPostImage } from "./post-renderer.js";
 import { discordMessageUrl } from "../commands/shared.js";
 
 const activeRefreshes = new Map();
-const STYLE_IMAGE_NAME = "outfit-style-card.png";
+
+function originalListingEmbed(listing, firstImageName = null) {
+  const fields = [];
+  if (listing.cost) fields.push({ name: "Cost", value: listing.cost, inline: true });
+  fields.push({
+    name: "Seller",
+    value: `Discord: ${listing.ownerName}\nRoblox: ${listing.ownerRobloxUsername || "Not added yet"}`,
+    inline: true,
+  });
+  const embed = new EmbedBuilder()
+    .setColor(0xe879a8)
+    .setTitle(listing.title).setDescription(listing.description)
+    .addFields(fields)
+    .setFooter({ text: `Listing ${String(listing._id).slice(-8)}` })
+    .setTimestamp(listing.createdAt);
+  if (listing.videoUrl) embed.addFields({ name: "Outfit video", value: `<${listing.videoUrl}>` });
+  if (firstImageName) embed.setImage(`attachment://${firstImageName}`);
+  return embed;
+}
+
+const isPhoto = item => item.contentType?.toLowerCase().startsWith("image/") ||
+  /\.(png|jpe?g|gif|webp|avif)$/i.test(item.name || "");
+
+async function updateSeparateReply(channel, listing, png, guild) {
+  const payload = {
+    content: `**Outfit style card · ${String(listing.title).slice(0, 90)}**\n[View original listing & gallery](${discordMessageUrl(guild.id, listing.postChannelId, listing.postMessageId)})`,
+    embeds: [new EmbedBuilder().setColor(0x819287).setImage(`attachment://${OUTFIT_STYLE_IMAGE_NAME}`)],
+    files: [new AttachmentBuilder(png, { name: OUTFIT_STYLE_IMAGE_NAME })],
+    attachments: [],
+    allowedMentions: { parse: [], repliedUser: false },
+  };
+  if (listing.styleCardMessageId) {
+    try {
+      const existing = await channel.messages.fetch(listing.styleCardMessageId);
+      if (existing.author?.id === guild.client.user.id) return await existing.edit(payload);
+    } catch (error) {
+      if (![10003, 10008].includes(Number(error?.code))) throw error;
+    }
+  }
+  const message = await channel.send({
+    ...payload,
+    reply: { messageReference: listing.postMessageId, failIfNotExists: true },
+  });
+  await OutfitListing.updateOne({
+    _id: listing._id, guildId: guild.id, ownerId: listing.ownerId,
+    postMessageId: listing.postMessageId, status: "active",
+  }, { $set: { styleCardMessageId: message.id } });
+  listing.styleCardMessageId = message.id;
+  return message;
+}
 
 /**
- * A style card is sent as a BOT REPLY to the original outfit listing.
- * The original listing retains all its photos/videos (up to 10) and its
- * sold/interest/media controls, without spending an attachment slot on PNG art.
- * One saved reply ID per outfit guarantees each outfit can look different.
+ * For 0–9 gallery files, the actual outfit listing displays the decorative PNG
+ * AND retains every uploaded media attachment by ID. The original interaction
+ * buttons are not touched. For ten files, a separate reply is the safe
+ * fallback: Discord's ten-attachment limit must never delete customer uploads.
  */
 export async function refreshOutfitStyleCard(guild, listing) {
   const key = `${guild.id}:${String(listing._id)}`;
   if (activeRefreshes.has(key)) return activeRefreshes.get(key);
   const task = (async () => {
     if (listing.status !== "active" || !listing.postChannelId || !listing.postMessageId) {
-      throw new Error("This outfit listing has not been published or is no longer active.");
+      throw new Error("This outfit listing is not active or has no public message.");
     }
     const channel = await guild.channels.fetch(listing.postChannelId);
     if (!channel?.messages || typeof channel.send !== "function") {
-      throw new Error("The outfit listing channel is not available.");
+      throw new Error("The outfit listing channel is unavailable.");
     }
-    // Do not create orphaned style cards for deleted or old listing messages.
-    await channel.messages.fetch(listing.postMessageId);
+    const original = await channel.messages.fetch(listing.postMessageId);
+    if (original.author?.id !== guild.client.user.id) {
+      throw new Error("Cannot change an outfit listing not authored by this bot.");
+    }
+    const media = outfitGalleryMedia(original.attachments.values());
+    if (listing.mediaAttachments?.length > media.length) {
+      // Never blindly recreate missing files or overwrite archived metadata.
+      console.warn(`[Outfit] ${listing._id} has ${listing.mediaAttachments.length} saved media but ${media.length} Discord attachments; inspect the original post before cleanup.`);
+    }
     const [ownership, profile] = await Promise.all([
       getAppearanceOwnership(guild.id, listing.ownerId),
       UserProfile.findOne({ guildId: guild.id, discordUserId: listing.ownerId }),
     ]);
+    const photos = outfitPhotoUrls({ mediaAttachments: media });
     const png = await renderPostImage({
       type: "outfit",
       data: outfitCardData(listing),
-      images: { photo: outfitPhotoUrl(listing) },
+      images: { photo: photos[0], photo2: photos[1], photo3: photos[2] },
       appearance: displayListingAppearance(listing, profile, ownership),
     });
-    const payload = {
-      content: `**Outfit style card · ${String(listing.title).slice(0, 90)}**\n[View original listing & gallery](${discordMessageUrl(guild.id, listing.postChannelId, listing.postMessageId)})`,
-      embeds: [new EmbedBuilder().setColor(0x819287).setImage(`attachment://${STYLE_IMAGE_NAME}`)],
-      files: [new AttachmentBuilder(png, { name: STYLE_IMAGE_NAME })],
-      attachments: [],
-      allowedMentions: { parse: [], repliedUser: false },
-    };
-    let message = null;
-    if (listing.styleCardMessageId) {
-      try {
-        const existing = await channel.messages.fetch(listing.styleCardMessageId);
-        if (existing.author?.id === guild.client.user.id) {
-          message = await existing.edit(payload);
-        }
-      } catch (error) {
-        if (![10003, 10008].includes(Number(error?.code))) throw error;
-      }
-    }
-    if (!message) {
-      message = await channel.send({
-        ...payload,
-        reply: { messageReference: listing.postMessageId, failIfNotExists: true },
+    const savedIds = media.map(item => item.id);
+    const placement = outfitStylePlacement(media.length);
+    const firstPhoto = media.find(isPhoto)?.name;
+    if (placement === "original") {
+      const message = await original.edit({
+        content: `Outfit listing from ${listing.ownerName}`,
+        embeds: [
+          new EmbedBuilder().setColor(0x819287)
+            .setImage(`attachment://${OUTFIT_STYLE_IMAGE_NAME}`),
+          originalListingEmbed(listing),
+        ],
+        // Replace ONLY the last generated PNG. Every member-uploaded
+        // image/video is retained with its original Discord attachment ID.
+        attachments: savedIds.map(id => ({ id })),
+        files: [new AttachmentBuilder(png, { name: OUTFIT_STYLE_IMAGE_NAME })],
+        allowedMentions: { parse: [] },
       });
+      const after = new Set(outfitGalleryMedia(message.attachments.values()).map(item => item.id));
+      if (!savedIds.every(id => after.has(id))) {
+        throw new Error("Discord did not retain all outfit gallery attachments while updating style.");
+      }
+      if (listing.styleCardMessageId) {
+        await deleteOutfitStyleCard(guild, listing);
+        await OutfitListing.updateOne({ _id: listing._id, guildId: guild.id }, {
+          $set: { styleCardMessageId: "" },
+        });
+        listing.styleCardMessageId = "";
+      }
+      return message;
     }
-    if (listing.styleCardMessageId !== message.id) {
-      await OutfitListing.updateOne({
-        _id: listing._id, guildId: guild.id, ownerId: listing.ownerId,
-        postMessageId: listing.postMessageId, status: "active",
-      }, { $set: { styleCardMessageId: message.id } });
-      listing.styleCardMessageId = message.id;
-    }
-    return message;
+    // Full gallery: leave all ten buyer uploads on the original and render
+    // the decorative style as an attached reply rather than removing a photo.
+    await original.edit({
+      embeds: [originalListingEmbed(listing, firstPhoto)],
+      attachments: savedIds.map(id => ({ id })),
+      allowedMentions: { parse: [] },
+    });
+    return updateSeparateReply(channel, listing, png, guild);
   })();
   activeRefreshes.set(key, task);
   try {
@@ -88,7 +154,7 @@ export async function deleteOutfitStyleCard(guild, listing) {
     if (message?.author?.id === guild.client.user.id) await message.delete();
   } catch (error) {
     if (![10003, 10008].includes(Number(error?.code))) {
-      console.warn("Could not delete outfit style card:", error);
+      console.warn("Could not delete outfit style reply:", error);
     }
   }
 }
