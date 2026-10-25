@@ -116,6 +116,10 @@ export async function getPendingFormStatus(guild, pendingForm) {
     return "stale";
   }
 
+  if (message.author?.id !== guild.client.user.id) {
+    await clearPendingForm(guild.id, pendingForm.channelId, pendingForm.messageId);
+    return "stale";
+  }
   const prefix = `${pendingForm.type}:new:${pendingForm.ownerId}`;
   const createButton = message.components
     .flatMap((row) => row.components)
@@ -124,10 +128,26 @@ export async function getPendingFormStatus(guild, pendingForm) {
     await clearPendingForm(guild.id, pendingForm.channelId, pendingForm.messageId);
     return "stale";
   }
+  // Even if a Discord form button was restored, saved photo/video staging
+  // takes precedence: a second /house or /outfit must not discard those files.
+  const Model = pendingForm.type === "house" ? HouseListing
+    : pendingForm.type === "outfit" ? OutfitListing : null;
+  if (Model && await Model.exists({
+    guildId: guild.id, postChannelId: pendingForm.channelId,
+    postMessageId: pendingForm.messageId, publicationState: "staging",
+  })) return "submitting";
   return createButton.disabled ? "submitting" : "active";
 }
 
 export async function discardPendingForm(guild, pendingForm) {
+  const Model = pendingForm.type === "house" ? HouseListing
+    : pendingForm.type === "outfit" ? OutfitListing : null;
+  if (Model && await Model.exists({
+    guildId: guild.id, postChannelId: pendingForm.channelId,
+    postMessageId: pendingForm.messageId, publicationState: "staging",
+  })) throw new UserFacingError(
+    "This form has saved media from an interrupted upload. A server manager must review it before removal.",
+  );
   try {
     const channel = await guild.channels.fetch(pendingForm.channelId);
     const message = await channel?.messages?.fetch(pendingForm.messageId);
@@ -135,7 +155,7 @@ export async function discardPendingForm(guild, pendingForm) {
     const isFormMessage = message?.components
       .flatMap((row) => row.components)
       .some((component) => component.customId?.startsWith(prefix));
-    if (isFormMessage) await message.delete();
+    if (isFormMessage && message.author?.id === guild.client.user.id) await message.delete();
   } catch (error) {
     if (![10003, 10008].includes(Number(error?.code))) throw error;
   }
