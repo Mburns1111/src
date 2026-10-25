@@ -401,6 +401,22 @@ export async function handleOutfitCreateModal(interaction) {
       .catch(error => console.warn("Could not move outfit entry to channel bottom:", error));
   } catch (error) {
     if (post && claimed && !published) {
+      // A failed Discord request can still have reached Discord. If a MongoDB
+      // staging record exists, restoring the create form would overwrite an
+      // already-public post and could erase uploaded videos.
+      const staged = await OutfitListing.exists({
+        guildId: interaction.guildId, postChannelId: channelId,
+        postMessageId: messageId, publicationState: "staging",
+      }).catch(lookupError => {
+        console.error("[outfit] Cannot verify interrupted publication:", lookupError);
+        return true; // fail closed: do not touch the existing Discord message
+      });
+      if (staged) {
+        console.error("[outfit] Preserved an interrupted listing for restart recovery:", messageId, error);
+        throw new UserFacingError(
+          "This outfit submission was interrupted. Its saved photos and videos have been preserved for recovery. Do not delete this post or resubmit the same files; ask a server manager to review it.",
+        );
+      }
       await post.edit({
         content: `Outfit listing from ${interaction.user.username} — finish your listing using the button below.`,
         components: [makeCreateListingButton(ownerId)],
@@ -540,6 +556,9 @@ async function publishListing(interaction, values, post, uploads) {
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
     postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, interaction.user.id, profile),
     mediaAttachments: photoMetadata,
+    publicationState: "staging",
+    expectedPhotoCount: photos.length,
+    expectedVideoCount: videos.length,
     postChannelId: post.channelId,
     postMessageId: post.id,
     ...values,
@@ -565,10 +584,14 @@ async function publishListing(interaction, values, post, uploads) {
         files,
         allowedMentions: { parse: [] },
       });
+      // Flag publication immediately. Temporary-file cleanup and metadata
+      // saving must never make a public post look like an unsubmitted form.
+      published = true;
     } finally {
-      await cleanup();
+      await cleanup().catch(error =>
+        console.warn("[Outfit] Temporary video cleanup failed:", error));
     }
-    published = true;
+    listing.publicationState = "published";
     listing.postChannelId = updatedPost.channelId;
     listing.postMessageId = updatedPost.id;
     const postedVideos = getMessageMedia(updatedPost).filter(isGalleryVideo);
@@ -579,11 +602,9 @@ async function publishListing(interaction, values, post, uploads) {
     await listing.save();
   } catch (error) {
     if (!published) {
-      const { default: OutfitGalleryImage } = await import("../models/OutfitGalleryImage.js");
-      await OutfitGalleryImage.deleteMany({ guildId: interaction.guildId, listingId: listing._id })
-        .catch(cleanupError => console.error("Cannot clean unfinished outfit gallery:", cleanupError));
-      await OutfitListing.deleteOne({ _id: listing._id })
-        .catch(cleanupError => console.error("Cannot clean unfinished outfit:", cleanupError));
+      // Do not throw away archived images or the staged record. A Discord
+      // timeout is ambiguous: its edit may have succeeded on the server.
+      console.warn("[Outfit] Unfinished publication saved for recovery:", String(listing._id), error);
       throw error;
     }
     // The original post has already been published. Never restore the

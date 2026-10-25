@@ -6,7 +6,9 @@ const guildId = "123456789012345678", botId = "234567890123456789";
 const house = { _id: "a".repeat(24), guildId, status: "active", publicationState: "staging",
   postChannelId: "345678901234567890", postMessageId: "456789012345678901",
   mediaMessageId: "567890123456789012", expectedPhotoCount: 2, expectedVideoCount: 1 };
-const outfit = { ...house, _id: "b".repeat(24), mediaMessageId: "", expectedPhotoCount: 1, expectedVideoCount: 1 };
+const outfit = { ...house, _id: "b".repeat(24),
+  postMessageId: "678901234567890123", mediaMessageId: "",
+  expectedPhotoCount: 1, expectedVideoCount: 1 };
 const message = (type, id, videos=0) => ({ author: { id: botId },
   components: [{ components: ["sold","interest","notify"].map(action => ({ customId: `${type}:${action}:${id}` })) }],
   attachments: new Map(Array.from({ length: videos }, (_, i) => [String(i), {

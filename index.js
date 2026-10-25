@@ -95,6 +95,7 @@ import {
 } from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
 import { resumePendingTradingPostDeletes } from "./services/trading-post-deletion.js";
+import { recoverStagedListingPosts } from "./services/listing-publication-recovery.js";
 import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/temporary-dm-notice.js";
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
@@ -314,6 +315,12 @@ client.once(Events.ClientReady, (readyClient) => {
         await resumePendingTradingPostDeletes(guild);
       } catch (error) {
         console.error(`Could not resume Trading Post deletions for guild ${guild.id}:`, error);
+      }
+      try {
+        const publication = await recoverStagedListingPosts(guild);
+        if (publication.scanned) console.log("[Publication recovery]", guild.id, publication);
+      } catch (error) {
+        console.error(`Could not recover staged house/outfit posts for guild ${guild.id}:`, error);
       }
       try {
         await cleanupPendingForms(guild);

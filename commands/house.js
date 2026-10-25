@@ -360,6 +360,22 @@ export async function handleHouseCreateModal(interaction) {
       .catch(error => console.warn("Could not move house entry to bottom:", error));
   } catch (error) {
     if (post && claimed && !published) {
+      // A failed Discord request can still have reached Discord. If a MongoDB
+      // staging record exists, restoring the create form would overwrite an
+      // already-public post and could erase uploaded videos.
+      const staged = await HouseListing.exists({
+        guildId: interaction.guildId, postChannelId: channelId,
+        postMessageId: messageId, publicationState: "staging",
+      }).catch(lookupError => {
+        console.error("[house] Cannot verify interrupted publication:", lookupError);
+        return true; // fail closed: do not touch the existing Discord message
+      });
+      if (staged) {
+        console.error("[house] Preserved an interrupted listing for restart recovery:", messageId, error);
+        throw new UserFacingError(
+          "This house submission was interrupted. Its saved photos and videos have been preserved for recovery. Do not delete this post or resubmit the same files; ask a server manager to review it.",
+        );
+      }
       await post.edit({
         content: `House listing from ${interaction.user.username} — finish your listing using the button below.`,
         components: [makeCreateListingButton(ownerId)],
@@ -498,11 +514,15 @@ async function publishHouseListing(interaction, values, post, uploads) {
     postAppearance: await snapshotOwnedListingAppearance(
       interaction.guildId, interaction.user.id, profile),
     mediaAttachments: photoMetadata,
+    publicationState: "staging",
+    expectedPhotoCount: photos.length,
+    expectedVideoCount: videos.length,
     postChannelId: post.channelId,
     postMessageId: post.id,
     ...values,
   });
   let published = false;
+  let metadataSaved = true;
   let media;
   try {
     // Save every photo to Mongo BEFORE modifying the original form post.
@@ -532,26 +552,28 @@ async function publishHouseListing(interaction, values, post, uploads) {
       allowedMentions: { parse: [] },
     });
     published = true;
+    // A Discord edit can finish immediately before the process stops. Keep
+    // staging in Mongo until the edit actually succeeds, then publish.
+    listing.publicationState = "published";
+    const saved = await HouseListing.updateOne({
+      _id: listing._id, guildId: interaction.guildId,
+      publicationState: "staging", postMessageId: post.id,
+    }, { $set: { publicationState: "published" } });
+    if (!saved.matchedCount) throw new Error("House publication state was not saved.");
   } catch (error) {
     if (!published) {
-      // Original form remains intact. The staged video reply may safely be
-      // removed because its source is still the user's modal submission.
-      if (media?.created || listing.mediaMessageId) {
-        await deleteHouseMediaMessage(interaction.guild, listing)
-          .catch(cleanupError => console.warn("Could not clean unfinished house tour:", cleanupError));
-      }
-      await deleteHouseGallery(interaction.guildId, listing._id)
-        .catch(cleanupError => console.warn("Could not clear unfinished house photos:", cleanupError));
-      await HouseListing.deleteOne({ _id: listing._id })
-        .catch(cleanupError => console.warn("Could not clear unfinished house listing:", cleanupError));
+      // Do NOT erase gallery rows or a verified video reply. A timed-out
+      // Discord edit may already have published the post. The startup
+      // reconciler checks the actual message and media without guessing.
+      console.warn("[House] Unfinished publication preserved for recovery:", String(listing._id), error);
       throw error;
     }
-    console.warn("[House] Post was published, leaving it intact:", error);
+    metadataSaved = false;
+    console.warn("[House] Public post preserved; publication state needs recovery:", error);
   }
 
   // From here onward the house is public: rendering or Mongo failures must
   // never restore a create form and erase uploaded media.
-  let metadataSaved = true;
   const videosSaved = videos.length === (media?.videos.length ?? 0);
   try {
     if (!videos.length) {
