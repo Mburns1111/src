@@ -15,6 +15,7 @@ import {
 import OutfitListing from "../models/OutfitListing.js";
 import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
 import { refreshOutfitStyleCard, deleteOutfitStyleCard } from "../services/outfit-card.js";
+import { outfitGalleryMedia, isOutfitMediaAttachment } from "../services/outfit-style.js";
 import UserProfile from "../models/UserProfile.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import {
@@ -139,7 +140,7 @@ function makeListingComponents(listing) {
 }
 
 function makeMediaModal(listing) {
-  const remainingUploads = Math.max(0, 10 - (listing.mediaAttachments?.length ?? 0));
+  const remainingUploads = Math.max(0, 10 - outfitGalleryMedia(listing.mediaAttachments).length);
   if (!remainingUploads) {
     throw new UserFacingError("This listing already has the maximum of 10 media files.");
   }
@@ -194,23 +195,14 @@ function getFirstImageName(attachments) {
 }
 
 export async function refreshOutfitListingPost(guild, listing) {
+  // An admin/profile refresh must not replace the decorated outfit or drop
+  // any of the owner's photos when updating the listing details/buttons.
+  await refreshOutfitStyleCard(guild, listing);
   const channel = await guild.channels.fetch(listing.postChannelId);
-  if (!channel?.messages) {
-    throw new Error(`Outfit listing channel ${listing.postChannelId} is unavailable.`);
-  }
-  const message = await channel.messages.fetch(listing.postMessageId);
-  const attachments = Array.from(message.attachments.values());
+  const message = await channel?.messages?.fetch(listing.postMessageId);
+  if (!message) throw new Error("Outfit listing message no longer exists.");
   await message.edit({
-    content: `Outfit listing from ${listing.ownerName}`,
-    embeds: [
-      makeListingEmbed(
-        listing,
-        getFirstImageName(attachments) ??
-          getFirstImageName(listing.mediaAttachments ?? []),
-      ),
-    ],
     components: makeListingComponents(listing),
-    attachments: attachments.map(({ id }) => ({ id })),
     allowedMentions: { parse: [] },
   });
 }
@@ -284,44 +276,66 @@ export async function handleOutfitModal(interaction) {
     throw new UserFacingError("An outfit listing can have up to 10 media files.");
   }
 
-  const previousAttachmentIds = Array.from(message.attachments.keys());
-  const {
-    files,
-    firstImageName: uploadedFirstImageName,
-    cleanup,
-  } = await prepareMediaFiles(uploads, `outfit-${String(listing._id).slice(-8)}`);
+  const previousGallery = outfitGalleryMedia(message.attachments.values());
+  const oldGalleryIds = previousGallery.map(item => item.id);
+  const totalMediaAfterUpload = previousGallery.length + uploads.length;
+  if (totalMediaAfterUpload > 10) {
+    throw new UserFacingError("An outfit listing can have up to 10 uploaded media files.");
+  }
+  // Preserve the generated PNG only when the complete media gallery plus
+  // decorative artwork fits in Discord's ten-attachment limit.
+  const existingStyle = Array.from(message.attachments.values()).find(item =>
+    !isOutfitMediaAttachment(item));
+  const idsToKeep = [
+    ...oldGalleryIds,
+    ...(existingStyle && totalMediaAfterUpload < 10 ? [existingStyle.id] : []),
+  ];
+  const { files, cleanup } = await prepareMediaFiles(
+    uploads, `outfit-${String(listing._id).slice(-8)}`,
+  );
   let updatedMessage;
   try {
     updatedMessage = await message.edit({
-      attachments: previousAttachmentIds.map((id) => ({ id })),
+      attachments: idsToKeep.map(id => ({ id })),
       files,
-      embeds: [
-        makeListingEmbed(
-          listing,
-          getFirstImageName(listing.mediaAttachments) ?? uploadedFirstImageName,
-        ),
-      ],
+      // For ten original files the decorated PNG must move to a reply.
+      // Otherwise keep the existing styled embed until the new preview
+      // finishes rendering from the newly uploaded pictures.
+      embeds: totalMediaAfterUpload === 10
+        ? [makeListingEmbed(listing, getFirstImageName(previousGallery) ||
+            getFirstImageName(uploads))]
+        : message.embeds,
     });
   } finally {
     await cleanup();
   }
-
+  const updatedMedia = outfitGalleryMedia(getMessageMedia(updatedMessage));
+  const newIds = new Set(updatedMedia.map(asset => asset.attachmentId));
+  if (!oldGalleryIds.every(id => newIds.has(id)) ||
+      updatedMedia.length !== totalMediaAfterUpload) {
+    throw new UserFacingError(
+      "The gallery did not retain all uploaded media. Please contact a server admin " +
+      "before uploading anything else; the bot will not overwrite your saved media list.",
+    );
+  }
   const previousMedia = listing.mediaAttachments;
-  listing.mediaAttachments = getMessageMedia(updatedMessage);
+  listing.mediaAttachments = updatedMedia;
   try {
     await listing.save();
   } catch (error) {
-    await updatedMessage.edit({
-      attachments: previousAttachmentIds.map((id) => ({ id })),
-      embeds: message.embeds,
-    }).catch(console.error);
+    // Never undo the Discord edit: deleting just-added files would make
+    // users permanently lose uploads if a database write temporarily fails.
     listing.mediaAttachments = previousMedia;
-    throw error;
+    console.error("Outfit gallery metadata could not be saved:", error);
+    throw new UserFacingError(
+      "Your files reached Discord but their database record was not saved. " +
+      "Please contact a server admin rather than uploading them again.",
+    );
   }
 
   // A failed cosmetic refresh must not undo successful photo/video uploads.
   await refreshOutfitStyleCard(interaction.guild, listing).catch(error =>
-    console.warn("Could not refresh outfit style card after upload:", error));
+    console.warn("Could not refresh outfit style after upload:", error));
   await interaction.editReply({ content: `Added ${uploads.length} media file(s) to the outfit listing.` });
   return true;
 }
@@ -534,8 +548,8 @@ async function publishListing(interaction, values, post) {
     await OutfitListing.deleteOne({ _id: listing._id }).catch(() => {});
     throw error;
   }
-  // A separate reply displays the inherited style without reducing the
-  // existing listing's capacity for ten images/videos.
+  // The style now appears on the original outfit post whenever its media
+  // count allows; ten-photo galleries use a safe reply instead.
   await refreshOutfitStyleCard(interaction.guild, listing).catch(error =>
     console.warn("Could not publish new outfit style card:", error));
   await awardMilestoneSafely(interaction.guildId, interaction.user.id,
