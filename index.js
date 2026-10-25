@@ -1,5 +1,6 @@
 
 import "dotenv/config";
+import { validateRuntimeConfiguration } from "./services/runtime-configuration.js";
 import { Client, Events, GatewayIntentBits, MessageFlags, Partials } from "discord.js";
 import mongoose from "mongoose";
 import {
@@ -105,9 +106,8 @@ import { forgetTradeForm } from "./commands/trade.js";
 const token = process.env.DISCORD_TOKEN;
 const mongoUri = process.env.MONGODB_URI;
 
-if (!token || !mongoUri) {
-  throw new Error("Set DISCORD_TOKEN and MONGODB_URI before starting the bot.");
-}
+// Validate local configuration before starting external connections.
+validateRuntimeConfiguration({ mode: "bot" });
 
 const client = new Client({
   // Poll-vote events need no Message Content access. To diagnose whether
