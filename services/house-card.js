@@ -17,7 +17,7 @@ const refreshQueue = new Map();
 export function houseCardPayload(listing, photoPage, image, videos = [], videoFiles = []) {
   const videoLink = listing.videoUrl ? `\n[House tour link](${listing.videoUrl})` : "";
   return {
-    content: `House listing from ${listing.ownerName}${videoLink}`,
+    content: `House listing from ${listing.ownerName} (<@${listing.ownerId}>)${videoLink}`,
     embeds: [new EmbedBuilder().setColor(0x819287)
       .setImage(`attachment://${HOUSE_ART_NAME}`)],
     // Existing videos are kept in place by ID; legacy tour videos are

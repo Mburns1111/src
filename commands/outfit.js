@@ -418,16 +418,7 @@ export async function handleOutfitCreateModal(interaction) {
     const uploads = Array.from(
       interaction.fields.getUploadedFiles("outfit_media", true)?.values() ?? [],
     );
-    if (!uploads.length) {
-      throw new UserFacingError("Upload at least one outfit photo or video when creating the listing.");
-    }
-    validateAttachments(uploads);
-    if (uploads.length > 10 || uploads.filter(isGalleryVideo).length > 9) {
-      throw new UserFacingError(
-        "Upload up to ten photos/videos when creating an outfit, " +
-        "including no more than nine videos to leave room for its banner.",
-      );
-    }
+    validateOutfitCreationUploads(uploads);
 
     const values = {
       title: interaction.fields.getTextInputValue("title").trim(),
@@ -438,7 +429,7 @@ export async function handleOutfitCreateModal(interaction) {
         "Outfit video",
       ),
     };
-    ({ galleryReady } = await publishListing(interaction, values, post, uploads));
+    ({ galleryReady } = await publishOutfitListing(interaction, values, post, uploads));
     published = true;
     if (!galleryReady) {
       console.warn("Outfit gallery pending manual inspection for", post.url);
@@ -585,13 +576,27 @@ export async function execute(interaction) {
   }
 }
 
-async function publishListing(interaction, values, post, uploads) {
-  const photos = uploads.filter(isGalleryPhoto);
-  const videos = uploads.filter(isGalleryVideo);
+export function validateOutfitCreationUploads(uploads) {
+  if (!Array.isArray(uploads) || uploads.length < 1) {
+    throw new UserFacingError("Upload at least one outfit photo or video when creating the listing.");
+  }
+  validateAttachments(uploads);
+  if (uploads.length > 10 || uploads.filter(isGalleryVideo).length > 9) {
+    throw new UserFacingError(
+      "Upload up to ten photos/videos when creating an outfit, including no more than nine videos to leave room for its banner.",
+    );
+  }
+  return { photos: uploads.filter(isGalleryPhoto), videos: uploads.filter(isGalleryVideo) };
+}
+
+export async function publishOutfitListing(interaction, values, post, uploads, {
+  ownerId = interaction.user.id, importedById = "",
+} = {}) {
+  const { photos, videos } = validateOutfitCreationUploads(uploads);
   const profile = await UserProfile.findOne({
-    guildId: interaction.guildId, discordUserId: interaction.user.id,
+    guildId: interaction.guildId, discordUserId: ownerId,
   });
-  const member = await interaction.guild.members.fetch(interaction.user.id);
+  const member = await interaction.guild.members.fetch(ownerId);
 
   // Keep the original Discord CDN IDs for the archived gallery images.
   // Uploaded videos are separately attached to the public banner and their
@@ -602,10 +607,11 @@ async function publishListing(interaction, values, post, uploads) {
   }));
   const listing = await OutfitListing.create({
     guildId: interaction.guildId,
-    ownerId: interaction.user.id,
+    ownerId,
     ownerName: member.displayName,
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
-    postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, interaction.user.id, profile),
+    importedById,
+    postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, ownerId, profile),
     mediaAttachments: photoMetadata,
     publicationState: "staging",
     expectedPhotoCount: photos.length,
@@ -680,9 +686,9 @@ async function publishListing(interaction, values, post, uploads) {
     galleryReady = false;
     console.error("Outfit published, but banner/gallery needs refresh:", error);
   });
-  await awardMilestoneSafely(interaction.guildId, interaction.user.id,
+  if (!importedById) await awardMilestoneSafely(interaction.guildId, ownerId,
     "outfitFirstListing", String(listing._id));
-  return { galleryReady };
+  return { galleryReady, listingId: String(listing._id) };
 }
 
 export async function handleOutfitSold(interaction) {

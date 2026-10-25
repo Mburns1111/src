@@ -70,6 +70,10 @@ import {
   handleTradeVoteEntryButton,
 } from "./commands/trade.js";
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
+import {
+  data as adminImportCommand, execute as executeAdminImport,
+  handleAdminImportModal,
+} from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
@@ -240,6 +244,7 @@ const commandHandlers = new Map([
   [outfitCommand.name, executeOutfit],
   [tradeCommand.name, executeTrade],
   [setupCommand.name, executeSetup],
+  [adminImportCommand.name, executeAdminImport],
   [shopCommand.name, executeShop],
   [testPointsCommand.name, executeTestPoints],
   [pointsAdminCommand.name, executePointsAdmin],
@@ -389,10 +394,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // MongoDB state; never await the unrelated maintenance pass here.
     // Both branch-specific commands and entry creation already validate
     // their current records, so they need no global startup barrier.
-    if (interaction.isChatInputCommand()) {
+    // The admin import slash command must show a modal as its first
+    // acknowledgement. All other slash commands keep their fast defer.
+    if (interaction.isChatInputCommand() &&
+        interaction.commandName !== adminImportCommand.name) {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     }
 
+    if (interaction.isModalSubmit() &&
+        interaction.customId.startsWith("admin-import:")) {
+      await handleAdminImportModal(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId.startsWith("dm:notice:")) {
       await handleTemporaryDmNotice(interaction);
       return;
@@ -648,6 +661,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.guild &&
       ![
         setupCommand.name,
+        adminImportCommand.name,
         shopCommand.name,
         testPointsCommand.name,
         pointsAdminCommand.name,
@@ -658,7 +672,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     ) {
       await ensureProfileCard(interaction.guild, interaction.user);
     }
-    if (interaction.commandName !== setupCommand.name && interaction.guildId) {
+    if (![setupCommand.name, adminImportCommand.name].includes(interaction.commandName) && interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
       if (
         config?.commandChannelId &&
