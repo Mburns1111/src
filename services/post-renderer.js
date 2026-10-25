@@ -938,10 +938,68 @@ function drawTradingPost(ctx, data, images, style, layout, appearance, stickerIm
 }
 
 /**
+ * Outfit image: the uploaded photo is the hero, while the other details
+ * remain readable even when the member chooses bold decorative artwork.
+ * The media gallery remains on the original Discord listing message.
+ */
+function drawOutfit(ctx, data, images, style, layout, appearance, stickerImages) {
+  const { width, height } = layout;
+  ctx.fillStyle = style.background;
+  ctx.fillRect(0, 0, width, height);
+  if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
+  else drawBackgroundPattern(ctx, width, height, appearance);
+
+  glassPanel(ctx, 48, 45, 1104, 145, style);
+  glassPanel(ctx, 48, 210, 547, 535, style, true);
+  glassPanel(ctx, 615, 210, 537, 535, style);
+
+  drawFittedLine(ctx, data.title || 'Outfit listing', {
+    x: 86, y: 79, width: 1000, height: 61,
+  }, {
+    fontSize: 52, minFontSize: 26, family: style.titleFontFamily,
+    weight: style.titleFontWeight, color: style.text,
+  });
+  drawFittedLine(ctx, data.seller || 'Seller', {
+    x: 86, y: 145, width: 960, height: 27,
+  }, {
+    fontSize: 23, minFontSize: 16, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.mutedText,
+  });
+
+  if (images.photo) {
+    drawContain(ctx, images.photo, 76, 234, 490, 485, style.imageRadius);
+  } else {
+    drawLabel(ctx, 'Outfit photos', { x: 100, y: 300, width: 440, height: 52 }, style);
+    drawWrappedText(ctx, 'Photos and videos appear in the original listing.', {
+      x: 100, y: 380, width: 440, height: 190,
+    }, {
+      fontSize: 32, minFontSize: 22, family: style.fontFamily,
+      weight: style.bodyFontWeight, color: style.text, maxLines: 4,
+    });
+  }
+
+  drawLabel(ctx, 'Cost', { x: 655, y: 250, width: 446, height: 40 }, style);
+  drawFittedLine(ctx, data.cost || 'Not listed', {
+    x: 655, y: 302, width: 450, height: 54,
+  }, {
+    fontSize: 37, minFontSize: 22, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text,
+  });
+  drawLabel(ctx, 'Details', { x: 655, y: 383, width: 447, height: 44 }, style);
+  drawWrappedText(ctx, data.description || 'No description', {
+    x: 655, y: 449, width: 450, height: 225,
+  }, {
+    fontSize: 29, minFontSize: 18, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 7,
+  });
+  drawDecorations(ctx, width, height, appearance, style, stickerImages);
+}
+
+/**
  * Render a post image as a PNG Buffer.
  *
  * @param {object} options
- * @param {'profile'|'tradingPost'} options.type Layout key.
+ * @param {'profile'|'tradingPost'|'outfit'} options.type Layout key.
  * @param {object} options.data Text/data fields for the selected layout.
  * @param {object} [options.images] Optional avatar/photo image sources.
  * @param {object} [options.style] Optional overrides for DEFAULT_POST_STYLE.
@@ -1053,6 +1111,9 @@ export async function renderPostImage({
     );
   } else if (type === 'tradingPost') {
     drawTradingPost(ctx, data, { avatar, photo, background }, resolvedStyle,
+      layout, resolvedAppearance, stickerImages);
+  } else if (type === 'outfit') {
+    drawOutfit(ctx, data, { avatar, photo, background }, resolvedStyle,
       layout, resolvedAppearance, stickerImages);
   } else {
     throw new Error(
