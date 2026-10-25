@@ -175,6 +175,10 @@ export async function cleanupPendingForms(guild) {
   let removedCount = 0;
 
   for (const pendingForm of pendingForms) {
+    if (activeFormOperations.has(formKey(guild.id, pendingForm.channelId, pendingForm.messageId))) {
+      // Never race startup cleanup with a live form submit or deletion.
+      continue;
+    }
     let channel;
     let message;
     try {

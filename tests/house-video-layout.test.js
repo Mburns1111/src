@@ -156,10 +156,10 @@ test("sold house deletes linked bot media but does not delete arbitrary user mes
   const channel = {
     messages: { fetch: async () => ({ author: { id: botId }, delete: async () => { deleted++; } }) },
   };
-  await deleteHouseMediaMessage(makeGuild(channel), current);
+  assert.equal(await deleteHouseMediaMessage(makeGuild(channel), current), true);
   assert.equal(deleted, 1);
   channel.messages.fetch = async () => ({ author: { id: "someone-else" }, delete: async () => { deleted++; } });
-  await deleteHouseMediaMessage(makeGuild(channel), current);
+  assert.equal(await deleteHouseMediaMessage(makeGuild(channel), current), false);
   assert.equal(deleted, 1);
 });
 test("startup reconciliation upgrades video-tiling legacy houses but not photo-only completed cards", () => {

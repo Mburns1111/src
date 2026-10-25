@@ -132,11 +132,15 @@ export async function refreshHouseStyleCard(guild, listing) {
       }
 
       if (current.mediaMessageId) {
-        await deleteHouseMediaMessage(guild, current);
-        await HouseListing.updateOne({
-          _id: current._id, guildId: guild.id, status: "active",
-          postMessageId: current.postMessageId, mediaMessageId: current.mediaMessageId,
-        }, { $set: { mediaMessageId: "" } });
+        const retired = await deleteHouseMediaMessage(guild, current);
+        if (retired) {
+          await HouseListing.updateOne({
+            _id: current._id, guildId: guild.id, status: "active",
+            postMessageId: current.postMessageId, mediaMessageId: current.mediaMessageId,
+          }, { $set: { mediaMessageId: "" } });
+        }
+        // If an outdated ID resolves to someone else's message, keep its
+        // reference available for manual review.
       }
       return updated;
     } finally {
