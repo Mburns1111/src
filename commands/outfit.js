@@ -333,8 +333,11 @@ export async function handleOutfitCreateModal(interaction) {
         "Outfit video",
       ),
     };
-    await publishListing(interaction, values, post, uploads);
+    const { galleryReady } = await publishListing(interaction, values, post, uploads);
     published = true;
+    if (!galleryReady) {
+      console.warn("Outfit gallery pending manual inspection for", post.url);
+    }
     pendingForms.delete(formKey);
     await clearPendingForm(interaction.guildId, channelId, messageId);
   } catch (error) {
@@ -476,6 +479,8 @@ async function publishListing(interaction, values, post, uploads) {
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
     postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, interaction.user.id, profile),
     mediaAttachments: photoMetadata,
+    postChannelId: post.channelId,
+    postMessageId: post.id,
     ...values,
   });
 
@@ -518,17 +523,24 @@ async function publishListing(interaction, values, post, uploads) {
         .catch(cleanupError => console.error("Cannot clean unfinished outfit gallery:", cleanupError));
       await OutfitListing.deleteOne({ _id: listing._id })
         .catch(cleanupError => console.error("Cannot clean unfinished outfit:", cleanupError));
+      throw error;
     }
-    throw error;
+    // The original post has already been published. Never restore the
+    // pending form or delete its attachments because Mongo had a hiccup.
+    console.error("Outfit public post saved but final metadata update failed:", error);
   }
 
   // Style and gallery are cosmetic follow-ups. If a Discord edit fails,
   // preserve the already-published listing and its saved photos/videos;
   // never delete its media merely because a gallery message failed.
-  await refreshOutfitStyleCard(interaction.guild, listing).catch(error =>
-    console.error("Outfit published, but banner/gallery needs refresh:", error));
+  let galleryReady = true;
+  await refreshOutfitStyleCard(interaction.guild, listing).catch(error => {
+    galleryReady = false;
+    console.error("Outfit published, but banner/gallery needs refresh:", error);
+  });
   await awardMilestoneSafely(interaction.guildId, interaction.user.id,
     "outfitFirstListing", String(listing._id));
+  return { galleryReady };
 }
 
 export async function handleOutfitSold(interaction) {
