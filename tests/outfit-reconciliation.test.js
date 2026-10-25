@@ -105,7 +105,16 @@ test("startup reconciliation automatically upgrades outdated outfit messages and
     check: async (_guild, item) => {
       if (item === c) return { state: "missing" };
       if (item === d) return { state: "unavailable" };
-      return { state: "present", message: currentMessage };
+      // Each current Discord button must identify the listing under test.
+      const message = {
+        ...currentMessage,
+        components: [{
+          components: ["interest", "notify", "sold"].map(action => ({
+            customId: `outfit:${action}:${item._id}`,
+          })),
+        }],
+      };
+      return { state: "present", message };
     },
     refresh: async (_guild, item) => upgraded.push(String(item._id)),
   });
