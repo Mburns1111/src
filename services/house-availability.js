@@ -72,6 +72,7 @@ export async function reconcileHousesForGuild(guild, {
           const channel = await guild.channels.fetch(listing.postChannelId);
           const media = await channel.messages.fetch(listing.mediaMessageId);
           if (!media || media.author?.id !== guild.client.user.id ||
+              houseVideoAssets(media.attachments?.values?.()).length === 0 ||
               houseVideoAssets(media.attachments?.values?.()).length <
                 houseVideoAssets(listing.mediaAttachments || []).length) {
             needsUpgrade = true;
