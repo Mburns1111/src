@@ -77,7 +77,9 @@ export async function ensureHouseMediaMessage(guild, listing, original, {
     }
     const sources = supplied.length ? supplied : onCard.length ? onCard : recorded;
     if (!sources.length) {
-      return { message: null, videos: [], created: false };
+      // Do not silently treat a deleted video reply as a valid video-less
+      // house listing. Keep its saved reference for manual recovery.
+      throw new Error("The house video message is missing and its source videos are unavailable.");
     }
     const { files, cleanup } = await prepareMediaFiles(
       sources, `house-${String(listing._id).slice(-8)}-tour`,
