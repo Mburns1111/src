@@ -272,7 +272,7 @@ export async function handleOutfitModal(interaction) {
   const message = await fetchListingMessage(interaction, listing);
   const uploads = Array.from(interaction.fields.getUploadedFiles("media", true).values());
   validateAttachments(uploads);
-  if (listing.mediaAttachments.length + uploads.length > 10) {
+  if (outfitGalleryMedia(listing.mediaAttachments).length + uploads.length > 10) {
     throw new UserFacingError("An outfit listing can have up to 10 media files.");
   }
 
