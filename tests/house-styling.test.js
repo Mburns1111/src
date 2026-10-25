@@ -39,19 +39,20 @@ test("house photo pagination and seller controls share ONE message", () => {
     "Mark sold", "Interested (0)", "Interest DMs: Off",
   ]);
   assert.equal(rows[0][2].custom_id, `house:page:next:${listing._id}`);
-  const payload = houseCardPayload(listing, { count: 3 }, [], Buffer.from("test"));
+  const payload = houseCardPayload(listing, { count: 3 }, Buffer.from("test"));
   assert.deepEqual(payload.embeds, []);
   assert.equal(payload.files[0].name, "house-style-card.png");
   assert.equal(payload.components.length, 2);
   assert.deepEqual(payload.attachments, []);
 });
-test("native house videos are preserved when card image is refreshed", () => {
-  const payload = houseCardPayload(listing, { count: 1 }, [
-    { id: "111", name: "tour.mp4" }, { id: "222", name: "walk.webm" },
-  ], Buffer.from("test"));
-  assert.deepEqual(payload.attachments, [{ id: "111" }, { id: "222" }]);
+test("house artwork is the ONLY attachment on the main post, never tiled with video", () => {
+  const record = { ...listing, mediaMessageId: "555555555555555555" };
+  const payload = houseCardPayload(record, { count: 1 }, Buffer.from("test"));
+  assert.deepEqual(payload.attachments, []);
+  assert.equal(payload.files.length, 1);
   assert.equal(payload.components.length, 1);
   assert.deepEqual(payload.embeds, []);
+  assert.match(payload.content, /Watch house video tour/);
 });
 test("generated house artwork is NEVER treated as a buyer photo", () => {
   const media = [
