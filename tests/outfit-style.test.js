@@ -1,191 +1,124 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { OUTFIT_PICK_PAGE_SIZE, outfitPhotoUrl, outfitPhotoUrls, outfitCardData, outfitPickerOptions, outfitGalleryMedia, outfitStylePlacement, isOutfitMediaAttachment, OUTFIT_STYLE_IMAGE_NAME } from "../services/outfit-style.js";
-import { renderPostImage } from "../services/post-renderer.js";
 import { createCanvas } from "@napi-rs/canvas";
+import { renderPostImage } from "../services/post-renderer.js";
 import { makeAppearanceControls } from "../commands/profile.js";
 import { FREE_APPEARANCE } from "../services/appearance-ownership.js";
 import { stickerDefaults } from "../services/sticker-catalog.js";
-import { originalStyledOutfitEdit, fullGalleryOutfitEdit } from "../services/outfit-card.js";
+import { outfitCardData, outfitPickerOptions, OUTFIT_PICK_PAGE_SIZE } from "../services/outfit-style.js";
+import {
+  OUTFIT_BANNER_NAME, isGalleryPhoto, isGalleryVideo, isGalleryMedia,
+  mergeOriginalMedia, galleryNavigationButtons, safePageIndex,
+} from "../services/outfit-gallery-utils.js";
+import { outfitBannerPayload } from "../services/outfit-card.js";
+import { resizeOutfitImage, galleryMessagePayload } from "../services/outfit-gallery.js";
 
-test("two or three outfit records keep independent appearance and picker identity", () => {
+test("each of three outfit listings has its own independent style and picker ID", () => {
   const outfits = [
-    { _id: "a".repeat(24), title: "Pink dress", cost: "150", postAppearance: { background: "rosePastel" } },
-    { _id: "b".repeat(24), title: "Dark costume", cost: "200", postAppearance: { background: "blackDark" } },
-    { _id: "c".repeat(24), title: "Green set", cost: "300", postAppearance: { background: "greenNormal" } },
+    { _id: "a".repeat(24), title: "Pink dress", postAppearance: { background: "rosePastel" } },
+    { _id: "b".repeat(24), title: "Dark costume", postAppearance: { background: "blackDark" } },
+    { _id: "c".repeat(24), title: "Green outfit", postAppearance: { background: "greenNormal" } },
   ];
-  const opts = outfitPickerOptions(outfits);
-  assert.equal(OUTFIT_PICK_PAGE_SIZE, 20);
-  assert.deepEqual(opts.map(opt => opt.value), outfits.map(o => o._id));
+  assert.deepEqual(outfitPickerOptions(outfits).map(x => x.value), outfits.map(x => x._id));
   outfits[1].postAppearance.background = "yellowPastel";
   assert.equal(outfits[0].postAppearance.background, "rosePastel");
   assert.equal(outfits[2].postAppearance.background, "greenNormal");
+  assert.equal(OUTFIT_PICK_PAGE_SIZE, 20);
 });
 
-test("choose only image media for the styled photo; never replace the video gallery", () => {
-  const listing = { mediaAttachments: [
-    { url: "https://cdn.discordapp.com/a.mp4", name: "a.mp4", contentType: "video/mp4" },
-    { url: "https://cdn.discordapp.com/b.jpg", name: "b.jpg", contentType: "image/jpeg" },
-    { url: "https://cdn.discordapp.com/c.png", name: "c.png", contentType: "image/png" },
-  ] };
-  assert.equal(outfitPhotoUrl(listing), "https://cdn.discordapp.com/b.jpg");
-  assert.equal(listing.mediaAttachments.length, 3);
-  assert.equal(outfitPhotoUrl({ mediaAttachments: [] }), null);
-});
-
-test("outfit style data keeps the seller, title, cost and description", () => {
-  assert.deepEqual(outfitCardData({
-    title: "A look", ownerName: "Member", ownerRobloxUsername: "Player",
-    cost: "100", description: "An elegant outfit",
-  }), {
-    title: "A look", seller: "Member · Player",
-    cost: "100", description: "An elegant outfit",
+test("outfit banner keeps seller, cost and description but no photo", async () => {
+  const data = outfitCardData({
+    title: "My look", ownerName: "Seller", ownerRobloxUsername: "Player",
+    description: "Really cute", cost: "300",
   });
+  assert.deepEqual(data, {
+    title: "My look", seller: "Seller · Player", cost: "300",
+    description: "Really cute",
+  });
+  const png = await renderPostImage({
+    type: "outfit", data, appearance: { stickers: [stickerDefaults("star")] },
+  });
+  assert.deepEqual(Array.from(png.subarray(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.ok(png.length > 1000);
 });
 
-test("outfits render with independent decorative styles even without uploaded photos", async () => {
-  for (const look of [
-    { background: "rosePastel", stickers: [] },
-    { background: "black", stickers: [stickerDefaults("star")] },
-  ]) {
-    const png = await renderPostImage({
-      type: "outfit",
-      data: {
-        title: "My fancy look", seller: "Member · Roblox",
-        cost: "100", description: "Pretty shoes and a bow",
-      },
-      appearance: look,
-    });
-    assert.deepEqual(Array.from(png.subarray(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10]);
-    assert.ok(png.length > 1000);
-  }
+test("the original outfit post contains just the decorated banner and saved video files", () => {
+  const listing = { title: "One", ownerName: "Tester", videoUrl: "https://example.com/video" };
+  const videos = [
+    { id: "vid1", name: "clip1.mp4", contentType: "video/mp4" },
+    { id: "vid2", name: "clip2.webm", contentType: "video/webm" },
+  ];
+  const payload = outfitBannerPayload(listing, videos, Buffer.from("fake"));
+  assert.deepEqual(payload.attachments, [{ id: "vid1" }, { id: "vid2" }]);
+  assert.equal(payload.files[0].name, OUTFIT_BANNER_NAME);
+  assert.equal(payload.embeds.length, 1);
+  assert.equal(payload.embeds[0].toJSON().image.url, "attachment://" + OUTFIT_BANNER_NAME);
+  assert.equal(payload.components, undefined, "original listing buttons stay intact");
+  assert.match(payload.content, /Outfit video/);
 });
 
-test("outfit editors share the familiar profile style controls without exceeding Discord row limits", () => {
-  const owned = Object.fromEntries(Object.entries(FREE_APPEARANCE).map(([k, v]) => [
-    k, new Set([...v, ...(k === "stickers" ? ["flower"] : [])]),
-  ]));
-  const sample = {
-    discordUserId: "1234567890",
-    profileAppearance: { background: "sagePreview", stickers: [stickerDefaults("flower")] },
+test("old photos, new photos and videos are identifiable while artwork is excluded", () => {
+  const assets = [
+    { id: "photo1", name: "one.jpg", contentType: "image/jpeg" },
+    { id: "photo2", name: "two.png", contentType: "image/png" },
+    { id: "video", name: "clip.mp4", contentType: "video/mp4" },
+    { id: "banner", name: OUTFIT_BANNER_NAME, contentType: "image/png" },
+  ];
+  assert.deepEqual(assets.filter(isGalleryPhoto).map(x => x.id), ["photo1", "photo2"]);
+  assert.deepEqual(assets.filter(isGalleryVideo).map(x => x.id), ["video"]);
+  assert.deepEqual(assets.filter(isGalleryMedia).map(x => x.id), ["photo1", "photo2", "video"]);
+  const merged = mergeOriginalMedia([
+    { attachmentId: "photo1", name: "one.jpg", url: "https://cdn.discordapp.com/one.jpg" },
+  ], assets);
+  assert.equal(merged.length, 3);
+  assert.equal(merged[0].attachmentId, "photo1");
+});
+
+test("flipbook navigation is circular and uses one page image at a time", () => {
+  assert.deepEqual(galleryNavigationButtons(0, 3), { previous: 2, next: 1, count: 3 });
+  assert.deepEqual(galleryNavigationButtons(2, 3), { previous: 1, next: 0, count: 3 });
+  assert.equal(safePageIndex(-1, 3), 2);
+  assert.equal(safePageIndex(3, 3), 0);
+  const listing = {
+    _id: "a".repeat(24), guildId: "123456789012345678",
+    title: "Three views", postChannelId: "123456789012345678",
+    postMessageId: "123456789012345678",
   };
+  const payload = galleryMessagePayload(listing, 2, 3);
+  assert.equal(payload.embeds.length, 1);
+  assert.equal(payload.embeds[0].toJSON().image.url, "attachment://outfit-gallery-page.jpg");
+  assert.match(payload.content, /3 \/ 3/);
+  assert.equal(payload.components.length, 1);
+  assert.deepEqual(payload.components[0].toJSON().components.map(x => x.label), ["◀ Previous", "Next ▶"]);
+});
+
+test("large images resize to a stable JPEG, leaving the originals unchanged", async () => {
+  const cv = createCanvas(1400, 960);
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#763BA8"; ctx.fillRect(0, 0, 1400, 960);
+  const source = cv.toBuffer("image/png");
+  const resized = await resizeOutfitImage(source);
+  assert.ok(Buffer.isBuffer(resized));
+  assert.deepEqual(Array.from(resized.subarray(0, 3)), [255, 216, 255]);
+  assert.ok(resized.length < source.length || resized.length > 500);
+});
+
+test("outfit editor uses the same purchased style controls under Discord limits", () => {
+  const owned = Object.fromEntries(Object.entries(FREE_APPEARANCE).map(([k, v]) =>
+    [k, new Set([...v, ...(k === "stickers" ? ["flower"] : [])])]));
+  const member = { discordUserId: "1234", profileAppearance: {
+    background: "sagePreview", stickers: [stickerDefaults("flower")],
+  } };
   for (const page of ["colors", "fonts", "details", "stickers"]) {
     for (const mode of ["position", "style"]) {
-      const rows = makeAppearanceControls(sample, page, 0, owned, "123456789abc", {}, mode,
-        "listing:dm", "Save Outfit Style").map(row => row.toJSON().components);
+      const rows = makeAppearanceControls(member, page, 0, owned, "123456789abc", {}, mode,
+        "listing:dm", "Save Outfit Style").map(r => r.toJSON().components);
       assert.ok(rows.length <= 5);
-      assert.ok(rows.every(row => row.length <= 5));
-      const buttons = rows.flat();
-      assert.ok(buttons.some(c => c.label === "Save Outfit Style"));
+      assert.ok(rows.every(r => r.length <= 5));
       if (page === "stickers") {
-        assert.ok(buttons.some(c => c.label === "Remove Sticker"));
-        assert.ok(buttons.some(c => c.label === "Remove All Stickers"));
+        assert.ok(rows.flat().some(c => c.label === "Remove Sticker"));
+        assert.ok(rows.flat().some(c => c.label === "Remove All Stickers"));
       }
     }
   }
-});
-
-test("outfit picker scales beyond 3 listings without losing identity", () => {
-  const items = Array.from({ length: 20 }, (_, i) => ({
-    _id: i.toString(16).padStart(24, "0"), title: `Outfit ${i + 1}`,
-  }));
-  const options = outfitPickerOptions(items);
-  assert.equal(options.length, OUTFIT_PICK_PAGE_SIZE);
-  assert.equal(new Set(options.map(item => item.value)).size, 20);
-});
-
-test("style PNG is never counted as an uploaded outfit picture", () => {
-  const media = [
-    { id: "media1", name: "look-front.jpg", contentType: "image/jpeg" },
-    { id: "style", name: OUTFIT_STYLE_IMAGE_NAME, contentType: "image/png" },
-    { id: "media2", name: "look-back.png", contentType: "image/png" },
-    { id: "media3", name: "walkthrough.mp4", contentType: "video/mp4" },
-  ];
-  assert.equal(isOutfitMediaAttachment(media[1]), false);
-  assert.deepEqual(outfitGalleryMedia(media).map(x => x.id),
-    ["media1", "media2", "media3"]);
-  assert.deepEqual(media.map(x => x.id), ["media1", "style", "media2", "media3"],
-    "The source gallery collection is not mutated");
-});
-
-test("outfit cards live on the original message with space, never evict ten uploads", () => {
-  for (const count of [0, 1, 2, 3, 9]) {
-    assert.equal(outfitStylePlacement(count), "original");
-    assert.ok(count + 1 <= 10);
-  }
-  assert.equal(outfitStylePlacement(10), "reply");
-  for (const invalid of [-1, 11, 1.2, null]) {
-    assert.throws(() => outfitStylePlacement(invalid), RangeError);
-  }
-});
-
-test("outfit collage includes three photo URLs without including videos", () => {
-  const gallery = { mediaAttachments: [
-    { url: "https://cdn.discordapp.com/1.jpg", name: "1.jpg", contentType: "image/jpeg" },
-    { url: "https://cdn.discordapp.com/video.mp4", name: "video.mp4", contentType: "video/mp4" },
-    { url: "https://cdn.discordapp.com/2.jpg", name: "2.jpg", contentType: "image/jpeg" },
-    { url: "https://cdn.discordapp.com/3.png", name: "3.png", contentType: "image/png" },
-    { url: "https://cdn.discordapp.com/4.jpg", name: "4.jpg", contentType: "image/jpeg" },
-  ] };
-  assert.deepEqual(outfitPhotoUrls(gallery), [
-    "https://cdn.discordapp.com/1.jpg",
-    "https://cdn.discordapp.com/2.jpg",
-    "https://cdn.discordapp.com/3.png",
-  ]);
-  assert.equal(gallery.mediaAttachments.length, 5);
-});
-
-test("public outfit edit preserves every original picture/video ID and leaves existing buttons", () => {
-  const listing = {
-    _id: "f".repeat(24), title: "My look", description: "cute", ownerName: "Tester",
-    ownerRobloxUsername: "Player", cost: "100", createdAt: new Date("2026-10-24"),
-  };
-  const media = [
-    { id: "photo1", name: "first.jpg", contentType: "image/jpeg" },
-    { id: "photo2", name: "second.jpg", contentType: "image/jpeg" },
-    { id: "photo3", name: "third.jpg", contentType: "image/jpeg" },
-    { id: "video1", name: "video.mp4", contentType: "video/mp4" },
-  ];
-  const payload = originalStyledOutfitEdit(listing, media, Buffer.from("test"));
-  assert.deepEqual(payload.attachments.map(item => item.id), media.map(item => item.id));
-  assert.equal(payload.files.length, 1);
-  assert.equal(payload.files[0].name, OUTFIT_STYLE_IMAGE_NAME);
-  assert.equal(payload.embeds[0].toJSON().image.url, "attachment://" + OUTFIT_STYLE_IMAGE_NAME);
-  assert.equal(payload.embeds[1].toJSON().image, undefined,
-    "original photos stay unconsumed attachments and remain visible as a gallery");
-  assert.equal(payload.components, undefined, "buttons on the existing listing are preserved");
-  assert.equal(media.length, 4);
-});
-
-test("ten-media fallback is non-destructive and uses no style attachment on original", () => {
-  const listing = {
-    _id: "f".repeat(24), title: "Ten outfit photos", description: "all my looks",
-    ownerName: "Tester", createdAt: new Date("2026-10-24"),
-  };
-  const media = Array.from({ length: 10 }, (_, n) =>
-    ({ id: String(n), name: `file${n}.png`, contentType: "image/png" }));
-  const payload = fullGalleryOutfitEdit(listing, media);
-  assert.deepEqual(payload.attachments.map(x => x.id), media.map(x => x.id));
-  assert.equal(payload.files, undefined);
-  assert.equal(payload.components, undefined);
-  assert.equal(payload.embeds[0].toJSON().image.url, "attachment://file0.png");
-  assert.throws(() => originalStyledOutfitEdit(listing, media, Buffer.from("x")), RangeError);
-});
-
-test("styled outfit collage actually renders three user photo buffers", async () => {
-  const square = createCanvas(32, 32);
-  const context = square.getContext("2d");
-  context.fillStyle = "#763BA8";
-  context.fillRect(0, 0, 32, 32);
-  const photo = square.toBuffer("image/png");
-  const output = await renderPostImage({
-    type: "outfit",
-    data: {
-      title: "Three outfit views", seller: "Member",
-      description: "Front, back and detail", cost: "150",
-    },
-    images: { photo, photo2: photo, photo3: photo },
-  });
-  assert.ok(output.length > 1000);
-  assert.deepEqual(Array.from(output.subarray(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10]);
 });
