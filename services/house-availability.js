@@ -1,5 +1,6 @@
 import HouseListing from "../models/HouseListing.js";
 import { refreshHouseStyleCard } from "./house-card.js";
+import { houseMediaNeedsRepair } from "./house-media.js";
 export async function checkHousePost(guild, listing) {
   if (!listing?.postChannelId || !listing?.postMessageId || listing.status !== "active") {
     return { state: "unavailable" };
@@ -44,7 +45,10 @@ export function houseNeedsFormatUpgrade(listing, message) {
   return !art ||
     ids.some(name => !buttons.includes(`house:${name}:${listing._id}`)) ||
     buttons.includes(`house:media:${listing._id}`) ||
-    Boolean(message.embeds?.length);
+    Boolean(message.embeds?.length) ||
+    (houseMediaNeedsRepair(listing, message) && !listing.mediaMessageId) ||
+    Array.from(message.attachments?.values?.() ?? []).some(asset =>
+      /^(video)\//i.test(asset.contentType || "") || /\.(mp4|webm|mov|m4v)$/i.test(asset.name || ""));
 }
 
 /** Repairs old house embeds on startup. Stops only the listing that fails. */
@@ -62,7 +66,25 @@ export async function reconcileHousesForGuild(guild, {
       const result = await check(guild, listing);
       if (result.state === "missing") { stats.missing++; continue; }
       if (result.state !== "present") { stats.unavailable++; continue; }
-      if (!houseNeedsFormatUpgrade(listing, result.message)) { stats.current++; continue; }
+      let needsUpgrade = houseNeedsFormatUpgrade(listing, result.message);
+      if (!needsUpgrade && listing.mediaMessageId) {
+        try {
+          const channel = await guild.channels.fetch(listing.postChannelId);
+          const media = await channel.messages.fetch(listing.mediaMessageId);
+          if (!media || media.author?.id !== guild.client.user.id) {
+            needsUpgrade = true;
+          }
+        } catch (error) {
+          if ([10003, 10008].includes(Number(error?.code))) {
+            needsUpgrade = true;
+          } else {
+            stats.unavailable++;
+            console.warn("[House reconciliation] Video reply could not be checked:", String(listing._id), error);
+            continue;
+          }
+        }
+      }
+      if (!needsUpgrade) { stats.current++; continue; }
       await refresh(guild, listing);
       stats.converted++;
     } catch (error) {
