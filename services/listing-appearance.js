@@ -2,12 +2,13 @@ import { DEFAULT_APPEARANCE } from "./post-appearance.js";
 import { filterOwnedAppearance, getAppearanceOwnership } from "./appearance-ownership.js";
 
 /**
- * A new listing starts with a COPY of the member's current profile look.
- * Later profile changes must never mutate already-published listing styles.
- * Saved listing looks are always checked against the member's owned items.
+ * New listings inherit the member's purchased profile colors, fonts, panels
+ * and frame as an independent snapshot. Stickers are deliberately opt-in:
+ * members must place them in each listing's editor themselves.
  */
 export function snapshotListingAppearance(profile, ownership) {
-  return filterOwnedAppearance(profile?.profileAppearance ?? DEFAULT_APPEARANCE, ownership);
+  const appearance = filterOwnedAppearance(profile?.profileAppearance ?? DEFAULT_APPEARANCE, ownership);
+  return { ...appearance, stickers: [] };
 }
 
 export async function snapshotOwnedListingAppearance(guildId, ownerId, profile) {
@@ -16,13 +17,13 @@ export async function snapshotOwnedListingAppearance(guildId, ownerId, profile) 
 }
 
 /**
- * Old listings have no style recorded. They can be presented using the member's
- * current profile as a starting point until the owner explicitly saves a look.
- * This fallback must not write to the listing database.
+ * Previously saved listing styles—including stickers placed by the owner—stay
+ * exactly as saved. Old listings without a style use the same sticker-free
+ * profile starting point, but the fallback itself never writes to MongoDB.
  */
 export function displayListingAppearance(listing, profile, ownership) {
-  return filterOwnedAppearance(
-    listing?.postAppearance ?? profile?.profileAppearance ?? DEFAULT_APPEARANCE,
-    ownership,
-  );
+  if (listing?.postAppearance != null) {
+    return filterOwnedAppearance(listing.postAppearance, ownership);
+  }
+  return snapshotListingAppearance(profile, ownership);
 }
