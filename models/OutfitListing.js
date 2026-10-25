@@ -16,6 +16,8 @@ const outfitListingSchema = new mongoose.Schema(
     postAppearance: { type: mongoose.Schema.Types.Mixed, default: null },
     postChannelId: { type: String, default: "" },
     postMessageId: { type: String, default: "" },
+    // Styled PNG lives in a bot reply, preserving all ten gallery slots.
+    styleCardMessageId: { type: String, default: "" },
     status: { type: String, enum: ["active", "sold"], default: "active" },
     soldAt: { type: Date, default: null },
     interestedUserIds: { type: [String], default: [] },
