@@ -146,6 +146,131 @@ export async function openTradingPostAppearanceDM(interaction, guild) {
   return true;
 }
 
+// Outfit selection is scoped to the member, server and listing ID.
+export async function showOutfitAppearancePicker(interaction, guild, requestedPage = 0) {
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
+  const filter = {
+    guildId: guild.id, ownerId: interaction.user.id, status: "active",
+    postChannelId: { $ne: "" }, postMessageId: { $ne: "" },
+  };
+  const count = await OutfitListing.countDocuments(filter);
+  if (!count) {
+    await interaction.editReply({
+      content: "You do not have any active outfit listings yet. Create one using the Outfit channel first, then return here to style it.",
+      components: [], allowedMentions: { parse: [] },
+    });
+    return true;
+  }
+  const lastPage = Math.max(0, Math.ceil(count / OUTFIT_PICK_PAGE_SIZE) - 1);
+  const page = Math.max(0, Math.min(lastPage, Number(requestedPage) || 0));
+  const outfits = await OutfitListing.find(filter)
+    .sort({ createdAt: -1, _id: -1 })
+    .skip(page * OUTFIT_PICK_PAGE_SIZE).limit(OUTFIT_PICK_PAGE_SIZE).lean();
+  const selector = new StringSelectMenuBuilder()
+    .setCustomId(`listing:pick:${guild.id}:${interaction.user.id}:${page}`)
+    .setPlaceholder("Choose one outfit to customize")
+    .addOptions(outfitPickerOptions(outfits));
+  const controls = [new ActionRowBuilder().addComponents(selector)];
+  if (lastPage > 0) {
+    controls.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`listing:pickpage:${guild.id}:${interaction.user.id}:${page - 1}`)
+        .setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+      new ButtonBuilder().setCustomId(`listing:pickpage:${guild.id}:${interaction.user.id}:${page + 1}`)
+        .setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page === lastPage),
+    ));
+  }
+  await interaction.editReply({
+    content: `**Customize Outfits** — select the exact listing you want to style.\nEach outfit saves its own appearance independently, including stickers. **${count} active listing(s)** · Page ${page + 1}/${lastPage + 1}.`,
+    components: controls, allowedMentions: { parse: [] },
+  });
+  return true;
+}
+
+export async function handleOutfitAppearancePicker(interaction) {
+  const [, action, guildId, ownerId, page] = interaction.customId.split(":");
+  if (!["pick", "pickpage"].includes(action) ||
+      !/^\d{17,21}$/.test(guildId) || ownerId !== interaction.user.id ||
+      !/^\d+$/.test(page || "")) {
+    throw new UserFacingError("That outfit selection is not yours.");
+  }
+  if (action === "pick" && !interaction.isStringSelectMenu()) {
+    throw new UserFacingError("Use the outfit listing dropdown.");
+  }
+  if (action === "pickpage" && !interaction.isButton()) {
+    throw new UserFacingError("That outfit page control is invalid.");
+  }
+  if (action === "pick") {
+    const id = interaction.values[0];
+    if (!/^[a-f\d]{24}$/i.test(id || "")) {
+      throw new UserFacingError("Select a valid outfit listing.");
+    }
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const guild = await interaction.client.guilds.fetch(guildId);
+    const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+    if (!member) throw new UserFacingError("You must belong to this server to edit outfits.");
+    const listing = await OutfitListing.findOne({
+      _id: id, guildId, ownerId: interaction.user.id, status: "active",
+      postChannelId: { $ne: "" }, postMessageId: { $ne: "" },
+    });
+    if (!listing) throw new UserFacingError("That outfit is no longer active or belongs to someone else.");
+    return openOutfitAppearanceDM(interaction, guild, listing);
+  }
+  await interaction.deferUpdate();
+  const guild = await interaction.client.guilds.fetch(guildId);
+  const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) throw new UserFacingError("You must belong to this server to edit outfits.");
+  return showOutfitAppearancePicker(interaction, guild, Number(page));
+}
+
+async function openOutfitAppearanceDM(interaction, guild, listing) {
+  const [profile, ownership] = await Promise.all([
+    UserProfile.findOne({ guildId: guild.id, discordUserId: interaction.user.id }),
+    getAppearanceOwnership(guild.id, interaction.user.id),
+  ]);
+  const result = await getOrCreateDmPanel({
+    guildId: guild.id, user: interaction.user, kind: OUTFIT_EDITOR_KIND,
+    makeInitial: async () => {
+      const draft = {
+        token: newListingEditorToken(),
+        appearance: displayListingAppearance(listing, profile, ownership),
+        page: "colors", selected: 0, stickerMode: "position", optionPages: {},
+      };
+      return {
+        payload: await editorPayload(listing, draft, ownership, OUTFIT_TARGET_TYPE),
+        fields: {
+          token: draft.token, appearanceDraft: draft.appearance,
+          appearancePage: draft.page, selectedSticker: draft.selected,
+          appearanceStickerMode: draft.stickerMode,
+          appearanceOptionPages: draft.optionPages,
+          appearanceTargetType: OUTFIT_TARGET_TYPE,
+          appearanceTargetId: String(listing._id),
+        },
+      };
+    },
+  });
+  if (!result.created) {
+    if (result.panel.appearanceTargetType !== OUTFIT_TARGET_TYPE ||
+        result.panel.appearanceTargetId !== String(listing._id)) {
+      await interaction.editReply({
+        content: `You already have another outfit editor open. [Open that editor](${dmPanelUrl(result.message.channelId, result.message.id)}) and **Save** or **Discard** its changes, then select this outfit again.`,
+        allowedMentions: { parse: [] },
+      });
+      return true;
+    }
+    await result.message.edit(await editorPayload(
+      listing, readDraft(result.panel, listing, profile, ownership),
+      ownership, OUTFIT_TARGET_TYPE,
+    ));
+  }
+  await interaction.editReply({
+    content: `[**Open the editor for ${String(listing.title).slice(0, 75)}**](${dmPanelUrl(result.message.channelId, result.message.id)}). Only this outfit will change when you save.`,
+    allowedMentions: { parse: [] },
+  });
+  return true;
+}
+
 async function closeEditor(interaction, panel, messageText) {
   await MemberDmPanel.deleteOne({ _id: panel._id, token: panel.token });
   const channel = await interaction.user.createDM();
