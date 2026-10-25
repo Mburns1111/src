@@ -65,7 +65,7 @@ import {
 } from "./commands/trade.js";
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
-import { handleListingAppearanceDM } from "./commands/listing-appearance-editor.js";
+import { handleListingAppearanceDM, handleOutfitAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
 import { execute as executePointsAdmin, data as pointsAdminCommand } from "./commands/points-admin.js";
 import { execute as executePointsObserve, data as pointsObserveCommand } from "./commands/points-observe.js";
@@ -353,6 +353,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("shop:")) {
       await handleShopButton(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) &&
+        (interaction.customId.startsWith("listing:pick:") ||
+         interaction.customId.startsWith("listing:pickpage:"))) {
+      await handleOutfitAppearancePicker(interaction);
       return;
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("listing:dm:")) {
