@@ -123,7 +123,7 @@ export async function handleInventoryEntryButton(interaction) {
   return true;
 }
 
-function makeProfileCardContent(profile, guildId, listingLinks) {
+export function makeProfileCardContent(profile, guildId, listingLinks) {
   const sections = [`<@${profile.discordUserId}>'s member profile`];
   const inventoryLinks = profile.albumPosts
     .filter(post => post.channelId !== profile.profileCardChannelId || post.messageId !== profile.profileCardMessageId)
@@ -154,6 +154,13 @@ function makeProfileCardContent(profile, guildId, listingLinks) {
   }
   if (listingLinks.tradingPost) {
     sections.push(`**Trading Post**\n• [View trading post](${discordMessageUrl(guildId, listingLinks.tradingPost.postChannelId, listingLinks.tradingPost.postMessageId)})`);
+  }
+
+  // Every profile gets a visible follow-up message. A member with no
+  // inventory, houses, outfits, trades or Trading Post should still occupy
+  // the same card → details slot as a member who already has links.
+  if (sections.length === 1) {
+    sections.push("**Links & listings**\n*Nothing linked yet. Inventory, house, outfit, trade, and Trading Post links will appear here when added.*");
   }
 
   // Discord embed descriptions are limited to 4096 characters.
@@ -287,13 +294,31 @@ async function makeProfileCardPayload(
   };
 }
 
-async function makeProfileDetailsPayload(guild, profile) {
-  const listingLinks = await getProfileListingLinks(guild, profile.discordUserId);
+export function makeProfileDetailsPayloadFromLinks(profile, guildId, listingLinks) {
+  const content = makeProfileCardContent(profile, guildId, listingLinks);
+  const noLinks =
+    !(profile.albumPosts || []).some(post =>
+      post.channelId !== profile.profileCardChannelId ||
+      post.messageId !== profile.profileCardMessageId) &&
+    !profile.inventoryVideoUrl &&
+    !(profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId) &&
+    !listingLinks.houses.length &&
+    !listingLinks.outfits.length &&
+    !listingLinks.trades.length &&
+    !listingLinks.tradingPost;
+
   return {
-    content: "",
-    embeds: [new EmbedBuilder().setDescription(makeProfileCardContent(profile, guild.id, listingLinks))],
+    // Use a plain message for the empty state. When the member adds links,
+    // edit this SAME message into the linked details embed, not a third post.
+    content: noLinks ? content : "",
+    embeds: noLinks ? [] : [new EmbedBuilder().setDescription(content)],
     allowedMentions: { parse: [] },
   };
+}
+
+async function makeProfileDetailsPayload(guild, profile) {
+  const listingLinks = await getProfileListingLinks(guild, profile.discordUserId);
+  return makeProfileDetailsPayloadFromLinks(profile, guild.id, listingLinks);
 }
 
 async function syncProfileDetails(guild, channel, profile) {
@@ -479,10 +504,32 @@ async function ensureProfileCardOnce(guild, user, refresh) {
     try {
       const existingMessage = await channel.messages.fetch(oldMessageId);
       if (existingMessage.author.id === guild.client.user.id) {
-        if (!refresh && !identityChanged && oldDetailsMessageId) return profile;
-        await existingMessage.edit(await makeProfileCardPayload(guild, profile, member, 0, existingMessage));
-        await syncProfileDetails(guild, channel, profile);
-        return profile;
+        let validDetails = null;
+        if (oldDetailsMessageId) {
+          try {
+            const details = await channel.messages.fetch(oldDetailsMessageId);
+            if (details.author?.id === guild.client.user.id) validDetails = details;
+          } catch (error) {
+            if (![10003, 10008].includes(Number(error?.code))) throw error;
+          }
+        }
+
+        if (validDetails) {
+          const legacyEmptyDetails =
+            !validDetails.content?.trim() &&
+            validDetails.embeds?.length === 1 &&
+            validDetails.embeds[0]?.description?.trim() ===
+              `<@${profile.discordUserId}>'s member profile`;
+          if (!refresh && !identityChanged && !legacyEmptyDetails) return profile;
+          await existingMessage.edit(await makeProfileCardPayload(
+            guild, profile, member, 0, existingMessage,
+          ));
+          await syncProfileDetails(guild, channel, profile);
+          return profile;
+        }
+        // If the details post was deleted, repost the CARD AND DETAILS
+        // together so one member's links cannot appear far beneath another
+        // member's profile. The old card is cleaned up after both succeed.
       }
     } catch (error) {
       if (![10003, 10008].includes(Number(error?.code))) throw error;
