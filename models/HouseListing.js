@@ -16,6 +16,8 @@ const houseListingSchema = new mongoose.Schema(
     // Independent look: copied from profile once on creation, then edited per post.
     postAppearance: { type: mongoose.Schema.Types.Mixed, default: null },
     galleryPageIndex: { type: Number, default: 0 },
+    // 0 = older tall house artwork; 1 = compact 1200×430 card.
+    cardLayoutVersion: { type: Number, default: 0 },
     postChannelId: { type: String, default: "" },
     postMessageId: { type: String, default: "" },
     // Playable house videos live in a second bot message beneath the card.
