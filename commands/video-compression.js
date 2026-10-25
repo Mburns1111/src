@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { streamDiscordAttachment } from "../services/media-transfer.js";
+import { recordMediaOperation } from "../services/media-telemetry.js";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -113,6 +114,8 @@ export async function prepareMediaFiles(attachments, prefix) {
     );
   }
   if (needsCompression) activeVideoJobs++;
+  const startedAt = Date.now();
+  let outcome = "success";
   let directory;
   const files = [];
   let firstImageName;
@@ -134,17 +137,38 @@ export async function prepareMediaFiles(attachments, prefix) {
       firstImageName ??= prepared.firstImageName;
     }
   } catch (error) {
-    if (directory) await rm(directory, { recursive: true, force: true });
+    outcome = error?.code || error?.name || "error";
+    if (directory) {
+      try {
+        await rm(directory, { recursive: true, force: true });
+      } catch (cleanupError) {
+        console.error("[Media] Could not clean unsuccessful video files:", cleanupError);
+        recordMediaOperation("videoCompression", { outcome: "cleanupFailed" });
+      }
+    }
     throw error;
   } finally {
-    if (needsCompression) activeVideoJobs--;
+    if (needsCompression) {
+      activeVideoJobs--;
+      recordMediaOperation("videoCompression", {
+        outcome, durationMs: Date.now() - startedAt,
+      });
+    }
   }
 
+  let cleaned = false;
   return {
     files,
     firstImageName,
-    cleanup: () => directory
-      ? rm(directory, { recursive: true, force: true })
-      : Promise.resolve(),
+    cleanup: async () => {
+      if (!directory || cleaned) return;
+      try {
+        await rm(directory, { recursive: true, force: true });
+        cleaned = true;
+      } catch (error) {
+        recordMediaOperation("videoCompression", { outcome: "cleanupFailed" });
+        throw error;
+      }
+    },
   };
 }

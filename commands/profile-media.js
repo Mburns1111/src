@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { streamDiscordAttachment } from "../services/media-transfer.js";
+import { recordMediaOperation } from "../services/media-telemetry.js";
 import {
   beginProfileAlbumUpload, PROFILE_PHOTO_LIMIT_BYTES,
   PROFILE_BATCH_LIMIT_BYTES, validateProfileUploadSizes,
@@ -109,6 +110,9 @@ export async function saveProfilePhotos(guildId, ownerId, attachments) {
     }
 
     const saved = await ProfilePhoto.insertMany(photos);
+    recordMediaOperation("profileAlbum", {
+      bytes: totalStoredBytes, durationMs: Date.now() - startedAt,
+    });
     console.info("[Media] Profile photo upload complete", {
       photoCount: saved.length,
       bytes: totalStoredBytes,
@@ -123,6 +127,10 @@ export async function saveProfilePhotos(guildId, ownerId, attachments) {
       console.error("Could not remove profile photo records after an upload failure:", cleanupError);
     }
     await Promise.all(fileIds.map((fileId) => deleteStoredPhoto(bucket, fileId)));
+    recordMediaOperation("profileAlbum", {
+      outcome: error?.code || error?.name || "error",
+      durationMs: Date.now() - startedAt,
+    });
     console.warn("[Media] Profile photo upload failed; attempted GridFS cleanup", {
       photoCount: attachments.length,
       reservedBytes: requestedBytes,

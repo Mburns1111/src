@@ -92,6 +92,7 @@ import {
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
 import { resumePendingTradingPostDeletes } from "./services/trading-post-deletion.js";
 import { recoverStagedListingPosts } from "./services/listing-publication-recovery.js";
+import { startMediaTelemetry } from "./services/media-telemetry.js";
 import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/temporary-dm-notice.js";
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
@@ -304,6 +305,7 @@ async function sendProfileReminder(interaction) {
 
 client.once(Events.ClientReady, (readyClient) => {
   clearTimeout(discordReadyTimeout);
+  startMediaTelemetry();
   voiceActivityTimer = setInterval(() => void voiceActivityTick(), 60_000);
   voiceActivityTimer.unref?.();
   console.log(`Bot is online as ${readyClient.user.tag}.`);
