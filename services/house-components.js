@@ -16,9 +16,6 @@ export function houseActionComponents(listing, photoCount = 0) {
   rows.push(new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`house:sold:${String(listing._id)}`)
       .setLabel("Mark sold").setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId(`house:media:${String(listing._id)}`)
-      .setLabel("Add pictures/video").setStyle(ButtonStyle.Secondary)
-      .setDisabled((listing.mediaAttachments?.length ?? 0) >= 10),
     new ButtonBuilder().setCustomId(`house:interest:${String(listing._id)}`)
       .setLabel(`Interested (${listing.interestedUserIds?.length ?? 0})`).setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`house:notify:${String(listing._id)}`)
