@@ -22,6 +22,8 @@ export function houseActionComponents(listing, photoCount = 0) {
       .setLabel(`Interested (${listing.interestedUserIds?.length ?? 0})`).setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`house:notify:${String(listing._id)}`)
       .setLabel(`Interest DMs: ${listing.notifyOnInterest ? "On" : "Off"}`).setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`house:edit:${String(listing._id)}`)
+      .setLabel("Edit details").setStyle(ButtonStyle.Secondary),
   ));
   return rows;
 }

@@ -38,6 +38,9 @@ export function outfitActionComponents(listing, photoCount = 0) {
     new ButtonBuilder()
       .setCustomId(`outfit:sold:${String(listing._id)}`)
       .setLabel("Remove listing").setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(`outfit:edit:${String(listing._id)}`)
+      .setLabel("Edit details").setStyle(ButtonStyle.Secondary),
   ));
   return rows;
 }

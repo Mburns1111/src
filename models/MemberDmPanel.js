@@ -6,7 +6,7 @@ const memberDmPanelSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   botUserId: { type: String, required: true },
   discordUserId: { type: String, required: true },
-  kind: { type: String, required: true, enum: ["shop", "appearance", "postAppearance", "outfitAppearance", "houseAppearance"] },
+  kind: { type: String, required: true, enum: ["shop", "appearance", "postAppearance", "outfitAppearance", "houseAppearance", "listingDetails"] },
   channelId: { type: String, required: true },
   messageId: { type: String, required: true },
   token: { type: String, default: "" },
@@ -14,6 +14,8 @@ const memberDmPanelSchema = new mongoose.Schema({
   appearanceTargetType: { type: String, default: "" },
   appearanceTargetId: { type: String, default: "" },
   appearanceDraft: { type: mongoose.Schema.Types.Mixed, default: null },
+  // Unsaved title, description and price edits for one house or outfit.
+  detailsDraft: { type: mongoose.Schema.Types.Mixed, default: null },
   appearancePage: { type: String, default: "colors" },
   selectedSticker: { type: Number, default: 0 },
   // Sticker editor shows directional buttons or color/style controls.
