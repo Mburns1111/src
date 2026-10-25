@@ -21,6 +21,7 @@ import UserProfile from "../models/UserProfile.js";
 import { displayListingAppearance, snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
 import { getAppearanceOwnership } from "../services/appearance-ownership.js";
 import { renderPostImage } from "../services/post-renderer.js";
+import { tradingPostCardPayload } from "../services/trading-post-display.js";
 import { discordMessageUrl } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 
@@ -285,12 +286,9 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     return `Outfit: [${listing.title || "View listing"}](${url})`;
   });
 
-  // The designed image is the only embed. Links stay clickable as ordinary
-  // Discord message text rather than repeating the old unstyled card.
-  const linkLines = [...outfitLinks.slice(0, 3), ...houseLinks.slice(0, 3), ...inventoryLinks];
-  const linksText = linkLines.length
-    ? "**Related listings & inventory**\n" + linkLines.join("\n")
-    : "";
+  const linkLines = [
+    ...outfitLinks.slice(0, 3), ...houseLinks.slice(0, 3), ...inventoryLinks,
+  ];
   const ownership = await getAppearanceOwnership(guild.id, post.ownerId);
   const cardImage = await renderPostImage({
     type: "tradingPost",
@@ -302,15 +300,7 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     },
     appearance: displayListingAppearance(post, profile, ownership),
   });
-  return {
-    content: linksText.slice(0, 1900),
-    embeds: [new EmbedBuilder().setColor(0x819287)
-      .setImage("attachment://trading-post-card.png")],
-    files: [new AttachmentBuilder(cardImage, { name: "trading-post-card.png" })],
-    attachments: [],
-    components: makeTradingPostComponents(post),
-    allowedMentions: { parse: [] },
-  };
+  return tradingPostCardPayload(cardImage, linkLines, makeTradingPostComponents(post));
 }
 
 export async function refreshTradingPostCard(guild, ownerId) {
