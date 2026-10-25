@@ -38,6 +38,7 @@ import {
   handleHouseCreateButton,
   handleHouseCreateModal,
   handleHouseButton,
+  handleHousePageButton,
   handleHouseModal,
   handleSold,
   handleHouseEntryButton,
@@ -67,7 +68,7 @@ import {
 } from "./commands/trade.js";
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
-import { handleListingAppearanceDM, handleOutfitAppearancePicker } from "./commands/listing-appearance-editor.js";
+import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 
 import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
@@ -377,6 +378,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleOutfitAppearancePicker(interaction);
       return;
     }
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) &&
+        (interaction.customId.startsWith("listing:housepick:") ||
+         interaction.customId.startsWith("listing:housepage:"))) {
+      await handleHouseAppearancePicker(interaction);
+      return;
+    }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("listing:dm:")) {
       await handleListingAppearanceDM(interaction);
       return;
@@ -434,6 +441,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId.startsWith("house:sold:")) {
       const ownerId = await handleSold(interaction);
       if (ownerId) await refreshListingOwnerCards(interaction.guild, ownerId);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("house:page:")) {
+      await handleHousePageButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("outfit:page:")) {
