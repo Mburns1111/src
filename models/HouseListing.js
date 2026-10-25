@@ -15,6 +15,7 @@ const houseListingSchema = new mongoose.Schema(
     mediaAttachments: { type: [mediaAssetSchema], default: [] },
     // Independent look: copied from profile once on creation, then edited per post.
     postAppearance: { type: mongoose.Schema.Types.Mixed, default: null },
+    galleryPageIndex: { type: Number, default: 0 },
     postChannelId: { type: String, default: "" },
     postMessageId: { type: String, default: "" },
     status: { type: String, enum: ["active", "sold"], default: "active" },
