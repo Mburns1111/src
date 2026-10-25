@@ -61,12 +61,13 @@ test("house artwork is exactly half the outfit-style house canvas height", async
 test("house photo pagination and seller controls share ONE message", () => {
   const rows = houseActionComponents(listing, 3).map(r => r.toJSON().components);
   assert.equal(rows.length, 2);
-  assert.deepEqual(rows[0].map(b => b.label), ["◀ Previous", "Photo 1 / 3", "Next ▶"]);
+  assert.deepEqual(rows[0].map(b => b.label), ["◀ Previous", "Photo 1 / 3", "Next ▶", "Choose photo"]);
   assert.equal(rows[0][1].disabled, true);
   assert.deepEqual(rows[1].map(b => b.label), [
     "Mark sold", "Interested (0)", "Interest DMs: Off",
   ]);
   assert.equal(rows[0][2].custom_id, `house:page:next:${listing._id}`);
+  assert.equal(rows[0][3].custom_id, `house:page:choose:${listing._id}`);
   const payload = houseCardPayload(listing, { count: 3 }, Buffer.from("test"));
   assert.equal(payload.embeds[0].toJSON().image.url, "attachment://house-style-card.png");
   assert.equal(payload.files[0].name, "house-style-card.png");
