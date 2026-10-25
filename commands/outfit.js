@@ -286,6 +286,7 @@ export async function handleOutfitCreateModal(interaction) {
   let post;
   let claimed = false;
   let published = false;
+  let galleryReady = true;
   try {
     const channel = await interaction.guild.channels.fetch(channelId);
     post = await channel?.messages?.fetch(messageId);
@@ -333,7 +334,7 @@ export async function handleOutfitCreateModal(interaction) {
         "Outfit video",
       ),
     };
-    const { galleryReady } = await publishListing(interaction, values, post, uploads);
+    ({ galleryReady } = await publishListing(interaction, values, post, uploads));
     published = true;
     if (!galleryReady) {
       console.warn("Outfit gallery pending manual inspection for", post.url);
@@ -357,7 +358,9 @@ export async function handleOutfitCreateModal(interaction) {
   }
 
   await interaction.editReply({
-    content: `Your outfit listing was posted: ${post.url}`,
+    content: galleryReady
+      ? `Your outfit listing and photo gallery were posted: ${post.url}`
+      : `Your outfit listing was posted: ${post.url}\n⚠️ The gallery could not finish displaying. Your uploaded photos were saved before publication. Ask a server manager to check the bot logs and refresh this outfit; do not reupload the files.`,
     allowedMentions: { parse: [] },
   });
 }
