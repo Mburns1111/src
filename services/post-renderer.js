@@ -1039,7 +1039,7 @@ function drawHouse(ctx, data, images, style, layout, appearance, stickerImages) 
     drawFittedLine(ctx, "House tour / listing", { x: 90, y: 385, width: 560, height: 48 },
       { fontSize: 32, minFontSize: 20, family: style.titleFontFamily,
         weight: style.titleFontWeight, color: style.text });
-    drawWrappedText(ctx, "Upload a house photo with Add pictures/video below.", {
+    drawWrappedText(ctx, "House video listings appear as attachments below this card.", {
       x: 90, y: 455, width: 550, height: 90,
     }, { fontSize: 25, minFontSize: 17, family: style.fontFamily,
       weight: style.bodyFontWeight, color: style.mutedText, maxLines: 3 });
