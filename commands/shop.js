@@ -683,10 +683,13 @@ export function dmCategoryMenu(guildId, current) {
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder().setCustomId(`shop:dm:${guildId}:category`)
       .setPlaceholder(`Switch Category · viewing ${CATEGORY_LABELS[current] || "Shop"}`)
-      .addOptions(categories().map(category => ({
-        label: CATEGORY_LABELS[category], value: category,
-        description: category === current ? "Current category" : "Open this category's item index",
-      }))),
+      .addOptions([
+        { label: "All Categories", value: "__home__", description: "Return to the shop category directory" },
+        ...categories().map(category => ({
+          label: CATEGORY_LABELS[category], value: category,
+          description: category === current ? "Current category" : "Open this category's item index",
+        })),
+      ]),
   );
 }
 // Category home uses buttons instead of a preselected dropdown so it's
@@ -1761,6 +1764,10 @@ async function handleShopDM(interaction) {
   }
   if (action === "category" && interaction.isStringSelectMenu()) {
     const selected = interaction.values[0];
+    if (selected === "__home__") {
+      await interaction.editReply(await dmCategoryHome(context));
+      return true;
+    }
     if (!CATEGORY_LABELS[selected] || !itemsFor(selected).length) throw new UserFacingError("Unknown category.");
     await interaction.editReply(await dmCategoryIndex(context, selected));
     return true;
