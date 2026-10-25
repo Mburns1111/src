@@ -5,6 +5,7 @@ import { renderPostImage } from "../services/post-renderer.js";
 import { makeAppearanceControls } from "../commands/profile.js";
 import { FREE_APPEARANCE } from "../services/appearance-ownership.js";
 import { stickerDefaults } from "../services/sticker-catalog.js";
+import { originalStyledOutfitEdit, fullGalleryOutfitEdit } from "../services/outfit-card.js";
 
 test("two or three outfit records keep independent appearance and picker identity", () => {
   const outfits = [
@@ -131,4 +132,41 @@ test("outfit collage includes three photo URLs without including videos", () => 
     "https://cdn.discordapp.com/3.png",
   ]);
   assert.equal(gallery.mediaAttachments.length, 5);
+});
+
+test("public outfit edit preserves every original picture/video ID and leaves existing buttons", () => {
+  const listing = {
+    _id: "f".repeat(24), title: "My look", description: "cute", ownerName: "Tester",
+    ownerRobloxUsername: "Player", cost: "100", createdAt: new Date("2026-10-24"),
+  };
+  const media = [
+    { id: "photo1", name: "first.jpg", contentType: "image/jpeg" },
+    { id: "photo2", name: "second.jpg", contentType: "image/jpeg" },
+    { id: "photo3", name: "third.jpg", contentType: "image/jpeg" },
+    { id: "video1", name: "video.mp4", contentType: "video/mp4" },
+  ];
+  const payload = originalStyledOutfitEdit(listing, media, Buffer.from("test"));
+  assert.deepEqual(payload.attachments.map(item => item.id), media.map(item => item.id));
+  assert.equal(payload.files.length, 1);
+  assert.equal(payload.files[0].name, OUTFIT_STYLE_IMAGE_NAME);
+  assert.equal(payload.embeds[0].toJSON().image.url, "attachment://" + OUTFIT_STYLE_IMAGE_NAME);
+  assert.equal(payload.embeds[1].toJSON().image, undefined,
+    "original photos stay unconsumed attachments and remain visible as a gallery");
+  assert.equal(payload.components, undefined, "buttons on the existing listing are preserved");
+  assert.equal(media.length, 4);
+});
+
+test("ten-media fallback is non-destructive and uses no style attachment on original", () => {
+  const listing = {
+    _id: "f".repeat(24), title: "Ten outfit photos", description: "all my looks",
+    ownerName: "Tester", createdAt: new Date("2026-10-24"),
+  };
+  const media = Array.from({ length: 10 }, (_, n) =>
+    ({ id: String(n), name: `file${n}.png`, contentType: "image/png" }));
+  const payload = fullGalleryOutfitEdit(listing, media);
+  assert.deepEqual(payload.attachments.map(x => x.id), media.map(x => x.id));
+  assert.equal(payload.files, undefined);
+  assert.equal(payload.components, undefined);
+  assert.equal(payload.embeds[0].toJSON().image.url, "attachment://file0.png");
+  assert.throws(() => originalStyledOutfitEdit(listing, media, Buffer.from("x")), RangeError);
 });
