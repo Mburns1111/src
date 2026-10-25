@@ -47,7 +47,8 @@ export function buildAdminImportModal(type, token, memberName) {
   const house = type === "house";
   const modal = new ModalBuilder()
     .setCustomId("admin-import:" + type + ":" + token)
-    .setTitle(house ? "Import a House Listing" : "Import an Outfit Listing");
+    .setTitle(("Import " + (house ? "House" : "Outfit") + " for " +
+      String(memberName || "member").slice(0, 24)).slice(0, 45));
   const text = (id, label, max, required, style) =>
     new LabelBuilder().setLabel(label).setTextInputComponent(
       new TextInputBuilder().setCustomId(id).setMaxLength(max)
@@ -86,21 +87,22 @@ export async function execute(interaction) {
   if (!target || target.bot || target.id === interaction.client.user.id) {
     throw new UserFacingError("Choose a real server member to own the imported listing.");
   }
-  const member = await interaction.guild.members.fetch(target.id).catch(error => {
-    if (Number(error?.code) === 10007) return null;
-    throw error;
-  });
-  if (!member) throw new UserFacingError("That member is not in this server.");
+  // A slash command must display its modal within Discord's short
+  // acknowledgement window. Do not block on network membership requests
+  // here; membership is checked before any upload/post on submission.
 
   // Each form is bound to its admin, guild, member and a one-use nonce.
   // The ticket is consumed on submission so double-clicks cannot duplicate imports.
   const token = randomUUID().replaceAll("-", "").slice(0, 12);
+  for (const [key, ticket] of importTickets) {
+    if (ticket.expiresAt <= Date.now()) importTickets.delete(key);
+  }
   importTickets.set(token, {
     guildId: interaction.guildId, adminId: interaction.user.id,
-    ownerId: member.id, type, expiresAt: Date.now() + TICKET_LIFETIME_MS,
+    ownerId: target.id, type, expiresAt: Date.now() + TICKET_LIFETIME_MS,
   });
   try {
-    await interaction.showModal(buildAdminImportModal(type, token, member.displayName));
+    await interaction.showModal(buildAdminImportModal(type, token, target.username));
   } catch (error) {
     importTickets.delete(token);
     throw error;
