@@ -31,9 +31,10 @@ test("shop home presents all six direct category buttons within Discord action-r
   ].map(category => `shop:dm:${guildId}:index:${category}:0`));
 
   const tools = components(rows.at(-1));
-  assert.deepEqual(tools.map(button => button.label), ["Preview Multiple", "Customize Profile", "Customize Trading Post", "Customize Outfits"]);
+  assert.deepEqual(tools.map(button => button.label), ["Preview Multiple", "Customize Profile", "Customize Trading Post", "Customize Outfits", "Customize Houses"]);
   assert.equal(tools[2].custom_id, `shop:dm:${guildId}:post:tradingPost`);
   assert.equal(tools[3].custom_id, `shop:dm:${guildId}:post:outfit`);
+  assert.equal(tools[4].custom_id, `shop:dm:${guildId}:post:house`);
   assert.equal(tools[0].custom_id, `shop:dm:${guildId}:hubMix:backgrounds:0`);
 });
 
@@ -42,12 +43,14 @@ test("category picker explicitly prompts navigation rather than showing just Sti
   assert.match(menu.placeholder, /^Switch Category/);
   assert.match(menu.placeholder, /Stickers/);
   assert.equal(menu.custom_id, `shop:dm:${guildId}:category`);
-  assert.equal(menu.options.length, 6);
+  assert.equal(menu.options.length, 7);
+  assert.equal(menu.options[0].value, "__home__");
+  assert.equal(menu.options[0].label, "All Categories");
   assert.ok(menu.options.every(option => option.default !== true));
   assert.equal(menu.options.find(option => option.value === "backgrounds").label, "Backgrounds");
 });
 
-test("category indexes and item pages both expose All Categories and Preview Multiple", () => {
+test("category index and item controls provide four customization buttons with home navigation in category menu", () => {
   const screens = [
     components(dmIndexTools(guildId, "stickers", 0)),
     components(dmShopTools(guildId, "stickers", 3)),
@@ -56,13 +59,14 @@ test("category indexes and item pages both expose All Categories and Preview Mul
     assert.ok(buttons.length <= 5);
     const labels = buttons.map(button => button.label);
     assert.ok(labels.includes("Preview Multiple"));
-    assert.ok(labels.includes("All Categories"));
+    assert.ok(labels.includes("Customize Houses"));
+    assert.ok(labels.includes("Customize Profile"));
     assert.ok(labels.includes("Customize Trading Post"));
     assert.ok(labels.includes("Customize Outfits"));
     assert.equal(buttons.length, 5, "All category/tool controls stay within Discord limits");
     assert.ok(!labels.includes("Mix & Match"));
-    assert.equal(buttons.find(button => button.label === "All Categories").custom_id,
-      `shop:dm:${guildId}:home`);
+    assert.ok(!labels.includes("All Categories"), "Use the category dropdown to reach the home directory.");
+    assert.equal(components(dmCategoryMenu(guildId, "stickers"))[0].options[0].value, "__home__");
   }
 });
 
