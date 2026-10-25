@@ -285,43 +285,12 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     return `Outfit: [${listing.title || "View listing"}](${url})`;
   });
 
-  const willingDetails = [
-    (post.willingToTrade || "Not specified").slice(0, 250),
-    ...outfitLinks.slice(0, 3),
-    ...houseLinks.slice(0, 3),
-    ...inventoryLinks,
-  ].join("\n");
-
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle(`${post.discordName}'s Trading Post`)
-    .addFields(
-      {
-        name: "Discord name",
-        value: post.discordName,
-        inline: true,
-      },
-      {
-        name: "Roblox username",
-        value: post.robloxName || "Not added yet",
-        inline: true,
-      },
-      {
-        name: "Looking for",
-        value: post.lookingFor || "Not specified",
-      },
-      {
-        name: "Willing to trade",
-        value: willingDetails.slice(0, 1024),
-      },
-    )
-    .setFooter({
-      text: post.notifyOnInterest
-        ? "The owner is opted in to interest DMs."
-        : "Interest is tallied on this card.",
-    })
-    .setTimestamp(post.updatedAt);
-
+  // The designed image is the only embed. Links stay clickable as ordinary
+  // Discord message text rather than repeating the old unstyled card.
+  const linkLines = [...outfitLinks.slice(0, 3), ...houseLinks.slice(0, 3), ...inventoryLinks];
+  const linksText = linkLines.length
+    ? "**Related listings & inventory**\n" + linkLines.join("\n")
+    : "";
   const ownership = await getAppearanceOwnership(guild.id, post.ownerId);
   const cardImage = await renderPostImage({
     type: "tradingPost",
@@ -334,13 +303,9 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     appearance: displayListingAppearance(post, profile, ownership),
   });
   return {
-    content: "",
-    embeds: [
-      new EmbedBuilder().setColor(0x819287).setImage("attachment://trading-post-card.png"),
-      // Retain Discord-native, clickable inventory/house/outfit links below the
-      // decorated image. Those links cannot be interactive inside a Canvas PNG.
-      embed,
-    ],
+    content: linksText.slice(0, 1900),
+    embeds: [new EmbedBuilder().setColor(0x819287)
+      .setImage("attachment://trading-post-card.png")],
     files: [new AttachmentBuilder(cardImage, { name: "trading-post-card.png" })],
     attachments: [],
     components: makeTradingPostComponents(post),
