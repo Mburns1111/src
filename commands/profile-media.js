@@ -1,12 +1,14 @@
 import mongoose from "mongoose";
 import { streamDiscordAttachment } from "../services/media-transfer.js";
+import {
+  beginProfileAlbumUpload, PROFILE_PHOTO_LIMIT_BYTES,
+  PROFILE_BATCH_LIMIT_BYTES, validateProfileUploadSizes,
+} from "../services/profile-album-quota.js";
 import { getMessageMedia } from "./shared.js";
 import ProfilePhoto from "../models/ProfilePhoto.js";
 import { UserFacingError } from "./errors.js";
 
 const profilePhotoBucketName = "profilePhotos";
-const maxProfilePhotoBytes = 24 * 1024 * 1024;
-const maxBatchPhotoBytes = 80 * 1024 * 1024;
 
 function getProfilePhotoBucket() {
   const database = mongoose.connection.db;
@@ -58,16 +60,19 @@ async function deleteStoredPhotoFiles(fileIds) {
 }
 
 export async function saveProfilePhotos(guildId, ownerId, attachments) {
-  const declaredBytes = attachments.reduce((sum, item) => sum + Number(item.size ?? 0), 0);
-  if (attachments.some(item => Number(item.size ?? 0) > maxProfilePhotoBytes) ||
-      declaredBytes > maxBatchPhotoBytes) {
-    throw new UserFacingError(
-      "Each profile photo must be at most 24 MB, and each upload batch at most 80 MB.",
-    );
-  }
+  // Fail before opening a GridFS stream if the sizes are invalid, the
+  // member is over their 250 MB limit, or another upload holds the lease.
+  validateProfileUploadSizes(attachments);
+  const { release, usedBytes, requestedBytes } = await beginProfileAlbumUpload(
+    guildId, ownerId, attachments, {
+      filesCollection: getProfilePhotoFilesCollection(),
+    },
+  );
   const bucket = getProfilePhotoBucket();
   const fileIds = [];
   const photos = [];
+  const startedAt = Date.now();
+  let totalStoredBytes = 0;
 
   try {
     for (const attachment of attachments) {
@@ -75,27 +80,42 @@ export async function saveProfilePhotos(guildId, ownerId, attachments) {
         metadata: { guildId, ownerId, contentType: attachment.contentType ?? "" },
       });
       fileIds.push(upload.id);
+      let transferred;
       try {
-        await streamDiscordAttachment(attachment.url, upload, {
-          maxBytes: maxProfilePhotoBytes, timeoutMs: 45_000,
+        // Discord's advertised size is used to reserve quota space. Do not
+        // allow a mismatched response to exceed that reservation, even when
+        // a CDN Content-Length header is absent or inaccurate.
+        transferred = await streamDiscordAttachment(attachment.url, upload, {
+          maxBytes: Math.min(PROFILE_PHOTO_LIMIT_BYTES, Number(attachment.size)),
+          timeoutMs: 45_000,
         });
       } catch (error) {
         if (error?.code === "TOO_LARGE") {
-          throw new UserFacingError("A profile photo exceeds the 24 MB upload limit.");
+          throw new UserFacingError(
+            "This photo exceeds its declared size or the 24 MB limit. Please upload it again.",
+          );
         }
         throw error;
       }
+      totalStoredBytes += transferred;
       photos.push({
         guildId,
         ownerId,
         fileId: upload.id,
         name: attachment.name,
         contentType: attachment.contentType || "image/unknown",
-        size: attachment.size ?? 0,
+        size: transferred,
       });
     }
 
-    return await ProfilePhoto.insertMany(photos);
+    const saved = await ProfilePhoto.insertMany(photos);
+    console.info("[Media] Profile photo upload complete", {
+      photoCount: saved.length,
+      bytes: totalStoredBytes,
+      durationMs: Date.now() - startedAt,
+      albumBytesAfter: usedBytes + totalStoredBytes,
+    });
+    return saved;
   } catch (error) {
     try {
       await ProfilePhoto.deleteMany({ fileId: { $in: fileIds } });
@@ -103,7 +123,20 @@ export async function saveProfilePhotos(guildId, ownerId, attachments) {
       console.error("Could not remove profile photo records after an upload failure:", cleanupError);
     }
     await Promise.all(fileIds.map((fileId) => deleteStoredPhoto(bucket, fileId)));
+    console.warn("[Media] Profile photo upload failed; attempted GridFS cleanup", {
+      photoCount: attachments.length,
+      reservedBytes: requestedBytes,
+      durationMs: Date.now() - startedAt,
+      failure: error?.code || error?.name || "UnknownError",
+    });
     throw error;
+  } finally {
+    // A failed upload never permanently consumes the quota; actual GridFS
+    // lengths are counted fresh on the next upload. A worker crash releases
+    // this short-lived lease on expiration.
+    await release().catch(error => {
+      console.error("[Album quota] Failed to release upload lease:", error);
+    });
   }
 }
 

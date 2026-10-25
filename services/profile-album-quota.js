@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import ProfileAlbumUploadLock from "../models/ProfileAlbumUploadLock.js";
 import { UserFacingError } from "../commands/errors.js";
 
@@ -74,7 +75,7 @@ export async function beginProfileAlbumUpload(guildId, ownerId, attachments, {
   const requestedBytes = validateProfileUploadSizes(attachments);
   if (!filesCollection) throw new Error("Profile GridFS files collection is required.");
   await LockModel.init();
-  const token = new (await import("node:crypto")).randomUUID();
+  const token = randomUUID();
   const acquiredAt = now();
   try {
     await LockModel.updateOne({
