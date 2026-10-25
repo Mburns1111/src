@@ -70,6 +70,7 @@ import { execute as executeSetup, data as setupCommand } from "./commands/setup.
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
+import { reconcileHousesForGuild } from "./services/house-availability.js";
 
 import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
 import { execute as executePointsAdmin, data as pointsAdminCommand } from "./commands/points-admin.js";
@@ -327,6 +328,11 @@ client.once(Events.ClientReady, (readyClient) => {
         } catch (error) {
           console.error(`Could not reconcile outfit listings for guild ${guild.id}:`, error);
         }
+        try {
+          await reconcileHousesForGuild(guild);
+        } catch (error) {
+          console.error(`Could not reconcile house listings for guild ${guild.id}:`, error);
+        }
         continue;
       }
       await Promise.all([
@@ -347,6 +353,11 @@ client.once(Events.ClientReady, (readyClient) => {
         await reconcileOutfitsForGuild(guild);
       } catch (error) {
         console.error(`Could not reconcile outfit listings for guild ${guild.id}:`, error);
+      }
+      try {
+        await reconcileHousesForGuild(guild);
+      } catch (error) {
+        console.error(`Could not reconcile house listings for guild ${guild.id}:`, error);
       }
     }
   })().catch((error) => {
