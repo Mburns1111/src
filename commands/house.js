@@ -14,6 +14,10 @@ import {
 } from "discord.js";
 import HouseListing from "../models/HouseListing.js";
 import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
+import { refreshHouseStyleCard } from "../services/house-card.js";
+import { houseActionComponents } from "../services/house-components.js";
+import { houseGalleryCount, archiveHousePhotos, deleteHouseGallery } from "../services/house-gallery.js";
+import { isGalleryPhoto, isGalleryVideo, mergeOriginalMedia, HOUSE_ART_NAME } from "../services/house-style.js";
 import UserProfile from "../models/UserProfile.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import {
@@ -123,30 +127,7 @@ function makeCreateListingModal(userId, message) {
     );
 }
 
-function makeHouseComponents(listing) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`house:sold:${String(listing._id)}`)
-        .setLabel("Mark sold")
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(`house:media:${String(listing._id)}`)
-        .setLabel("Add pictures/video")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(`house:interest:${String(listing._id)}`)
-        .setLabel(`Interested (${listing.interestedUserIds.length})`)
-        .setStyle(ButtonStyle.Success),
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`house:notify:${String(listing._id)}`)
-        .setLabel(`Interest DMs: ${listing.notifyOnInterest ? "On" : "Off"}`)
-        .setStyle(ButtonStyle.Secondary),
-    ),
-  ];
-}
+export const makeHouseComponents = houseActionComponents;
 
 function makeMediaModal(listing) {
   const remainingUploads = Math.max(0, 10 - (listing.mediaAttachments?.length ?? 0));
@@ -204,25 +185,7 @@ function getFirstImageName(attachments) {
 }
 
 export async function refreshHouseListingPost(guild, listing) {
-  const channel = await guild.channels.fetch(listing.postChannelId);
-  if (!channel?.messages) {
-    throw new Error(`House listing channel ${listing.postChannelId} is unavailable.`);
-  }
-  const message = await channel.messages.fetch(listing.postMessageId);
-  const attachments = Array.from(message.attachments.values());
-  await message.edit({
-    content: `House listing from ${listing.ownerName}`,
-    embeds: [
-      makeHouseEmbed(
-        listing,
-        getFirstImageName(attachments) ??
-          getFirstImageName(listing.mediaAttachments ?? []),
-      ),
-    ],
-    components: makeHouseComponents(listing),
-    attachments: attachments.map(({ id }) => ({ id })),
-    allowedMentions: { parse: [] },
-  });
+  return refreshHouseStyleCard(guild, listing);
 }
 
 function canManageListing(interaction, listing) {
@@ -265,7 +228,8 @@ export async function handleHouseButton(interaction) {
     return handleListingInterest(interaction, {
       ListingModel: HouseListing,
       listingType: "house",
-      makeComponents: makeHouseComponents,
+      makeComponents: async current => makeHouseComponents(current,
+        await houseGalleryCount(current.guildId, current._id)),
     });
   }
   if (action !== "media") return false;
