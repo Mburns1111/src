@@ -14,7 +14,7 @@ const message = (type, id, videos=0) => ({ author: { id: botId },
   attachments: new Map(Array.from({ length: videos }, (_, i) => [String(i), {
     id: String(i), name: `video-${i}.mp4`, contentType: "video/mp4",
   }])) });
-function fixture({ housePost = message("house", house._id), outfitPost = message("outfit", outfit._id, 1),
+function fixture({ housePost = message("house", house._id, 1), outfitPost = message("outfit", outfit._id, 1),
   videos = 1, photos = {house: 2, outfit:1} } = {}) {
   const writes = [], guild = { id: guildId, client: { user: { id: botId } },
     channels: { fetch: async () => ({ messages: { fetch: async id => id === house.postMessageId
@@ -52,8 +52,8 @@ test("unavailable Discord messages never cause media deletion or false publicati
   assert.equal(writes.length,0);
 });
 
-test("staged house with a missing separate tour stays pending even if the card is public", async () => {
-  const {guild,writes,options} = fixture();
+test("staged house without its expected native video stays pending", async () => {
+  const {guild,writes,options} = fixture({ housePost: message("house", house._id, 0) });
   options.records.outfit=[];
   options.records.house=[{...house,mediaMessageId:""}];
   const result=await recoverStagedListingPosts(guild,options);

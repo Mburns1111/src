@@ -1,5 +1,6 @@
 import HouseListing from "../models/HouseListing.js";
 import { refreshHouseStyleCard } from "./house-card.js";
+import { isGalleryVideo } from "./house-style.js";
 export async function checkHousePost(guild, listing) {
   if (!listing?.postChannelId || !listing?.postMessageId || (listing.status !== "active" || listing.publicationState === "staging")) {
     return { state: "unavailable" };
@@ -43,17 +44,13 @@ export function houseNeedsFormatUpgrade(listing, message) {
   const buttons = (message.components ?? []).flatMap(row => row.components ?? [])
     .map(button => button.customId || button.custom_id || "");
   const ids = ["sold", "interest", "notify"];
-  const nativeVideos = Array.from(message.attachments?.values?.() ?? []).filter(asset =>
-    /^(video)\\//i.test(asset.contentType || "") ||
-    /\\.(mp4|webm|mov|m4v)$/i.test(asset.name || ""));
+  const nativeVideos = Array.from(message.attachments?.values?.() ?? []).filter(isGalleryVideo);
+  const storedVideos = (listing.mediaAttachments ?? []).filter(isGalleryVideo);
   return (listing.cardLayoutVersion ?? 0) < 2 || !art || !imageEmbed ||
     ids.some(name => !buttons.includes(`house:${name}:${listing._id}`)) ||
     buttons.includes(`house:media:${listing._id}`) ||
     Boolean(listing.mediaMessageId) ||
-    nativeVideos.length < (listing.expectedVideoCount ??
-      (listing.mediaAttachments ?? []).filter(asset =>
-        /^(video)\\//i.test(asset.contentType || "") ||
-        /\\.(mp4|webm|mov|m4v)$/i.test(asset.name || "")).length);
+    nativeVideos.length < (listing.expectedVideoCount ?? storedVideos.length);
 }
 
 /** Repairs old house embeds on startup. Stops only the listing that fails. */

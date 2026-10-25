@@ -26,7 +26,7 @@ const originalVideo = (n = 1) => ({
 const listing = overrides => ({
   _id: id, guildId, ownerId: "555555555555555555", status: "active",
   title: "Pretty house", ownerName: "Seller", postChannelId: channelId,
-  postMessageId: postId, mediaMessageId: "", mediaAttachments: [], cardLayoutVersion: 1,
+  postMessageId: postId, mediaMessageId: "", mediaAttachments: [], cardLayoutVersion: 2,
   interestedUserIds: [], notifyOnInterest: false, ...overrides,
 });
 const sourcePost = (...assets) => ({
@@ -44,10 +44,10 @@ test("decorated house always has one image even when linked video exists", () =>
   const data = listing({ mediaMessageId: "444444444444444444" });
   const card = houseCardPayload(data, { count: 2 }, Buffer.from("png"));
   assert.deepEqual(card.attachments, []);
-  assert.deepEqual(card.embeds, []);
+  assert.equal(card.embeds[0].toJSON().image.url, "attachment://house-style-card.png");
   assert.equal(card.files.length, 1);
   assert.equal(card.files[0].name, "house-style-card.png");
-  assert.match(card.content, /Watch house video tour/);
+  assert.doesNotMatch(card.content, /Watch house video tour/);
   assert.equal(card.components.length, 2);
 });
 test("separate video reply is connected to original post, not placed in house card", () => {
@@ -165,14 +165,18 @@ test("sold house deletes linked bot media but does not delete arbitrary user mes
 test("startup reconciliation upgrades video-tiling legacy houses but not photo-only completed cards", () => {
   const modern = {
     attachments: new Map([["style", { name: "house-style-card.png", contentType: "image/png" }]]),
-    embeds: [], components: [{ components: ["sold", "interest", "notify"].map(action =>
+    embeds: [{ image: { url: "attachment://house-style-card.png" } }],
+    components: [{ components: ["sold", "interest", "notify"].map(action =>
       ({ customId: `house:${action}:${id}` })) }],
   };
   assert.equal(houseNeedsFormatUpgrade(listing(), modern), false);
-  const old = { ...modern, attachments: new Map([...modern.attachments, ["v", originalVideo()]]) };
+  const old = { ...modern, embeds: [], attachments: new Map([...modern.attachments, ["v", originalVideo()]]) };
   assert.equal(houseNeedsFormatUpgrade(listing(), old), true);
   assert.equal(houseNeedsFormatUpgrade(listing({ mediaAttachments: [originalVideo()] }), modern), true);
   assert.equal(houseNeedsFormatUpgrade(listing({
     mediaMessageId: "444444444444444444", mediaAttachments: [originalVideo()],
-  }), modern), false);
+  }), modern), true);
+  assert.equal(houseNeedsFormatUpgrade(listing({ mediaAttachments: [originalVideo()] }), {
+    ...modern, attachments: new Map([...modern.attachments, ["video", originalVideo()]]),
+  }), false);
 });
