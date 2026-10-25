@@ -67,7 +67,7 @@ export async function ensureHouseMediaMessage(guild, listing, original, {
           throw new Error("Recorded house media message belongs to another user.");
         }
         const videos = houseVideoAssets(stored.attachments.values());
-        if (videos.length >= expected) {
+        if (videos.length > 0 && videos.length >= expected) {
           return { message: stored, videos, created: false };
         }
         // Fail closed rather than losing a playable video or replacing the
