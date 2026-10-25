@@ -31,8 +31,9 @@ test("shop home presents all six direct category buttons within Discord action-r
   ].map(category => `shop:dm:${guildId}:index:${category}:0`));
 
   const tools = components(rows.at(-1));
-  assert.deepEqual(tools.map(button => button.label), ["Preview Multiple", "Customize Profile", "Customize Trading Post"]);
+  assert.deepEqual(tools.map(button => button.label), ["Preview Multiple", "Customize Profile", "Customize Trading Post", "Customize Outfits"]);
   assert.equal(tools[2].custom_id, `shop:dm:${guildId}:post:tradingPost`);
+  assert.equal(tools[3].custom_id, `shop:dm:${guildId}:post:outfit`);
   assert.equal(tools[0].custom_id, `shop:dm:${guildId}:hubMix:backgrounds:0`);
 });
 
@@ -57,6 +58,8 @@ test("category indexes and item pages both expose All Categories and Preview Mul
     assert.ok(labels.includes("Preview Multiple"));
     assert.ok(labels.includes("All Categories"));
     assert.ok(labels.includes("Customize Trading Post"));
+    assert.ok(labels.includes("Customize Outfits"));
+    assert.equal(buttons.length, 5, "All category/tool controls stay within Discord limits");
     assert.ok(!labels.includes("Mix & Match"));
     assert.equal(buttons.find(button => button.label === "All Categories").custom_id,
       `shop:dm:${guildId}:home`);
