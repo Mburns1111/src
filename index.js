@@ -84,7 +84,7 @@ import { awardMessageActivity, eligibleVoiceStates, recordVoiceMinute } from "./
 import { runBounded, VOICE_TICK_CONCURRENCY } from "./services/bounded-work.js";
 import PointsSettings from "./models/PointsSettings.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
-import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
+import { execute as executeHelp, data as helpCommand, handleHelpTopicButton } from "./commands/help.js";
 import {
   handleTradingPostCardButton,
   handleTradingPostEntryButton,
@@ -430,6 +430,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await ensureProfileForEntry(interaction);
       await handleHouseCreateButton(interaction);
       await sendProfileReminder(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("help:topic:")) {
+      await handleHelpTopicButton(interaction);
       return;
     }
     if (interaction.isButton() &&
