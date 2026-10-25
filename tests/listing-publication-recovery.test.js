@@ -51,3 +51,20 @@ test("unavailable Discord messages never cause media deletion or false publicati
   assert.equal(result.unavailable,2);
   assert.equal(writes.length,0);
 });
+
+test("staged house with a missing separate tour stays pending even if the card is public", async () => {
+  const {guild,writes,options} = fixture();
+  options.records.outfit=[];
+  options.records.house=[{...house,mediaMessageId:""}];
+  const result=await recoverStagedListingPosts(guild,options);
+  assert.equal(result.pending,1);
+  assert.deepEqual(writes,[]);
+});
+
+test("staged listing with partial archive stays pending even if the public post is complete", async () => {
+  const {guild,writes,options} = fixture({photos:{house:2,outfit:0}});
+  options.records.house=[];
+  const result=await recoverStagedListingPosts(guild,options);
+  assert.equal(result.pending,1);
+  assert.deepEqual(writes,[]);
+});
