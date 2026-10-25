@@ -15,7 +15,8 @@ export const HELP_TOPICS = Object.freeze([
   { id: "shop", label: "Shop" },
   { id: "points", label: "Points" },
   { id: "commands", label: "Commands" },
-]);
+ ]);
+const VALID_HELP_TOPICS = new Set(HELP_TOPICS.map(topic => topic.id));
 
 // Keep information about the actual saved bot behavior, not future features.
 // Every help section is read-only; it never modifies profiles, listings or media.
@@ -105,7 +106,7 @@ function splitIntoFields(lines, maxLength = 950) {
 
 /** Pure presentation helper for tests. No database or Discord calls. */
 export function helpTopicPayload(topicId, ownerId, commandLines = []) {
-  if (!TOPIC_CONTENT[topicId] || !/^\d{17,20}$/.test(String(ownerId ?? ""))) {
+  if (!VALID_HELP_TOPICS.has(topicId) || !/^\d{17,20}$/.test(String(ownerId ?? ""))) {
     throw new UserFacingError("That help menu is no longer available. Run /help again.");
   }
   const topic = TOPIC_CONTENT[topicId];
@@ -173,7 +174,7 @@ export async function execute(interaction) {
 export async function handleHelpTopicButton(interaction) {
   const segments = String(interaction.customId ?? "").split(":");
   if (segments.length !== 4 || segments[0] !== "help" ||
-      segments[1] !== "topic" || !TOPIC_CONTENT[segments[2]] ||
+      segments[1] !== "topic" || !VALID_HELP_TOPICS.has(segments[2]) ||
       segments[3] !== interaction.user.id) {
     throw new UserFacingError("That help menu belongs to another member or has expired. Run /help again.");
   }
