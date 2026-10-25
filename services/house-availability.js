@@ -1,6 +1,6 @@
 import HouseListing from "../models/HouseListing.js";
 import { refreshHouseStyleCard } from "./house-card.js";
-import { houseMediaNeedsRepair } from "./house-media.js";
+import { houseMediaNeedsRepair, houseVideoAssets } from "./house-media.js";
 export async function checkHousePost(guild, listing) {
   if (!listing?.postChannelId || !listing?.postMessageId || listing.status !== "active") {
     return { state: "unavailable" };
@@ -71,7 +71,9 @@ export async function reconcileHousesForGuild(guild, {
         try {
           const channel = await guild.channels.fetch(listing.postChannelId);
           const media = await channel.messages.fetch(listing.mediaMessageId);
-          if (!media || media.author?.id !== guild.client.user.id) {
+          if (!media || media.author?.id !== guild.client.user.id ||
+              houseVideoAssets(media.attachments?.values?.()).length <
+                houseVideoAssets(listing.mediaAttachments || []).length) {
             needsUpgrade = true;
           }
         } catch (error) {
