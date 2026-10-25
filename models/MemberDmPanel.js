@@ -6,7 +6,7 @@ const memberDmPanelSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   botUserId: { type: String, required: true },
   discordUserId: { type: String, required: true },
-  kind: { type: String, required: true, enum: ["shop", "appearance", "postAppearance"] },
+  kind: { type: String, required: true, enum: ["shop", "appearance", "postAppearance", "outfitAppearance"] },
   channelId: { type: String, required: true },
   messageId: { type: String, required: true },
   token: { type: String, default: "" },
