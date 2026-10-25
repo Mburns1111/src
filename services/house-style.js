@@ -1,7 +1,27 @@
-import { safePageIndex, isGalleryPhoto, isGalleryVideo, mergeOriginalMedia } from "./outfit-gallery-utils.js";
-export { safePageIndex, isGalleryPhoto, isGalleryVideo, mergeOriginalMedia };
+import {
+  safePageIndex,
+  isGalleryPhoto as originalPhoto,
+  isGalleryVideo as originalVideo,
+  mergeOriginalMedia as mergeMedia,
+} from "./outfit-gallery-utils.js";
+
 export const HOUSE_ART_NAME = "house-style-card.png";
 export const HOUSE_MAX_MEDIA = 10;
+export { safePageIndex };
+
+export function isGalleryPhoto(asset) {
+  return asset?.name !== HOUSE_ART_NAME && originalPhoto(asset);
+}
+export function isGalleryVideo(asset) {
+  return asset?.name !== HOUSE_ART_NAME && originalVideo(asset);
+}
+export function mergeOriginalMedia(databaseItems, messageItems) {
+  // The generated PNG MUST NOT be counted or archived as a house photograph.
+  return mergeMedia(
+    (databaseItems ?? []).filter(item => item.name !== HOUSE_ART_NAME),
+    (messageItems ?? []).filter(item => item.name !== HOUSE_ART_NAME),
+  );
+}
 export function houseCardData(listing) {
   return {
     title: listing.title,
@@ -17,8 +37,4 @@ export function housePickerOptions(listings) {
     value: String(listing._id),
     description: `House ${String(listing._id).slice(-8)} · ${String(listing.askingPrice || "No asking price").slice(0, 55)}`,
   }));
-}
-export function houseComponents(listing, count = 0) {
-  // Components are built separately in commands/house.js to avoid a cycle.
-  return { count, index: safePageIndex(listing.galleryPageIndex ?? 0, count) };
 }
