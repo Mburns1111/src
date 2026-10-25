@@ -36,7 +36,7 @@ test("house photo pagination and seller controls share ONE message", () => {
   assert.deepEqual(rows[0].map(b => b.label), ["◀ Previous", "Photo 1 / 3", "Next ▶"]);
   assert.equal(rows[0][1].disabled, true);
   assert.deepEqual(rows[1].map(b => b.label), [
-    "Mark sold", "Add pictures/video", "Interested (0)", "Interest DMs: Off",
+    "Mark sold", "Interested (0)", "Interest DMs: Off",
   ]);
   assert.equal(rows[0][2].custom_id, `house:page:next:${listing._id}`);
   const payload = houseCardPayload(listing, { count: 3 }, [], Buffer.from("test"));
