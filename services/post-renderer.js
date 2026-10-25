@@ -943,8 +943,8 @@ function drawTradingPost(ctx, data, images, style, layout, appearance, stickerIm
  * The media gallery remains on the original Discord listing message.
  */
 function drawOutfit(ctx, data, images, style, layout, appearance, stickerImages) {
-  // This is an advertising BANNER, not a collage. Gallery images are handled
-  // exclusively by the separate outfit flipbook below the original post.
+  // One cohesive card. The photo changes when the user clicks Previous/Next,
+  // while the member's purchased backgrounds, fonts, frame and stickers stay.
   const { width, height } = layout;
   ctx.fillStyle = style.background;
   ctx.fillRect(0, 0, width, height);
@@ -952,35 +952,63 @@ function drawOutfit(ctx, data, images, style, layout, appearance, stickerImages)
   else drawBackgroundPattern(ctx, width, height, appearance);
 
   glassPanel(ctx, 48, 40, 1104, 137, style);
-  glassPanel(ctx, 48, 197, 380, 229, style, true);
-  glassPanel(ctx, 447, 197, 705, 229, style);
+  glassPanel(ctx, 48, 199, 648, 536, style, true);
+  glassPanel(ctx, 716, 199, 436, 536, style);
+  glassPanel(ctx, 48, 759, 1104, 54, style);
 
-  drawFittedLine(ctx, data.title || 'Outfit listing', {
-    x: 84, y: 70, width: 1000, height: 66,
+  drawFittedLine(ctx, data.title || "Outfit listing", {
+    x: 85, y: 75, width: 1010, height: 66,
   }, {
-    fontSize: 54, minFontSize: 28, family: style.titleFontFamily,
+    fontSize: 53, minFontSize: 27, family: style.titleFontFamily,
     weight: style.titleFontWeight, color: style.text,
   });
-  drawFittedLine(ctx, data.seller || 'Member', {
-    x: 84, y: 145, width: 1000, height: 25,
+  drawFittedLine(ctx, data.seller || "Member", {
+    x: 85, y: 147, width: 1000, height: 27,
   }, {
     fontSize: 23, minFontSize: 16, family: style.fontFamily,
     weight: style.bodyFontWeight, color: style.mutedText,
   });
 
-  drawLabel(ctx, 'Cost', { x: 81, y: 225, width: 300, height: 38 }, style);
-  drawWrappedText(ctx, data.cost || 'Not listed', {
-    x: 81, y: 275, width: 300, height: 112,
+  if (images.photo) {
+    drawContain(ctx, images.photo, 73, 220, 598, 491, style.imageRadius);
+  } else {
+    drawFittedLine(ctx, "Outfit media", {
+      x: 90, y: 387, width: 580, height: 48,
+    }, {
+      fontSize: 36, minFontSize: 22, family: style.titleFontFamily,
+      weight: style.titleFontWeight, color: style.text,
+    });
+    drawWrappedText(ctx, "See the attached video or outfit link.", {
+      x: 90, y: 455, width: 575, height: 78,
+    }, {
+      fontSize: 24, minFontSize: 17, family: style.fontFamily,
+      weight: style.bodyFontWeight, color: style.mutedText, maxLines: 3,
+    });
+  }
+
+  drawLabel(ctx, "Cost", { x: 749, y: 237, width: 355, height: 38 }, style);
+  drawWrappedText(ctx, data.cost || "Not listed", {
+    x: 749, y: 288, width: 353, height: 115,
   }, {
-    fontSize: 33, minFontSize: 20, family: style.fontFamily,
+    fontSize: 34, minFontSize: 21, family: style.fontFamily,
     weight: style.bodyFontWeight, color: style.text, maxLines: 2,
   });
-  drawLabel(ctx, 'Outfit details', { x: 484, y: 225, width: 609, height: 38 }, style);
-  drawWrappedText(ctx, data.description || 'View outfit photos below', {
-    x: 484, y: 282, width: 610, height: 109,
+  drawLabel(ctx, "Outfit details", { x: 749, y: 418, width: 358, height: 38 }, style);
+  drawWrappedText(ctx, data.description || "No description", {
+    x: 749, y: 474, width: 355, height: 210,
   }, {
     fontSize: 27, minFontSize: 18, family: style.fontFamily,
-    weight: style.bodyFontWeight, color: style.text, maxLines: 3,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 6,
+  });
+
+  const count = Number(data.galleryCount) || 0;
+  const current = count ? (Number(data.galleryIndex) || 1) : 0;
+  const footer = count ? `Photo ${current} / ${count}` : "Video / media listing";
+  drawFittedLine(ctx, footer, {
+    x: 86, y: 772, width: 995, height: 29,
+  }, {
+    fontSize: 23, minFontSize: 16, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.mutedText,
   });
   drawDecorations(ctx, width, height, appearance, style, stickerImages);
 }
@@ -1103,7 +1131,7 @@ export async function renderPostImage({
     drawTradingPost(ctx, data, { avatar, photo, background }, resolvedStyle,
       layout, resolvedAppearance, stickerImages);
   } else if (type === 'outfit') {
-    drawOutfit(ctx, data, { background }, resolvedStyle,
+    drawOutfit(ctx, data, { photo, background }, resolvedStyle,
       layout, resolvedAppearance, stickerImages);
   } else {
     throw new Error(
