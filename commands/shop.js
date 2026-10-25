@@ -623,12 +623,14 @@ export function dmShopTools(guildId, category, index) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mix:${category}:${index}`)
       .setLabel("Preview Multiple").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:refresh:${category}:${index}`)
-      .setLabel("Refresh Points & Items").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:home`)
-      .setLabel("All Categories").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:tradingPost`)
+      .setLabel("Customize Trading Post").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:outfit`)
+      .setLabel("Customize Outfits").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:house`)
+      .setLabel("Customize Houses").setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -681,10 +683,13 @@ export function dmCategoryMenu(guildId, current) {
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder().setCustomId(`shop:dm:${guildId}:category`)
       .setPlaceholder(`Switch Category · viewing ${CATEGORY_LABELS[current] || "Shop"}`)
-      .addOptions(categories().map(category => ({
-        label: CATEGORY_LABELS[category], value: category,
-        description: category === current ? "Current category" : "Open this category's item index",
-      }))),
+      .addOptions([
+        { label: "All Categories", value: "__home__", description: "Return to the shop category directory" },
+        ...categories().map(category => ({
+          label: CATEGORY_LABELS[category], value: category,
+          description: category === current ? "Current category" : "Open this category's item index",
+        })),
+      ]),
   );
 }
 // Category home uses buttons instead of a preselected dropdown so it's
@@ -704,6 +709,12 @@ export function dmCategoryHomeControls(guildId) {
       .setLabel("Preview Multiple").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:tradingPost`)
+      .setLabel("Customize Trading Post").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:outfit`)
+      .setLabel("Customize Outfits").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:house`)
+      .setLabel("Customize Houses").setStyle(ButtonStyle.Primary),
   ));
   return rows;
 }
@@ -731,12 +742,14 @@ export function dmIndexTools(guildId, category, page) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:indexMix:${category}:0`)
       .setLabel("Preview Multiple").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:index:${category}:${page}`)
-      .setLabel("Refresh Index & Points").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:home`)
-      .setLabel("All Categories").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:tradingPost`)
+      .setLabel("Customize Trading Post").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:outfit`)
+      .setLabel("Customize Outfits").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:house`)
+      .setLabel("Customize Houses").setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -1320,7 +1333,7 @@ export async function ensureMemberShopDM(guild, user, category = categories()[0]
 async function sendShopDM(interaction, category) {
   const { message, created } = await ensureMemberShopDM(interaction.guild, interaction.user, category, { refresh: true });
   await interaction.editReply({
-    content: `${created ? "I opened your personal shop!" : "Your personal shop is already in your DMs."} [**Open your shop**](${dmPanelUrl(message.channelId, message.id)}). You can browse categories, check Points, and customize your profile there.`,
+    content: `${created ? "I opened your personal shop!" : "Your personal shop is already in your DMs."} [**Open your shop**](${dmPanelUrl(message.channelId, message.id)}). You can browse categories, check Points, and customize your profile, Trading Post, or outfits there.`,
     allowedMentions: { parse: [] },
   });
 }
@@ -1350,7 +1363,7 @@ async function handleShopDM(interaction) {
     return true;
   }
   // Acknowledge quickly before member fetches or MongoDB queries.
-  if (action === "appearance" || (action === "customSubmit" &&
+  if (action === "appearance" || action === "post" || (action === "customSubmit" &&
       !interaction.isFromMessage?.())) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   } else {
@@ -1360,6 +1373,18 @@ async function handleShopDM(interaction) {
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) throw new UserFacingError("You must belong to the server to use this shop.");
   const context = { guildId, user: interaction.user, guild, interactionId: interaction.id };
+
+  if (action === "post") {
+    if (!interaction.isButton() || !["tradingPost", "outfit", "house"].includes(categoryText)) {
+      throw new UserFacingError("That post customization button is unavailable.");
+    }
+    const { openTradingPostAppearanceDM, showOutfitAppearancePicker, showHouseAppearancePicker } = await import("./listing-appearance-editor.js");
+    if (categoryText === "house") return showHouseAppearancePicker(interaction, guild);
+    return categoryText === "outfit"
+      ? showOutfitAppearancePicker(interaction, guild)
+      : openTradingPostAppearanceDM(interaction, guild);
+  }
+
 
   if (action === "customSubmit" || action === "customConfirm") {
     if (!Object.hasOwn(CUSTOM_COLOR_PRICES, categoryText)) {
@@ -1739,6 +1764,10 @@ async function handleShopDM(interaction) {
   }
   if (action === "category" && interaction.isStringSelectMenu()) {
     const selected = interaction.values[0];
+    if (selected === "__home__") {
+      await interaction.editReply(await dmCategoryHome(context));
+      return true;
+    }
     if (!CATEGORY_LABELS[selected] || !itemsFor(selected).length) throw new UserFacingError("Unknown category.");
     await interaction.editReply(await dmCategoryIndex(context, selected));
     return true;

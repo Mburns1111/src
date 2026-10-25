@@ -3,7 +3,6 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
   LabelBuilder,
   MessageFlags,
   ModalBuilder,
@@ -17,6 +16,10 @@ import OutfitListing from "../models/OutfitListing.js";
 import TradingPost from "../models/TradingPost.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import UserProfile from "../models/UserProfile.js";
+import { displayListingAppearance, snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
+import { getAppearanceOwnership } from "../services/appearance-ownership.js";
+import { renderPostImage } from "../services/post-renderer.js";
+import { tradingPostCardPayload } from "../services/trading-post-display.js";
 import { discordMessageUrl } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 
@@ -281,49 +284,21 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     return `Outfit: [${listing.title || "View listing"}](${url})`;
   });
 
-  const willingDetails = [
-    (post.willingToTrade || "Not specified").slice(0, 250),
-    ...outfitLinks.slice(0, 3),
-    ...houseLinks.slice(0, 3),
-    ...inventoryLinks,
-  ].join("\n");
-
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle(`${post.discordName}'s Trading Post`)
-    .addFields(
-      {
-        name: "Discord name",
-        value: post.discordName,
-        inline: true,
-      },
-      {
-        name: "Roblox username",
-        value: post.robloxName || "Not added yet",
-        inline: true,
-      },
-      {
-        name: "Looking for",
-        value: post.lookingFor || "Not specified",
-      },
-      {
-        name: "Willing to trade",
-        value: willingDetails.slice(0, 1024),
-      },
-    )
-    .setFooter({
-      text: post.notifyOnInterest
-        ? "The owner is opted in to interest DMs."
-        : "Interest is tallied on this card.",
-    })
-    .setTimestamp(post.updatedAt);
-
-  return {
-    content: "",
-    embeds: [embed],
-    components: makeTradingPostComponents(post),
-    allowedMentions: { parse: [] },
-  };
+  const linkLines = [
+    ...outfitLinks.slice(0, 3), ...houseLinks.slice(0, 3), ...inventoryLinks,
+  ];
+  const ownership = await getAppearanceOwnership(guild.id, post.ownerId);
+  const cardImage = await renderPostImage({
+    type: "tradingPost",
+    data: {
+      discordName: post.discordName,
+      robloxName: post.robloxName,
+      lookingFor: post.lookingFor,
+      willingToTrade: post.willingToTrade,
+    },
+    appearance: displayListingAppearance(post, profile, ownership),
+  });
+  return tradingPostCardPayload(cardImage, linkLines, makeTradingPostComponents(post));
 }
 
 export async function refreshTradingPostCard(guild, ownerId) {
@@ -356,6 +331,13 @@ export async function refreshTradingPostCard(guild, ownerId) {
       discordUserId: ownerId,
     }),
   ]);
+
+  // Legacy cards predate saved listing styles. Capture their starting appearance
+  // once; do not keep inheriting future profile changes.
+  if (!tradingPost.postAppearance) {
+    tradingPost.postAppearance = await snapshotOwnedListingAppearance(guild.id, ownerId, profile);
+    tradingPost.markModified("postAppearance");
+  }
 
   const oldChannelId = tradingPost.postChannelId;
   const oldMessageId = tradingPost.postMessageId;
@@ -590,7 +572,9 @@ export async function handleTradingPostModal(interaction) {
     try {
       post = await TradingPost.findOneAndUpdate(
         { guildId: interaction.guildId, ownerId },
-        { $set: update },
+        { $set: update, $setOnInsert: {
+          postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, ownerId, profile),
+        } },
         {
           upsert: true,
           returnDocument: "after",

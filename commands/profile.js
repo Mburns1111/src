@@ -123,7 +123,7 @@ export async function handleInventoryEntryButton(interaction) {
   return true;
 }
 
-function makeProfileCardContent(profile, guildId, listingLinks) {
+export function makeProfileCardContent(profile, guildId, listingLinks) {
   const sections = [`<@${profile.discordUserId}>'s member profile`];
   const inventoryLinks = profile.albumPosts
     .filter(post => post.channelId !== profile.profileCardChannelId || post.messageId !== profile.profileCardMessageId)
@@ -156,13 +156,33 @@ function makeProfileCardContent(profile, guildId, listingLinks) {
     sections.push(`**Trading Post**\n• [View trading post](${discordMessageUrl(guildId, listingLinks.tradingPost.postChannelId, listingLinks.tradingPost.postMessageId)})`);
   }
 
+  // Every profile gets a visible follow-up message. A member with no
+  // inventory, houses, outfits, trades or Trading Post should still occupy
+  // the same card → details slot as a member who already has links.
+  if (sections.length === 1) {
+    sections.push("**Links & listings**\n*Nothing linked yet. Inventory, house, outfit, trade, and Trading Post links will appear here when added.*");
+  }
+
   // Discord embed descriptions are limited to 4096 characters.
   const result = [];
   let length = 0;
   for (const section of sections) {
     const separator = result.length ? "\n\n" : "";
     if (length + separator.length + section.length > 4090) {
-      if (length + 2 <= 4096) result.push("…");
+      // Keep the first available listing links, rather than dropping an
+      // oversized House/Outfit/Trade section and showing only an ellipsis.
+      const room = 4090 - length - separator.length;
+      if (room > 2) {
+        const candidate = section.slice(0, room - 1);
+        const lastWholeEntry = candidate.lastIndexOf("\n");
+        // Avoid splitting Markdown links when a full listing line fits.
+        const truncated = lastWholeEntry > 20
+          ? candidate.slice(0, lastWholeEntry)
+          : candidate;
+        result.push(truncated + "…");
+      } else if (length + 2 <= 4096) {
+        result.push("…");
+      }
       break;
     }
     result.push(section);
@@ -287,13 +307,31 @@ async function makeProfileCardPayload(
   };
 }
 
-async function makeProfileDetailsPayload(guild, profile) {
-  const listingLinks = await getProfileListingLinks(guild, profile.discordUserId);
+export function makeProfileDetailsPayloadFromLinks(profile, guildId, listingLinks) {
+  const content = makeProfileCardContent(profile, guildId, listingLinks);
+  const noLinks =
+    !(profile.albumPosts || []).some(post =>
+      post.channelId !== profile.profileCardChannelId ||
+      post.messageId !== profile.profileCardMessageId) &&
+    !profile.inventoryVideoUrl &&
+    !(profile.inventoryVideoPostChannelId && profile.inventoryVideoPostMessageId) &&
+    !listingLinks.houses.length &&
+    !listingLinks.outfits.length &&
+    !listingLinks.trades.length &&
+    !listingLinks.tradingPost;
+
   return {
-    content: "",
-    embeds: [new EmbedBuilder().setDescription(makeProfileCardContent(profile, guild.id, listingLinks))],
+    // Use a plain message for the empty state. When the member adds links,
+    // edit this SAME message into the linked details embed, not a third post.
+    content: noLinks ? content : "",
+    embeds: noLinks ? [] : [new EmbedBuilder().setDescription(content)],
     allowedMentions: { parse: [] },
   };
+}
+
+async function makeProfileDetailsPayload(guild, profile) {
+  const listingLinks = await getProfileListingLinks(guild, profile.discordUserId);
+  return makeProfileDetailsPayloadFromLinks(profile, guild.id, listingLinks);
 }
 
 async function syncProfileDetails(guild, channel, profile) {
@@ -479,10 +517,32 @@ async function ensureProfileCardOnce(guild, user, refresh) {
     try {
       const existingMessage = await channel.messages.fetch(oldMessageId);
       if (existingMessage.author.id === guild.client.user.id) {
-        if (!refresh && !identityChanged && oldDetailsMessageId) return profile;
-        await existingMessage.edit(await makeProfileCardPayload(guild, profile, member, 0, existingMessage));
-        await syncProfileDetails(guild, channel, profile);
-        return profile;
+        let validDetails = null;
+        if (oldDetailsMessageId) {
+          try {
+            const details = await channel.messages.fetch(oldDetailsMessageId);
+            if (details.author?.id === guild.client.user.id) validDetails = details;
+          } catch (error) {
+            if (![10003, 10008].includes(Number(error?.code))) throw error;
+          }
+        }
+
+        if (validDetails) {
+          const legacyEmptyDetails =
+            !validDetails.content?.trim() &&
+            validDetails.embeds?.length === 1 &&
+            validDetails.embeds[0]?.description?.trim() ===
+              `<@${profile.discordUserId}>'s member profile`;
+          if (!refresh && !identityChanged && !legacyEmptyDetails) return profile;
+          await existingMessage.edit(await makeProfileCardPayload(
+            guild, profile, member, 0, existingMessage,
+          ));
+          await syncProfileDetails(guild, channel, profile);
+          return profile;
+        }
+        // If the details post was deleted, repost the CARD AND DETAILS
+        // together so one member's links cannot appear far beneath another
+        // member's profile. The old card is cleaned up after both succeed.
       }
     } catch (error) {
       if (![10003, 10008].includes(Number(error?.code))) throw error;
@@ -584,7 +644,7 @@ const RETIRED_COLOR_NAMES = {
 // "Match background" is always allowed, and free standards/text colors are
 // already included in the ownership set. Retired paid colors stay available
 // to their original buyers without returning to the storefront.
-function availableAppearanceChoices(field, ownership) {
+export function availableAppearanceChoices(field, ownership) {
   const choices = APPEARANCE_CHOICES[field];
   // Equipment must be owned: the shop and Mix & Match can preview locked
   // frames, but Customize Profile offers only the free or purchased frames.
@@ -617,7 +677,7 @@ function availableAppearanceChoices(field, ownership) {
   return [...new Set([...unlocked, ...customOwned, ...retiredOwned])];
 }
 
-function appearanceChoicePage(field, currentAppearance, optionPages = {}, ownership = null) {
+export function appearanceChoicePage(field, currentAppearance, optionPages = {}, ownership = null) {
   const options = availableAppearanceChoices(field, ownership);
   const pageCount = Math.ceil(options.length / COLOR_SELECT_PAGE_SIZE);
   if (pageCount <= 1) return { page: 0, count: 1 };
@@ -663,7 +723,7 @@ function appearanceChoiceOptions(field, appearance, ownership, optionPages) {
   }
   return { options, page, count };
 }
-const APPEARANCE_PAGES = {
+export const APPEARANCE_PAGES = {
   colors: ["background", "panelColor", "opacity"],
   fonts: ["headerFont", "bodyFont"],
   details: ["fontColor", "frame"],
@@ -674,16 +734,20 @@ function getProfileAppearance(profile) {
     ? profile.profileAppearance
     : DEFAULT_APPEARANCE);
 }
-function makeAppearanceControls(profile, page = "colors", selected = 0, ownership = null, dmToken = null, optionPages = {}, stickerMode = "position") {
+export function makeAppearanceControls(profile, page = "colors", selected = 0, ownership = null, dmToken = null, optionPages = {}, stickerMode = "position", editorPrefix = "profile:dm", saveLabel = "Confirm & update profile") {
   const a = getProfileAppearance(profile);
   const ownerId = profile.discordUserId;
   const selectId = field => dmToken
-    ? `profile:dm:select:${dmToken}:${field}`
+    ? `${editorPrefix}:select:${dmToken}:${field}`
     : `profile:appearance:${field}:${ownerId}`;
   const finish = () => new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:confirm`).setLabel("Confirm & update profile").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:cancel`).setLabel("Discard Changes").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:refresh`).setLabel("Refresh Preview").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:confirm`).setLabel(saveLabel).setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:cancel`).setLabel("Discard Changes").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:refresh`).setLabel("Refresh Preview").setStyle(ButtonStyle.Secondary),
+    ...(dmToken && page === "stickers" && a.stickers.length
+      ? [new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:clearStickers`)
+          .setLabel("Remove All Stickers").setStyle(ButtonStyle.Danger)]
+      : []),
   );
   const pageMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -732,7 +796,7 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
       const selectedSticker = a.stickers[Math.max(0, Math.min(selected, a.stickers.length - 1))];
       const isTwoColor = STICKER_CATALOG[selectedSticker.id]?.colors === 2;
       const button = (action, label, style = ButtonStyle.Secondary) =>
-        new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:${action}`)
+        new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:${action}`)
           .setLabel(label).setStyle(style);
       if (stickerMode === "style") {
         // Separate modes keep the preview unobstructed while staying within
@@ -741,7 +805,7 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
           button("stickerColors", isTwoColor ? "Main & Accent HEX" : "Sticker HEX", ButtonStyle.Primary),
           button("stickerOutline", `Outline: ${(selectedSticker.outline || "auto").replace(/^./, c => c.toUpperCase())}`),
           button("stickerResetColors", "Reset Colors"),
-          button("remove", "Remove", ButtonStyle.Danger),
+          button("remove", "Remove Sticker", ButtonStyle.Danger),
         ));
         rows.push(new ActionRowBuilder().addComponents(
           button("stickerPosition", "← Position & Size", ButtonStyle.Primary),
@@ -750,6 +814,7 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
         rows.push(new ActionRowBuilder().addComponents(
           button("left", "← Left"), button("right", "Right →"),
           button("up", "↑ Up"), button("down", "↓ Down"),
+          button("remove", "Remove Sticker", ButtonStyle.Danger),
         ));
         rows.push(new ActionRowBuilder().addComponents(
           button("smaller", "− Size"), button("larger", "+ Size"),
@@ -835,7 +900,7 @@ function makeAppearanceControls(profile, page = "colors", selected = 0, ownershi
   // Fonts are owned once. Choose separate fonts, or apply one to both.
   if (page === "fonts" && dmToken) {
     rows.push(new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`profile:dm:button:${dmToken}:fontBoth`)
+      new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:fontBoth`)
         .setLabel("Apply Heading Font to Both")
         .setStyle(ButtonStyle.Primary),
     ));
@@ -941,7 +1006,14 @@ async function saveDraftPanel(panel, draft) {
   await panel.save();
 }
 
-function adjustDraftSticker(draft, action) {
+// Clearing a whole canvas is explicit; no purchase/ownership records are changed.
+export function clearDraftStickers(draft) {
+  draft.appearance.stickers = [];
+  draft.selected = 0;
+  draft.stickerMode = "position";
+}
+
+export function adjustDraftSticker(draft, action) {
   const sticker = draft.appearance.stickers[draft.selected];
   if (!sticker) throw new UserFacingError("Choose a sticker to edit.");
   switch (action) {
@@ -1130,6 +1202,13 @@ export async function handleProfileAppearanceDM(interaction) {
     return true;
   }
   if (kind === "button" && field === "refresh") {
+    await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    return true;
+  }
+  if (kind === "button" && field === "clearStickers") {
+    clearDraftStickers(draft);
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await saveDraftPanel(panel, draft);
     await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
     return true;
   }

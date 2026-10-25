@@ -888,10 +888,204 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
 }
 
 /**
+ * The Trading Post uses the same owned layers as profiles, but its data has
+ * dedicated regions. Existing Discord embeds remain below the image so
+ * inventory/house/outfit links still work as actual clickable links.
+ */
+function drawTradingPost(ctx, data, images, style, layout, appearance, stickerImages) {
+  const { width, height } = layout;
+  ctx.fillStyle = style.background;
+  ctx.fillRect(0, 0, width, height);
+  if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
+  else drawBackgroundPattern(ctx, width, height, appearance);
+
+  glassPanel(ctx, 48, 48, 1104, 170, style);
+  glassPanel(ctx, 48, 240, 542, 498, style, true);
+  glassPanel(ctx, 610, 240, 542, 498, style);
+
+  drawFittedLine(ctx, 'Trading Post', { x: 83, y: 77, width: 1028, height: 64 }, {
+    fontSize: 58, minFontSize: 32, family: style.titleFontFamily,
+    weight: style.titleFontWeight, color: style.text,
+  });
+  drawFittedLine(ctx, String(data.discordName || 'Member'), {
+    x: 83, y: 149, width: 620, height: 42,
+  }, {
+    fontSize: 34, minFontSize: 20, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text,
+  });
+  drawFittedLine(ctx, String(data.robloxName || 'Roblox username not added'), {
+    x: 720, y: 159, width: 400, height: 32,
+  }, {
+    fontSize: 24, minFontSize: 16, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.mutedText,
+  });
+
+  drawLabel(ctx, 'Looking for', { x: 84, y: 279, width: 468, height: 39 }, style);
+  drawWrappedText(ctx, data.lookingFor || 'Not specified', {
+    x: 84, y: 343, width: 466, height: 346,
+  }, {
+    fontSize: 35, minFontSize: 21, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 9,
+  });
+  drawLabel(ctx, 'Willing to trade', { x: 648, y: 279, width: 464, height: 39 }, style);
+  drawWrappedText(ctx, data.willingToTrade || 'Not specified', {
+    x: 648, y: 343, width: 465, height: 346,
+  }, {
+    fontSize: 35, minFontSize: 21, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 9,
+  });
+  drawDecorations(ctx, width, height, appearance, style, stickerImages);
+}
+
+/**
+ * Outfit image: the uploaded photo is the hero, while the other details
+ * remain readable even when the member chooses bold decorative artwork.
+ * The media gallery remains on the original Discord listing message.
+ */
+function drawOutfit(ctx, data, images, style, layout, appearance, stickerImages) {
+  // One cohesive card. The photo changes when the user clicks Previous/Next,
+  // while the member's purchased backgrounds, fonts, frame and stickers stay.
+  const { width, height } = layout;
+  ctx.fillStyle = style.background;
+  ctx.fillRect(0, 0, width, height);
+  if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
+  else drawBackgroundPattern(ctx, width, height, appearance);
+
+  glassPanel(ctx, 48, 40, 1104, 137, style);
+  glassPanel(ctx, 48, 199, 648, 536, style, true);
+  glassPanel(ctx, 716, 199, 436, 536, style);
+  glassPanel(ctx, 48, 759, 1104, 54, style);
+
+  drawFittedLine(ctx, data.title || "Outfit listing", {
+    x: 85, y: 75, width: 1010, height: 66,
+  }, {
+    fontSize: 53, minFontSize: 27, family: style.titleFontFamily,
+    weight: style.titleFontWeight, color: style.text,
+  });
+  drawFittedLine(ctx, data.seller || "Member", {
+    x: 85, y: 147, width: 1000, height: 27,
+  }, {
+    fontSize: 23, minFontSize: 16, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.mutedText,
+  });
+
+  if (images.photo) {
+    drawContain(ctx, images.photo, 73, 220, 598, 491, style.imageRadius);
+  } else {
+    drawFittedLine(ctx, "Outfit media", {
+      x: 90, y: 387, width: 580, height: 48,
+    }, {
+      fontSize: 36, minFontSize: 22, family: style.titleFontFamily,
+      weight: style.titleFontWeight, color: style.text,
+    });
+    drawWrappedText(ctx, "See the attached video or outfit link.", {
+      x: 90, y: 455, width: 575, height: 78,
+    }, {
+      fontSize: 24, minFontSize: 17, family: style.fontFamily,
+      weight: style.bodyFontWeight, color: style.mutedText, maxLines: 3,
+    });
+  }
+
+  drawLabel(ctx, "Cost", { x: 749, y: 237, width: 355, height: 38 }, style);
+  drawWrappedText(ctx, data.cost || "Not listed", {
+    x: 749, y: 288, width: 353, height: 115,
+  }, {
+    fontSize: 34, minFontSize: 21, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 2,
+  });
+  drawLabel(ctx, "Outfit details", { x: 749, y: 418, width: 358, height: 38 }, style);
+  drawWrappedText(ctx, data.description || "No description", {
+    x: 749, y: 474, width: 355, height: 210,
+  }, {
+    fontSize: 27, minFontSize: 18, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 6,
+  });
+
+  const count = Number(data.galleryCount) || 0;
+  const current = count ? (Number(data.galleryIndex) || 1) : 0;
+  const footer = count ? `Photo ${current} / ${count}` : "Video / media listing";
+  drawFittedLine(ctx, footer, {
+    x: 86, y: 772, width: 995, height: 29,
+  }, {
+    fontSize: 23, minFontSize: 16, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.mutedText,
+  });
+  drawDecorations(ctx, width, height, appearance, style, stickerImages);
+}
+
+
+function drawHouse(ctx, data, images, style, layout, appearance, stickerImages) {
+  // Compact house advertisement (1200 × 430). The playable House Tour remains
+  // in a separate Discord message; shrinking this image must not change it.
+  const { width, height } = layout;
+  ctx.fillStyle = style.background;
+  ctx.fillRect(0, 0, width, height);
+  if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
+  else drawBackgroundPattern(ctx, width, height, appearance);
+
+  // Shallow title, wider photo-and-details row, and a slim gallery footer.
+  // All regions end above y=420, leaving room for purchased outer frames.
+  glassPanel(ctx, 42, 26, 1116, 86, style);
+  glassPanel(ctx, 42, 126, 425, 243, style, true);
+  glassPanel(ctx, 479, 126, 679, 243, style);
+  glassPanel(ctx, 42, 380, 1116, 31, style);
+
+  drawFittedLine(ctx, data.title || "House listing", {
+    x: 74, y: 40, width: 1052, height: 45,
+  }, { fontSize: 41, minFontSize: 24, family: style.titleFontFamily,
+    weight: style.titleFontWeight, color: style.text });
+  drawFittedLine(ctx, data.seller || "Member", {
+    x: 76, y: 88, width: 1034, height: 21,
+  }, { fontSize: 20, minFontSize: 14, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.mutedText });
+
+  if (images.photo) {
+    drawContain(ctx, images.photo, 56, 139, 397, 216, style.imageRadius);
+  } else {
+    drawFittedLine(ctx, "House Tour", {
+      x: 78, y: 187, width: 345, height: 48,
+    }, { fontSize: 40, minFontSize: 26, family: style.titleFontFamily,
+      weight: style.titleFontWeight, color: style.text });
+    drawWrappedText(ctx, "Watch the playable video beneath this listing.", {
+      x: 78, y: 251, width: 345, height: 78,
+    }, { fontSize: 24, minFontSize: 17, family: style.fontFamily,
+      weight: style.bodyFontWeight, color: style.mutedText, maxLines: 3 });
+  }
+
+  // Price columns share the top of the details panel. This leaves the whole
+  // lower portion for house description, rather than squeezing each value.
+  drawLabel(ctx, "Asking price", { x: 506, y: 143, width: 278, height: 30 }, style);
+  drawFittedLine(ctx, data.askingPrice || "Not listed", {
+    x: 506, y: 176, width: 288, height: 42,
+  }, { fontSize: 31, minFontSize: 17, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text });
+  drawLabel(ctx, "Estimated value", { x: 827, y: 143, width: 298, height: 30 }, style);
+  drawFittedLine(ctx, data.estimatedValue || "Not listed", {
+    x: 827, y: 176, width: 298, height: 42,
+  }, { fontSize: 31, minFontSize: 17, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text });
+
+  drawLabel(ctx, "House details", { x: 506, y: 231, width: 599, height: 29 }, style);
+  drawWrappedText(ctx, data.description || "No description", {
+    x: 506, y: 269, width: 614, height: 87,
+  }, { fontSize: 23, minFontSize: 16, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 3 });
+
+  const count = Number(data.galleryCount) || 0;
+  const index = count ? Number(data.galleryIndex) || 1 : 0;
+  drawFittedLine(ctx, count ? `House photo ${index} / ${count}` : "House Tour", {
+    x: 75, y: 384, width: 1040, height: 22,
+  }, { fontSize: 19, minFontSize: 14, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.mutedText });
+
+  drawDecorations(ctx, width, height, appearance, style, stickerImages);
+}
+
+/**
  * Render a post image as a PNG Buffer.
  *
  * @param {object} options
- * @param {'profile'} options.type Layout key.
+ * @param {'profile'|'tradingPost'|'outfit'|'house'} options.type Layout key.
  * @param {object} options.data Text/data fields for the selected layout.
  * @param {object} [options.images] Optional avatar/photo image sources.
  * @param {object} [options.style] Optional overrides for DEFAULT_POST_STYLE.
@@ -905,10 +1099,8 @@ export async function renderPostImage({
   style = {},
   appearance = {},
 } = {}) {
-  if (type === 'profile') {
-    registerAppearanceFonts();
-    await ensureSymbolFont();
-  }
+  registerAppearanceFonts();
+  await ensureSymbolFont();
   const layout = POST_LAYOUTS[type];
 
   if (!layout) {
@@ -1003,6 +1195,15 @@ export async function renderPostImage({
       resolvedAppearance,
       stickerImages
     );
+  } else if (type === 'tradingPost') {
+    drawTradingPost(ctx, data, { avatar, photo, background }, resolvedStyle,
+      layout, resolvedAppearance, stickerImages);
+  } else if (type === 'outfit') {
+    drawOutfit(ctx, data, { photo, background }, resolvedStyle,
+      layout, resolvedAppearance, stickerImages);
+  } else if (type === 'house') {
+    drawHouse(ctx, data, { photo, background }, resolvedStyle,
+      layout, resolvedAppearance, stickerImages);
   } else {
     throw new Error(
       `Renderer implementation is missing for layout: ${type}`

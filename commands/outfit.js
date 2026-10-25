@@ -13,6 +13,11 @@ import {
   TextInputStyle,
 } from "discord.js";
 import OutfitListing from "../models/OutfitListing.js";
+import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
+import { refreshOutfitStyleCard, deleteLegacyOutfitMessages } from "../services/outfit-card.js";
+import { outfitActionComponents } from "../services/outfit-controls.js";
+import { isGalleryPhoto, isGalleryVideo, isGalleryMedia, OUTFIT_BANNER_NAME, mergeOriginalMedia } from "../services/outfit-gallery-utils.js";
+import { saveOutfitGalleryImages, outfitGalleryCount, deleteOutfitGallery } from "../services/outfit-gallery.js";
 import UserProfile from "../models/UserProfile.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import {
@@ -67,7 +72,7 @@ function makeCreateListingButton(userId) {
   );
 }
 
-function makeCreateListingModal(userId, message) {
+export function makeCreateListingModal(userId, message) {
   return new ModalBuilder()
     .setCustomId(`outfit:create:${userId}:${message.channelId}:${message.id}`)
     .setTitle("Create an outfit listing")
@@ -108,54 +113,18 @@ function makeCreateListingModal(userId, message) {
             .setMaxLength(500)
             .setRequired(false),
         ),
-    );
-}
-
-function makeListingComponents(listing) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`outfit:sold:${String(listing._id)}`)
-        .setLabel("Remove listing")
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(`outfit:media:${String(listing._id)}`)
-        .setLabel("Add pictures/video")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(`outfit:interest:${String(listing._id)}`)
-        .setLabel(`Interested (${listing.interestedUserIds.length})`)
-        .setStyle(ButtonStyle.Success),
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`outfit:notify:${String(listing._id)}`)
-        .setLabel(`Interest DMs: ${listing.notifyOnInterest ? "On" : "Off"}`)
-        .setStyle(ButtonStyle.Secondary),
-    ),
-  ];
-}
-
-function makeMediaModal(listing) {
-  const remainingUploads = Math.max(0, 10 - (listing.mediaAttachments?.length ?? 0));
-  if (!remainingUploads) {
-    throw new UserFacingError("This listing already has the maximum of 10 media files.");
-  }
-
-  return new ModalBuilder()
-    .setCustomId(`outfit:media:${String(listing._id)}`)
-    .setTitle("Add outfit pictures or video")
-    .addLabelComponents(
       new LabelBuilder()
-        .setLabel(`Choose up to ${remainingUploads} picture(s) or video(s)`)
+        .setLabel("Upload outfit photos or videos (1–10)")
         .setFileUploadComponent(
           new FileUploadBuilder()
-            .setCustomId("media")
+            .setCustomId("outfit_media")
             .setMinValues(1)
-            .setMaxValues(remainingUploads),
+            .setMaxValues(10),
         ),
     );
 }
+
+export const makeListingComponents = outfitActionComponents;
 
 function makeListingEmbed(listing, firstImageName) {
   const fields = [];
@@ -192,25 +161,9 @@ function getFirstImageName(attachments) {
 }
 
 export async function refreshOutfitListingPost(guild, listing) {
-  const channel = await guild.channels.fetch(listing.postChannelId);
-  if (!channel?.messages) {
-    throw new Error(`Outfit listing channel ${listing.postChannelId} is unavailable.`);
-  }
-  const message = await channel.messages.fetch(listing.postMessageId);
-  const attachments = Array.from(message.attachments.values());
-  await message.edit({
-    content: `Outfit listing from ${listing.ownerName}`,
-    embeds: [
-      makeListingEmbed(
-        listing,
-        getFirstImageName(attachments) ??
-          getFirstImageName(listing.mediaAttachments ?? []),
-      ),
-    ],
-    components: makeListingComponents(listing),
-    attachments: attachments.map(({ id }) => ({ id })),
-    allowedMentions: { parse: [] },
-  });
+  // An admin/profile refresh must not replace the decorated outfit or drop
+  // any of the owner's photos when updating the listing details/buttons.
+  await refreshOutfitStyleCard(guild, listing);
 }
 
 function canManageListing(interaction, listing) {
@@ -246,18 +199,99 @@ async function fetchListingMessage(interaction, listing) {
 export async function handleOutfitButton(interaction) {
   const [, action, listingId] = interaction.customId.split(":");
   if (action === "interest" || action === "notify") {
+    // Legacy controls still exist on some unmigrated outfits. Upgrade the
+    // original banner first, then direct the member to its new buttons.
+    const legacy = await OutfitListing.findOne({
+      _id: listingId, guildId: interaction.guildId, status: "active",
+      controlsMessageId: interaction.message.id,
+    });
+    if (legacy && legacy.postMessageId !== interaction.message.id) {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      try {
+        await refreshOutfitStyleCard(interaction.guild, legacy);
+        await interaction.editReply({
+          content: "This outfit was updated! The buttons are now under the styled card. Please use them there.",
+        });
+      } catch (error) {
+        console.warn("Legacy outfit actions could not migrate:", error);
+        await interaction.editReply({
+          content: "This older outfit couldn't be reformatted safely. Its gallery was left untouched; ask a server manager to check its saved photos.",
+        });
+      }
+      return true;
+    }
     return handleListingInterest(interaction, {
       ListingModel: OutfitListing,
       listingType: "outfit",
-      makeComponents: makeListingComponents,
+      makeComponents: async updated => makeListingComponents(
+        updated, await outfitGalleryCount(updated.guildId, updated._id),
+      ),
     });
   }
   if (action !== "media") return false;
-  const listing = await getActiveListing(interaction, listingId);
-  if (interaction.message.id !== listing.postMessageId) {
-    throw new UserFacingError("That button doesn't belong to this outfit listing.");
+  // Old public listing messages may still contain the retired button.
+  // Reject safely without modifying a single photo or video.
+  await interaction.reply({
+    content: "Outfit photos and videos are now uploaded when creating a listing. " +
+      "Existing outfits and their gallery are preserved; new uploads cannot be added afterward.",
+    flags: MessageFlags.Ephemeral,
+  });
+  return true;
+}
+
+/**
+ * Page the photo INSIDE the styled original listing. The gallery image lives
+ * in Mongo and the public card image is replaced in-place. Atomic increments
+ * preserve rapid clicks; outfit-card's queue renders the latest saved page.
+ */
+export async function handleOutfitPageButton(interaction) {
+  const [, area, direction, listingId] = interaction.customId.split(":");
+  if (area !== "page" || !["prev", "next"].includes(direction) ||
+      !/^[0-9a-f]{24}$/i.test(listingId || "")) {
+    throw new UserFacingError("That outfit photo action is not valid.");
   }
-  await interaction.showModal(makeMediaModal(listing));
+  await interaction.deferUpdate();
+  if (!interaction.guildId) throw new UserFacingError("This outfit belongs to a server.");
+  const filter = {
+    _id: listingId, guildId: interaction.guildId, status: "active",
+    postMessageId: interaction.message.id,
+  };
+  const current = await OutfitListing.findOne(filter);
+  if (!current) throw new UserFacingError("That outfit is no longer available.");
+  const count = await outfitGalleryCount(interaction.guildId, current._id);
+  if (count < 2) return true;
+  const updated = await OutfitListing.findOneAndUpdate(filter, {
+    $inc: { galleryPageIndex: direction === "next" ? 1 : -1 },
+  }, { new: true });
+  if (!updated) return true;
+  await refreshOutfitStyleCard(interaction.guild, updated);
+  return true;
+}
+
+/** Old gallery reply buttons remain recognizable until migration finishes. */
+export async function handleLegacyOutfitGalleryButton(interaction) {
+  const [, area, direction, id] = interaction.customId.split(":");
+  if (area !== "gallery" || !["prev", "next"].includes(direction) ||
+      !/^[0-9a-f]{24}$/i.test(id || "")) {
+    throw new UserFacingError("This old outfit gallery button is invalid.");
+  }
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const listing = await OutfitListing.findOne({
+    _id: id, guildId: interaction.guildId, status: "active",
+    galleryMessageId: interaction.message.id,
+  });
+  if (!listing) throw new UserFacingError("This older outfit gallery is no longer available.");
+  try {
+    await refreshOutfitStyleCard(interaction.guild, listing);
+    await interaction.editReply({
+      content: "This outfit was updated! Its photos now change inside the styled listing. Use Previous/Next there.",
+    });
+  } catch (error) {
+    console.warn("Legacy gallery could not safely migrate:", error);
+    await interaction.editReply({
+      content: "I couldn't safely migrate one or more old photos. The existing gallery was left unchanged. Ask a server manager to review the saved images.",
+    });
+  }
   return true;
 }
 
@@ -270,54 +304,13 @@ export async function handleOutfitCreateButton(interaction) {
 }
 
 export async function handleOutfitModal(interaction) {
-  const [, action, listingId] = interaction.customId.split(":");
-  if (action !== "media") return false;
-
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const listing = await getActiveListing(interaction, listingId);
-  const message = await fetchListingMessage(interaction, listing);
-  const uploads = Array.from(interaction.fields.getUploadedFiles("media", true).values());
-  validateAttachments(uploads);
-  if (listing.mediaAttachments.length + uploads.length > 10) {
-    throw new UserFacingError("An outfit listing can have up to 10 media files.");
-  }
-
-  const previousAttachmentIds = Array.from(message.attachments.keys());
-  const {
-    files,
-    firstImageName: uploadedFirstImageName,
-    cleanup,
-  } = await prepareMediaFiles(uploads, `outfit-${String(listing._id).slice(-8)}`);
-  let updatedMessage;
-  try {
-    updatedMessage = await message.edit({
-      attachments: previousAttachmentIds.map((id) => ({ id })),
-      files,
-      embeds: [
-        makeListingEmbed(
-          listing,
-          getFirstImageName(listing.mediaAttachments) ?? uploadedFirstImageName,
-        ),
-      ],
-    });
-  } finally {
-    await cleanup();
-  }
-
-  const previousMedia = listing.mediaAttachments;
-  listing.mediaAttachments = getMessageMedia(updatedMessage);
-  try {
-    await listing.save();
-  } catch (error) {
-    await updatedMessage.edit({
-      attachments: previousAttachmentIds.map((id) => ({ id })),
-      embeds: message.embeds,
-    }).catch(console.error);
-    listing.mediaAttachments = previousMedia;
-    throw error;
-  }
-
-  await interaction.editReply({ content: `Added ${uploads.length} media file(s) to the outfit listing.` });
+  // Support stale pre-update modal submissions without deleting attachments.
+  if (!interaction.customId.startsWith("outfit:media:")) return false;
+  await interaction.reply({
+    content: "Uploads now happen during outfit creation. This older upload form " +
+      "cannot change an existing gallery. Your saved outfit has not been modified.",
+    flags: MessageFlags.Ephemeral,
+  });
   return true;
 }
 
@@ -347,6 +340,7 @@ export async function handleOutfitCreateModal(interaction) {
   let post;
   let claimed = false;
   let published = false;
+  let galleryReady = true;
   try {
     const channel = await interaction.guild.channels.fetch(channelId);
     post = await channel?.messages?.fetch(messageId);
@@ -371,6 +365,20 @@ export async function handleOutfitCreateModal(interaction) {
     });
     claimed = true;
 
+    const uploads = Array.from(
+      interaction.fields.getUploadedFiles("outfit_media", true)?.values() ?? [],
+    );
+    if (!uploads.length) {
+      throw new UserFacingError("Upload at least one outfit photo or video when creating the listing.");
+    }
+    validateAttachments(uploads);
+    if (uploads.length > 10 || uploads.filter(isGalleryVideo).length > 9) {
+      throw new UserFacingError(
+        "Upload up to ten photos/videos when creating an outfit, " +
+        "including no more than nine videos to leave room for its banner.",
+      );
+    }
+
     const values = {
       title: interaction.fields.getTextInputValue("title").trim(),
       description: interaction.fields.getTextInputValue("description").trim(),
@@ -380,10 +388,17 @@ export async function handleOutfitCreateModal(interaction) {
         "Outfit video",
       ),
     };
-    await publishListing(interaction, values, post);
+    ({ galleryReady } = await publishListing(interaction, values, post, uploads));
     published = true;
+    if (!galleryReady) {
+      console.warn("Outfit gallery pending manual inspection for", post.url);
+    }
     pendingForms.delete(formKey);
     await clearPendingForm(interaction.guildId, channelId, messageId);
+    // The channel's persistent entry must come AFTER banner, gallery and
+    // actions. Updating it before the flipbook appears puts it in the middle.
+    await ensureOutfitEntry(interaction.guild, post.channel, { moveToBottom: true })
+      .catch(error => console.warn("Could not move outfit entry to channel bottom:", error));
   } catch (error) {
     if (post && claimed && !published) {
       await post.edit({
@@ -401,7 +416,9 @@ export async function handleOutfitCreateModal(interaction) {
   }
 
   await interaction.editReply({
-    content: `Your outfit listing was posted: ${post.url}`,
+    content: galleryReady
+      ? `Your outfit listing and photo gallery were posted: ${post.url}`
+      : `Your outfit listing was posted: ${post.url}\n⚠️ The gallery could not finish displaying. Your uploaded photos were saved before publication. Ask a server manager to check the bot logs and refresh this outfit; do not reupload the files.`,
     allowedMentions: { parse: [] },
   });
 }
@@ -501,35 +518,90 @@ export async function execute(interaction) {
   }
 }
 
-async function publishListing(interaction, values, post) {
+async function publishListing(interaction, values, post, uploads) {
+  const photos = uploads.filter(isGalleryPhoto);
+  const videos = uploads.filter(isGalleryVideo);
   const profile = await UserProfile.findOne({
-    guildId: interaction.guildId,
-    discordUserId: interaction.user.id,
+    guildId: interaction.guildId, discordUserId: interaction.user.id,
   });
   const member = await interaction.guild.members.fetch(interaction.user.id);
+
+  // Keep the original Discord CDN IDs for the archived gallery images.
+  // Uploaded videos are separately attached to the public banner and their
+  // permanent attachment IDs are recorded after Discord confirms the edit.
+  const photoMetadata = photos.map(asset => ({
+    attachmentId: String(asset.id), url: asset.url, name: asset.name,
+    contentType: asset.contentType || "", size: asset.size || 0,
+  }));
   const listing = await OutfitListing.create({
     guildId: interaction.guildId,
     ownerId: interaction.user.id,
     ownerName: member.displayName,
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
+    postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, interaction.user.id, profile),
+    mediaAttachments: photoMetadata,
+    postChannelId: post.channelId,
+    postMessageId: post.id,
     ...values,
   });
+
+  let published = false;
   try {
-    const updatedPost = await post.edit({
-      content: `Outfit listing from ${member.displayName}`,
-      embeds: [makeListingEmbed(listing)],
-      components: makeListingComponents(listing),
-      allowedMentions: { parse: [] },
-    });
+    // Save ALL resized photos before publishing anything. The gallery can
+    // recover from a bot restart and requires no post-creation uploads.
+    if (photos.length) {
+      await saveOutfitGalleryImages(interaction.guildId, listing, photos);
+    }
+    const { files, cleanup } = await prepareMediaFiles(
+      videos, `outfit-${String(listing._id).slice(-8)}`,
+    );
+    let updatedPost;
+    try {
+      updatedPost = await post.edit({
+        content: `Outfit listing from ${member.displayName}`,
+        embeds: [makeListingEmbed(listing)],
+        components: makeListingComponents(listing),
+        attachments: [],
+        files,
+        allowedMentions: { parse: [] },
+      });
+    } finally {
+      await cleanup();
+    }
+    published = true;
     listing.postChannelId = updatedPost.channelId;
     listing.postMessageId = updatedPost.id;
+    const postedVideos = getMessageMedia(updatedPost).filter(isGalleryVideo);
+    if (postedVideos.length !== videos.length) {
+      console.warn("[Outfit] Some videos were not confirmed on public post", String(listing._id));
+    }
+    listing.mediaAttachments = mergeOriginalMedia(photoMetadata, postedVideos);
     await listing.save();
   } catch (error) {
-    await OutfitListing.deleteOne({ _id: listing._id }).catch(() => {});
-    throw error;
+    if (!published) {
+      const { default: OutfitGalleryImage } = await import("../models/OutfitGalleryImage.js");
+      await OutfitGalleryImage.deleteMany({ guildId: interaction.guildId, listingId: listing._id })
+        .catch(cleanupError => console.error("Cannot clean unfinished outfit gallery:", cleanupError));
+      await OutfitListing.deleteOne({ _id: listing._id })
+        .catch(cleanupError => console.error("Cannot clean unfinished outfit:", cleanupError));
+      throw error;
+    }
+    // The original post has already been published. Never restore the
+    // pending form or delete its attachments because Mongo had a hiccup.
+    console.error("Outfit public post saved but final metadata update failed:", error);
   }
+
+  // Style and gallery are cosmetic follow-ups. If a Discord edit fails,
+  // preserve the already-published listing and its saved photos/videos;
+  // never delete its media merely because a gallery message failed.
+  let galleryReady = true;
+  await refreshOutfitStyleCard(interaction.guild, listing).catch(error => {
+    galleryReady = false;
+    console.error("Outfit published, but banner/gallery needs refresh:", error);
+  });
   await awardMilestoneSafely(interaction.guildId, interaction.user.id,
     "outfitFirstListing", String(listing._id));
+  return { galleryReady };
 }
 
 export async function handleOutfitSold(interaction) {
@@ -544,11 +616,19 @@ export async function handleOutfitSold(interaction) {
     guildId: interaction.guildId,
     status: "active",
   });
-  if (!listing || listing.postMessageId !== interaction.message.id) {
+  if (!listing || ![listing.postMessageId, listing.controlsMessageId].includes(interaction.message.id)) {
     throw new UserFacingError("This outfit listing is no longer active.");
   }
   if (!canManageListing(interaction, listing)) {
     throw new UserFacingError("Only the seller or a server manager can remove this outfit listing.");
+  }
+  if (interaction.message.id !== listing.postMessageId) {
+    // A click on old separated controls cannot delete the new unified post.
+    await refreshOutfitStyleCard(interaction.guild, listing);
+    await interaction.editReply({
+      content: "This outfit now has its buttons on the styled card. Press Remove listing there to delete it.",
+    });
+    return null;
   }
 
   const result = await OutfitListing.updateOne(
@@ -559,7 +639,10 @@ export async function handleOutfitSold(interaction) {
     throw new UserFacingError("This outfit listing has already been removed.");
   }
   try {
-    await interaction.message.delete();
+    // Delete the actual banner, not the separate action-controls message.
+    const channel = await interaction.guild.channels.fetch(listing.postChannelId);
+    const banner = await channel.messages.fetch(listing.postMessageId);
+    await banner.delete();
   } catch {
     await OutfitListing.updateOne(
       { _id: id, guildId: interaction.guildId, status: "sold" },
@@ -571,6 +654,8 @@ export async function handleOutfitSold(interaction) {
     );
   }
 
+  await deleteLegacyOutfitMessages(interaction.guild, listing);
+  await deleteOutfitGallery(interaction.guild, listing);
   await interaction.editReply({ content: "Outfit listing removed." });
   return listing.ownerId;
 }

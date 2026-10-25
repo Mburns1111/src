@@ -13,6 +13,12 @@ import {
   TextInputStyle,
 } from "discord.js";
 import HouseListing from "../models/HouseListing.js";
+import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
+import { refreshHouseStyleCard } from "../services/house-card.js";
+import { ensureHouseMediaMessage, deleteHouseMediaMessage, mergedHouseMediaMetadata } from "../services/house-media.js";
+import { houseActionComponents } from "../services/house-components.js";
+import { houseGalleryCount, archiveHousePhotos, deleteHouseGallery } from "../services/house-gallery.js";
+import { isGalleryPhoto, isGalleryVideo, mergeOriginalMedia, HOUSE_ART_NAME } from "../services/house-style.js";
 import UserProfile from "../models/UserProfile.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import {
@@ -67,7 +73,7 @@ function makeCreateListingButton(userId) {
   );
 }
 
-function makeCreateListingModal(userId, message) {
+export function makeCreateListingModal(userId, message) {
   return new ModalBuilder()
     .setCustomId(
       `house:create:${userId}:${message.channelId}:${message.id}`,
@@ -111,62 +117,36 @@ function makeCreateListingModal(userId, message) {
             .setRequired(true),
         ),
       new LabelBuilder()
-        .setLabel("House tour video link (optional)")
-        .setTextInputComponent(
-          new TextInputBuilder()
-            .setCustomId("video_url")
-            .setStyle(TextInputStyle.Short)
-            .setMaxLength(500)
-            .setRequired(false),
-        ),
-    );
-}
-
-function makeHouseComponents(listing) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`house:sold:${String(listing._id)}`)
-        .setLabel("Mark sold")
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(`house:media:${String(listing._id)}`)
-        .setLabel("Add pictures/video")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(`house:interest:${String(listing._id)}`)
-        .setLabel(`Interested (${listing.interestedUserIds.length})`)
-        .setStyle(ButtonStyle.Success),
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`house:notify:${String(listing._id)}`)
-        .setLabel(`Interest DMs: ${listing.notifyOnInterest ? "On" : "Off"}`)
-        .setStyle(ButtonStyle.Secondary),
-    ),
-  ];
-}
-
-function makeMediaModal(listing) {
-  const remainingUploads = Math.max(0, 10 - (listing.mediaAttachments?.length ?? 0));
-  if (remainingUploads === 0) {
-    throw new UserFacingError("This listing already has the maximum of 10 media files.");
-  }
-
-  return new ModalBuilder()
-    .setCustomId(`house:media:${String(listing._id)}`)
-    .setTitle("Add listing pictures or video")
-    .addLabelComponents(
-      new LabelBuilder()
-        .setLabel(`Choose up to ${remainingUploads} picture(s) or video(s)`)
+        .setLabel("Upload house photos or videos (required)")
         .setFileUploadComponent(
           new FileUploadBuilder()
-            .setCustomId("media")
+            .setCustomId("house_media")
             .setMinValues(1)
-            .setMaxValues(remainingUploads),
+            .setMaxValues(10),
         ),
     );
 }
+
+export function validateHouseCreationUploads(uploads) {
+  if (!Array.isArray(uploads) || uploads.length < 1) {
+    throw new UserFacingError("Upload at least one photo or video of the house when creating the listing.");
+  }
+  if (uploads.length > 10) {
+    throw new UserFacingError("Upload at most ten house photos/videos.");
+  }
+  validateAttachments(uploads);
+  const photos = uploads.filter(isGalleryPhoto);
+  const videos = uploads.filter(isGalleryVideo);
+  if (photos.length + videos.length !== uploads.length) {
+    throw new UserFacingError("Only supported house photos/videos may be uploaded.");
+  }
+  if (videos.length > 9) {
+    throw new UserFacingError("Upload at most nine videos so the styled house card has room.");
+  }
+  return { photos, videos };
+}
+
+export const makeHouseComponents = houseActionComponents;
 
 function makeHouseEmbed(listing, firstImageName) {
   const embed = new EmbedBuilder()
@@ -203,25 +183,7 @@ function getFirstImageName(attachments) {
 }
 
 export async function refreshHouseListingPost(guild, listing) {
-  const channel = await guild.channels.fetch(listing.postChannelId);
-  if (!channel?.messages) {
-    throw new Error(`House listing channel ${listing.postChannelId} is unavailable.`);
-  }
-  const message = await channel.messages.fetch(listing.postMessageId);
-  const attachments = Array.from(message.attachments.values());
-  await message.edit({
-    content: `House listing from ${listing.ownerName}`,
-    embeds: [
-      makeHouseEmbed(
-        listing,
-        getFirstImageName(attachments) ??
-          getFirstImageName(listing.mediaAttachments ?? []),
-      ),
-    ],
-    components: makeHouseComponents(listing),
-    attachments: attachments.map(({ id }) => ({ id })),
-    allowedMentions: { parse: [] },
-  });
+  return refreshHouseStyleCard(guild, listing);
 }
 
 function canManageListing(interaction, listing) {
@@ -264,17 +226,41 @@ export async function handleHouseButton(interaction) {
     return handleListingInterest(interaction, {
       ListingModel: HouseListing,
       listingType: "house",
-      makeComponents: makeHouseComponents,
+      makeComponents: async current => makeHouseComponents(current,
+        await houseGalleryCount(current.guildId, current._id)),
     });
   }
   if (action !== "media") return false;
 
-  const listing = await getActiveListing(interaction, listingId);
-  if (interaction.message.id !== listing.postMessageId) {
-    throw new UserFacingError("That button doesn't belong to this house listing.");
-  }
+  // Older bot messages can still show the retired upload button until their
+  // public card is refreshed. Do not open a modal or alter any saved media.
+  await interaction.reply({
+    content: "House photos and videos must now be uploaded when creating the listing. " +
+      "This older Add pictures/video button cannot change an existing house. " +
+      "Your saved photos, videos and purchased style are unchanged.",
+    flags: MessageFlags.Ephemeral,
+  });
+  return true;
+}
 
-  await interaction.showModal(makeMediaModal(listing));
+export async function handleHousePageButton(interaction) {
+  const [, area, direction, listingId] = interaction.customId.split(":");
+  if (area !== "page" || !["prev", "next"].includes(direction) ||
+      !/^[0-9a-f]{24}$/i.test(listingId || "")) {
+    throw new UserFacingError("That house photo action is not valid.");
+  }
+  await interaction.deferUpdate();
+  const filter = {
+    _id: listingId, guildId: interaction.guildId,
+    postMessageId: interaction.message.id, status: "active",
+  };
+  const listing = await HouseListing.findOne(filter);
+  if (!listing) throw new UserFacingError("This house is no longer available.");
+  const count = await houseGalleryCount(interaction.guildId, listing._id);
+  if (count < 2) return true;
+  const updated = await HouseListing.findOneAndUpdate(filter,
+    { $inc: { galleryPageIndex: direction === "next" ? 1 : -1 } }, { new: true });
+  if (updated) await refreshHouseStyleCard(interaction.guild, updated);
   return true;
 }
 
@@ -287,58 +273,14 @@ export async function handleHouseCreateButton(interaction) {
 }
 
 export async function handleHouseModal(interaction) {
-  const [, action, listingId] = interaction.customId.split(":");
-  if (action !== "media") return false;
-
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const listing = await getActiveListing(interaction, listingId);
-  const message = await fetchListingMessage(interaction, listing);
-
-  const uploads = Array.from(
-    interaction.fields.getUploadedFiles("media", true).values(),
-  );
-  validateAttachments(uploads);
-  if (listing.mediaAttachments.length + uploads.length > 10) {
-    throw new UserFacingError("A house listing can have up to 10 media files.");
-  }
-
-  const previousAttachmentIds = Array.from(message.attachments.keys());
-  const {
-    files,
-    firstImageName: uploadedFirstImageName,
-    cleanup,
-  } = await prepareMediaFiles(uploads, `house-${String(listing._id).slice(-8)}`);
-  let updatedMessage;
-  try {
-    updatedMessage = await message.edit({
-      attachments: previousAttachmentIds.map((id) => ({ id })),
-      files,
-      embeds: [
-        makeHouseEmbed(
-          listing,
-          getFirstImageName(listing.mediaAttachments) ?? uploadedFirstImageName,
-        ),
-      ],
-    });
-  } finally {
-    await cleanup();
-  }
-
-  const previousMedia = listing.mediaAttachments;
-  listing.mediaAttachments = getMessageMedia(updatedMessage);
-  try {
-    await listing.save();
-  } catch (error) {
-    await updatedMessage.edit({
-      attachments: previousAttachmentIds.map((id) => ({ id })),
-      embeds: message.embeds,
-    }).catch(console.error);
-    listing.mediaAttachments = previousMedia;
-    throw error;
-  }
-
-  await interaction.editReply({
-    content: `Added ${uploads.length} media file(s) to the house listing.`,
+  if (!interaction.customId.startsWith("house:media:")) return false;
+  // Stale modal submissions from before this deployment are acknowledged
+  // without changing the live post, images, videos or MongoDB gallery.
+  await interaction.reply({
+    content: "House media is now uploaded during listing creation. " +
+      "Existing house listings cannot accept additional media. " +
+      "Your current listing and its attachments were not modified.",
+    flags: MessageFlags.Ephemeral,
   });
   return true;
 }
@@ -369,6 +311,9 @@ export async function handleHouseCreateModal(interaction) {
   let post;
   let claimed = false;
   let published = false;
+  let styleReady = false;
+  let metadataSaved = true;
+  let videosSaved = true;
   try {
     const channel = await interaction.guild.channels.fetch(channelId);
     post = await channel?.messages?.fetch(messageId);
@@ -393,20 +338,26 @@ export async function handleHouseCreateModal(interaction) {
     });
     claimed = true;
 
+    const uploads = Array.from(
+      interaction.fields.getUploadedFiles("house_media", true)?.values() ?? [],
+    );
+    validateHouseCreationUploads(uploads);
     const values = {
       title: interaction.fields.getTextInputValue("title").trim(),
       description: interaction.fields.getTextInputValue("description").trim(),
       askingPrice: interaction.fields.getTextInputValue("asking_price").trim(),
       estimatedValue: interaction.fields.getTextInputValue("estimated_value").trim(),
-      videoUrl: validateWebUrl(
-        interaction.fields.getTextInputValue("video_url").trim(),
-        "House video",
-      ),
+      videoUrl: "",
     };
-    await publishHouseListing(interaction, values, post);
+    ({ styled: styleReady, metadataSaved, videosSaved } =
+      await publishHouseListing(interaction, values, post, uploads));
     published = true;
     pendingHouseForms.delete(formKey);
     await clearPendingForm(interaction.guildId, channelId, messageId);
+    // The permanent channel entry should follow the house card and its
+    // playable video reply, rather than interrupting the listing.
+    await ensureHouseEntry(interaction.guild, post.channel, { moveToBottom: true })
+      .catch(error => console.warn("Could not move house entry to bottom:", error));
   } catch (error) {
     if (post && claimed && !published) {
       await post.edit({
@@ -424,7 +375,9 @@ export async function handleHouseCreateModal(interaction) {
   }
 
   await interaction.editReply({
-    content: `Your house listing was posted: ${post.url}`,
+    content: styleReady && metadataSaved && videosSaved
+      ? `Your styled house listing was posted: ${post.url}`
+      : `Your house listing was posted: ${post.url}\n⚠️ The house card or media could not be completely confirmed. The successfully uploaded files were left in place. Ask a server manager to inspect the bot logs before trying again; do not reupload the same files.`,
     allowedMentions: { parse: [] },
   });
 }
@@ -523,36 +476,102 @@ export async function execute(interaction) {
   }
 }
 
-async function publishHouseListing(interaction, values, post) {
-  const profile = await UserProfile.findOne({
-    guildId: interaction.guildId,
-    discordUserId: interaction.user.id,
-  });
-  const member = await interaction.guild.members.fetch(interaction.user.id);
-  const discordDisplayName = member.displayName;
+async function publishHouseListing(interaction, values, post, uploads) {
+  const { photos, videos } = validateHouseCreationUploads(uploads);
+  const [profile, member] = await Promise.all([
+    UserProfile.findOne({
+      guildId: interaction.guildId,
+      discordUserId: interaction.user.id,
+    }),
+    interaction.guild.members.fetch(interaction.user.id),
+  ]);
+  const photoMetadata = photos.map(asset => ({
+    attachmentId: String(asset.id),
+    url: asset.url, name: asset.name,
+    contentType: asset.contentType || "", size: asset.size || 0,
+  }));
   const listing = await HouseListing.create({
     guildId: interaction.guildId,
     ownerId: interaction.user.id,
-    ownerName: discordDisplayName,
+    ownerName: member.displayName,
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
+    postAppearance: await snapshotOwnedListingAppearance(
+      interaction.guildId, interaction.user.id, profile),
+    mediaAttachments: photoMetadata,
+    postChannelId: post.channelId,
+    postMessageId: post.id,
     ...values,
   });
+  let published = false;
+  let media;
   try {
-    const updatedPost = await post.edit({
-      content: `House listing from ${discordDisplayName}`,
+    // Save every photo to Mongo BEFORE modifying the original form post.
+    if (photos.length) await archiveHousePhotos(interaction.guildId, listing, photos);
+
+    // Video attachments are sent as their own bot-authored reply. Verify
+    // EVERY video was accepted by Discord before publishing the house card.
+    if (videos.length) {
+      media = await ensureHouseMediaMessage(interaction.guild, listing, post, {
+        videoSources: videos, channel: post.channel,
+      });
+      if (!media.message || media.videos.length !== videos.length) {
+        throw new Error("The house video post could not be verified.");
+      }
+      listing.mediaAttachments = mergedHouseMediaMetadata(photoMetadata, media.videos);
+      await listing.save();
+    }
+
+    // No video is attached to this message: Discord displays a full-size
+    // styled card instead of tiling it next to a video preview.
+    await post.edit({
+      content: `House listing from ${member.displayName}`,
       embeds: [makeHouseEmbed(listing)],
       components: makeHouseComponents(listing),
+      attachments: [],
+      files: [],
       allowedMentions: { parse: [] },
     });
-    listing.postChannelId = updatedPost.channelId;
-    listing.postMessageId = updatedPost.id;
-    await listing.save();
+    published = true;
   } catch (error) {
-    await HouseListing.deleteOne({ _id: listing._id }).catch(() => {});
-    throw error;
+    if (!published) {
+      // Original form remains intact. The staged video reply may safely be
+      // removed because its source is still the user's modal submission.
+      if (media?.created || listing.mediaMessageId) {
+        await deleteHouseMediaMessage(interaction.guild, listing)
+          .catch(cleanupError => console.warn("Could not clean unfinished house tour:", cleanupError));
+      }
+      await deleteHouseGallery(interaction.guildId, listing._id)
+        .catch(cleanupError => console.warn("Could not clear unfinished house photos:", cleanupError));
+      await HouseListing.deleteOne({ _id: listing._id })
+        .catch(cleanupError => console.warn("Could not clear unfinished house listing:", cleanupError));
+      throw error;
+    }
+    console.warn("[House] Post was published, leaving it intact:", error);
   }
-  await awardMilestoneSafely(interaction.guildId, interaction.user.id,
-    "houseFirstListing", String(listing._id));
+
+  // From here onward the house is public: rendering or Mongo failures must
+  // never restore a create form and erase uploaded media.
+  let metadataSaved = true;
+  const videosSaved = videos.length === (media?.videos.length ?? 0);
+  try {
+    if (!videos.length) {
+      listing.mediaAttachments = photoMetadata;
+      await listing.save();
+    }
+  } catch (error) {
+    metadataSaved = false;
+    console.warn("[House] Published but media metadata could not be saved:", error);
+  }
+  let styled = true;
+  try {
+    await refreshHouseStyleCard(interaction.guild, listing);
+  } catch (error) {
+    styled = false;
+    console.warn("[House] Published; styled card needs repair:", error);
+  }
+  await awardMilestoneSafely(
+    interaction.guildId, interaction.user.id, "houseFirstListing", String(listing._id));
+  return { styled, metadataSaved, videosSaved };
 }
 
 export async function handleSold(interaction) {
@@ -598,6 +617,13 @@ export async function handleSold(interaction) {
       "I couldn't remove the house ad. Check that the bot can delete its own posts in that channel, then try again.",
     );
   }
+
+  // A gallery cleanup failure must never roll back a house that has already
+  // been deleted from Discord or reactivate a now-missing public listing.
+  await deleteHouseMediaMessage(interaction.guild, listing).catch(error =>
+    console.warn("House sold; could not delete its separate video post:", error));
+  await deleteHouseGallery(interaction.guildId, listing._id).catch(error =>
+    console.warn("House sold; could not clean archived photos:", error));
 
   await interaction.editReply({
     content: "Marked as sold. The house advertisement has been removed.",

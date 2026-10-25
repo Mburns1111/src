@@ -38,6 +38,7 @@ import {
   handleHouseCreateButton,
   handleHouseCreateModal,
   handleHouseButton,
+  handleHousePageButton,
   handleHouseModal,
   handleSold,
   handleHouseEntryButton,
@@ -51,6 +52,8 @@ import {
   handleOutfitButton,
   handleOutfitModal,
   handleOutfitSold,
+  handleOutfitPageButton,
+  handleLegacyOutfitGalleryButton,
   handleOutfitEntryButton,
   ensureOutfitEntry,
 } from "./commands/outfit.js";
@@ -65,6 +68,10 @@ import {
 } from "./commands/trade.js";
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
+import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
+import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
+import { reconcileHousesForGuild } from "./services/house-availability.js";
+
 import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
 import { execute as executePointsAdmin, data as pointsAdminCommand } from "./commands/points-admin.js";
 import { execute as executePointsObserve, data as pointsObserveCommand } from "./commands/points-observe.js";
@@ -315,7 +322,19 @@ client.once(Events.ClientReady, (readyClient) => {
         console.error(`Could not load channel settings for guild ${guild.id}:`, error);
         continue;
       }
-      if (!config) continue;
+      if (!config) {
+        try {
+          await reconcileOutfitsForGuild(guild);
+        } catch (error) {
+          console.error(`Could not reconcile outfit listings for guild ${guild.id}:`, error);
+        }
+        try {
+          await reconcileHousesForGuild(guild);
+        } catch (error) {
+          console.error(`Could not reconcile house listings for guild ${guild.id}:`, error);
+        }
+        continue;
+      }
       await Promise.all([
         ensureConfiguredEntry(guild, config.profileChannelId, ensureProfileEntry, "profile"),
         ensureConfiguredEntry(guild, config.shopChannelId, ensureShopEntry, "shop"),
@@ -330,6 +349,16 @@ client.once(Events.ClientReady, (readyClient) => {
           "Trading Post",
         ),
       ]);
+      try {
+        await reconcileOutfitsForGuild(guild);
+      } catch (error) {
+        console.error(`Could not reconcile outfit listings for guild ${guild.id}:`, error);
+      }
+      try {
+        await reconcileHousesForGuild(guild);
+      } catch (error) {
+        console.error(`Could not reconcile house listings for guild ${guild.id}:`, error);
+      }
     }
   })().catch((error) => {
     console.error("Startup channel maintenance failed:", error);
@@ -352,6 +381,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("shop:")) {
       await handleShopButton(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) &&
+        (interaction.customId.startsWith("listing:pick:") ||
+         interaction.customId.startsWith("listing:pickpage:"))) {
+      await handleOutfitAppearancePicker(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) &&
+        (interaction.customId.startsWith("listing:housepick:") ||
+         interaction.customId.startsWith("listing:housepage:"))) {
+      await handleHouseAppearancePicker(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("listing:dm:")) {
+      await handleListingAppearanceDM(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("house:new:")) {
@@ -407,6 +452,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId.startsWith("house:sold:")) {
       const ownerId = await handleSold(interaction);
       if (ownerId) await refreshListingOwnerCards(interaction.guild, ownerId);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("house:page:")) {
+      await handleHousePageButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("outfit:page:")) {
+      await handleOutfitPageButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("outfit:gallery:")) {
+      await handleLegacyOutfitGalleryButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("outfit:sold:")) {
