@@ -1,100 +1,40 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-import OutfitListing from "../models/OutfitListing.js";
-import { discordMessageUrl } from "../commands/shared.js";
+import { safePageIndex } from "./outfit-gallery-utils.js";
 
 /**
- * Outfit-specific actions deliberately live in a separate, LAST message.
- * A decorated banner and a flipbook cannot hold action buttons below each
- * other: Discord buttons always render immediately below their own message.
+ * The styled card, selected outfit photo and all actions share ONE message.
+ * Discord renders each button row under the image, giving one cohesive post.
+ * The disabled count label is informational and cannot trigger an action.
  */
-export function outfitActionComponents(listing) {
-  return [
-    new ActionRowBuilder().addComponents(
+export function outfitActionComponents(listing, photoCount = 0) {
+  const rows = [];
+  if (photoCount > 1) {
+    const page = safePageIndex(listing.galleryPageIndex ?? 0, photoCount);
+    rows.push(new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`outfit:sold:${String(listing._id)}`)
-        .setLabel("Remove listing")
-        .setStyle(ButtonStyle.Danger),
+        .setCustomId(`outfit:page:prev:${String(listing._id)}`)
+        .setLabel("◀ Previous").setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId(`outfit:interest:${String(listing._id)}`)
-        .setLabel(`Interested (${listing.interestedUserIds.length})`)
-        .setStyle(ButtonStyle.Success),
-    ),
-    new ActionRowBuilder().addComponents(
+        .setCustomId(`outfit:page:label:${String(listing._id)}`)
+        .setLabel(`Photo ${page + 1} / ${photoCount}`)
+        .setStyle(ButtonStyle.Secondary).setDisabled(true),
       new ButtonBuilder()
-        .setCustomId(`outfit:notify:${String(listing._id)}`)
-        .setLabel(`Interest DMs: ${listing.notifyOnInterest ? "On" : "Off"}`)
-        .setStyle(ButtonStyle.Secondary),
-    ),
-  ];
-}
-
-export function outfitActionsPayload(listing) {
-  return {
-    content: `**Outfit actions · ${String(listing.title).slice(0, 80)}**\n[View outfit banner](${discordMessageUrl(listing.guildId, listing.postChannelId, listing.postMessageId)})`,
-    components: outfitActionComponents(listing),
-    allowedMentions: { parse: [], repliedUser: false },
-  };
-}
-
-const activeControls = new Map();
-
-/**
- * Call only AFTER the gallery reply is available. The control message is
- * the third message for photo outfits, or second for video-only outfits.
- * Existing controls are edited in place, so saving an appearance or toggling
- * interest does not create duplicate controls messages.
- */
-export async function ensureOutfitControls(guild, listing, { channel = null } = {}) {
-  const key = `${guild.id}:${listing._id}`;
-  if (activeControls.has(key)) return activeControls.get(key);
-  const work = (async () => {
-    if (!listing.postChannelId || !listing.postMessageId || listing.status !== "active") {
-      throw new Error("Cannot publish controls on an unpublished outfit listing.");
-    }
-    const target = channel ?? await guild.channels.fetch(listing.postChannelId);
-    if (!target?.messages || typeof target.send !== "function") {
-      throw new Error("The outfit channel does not allow a controls message.");
-    }
-    const payload = outfitActionsPayload(listing);
-    let existing = null;
-    if (listing.controlsMessageId) {
-      existing = await target.messages.fetch(listing.controlsMessageId).catch(error => {
-        if ([10003, 10008].includes(Number(error?.code))) return null;
-        throw error;
-      });
-    }
-    let message;
-    if (existing?.author?.id === guild.client.user.id) {
-      message = await existing.edit(payload);
-    } else {
-      message = await target.send({
-        ...payload,
-        reply: { messageReference: listing.postMessageId, failIfNotExists: true },
-      });
-    }
-    if (listing.controlsMessageId !== message.id) {
-      await OutfitListing.updateOne({
-        _id: listing._id, guildId: guild.id, ownerId: listing.ownerId,
-        postMessageId: listing.postMessageId, status: "active",
-      }, { $set: { controlsMessageId: message.id } });
-      listing.controlsMessageId = message.id;
-    }
-    return message;
-  })();
-  activeControls.set(key, work);
-  try { return await work; }
-  finally { if (activeControls.get(key) === work) activeControls.delete(key); }
-}
-
-export async function deleteOutfitControls(guild, listing) {
-  if (!listing.controlsMessageId) return;
-  try {
-    const channel = await guild.channels.fetch(listing.postChannelId);
-    const message = await channel?.messages?.fetch(listing.controlsMessageId);
-    if (message?.author?.id === guild.client.user.id) await message.delete();
-  } catch (error) {
-    if (![10003, 10008].includes(Number(error?.code))) {
-      console.warn("Could not remove outfit controls:", error);
-    }
+        .setCustomId(`outfit:page:next:${String(listing._id)}`)
+        .setLabel("Next ▶").setStyle(ButtonStyle.Primary),
+    ));
   }
+  rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`outfit:interest:${String(listing._id)}`)
+      .setLabel(`Interested (${listing.interestedUserIds?.length ?? 0})`)
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`outfit:notify:${String(listing._id)}`)
+      .setLabel(`Interest DMs: ${listing.notifyOnInterest ? "On" : "Off"}`)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`outfit:sold:${String(listing._id)}`)
+      .setLabel("Remove listing").setStyle(ButtonStyle.Danger),
+  ));
+  return rows;
 }
