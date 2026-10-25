@@ -7,6 +7,7 @@ import {
 import MemberDmPanel from "../models/MemberDmPanel.js";
 import TradingPost from "../models/TradingPost.js";
 import OutfitListing from "../models/OutfitListing.js";
+import HouseListing from "../models/HouseListing.js";
 import UserProfile from "../models/UserProfile.js";
 import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js";
 import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
@@ -21,6 +22,11 @@ import { renderPostImage } from "../services/post-renderer.js";
 import { tradingPostPreviewPayload } from "../services/trading-post-display.js";
 import { refreshOutfitStyleCard } from "../services/outfit-card.js";
 import { getOutfitGalleryPage } from "../services/outfit-gallery.js";
+import { getHouseGalleryPage } from "../services/house-gallery.js";
+import { houseCardData, housePickerOptions } from "../services/house-style.js";
+import { refreshHouseStyleCard } from "../services/house-card.js";
+import { checkHousePost, findCustomizableHouses } from "../services/house-availability.js";
+import { ensureHouseEntry } from "./house.js";
 import { checkOutfitListingMessage, findCustomizableOutfits } from "../services/outfit-reconciliation.js";
 import { ensureOutfitEntry } from "./outfit.js";
 import { OUTFIT_PICK_PAGE_SIZE, outfitPickerOptions, outfitCardData } from "../services/outfit-style.js";
@@ -35,10 +41,12 @@ const EDITOR_KIND = "postAppearance";
 const TARGET_TYPE = "tradingPost";
 const OUTFIT_TARGET_TYPE = "outfit";
 const OUTFIT_EDITOR_KIND = "outfitAppearance";
+const HOUSE_TARGET_TYPE = "house";
+const HOUSE_EDITOR_KIND = "houseAppearance";
 
 function isOutfitTarget(type) { return type === OUTFIT_TARGET_TYPE; }
-function targetLabel(type) { return isOutfitTarget(type) ? "Outfit" : "Trading Post"; }
-function targetKind(type) { return isOutfitTarget(type) ? OUTFIT_EDITOR_KIND : EDITOR_KIND; }
+function targetLabel(type) { return type === HOUSE_TARGET_TYPE ? "House" : isOutfitTarget(type) ? "Outfit" : "Trading Post"; }
+function targetKind(type) { return type === HOUSE_TARGET_TYPE ? HOUSE_EDITOR_KIND : isOutfitTarget(type) ? OUTFIT_EDITOR_KIND : EDITOR_KIND; }
 
 function editorControls(post, draft, ownership, type = TARGET_TYPE) {
   return makeAppearanceControls(
@@ -50,35 +58,40 @@ function editorControls(post, draft, ownership, type = TARGET_TYPE) {
 
 async function editorPayload(post, draft, ownership, type = TARGET_TYPE) {
   const outfit = isOutfitTarget(type);
-  const filename = outfit ? "outfit-preview.png" : "trading-post-preview.png";
+  const house = type === HOUSE_TARGET_TYPE;
+  const listing = outfit || house;
   const photoPage = outfit
     ? await getOutfitGalleryPage(post.guildId, post._id, post.galleryPageIndex ?? 0)
-    : null;
+    : house ? await getHouseGalleryPage(post.guildId, post._id, post.galleryPageIndex ?? 0) : null;
+  const data = outfit ? outfitCardData(post) : house ? houseCardData(post) : {
+    discordName: post.discordName, robloxName: post.robloxName,
+    lookingFor: post.lookingFor, willingToTrade: post.willingToTrade,
+  };
+  if (photoPage) {
+    data.galleryIndex = photoPage.count ? photoPage.page + 1 : 0;
+    data.galleryCount = photoPage.count;
+  }
   const png = await renderPostImage({
-    type: outfit ? "outfit" : "tradingPost",
-    data: outfit ? {
-      ...outfitCardData(post),
-      galleryIndex: photoPage.count ? photoPage.page + 1 : 0,
-      galleryCount: photoPage.count,
-    } : {
-      discordName: post.discordName, robloxName: post.robloxName,
-      lookingFor: post.lookingFor, willingToTrade: post.willingToTrade,
-    },
-    images: outfit ? { photo: photoPage.imageBuffer } : {},
+    type: outfit ? "outfit" : house ? "house" : "tradingPost",
+    data,
+    images: photoPage ? { photo: photoPage.imageBuffer } : {},
     appearance: filterOwnedAppearance(draft.appearance, ownership),
   });
   const components = editorControls(post, draft, ownership, type);
-  if (!outfit) {
+  if (!listing) {
     return tradingPostPreviewPayload(
       png,
       "**Customize Trading Post** — choose your owned shop styles. This is a private preview. **Save Trading Post Style** updates only your Trading Post, not your profile or other listings. **Discard Changes** leaves the public post unchanged.",
       components,
     );
   }
+  const title = String(post.title).slice(0, 90);
+  const content = `**Customize ${targetLabel(type)}: ${title}** — private preview. Save only this listing's style, or discard. Your profile and other listings will not change. Photos and listing buttons remain on the published card.`;
+  const name = house ? "house-preview.png" : "outfit-preview.png";
   return {
-    content: `**Customize Outfit: ${String(post.title).slice(0, 90)}** — private preview. Save only this outfit's style, or discard. Other outfits and your profile will not change. Your saved photo appears directly inside this styled card. Photo buttons and listing actions remain beneath the published image.`,
-    embeds: [new EmbedBuilder().setColor("#819287").setImage(`attachment://${filename}`)],
-    files: [new AttachmentBuilder(png, { name: filename })],
+    content,
+    embeds: [],
+    files: [new AttachmentBuilder(png, { name })],
     attachments: [],
     components,
     allowedMentions: { parse: [] },
