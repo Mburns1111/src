@@ -14,7 +14,7 @@ const originalPost = { channelId: "222222222222222222", id: "333333333333333333"
 const house = {
   _id: houseId, title: "Snowy Cottage", ownerName: "LILLY",
   interestedUserIds: [], notifyOnInterest: false, galleryPageIndex: 0,
-  mediaAttachments: [],
+  mediaAttachments: [], cardLayoutVersion: 1,
 };
 const photo = index => ({
   id: `photo-${index}`, name: `house-${index}.jpg`, contentType: "image/jpeg",
