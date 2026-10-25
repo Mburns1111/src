@@ -1013,11 +1013,66 @@ function drawOutfit(ctx, data, images, style, layout, appearance, stickerImages)
   drawDecorations(ctx, width, height, appearance, style, stickerImages);
 }
 
+
+function drawHouse(ctx, data, images, style, layout, appearance, stickerImages) {
+  const { width, height } = layout;
+  ctx.fillStyle = style.background;
+  ctx.fillRect(0, 0, width, height);
+  if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
+  else drawBackgroundPattern(ctx, width, height, appearance);
+
+  glassPanel(ctx, 48, 40, 1104, 137, style);
+  glassPanel(ctx, 48, 199, 648, 536, style, true);
+  glassPanel(ctx, 716, 199, 436, 536, style);
+  glassPanel(ctx, 48, 759, 1104, 54, style);
+  drawFittedLine(ctx, data.title || "House listing", {
+    x: 85, y: 75, width: 1010, height: 66,
+  }, { fontSize: 53, minFontSize: 27, family: style.titleFontFamily,
+    weight: style.titleFontWeight, color: style.text });
+  drawFittedLine(ctx, data.seller || "Member", {
+    x: 85, y: 147, width: 1000, height: 27,
+  }, { fontSize: 23, minFontSize: 16, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.mutedText });
+  if (images.photo) {
+    drawContain(ctx, images.photo, 73, 220, 598, 491, style.imageRadius);
+  } else {
+    drawFittedLine(ctx, "House tour / listing", { x: 90, y: 385, width: 560, height: 48 },
+      { fontSize: 32, minFontSize: 20, family: style.titleFontFamily,
+        weight: style.titleFontWeight, color: style.text });
+    drawWrappedText(ctx, "Upload a house photo with Add pictures/video below.", {
+      x: 90, y: 455, width: 550, height: 90,
+    }, { fontSize: 25, minFontSize: 17, family: style.fontFamily,
+      weight: style.bodyFontWeight, color: style.mutedText, maxLines: 3 });
+  }
+  drawLabel(ctx, "Asking price", { x: 749, y: 224, width: 350, height: 35 }, style);
+  drawFittedLine(ctx, data.askingPrice || "Not listed", {
+    x: 749, y: 266, width: 355, height: 52,
+  }, { fontSize: 34, minFontSize: 18, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text });
+  drawLabel(ctx, "Estimated value", { x: 749, y: 334, width: 350, height: 35 }, style);
+  drawFittedLine(ctx, data.estimatedValue || "Not listed", {
+    x: 749, y: 376, width: 355, height: 52,
+  }, { fontSize: 30, minFontSize: 18, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text });
+  drawLabel(ctx, "House details", { x: 749, y: 456, width: 350, height: 38 }, style);
+  drawWrappedText(ctx, data.description || "No description", {
+    x: 749, y: 510, width: 350, height: 189,
+  }, { fontSize: 25, minFontSize: 17, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 5 });
+  const count = Number(data.galleryCount) || 0;
+  const index = count ? Number(data.galleryIndex) || 1 : 0;
+  drawFittedLine(ctx, count ? `House photo ${index} / ${count}` : "House tour / media listing", {
+    x: 86, y: 772, width: 1000, height: 29,
+  }, { fontSize: 22, minFontSize: 16, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.mutedText });
+  drawDecorations(ctx, width, height, appearance, style, stickerImages);
+}
+
 /**
  * Render a post image as a PNG Buffer.
  *
  * @param {object} options
- * @param {'profile'|'tradingPost'|'outfit'} options.type Layout key.
+ * @param {'profile'|'tradingPost'|'outfit'|'house'} options.type Layout key.
  * @param {object} options.data Text/data fields for the selected layout.
  * @param {object} [options.images] Optional avatar/photo image sources.
  * @param {object} [options.style] Optional overrides for DEFAULT_POST_STYLE.
@@ -1132,6 +1187,9 @@ export async function renderPostImage({
       layout, resolvedAppearance, stickerImages);
   } else if (type === 'outfit') {
     drawOutfit(ctx, data, { photo, background }, resolvedStyle,
+      layout, resolvedAppearance, stickerImages);
+  } else if (type === 'house') {
+    drawHouse(ctx, data, { photo, background }, resolvedStyle,
       layout, resolvedAppearance, stickerImages);
   } else {
     throw new Error(
