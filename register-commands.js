@@ -14,7 +14,6 @@ import { data as testPointsCommand } from "./commands/test-points.js";
 import { data as pointsAdminCommand } from "./commands/points-admin.js";
 import { data as pointsObserveCommand } from "./commands/points-observe.js";
 import { data as helpCommand } from "./commands/help.js";
-import { data as migrateOldPostsCommand } from "./commands/migrate-old-posts.js";
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -40,13 +39,12 @@ const commands = [
   pointsAdminCommand,
   pointsObserveCommand,
   helpCommand,
-  migrateOldPostsCommand,
 ].map((command) => command.toJSON());
 
 await rest.put(Routes.applicationCommands(clientId), { body: commands });
 
 console.log(
-  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, shop, points-admin, help, and migrate-old-posts commands.",
+  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, shop, points-admin, help commands.",
 );
 
 if (guildId) {
