@@ -20,6 +20,7 @@ import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } f
 import { renderPostImage } from "../services/post-renderer.js";
 import { refreshOutfitStyleCard } from "../services/outfit-card.js";
 import { getOutfitGalleryPage } from "../services/outfit-gallery.js";
+import { checkOutfitListingMessage, findCustomizableOutfits } from "../services/outfit-reconciliation.js";
 import { ensureOutfitEntry } from "./outfit.js";
 import { OUTFIT_PICK_PAGE_SIZE, outfitPickerOptions, outfitCardData } from "../services/outfit-style.js";
 import {
@@ -160,23 +161,22 @@ export async function showOutfitAppearancePicker(interaction, guild, requestedPa
   if (!interaction.deferred && !interaction.replied) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   }
-  const filter = {
-    guildId: guild.id, ownerId: interaction.user.id, status: "active",
-    postChannelId: { $ne: "" }, postMessageId: { $ne: "" },
-  };
-  const count = await OutfitListing.countDocuments(filter);
+  // Check the actual Discord message, not just the saved Mongo record.
+  // This catches outfits deleted while the bot was offline or after startup.
+  const { available, unavailable } = await findCustomizableOutfits(guild, interaction.user.id);
+  const count = available.length;
   if (!count) {
     await interaction.editReply({
-      content: "You do not have any active outfit listings yet. Create one using the Outfit channel first, then return here to style it.",
+      content: unavailable
+        ? "No outfit posts could be verified right now. If your listings still exist, check the bot's channel permissions and try again."
+        : "You have no active outfit posts available to customize. Create an outfit in the server first.",
       components: [], allowedMentions: { parse: [] },
     });
     return true;
   }
   const lastPage = Math.max(0, Math.ceil(count / OUTFIT_PICK_PAGE_SIZE) - 1);
   const page = Math.max(0, Math.min(lastPage, Number(requestedPage) || 0));
-  const outfits = await OutfitListing.find(filter)
-    .sort({ createdAt: -1, _id: -1 })
-    .skip(page * OUTFIT_PICK_PAGE_SIZE).limit(OUTFIT_PICK_PAGE_SIZE).lean();
+  const outfits = available.slice(page * OUTFIT_PICK_PAGE_SIZE, (page + 1) * OUTFIT_PICK_PAGE_SIZE);
   const selector = new StringSelectMenuBuilder()
     .setCustomId(`listing:pick:${guild.id}:${interaction.user.id}:${page}`)
     .setPlaceholder("Choose one outfit to customize")
@@ -191,7 +191,7 @@ export async function showOutfitAppearancePicker(interaction, guild, requestedPa
     ));
   }
   await interaction.editReply({
-    content: `**Customize Outfits** — select the exact listing you want to style.\nEach outfit saves its own appearance independently, including stickers. **${count} active listing(s)** · Page ${page + 1}/${lastPage + 1}.`,
+    content: `**Customize Outfits** — choose the listing you want to style.\nStyles are saved independently. **${count} verified outfit(s)** · Page ${page + 1}/${lastPage + 1}.${unavailable ? ` ${unavailable} listing(s) could not be checked and are temporarily hidden.` : ""}`,
     components: controls, allowedMentions: { parse: [] },
   });
   return true;
@@ -224,6 +224,13 @@ export async function handleOutfitAppearancePicker(interaction) {
       postChannelId: { $ne: "" }, postMessageId: { $ne: "" },
     });
     if (!listing) throw new UserFacingError("That outfit is no longer active or belongs to someone else.");
+    const presence = await checkOutfitListingMessage(guild, listing);
+    if (presence.state === "missing") {
+      throw new UserFacingError("That outfit's Discord post was deleted. It has been removed from your customization choices.");
+    }
+    if (presence.state !== "present") {
+      throw new UserFacingError("I can't verify that outfit post right now. Please check the channel permissions and try again.");
+    }
     return openOutfitAppearanceDM(interaction, guild, listing);
   }
   await interaction.deferUpdate();
@@ -389,6 +396,16 @@ export async function handleListingAppearanceDM(interaction) {
     return true;
   }
   if (kind === "button" && field === "confirm") {
+    if (isOutfitTarget(type)) {
+      const presence = await checkOutfitListingMessage(guild, post);
+      if (presence.state !== "present") {
+        throw new UserFacingError(
+          presence.state === "missing"
+            ? "This outfit was deleted from Discord, so its appearance cannot be saved."
+            : "The original outfit post cannot be verified right now. No appearance changes were saved.",
+        );
+      }
+    }
     post.postAppearance = filterOwnedAppearance(draft.appearance, ownership);
     post.markModified("postAppearance");
     await post.save();
