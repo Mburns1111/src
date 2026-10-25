@@ -1,11 +1,10 @@
 import { execFile } from "node:child_process";
 import { createWriteStream } from "node:fs";
+import { streamDiscordAttachment } from "../services/media-transfer.js";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import ffmpegPath from "ffmpeg-static";
 import ffprobe from "ffprobe-static";
 import { UserFacingError } from "./errors.js";
@@ -16,6 +15,10 @@ const maxOutputBytes = 8 * 1024 * 1024;
 const maxInputBytes = 100 * 1024 * 1024;
 const audioBitrate = 64_000;
 const minimumVideoBitrate = 80_000;
+const maxConcurrentVideoJobs = 2;
+let activeVideoJobs = 0;
+const ffprobeTimeoutMs = 20_000;
+const ffmpegTimeoutMs = 180_000;
 
 async function compressVideo(attachment, directory, index) {
   if (attachment.size > maxInputBytes) {
@@ -26,13 +29,10 @@ async function compressVideo(attachment, directory, index) {
 
   const inputPath = join(directory, `input-${index}`);
   const outputPath = join(directory, `compressed-${index}.mp4`);
-  let response;
   try {
-    response = await fetch(attachment.url);
-    if (!response.ok || !response.body) {
-      throw new Error(`Video download returned HTTP ${response.status}.`);
-    }
-    await pipeline(Readable.fromWeb(response.body), createWriteStream(inputPath));
+    await streamDiscordAttachment(attachment.url, createWriteStream(inputPath), {
+      maxBytes: maxInputBytes, timeoutMs: 60_000,
+    });
   } catch (error) {
     console.error("Unable to download uploaded video:", error);
     throw new UserFacingError(
@@ -47,7 +47,7 @@ async function compressVideo(attachment, directory, index) {
       "-show_entries", "format=duration",
       "-of", "default=noprint_wrappers=1:nokey=1",
       inputPath,
-    ]);
+    ], { timeout: ffprobeTimeoutMs, killSignal: "SIGKILL", maxBuffer: 1024 * 1024 });
     duration = Number(result.stdout.trim());
   } catch (error) {
     console.error("Unable to read uploaded video metadata:", error);
@@ -87,7 +87,7 @@ async function compressVideo(attachment, directory, index) {
         "-movflags", "+faststart",
         "-pix_fmt", "yuv420p",
         outputPath,
-      ]);
+      ], { timeout: ffmpegTimeoutMs, killSignal: "SIGKILL", maxBuffer: 1024 * 1024 });
     } catch (error) {
       console.error("Video compression failed:", error);
       throw new UserFacingError(
@@ -105,6 +105,14 @@ async function compressVideo(attachment, directory, index) {
 }
 
 export async function prepareMediaFiles(attachments, prefix) {
+  const needsCompression = attachments.some(item =>
+    isVideoAttachment(item) && item.size > maxOutputBytes);
+  if (needsCompression && activeVideoJobs >= maxConcurrentVideoJobs) {
+    throw new UserFacingError(
+      "The bot is processing other videos. Please try uploading yours again shortly.",
+    );
+  }
+  if (needsCompression) activeVideoJobs++;
   let directory;
   const files = [];
   let firstImageName;
@@ -128,6 +136,8 @@ export async function prepareMediaFiles(attachments, prefix) {
   } catch (error) {
     if (directory) await rm(directory, { recursive: true, force: true });
     throw error;
+  } finally {
+    if (needsCompression) activeVideoJobs--;
   }
 
   return {

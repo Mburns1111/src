@@ -1,6 +1,7 @@
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import OutfitGalleryImage from "../models/OutfitGalleryImage.js";
 import { UserFacingError } from "../commands/errors.js";
+import { readDiscordAttachment } from "./media-transfer.js";
 import {
   GALLERY_HEIGHT, GALLERY_WIDTH, GALLERY_JPEG_QUALITY,
   MAX_IMAGE_BYTES, MAX_GALLERY_MEDIA, isGalleryPhoto,
@@ -8,33 +9,17 @@ import {
 } from "./outfit-gallery-utils.js";
 
 
-function safeDiscordSource(url) {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" &&
-      (parsed.hostname === "cdn.discordapp.com" ||
-       parsed.hostname === "media.discordapp.net" ||
-       parsed.hostname.endsWith(".discordapp.com") ||
-       parsed.hostname.endsWith(".discordapp.net"));
-  } catch {
-    return false;
-  }
-}
-
 async function fetchOriginalPhoto(asset) {
-  if (!safeDiscordSource(asset.url)) {
-    throw new UserFacingError("A saved outfit photo does not have a valid Discord attachment URL.");
+  try {
+    return await readDiscordAttachment(asset.url, {
+      maxBytes: MAX_IMAGE_BYTES, timeoutMs: 20_000,
+    });
+  } catch (error) {
+    if (error?.code === "TOO_LARGE") {
+      throw new UserFacingError("Outfit images must be no larger than 24 MB before resizing.");
+    }
+    throw error;
   }
-  const response = await fetch(asset.url, { signal: AbortSignal.timeout(20000) });
-  if (!response.ok) throw new Error(`Could not access outfit photo ${asset.name}: HTTP ${response.status}`);
-  if (Number(response.headers.get("content-length") || 0) > MAX_IMAGE_BYTES) {
-    throw new UserFacingError("Outfit images must be no larger than 24 MB before resizing.");
-  }
-  const raw = Buffer.from(await response.arrayBuffer());
-  if (!raw.length || raw.length > MAX_IMAGE_BYTES) {
-    throw new UserFacingError("An outfit photo is too large to resize safely.");
-  }
-  return raw;
 }
 
 export async function resizeOutfitImage(bytes) {

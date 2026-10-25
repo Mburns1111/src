@@ -1,11 +1,12 @@
 import mongoose from "mongoose";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import { streamDiscordAttachment } from "../services/media-transfer.js";
 import { getMessageMedia } from "./shared.js";
 import ProfilePhoto from "../models/ProfilePhoto.js";
 import { UserFacingError } from "./errors.js";
 
 const profilePhotoBucketName = "profilePhotos";
+const maxProfilePhotoBytes = 24 * 1024 * 1024;
+const maxBatchPhotoBytes = 80 * 1024 * 1024;
 
 function getProfilePhotoBucket() {
   const database = mongoose.connection.db;
@@ -57,24 +58,33 @@ async function deleteStoredPhotoFiles(fileIds) {
 }
 
 export async function saveProfilePhotos(guildId, ownerId, attachments) {
+  const declaredBytes = attachments.reduce((sum, item) => sum + Number(item.size ?? 0), 0);
+  if (attachments.some(item => Number(item.size ?? 0) > maxProfilePhotoBytes) ||
+      declaredBytes > maxBatchPhotoBytes) {
+    throw new UserFacingError(
+      "Each profile photo must be at most 24 MB, and each upload batch at most 80 MB.",
+    );
+  }
   const bucket = getProfilePhotoBucket();
   const fileIds = [];
   const photos = [];
 
   try {
     for (const attachment of attachments) {
-      const response = await fetch(attachment.url);
-      if (!response.ok || !response.body) {
-        throw new UserFacingError(
-          "I couldn't retrieve one of those uploaded photos. Please try uploading it again.",
-        );
-      }
-
       const upload = bucket.openUploadStream(attachment.name, {
         metadata: { guildId, ownerId, contentType: attachment.contentType ?? "" },
       });
       fileIds.push(upload.id);
-      await pipeline(Readable.fromWeb(response.body), upload);
+      try {
+        await streamDiscordAttachment(attachment.url, upload, {
+          maxBytes: maxProfilePhotoBytes, timeoutMs: 45_000,
+        });
+      } catch (error) {
+        if (error?.code === "TOO_LARGE") {
+          throw new UserFacingError("A profile photo exceeds the 24 MB upload limit.");
+        }
+        throw error;
+      }
       photos.push({
         guildId,
         ownerId,
