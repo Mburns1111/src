@@ -14,10 +14,10 @@ import {
 } from "discord.js";
 import OutfitListing from "../models/OutfitListing.js";
 import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
-import { refreshOutfitStyleCard, deleteOutfitStyleCard } from "../services/outfit-card.js";
-import { outfitActionComponents, ensureOutfitControls, deleteOutfitControls } from "../services/outfit-controls.js";
+import { refreshOutfitStyleCard, deleteLegacyOutfitMessages } from "../services/outfit-card.js";
+import { outfitActionComponents } from "../services/outfit-controls.js";
 import { isGalleryPhoto, isGalleryVideo, isGalleryMedia, OUTFIT_BANNER_NAME, mergeOriginalMedia } from "../services/outfit-gallery-utils.js";
-import { saveOutfitGalleryImages, ensureOutfitGallery, deleteOutfitGallery } from "../services/outfit-gallery.js";
+import { saveOutfitGalleryImages, outfitGalleryCount, deleteOutfitGallery } from "../services/outfit-gallery.js";
 import UserProfile from "../models/UserProfile.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import {
@@ -164,7 +164,6 @@ export async function refreshOutfitListingPost(guild, listing) {
   // An admin/profile refresh must not replace the decorated outfit or drop
   // any of the owner's photos when updating the listing details/buttons.
   await refreshOutfitStyleCard(guild, listing);
-  await ensureOutfitControls(guild, listing);
 }
 
 function canManageListing(interaction, listing) {
@@ -200,11 +199,31 @@ async function fetchListingMessage(interaction, listing) {
 export async function handleOutfitButton(interaction) {
   const [, action, listingId] = interaction.customId.split(":");
   if (action === "interest" || action === "notify") {
+    // Legacy controls still exist on some unmigrated outfits. Upgrade the
+    // original banner first, then direct the member to its new buttons.
+    const legacy = await OutfitListing.findOne({
+      _id: listingId, guildId: interaction.guildId, status: "active",
+      controlsMessageId: interaction.message.id,
+    });
+    if (legacy && legacy.postMessageId !== interaction.message.id) {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      try {
+        await refreshOutfitStyleCard(interaction.guild, legacy);
+        await interaction.editReply({
+          content: "This outfit was updated! The buttons are now under the styled card. Please use them there.",
+        });
+      } catch (error) {
+        console.warn("Legacy outfit actions could not migrate:", error);
+        await interaction.editReply({
+          content: "This older outfit couldn't be reformatted safely. Its gallery was left untouched; ask a server manager to check its saved photos.",
+        });
+      }
+      return true;
+    }
     return handleListingInterest(interaction, {
       ListingModel: OutfitListing,
       listingType: "outfit",
       makeComponents: makeListingComponents,
-      messageIdField: "controlsMessageId",
     });
   }
   if (action !== "media") return false;
@@ -539,11 +558,19 @@ export async function handleOutfitSold(interaction) {
     guildId: interaction.guildId,
     status: "active",
   });
-  if (!listing || (listing.controlsMessageId || listing.postMessageId) !== interaction.message.id) {
+  if (!listing || ![listing.postMessageId, listing.controlsMessageId].includes(interaction.message.id)) {
     throw new UserFacingError("This outfit listing is no longer active.");
   }
   if (!canManageListing(interaction, listing)) {
     throw new UserFacingError("Only the seller or a server manager can remove this outfit listing.");
+  }
+  if (interaction.message.id !== listing.postMessageId) {
+    // A click on old separated controls cannot delete the new unified post.
+    await refreshOutfitStyleCard(interaction.guild, listing);
+    await interaction.editReply({
+      content: "This outfit now has its buttons on the styled card. Press Remove listing there to delete it.",
+    });
+    return null;
   }
 
   const result = await OutfitListing.updateOne(
@@ -569,9 +596,8 @@ export async function handleOutfitSold(interaction) {
     );
   }
 
-  await deleteOutfitStyleCard(interaction.guild, listing);
+  await deleteLegacyOutfitMessages(interaction.guild, listing);
   await deleteOutfitGallery(interaction.guild, listing);
-  await deleteOutfitControls(interaction.guild, listing);
   await interaction.editReply({ content: "Outfit listing removed." });
   return listing.ownerId;
 }
