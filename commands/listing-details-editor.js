@@ -157,16 +157,23 @@ async function activeListing(type, guildId, ownerId, listingId, models = MODELS)
 }
 
 export async function openListingDetailsDM(interaction) {
-  const [type, action, id] = String(interaction.customId).split(":");
-  if (!Object.hasOwn(MODELS, type) || action !== "edit" || !ID.test(id ?? "") ||
-      !interaction.guildId) {
-    throw new UserFacingError("That listing edit button is invalid.");
+  const parts = String(interaction.customId).split(":");
+  const fromDirectory = parts[0] === "member";
+  const type = fromDirectory ? parts[2] : parts[0];
+  const id = fromDirectory ? interaction.values?.[0] : parts[2];
+  if (!Object.hasOwn(MODELS, type) || !ID.test(id ?? "") || !interaction.guildId ||
+      (fromDirectory
+        ? parts.length !== 4 || parts[1] !== "edit" ||
+          parts[3] !== interaction.user.id || !interaction.isStringSelectMenu()
+        : parts.length !== 3 || parts[1] !== "edit" || !interaction.isButton())) {
+    throw new UserFacingError("That listing edit control is invalid or belongs to another member.");
   }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const listing = await activeListing(type, interaction.guildId, interaction.user.id, id);
-  if (listing.postMessageId !== interaction.message?.id ||
+  if (!fromDirectory && (
+      listing.postMessageId !== interaction.message?.id ||
       listing.postChannelId !== interaction.channelId ||
-      interaction.message.author?.id !== interaction.client.user.id) {
+      interaction.message.author?.id !== interaction.client.user.id)) {
     throw new UserFacingError("Use Edit details on your original listing post.");
   }
   const { profile, ownership } = await appearanceContext(interaction.guildId, interaction.user.id);

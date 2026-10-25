@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, StringSelectMenuBuilder } from "discord.js";
 import HouseListing from "../models/HouseListing.js";
 import OutfitListing from "../models/OutfitListing.js";
 import { UserFacingError } from "./errors.js";
@@ -53,10 +53,23 @@ export function makeMemberListingDirectory(type, guildId, ownerId, entries, coun
     "",
     rows.length ? rows.join("\n") : "You don't have any active published listings yet.",
     "",
-    "Open a post to browse its photos and use its existing listing controls.",
+    "Open a post to browse photos, or use the Edit menu below to change its details privately.",
     "Page " + (shownPage + 1) + " of " + totalPages,
   ].join("\n");
-  const components = totalPages > 1 ? [
+  const components = [];
+  const editable = entries.filter(entry => /^[0-9a-f]{24}$/i.test(String(entry._id ?? "")));
+  if (editable.length) {
+    components.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("member:edit:" + type + ":" + ownerId)
+        .setPlaceholder("Edit one of these listings in DMs")
+        .addOptions(editable.map(entry => ({
+          label: String(entry.title || "Untitled listing").replace(/[\\r\\n\\t]/g, " ").slice(0, 100),
+          value: String(entry._id),
+        }))),
+    ));
+  }
+  if (totalPages > 1) components.push(
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(type + ":mine:" + (shownPage - 1) + ":" + ownerId)
@@ -67,7 +80,7 @@ export function makeMemberListingDirectory(type, guildId, ownerId, entries, coun
         .setLabel("Next page ▶").setStyle(ButtonStyle.Primary)
         .setDisabled(shownPage >= totalPages - 1),
     ),
-  ] : [];
+  );
   return { content, components, allowedMentions: { parse: [] } };
 }
 
@@ -99,7 +112,7 @@ export async function handleMemberListingDirectory(interaction, {
     .sort({ createdAt: -1, _id: -1 })
     .skip(page * MEMBER_LISTING_PAGE_SIZE)
     .limit(MEMBER_LISTING_PAGE_SIZE)
-    .select("title postChannelId postMessageId")
+    .select("_id title postChannelId postMessageId")
     .lean() : [];
   await interaction.editReply(makeMemberListingDirectory(
     type, interaction.guildId, interaction.user.id, entries, count, page));

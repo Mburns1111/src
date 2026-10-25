@@ -433,6 +433,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await sendProfileReminder(interaction);
       return;
     }
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith("member:edit:")) {
+      await openListingDetailsDM(interaction);
+      return;
+    }
     if ((interaction.isButton() || interaction.isModalSubmit()) &&
         interaction.customId.startsWith("listing:details:")) {
       await handleListingDetailsDM(interaction);
