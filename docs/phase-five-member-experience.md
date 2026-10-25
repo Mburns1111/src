@@ -16,3 +16,17 @@
 6. Check a one-photo or video-only listing: it should not show navigation controls.
 
 No Wispbyte deployment or merging without explicit approval.
+
+
+## Second slice: find my published listings
+- The permanent house/outfit entry panel now includes **My house listings** or **My outfit listings**, alongside the existing Start listing button.
+- Members get a private directory of **their own active published** posts, with direct links. No new posts, data mutations, or server-wide list of other sellers.
+- Lists are newest-first, eight links per page, with owner-restricted Previous/Next navigation; inactive, missing and staged listings are excluded.
+- Each entry links to the existing public Discord message. The existing Interested, Remove listing, Mark sold, and photo chooser controls remain on that post; they are not duplicated or invoked by the directory.
+- If a previously saved Discord message has disappeared, its link may not resolve until normal reconciliation archives it. The directory itself never deletes the listing or its media.
+
+### Replit check for directory
+1. Restart the test bot so its normal channel-entry maintenance updates the buttons in the configured house/outfit channels.
+2. Click **My house listings** and **My outfit listings**; verify the private links lead to the correct public posts and only your active listings are shown.
+3. Use Previous/Next if you have more than eight active posts; another member should not see your private directory.
+4. Confirm the original Start a listing buttons still create forms, and videos/photos/interest controls on the linked posts are unchanged.
