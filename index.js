@@ -94,6 +94,7 @@ import {
 } from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
 import { handleMemberListingDirectory } from "./commands/member-listings.js";
+import { openListingDetailsDM, handleListingDetailsDM } from "./commands/listing-details-editor.js";
 import { resumePendingTradingPostDeletes } from "./services/trading-post-deletion.js";
 import { recoverStagedListingPosts } from "./services/listing-publication-recovery.js";
 import { startMediaTelemetry } from "./services/media-telemetry.js";
@@ -432,6 +433,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await sendProfileReminder(interaction);
       return;
     }
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith("member:edit:")) {
+      await openListingDetailsDM(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isModalSubmit()) &&
+        interaction.customId.startsWith("listing:details:")) {
+      await handleListingDetailsDM(interaction);
+      return;
+    }
+    if (interaction.isButton() &&
+        /^(house|outfit):edit:/.test(interaction.customId)) {
+      await openListingDetailsDM(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId.startsWith("help:topic:")) {
       await handleHelpTopicButton(interaction);
       return;
@@ -695,7 +710,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           interaction.channel?.isDMBased?.() &&
           !interaction.ephemeral &&
           (interaction.customId.startsWith("shop:dm:") ||
-            interaction.customId.startsWith("profile:dm:"))) {
+            interaction.customId.startsWith("profile:dm:") ||
+             interaction.customId.startsWith("listing:details:"))) {
         await sendTemporaryDmNotice(interaction.user, `⚠️ ${getInteractionErrorMessage(error)}`);
       } else if (interaction.deferred && !interaction.replied) {
         await interaction.editReply(response);

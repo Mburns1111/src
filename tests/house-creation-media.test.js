@@ -67,7 +67,7 @@ test("no post-creation Add Pictures/Video button is published", () => {
     row.toJSON().components.map(item => item.label));
   assert.deepEqual(labels, [
     "◀ Previous", "Photo 1 / 3", "Next ▶", "Choose photo",
-    "Mark sold", "Interested (0)", "Interest DMs: Off",
+    "Mark sold", "Interested (0)", "Interest DMs: Off", "Edit details",
   ]);
   const photoOnly = houseCardPayload(house, { count: 3 }, Buffer.from("fake"));
   const videoOnly = houseCardPayload(house, { count: 0 }, Buffer.from("fake"),
