@@ -14,6 +14,7 @@ import {
 } from "discord.js";
 import OutfitListing from "../models/OutfitListing.js";
 import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
+import { refreshOutfitStyleCard, deleteOutfitStyleCard } from "../services/outfit-card.js";
 import UserProfile from "../models/UserProfile.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import {
@@ -318,6 +319,9 @@ export async function handleOutfitModal(interaction) {
     throw error;
   }
 
+  // A failed cosmetic refresh must not undo successful photo/video uploads.
+  await refreshOutfitStyleCard(interaction.guild, listing).catch(error =>
+    console.warn("Could not refresh outfit style card after upload:", error));
   await interaction.editReply({ content: `Added ${uploads.length} media file(s) to the outfit listing.` });
   return true;
 }
@@ -530,6 +534,10 @@ async function publishListing(interaction, values, post) {
     await OutfitListing.deleteOne({ _id: listing._id }).catch(() => {});
     throw error;
   }
+  // A separate reply displays the inherited style without reducing the
+  // existing listing's capacity for ten images/videos.
+  await refreshOutfitStyleCard(interaction.guild, listing).catch(error =>
+    console.warn("Could not publish new outfit style card:", error));
   await awardMilestoneSafely(interaction.guildId, interaction.user.id,
     "outfitFirstListing", String(listing._id));
 }
@@ -573,6 +581,7 @@ export async function handleOutfitSold(interaction) {
     );
   }
 
+  await deleteOutfitStyleCard(interaction.guild, listing);
   await interaction.editReply({ content: "Outfit listing removed." });
   return listing.ownerId;
 }
