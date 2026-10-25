@@ -1,3 +1,4 @@
+import { yieldAfterMaintenanceBatch } from "./maintenance-batches.js";
 import OutfitListing from "../models/OutfitListing.js";
 import { refreshOutfitStyleCard } from "./outfit-card.js";
 
@@ -123,6 +124,8 @@ export async function reconcileOutfitsForGuild(guild, {
     } catch (error) {
       stats.failed += 1;
       console.warn("[Outfit reconciliation] Couldn't upgrade listing", String(listing._id), error);
+    } finally {
+      await yieldAfterMaintenanceBatch(stats.scanned);
     }
   }
   console.log(`[Outfit reconciliation] Guild ${guild.id}: ${stats.scanned} checked, ${stats.converted} reformatted, ${stats.missing} deleted, ${stats.current} current, ${stats.unavailable} unavailable, ${stats.failed} failed.`);
