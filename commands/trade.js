@@ -515,8 +515,14 @@ async function publishTradeListing(interaction, { title, picture, video, videoUr
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
     title,
     videoUrl,
+    // The original bot-authored form is the final public post. Persist its
+    // coordinates before publishing so a later metadata error cannot leave
+    // a visible post with no corresponding database record.
+    postChannelId: post.channelId,
+    postMessageId: post.id,
   });
   let cleanup = async () => {};
+  let published = false;
   try {
     const prepared = await prepareMediaFiles(
       video ? [picture, video] : [picture],
@@ -531,6 +537,7 @@ async function publishTradeListing(interaction, { title, picture, video, videoUr
       files: prepared.files,
       allowedMentions: { parse: [] },
     });
+    published = true;
     listing.postChannelId = updatedPost.channelId;
     listing.postMessageId = updatedPost.id;
     listing.mediaAttachments = getMessageMedia(updatedPost);
@@ -539,10 +546,17 @@ async function publishTradeListing(interaction, { title, picture, video, videoUr
       listing.coverImageName;
     await listing.save();
   } catch (error) {
-    await TradeListing.deleteOne({ _id: listing._id }).catch(() => {});
-    throw error;
+    if (!published) {
+      await TradeListing.deleteOne({ _id: listing._id }).catch(cleanupError =>
+        console.error("Could not remove unfinished trade listing:", cleanupError));
+      throw error;
+    }
+    // The public post is already live. Never clear the record or restore a
+    // create form over it simply because the optional metadata save failed.
+    // The persisted channel/message IDs allow normal voting and later repair.
+    console.error("[Trade] Public post saved; media metadata needs refresh:", error);
   } finally {
-    await cleanup();
+    await cleanup().catch(error => console.warn("[Trade] Temporary media cleanup failed:", error));
   }
   await awardMilestoneSafely(interaction.guildId, interaction.user.id,
     "tradeFirstListing", String(listing._id));

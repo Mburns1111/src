@@ -349,7 +349,15 @@ async function syncProfileDetails(guild, channel, profile) {
   }
   const message = await channel.send(payload);
   profile.profileDetailsMessageId = message.id;
-  await profile.save();
+  try {
+    await profile.save();
+  } catch (error) {
+    // Don't leave an untracked details reply when the database write fails.
+    profile.profileDetailsMessageId = "";
+    await message.delete().catch(cleanupError =>
+      console.warn("Could not remove untracked profile details message:", cleanupError));
+    throw error;
+  }
   return message;
 }
 
@@ -553,11 +561,21 @@ async function ensureProfileCardOnce(guild, user, refresh) {
   profile.profileCardChannelId = channel.id;
   profile.profileCardMessageId = newMessage.id;
   profile.profileDetailsMessageId = "";
+  let cardSaved = false;
   try {
     await profile.save();
+    cardSaved = true;
     await syncProfileDetails(guild, channel, profile);
   } catch (error) {
-    await newMessage.delete().catch(() => {});
+    if (!cardSaved) {
+      // Database still references the earlier card, which must remain live.
+      await newMessage.delete().catch(cleanupError =>
+        console.warn("Could not remove untracked new profile card:", cleanupError));
+    } else {
+      // The new card is already tracked. Preserve it for the next refresh
+      // rather than deleting it while MongoDB still points to it.
+      console.error("New profile card saved; its details reply needs repair:", error);
+    }
     throw error;
   }
 
