@@ -943,67 +943,44 @@ function drawTradingPost(ctx, data, images, style, layout, appearance, stickerIm
  * The media gallery remains on the original Discord listing message.
  */
 function drawOutfit(ctx, data, images, style, layout, appearance, stickerImages) {
+  // This is an advertising BANNER, not a collage. Gallery images are handled
+  // exclusively by the separate outfit flipbook below the original post.
   const { width, height } = layout;
   ctx.fillStyle = style.background;
   ctx.fillRect(0, 0, width, height);
   if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
   else drawBackgroundPattern(ctx, width, height, appearance);
 
-  glassPanel(ctx, 48, 45, 1104, 145, style);
-  glassPanel(ctx, 48, 210, 547, 535, style, true);
-  glassPanel(ctx, 615, 210, 537, 535, style);
+  glassPanel(ctx, 48, 40, 1104, 137, style);
+  glassPanel(ctx, 48, 197, 380, 229, style, true);
+  glassPanel(ctx, 447, 197, 705, 229, style);
 
   drawFittedLine(ctx, data.title || 'Outfit listing', {
-    x: 86, y: 79, width: 1000, height: 61,
+    x: 84, y: 70, width: 1000, height: 66,
   }, {
-    fontSize: 52, minFontSize: 26, family: style.titleFontFamily,
+    fontSize: 54, minFontSize: 28, family: style.titleFontFamily,
     weight: style.titleFontWeight, color: style.text,
   });
-  drawFittedLine(ctx, data.seller || 'Seller', {
-    x: 86, y: 145, width: 960, height: 27,
+  drawFittedLine(ctx, data.seller || 'Member', {
+    x: 84, y: 145, width: 1000, height: 25,
   }, {
     fontSize: 23, minFontSize: 16, family: style.fontFamily,
     weight: style.bodyFontWeight, color: style.mutedText,
   });
 
-  if (images.photo) {
-    const others = [images.photo2, images.photo3].filter(Boolean);
-    if (!others.length) {
-      drawContain(ctx, images.photo, 76, 234, 490, 485, style.imageRadius);
-    } else {
-      // Show up to three uploaded pictures together; all originals stay in
-      // the listing's separate native Discord attachment gallery.
-      drawContain(ctx, images.photo, 76, 234, 490, 315, style.imageRadius);
-      if (others.length === 1) {
-        drawContain(ctx, others[0], 76, 565, 490, 154, style.imageRadius);
-      } else {
-        drawContain(ctx, others[0], 76, 565, 238, 154, style.imageRadius);
-        drawContain(ctx, others[1], 328, 565, 238, 154, style.imageRadius);
-      }
-    }
-  } else {
-    drawLabel(ctx, 'Outfit photos', { x: 100, y: 300, width: 440, height: 52 }, style);
-    drawWrappedText(ctx, 'Photos and videos appear in the original listing.', {
-      x: 100, y: 380, width: 440, height: 190,
-    }, {
-      fontSize: 32, minFontSize: 22, family: style.fontFamily,
-      weight: style.bodyFontWeight, color: style.text, maxLines: 4,
-    });
-  }
-
-  drawLabel(ctx, 'Cost', { x: 655, y: 250, width: 446, height: 40 }, style);
-  drawFittedLine(ctx, data.cost || 'Not listed', {
-    x: 655, y: 302, width: 450, height: 54,
+  drawLabel(ctx, 'Cost', { x: 81, y: 225, width: 300, height: 38 }, style);
+  drawWrappedText(ctx, data.cost || 'Not listed', {
+    x: 81, y: 275, width: 300, height: 112,
   }, {
-    fontSize: 37, minFontSize: 22, family: style.fontFamily,
-    weight: style.bodyFontWeight, color: style.text,
+    fontSize: 33, minFontSize: 20, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 2,
   });
-  drawLabel(ctx, 'Details', { x: 655, y: 383, width: 447, height: 44 }, style);
-  drawWrappedText(ctx, data.description || 'No description', {
-    x: 655, y: 449, width: 450, height: 225,
+  drawLabel(ctx, 'Outfit details', { x: 484, y: 225, width: 609, height: 38 }, style);
+  drawWrappedText(ctx, data.description || 'View outfit photos below', {
+    x: 484, y: 282, width: 610, height: 109,
   }, {
-    fontSize: 29, minFontSize: 18, family: style.fontFamily,
-    weight: style.bodyFontWeight, color: style.text, maxLines: 7,
+    fontSize: 27, minFontSize: 18, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 3,
   });
   drawDecorations(ctx, width, height, appearance, style, stickerImages);
 }
@@ -1067,7 +1044,7 @@ export async function renderPostImage({
     ...(backgroundItem.kind === 'solid' && backgroundItem.color ? { background: backgroundItem.color } : {}),
   };
 
-  const [avatar, photo, background, photo2, photo3] = await Promise.all([
+  const [avatar, photo, background] = await Promise.all([
     loadImageSource(images.avatar).catch((error) => {
       console.warn(
         `[post-renderer] Could not load avatar: ${error.message}`
@@ -1089,14 +1066,6 @@ export async function renderPostImage({
             return null;
           })
       : Promise.resolve(null),
-    loadImageSource(images.photo2).catch(error => {
-      console.warn('[post-renderer] Second outfit photo unavailable:', error.message);
-      return null;
-    }),
-    loadImageSource(images.photo3).catch(error => {
-      console.warn('[post-renderer] Third outfit photo unavailable:', error.message);
-      return null;
-    }),
   ]);
 
   // Custom sticker assets are curated local files (e.g. transparent PNGs).
@@ -1134,7 +1103,7 @@ export async function renderPostImage({
     drawTradingPost(ctx, data, { avatar, photo, background }, resolvedStyle,
       layout, resolvedAppearance, stickerImages);
   } else if (type === 'outfit') {
-    drawOutfit(ctx, data, { avatar, photo, photo2, photo3, background }, resolvedStyle,
+    drawOutfit(ctx, data, { background }, resolvedStyle,
       layout, resolvedAppearance, stickerImages);
   } else {
     throw new Error(
