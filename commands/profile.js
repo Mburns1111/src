@@ -169,7 +169,20 @@ export function makeProfileCardContent(profile, guildId, listingLinks) {
   for (const section of sections) {
     const separator = result.length ? "\n\n" : "";
     if (length + separator.length + section.length > 4090) {
-      if (length + 2 <= 4096) result.push("…");
+      // Keep the first available listing links, rather than dropping an
+      // oversized House/Outfit/Trade section and showing only an ellipsis.
+      const room = 4090 - length - separator.length;
+      if (room > 2) {
+        const candidate = section.slice(0, room - 1);
+        const lastWholeEntry = candidate.lastIndexOf("\n");
+        // Avoid splitting Markdown links when a full listing line fits.
+        const truncated = lastWholeEntry > 20
+          ? candidate.slice(0, lastWholeEntry)
+          : candidate;
+        result.push(truncated + "…");
+      } else if (length + 2 <= 4096) {
+        result.push("…");
+      }
       break;
     }
     result.push(section);
