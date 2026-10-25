@@ -303,7 +303,7 @@ export async function handleListingAppearanceDM(interaction) {
   if (kind === "button" && field === "stickerColors") {
     const panel = await MemberDmPanel.findOne({
       botUserId: interaction.client.user.id, discordUserId: interaction.user.id,
-      kind: EDITOR_KIND, token, channelId: interaction.channelId,
+      kind: { $in: [EDITOR_KIND, OUTFIT_EDITOR_KIND] }, token, channelId: interaction.channelId,
       messageId: interaction.message?.id,
     });
     if (!panel) throw new UserFacingError("This editor is no longer active.");
@@ -327,19 +327,23 @@ export async function handleListingAppearanceDM(interaction) {
   else await interaction.deferUpdate();
   const panel = await MemberDmPanel.findOne({
     botUserId: interaction.client.user.id, discordUserId: interaction.user.id,
-    kind: EDITOR_KIND, token, channelId: interaction.channelId,
+    kind: { $in: [EDITOR_KIND, OUTFIT_EDITOR_KIND] }, token, channelId: interaction.channelId,
   });
   if (!panel || (kind !== "modal" && panel.messageId !== interaction.message?.id) ||
-      panel.appearanceTargetType !== TARGET_TYPE) {
+      ![TARGET_TYPE, OUTFIT_TARGET_TYPE].includes(panel.appearanceTargetType) ||
+      panel.kind !== targetKind(panel.appearanceTargetType)) {
     throw new UserFacingError("This listing editor expired. Reopen it from your permanent shop DM.");
   }
+  const type = panel.appearanceTargetType;
   const guild = await interaction.client.guilds.fetch(panel.guildId);
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) throw new UserFacingError("You must belong to this server to customize a listing.");
-  const post = await TradingPost.findOne({
+  const model = isOutfitTarget(type) ? OutfitListing : TradingPost;
+  const post = await model.findOne({
     _id: panel.appearanceTargetId, guildId: panel.guildId, ownerId: interaction.user.id,
+    ...(isOutfitTarget(type) ? { status: "active" } : {}),
   });
-  if (!post) throw new UserFacingError("Your Trading Post is no longer available.");
+  if (!post) throw new UserFacingError(`Your ${targetLabel(type)} is no longer available.`);
   const [profile, ownership] = await Promise.all([
     UserProfile.findOne({ guildId: panel.guildId, discordUserId: interaction.user.id }),
     getAppearanceOwnership(panel.guildId, interaction.user.id),
@@ -366,21 +370,22 @@ export async function handleListingAppearanceDM(interaction) {
     await saveDraft(panel, draft);
     const dm = await interaction.user.createDM();
     const message = await dm.messages.fetch(panel.messageId);
-    await message.edit(await editorPayload(post, draft, ownership));
+    await message.edit(await editorPayload(post, draft, ownership, type));
     await interaction.editReply({ content: "Updated the sticker colors in your private preview. Save to publish the change." });
     return true;
   }
 
   if (kind === "button" && field === "cancel") {
-    await closeEditor(interaction, panel, "↩️ **Changes discarded.** Your Trading Post was not changed.");
+    await closeEditor(interaction, panel, `↩️ **Changes discarded.** Your ${targetLabel(type)} was not changed.`);
     return true;
   }
   if (kind === "button" && field === "confirm") {
     post.postAppearance = filterOwnedAppearance(draft.appearance, ownership);
     post.markModified("postAppearance");
     await post.save();
-    await refreshTradingPostCard(guild, interaction.user.id);
-    await closeEditor(interaction, panel, "✅ **Trading Post updated!** Your profile and other listings were not changed.");
+    if (isOutfitTarget(type)) await refreshOutfitStyleCard(guild, post);
+    else await refreshTradingPostCard(guild, interaction.user.id);
+    await closeEditor(interaction, panel, `✅ **${targetLabel(type)} updated!** Your profile and other listings were not changed.`);
     return true;
   }
   if (kind === "button" && ["stickerStyle", "stickerPosition"].includes(field)) {
@@ -389,18 +394,18 @@ export async function handleListingAppearanceDM(interaction) {
     }
     draft.stickerMode = field === "stickerStyle" ? "style" : "position";
     await saveDraft(panel, draft);
-    await interaction.editReply({ components: editorControls(post, draft, ownership) });
+    await interaction.editReply({ components: editorControls(post, draft, ownership, type) });
     return true;
   }
   if (kind === "button" && field === "refresh") {
-    await interaction.editReply(await editorPayload(post, draft, ownership));
+    await interaction.editReply(await editorPayload(post, draft, ownership, type));
     return true;
   }
   if (kind === "button" && field === "clearStickers") {
     clearDraftStickers(draft);
     draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
     await saveDraft(panel, draft);
-    await interaction.editReply(await editorPayload(post, draft, ownership));
+    await interaction.editReply(await editorPayload(post, draft, ownership, type));
     return true;
   }
   if (kind === "button" && field === "fontBoth") {
@@ -481,6 +486,6 @@ export async function handleListingAppearanceDM(interaction) {
   }
   draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
   await saveDraft(panel, draft);
-  await interaction.editReply(await editorPayload(post, draft, ownership));
+  await interaction.editReply(await editorPayload(post, draft, ownership, type));
   return true;
 }
