@@ -144,7 +144,34 @@ export async function ensureGalleryArchived(guild, listing, originalMessage) {
   );
   const photos = sources.filter(isGalleryPhoto);
   if (photos.length) await saveOutfitGalleryImages(guild.id, listing, photos);
-  return { count: await outfitGalleryCount(guild.id, listing._id), sources };
+  let count = await outfitGalleryCount(guild.id, listing._id);
+
+  // Recovery for older listings whose original uploads are no longer in
+  // Mongo metadata or the public post, but whose old gallery reply still
+  // carries the currently visible resized photo. This only recovers ONE
+  // frame; do not pretend that other lost photos were restored.
+  if (!count && !photos.length && listing.galleryMessageId) {
+    try {
+      const channel = await guild.channels.fetch(listing.postChannelId);
+      const oldGallery = await channel?.messages?.fetch(listing.galleryMessageId);
+      if (oldGallery?.author?.id === guild.client.user.id) {
+        const displayed = Array.from(oldGallery.attachments.values())
+          .find(asset => asset.name === "outfit-gallery-page.jpg");
+        if (displayed) {
+          await saveOutfitGalleryImages(guild.id, listing, [{
+            ...displayed,
+            name: "recovered-outfit-photo.jpg",
+            contentType: "image/jpeg",
+          }]);
+          count = await outfitGalleryCount(guild.id, listing._id);
+          console.warn("[Outfit] Recovered one photo from older gallery reply for", String(listing._id));
+        }
+      }
+    } catch (error) {
+      console.warn("[Outfit] Legacy gallery frame could not be recovered:", error);
+    }
+  }
+  return { count, sources };
 }
 
 export async function deleteOutfitGallery(guild, listing) {
