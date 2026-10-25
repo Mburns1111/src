@@ -27,6 +27,7 @@ import {
   validateAttachments,
   validateOptionalWebUrl,
 } from "./shared.js";
+import { photoPickerResponse, selectedGalleryPage } from "../services/listing-photo-picker.js";
 import { UserFacingError } from "./errors.js";
 import { prepareMediaFiles } from "./video-compression.js";
 import { ensureChannelEntry } from "./channel-entry.js";
@@ -59,7 +60,8 @@ export async function ensureOutfitEntry(guild, channel, { moveToBottom = false }
     messageField: "outfitEntryMessageId",
     customId: "outfit:entry",
     label: "Start an outfit listing",
-    description: "Use the button to add an outfit to your listings.",
+    description: "Create an outfit listing or find your existing posts.",
+    extraButtons: [{ customId: "outfit:mine", label: "My outfit listings" }],
     moveToBottom,
   });
 }
@@ -253,11 +255,12 @@ export async function handleOutfitButton(interaction) {
  */
 export async function handleOutfitPageButton(interaction) {
   const [, area, direction, listingId] = interaction.customId.split(":");
-  if (area !== "page" || !["prev", "next"].includes(direction) ||
+  if (area !== "page" || !["prev", "next", "choose"].includes(direction) ||
       !/^[0-9a-f]{24}$/i.test(listingId || "")) {
     throw new UserFacingError("That outfit photo action is not valid.");
   }
-  await interaction.deferUpdate();
+  if (direction === "choose") await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  else await interaction.deferUpdate();
   if (!interaction.guildId) throw new UserFacingError("This outfit belongs to a server.");
   const filter = {
     _id: listingId, guildId: interaction.guildId, status: "active",
@@ -266,6 +269,14 @@ export async function handleOutfitPageButton(interaction) {
   const current = await OutfitListing.findOne(filter);
   if (!current) throw new UserFacingError("That outfit is no longer available.");
   const count = await outfitGalleryCount(interaction.guildId, current._id);
+  if (direction === "choose") {
+    await interaction.editReply(
+      count < 2
+        ? { content: "This outfit has only one photo.", components: [] }
+        : photoPickerResponse("outfit", current, count, interaction.message.id),
+    );
+    return true;
+  }
   if (count < 2) return true;
   const updated = await OutfitListing.findOneAndUpdate(filter, {
     $inc: { galleryPageIndex: direction === "next" ? 1 : -1 },
@@ -273,6 +284,35 @@ export async function handleOutfitPageButton(interaction) {
   if (!updated) return true;
   await refreshOutfitStyleCard(interaction.guild, updated);
   return true;
+}
+
+
+/** One private dropdown selection updates the existing public outfit card. */
+export async function handleOutfitPhotoSelection(interaction) {
+  const [, area, listingId, postId] = interaction.customId.split(":");
+  if (area !== "photo-select" || !/^[0-9a-f]{24}$/i.test(listingId ?? "") ||
+      !/^\d{17,20}$/.test(postId ?? "")) {
+    throw new UserFacingError("That outfit photo picker is no longer valid.");
+  }
+  await interaction.deferUpdate();
+  const filter = {
+    _id: listingId, guildId: interaction.guildId, status: "active",
+    postMessageId: postId,
+  };
+  const listing = await OutfitListing.findOne(filter);
+  if (!listing) throw new UserFacingError("That outfit listing is no longer active.");
+  const count = await outfitGalleryCount(interaction.guildId, listing._id);
+  const page = selectedGalleryPage(interaction, count);
+  if (page !== (listing.galleryPageIndex ?? 0)) {
+    const updated = await OutfitListing.findOneAndUpdate(
+      filter, { $set: { galleryPageIndex: page } }, { new: true });
+    if (!updated) throw new UserFacingError("That outfit listing is no longer available.");
+    await refreshOutfitStyleCard(interaction.guild, updated);
+  }
+  await interaction.editReply({
+    content: `Showing outfit photo ${page + 1} of ${count} on the public listing.`,
+    components: [], allowedMentions: { parse: [] },
+  });
 }
 
 /** Old gallery reply buttons remain recognizable until migration finishes. */

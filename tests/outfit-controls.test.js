@@ -14,7 +14,7 @@ test("one outfit message has one styled image embed and all buttons underneath",
   const components = outfitActionComponents(outfit, 3);
   const rows = components.map(row => row.toJSON().components);
   assert.equal(rows.length, 2);
-  assert.deepEqual(rows[0].map(b => b.label), ["◀ Previous", "Photo 1 / 3", "Next ▶"]);
+  assert.deepEqual(rows[0].map(b => b.label), ["◀ Previous", "Photo 1 / 3", "Next ▶", "Choose photo"]);
   assert.equal(rows[0][1].disabled, true);
   assert.deepEqual(rows[1].map(b => b.label),
     ["Interested (0)", "Interest DMs: Off", "Remove listing"]);
@@ -32,6 +32,7 @@ test("Next/Previous button custom IDs target the original outfit, never a galler
   assert.equal(rows[0][1].label, "Photo 3 / 3");
   assert.equal(rows[0][0].custom_id, `outfit:page:prev:${outfit._id}`);
   assert.equal(rows[0][2].custom_id, `outfit:page:next:${outfit._id}`);
+  assert.equal(rows[0][3].custom_id, `outfit:page:choose:${outfit._id}`);
 });
 
 test("single-photo and video-only outfits skip unnecessary page controls", () => {

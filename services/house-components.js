@@ -11,6 +11,8 @@ export function houseActionComponents(listing, photoCount = 0) {
         .setLabel(`Photo ${current + 1} / ${photoCount}`).setStyle(ButtonStyle.Secondary).setDisabled(true),
       new ButtonBuilder().setCustomId(`house:page:next:${String(listing._id)}`)
         .setLabel("Next ▶").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`house:page:choose:${String(listing._id)}`)
+        .setLabel("Choose photo").setStyle(ButtonStyle.Secondary),
     ));
   }
   rows.push(new ActionRowBuilder().addComponents(

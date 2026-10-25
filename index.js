@@ -40,6 +40,7 @@ import {
   handleHouseCreateModal,
   handleHouseButton,
   handleHousePageButton,
+  handleHousePhotoSelection,
   handleHouseModal,
   handleSold,
   handleHouseEntryButton,
@@ -54,6 +55,7 @@ import {
   handleOutfitModal,
   handleOutfitSold,
   handleOutfitPageButton,
+  handleOutfitPhotoSelection,
   handleLegacyOutfitGalleryButton,
   handleOutfitEntryButton,
   ensureOutfitEntry,
@@ -91,6 +93,7 @@ import {
   ensureTradingPostEntry,
 } from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
+import { handleMemberListingDirectory } from "./commands/member-listings.js";
 import { resumePendingTradingPostDeletes } from "./services/trading-post-deletion.js";
 import { recoverStagedListingPosts } from "./services/listing-publication-recovery.js";
 import { startMediaTelemetry } from "./services/media-telemetry.js";
@@ -429,6 +432,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await sendProfileReminder(interaction);
       return;
     }
+    if (interaction.isButton() &&
+        /^(house|outfit):mine(?::.*)?$/.test(interaction.customId)) {
+      await handleMemberListingDirectory(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId === "house:entry") {
       await ensureProfileForEntry(interaction);
       await handleHouseEntryButton(interaction);
@@ -476,6 +484,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId.startsWith("house:sold:")) {
       const ownerId = await handleSold(interaction);
       if (ownerId) await refreshListingOwnerCards(interaction.guild, ownerId);
+      return;
+    }
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith("house:photo-select:")) {
+      await handleHousePhotoSelection(interaction);
+      return;
+    }
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith("outfit:photo-select:")) {
+      await handleOutfitPhotoSelection(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("house:page:")) {
