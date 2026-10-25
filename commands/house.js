@@ -243,6 +243,27 @@ export async function handleHouseButton(interaction) {
   return true;
 }
 
+export async function handleHousePageButton(interaction) {
+  const [, area, direction, listingId] = interaction.customId.split(":");
+  if (area !== "page" || !["prev", "next"].includes(direction) ||
+      !/^[0-9a-f]{24}$/i.test(listingId || "")) {
+    throw new UserFacingError("That house photo action is not valid.");
+  }
+  await interaction.deferUpdate();
+  const filter = {
+    _id: listingId, guildId: interaction.guildId,
+    postMessageId: interaction.message.id, status: "active",
+  };
+  const listing = await HouseListing.findOne(filter);
+  if (!listing) throw new UserFacingError("This house is no longer available.");
+  const count = await houseGalleryCount(interaction.guildId, listing._id);
+  if (count < 2) return true;
+  const updated = await HouseListing.findOneAndUpdate(filter,
+    { $inc: { galleryPageIndex: direction === "next" ? 1 : -1 } }, { new: true });
+  if (updated) await refreshHouseStyleCard(interaction.guild, updated);
+  return true;
+}
+
 export async function handleHouseCreateButton(interaction) {
   const [, action, ownerId] = interaction.customId.split(":");
   if (action !== "new" || ownerId !== interaction.user.id) {
@@ -578,6 +599,7 @@ export async function handleSold(interaction) {
 
   try {
     await interaction.message.delete();
+    await deleteHouseGallery(interaction.guildId, listing._id);
   } catch {
     await HouseListing.updateOne(
       { _id: id, guildId: interaction.guildId, status: "sold" },
