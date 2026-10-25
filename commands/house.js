@@ -599,7 +599,6 @@ export async function handleSold(interaction) {
 
   try {
     await interaction.message.delete();
-    await deleteHouseGallery(interaction.guildId, listing._id);
   } catch {
     await HouseListing.updateOne(
       { _id: id, guildId: interaction.guildId, status: "sold" },
@@ -609,6 +608,11 @@ export async function handleSold(interaction) {
       "I couldn't remove the house ad. Check that the bot can delete its own posts in that channel, then try again.",
     );
   }
+
+  // A gallery cleanup failure must never roll back a house that has already
+  // been deleted from Discord or reactivate a now-missing public listing.
+  await deleteHouseGallery(interaction.guildId, listing._id).catch(error =>
+    console.warn("House sold; could not clean archived photos:", error));
 
   await interaction.editReply({
     content: "Marked as sold. The house advertisement has been removed.",
