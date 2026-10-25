@@ -307,6 +307,129 @@ async function openOutfitAppearanceDM(interaction, guild, listing) {
   return true;
 }
 
+export async function showHouseAppearancePicker(interaction, guild, requestedPage = 0) {
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
+  const { available, unavailable } = await findCustomizableHouses(guild, interaction.user.id);
+  if (!available.length) {
+    await interaction.editReply({
+      content: unavailable
+        ? "Your house posts could not be verified. Check channel permissions and try again."
+        : "You have no active house listings to customize. Create one in the House channel first.",
+      components: [], allowedMentions: { parse: [] },
+    });
+    return true;
+  }
+  const limit = 20;
+  const lastPage = Math.max(0, Math.ceil(available.length / limit) - 1);
+  const page = Math.max(0, Math.min(lastPage, Number(requestedPage) || 0));
+  const houses = available.slice(page * limit, (page + 1) * limit);
+  const rows = [new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`listing:housepick:${guild.id}:${interaction.user.id}:${page}`)
+      .setPlaceholder("Select one house listing to customize")
+      .addOptions(housePickerOptions(houses)),
+  )];
+  if (lastPage > 0) {
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`listing:housepage:${guild.id}:${interaction.user.id}:${page - 1}`)
+        .setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+      new ButtonBuilder().setCustomId(`listing:housepage:${guild.id}:${interaction.user.id}:${page + 1}`)
+        .setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page === lastPage),
+    ));
+  }
+  await interaction.editReply({
+    content: `**Customize Houses** — choose one listing to give it its own style. **${available.length} verified house(s)** · Page ${page + 1}/${lastPage + 1}.${unavailable ? ` ${unavailable} post(s) could not be checked and are temporarily hidden.` : ""}`,
+    components: rows, allowedMentions: { parse: [] },
+  });
+  return true;
+}
+
+export async function handleHouseAppearancePicker(interaction) {
+  const [, action, guildId, ownerId, page] = interaction.customId.split(":");
+  if (!["housepick", "housepage"].includes(action) ||
+      !/^\d{17,21}$/.test(guildId || "") ||
+      ownerId !== interaction.user.id || !/^\d+$/.test(page || "")) {
+    throw new UserFacingError("That house listing selection is not yours.");
+  }
+  if (action === "housepick" && !interaction.isStringSelectMenu()) {
+    throw new UserFacingError("Use the house listing dropdown.");
+  }
+  if (action === "housepage" && !interaction.isButton()) {
+    throw new UserFacingError("Use the house page buttons.");
+  }
+  const guild = await interaction.client.guilds.fetch(guildId);
+  const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) throw new UserFacingError("You must belong to this server to customize houses.");
+  if (action === "housepage") {
+    await interaction.deferUpdate();
+    return showHouseAppearancePicker(interaction, guild, Number(page));
+  }
+  const id = interaction.values[0];
+  if (!/^[0-9a-f]{24}$/i.test(id || "")) {
+    throw new UserFacingError("Select a valid house listing.");
+  }
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const house = await HouseListing.findOne({
+    _id: id, guildId, ownerId: interaction.user.id, status: "active",
+  });
+  if (!house) throw new UserFacingError("That house is no longer active or belongs to someone else.");
+  const check = await checkHousePost(guild, house);
+  if (check.state !== "present") {
+    throw new UserFacingError(check.state === "missing"
+      ? "That house post has been deleted, so it is no longer customizable."
+      : "I cannot verify the house's original post right now. No changes were made.");
+  }
+  return openHouseAppearanceDM(interaction, guild, house);
+}
+
+async function openHouseAppearanceDM(interaction, guild, house) {
+  const [profile, ownership] = await Promise.all([
+    UserProfile.findOne({ guildId: guild.id, discordUserId: interaction.user.id }),
+    getAppearanceOwnership(guild.id, interaction.user.id),
+  ]);
+  const result = await getOrCreateDmPanel({
+    guildId: guild.id, user: interaction.user, kind: HOUSE_EDITOR_KIND,
+    makeInitial: async () => {
+      const draft = {
+        token: newListingEditorToken(),
+        appearance: displayListingAppearance(house, profile, ownership),
+        page: "colors", selected: 0, stickerMode: "position", optionPages: {},
+      };
+      return {
+        payload: await editorPayload(house, draft, ownership, HOUSE_TARGET_TYPE),
+        fields: {
+          token: draft.token, appearanceDraft: draft.appearance,
+          appearancePage: draft.page, selectedSticker: draft.selected,
+          appearanceStickerMode: draft.stickerMode, appearanceOptionPages: draft.optionPages,
+          appearanceTargetType: HOUSE_TARGET_TYPE,
+          appearanceTargetId: String(house._id),
+        },
+      };
+    },
+  });
+  if (!result.created) {
+    if (result.panel.appearanceTargetId !== String(house._id) ||
+        result.panel.appearanceTargetType !== HOUSE_TARGET_TYPE) {
+      await interaction.editReply({
+        content: `You already have another house editor open. [Open it](${dmPanelUrl(result.message.channelId, result.message.id)}) and Save or Discard before choosing this one.`,
+        allowedMentions: { parse: [] },
+      });
+      return true;
+    }
+    await result.message.edit(await editorPayload(
+      house, readDraft(result.panel, house, profile, ownership),
+      ownership, HOUSE_TARGET_TYPE,
+    ));
+  }
+  await interaction.editReply({
+    content: `[**Open the editor for ${String(house.title).slice(0, 75)}**](${dmPanelUrl(result.message.channelId, result.message.id)}). Saving changes only this house's style.`,
+    allowedMentions: { parse: [] },
+  });
+  return true;
+}
+
 async function closeEditor(interaction, panel, messageText) {
   await MemberDmPanel.deleteOne({ _id: panel._id, token: panel.token });
   const channel = await interaction.user.createDM();
@@ -339,7 +462,7 @@ export async function handleListingAppearanceDM(interaction) {
   if (kind === "button" && field === "stickerColors") {
     const panel = await MemberDmPanel.findOne({
       botUserId: interaction.client.user.id, discordUserId: interaction.user.id,
-      kind: { $in: [EDITOR_KIND, OUTFIT_EDITOR_KIND] }, token, channelId: interaction.channelId,
+      kind: { $in: [EDITOR_KIND, OUTFIT_EDITOR_KIND, HOUSE_EDITOR_KIND] }, token, channelId: interaction.channelId,
       messageId: interaction.message?.id,
     });
     if (!panel) throw new UserFacingError("This editor is no longer active.");
@@ -363,10 +486,10 @@ export async function handleListingAppearanceDM(interaction) {
   else await interaction.deferUpdate();
   const panel = await MemberDmPanel.findOne({
     botUserId: interaction.client.user.id, discordUserId: interaction.user.id,
-    kind: { $in: [EDITOR_KIND, OUTFIT_EDITOR_KIND] }, token, channelId: interaction.channelId,
+    kind: { $in: [EDITOR_KIND, OUTFIT_EDITOR_KIND, HOUSE_EDITOR_KIND] }, token, channelId: interaction.channelId,
   });
   if (!panel || (kind !== "modal" && panel.messageId !== interaction.message?.id) ||
-      ![TARGET_TYPE, OUTFIT_TARGET_TYPE].includes(panel.appearanceTargetType) ||
+      ![TARGET_TYPE, OUTFIT_TARGET_TYPE, HOUSE_TARGET_TYPE].includes(panel.appearanceTargetType) ||
       panel.kind !== targetKind(panel.appearanceTargetType)) {
     throw new UserFacingError("This listing editor expired. Reopen it from your permanent shop DM.");
   }
@@ -374,10 +497,10 @@ export async function handleListingAppearanceDM(interaction) {
   const guild = await interaction.client.guilds.fetch(panel.guildId);
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) throw new UserFacingError("You must belong to this server to customize a listing.");
-  const model = isOutfitTarget(type) ? OutfitListing : TradingPost;
+  const model = type === HOUSE_TARGET_TYPE ? HouseListing : isOutfitTarget(type) ? OutfitListing : TradingPost;
   const post = await model.findOne({
     _id: panel.appearanceTargetId, guildId: panel.guildId, ownerId: interaction.user.id,
-    ...(isOutfitTarget(type) ? { status: "active" } : {}),
+    ...((isOutfitTarget(type) || type === HOUSE_TARGET_TYPE) ? { status: "active" } : {}),
   });
   if (!post) throw new UserFacingError(`Your ${targetLabel(type)} is no longer available.`);
   const [profile, ownership] = await Promise.all([
@@ -416,12 +539,14 @@ export async function handleListingAppearanceDM(interaction) {
     return true;
   }
   if (kind === "button" && field === "confirm") {
-    if (isOutfitTarget(type)) {
-      const presence = await checkOutfitListingMessage(guild, post);
+    if (isOutfitTarget(type) || type === HOUSE_TARGET_TYPE) {
+      const presence = type === HOUSE_TARGET_TYPE
+        ? await checkHousePost(guild, post)
+        : await checkOutfitListingMessage(guild, post);
       if (presence.state !== "present") {
         throw new UserFacingError(
           presence.state === "missing"
-            ? "This outfit was deleted from Discord, so its appearance cannot be saved."
+            ? "This listing was deleted from Discord, so its appearance cannot be saved."
             : "The original outfit post cannot be verified right now. No appearance changes were saved.",
         );
       }
@@ -436,6 +561,11 @@ export async function handleListingAppearanceDM(interaction) {
       const channel = await guild.channels.fetch(post.postChannelId);
       await ensureOutfitEntry(guild, channel, { moveToBottom: true }).catch(error =>
         console.warn("Could not move outfit entry to bottom after restyling:", error));
+    } else if (type === HOUSE_TARGET_TYPE) {
+      await refreshHouseStyleCard(guild, post);
+      const channel = await guild.channels.fetch(post.postChannelId);
+      await ensureHouseEntry(guild, channel, { moveToBottom: true }).catch(error =>
+        console.warn("Could not move House entry to bottom:", error));
     } else {
       await refreshTradingPostCard(guild, interaction.user.id);
     }
