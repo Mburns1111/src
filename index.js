@@ -40,6 +40,7 @@ import {
   handleHouseCreateModal,
   handleHouseButton,
   handleHousePageButton,
+  handleHousePhotoSelection,
   handleHouseModal,
   handleSold,
   handleHouseEntryButton,
@@ -54,6 +55,7 @@ import {
   handleOutfitModal,
   handleOutfitSold,
   handleOutfitPageButton,
+  handleOutfitPhotoSelection,
   handleLegacyOutfitGalleryButton,
   handleOutfitEntryButton,
   ensureOutfitEntry,
@@ -476,6 +478,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId.startsWith("house:sold:")) {
       const ownerId = await handleSold(interaction);
       if (ownerId) await refreshListingOwnerCards(interaction.guild, ownerId);
+      return;
+    }
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith("house:photo-select:")) {
+      await handleHousePhotoSelection(interaction);
+      return;
+    }
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith("outfit:photo-select:")) {
+      await handleOutfitPhotoSelection(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("house:page:")) {

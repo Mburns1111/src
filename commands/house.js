@@ -28,6 +28,7 @@ import {
   validateAttachments,
   validateWebUrl,
 } from "./shared.js";
+import { photoPickerResponse, selectedGalleryPage } from "../services/listing-photo-picker.js";
 import { UserFacingError } from "./errors.js";
 import { prepareMediaFiles } from "./video-compression.js";
 import { ensureChannelEntry } from "./channel-entry.js";
@@ -252,11 +253,14 @@ export async function handleHouseButton(interaction) {
 
 export async function handleHousePageButton(interaction) {
   const [, area, direction, listingId] = interaction.customId.split(":");
-  if (area !== "page" || !["prev", "next"].includes(direction) ||
+  if (area !== "page" || !["prev", "next", "choose"].includes(direction) ||
       !/^[0-9a-f]{24}$/i.test(listingId || "")) {
     throw new UserFacingError("That house photo action is not valid.");
   }
-  await interaction.deferUpdate();
+  // The dropdown is private, but its selection changes the same public
+  // gallery used by the existing Previous/Next buttons.
+  if (direction === "choose") await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  else await interaction.deferUpdate();
   const filter = {
     _id: listingId, guildId: interaction.guildId,
     postMessageId: interaction.message.id, status: "active",
@@ -264,11 +268,48 @@ export async function handleHousePageButton(interaction) {
   const listing = await HouseListing.findOne(filter);
   if (!listing) throw new UserFacingError("This house is no longer available.");
   const count = await houseGalleryCount(interaction.guildId, listing._id);
+  if (direction === "choose") {
+    await interaction.editReply(
+      count < 2
+        ? { content: "This house has only one photo.", components: [] }
+        : photoPickerResponse("house", listing, count, interaction.message.id),
+    );
+    return true;
+  }
   if (count < 2) return true;
   const updated = await HouseListing.findOneAndUpdate(filter,
     { $inc: { galleryPageIndex: direction === "next" ? 1 : -1 } }, { new: true });
   if (updated) await refreshHouseStyleCard(interaction.guild, updated);
   return true;
+}
+
+
+/** One private dropdown selection updates the existing public house card. */
+export async function handleHousePhotoSelection(interaction) {
+  const [, area, listingId, postId] = interaction.customId.split(":");
+  if (area !== "photo-select" || !/^[0-9a-f]{24}$/i.test(listingId ?? "") ||
+      !/^\d{17,20}$/.test(postId ?? "")) {
+    throw new UserFacingError("That house photo picker is no longer valid.");
+  }
+  await interaction.deferUpdate();
+  const filter = {
+    _id: listingId, guildId: interaction.guildId, status: "active",
+    postMessageId: postId,
+  };
+  const listing = await HouseListing.findOne(filter);
+  if (!listing) throw new UserFacingError("That house listing is no longer active.");
+  const count = await houseGalleryCount(interaction.guildId, listing._id);
+  const page = selectedGalleryPage(interaction, count);
+  if (page !== (listing.galleryPageIndex ?? 0)) {
+    const updated = await HouseListing.findOneAndUpdate(
+      filter, { $set: { galleryPageIndex: page } }, { new: true });
+    if (!updated) throw new UserFacingError("That house listing is no longer available.");
+    await refreshHouseStyleCard(interaction.guild, updated);
+  }
+  await interaction.editReply({
+    content: \`Showing house photo \${page + 1} of \${count} on the public listing.\`,
+    components: [], allowedMentions: { parse: [] },
+  });
 }
 
 export async function handleHouseCreateButton(interaction) {

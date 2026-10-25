@@ -21,6 +21,9 @@ export function outfitActionComponents(listing, photoCount = 0) {
       new ButtonBuilder()
         .setCustomId(`outfit:page:next:${String(listing._id)}`)
         .setLabel("Next ▶").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`outfit:page:choose:${String(listing._id)}`)
+        .setLabel("Choose photo").setStyle(ButtonStyle.Secondary),
     ));
   }
   rows.push(new ActionRowBuilder().addComponents(
