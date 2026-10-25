@@ -26,7 +26,7 @@ const originalVideo = (n = 1) => ({
 const listing = overrides => ({
   _id: id, guildId, ownerId: "555555555555555555", status: "active",
   title: "Pretty house", ownerName: "Seller", postChannelId: channelId,
-  postMessageId: postId, mediaMessageId: "", mediaAttachments: [],
+  postMessageId: postId, mediaMessageId: "", mediaAttachments: [], cardLayoutVersion: 1,
   interestedUserIds: [], notifyOnInterest: false, ...overrides,
 });
 const sourcePost = (...assets) => ({
