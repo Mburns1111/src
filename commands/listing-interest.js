@@ -45,7 +45,7 @@ export async function handleListingInterest(
     if (!updated) {
       throw new UserFacingError(`This ${listingType} listing is no longer active.`);
     }
-    await interaction.message.edit({ components: makeComponents(updated) });
+    await interaction.message.edit({ components: await makeComponents(updated) });
     await interaction.editReply({
       content: `Interest DMs are now ${updated.notifyOnInterest ? "on" : "off"} for this listing.`,
       allowedMentions: { parse: [] },
@@ -77,7 +77,7 @@ export async function handleListingInterest(
     throw new UserFacingError("Your interest changed at the same time. Please tap the button again.");
   }
 
-  await interaction.message.edit({ components: makeComponents(updated) });
+  await interaction.message.edit({ components: await makeComponents(updated) });
   let notificationMessage = "";
   if (!wasInterested && updated.notifyOnInterest) {
     try {
