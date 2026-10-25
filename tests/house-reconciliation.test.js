@@ -20,7 +20,7 @@ const listing = (overrides={}) => ({
 const correct = {
   author: { id: botId }, embeds: [],
   attachments: new Map([[1, { name: "house-style-card.png" }]]),
-  components: [{ components: ["sold","media","interest","notify"].map(action => ({
+  components: [{ components: ["sold","interest","notify"].map(action => ({
     customId: `house:${action}:${id}`,
   })) }],
 };
@@ -36,7 +36,7 @@ test("startup upgrades old houses but leaves unavailable and already-current rec
   const refreshed = [];
   const currentFor = house => ({
     ...correct,
-    components: [{ components: ["sold","media","interest","notify"].map(action => ({
+    components: [{ components: ["sold","interest","notify"].map(action => ({
       customId: `house:${action}:${house._id}`,
     })) }],
   });
