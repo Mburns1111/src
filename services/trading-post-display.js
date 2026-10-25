@@ -1,8 +1,9 @@
-import { AttachmentBuilder, EmbedBuilder } from "discord.js";
+import { AttachmentBuilder } from "discord.js";
 
 /**
- * Styled Trading Posts need exactly ONE embed. Related cards and inventory
- * links are available as clickable Markdown text beneath the preview.
+ * Trading Post artwork is a regular uploaded PNG, not a Discord embed.
+ * Always include embeds: [] so editing an old styled/legacy card removes
+ * its previous embeds. attachments: [] replaces the old image on refresh.
  */
 export function tradingPostCardPayload(cardImage, linkLines, components) {
   const lines = Array.isArray(linkLines) ? linkLines.filter(Boolean) : [];
@@ -13,9 +14,23 @@ export function tradingPostCardPayload(cardImage, linkLines, components) {
   }
   return {
     content,
-    embeds: [new EmbedBuilder().setColor(0x819287)
-      .setImage("attachment://trading-post-card.png")],
+    embeds: [],
     files: [new AttachmentBuilder(cardImage, { name: "trading-post-card.png" })],
+    attachments: [],
+    components,
+    allowedMentions: { parse: [] },
+  };
+}
+
+/**
+ * Private previews use the same attachment display. They keep the editable
+ * controls and are updated in-place when a style changes.
+ */
+export function tradingPostPreviewPayload(previewImage, content, components) {
+  return {
+    content,
+    embeds: [],
+    files: [new AttachmentBuilder(previewImage, { name: "trading-post-preview.png" })],
     attachments: [],
     components,
     allowedMentions: { parse: [] },
