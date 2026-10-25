@@ -66,6 +66,7 @@ import {
 import { execute as executeSetup, data as setupCommand } from "./commands/setup.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker } from "./commands/listing-appearance-editor.js";
+import { handleOutfitGalleryButton } from "./services/outfit-gallery.js";
 import { execute as executeTestPoints, data as testPointsCommand } from "./commands/test-points.js";
 import { execute as executePointsAdmin, data as pointsAdminCommand } from "./commands/points-admin.js";
 import { execute as executePointsObserve, data as pointsObserveCommand } from "./commands/points-observe.js";
@@ -418,6 +419,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId.startsWith("house:sold:")) {
       const ownerId = await handleSold(interaction);
       if (ownerId) await refreshListingOwnerCards(interaction.guild, ownerId);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("outfit:gallery:")) {
+      await handleOutfitGalleryButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("outfit:sold:")) {
