@@ -1,0 +1,38 @@
+name: Bot CI and Deployment Preflight
+# Read-only checks; no tokens, database access, bot login or slash registration.
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: Node ${{ matrix.node-version }} checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - name: Install dependencies without install scripts
+        run: npm ci --ignore-scripts
+      - name: Verify preflight without credentials
+        run: npm run preflight -- --static
+      - name: Syntax and relative-import check
+        run: npm run check:source
+      - name: Full automated test suite
+        run: npm test
