@@ -33,6 +33,20 @@ async function deleteStoredPhoto(bucket, fileId) {
   try {
     await bucket.delete(fileId);
   } catch (error) {
+    // An interrupted GridFS upload may leave orphan chunks without a files
+    // document. bucket.delete cannot remove those and reports FileNotFound.
+    // Remove only chunks for this exact upload ID, never another photo.
+    if (Number(error?.code) === 26 ||
+        ["FileNotFound", "MongoGridFSFileNotFoundError"].includes(error?.name) ||
+        error?.message === "FileNotFound") {
+      try {
+        await mongoose.connection.db.collection(`${profilePhotoBucketName}.chunks`)
+          .deleteMany({ files_id: fileId });
+      } catch (cleanupError) {
+        console.error("[Media] Could not remove interrupted GridFS chunks:", cleanupError);
+      }
+      return;
+    }
     console.error(`Could not clean up profile photo ${fileId}:`, error);
   }
 }

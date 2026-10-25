@@ -14,7 +14,7 @@ function fakeLock() {
   const LockModel = {
     init: async () => {},
     updateOne: async (filter, change) => {
-      if (held && expiresAt > filter.$or[1].expiresAt.getTime()) {
+      if (held && expiresAt > filter.$or[1].expiresAt.$lte.getTime()) {
         throw Object.assign(new Error("duplicate key"), { code: 11000 });
       }
       held = true; expiresAt = change.$set.expiresAt.getTime();
