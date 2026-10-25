@@ -8,7 +8,7 @@ import { houseActionComponents } from "./house-components.js";
 import { archiveExistingHousePhotos, getHouseGalleryPage } from "./house-gallery.js";
 import { houseVideoAssets, deleteHouseMediaMessage, mergedHouseMediaMetadata } from "./house-media.js";
 import { prepareMediaFiles } from "../commands/video-compression.js";
-import { renderPostImage } from "./post-renderer.js";
+import { renderListingCardCached } from "./listing-render-cache.js";
 import { houseArtworkIsEmbedded } from "./house-artwork.js";
 
 const refreshQueue = new Map();
@@ -84,7 +84,7 @@ export async function refreshHouseStyleCard(guild, listing) {
       UserProfile.findOne({ guildId: guild.id, discordUserId: current.ownerId }),
       getAppearanceOwnership(guild.id, current.ownerId),
     ]);
-    const image = await renderPostImage({
+    const image = await renderListingCardCached({
       type: "house",
       data: {
         ...houseCardData(current),
