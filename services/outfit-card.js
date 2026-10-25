@@ -71,6 +71,15 @@ export async function refreshOutfitStyleCard(guild, listing) {
     }
     if (stored) await ensureOutfitGallery(guild, listing);
 
+    // Preserve source metadata in Mongo BEFORE Discord's public attachment
+    // list is reduced to the banner and videos. This is also needed for
+    // reliable 10-file limits when migrating listings from older versions.
+    const merged = mergeOriginalMedia(listing.mediaAttachments, sources);
+    if (merged.length !== (listing.mediaAttachments?.length || 0)) {
+      listing.mediaAttachments = merged;
+      await listing.save();
+    }
+
     const [profile, ownership] = await Promise.all([
       UserProfile.findOne({ guildId: guild.id, discordUserId: listing.ownerId }),
       getAppearanceOwnership(guild.id, listing.ownerId),
