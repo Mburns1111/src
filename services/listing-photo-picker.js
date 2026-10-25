@@ -19,19 +19,19 @@ export function photoPickerResponse(type, listing, count, postMessageId) {
     ? 0 : Math.min(Math.max(0, current - 12), count - MAX_GALLERY_PICKER_OPTIONS);
   const limit = Math.min(MAX_GALLERY_PICKER_OPTIONS, count);
   const options = Array.from({ length: limit }, (_, offset) => ({
-    label: \`Photo \${start + offset + 1}\`,
+    label: `Photo ${start + offset + 1}`,
     value: String(start + offset),
     default: start + offset === current,
   }));
   return {
-    content: \`Choose a \${type} photo to show on the public listing.\` +
+    content: `Choose a ${type} photo to show on the public listing.` +
       (count > limit
-        ? \` Showing photos \${start + 1}–\${start + limit} of \${count}. Use Previous/Next to reach another range.\`
+        ? ` Showing photos ${start + 1}–${start + limit} of ${count}. Use Previous/Next to reach another range.`
         : ""),
     components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
-          .setCustomId(\`\${type}:photo-select:\${listing._id}:\${postMessageId}\`)
+          .setCustomId(`${type}:photo-select:${listing._id}:${postMessageId}`)
           .setPlaceholder("Jump directly to a photo…")
           .setMinValues(1)
           .setMaxValues(1)

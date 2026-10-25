@@ -20,7 +20,7 @@ test("public gallery keeps count and Previous/Next while adding direct photo acc
     assert.equal(rows.length,2);
     assert.deepEqual(rows[0].map(button=>button.label),
       ["◀ Previous","Photo 3 / 6","Next ▶","Choose photo"]);
-    assert.equal(rows[0][3].custom_id,\`\${kind}:page:choose:\${id}\`);
+    assert.equal(rows[0][3].custom_id,`${kind}:page:choose:${id}`);
     assert.equal(rows[1].length,3,"Existing seller/member actions remain intact");
   }
 });
@@ -29,7 +29,7 @@ test("a picker offers every photo with only the selected number preselected",()=
   for(const kind of ["house","outfit"]) {
     const p=photoPickerResponse(kind,listing,6,postId);
     const menu=p.components[0].toJSON().components[0];
-    assert.equal(menu.custom_id,\`\${kind}:photo-select:\${id}:\${postId}\`);
+    assert.equal(menu.custom_id,`${kind}:photo-select:${id}:${postId}`);
     assert.deepEqual(menu.options.map(item=>item.value),["0","1","2","3","4","5"]);
     assert.equal(menu.options.filter(x=>x.default).length,1);
     assert.equal(menu.options[2].default,true);
@@ -63,7 +63,7 @@ function fakeButton(kind) {
   const calls=[];
   const i={
     guildId,message:{id:postId},
-    customId:\`\${kind}:page:choose:\${id}\`,calls,
+    customId:`${kind}:page:choose:${id}`,calls,
     async deferReply(arg){calls.push({method:"defer",arg})},
     async editReply(arg){calls.push({method:"edit",arg})},
     async deferUpdate(){calls.push({method:"update"})},
@@ -96,7 +96,7 @@ test("old and forged photo pickers reject invalid listing IDs before any edits",
     ["outfit",handleOutfitPhotoSelection],
   ]) {
     const i={
-      customId:\`\${kind}:photo-select:short:\${postId}\`,
+      customId:`${kind}:photo-select:short:${postId}`,
       values:["0"],
       async deferUpdate(){throw new Error("Must not acknowledge malformed input")},
     };

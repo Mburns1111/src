@@ -8,7 +8,7 @@
 - Videos and original stored gallery images are never deleted or moved by the picker.
 
 ## Test in Replit
-1. Switch to the Phase 5 branch and run \`npm run check:source\`, \`npm test\`, and \`npm start\`.
+1. Switch to the Phase 5 branch and run `npm run check:source`, `npm test`, and `npm start`.
 2. Open an outfit with at least three photos; click **Choose photo** and choose the last photo. Confirm the original public card changes and the dropdown closes.
 3. Repeat with a house listing. Try Previous/Next afterward.
 4. Have another member use the picker; confirm that the public gallery updates for everyone and existing Interested / seller controls continue working.
