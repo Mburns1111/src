@@ -19,6 +19,8 @@ const outfitListingSchema = new mongoose.Schema(
     // Styled PNG lives in a bot reply, preserving all ten gallery slots.
     styleCardMessageId: { type: String, default: "" },
     galleryMessageId: { type: String, default: "" },
+    // Separate controls message follows the gallery below the styled banner.
+    controlsMessageId: { type: String, default: "" },
     galleryPageIndex: { type: Number, default: 0 },
     status: { type: String, enum: ["active", "sold"], default: "active" },
     soldAt: { type: Date, default: null },
