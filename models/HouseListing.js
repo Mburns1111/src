@@ -20,6 +20,11 @@ const houseListingSchema = new mongoose.Schema(
     cardLayoutVersion: { type: Number, default: 0 },
     postChannelId: { type: String, default: "" },
     postMessageId: { type: String, default: "" },
+    // New posts begin in staging. Older records without this field are
+    // treated as published so existing members' listings are unaffected.
+    publicationState: { type: String, enum: ["staging", "published"], default: "published" },
+    expectedPhotoCount: { type: Number, default: 0 },
+    expectedVideoCount: { type: Number, default: 0 },
     // Playable house videos live in a second bot message beneath the card.
     mediaMessageId: { type: String, default: "" },
     status: { type: String, enum: ["active", "sold", "missing"], default: "active" },

@@ -83,10 +83,6 @@ import PointsSettings from "./models/PointsSettings.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
-  execute as executeMigrateOldPosts,
-  data as migrateOldPostsCommand,
-} from "./commands/migrate-old-posts.js";
-import {
   handleTradingPostCardButton,
   handleTradingPostEntryButton,
   handleTradingPostModal,
@@ -94,11 +90,16 @@ import {
   ensureTradingPostEntry,
 } from "./commands/trading-post.js";
 import { getInteractionErrorMessage, UserFacingError } from "./commands/errors.js";
+import { resumePendingTradingPostDeletes } from "./services/trading-post-deletion.js";
+import { recoverStagedListingPosts } from "./services/listing-publication-recovery.js";
 import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/temporary-dm-notice.js";
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
 import UserProfile from "./models/UserProfile.js";
-import { cleanupPendingForms } from "./commands/pending-forms.js";
+import { cleanupPendingForms, handleRemovePendingForm } from "./commands/pending-forms.js";
+import { forgetHouseForm } from "./commands/house.js";
+import { forgetOutfitForm } from "./commands/outfit.js";
+import { forgetTradeForm } from "./commands/trade.js";
 
 const token = process.env.DISCORD_TOKEN;
 const mongoUri = process.env.MONGODB_URI;
@@ -239,7 +240,6 @@ const commandHandlers = new Map([
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
   [helpCommand.name, executeHelp],
-  ["migrate_old_posts", executeMigrateOldPosts],
 ]);
 
 let startupMaintenancePromise = Promise.resolve();
@@ -309,6 +309,17 @@ client.once(Events.ClientReady, (readyClient) => {
   console.log(`Bot is online as ${readyClient.user.tag}.`);
   startupMaintenancePromise = (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
+      try {
+        await resumePendingTradingPostDeletes(guild);
+      } catch (error) {
+        console.error(`Could not resume Trading Post deletions for guild ${guild.id}:`, error);
+      }
+      try {
+        const publication = await recoverStagedListingPosts(guild);
+        if (publication.scanned) console.log("[Publication recovery]", guild.id, publication);
+      } catch (error) {
+        console.error(`Could not recover staged house/outfit posts for guild ${guild.id}:`, error);
+      }
       try {
         await cleanupPendingForms(guild);
       } catch (error) {
@@ -397,6 +408,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("listing:dm:")) {
       await handleListingAppearanceDM(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("form:remove:")) {
+      await handleRemovePendingForm(interaction, {
+        forget: (type, guildId, ownerId, messageId, channelId) => {
+          if (type === "house") forgetHouseForm(guildId, ownerId, messageId, channelId);
+          if (type === "outfit") forgetOutfitForm(guildId, ownerId, messageId, channelId);
+          if (type === "trade") forgetTradeForm(guildId, ownerId, messageId, channelId);
+        },
+      });
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("house:new:")) {

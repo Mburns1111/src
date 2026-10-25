@@ -117,15 +117,19 @@ export async function ensureHouseMediaMessage(guild, listing, original, {
 }
 
 export async function deleteHouseMediaMessage(guild, listing) {
-  if (!listing.mediaMessageId || listing.mediaMessageId === listing.postMessageId) return;
+  if (!listing.mediaMessageId || listing.mediaMessageId === listing.postMessageId) return true;
   try {
     const channel = await guild.channels.fetch(listing.postChannelId);
     const message = await channel?.messages?.fetch(listing.mediaMessageId);
     if (message?.author?.id === guild.client.user.id) await message.delete();
-    else if (message) console.warn("Skipping non-bot house media message:", listing.mediaMessageId);
+    else if (message) {
+      console.warn("Skipping non-bot house media message:", listing.mediaMessageId);
+      return false;
+    }
   } catch (error) {
     if (![10003, 10008].includes(Number(error?.code))) throw error;
   }
+  return true;
 }
 
 /**

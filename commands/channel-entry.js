@@ -91,47 +91,39 @@ async function ensureChannelEntryOnce(
     }
   }
 
-  // Create a replacement entry owned by this bot.
+  // Do not retire the old button until the new one is saved in MongoDB.
+  // This order makes a failed database write recoverable.
   const message = await channel.send(payload);
-
   try {
-    // Delete the old entry only after the replacement was successfully sent.
-    if (oldChannelId && oldMessageId) {
-      try {
-        const oldChannel = await guild.channels.fetch(oldChannelId);
-        const oldMessage = await oldChannel?.messages?.fetch(oldMessageId);
-
-        // Only delete the old entry if it belongs to this bot.
-        // Messages authored by the previous bot are left untouched.
-        if (oldMessage?.author.id === guild.client.user.id) {
-          await oldMessage.delete();
-        }
-      } catch (error) {
-        if (![10003, 10008].includes(Number(error?.code))) {
-          throw error;
-        }
-      }
-    }
-
-    await GuildConfig.updateOne(
+    const result = await GuildConfig.updateOne(
       { guildId: guild.id },
-      {
-        $set: {
-          [channelField]: channel.id,
-          [messageField]: message.id,
-        },
-      },
+      { $set: { [channelField]: channel.id, [messageField]: message.id } },
+      { upsert: true },
     );
+    if (result.acknowledged === false) {
+      throw new Error("Entry reference update was not acknowledged.");
+    }
   } catch (error) {
-    await message.delete().catch((deleteError) => {
-      console.error(
-        `Could not remove the replacement ${label} entry message:`,
-        deleteError,
-      );
+    await message.delete().catch(cleanupError => {
+      console.error(`Could not delete untracked ${label} entry:`, cleanupError);
     });
-
     throw error;
   }
 
+  // Failure to remove a previous message is nonfatal: the new entry
+  // and its persisted reference remain valid.
+  if (oldChannelId && oldMessageId && oldMessageId !== message.id) {
+    try {
+      const oldChannel = await guild.channels.fetch(oldChannelId);
+      const oldMessage = await oldChannel?.messages?.fetch(oldMessageId);
+      if (oldMessage?.author?.id === guild.client.user.id) {
+        await oldMessage.delete();
+      }
+    } catch (error) {
+      if (![10003, 10008].includes(Number(error?.code))) {
+        console.warn(`Could not retire prior ${label} entry; new entry remains available:`, error);
+      }
+    }
+  }
   return message;
 }

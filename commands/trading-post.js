@@ -14,6 +14,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import HouseListing from "../models/HouseListing.js";
 import OutfitListing from "../models/OutfitListing.js";
 import TradingPost from "../models/TradingPost.js";
+import { finalizeTradingPostDeletion } from "../services/trading-post-deletion.js";
 import { awardMilestoneSafely } from "../services/points-rewards.js";
 import UserProfile from "../models/UserProfile.js";
 import { displayListingAppearance, snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
@@ -216,7 +217,7 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     HouseListing.find({
       guildId: guild.id,
       ownerId: post.ownerId,
-      status: "active",
+      status: "active", publicationState: { $ne: "staging" },
       postChannelId: { $ne: "" },
       postMessageId: { $ne: "" },
     })
@@ -227,7 +228,7 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     OutfitListing.find({
       guildId: guild.id,
       ownerId: post.ownerId,
-      status: "active",
+      status: "active", publicationState: { $ne: "staging" },
       postChannelId: { $ne: "" },
       postMessageId: { $ne: "" },
     })
@@ -305,6 +306,7 @@ export async function refreshTradingPostCard(guild, ownerId) {
   const tradingPost = await TradingPost.findOne({
     guildId: guild.id,
     ownerId,
+    deletePending: { $ne: true },
   });
   if (!tradingPost) return null;
 
@@ -346,6 +348,7 @@ export async function refreshTradingPostCard(guild, ownerId) {
   tradingPost.robloxName = profile?.adoptMeUsername ?? "";
 
   let message;
+  let newlySent = false;
 
   if (tradingPost.postChannelId === channel.id && tradingPost.postMessageId) {
     try {
@@ -370,9 +373,16 @@ export async function refreshTradingPostCard(guild, ownerId) {
     );
     tradingPost.postChannelId = channel.id;
     tradingPost.postMessageId = message.id;
+    newlySent = true;
   }
 
-  await tradingPost.save();
+  try {
+    await tradingPost.save();
+  } catch (error) {
+    if (newlySent) await message.delete().catch(cleanupError =>
+      console.warn("[Trading Post] Untracked replacement could not be removed:", cleanupError));
+    throw error;
+  }
 
   // Leave messages authored by the old bot untouched.
   // Delete an earlier card only if this bot authored it.
@@ -401,6 +411,9 @@ export async function handleTradingPostEntryButton(interaction) {
     guildId: interaction.guildId,
     ownerId: interaction.user.id,
   });
+  if (tradingPost?.deletePending) {
+    throw new UserFacingError("Your Trading Post is being deleted. Ask a server manager to check recovery if it persists.");
+  }
 
   await interaction.showModal(
     makeTradingPostModal(interaction.user.id, tradingPost),
@@ -424,6 +437,7 @@ export async function handleTradingPostCardButton(interaction) {
     ownerId,
     postChannelId: interaction.channelId,
     postMessageId: interaction.message.id,
+    deletePending: { $ne: true },
   });
 
   if (!post) {
@@ -449,13 +463,27 @@ export async function handleTradingPostCardButton(interaction) {
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    await interaction.message.delete();
-    await TradingPost.deleteOne({ _id: post._id });
-
-    await interaction.editReply({
-      content: "Your Trading Post card was deleted.",
-      allowedMentions: { parse: [] },
-    });
+    const reserved = await TradingPost.findOneAndUpdate({
+      _id: post._id, guildId: interaction.guildId, ownerId,
+      postMessageId: interaction.message.id, deletePending: { $ne: true },
+    }, { $set: { deletePending: true } }, { returnDocument: "after" });
+    if (!reserved) throw new UserFacingError("This Trading Post was already removed.");
+    try {
+      await finalizeTradingPostDeletion(interaction.guild, reserved, {
+        knownMessage: interaction.message,
+      });
+      await interaction.editReply({
+        content: "Your Trading Post card was deleted.",
+        allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      // Keep the tombstone: startup recovery can finish this safely.
+      console.error("[Trading Post] Deletion queued for retry:", error);
+      await interaction.editReply({
+        content: "Your deletion request was saved, but cleanup couldn't finish. The bot will retry after its next restart. Ask a server manager if the post remains.",
+        allowedMentions: { parse: [] },
+      });
+    }
 
     return;
   }
@@ -531,6 +559,9 @@ export async function handleTradingPostModal(interaction) {
   }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  if (await TradingPost.exists({ guildId: interaction.guildId, ownerId, deletePending: true })) {
+    throw new UserFacingError("Your previous Trading Post deletion is still pending. It cannot be recreated yet.");
+  }
 
   const config = await GuildConfig.findOne({ guildId: interaction.guildId });
 

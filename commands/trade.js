@@ -28,6 +28,9 @@ import { ensureChannelEntry } from "./channel-entry.js";
 import {
   clearPendingForm,
   trackPendingForm,
+  addRemoveFormButton,
+  claimPendingFormOperation,
+  releasePendingFormOperation,
 } from "./pending-forms.js";
 
 export const data = new SlashCommandBuilder()
@@ -38,6 +41,11 @@ const activeTradeSubmissions = new Set();
 const openedTradeForms = new Set();
 const pendingTradeForms = new Map();
 const creatingTradeForms = new Set();
+export function forgetTradeForm(guildId, ownerId, messageId, channelId) {
+  const key = `${guildId}:${ownerId}`;
+  if (pendingTradeForms.get(key)?.messageId === messageId) pendingTradeForms.delete(key);
+  openedTradeForms.delete(`${guildId}:${channelId}:${messageId}`);
+}
 const tradeFormLifetimeMs = 60_000;
 const tradeModalLifetimeMs = 15 * 60_000;
 
@@ -63,12 +71,12 @@ export async function handleTradeVoteEntryButton(interaction) {
 }
 
 function makeCreateTradeButton(userId, expiresAt) {
-  return new ActionRowBuilder().addComponents(
+  return addRemoveFormButton(new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`trade:new:${userId}:${expiresAt}`)
       .setLabel("Create trade vote")
       .setStyle(ButtonStyle.Success),
-  );
+  ), "trade", userId);
 }
 
 function makeCreateTradeModal(userId, message, expiresAt) {
@@ -418,6 +426,9 @@ export async function handleTradeCreateModal(interaction) {
   if (activeTradeSubmissions.has(submissionKey)) {
     throw new UserFacingError("This trade vote is already being submitted.");
   }
+  if (!claimPendingFormOperation(interaction.guildId, channelId, messageId)) {
+    throw new UserFacingError("This form is already being submitted or removed.");
+  }
   activeTradeSubmissions.add(submissionKey);
 
   let post;
@@ -491,6 +502,7 @@ export async function handleTradeCreateModal(interaction) {
     throw error;
   } finally {
     activeTradeSubmissions.delete(submissionKey);
+    releasePendingFormOperation(interaction.guildId, channelId, messageId);
   }
 
   await interaction.editReply({
@@ -515,8 +527,14 @@ async function publishTradeListing(interaction, { title, picture, video, videoUr
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
     title,
     videoUrl,
+    // The original bot-authored form is the final public post. Persist its
+    // coordinates before publishing so a later metadata error cannot leave
+    // a visible post with no corresponding database record.
+    postChannelId: post.channelId,
+    postMessageId: post.id,
   });
   let cleanup = async () => {};
+  let published = false;
   try {
     const prepared = await prepareMediaFiles(
       video ? [picture, video] : [picture],
@@ -531,6 +549,7 @@ async function publishTradeListing(interaction, { title, picture, video, videoUr
       files: prepared.files,
       allowedMentions: { parse: [] },
     });
+    published = true;
     listing.postChannelId = updatedPost.channelId;
     listing.postMessageId = updatedPost.id;
     listing.mediaAttachments = getMessageMedia(updatedPost);
@@ -539,10 +558,17 @@ async function publishTradeListing(interaction, { title, picture, video, videoUr
       listing.coverImageName;
     await listing.save();
   } catch (error) {
-    await TradeListing.deleteOne({ _id: listing._id }).catch(() => {});
-    throw error;
+    if (!published) {
+      await TradeListing.deleteOne({ _id: listing._id }).catch(cleanupError =>
+        console.error("Could not remove unfinished trade listing:", cleanupError));
+      throw error;
+    }
+    // The public post is already live. Never clear the record or restore a
+    // create form over it simply because the optional metadata save failed.
+    // The persisted channel/message IDs allow normal voting and later repair.
+    console.error("[Trade] Public post saved; media metadata needs refresh:", error);
   } finally {
-    await cleanup();
+    await cleanup().catch(error => console.warn("[Trade] Temporary media cleanup failed:", error));
   }
   await awardMilestoneSafely(interaction.guildId, interaction.user.id,
     "tradeFirstListing", String(listing._id));

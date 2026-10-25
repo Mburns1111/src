@@ -14,6 +14,8 @@ const tradingPostSchema = new mongoose.Schema(
     postAppearance: { type: mongoose.Schema.Types.Mixed, default: null },
     postChannelId: { type: String, default: "" },
     postMessageId: { type: String, default: "" },
+    // Durable tombstone prevents republishing a card during deletion recovery.
+    deletePending: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

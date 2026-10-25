@@ -69,8 +69,8 @@ export async function execute(interaction) {
     })
       .select("discordUserId")
       .lean(),
-    HouseListing.find(guildQuery("active")),
-    OutfitListing.find(guildQuery("active")),
+    HouseListing.find({ ...guildQuery("active"), publicationState: { $ne: "staging" } }),
+    OutfitListing.find({ ...guildQuery("active"), publicationState: { $ne: "staging" } }),
     TradeListing.find(guildQuery("open")),
     TradingPost.find({
       guildId: interaction.guildId,

@@ -70,13 +70,14 @@ test("no post-creation Add Pictures/Video button is published", () => {
     "Mark sold", "Interested (0)", "Interest DMs: Off",
   ]);
   const photoOnly = houseCardPayload(house, { count: 3 }, Buffer.from("fake"));
-  const videoOnly = houseCardPayload({ ...house, mediaMessageId: "555555555555555555" }, { count: 0 }, Buffer.from("fake"));
+  const videoOnly = houseCardPayload(house, { count: 0 }, Buffer.from("fake"),
+    [{ id: "555555555555555555", name: "tour.mp4", contentType: "video/mp4" }]);
   assert.equal(photoOnly.components.length, 2);
   assert.equal(videoOnly.components.length, 1);
-  assert.deepEqual(videoOnly.attachments, [], "Videos are deliberately NOT attached to the house artwork post");
-  assert.match(videoOnly.content, /Watch house video tour/);
-  assert.deepEqual(photoOnly.embeds, []);
-  assert.deepEqual(videoOnly.embeds, []);
+  assert.deepEqual(videoOnly.attachments, [{ id: "555555555555555555" }]);
+  assert.doesNotMatch(videoOnly.content, /Watch house video tour/);
+  assert.equal(photoOnly.embeds[0].toJSON().image.url, "attachment://house-style-card.png");
+  assert.equal(videoOnly.embeds[0].toJSON().image.url, "attachment://house-style-card.png");
 });
 
 test("old public Add pictures/video button responds safely and does not touch Mongo or media", async () => {
@@ -102,7 +103,8 @@ test("old house upload modal submits safely without updating the original listin
 
 test("startup repair detects legacy house cards with obsolete Add Pictures/video control", () => {
   const bot = {
-    embeds: [], attachments: new Map([[1, { name: "house-style-card.png" }]]),
+    embeds: [{ image: { url: "attachment://house-style-card.png" } }],
+    attachments: new Map([[1, { name: "house-style-card.png" }]]),
     components: [{
       components: ["sold", "media", "interest", "notify"].map(action => ({
         customId: `house:${action}:${houseId}`,
@@ -112,5 +114,5 @@ test("startup repair detects legacy house cards with obsolete Add Pictures/video
   assert.equal(houseNeedsFormatUpgrade(house, bot), true);
   bot.components[0].components = bot.components[0].components
     .filter(x => !x.customId.includes(":media:"));
-  assert.equal(houseNeedsFormatUpgrade(house, bot), false);
+  assert.equal(houseNeedsFormatUpgrade({ ...house, cardLayoutVersion: 2 }, bot), false);
 });
