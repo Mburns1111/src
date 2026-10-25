@@ -91,6 +91,14 @@ export async function refreshHouseStyleCard(guild, listing) {
       appearance: displayListingAppearance(current, profile, ownership),
     });
     const updated = await original.edit(houseCardPayload(current, photos, image));
+    // Mark successful compact rendering so startup reconciliation can
+    // upgrade older 1200×860 house cards automatically, not only on Save.
+    if ((current.cardLayoutVersion ?? 0) < 1) {
+      await HouseListing.updateOne({
+        _id: current._id, guildId: guild.id, status: "active",
+        postMessageId: current.postMessageId,
+      }, { $set: { cardLayoutVersion: 1 } });
+    }
     // Prevent accidental thumbnail tiling if discord.js edit semantics change.
     if (Array.from(updated.attachments.values()).some(item => item.name !== HOUSE_ART_NAME)) {
       console.warn("[House] Extra attachment remained on decorated card", String(current._id));
