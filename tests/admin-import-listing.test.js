@@ -71,6 +71,16 @@ test("command refuses non-manager before showing any form",async()=>{
   await assert.rejects(execute(i),/Only a server manager/);
   assert.equal(getModal(),null);
 });
+test("admin modal opens promptly without waiting for a Discord member API request",async()=>{
+  const {i,getModal}=fakeAdmin();
+  i.options.getUser=()=>({id:ownerId,bot:false,username:"MigratedMember"});
+  i.guild.members.fetch=async()=>{ throw new Error("Modal must not wait for member lookup"); };
+  await execute(i);
+  const modal=getModal().toJSON();
+  assert.match(modal.title,/MigratedMember/);
+  assert.equal(claimAdminImportTicket(modal.custom_id,i).ownerId,ownerId);
+});
+
 test("command cannot assign the listing to a bot account",async()=>{
   const {i,getModal}=fakeAdmin();
   i.options.getUser=()=>({id:botId,bot:true});
