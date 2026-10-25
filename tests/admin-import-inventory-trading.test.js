@@ -144,7 +144,7 @@ test("Trading Post pending deletion blocks migration, preserving tombstone",asyn
   GuildConfig.findOne=async()=>({tradingPostChannelId:"222222222222222222"});
   TradingPost.findOne=async()=>({deletePending:true});
   const interaction={
-    guildId,guild:{channels:{fetch:async()=>({isTextBased:()=>true})}},
+    guildId,guild:{channels:{fetch:async()=>({isTextBased:()=>true,send:async()=>{}})}},
   };
   try{
     await assert.rejects(importTradingPostForMember(interaction,{
