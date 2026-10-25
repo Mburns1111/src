@@ -44,7 +44,7 @@ test("admin-import is a ManageGuild-only command with target member options",()=
   const json=data.toJSON();
   assert.equal(json.name,"admin-import");
   assert.equal(json.default_member_permissions,String(PermissionFlagsBits.ManageGuild));
-  assert.deepEqual(json.options.map(x=>x.name),["house","outfit"]);
+  assert.deepEqual(json.options.map(x=>x.name),["house","outfit","inventory","trading"]);
   for(const option of json.options){
     const user=option.options.find(o=>o.name==="member");
     assert.ok(user?.required);
