@@ -1,5 +1,6 @@
 
 import "dotenv/config";
+import { validateRuntimeConfiguration } from "./services/runtime-configuration.js";
 import { REST, Routes } from "discord.js";
 import { data as profileCommand } from "./commands/profile.js";
 import { data as profileCleanupCommand } from "./commands/profile-cleanup.js";
@@ -19,9 +20,8 @@ const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
 const guildId = process.env.DISCORD_GUILD_ID;
 
-if (!token || !clientId) {
-  throw new Error("Set DISCORD_TOKEN and DISCORD_CLIENT_ID before registering commands.");
-}
+// This validation never sends an API request or prints environment secrets.
+validateRuntimeConfiguration({ mode: "register" });
 
 const rest = new REST({ version: "10" }).setToken(token);
 

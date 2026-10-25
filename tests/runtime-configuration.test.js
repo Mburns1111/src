@@ -26,6 +26,10 @@ test("missing keys and invalid Mongo connection URI fail clearly",()=>{
 test("registration mode validates Discord application and optional test guild IDs",()=>{
   const result=validateRuntimeConfiguration({env,mode:"register"});
   assert.equal(result.guildCommandRegistration,true);
+  assert.equal(validateRuntimeConfiguration({
+    env:{...env,MONGODB_URI:""},mode:"register",
+  }).guildCommandRegistration,true,
+  "Slash registration preflight must not require the MongoDB URI");
   assert.throws(()=>validateRuntimeConfiguration({env:{...env,DISCORD_CLIENT_ID:"bad"},mode:"register"}),/DISCORD_CLIENT_ID/);
   assert.throws(()=>validateRuntimeConfiguration({env:{...env,DISCORD_GUILD_ID:"bad"},mode:"register"}),/DISCORD_GUILD_ID/);
 });
