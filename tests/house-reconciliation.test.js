@@ -14,7 +14,7 @@ const postId = "222222222222222222";
 const channelId = "333333333333333333";
 const listing = (overrides={}) => ({
   _id: id, ownerId: "444444444444444444", guildId,
-  postChannelId: channelId, postMessageId: postId, status: "active",
+  postChannelId: channelId, postMessageId: postId, status: "active", cardLayoutVersion: 1,
   ...overrides,
 });
 const correct = {
@@ -26,6 +26,8 @@ const correct = {
 };
 test("already-styled houses remain unchanged and old embeds get converted", () => {
   assert.equal(houseNeedsFormatUpgrade(listing(), correct), false);
+  assert.equal(houseNeedsFormatUpgrade(listing({ cardLayoutVersion: 0 }), correct), true,
+    "Older tall house artwork must be re-rendered on startup");
   assert.equal(houseNeedsFormatUpgrade(listing(), { ...correct, embeds: [{ title: "legacy" }] }), true);
   assert.equal(houseNeedsFormatUpgrade(listing(), { ...correct, attachments: new Map() }), true);
 });
