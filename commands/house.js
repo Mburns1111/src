@@ -15,6 +15,7 @@ import {
 import HouseListing from "../models/HouseListing.js";
 import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
 import { refreshHouseStyleCard } from "../services/house-card.js";
+import { ensureHouseMediaMessage, deleteHouseMediaMessage, mergedHouseMediaMetadata } from "../services/house-media.js";
 import { houseActionComponents } from "../services/house-components.js";
 import { houseGalleryCount, archiveHousePhotos, deleteHouseGallery } from "../services/house-gallery.js";
 import { isGalleryPhoto, isGalleryVideo, mergeOriginalMedia, HOUSE_ART_NAME } from "../services/house-style.js";
@@ -353,6 +354,10 @@ export async function handleHouseCreateModal(interaction) {
     published = true;
     pendingHouseForms.delete(formKey);
     await clearPendingForm(interaction.guildId, channelId, messageId);
+    // The permanent channel entry should follow the house card and its
+    // playable video reply, rather than interrupting the listing.
+    await ensureHouseEntry(interaction.guild, post.channel, { moveToBottom: true })
+      .catch(error => console.warn("Could not move house entry to bottom:", error));
   } catch (error) {
     if (post && claimed && !published) {
       await post.edit({
@@ -480,8 +485,6 @@ async function publishHouseListing(interaction, values, post, uploads) {
     }),
     interaction.guild.members.fetch(interaction.user.id),
   ]);
-  // Discord's modal attachment IDs are the stable source identifiers; save
-  // these *before* the public post removes its initial form components.
   const photoMetadata = photos.map(asset => ({
     attachmentId: String(asset.id),
     url: asset.url, name: asset.name,
@@ -500,54 +503,64 @@ async function publishHouseListing(interaction, values, post, uploads) {
     ...values,
   });
   let published = false;
-  let updatedPost;
+  let media;
   try {
-    // Fail closed. If a photo download, resize, or Mongo write fails, keep
-    // the original create-form post intact and do NOT publish a broken card.
-    if (photos.length) {
-      await archiveHousePhotos(interaction.guildId, listing, photos);
-    }
-    const { files, cleanup } = await prepareMediaFiles(
-      videos, `house-${String(listing._id).slice(-8)}`,
-    );
-    try {
-      updatedPost = await post.edit({
-        content: `House listing from ${member.displayName}`,
-        embeds: [makeHouseEmbed(listing)],
-        components: makeHouseComponents(listing),
-        attachments: [],
-        files,
-        allowedMentions: { parse: [] },
+    // Save every photo to Mongo BEFORE modifying the original form post.
+    if (photos.length) await archiveHousePhotos(interaction.guildId, listing, photos);
+
+    // Video attachments are sent as their own bot-authored reply. Verify
+    // EVERY video was accepted by Discord before publishing the house card.
+    if (videos.length) {
+      media = await ensureHouseMediaMessage(interaction.guild, listing, post, {
+        videoSources: videos, channel: post.channel,
       });
-      published = true;
-    } finally {
-      await cleanup();
+      if (!media.message || media.videos.length !== videos.length) {
+        throw new Error("The house video post could not be verified.");
+      }
+      listing.mediaAttachments = mergedHouseMediaMetadata(photoMetadata, media.videos);
+      await listing.save();
     }
+
+    // No video is attached to this message: Discord displays a full-size
+    // styled card instead of tiling it next to a video preview.
+    await post.edit({
+      content: `House listing from ${member.displayName}`,
+      embeds: [makeHouseEmbed(listing)],
+      components: makeHouseComponents(listing),
+      attachments: [],
+      files: [],
+      allowedMentions: { parse: [] },
+    });
+    published = true;
   } catch (error) {
     if (!published) {
+      // Original form remains intact. The staged video reply may safely be
+      // removed because its source is still the user's modal submission.
+      if (media?.created || listing.mediaMessageId) {
+        await deleteHouseMediaMessage(interaction.guild, listing)
+          .catch(cleanupError => console.warn("Could not clean unfinished house tour:", cleanupError));
+      }
       await deleteHouseGallery(interaction.guildId, listing._id)
         .catch(cleanupError => console.warn("Could not clear unfinished house photos:", cleanupError));
       await HouseListing.deleteOne({ _id: listing._id })
         .catch(cleanupError => console.warn("Could not clear unfinished house listing:", cleanupError));
       throw error;
     }
-    // A cleanup failure AFTER Discord accepted the post must not cause the
-    // creation handler to restore its pending-form UI and erase media.
-    console.warn("[House] Published successfully; video temp cleanup failed:", error);
+    console.warn("[House] Post was published, leaving it intact:", error);
   }
 
-  // From here onward the house is ALREADY posted: never throw and never
-  // undo the message because a secondary Mongo or artwork step failed.
-  const postedVideos = getMessageMedia(updatedPost).filter(isGalleryVideo);
-  const videosSaved = postedVideos.length === videos.length;
-  if (!videosSaved) console.warn("[House] Not every original video confirmed:", String(listing._id));
+  // From here onward the house is public: rendering or Mongo failures must
+  // never restore a create form and erase uploaded media.
   let metadataSaved = true;
+  const videosSaved = videos.length === (media?.videos.length ?? 0);
   try {
-    listing.mediaAttachments = mergeOriginalMedia(photoMetadata, postedVideos);
-    await listing.save();
+    if (!videos.length) {
+      listing.mediaAttachments = photoMetadata;
+      await listing.save();
+    }
   } catch (error) {
     metadataSaved = false;
-    console.warn("[House] Published; failed to persist final video metadata:", error);
+    console.warn("[House] Published but media metadata could not be saved:", error);
   }
   let styled = true;
   try {
@@ -607,6 +620,8 @@ export async function handleSold(interaction) {
 
   // A gallery cleanup failure must never roll back a house that has already
   // been deleted from Discord or reactivate a now-missing public listing.
+  await deleteHouseMediaMessage(interaction.guild, listing).catch(error =>
+    console.warn("House sold; could not delete its separate video post:", error));
   await deleteHouseGallery(interaction.guildId, listing._id).catch(error =>
     console.warn("House sold; could not clean archived photos:", error));
 
