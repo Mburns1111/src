@@ -19,6 +19,7 @@ import { resolveAppearance, appearanceCatalogItem } from "../services/post-appea
 import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } from "../services/sticker-catalog.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { refreshOutfitStyleCard } from "../services/outfit-card.js";
+import { getOutfitGalleryPage } from "../services/outfit-gallery.js";
 import { ensureOutfitEntry } from "./outfit.js";
 import { OUTFIT_PICK_PAGE_SIZE, outfitPickerOptions, outfitCardData } from "../services/outfit-style.js";
 import {
@@ -48,18 +49,25 @@ function editorControls(post, draft, ownership, type = TARGET_TYPE) {
 async function editorPayload(post, draft, ownership, type = TARGET_TYPE) {
   const outfit = isOutfitTarget(type);
   const filename = outfit ? "outfit-preview.png" : "trading-post-preview.png";
+  const photoPage = outfit
+    ? await getOutfitGalleryPage(post.guildId, post._id, post.galleryPageIndex ?? 0)
+    : null;
   const png = await renderPostImage({
     type: outfit ? "outfit" : "tradingPost",
-    data: outfit ? outfitCardData(post) : {
+    data: outfit ? {
+      ...outfitCardData(post),
+      galleryIndex: photoPage.count ? photoPage.page + 1 : 0,
+      galleryCount: photoPage.count,
+    } : {
       discordName: post.discordName, robloxName: post.robloxName,
       lookingFor: post.lookingFor, willingToTrade: post.willingToTrade,
     },
-    images: {},
+    images: outfit ? { photo: photoPage.imageBuffer } : {},
     appearance: filterOwnedAppearance(draft.appearance, ownership),
   });
   return {
     content: outfit
-      ? `**Customize Outfit: ${String(post.title).slice(0, 90)}** — private preview. Save only this outfit's style, or discard. Other outfits and your profile will not change. Photos appear in a separate flipbook below your decorated banner; videos remain attached to the listing.`
+      ? `**Customize Outfit: ${String(post.title).slice(0, 90)}** — private preview. Save only this outfit's style, or discard. Other outfits and your profile will not change. Your saved photo appears directly inside this styled card. Photo buttons and listing actions remain beneath the published image.`
       : "**Customize Trading Post** — choose your owned shop styles. This is a private preview. **Save Trading Post Style** updates only your Trading Post, not your profile or other listings. **Discard Changes** leaves the public post unchanged.",
     embeds: [new EmbedBuilder().setColor("#819287").setImage(`attachment://${filename}`)],
     files: [new AttachmentBuilder(png, { name: filename })],
