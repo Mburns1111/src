@@ -310,6 +310,20 @@ export async function handleOutfitCreateModal(interaction) {
     });
     claimed = true;
 
+    const uploads = Array.from(
+      interaction.fields.getUploadedFiles("outfit_media", true)?.values() ?? [],
+    );
+    if (!uploads.length) {
+      throw new UserFacingError("Upload at least one outfit photo or video when creating the listing.");
+    }
+    validateAttachments(uploads);
+    if (uploads.length > 10 || uploads.filter(isGalleryVideo).length > 9) {
+      throw new UserFacingError(
+        "Upload up to ten photos/videos when creating an outfit, " +
+        "including no more than nine videos to leave room for its banner.",
+      );
+    }
+
     const values = {
       title: interaction.fields.getTextInputValue("title").trim(),
       description: interaction.fields.getTextInputValue("description").trim(),
@@ -319,7 +333,7 @@ export async function handleOutfitCreateModal(interaction) {
         "Outfit video",
       ),
     };
-    await publishListing(interaction, values, post);
+    await publishListing(interaction, values, post, uploads);
     published = true;
     pendingForms.delete(formKey);
     await clearPendingForm(interaction.guildId, channelId, messageId);
@@ -440,38 +454,79 @@ export async function execute(interaction) {
   }
 }
 
-async function publishListing(interaction, values, post) {
+async function publishListing(interaction, values, post, uploads) {
+  const photos = uploads.filter(isGalleryPhoto);
+  const videos = uploads.filter(isGalleryVideo);
   const profile = await UserProfile.findOne({
-    guildId: interaction.guildId,
-    discordUserId: interaction.user.id,
+    guildId: interaction.guildId, discordUserId: interaction.user.id,
   });
   const member = await interaction.guild.members.fetch(interaction.user.id);
+
+  // Keep the original Discord CDN IDs for the archived gallery images.
+  // Uploaded videos are separately attached to the public banner and their
+  // permanent attachment IDs are recorded after Discord confirms the edit.
+  const photoMetadata = photos.map(asset => ({
+    attachmentId: String(asset.id), url: asset.url, name: asset.name,
+    contentType: asset.contentType || "", size: asset.size || 0,
+  }));
   const listing = await OutfitListing.create({
     guildId: interaction.guildId,
     ownerId: interaction.user.id,
     ownerName: member.displayName,
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
     postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, interaction.user.id, profile),
+    mediaAttachments: photoMetadata,
     ...values,
   });
+
+  let published = false;
   try {
-    const updatedPost = await post.edit({
-      content: `Outfit listing from ${member.displayName}`,
-      embeds: [makeListingEmbed(listing)],
-      components: makeListingComponents(listing),
-      allowedMentions: { parse: [] },
-    });
+    // Save ALL resized photos before publishing anything. The gallery can
+    // recover from a bot restart and requires no post-creation uploads.
+    if (photos.length) {
+      await saveOutfitGalleryImages(interaction.guildId, listing, photos);
+    }
+    const { files, cleanup } = await prepareMediaFiles(
+      videos, `outfit-${String(listing._id).slice(-8)}`,
+    );
+    let updatedPost;
+    try {
+      updatedPost = await post.edit({
+        content: `Outfit listing from ${member.displayName}`,
+        embeds: [makeListingEmbed(listing)],
+        components: makeListingComponents(listing),
+        attachments: [],
+        files,
+        allowedMentions: { parse: [] },
+      });
+    } finally {
+      await cleanup();
+    }
+    published = true;
     listing.postChannelId = updatedPost.channelId;
     listing.postMessageId = updatedPost.id;
+    const postedVideos = getMessageMedia(updatedPost).filter(isGalleryVideo);
+    if (postedVideos.length !== videos.length) {
+      console.warn("[Outfit] Some videos were not confirmed on public post", String(listing._id));
+    }
+    listing.mediaAttachments = mergeOriginalMedia(photoMetadata, postedVideos);
     await listing.save();
   } catch (error) {
-    await OutfitListing.deleteOne({ _id: listing._id }).catch(() => {});
+    if (!published) {
+      const { default: OutfitGalleryImage } = await import("../models/OutfitGalleryImage.js");
+      await OutfitGalleryImage.deleteMany({ guildId: interaction.guildId, listingId: listing._id })
+        .catch(cleanupError => console.error("Cannot clean unfinished outfit gallery:", cleanupError));
+      await OutfitListing.deleteOne({ _id: listing._id })
+        .catch(cleanupError => console.error("Cannot clean unfinished outfit:", cleanupError));
+    }
     throw error;
   }
-  // The style now appears on the original outfit post whenever its media
-  // count allows; ten-photo galleries use a safe reply instead.
+
+  // Style and gallery are cosmetic follow-ups. If a Discord edit fails,
+  // preserve the already-published listing and its saved photos/videos;
+  // never delete its media merely because a gallery message failed.
   await refreshOutfitStyleCard(interaction.guild, listing).catch(error =>
-    console.warn("Could not publish new outfit style card:", error));
+    console.error("Outfit published, but banner/gallery needs refresh:", error));
   await awardMilestoneSafely(interaction.guildId, interaction.user.id,
     "outfitFirstListing", String(listing._id));
 }
