@@ -223,7 +223,9 @@ export async function handleOutfitButton(interaction) {
     return handleListingInterest(interaction, {
       ListingModel: OutfitListing,
       listingType: "outfit",
-      makeComponents: makeListingComponents,
+      makeComponents: async updated => makeListingComponents(
+        updated, await outfitGalleryCount(updated.guildId, updated._id),
+      ),
     });
   }
   if (action !== "media") return false;
