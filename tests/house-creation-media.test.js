@@ -69,11 +69,12 @@ test("no post-creation Add Pictures/Video button is published", () => {
     "◀ Previous", "Photo 1 / 3", "Next ▶",
     "Mark sold", "Interested (0)", "Interest DMs: Off",
   ]);
-  const photoOnly = houseCardPayload(house, { count: 3 }, [], Buffer.from("fake"));
-  const videoOnly = houseCardPayload(house, { count: 0 }, [video(1)], Buffer.from("fake"));
+  const photoOnly = houseCardPayload(house, { count: 3 }, Buffer.from("fake"));
+  const videoOnly = houseCardPayload({ ...house, mediaMessageId: "555555555555555555" }, { count: 0 }, Buffer.from("fake"));
   assert.equal(photoOnly.components.length, 2);
   assert.equal(videoOnly.components.length, 1);
-  assert.deepEqual(videoOnly.attachments, [{ id: "video-1" }]);
+  assert.deepEqual(videoOnly.attachments, [], "Videos are deliberately NOT attached to the house artwork post");
+  assert.match(videoOnly.content, /Watch house video tour/);
   assert.deepEqual(photoOnly.embeds, []);
   assert.deepEqual(videoOnly.embeds, []);
 });
