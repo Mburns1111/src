@@ -112,7 +112,7 @@ export function makeCreateListingModal(userId, message) {
             .setRequired(false),
         ),
       new LabelBuilder()
-        .setLabel("Video link (optional; blank if uploading)")
+        .setLabel("Video link (optional; leave blank)")
         .setTextInputComponent(
           new TextInputBuilder()
             .setCustomId("video_url")
