@@ -83,10 +83,6 @@ import PointsSettings from "./models/PointsSettings.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { execute as executeHelp, data as helpCommand } from "./commands/help.js";
 import {
-  execute as executeMigrateOldPosts,
-  data as migrateOldPostsCommand,
-} from "./commands/migrate-old-posts.js";
-import {
   handleTradingPostCardButton,
   handleTradingPostEntryButton,
   handleTradingPostModal,
@@ -241,7 +237,6 @@ const commandHandlers = new Map([
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
   [helpCommand.name, executeHelp],
-  ["migrate_old_posts", executeMigrateOldPosts],
 ]);
 
 let startupMaintenancePromise = Promise.resolve();
