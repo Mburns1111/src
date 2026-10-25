@@ -21,7 +21,8 @@ for(const file of files) {
   try {
     execFileSync(process.execPath,["--check",file],{stdio:"pipe"});
     const source=await readFile(file,"utf8");
-    const imports=[...source.matchAll(/\b(?:from\s*|import\s*)["'](\.[^"']+)["']/g)]
+    // Match declarations beginning with import, not "from" regexes or text in tests.
+    const imports=[...source.matchAll(/^\s*import\s+(?:[^;]*?\sfrom\s*)?["'](\.[^"']+)["']/gm)]
       .map(x=>x[1]);
     for(const specifier of imports) {
       const resolved=resolve(dirname(file),specifier);
