@@ -22,7 +22,10 @@ const outfitListingSchema = new mongoose.Schema(
     // Separate controls message follows the gallery below the styled banner.
     controlsMessageId: { type: String, default: "" },
     galleryPageIndex: { type: Number, default: 0 },
-    status: { type: String, enum: ["active", "sold"], default: "active" },
+    // Missing is an archived record whose original Discord message was confirmed deleted.
+    // Preserve the saved style and gallery rather than destroying member data.
+    status: { type: String, enum: ["active", "sold", "missing"], default: "active" },
+    missingAt: { type: Date, default: null },
     soldAt: { type: Date, default: null },
     interestedUserIds: { type: [String], default: [] },
     notifyOnInterest: { type: Boolean, default: false },
