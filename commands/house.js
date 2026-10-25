@@ -126,6 +126,25 @@ export function makeCreateListingModal(userId, message) {
     );
 }
 
+export function validateHouseCreationUploads(uploads) {
+  if (!Array.isArray(uploads) || uploads.length < 1) {
+    throw new UserFacingError("Upload at least one photo or video of the house when creating the listing.");
+  }
+  if (uploads.length > 10) {
+    throw new UserFacingError("Upload at most ten house photos/videos.");
+  }
+  validateAttachments(uploads);
+  const photos = uploads.filter(isGalleryPhoto);
+  const videos = uploads.filter(isGalleryVideo);
+  if (photos.length + videos.length !== uploads.length) {
+    throw new UserFacingError("Only supported house photos/videos may be uploaded.");
+  }
+  if (videos.length > 9) {
+    throw new UserFacingError("Upload at most nine videos so the styled house card has room.");
+  }
+  return { photos, videos };
+}
+
 export const makeHouseComponents = houseActionComponents;
 
 function makeHouseEmbed(listing, firstImageName) {
@@ -291,6 +310,9 @@ export async function handleHouseCreateModal(interaction) {
   let post;
   let claimed = false;
   let published = false;
+  let styleReady = false;
+  let metadataSaved = true;
+  let videosSaved = true;
   try {
     const channel = await interaction.guild.channels.fetch(channelId);
     post = await channel?.messages?.fetch(messageId);
@@ -315,17 +337,19 @@ export async function handleHouseCreateModal(interaction) {
     });
     claimed = true;
 
+    const uploads = Array.from(
+      interaction.fields.getUploadedFiles("house_media", true)?.values() ?? [],
+    );
+    validateHouseCreationUploads(uploads);
     const values = {
       title: interaction.fields.getTextInputValue("title").trim(),
       description: interaction.fields.getTextInputValue("description").trim(),
       askingPrice: interaction.fields.getTextInputValue("asking_price").trim(),
       estimatedValue: interaction.fields.getTextInputValue("estimated_value").trim(),
-      videoUrl: validateWebUrl(
-        interaction.fields.getTextInputValue("video_url").trim(),
-        "House video",
-      ),
+      videoUrl: "",
     };
-    await publishHouseListing(interaction, values, post);
+    ({ styled: styleReady, metadataSaved, videosSaved } =
+      await publishHouseListing(interaction, values, post, uploads));
     published = true;
     pendingHouseForms.delete(formKey);
     await clearPendingForm(interaction.guildId, channelId, messageId);
@@ -346,7 +370,9 @@ export async function handleHouseCreateModal(interaction) {
   }
 
   await interaction.editReply({
-    content: `Your house listing was posted: ${post.url}`,
+    content: styleReady && metadataSaved && videosSaved
+      ? `Your styled house listing was posted: ${post.url}`
+      : `Your house listing was posted: ${post.url}\n⚠️ The house card or media could not be completely confirmed. The successfully uploaded files were left in place. Ask a server manager to inspect the bot logs before trying again; do not reupload the same files.`,
     allowedMentions: { parse: [] },
   });
 }
@@ -445,41 +471,94 @@ export async function execute(interaction) {
   }
 }
 
-async function publishHouseListing(interaction, values, post) {
-  const profile = await UserProfile.findOne({
-    guildId: interaction.guildId,
-    discordUserId: interaction.user.id,
-  });
-  const member = await interaction.guild.members.fetch(interaction.user.id);
-  const discordDisplayName = member.displayName;
+async function publishHouseListing(interaction, values, post, uploads) {
+  const { photos, videos } = validateHouseCreationUploads(uploads);
+  const [profile, member] = await Promise.all([
+    UserProfile.findOne({
+      guildId: interaction.guildId,
+      discordUserId: interaction.user.id,
+    }),
+    interaction.guild.members.fetch(interaction.user.id),
+  ]);
+  // Discord's modal attachment IDs are the stable source identifiers; save
+  // these *before* the public post removes its initial form components.
+  const photoMetadata = photos.map(asset => ({
+    attachmentId: String(asset.id),
+    url: asset.url, name: asset.name,
+    contentType: asset.contentType || "", size: asset.size || 0,
+  }));
   const listing = await HouseListing.create({
     guildId: interaction.guildId,
     ownerId: interaction.user.id,
-    ownerName: discordDisplayName,
+    ownerName: member.displayName,
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
-    postAppearance: await snapshotOwnedListingAppearance(interaction.guildId, interaction.user.id, profile),
+    postAppearance: await snapshotOwnedListingAppearance(
+      interaction.guildId, interaction.user.id, profile),
+    mediaAttachments: photoMetadata,
+    postChannelId: post.channelId,
+    postMessageId: post.id,
     ...values,
   });
+  let published = false;
+  let updatedPost;
   try {
-    const updatedPost = await post.edit({
-      content: `House listing from ${discordDisplayName}`,
-      embeds: [makeHouseEmbed(listing)],
-      components: makeHouseComponents(listing),
-      allowedMentions: { parse: [] },
-    });
-    listing.postChannelId = updatedPost.channelId;
-    listing.postMessageId = updatedPost.id;
-    await listing.save();
-    // Convert the newly published listing to purchased styling immediately.
-    // If rendering fails, keep its original embed, data and controls intact.
-    await refreshHouseStyleCard(interaction.guild, listing).catch(error =>
-      console.warn("[House] Published, but styled card needs refresh:", error));
+    // Fail closed. If a photo download, resize, or Mongo write fails, keep
+    // the original create-form post intact and do NOT publish a broken card.
+    if (photos.length) {
+      await archiveHousePhotos(interaction.guildId, listing, photos);
+    }
+    const { files, cleanup } = await prepareMediaFiles(
+      videos, `house-${String(listing._id).slice(-8)}`,
+    );
+    try {
+      updatedPost = await post.edit({
+        content: `House listing from ${member.displayName}`,
+        embeds: [makeHouseEmbed(listing)],
+        components: makeHouseComponents(listing),
+        attachments: [],
+        files,
+        allowedMentions: { parse: [] },
+      });
+      published = true;
+    } finally {
+      await cleanup();
+    }
   } catch (error) {
-    await HouseListing.deleteOne({ _id: listing._id }).catch(() => {});
-    throw error;
+    if (!published) {
+      await deleteHouseGallery(interaction.guildId, listing._id)
+        .catch(cleanupError => console.warn("Could not clear unfinished house photos:", cleanupError));
+      await HouseListing.deleteOne({ _id: listing._id })
+        .catch(cleanupError => console.warn("Could not clear unfinished house listing:", cleanupError));
+      throw error;
+    }
+    // A cleanup failure AFTER Discord accepted the post must not cause the
+    // creation handler to restore its pending-form UI and erase media.
+    console.warn("[House] Published successfully; video temp cleanup failed:", error);
   }
-  await awardMilestoneSafely(interaction.guildId, interaction.user.id,
-    "houseFirstListing", String(listing._id));
+
+  // From here onward the house is ALREADY posted: never throw and never
+  // undo the message because a secondary Mongo or artwork step failed.
+  const postedVideos = getMessageMedia(updatedPost).filter(isGalleryVideo);
+  const videosSaved = postedVideos.length === videos.length;
+  if (!videosSaved) console.warn("[House] Not every original video confirmed:", String(listing._id));
+  let metadataSaved = true;
+  try {
+    listing.mediaAttachments = mergeOriginalMedia(photoMetadata, postedVideos);
+    await listing.save();
+  } catch (error) {
+    metadataSaved = false;
+    console.warn("[House] Published; failed to persist final video metadata:", error);
+  }
+  let styled = true;
+  try {
+    await refreshHouseStyleCard(interaction.guild, listing);
+  } catch (error) {
+    styled = false;
+    console.warn("[House] Published; styled card needs repair:", error);
+  }
+  await awardMilestoneSafely(
+    interaction.guildId, interaction.user.id, "houseFirstListing", String(listing._id));
+  return { styled, metadataSaved, videosSaved };
 }
 
 export async function handleSold(interaction) {
