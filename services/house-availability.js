@@ -41,7 +41,9 @@ export function houseNeedsFormatUpgrade(listing, message) {
   const buttons = (message.components ?? []).flatMap(row => row.components ?? [])
     .map(button => button.customId || button.custom_id || "");
   const ids = ["sold", "interest", "notify"];
-  return !art || ids.some(name => !buttons.includes(`house:${name}:${listing._id}`)) ||
+  return !art ||
+    ids.some(name => !buttons.includes(`house:${name}:${listing._id}`)) ||
+    buttons.includes(`house:media:${listing._id}`) ||
     Boolean(message.embeds?.length);
 }
 
