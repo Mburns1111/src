@@ -1,10 +1,12 @@
 import { newListingEditorToken, isListingEditorToken } from "../services/listing-editor-token.js";
 import {
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder,
   AttachmentBuilder, EmbedBuilder, LabelBuilder, MessageFlags, ModalBuilder,
   TextInputBuilder, TextInputStyle,
 } from "discord.js";
 import MemberDmPanel from "../models/MemberDmPanel.js";
 import TradingPost from "../models/TradingPost.js";
+import OutfitListing from "../models/OutfitListing.js";
 import UserProfile from "../models/UserProfile.js";
 import { getOrCreateDmPanel, dmPanelUrl } from "../services/member-dm-panels.js";
 import { sendTemporaryDmNotice } from "../services/temporary-dm-notice.js";
@@ -16,6 +18,8 @@ import {
 import { resolveAppearance, appearanceCatalogItem } from "../services/post-appearance.js";
 import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } from "../services/sticker-catalog.js";
 import { renderPostImage } from "../services/post-renderer.js";
+import { refreshOutfitStyleCard } from "../services/outfit-card.js";
+import { OUTFIT_PICK_PAGE_SIZE, outfitPickerOptions, outfitCardData, outfitPhotoUrl } from "../services/outfit-style.js";
 import {
   APPEARANCE_PAGES, makeAppearanceControls, availableAppearanceChoices,
   appearanceChoicePage, adjustDraftSticker, clearDraftStickers,
@@ -25,30 +29,41 @@ import { UserFacingError } from "./errors.js";
 
 const EDITOR_KIND = "postAppearance";
 const TARGET_TYPE = "tradingPost";
+const OUTFIT_TARGET_TYPE = "outfit";
+const OUTFIT_EDITOR_KIND = "outfitAppearance";
 
-function editorControls(post, draft, ownership) {
+function isOutfitTarget(type) { return type === OUTFIT_TARGET_TYPE; }
+function targetLabel(type) { return isOutfitTarget(type) ? "Outfit" : "Trading Post"; }
+function targetKind(type) { return isOutfitTarget(type) ? OUTFIT_EDITOR_KIND : EDITOR_KIND; }
+
+function editorControls(post, draft, ownership, type = TARGET_TYPE) {
   return makeAppearanceControls(
     { discordUserId: post.ownerId, profileAppearance: draft.appearance },
     draft.page, draft.selected, ownership, draft.token, draft.optionPages,
-    draft.stickerMode, "listing:dm", "Save Trading Post Style",
+    draft.stickerMode, "listing:dm", `Save ${targetLabel(type)} Style`,
   );
 }
 
-async function editorPayload(post, draft, ownership) {
+async function editorPayload(post, draft, ownership, type = TARGET_TYPE) {
+  const outfit = isOutfitTarget(type);
+  const filename = outfit ? "outfit-preview.png" : "trading-post-preview.png";
   const png = await renderPostImage({
-    type: "tradingPost",
-    data: {
+    type: outfit ? "outfit" : "tradingPost",
+    data: outfit ? outfitCardData(post) : {
       discordName: post.discordName, robloxName: post.robloxName,
       lookingFor: post.lookingFor, willingToTrade: post.willingToTrade,
     },
+    images: outfit ? { photo: outfitPhotoUrl(post) } : {},
     appearance: filterOwnedAppearance(draft.appearance, ownership),
   });
   return {
-    content: "**Customize Trading Post** — choose your owned shop styles. This is a private preview. **Save Trading Post Style** updates only your Trading Post, not your profile or other listings. **Discard Changes** leaves the public post unchanged.",
-    embeds: [new EmbedBuilder().setColor("#819287").setImage("attachment://trading-post-preview.png")],
-    files: [new AttachmentBuilder(png, { name: "trading-post-preview.png" })],
+    content: outfit
+      ? `**Customize Outfit: ${String(post.title).slice(0, 90)}** — private preview. Save only this outfit's style, or discard. Other outfits and your profile will not change. Photos and videos stay in the original listing.`
+      : "**Customize Trading Post** — choose your owned shop styles. This is a private preview. **Save Trading Post Style** updates only your Trading Post, not your profile or other listings. **Discard Changes** leaves the public post unchanged.",
+    embeds: [new EmbedBuilder().setColor("#819287").setImage(`attachment://${filename}`)],
+    files: [new AttachmentBuilder(png, { name: filename })],
     attachments: [],
-    components: editorControls(post, draft, ownership),
+    components: editorControls(post, draft, ownership, type),
     allowedMentions: { parse: [] },
   };
 }
