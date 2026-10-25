@@ -18,6 +18,8 @@ const houseListingSchema = new mongoose.Schema(
     galleryPageIndex: { type: Number, default: 0 },
     postChannelId: { type: String, default: "" },
     postMessageId: { type: String, default: "" },
+    // Playable house videos live in a second bot message beneath the card.
+    mediaMessageId: { type: String, default: "" },
     status: { type: String, enum: ["active", "sold", "missing"], default: "active" },
     missingAt: { type: Date, default: null },
     soldAt: { type: Date, default: null },
