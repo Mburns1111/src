@@ -373,7 +373,7 @@ export async function handleHouseCreateModal(interaction) {
       if (staged) {
         console.error("[house] Preserved an interrupted listing for restart recovery:", messageId, error);
         throw new UserFacingError(
-          "This house submission was interrupted. Its saved photos and videos have been preserved for recovery. Do not delete this post or resubmit the same files; ask a server manager to review it.",
+          "This house submission was interrupted. Any files already archived have been retained for recovery; unconfirmed uploads may require staff assistance. Do not delete the post or retry its files until a server manager reviews it.",
         );
       }
       await post.edit({

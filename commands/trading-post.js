@@ -217,7 +217,7 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     HouseListing.find({
       guildId: guild.id,
       ownerId: post.ownerId,
-      status: "active",
+      status: "active", publicationState: { $ne: "staging" },
       postChannelId: { $ne: "" },
       postMessageId: { $ne: "" },
     })
@@ -228,7 +228,7 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     OutfitListing.find({
       guildId: guild.id,
       ownerId: post.ownerId,
-      status: "active",
+      status: "active", publicationState: { $ne: "staging" },
       postChannelId: { $ne: "" },
       postMessageId: { $ne: "" },
     })

@@ -376,6 +376,7 @@ async function getProfileListingLinks(guild, ownerId) {
       guildId,
       ownerId,
       status: "active",
+      publicationState: { $ne: "staging" },
       postChannelId: { $ne: "" },
       postMessageId: { $ne: "" },
     })
@@ -386,6 +387,7 @@ async function getProfileListingLinks(guild, ownerId) {
       guildId,
       ownerId,
       status: "active",
+      publicationState: { $ne: "staging" },
       postChannelId: { $ne: "" },
       postMessageId: { $ne: "" },
     })
