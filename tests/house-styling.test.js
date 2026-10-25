@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCanvas } from "@napi-rs/canvas";
+import { POST_LAYOUTS } from "../services/post-layouts.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { houseActionComponents } from "../services/house-components.js";
 import { houseCardPayload } from "../services/house-card.js";
@@ -30,6 +31,33 @@ test("house card renders a valid PNG with optional uploaded photo", async () => 
   assert.deepEqual([...png.subarray(0, 8)], [137,80,78,71,13,10,26,10]);
   assert.ok(png.length > 1000);
 });
+test("house artwork is exactly half the outfit-style house canvas height", async () => {
+  assert.equal(POST_LAYOUTS.house.width, 1200);
+  assert.equal(POST_LAYOUTS.house.height, 430);
+  assert.equal(POST_LAYOUTS.outfit.height, 860, "Outfit size must not change");
+
+  const photo = createCanvas(160, 250);
+  const ctx = photo.getContext("2d");
+  ctx.fillStyle = "#865D8B";
+  ctx.fillRect(0, 0, 160, 250);
+  for (const images of [{}, { photo: photo.toBuffer("image/png") }]) {
+    const png = await renderPostImage({
+      type: "house",
+      data: { ...houseCardData(listing),
+        title: "A pretty and very detailed cottage home",
+        description: "A long, lovely garden and multiple rooms on the first floor with space for friends and decorations.",
+        galleryIndex: 2, galleryCount: 3,
+      },
+      images,
+      appearance: { stickers: [stickerDefaults("star")] },
+    });
+    assert.deepEqual([...png.subarray(0, 8)], [137,80,78,71,13,10,26,10]);
+    assert.equal(png.readUInt32BE(16), 1200, "PNG IHDR width");
+    assert.equal(png.readUInt32BE(20), 430, "PNG IHDR height");
+    assert.ok(png.length > 1000);
+  }
+});
+
 test("house photo pagination and seller controls share ONE message", () => {
   const rows = houseActionComponents(listing, 3).map(r => r.toJSON().components);
   assert.equal(rows.length, 2);
