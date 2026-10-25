@@ -19,7 +19,7 @@ import { resolveAppearance, appearanceCatalogItem } from "../services/post-appea
 import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } from "../services/sticker-catalog.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { refreshOutfitStyleCard } from "../services/outfit-card.js";
-import { OUTFIT_PICK_PAGE_SIZE, outfitPickerOptions, outfitCardData, outfitPhotoUrl } from "../services/outfit-style.js";
+import { OUTFIT_PICK_PAGE_SIZE, outfitPickerOptions, outfitCardData, outfitPhotoUrls } from "../services/outfit-style.js";
 import {
   APPEARANCE_PAGES, makeAppearanceControls, availableAppearanceChoices,
   appearanceChoicePage, adjustDraftSticker, clearDraftStickers,
@@ -53,7 +53,7 @@ async function editorPayload(post, draft, ownership, type = TARGET_TYPE) {
       discordName: post.discordName, robloxName: post.robloxName,
       lookingFor: post.lookingFor, willingToTrade: post.willingToTrade,
     },
-    images: outfit ? { photo: outfitPhotoUrl(post) } : {},
+    images: outfit ? (() => { const photos = outfitPhotoUrls(post); return { photo: photos[0], photo2: photos[1], photo3: photos[2] }; })() : {},
     appearance: filterOwnedAppearance(draft.appearance, ownership),
   });
   return {
