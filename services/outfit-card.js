@@ -34,6 +34,36 @@ function originalListingEmbed(listing, firstImageName = null) {
 const isPhoto = item => item.contentType?.toLowerCase().startsWith("image/") ||
   /\.(png|jpe?g|gif|webp|avif)$/i.test(item.name || "");
 
+// Pure payload builders keep every original attachment ID intact, while
+// removing only a previously generated outfit-style-card.png during repaint.
+export function originalStyledOutfitEdit(listing, media, png) {
+  if (outfitStylePlacement(media.length) !== "original") {
+    throw new RangeError("Cannot add style artwork to a full outfit gallery.");
+  }
+  return {
+    content: `Outfit listing from ${listing.ownerName}`,
+    embeds: [
+      new EmbedBuilder().setColor(0x819287)
+        .setImage(`attachment://${OUTFIT_STYLE_IMAGE_NAME}`),
+      originalListingEmbed(listing),
+    ],
+    attachments: media.map(({ id }) => ({ id })),
+    files: [new AttachmentBuilder(png, { name: OUTFIT_STYLE_IMAGE_NAME })],
+    allowedMentions: { parse: [] },
+  };
+}
+
+export function fullGalleryOutfitEdit(listing, media) {
+  if (outfitStylePlacement(media.length) !== "reply") {
+    throw new RangeError("A separate style card is only needed for ten media files.");
+  }
+  return {
+    embeds: [originalListingEmbed(listing, media.find(isPhoto)?.name)],
+    attachments: media.map(({ id }) => ({ id })),
+    allowedMentions: { parse: [] },
+  };
+}
+
 async function updateSeparateReply(channel, listing, png, guild) {
   const payload = {
     content: `**Outfit style card · ${String(listing.title).slice(0, 90)}**\n[View original listing & gallery](${discordMessageUrl(guild.id, listing.postChannelId, listing.postMessageId)})`,
@@ -101,21 +131,8 @@ export async function refreshOutfitStyleCard(guild, listing) {
     });
     const savedIds = media.map(item => item.id);
     const placement = outfitStylePlacement(media.length);
-    const firstPhoto = media.find(isPhoto)?.name;
     if (placement === "original") {
-      const message = await original.edit({
-        content: `Outfit listing from ${listing.ownerName}`,
-        embeds: [
-          new EmbedBuilder().setColor(0x819287)
-            .setImage(`attachment://${OUTFIT_STYLE_IMAGE_NAME}`),
-          originalListingEmbed(listing),
-        ],
-        // Replace ONLY the last generated PNG. Every member-uploaded
-        // image/video is retained with its original Discord attachment ID.
-        attachments: savedIds.map(id => ({ id })),
-        files: [new AttachmentBuilder(png, { name: OUTFIT_STYLE_IMAGE_NAME })],
-        allowedMentions: { parse: [] },
-      });
+      const message = await original.edit(originalStyledOutfitEdit(listing, media, png));
       const after = new Set(outfitGalleryMedia(message.attachments.values()).map(item => item.id));
       if (!savedIds.every(id => after.has(id))) {
         throw new Error("Discord did not retain all outfit gallery attachments while updating style.");
@@ -131,11 +148,7 @@ export async function refreshOutfitStyleCard(guild, listing) {
     }
     // Full gallery: leave all ten buyer uploads on the original and render
     // the decorative style as an attached reply rather than removing a photo.
-    await original.edit({
-      embeds: [originalListingEmbed(listing, firstPhoto)],
-      attachments: savedIds.map(id => ({ id })),
-      allowedMentions: { parse: [] },
-    });
+    await original.edit(fullGalleryOutfitEdit(listing, media));
     return updateSeparateReply(channel, listing, png, guild);
   })();
   activeRefreshes.set(key, task);
