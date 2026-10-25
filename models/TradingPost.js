@@ -4,6 +4,7 @@ const tradingPostSchema = new mongoose.Schema(
   {
     guildId: { type: String, required: true },
     ownerId: { type: String, required: true },
+    importedById: { type: String, default: "" },
     discordName: { type: String, required: true },
     robloxName: { type: String, default: "" },
     lookingFor: { type: String, default: "", maxlength: 1000 },

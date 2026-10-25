@@ -21,7 +21,7 @@ import { displayListingAppearance, snapshotOwnedListingAppearance } from "../ser
 import { getAppearanceOwnership } from "../services/appearance-ownership.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { tradingPostCardPayload } from "../services/trading-post-display.js";
-import { discordMessageUrl } from "./shared.js";
+import { discordMessageUrl, getConfiguredTextChannel } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 
 const entryPostLocks = new Map();
@@ -299,7 +299,11 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     },
     appearance: displayListingAppearance(post, profile, ownership),
   });
-  return tradingPostCardPayload(cardImage, linkLines, makeTradingPostComponents(post));
+  const payload = tradingPostCardPayload(cardImage, linkLines, makeTradingPostComponents(post));
+  if (post.importedById) {
+    payload.content = "Trading Post for <@" + post.ownerId + ">\n" + payload.content;
+  }
+  return payload;
 }
 
 export async function refreshTradingPostCard(guild, ownerId) {
@@ -402,6 +406,63 @@ export async function refreshTradingPostCard(guild, ownerId) {
   }
 
   return message;
+}
+
+
+/**
+ * Create the selected member's one Trading Post, never overwrite a card that
+ * may contain unsaved changes or pending deletion. The member retains full
+ * edit/delete/interest controls, and imports do not pay milestone Points.
+ */
+export async function importTradingPostForMember(interaction, {
+  owner, lookingFor, willingToTrade, importedById,
+}) {
+  if (!owner?.id || !importedById) throw new UserFacingError("Choose a valid Trading Post owner.");
+  if (typeof lookingFor !== "string" || lookingFor.length > 1000 ||
+      typeof willingToTrade !== "string" || willingToTrade.length > 1000) {
+    throw new UserFacingError("Trading Post fields must be at most 1000 characters.");
+  }
+  const channel = await getConfiguredTextChannel(interaction, "tradingPostChannelId", "Trading Post");
+  const existing = await TradingPost.findOne({ guildId: interaction.guildId, ownerId: owner.id });
+  if (existing) {
+    throw new UserFacingError(existing.deletePending
+      ? "This member's Trading Post deletion is pending. No import was performed."
+      : "This member already has a Trading Post. No existing card or data was replaced.");
+  }
+  const profile = await UserProfile.findOne({
+    guildId: interaction.guildId, discordUserId: owner.id,
+  });
+  let record;
+  try {
+    record = await TradingPost.create({
+      guildId: interaction.guildId, ownerId: owner.id,
+      discordName: owner.displayName,
+      robloxName: profile?.adoptMeUsername || "",
+      lookingFor: lookingFor.trim(), willingToTrade: willingToTrade.trim(),
+      notifyOnInterest: false,
+      postAppearance: await snapshotOwnedListingAppearance(
+        interaction.guildId, owner.id, profile),
+      importedById,
+    });
+  } catch (error) {
+    if (Number(error?.code) === 11000) {
+      throw new UserFacingError("This member's Trading Post was created while you were importing. No existing card was overwritten.");
+    }
+    throw error;
+  }
+  let post;
+  try {
+    post = await refreshTradingPostCard(interaction.guild, owner.id);
+  } catch (error) {
+    console.error("[Admin Trading Post import] Saved draft, card requires recovery:", record.id, error);
+    throw new UserFacingError(
+      "The member's Trading Post information was saved, but the card could not be published. " +
+      "Ask a manager to check it before trying a second import. The saved data was preserved.",
+    );
+  }
+  await ensureTradingPostEntry(interaction.guild, channel, { moveToBottom: true }).catch(error =>
+    console.warn("[Admin Trading Post import] Could not reposition entry:", error));
+  return post;
 }
 
 export async function handleTradingPostEntryButton(interaction) {

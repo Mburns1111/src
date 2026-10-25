@@ -15,7 +15,7 @@ const activeRefreshes = new Map();
 export function unifiedOutfitPayload(listing, photoPage, videos, png) {
   const videoLink = listing.videoUrl ? `\n[Outfit video](${listing.videoUrl})` : "";
   return {
-    content: `Outfit listing from ${listing.ownerName}${videoLink}`,
+    content: `Outfit listing from ${listing.ownerName} (<@${listing.ownerId}>)${videoLink}`,
     embeds: [new EmbedBuilder().setColor(0x819287)
       .setImage(`attachment://${CARD_FILE}`)],
     files: [new AttachmentBuilder(png, { name: CARD_FILE })],

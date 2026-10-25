@@ -544,14 +544,16 @@ export async function execute(interaction) {
   }
 }
 
-async function publishHouseListing(interaction, values, post, uploads) {
+export async function publishHouseListing(interaction, values, post, uploads, {
+  ownerId = interaction.user.id, importedById = "",
+} = {}) {
   const { photos, videos } = validateHouseCreationUploads(uploads);
   const [profile, member] = await Promise.all([
     UserProfile.findOne({
       guildId: interaction.guildId,
-      discordUserId: interaction.user.id,
+      discordUserId: ownerId,
     }),
-    interaction.guild.members.fetch(interaction.user.id),
+    interaction.guild.members.fetch(ownerId),
   ]);
   const photoMetadata = photos.map(asset => ({
     attachmentId: String(asset.id),
@@ -560,11 +562,12 @@ async function publishHouseListing(interaction, values, post, uploads) {
   }));
   const listing = await HouseListing.create({
     guildId: interaction.guildId,
-    ownerId: interaction.user.id,
+    ownerId,
     ownerName: member.displayName,
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
+    importedById,
     postAppearance: await snapshotOwnedListingAppearance(
-      interaction.guildId, interaction.user.id, profile),
+      interaction.guildId, ownerId, profile),
     mediaAttachments: photoMetadata,
     publicationState: "staging",
     expectedPhotoCount: photos.length,
@@ -649,9 +652,9 @@ async function publishHouseListing(interaction, values, post, uploads) {
     styled = false;
     console.warn("[House] Published; styled card needs repair:", error);
   }
-  await awardMilestoneSafely(
-    interaction.guildId, interaction.user.id, "houseFirstListing", String(listing._id));
-  return { styled, metadataSaved, videosSaved };
+  if (!importedById) await awardMilestoneSafely(
+    interaction.guildId, ownerId, "houseFirstListing", String(listing._id));
+  return { styled, metadataSaved, videosSaved, listingId: String(listing._id) };
 }
 
 export async function handleSold(interaction) {
