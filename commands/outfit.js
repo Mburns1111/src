@@ -237,6 +237,62 @@ export async function handleOutfitButton(interaction) {
   return true;
 }
 
+/**
+ * Page the photo INSIDE the styled original listing. The gallery image lives
+ * in Mongo and the public card image is replaced in-place. Atomic increments
+ * preserve rapid clicks; outfit-card's queue renders the latest saved page.
+ */
+export async function handleOutfitPageButton(interaction) {
+  const [, area, direction, listingId] = interaction.customId.split(":");
+  if (area !== "page" || !["prev", "next"].includes(direction) ||
+      !/^[a-f\\d]{24}$/i.test(listingId || "")) {
+    throw new UserFacingError("That outfit photo action is not valid.");
+  }
+  await interaction.deferUpdate();
+  if (!interaction.guildId) throw new UserFacingError("This outfit belongs to a server.");
+  const filter = {
+    _id: listingId, guildId: interaction.guildId, status: "active",
+    postMessageId: interaction.message.id,
+  };
+  const current = await OutfitListing.findOne(filter);
+  if (!current) throw new UserFacingError("That outfit is no longer available.");
+  const count = await outfitGalleryCount(interaction.guildId, current._id);
+  if (count < 2) return true;
+  const updated = await OutfitListing.findOneAndUpdate(filter, {
+    $inc: { galleryPageIndex: direction === "next" ? 1 : -1 },
+  }, { new: true });
+  if (!updated) return true;
+  await refreshOutfitStyleCard(interaction.guild, updated);
+  return true;
+}
+
+/** Old gallery reply buttons remain recognizable until migration finishes. */
+export async function handleLegacyOutfitGalleryButton(interaction) {
+  const [, area, direction, id] = interaction.customId.split(":");
+  if (area !== "gallery" || !["prev", "next"].includes(direction) ||
+      !/^[a-f\\d]{24}$/i.test(id || "")) {
+    throw new UserFacingError("This old outfit gallery button is invalid.");
+  }
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const listing = await OutfitListing.findOne({
+    _id: id, guildId: interaction.guildId, status: "active",
+    galleryMessageId: interaction.message.id,
+  });
+  if (!listing) throw new UserFacingError("This older outfit gallery is no longer available.");
+  try {
+    await refreshOutfitStyleCard(interaction.guild, listing);
+    await interaction.editReply({
+      content: "This outfit was updated! Its photos now change inside the styled listing. Use Previous/Next there.",
+    });
+  } catch (error) {
+    console.warn("Legacy gallery could not safely migrate:", error);
+    await interaction.editReply({
+      content: "I couldn't safely migrate one or more old photos. The existing gallery was left unchanged. Ask a server manager to review the saved images.",
+    });
+  }
+  return true;
+}
+
 export async function handleOutfitCreateButton(interaction) {
   const [, action, ownerId] = interaction.customId.split(":");
   if (action !== "new" || ownerId !== interaction.user.id) {
