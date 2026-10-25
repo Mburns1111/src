@@ -8,6 +8,7 @@ import {
 import { getMessageMedia } from "./shared.js";
 import ProfilePhoto from "../models/ProfilePhoto.js";
 import { UserFacingError } from "./errors.js";
+import { deletePhotoFilesBeforeRecords } from "../services/profile-photo-deletion.js";
 
 const profilePhotoBucketName = "profilePhotos";
 
@@ -237,12 +238,14 @@ export async function removeProfilePhotos(guild, profile, photoNumbers) {
     .filter((image) => image.profilePhotoFileId)
     .map((image) => image.profilePhotoFileId);
   if (storedFileIds.length) {
-    await ProfilePhoto.deleteMany({
-      guildId: profile.guildId,
-      ownerId: profile.discordUserId,
-      fileId: { $in: storedFileIds },
-    });
-    await deleteStoredPhotoFiles(storedFileIds);
+    await deletePhotoFilesBeforeRecords(
+      storedFileIds, deleteStoredPhotoFiles,
+      () => ProfilePhoto.deleteMany({
+        guildId: profile.guildId,
+        ownerId: profile.discordUserId,
+        fileId: { $in: storedFileIds },
+      }),
+    );
   }
 
   if (legacyGroups.size) await profile.save();
@@ -287,13 +290,18 @@ export async function removeAllProfilePhotos(guild, profile) {
     .toArray();
   const fileIds = photoFiles.map((file) => file._id);
 
-  await ProfilePhoto.deleteMany({
-    guildId: profile.guildId,
-    ownerId: profile.discordUserId,
-  });
+  // Never discard the photo records before confirming the GridFS objects
+  // were deleted. A storage error should leave the metadata available to
+  // retry, rather than trapping invisible bytes in the member's quota.
+  await deletePhotoFilesBeforeRecords(
+    fileIds, deleteStoredPhotoFiles,
+    () => ProfilePhoto.deleteMany({
+      guildId: profile.guildId,
+      ownerId: profile.discordUserId,
+    }),
+  );
   profile.albumPosts = [];
   await profile.save();
-  await deleteStoredPhotoFiles(fileIds);
 
   return photoCount;
 }
