@@ -1015,56 +1015,69 @@ function drawOutfit(ctx, data, images, style, layout, appearance, stickerImages)
 
 
 function drawHouse(ctx, data, images, style, layout, appearance, stickerImages) {
+  // Compact house advertisement (1200 × 430). The playable House Tour remains
+  // in a separate Discord message; shrinking this image must not change it.
   const { width, height } = layout;
   ctx.fillStyle = style.background;
   ctx.fillRect(0, 0, width, height);
   if (images.background) drawCover(ctx, images.background, 0, 0, width, height);
   else drawBackgroundPattern(ctx, width, height, appearance);
 
-  glassPanel(ctx, 48, 40, 1104, 137, style);
-  glassPanel(ctx, 48, 199, 648, 536, style, true);
-  glassPanel(ctx, 716, 199, 436, 536, style);
-  glassPanel(ctx, 48, 759, 1104, 54, style);
+  // Shallow title, wider photo-and-details row, and a slim gallery footer.
+  // All regions end above y=420, leaving room for purchased outer frames.
+  glassPanel(ctx, 42, 26, 1116, 86, style);
+  glassPanel(ctx, 42, 126, 425, 243, style, true);
+  glassPanel(ctx, 479, 126, 679, 243, style);
+  glassPanel(ctx, 42, 380, 1116, 31, style);
+
   drawFittedLine(ctx, data.title || "House listing", {
-    x: 85, y: 75, width: 1010, height: 66,
-  }, { fontSize: 53, minFontSize: 27, family: style.titleFontFamily,
+    x: 74, y: 40, width: 1052, height: 45,
+  }, { fontSize: 41, minFontSize: 24, family: style.titleFontFamily,
     weight: style.titleFontWeight, color: style.text });
   drawFittedLine(ctx, data.seller || "Member", {
-    x: 85, y: 147, width: 1000, height: 27,
-  }, { fontSize: 23, minFontSize: 16, family: style.fontFamily,
+    x: 76, y: 88, width: 1034, height: 21,
+  }, { fontSize: 20, minFontSize: 14, family: style.fontFamily,
     weight: style.bodyFontWeight, color: style.mutedText });
+
   if (images.photo) {
-    drawContain(ctx, images.photo, 73, 220, 598, 491, style.imageRadius);
+    drawContain(ctx, images.photo, 56, 139, 397, 216, style.imageRadius);
   } else {
-    drawFittedLine(ctx, "House tour / listing", { x: 90, y: 385, width: 560, height: 48 },
-      { fontSize: 32, minFontSize: 20, family: style.titleFontFamily,
-        weight: style.titleFontWeight, color: style.text });
-    drawWrappedText(ctx, "House video listings appear as attachments below this card.", {
-      x: 90, y: 455, width: 550, height: 90,
-    }, { fontSize: 25, minFontSize: 17, family: style.fontFamily,
+    drawFittedLine(ctx, "House Tour", {
+      x: 78, y: 187, width: 345, height: 48,
+    }, { fontSize: 40, minFontSize: 26, family: style.titleFontFamily,
+      weight: style.titleFontWeight, color: style.text });
+    drawWrappedText(ctx, "Watch the playable video beneath this listing.", {
+      x: 78, y: 251, width: 345, height: 78,
+    }, { fontSize: 24, minFontSize: 17, family: style.fontFamily,
       weight: style.bodyFontWeight, color: style.mutedText, maxLines: 3 });
   }
-  drawLabel(ctx, "Asking price", { x: 749, y: 224, width: 350, height: 35 }, style);
+
+  // Price columns share the top of the details panel. This leaves the whole
+  // lower portion for house description, rather than squeezing each value.
+  drawLabel(ctx, "Asking price", { x: 506, y: 143, width: 278, height: 30 }, style);
   drawFittedLine(ctx, data.askingPrice || "Not listed", {
-    x: 749, y: 266, width: 355, height: 52,
-  }, { fontSize: 34, minFontSize: 18, family: style.fontFamily,
+    x: 506, y: 176, width: 288, height: 42,
+  }, { fontSize: 31, minFontSize: 17, family: style.fontFamily,
     weight: style.bodyFontWeight, color: style.text });
-  drawLabel(ctx, "Estimated value", { x: 749, y: 334, width: 350, height: 35 }, style);
+  drawLabel(ctx, "Estimated value", { x: 827, y: 143, width: 298, height: 30 }, style);
   drawFittedLine(ctx, data.estimatedValue || "Not listed", {
-    x: 749, y: 376, width: 355, height: 52,
-  }, { fontSize: 30, minFontSize: 18, family: style.fontFamily,
+    x: 827, y: 176, width: 298, height: 42,
+  }, { fontSize: 31, minFontSize: 17, family: style.fontFamily,
     weight: style.bodyFontWeight, color: style.text });
-  drawLabel(ctx, "House details", { x: 749, y: 456, width: 350, height: 38 }, style);
+
+  drawLabel(ctx, "House details", { x: 506, y: 231, width: 599, height: 29 }, style);
   drawWrappedText(ctx, data.description || "No description", {
-    x: 749, y: 510, width: 350, height: 189,
-  }, { fontSize: 25, minFontSize: 17, family: style.fontFamily,
-    weight: style.bodyFontWeight, color: style.text, maxLines: 5 });
+    x: 506, y: 269, width: 614, height: 87,
+  }, { fontSize: 23, minFontSize: 16, family: style.fontFamily,
+    weight: style.bodyFontWeight, color: style.text, maxLines: 3 });
+
   const count = Number(data.galleryCount) || 0;
   const index = count ? Number(data.galleryIndex) || 1 : 0;
-  drawFittedLine(ctx, count ? `House photo ${index} / ${count}` : "House tour / media listing", {
-    x: 86, y: 772, width: 1000, height: 29,
-  }, { fontSize: 22, minFontSize: 16, family: style.fontFamily,
+  drawFittedLine(ctx, count ? `House photo ${index} / ${count}` : "House Tour", {
+    x: 75, y: 384, width: 1040, height: 22,
+  }, { fontSize: 19, minFontSize: 14, family: style.fontFamily,
     weight: style.bodyFontWeight, color: style.mutedText });
+
   drawDecorations(ctx, width, height, appearance, style, stickerImages);
 }
 
