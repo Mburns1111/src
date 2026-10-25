@@ -37,7 +37,7 @@ export async function handleRemovePendingForm(interaction, {
 } = {}) {
   const [, action, type, ownerId] = interaction.customId.split(":");
   if (action !== "remove" || !["house", "outfit", "trade"].includes(type) ||
-      !/^\\d{17,20}$/.test(ownerId ?? "")) {
+      !/^\d{17,20}$/.test(ownerId ?? "")) {
     throw new UserFacingError("That form removal button is invalid.");
   }
   if (interaction.user.id !== ownerId &&
