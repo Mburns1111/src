@@ -44,7 +44,7 @@ export async function refreshOutfitStyleCard(guild, listing) {
       embeds: [new EmbedBuilder().setColor(0x819287).setImage(`attachment://${STYLE_IMAGE_NAME}`)],
       files: [new AttachmentBuilder(png, { name: STYLE_IMAGE_NAME })],
       attachments: [],
-      allowedMentions: { parse: [] },
+      allowedMentions: { parse: [], repliedUser: false },
     };
     let message = null;
     if (listing.styleCardMessageId) {
