@@ -9,19 +9,23 @@ import {
 } from "./outfit.js";
 import { getConfiguredTextChannel, requireGuild, validateOptionalWebUrl } from "./shared.js";
 import { UserFacingError } from "./errors.js";
-import { refreshTradingPostCard } from "./trading-post.js";
+import { refreshTradingPostCard, importTradingPostForMember } from "./trading-post.js";
+import { importInventoryForMember } from "./inventory-video.js";
+import { ensureProfileCard } from "./profile.js";
 
 const TICKET_LIFETIME_MS = 20 * 60 * 1000;
 const importTickets = new Map();
 const TYPE_INFO = Object.freeze({
   house: { channelField: "houseChannelId", label: "house listings", mediaField: "house_media" },
   outfit: { channelField: "outfitChannelId", label: "outfit listings", mediaField: "outfit_media" },
+  inventory: { channelField: "inventoryChannelId", label: "inventory showcase", mediaField: "inventory_media" },
+  trading: { channelField: "tradingPostChannelId", label: "Trading Post" },
 });
 const SCOPE = /^[0-9a-f]{12}$/i;
 
 export const data = new SlashCommandBuilder()
   .setName("admin-import")
-  .setDescription("Import a house or outfit listing for a server member")
+  .setDescription("Import a house, outfit, inventory video, or Trading Post for a member")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand(command => command.setName("house")
     .setDescription("Post a house listing owned and managed by another member")
@@ -32,6 +36,16 @@ export const data = new SlashCommandBuilder()
     .setDescription("Post an outfit listing owned and managed by another member")
     .addUserOption(option => option.setName("member")
       .setDescription("Member who will own and control the outfit listing")
+      .setRequired(true)))
+  .addSubcommand(command => command.setName("inventory")
+    .setDescription("Import an inventory video or video link for a member")
+    .addUserOption(option => option.setName("member")
+      .setDescription("Member who will own the inventory entry")
+      .setRequired(true)))
+  .addSubcommand(command => command.setName("trading")
+    .setDescription("Import a Trading Post card for a member")
+    .addUserOption(option => option.setName("member")
+      .setDescription("Member who will own the Trading Post")
       .setRequired(true)));
 
 function requireAdmin(interaction) {
@@ -46,15 +60,33 @@ export function buildAdminImportModal(type, token, memberName) {
     throw new UserFacingError("That migration form is not valid.");
   }
   const house = type === "house";
+  const label = { house: "House", outfit: "Outfit", inventory: "Inventory", trading: "Trading Post" }[type];
   const modal = new ModalBuilder()
     .setCustomId("admin-import:" + type + ":" + token)
-    .setTitle(("Import " + (house ? "House" : "Outfit") + " for " +
+    .setTitle(("Import " + label + " for " +
       String(memberName || "member").slice(0, 24)).slice(0, 45));
   const text = (id, label, max, required, style) =>
     new LabelBuilder().setLabel(label).setTextInputComponent(
       new TextInputBuilder().setCustomId(id).setMaxLength(max)
         .setRequired(required).setStyle(style),
     );
+  if (type === "inventory") {
+    modal.addLabelComponents(
+      text("video_url", "Video link (leave blank if uploading)", 500, false, TextInputStyle.Short),
+      new LabelBuilder()
+        .setLabel("Video file (leave blank if using a link)")
+        .setFileUploadComponent(new FileUploadBuilder()
+          .setCustomId("inventory_media").setMinValues(0).setMaxValues(1)),
+    );
+    return modal;
+  }
+  if (type === "trading") {
+    modal.addLabelComponents(
+      text("looking_for", "Looking for (optional)", 1000, false, TextInputStyle.Paragraph),
+      text("willing_to_trade", "Willing to trade (optional)", 1000, false, TextInputStyle.Paragraph),
+    );
+    return modal;
+  }
   modal.addLabelComponents(
     text("title", house ? "House name" : "Outfit name", 100, true, TextInputStyle.Short),
     text("description", "Description", 1000, true, TextInputStyle.Paragraph),
@@ -135,6 +167,19 @@ export function adminImportValues(type, fields) {
     if (typeof value !== "string") throw new UserFacingError("An import field is missing.");
     return value.trim();
   };
+  if (type === "inventory") {
+    return { videoUrl: validateOptionalWebUrl(get("video_url"), "Inventory video") };
+  }
+  if (type === "trading") {
+    const lookingFor = get("looking_for"), willingToTrade = get("willing_to_trade");
+    if (lookingFor.length > 1000 || willingToTrade.length > 1000) {
+      throw new UserFacingError("Trading Post text must be at most 1000 characters per field.");
+    }
+    if (!lookingFor && !willingToTrade) {
+      throw new UserFacingError("Enter something the member is looking for or willing to trade.");
+    }
+    return { lookingFor, willingToTrade };
+  }
   const title = get("title"), description = get("description");
   if (!title || title.length > 100 || !description || description.length > 1000) {
     throw new UserFacingError("Enter a title (up to 100 characters) and description (up to 1000 characters).");
@@ -169,6 +214,46 @@ export async function handleAdminImportModal(interaction) {
     throw new UserFacingError("The intended owner is no longer a human member of this server. Nothing was posted.");
   }
   const values = adminImportValues(type, interaction.fields);
+  if (type === "inventory") {
+    const uploaded = Array.from(
+      interaction.fields.getUploadedFiles("inventory_media", false)?.values() ?? []);
+    if (uploaded.length > 1 || (uploaded.length === 1) === Boolean(values.videoUrl)) {
+      throw new UserFacingError("Choose exactly one video file or one video link for the inventory import.");
+    }
+    const post = await importInventoryForMember(interaction, {
+      owner, video: uploaded[0] ?? null,
+      videoUrl: values.videoUrl, importedById: interaction.user.id,
+    });
+    await Promise.allSettled([
+      ensureProfileCard(interaction.guild, owner.user, { refresh: true }),
+      refreshTradingPostCard(interaction.guild, ownerId),
+    ]).then(results => results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.warn("[Admin import] Could not refresh member " +
+          (index === 0 ? "profile" : "Trading Post") + " card:", result.reason);
+      }
+    }));
+    await interaction.editReply({
+      content: "Imported inventory video for <@" + ownerId + ">: " + post.url +
+        "\nTheir profile and Trading Post can link to it. They retain control of their inventory entry.",
+      allowedMentions: { parse: [] },
+    });
+    return true;
+  }
+  if (type === "trading") {
+    const post = await importTradingPostForMember(interaction, {
+      owner, ...values, importedById: interaction.user.id,
+    });
+    await ensureProfileCard(interaction.guild, owner.user, { refresh: true }).catch(error =>
+      console.warn("[Admin import] Could not refresh member profile:", error));
+    await interaction.editReply({
+      content: "Imported Trading Post for <@" + ownerId + ">: " + post.url +
+        "\nThey now own the card and can edit it, manage interest DMs, or delete it.",
+      allowedMentions: { parse: [] },
+    });
+    return true;
+  }
+
   const uploads = Array.from(
     interaction.fields.getUploadedFiles(info.mediaField, true)?.values() ?? [],
   );

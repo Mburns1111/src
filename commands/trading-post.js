@@ -21,7 +21,7 @@ import { displayListingAppearance, snapshotOwnedListingAppearance } from "../ser
 import { getAppearanceOwnership } from "../services/appearance-ownership.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { tradingPostCardPayload } from "../services/trading-post-display.js";
-import { discordMessageUrl } from "./shared.js";
+import { discordMessageUrl, getConfiguredTextChannel } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 
 const entryPostLocks = new Map();
@@ -299,7 +299,11 @@ async function makeTradingPostPayload(guild, post, member, profile) {
     },
     appearance: displayListingAppearance(post, profile, ownership),
   });
-  return tradingPostCardPayload(cardImage, linkLines, makeTradingPostComponents(post));
+  const payload = tradingPostCardPayload(cardImage, linkLines, makeTradingPostComponents(post));
+  if (post.importedById) {
+    payload.content = "Trading Post for <@" + post.ownerId + ">\n" + payload.content;
+  }
+  return payload;
 }
 
 export async function refreshTradingPostCard(guild, ownerId) {
