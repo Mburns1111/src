@@ -89,6 +89,7 @@ export async function handleProfileEntryButton(interaction) {
   // Photo management can acknowledge immediately; it only needs the
   // profile database after the member selects a specific operation.
   if (interaction.customId === "profile:entry:photos") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await showPhotoActionPrompt(interaction, interaction.user.id);
     return true;
   }
@@ -219,7 +220,7 @@ function makeProfileCardComponents(userId, page, count) {
 }
 
 async function showPhotoActionPrompt(interaction, ownerId) {
-  await interaction.reply({
+  const payload = {
     content: "Choose whether to add photos or remove photos from your album.",
     components: [
       new ActionRowBuilder().addComponents(
@@ -237,9 +238,10 @@ async function showPhotoActionPrompt(interaction, ownerId) {
           .setStyle(ButtonStyle.Danger),
       ),
     ],
-    flags: MessageFlags.Ephemeral,
     allowedMentions: { parse: [] },
-  });
+  };
+  if (interaction.deferred) await interaction.editReply(payload);
+  else await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
 }
 
 async function makeProfileCardPayload(
@@ -1368,6 +1370,7 @@ export async function handleProfileCardButton(interaction) {
   }
   // Opening a photo menu does not need to load the existing album first.
   if (action === "photos") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await showPhotoActionPrompt(interaction, ownerId);
     return;
   }
@@ -1728,6 +1731,8 @@ export async function handleProfileMenuButton(interaction) {
     return;
   }
   if (action === "photos") {
+    // Acknowledge immediately, before constructing or sending the menu.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await showPhotoActionPrompt(interaction, ownerId);
     return;
   }

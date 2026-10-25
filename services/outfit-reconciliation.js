@@ -61,13 +61,23 @@ export async function checkOutfitListingMessage(
   }
 }
 
+/** Embedded outfit artwork may not appear in Discord's attachment array. */
+export function outfitArtworkIsEmbedded(message) {
+  return (message?.embeds ?? []).some(embed => {
+    const image = embed?.image ?? embed?.data?.image;
+    return [image?.url, image?.proxyURL, image?.proxy_url].some(raw => {
+      if (typeof raw !== "string" || !raw) return false;
+      try { return decodeURIComponent(raw).includes("outfit-style-card.png"); }
+      catch { return raw.includes("outfit-style-card.png"); }
+    });
+  });
+}
+
 export function outfitNeedsFormatUpgrade(listing, message) {
   if (listing.galleryMessageId || listing.controlsMessageId || listing.styleCardMessageId) {
     return true;
   }
-  const styleImage = Array.from(message.attachments?.values?.() ?? []).some(
-    attachment => attachment.name === "outfit-style-card.png",
-  );
+  const styleImage = outfitArtworkIsEmbedded(message);
   const controls = (message.components || []).flatMap(row => row.components || []);
   const ids = controls.map(button => button.customId || button.custom_id || button.data?.custom_id || "");
   const hasActions = ["interest", "notify", "sold"].every(action =>
