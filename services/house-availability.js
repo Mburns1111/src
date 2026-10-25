@@ -40,7 +40,7 @@ export function houseNeedsFormatUpgrade(listing, message) {
     .some(asset => asset.name === "house-style-card.png");
   const buttons = (message.components ?? []).flatMap(row => row.components ?? [])
     .map(button => button.customId || button.custom_id || "");
-  const ids = ["sold", "media", "interest", "notify"];
+  const ids = ["sold", "interest", "notify"];
   return !art || ids.some(name => !buttons.includes(`house:${name}:${listing._id}`)) ||
     Boolean(message.embeds?.length);
 }
