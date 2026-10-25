@@ -72,7 +72,7 @@ function makeCreateListingButton(userId) {
   );
 }
 
-function makeCreateListingModal(userId, message) {
+export function makeCreateListingModal(userId, message) {
   return new ModalBuilder()
     .setCustomId(
       `house:create:${userId}:${message.channelId}:${message.id}`,
@@ -116,39 +116,17 @@ function makeCreateListingModal(userId, message) {
             .setRequired(true),
         ),
       new LabelBuilder()
-        .setLabel("House tour video link (optional)")
-        .setTextInputComponent(
-          new TextInputBuilder()
-            .setCustomId("video_url")
-            .setStyle(TextInputStyle.Short)
-            .setMaxLength(500)
-            .setRequired(false),
+        .setLabel("Upload house photos or videos (required)")
+        .setFileUploadComponent(
+          new FileUploadBuilder()
+            .setCustomId("house_media")
+            .setMinValues(1)
+            .setMaxValues(10),
         ),
     );
 }
 
 export const makeHouseComponents = houseActionComponents;
-
-function makeMediaModal(listing) {
-  const remainingUploads = Math.max(0, 10 - (listing.mediaAttachments?.length ?? 0));
-  if (remainingUploads === 0) {
-    throw new UserFacingError("This listing already has the maximum of 10 media files.");
-  }
-
-  return new ModalBuilder()
-    .setCustomId(`house:media:${String(listing._id)}`)
-    .setTitle("Add listing pictures or video")
-    .addLabelComponents(
-      new LabelBuilder()
-        .setLabel(`Choose up to ${remainingUploads} picture(s) or video(s)`)
-        .setFileUploadComponent(
-          new FileUploadBuilder()
-            .setCustomId("media")
-            .setMinValues(1)
-            .setMaxValues(remainingUploads),
-        ),
-    );
-}
 
 function makeHouseEmbed(listing, firstImageName) {
   const embed = new EmbedBuilder()
@@ -234,12 +212,14 @@ export async function handleHouseButton(interaction) {
   }
   if (action !== "media") return false;
 
-  const listing = await getActiveListing(interaction, listingId);
-  if (interaction.message.id !== listing.postMessageId) {
-    throw new UserFacingError("That button doesn't belong to this house listing.");
-  }
-
-  await interaction.showModal(makeMediaModal(listing));
+  // Older bot messages can still show the retired upload button until their
+  // public card is refreshed. Do not open a modal or alter any saved media.
+  await interaction.reply({
+    content: "House photos and videos must now be uploaded when creating the listing. " +
+      "This older Add pictures/video button cannot change an existing house. " +
+      "Your saved photos, videos and purchased style are unchanged.",
+    flags: MessageFlags.Ephemeral,
+  });
   return true;
 }
 
@@ -273,77 +253,14 @@ export async function handleHouseCreateButton(interaction) {
 }
 
 export async function handleHouseModal(interaction) {
-  const [, action, listingId] = interaction.customId.split(":");
-  if (action !== "media") return false;
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  let listing = await getActiveListing(interaction, listingId);
-  const uploads = Array.from(interaction.fields.getUploadedFiles("media", true).values());
-  validateAttachments(uploads);
-  if (!uploads.length || listing.mediaAttachments.length + uploads.length > 10) {
-    throw new UserFacingError("House listings support up to ten total uploaded photos/videos.");
-  }
-  const photos = uploads.filter(isGalleryPhoto);
-  const videos = uploads.filter(isGalleryVideo);
-  if (photos.length + videos.length !== uploads.length) {
-    throw new UserFacingError("Only images or videos can be added to a house listing.");
-  }
-
-  // Legacy listings are upgraded before the new media is attached. A failed
-  // archive leaves the old Discord post and its attachments intact.
-  await refreshHouseStyleCard(interaction.guild, listing);
-  listing = await HouseListing.findOne({
-    _id: listing._id, guildId: interaction.guildId, status: "active",
-  });
-  const message = await fetchListingMessage(interaction, listing);
-  const oldVideos = Array.from(message.attachments.values()).filter(isGalleryVideo);
-  if (oldVideos.length + videos.length > 9) {
-    throw new UserFacingError("A styled house can have at most nine video attachments, leaving room for its card.");
-  }
-  if (photos.length) {
-    await archiveHousePhotos(interaction.guildId, listing, photos);
-  }
-
-  let newVideoAssets = [];
-  if (videos.length) {
-    const art = Array.from(message.attachments.values()).find(asset =>
-      asset.name === HOUSE_ART_NAME);
-    if (!art) throw new UserFacingError("This house's styled artwork is unavailable. Please retry.");
-    const { files, cleanup } = await prepareMediaFiles(
-      videos, `house-${String(listing._id).slice(-8)}`,
-    );
-    let updated;
-    try {
-      updated = await message.edit({
-        attachments: [...oldVideos, art].map(asset => ({ id: asset.id })),
-        files,
-      });
-    } finally {
-      await cleanup();
-    }
-    const currentVideos = getMessageMedia(updated).filter(isGalleryVideo);
-    const oldIds = new Set(oldVideos.map(asset => asset.id));
-    if (!oldVideos.every(video => currentVideos.some(asset => asset.attachmentId === video.id))) {
-      throw new UserFacingError("Some original house videos were not preserved. Ask a server manager to review.");
-    }
-    newVideoAssets = currentVideos.filter(asset => !oldIds.has(asset.attachmentId));
-    if (newVideoAssets.length !== videos.length) {
-      throw new UserFacingError("Some new videos are missing from Discord. Do not reupload before an admin checks.");
-    }
-  }
-  listing.mediaAttachments = mergeOriginalMedia(
-    listing.mediaAttachments,
-    [...photos, ...newVideoAssets],
-  );
-  await listing.save();
-  let previewReady = true;
-  await refreshHouseStyleCard(interaction.guild, listing).catch(error => {
-    previewReady = false;
-    console.warn("[House] Photos/videos saved but styled card could not refresh:", error);
-  });
-  await interaction.editReply({
-    content: previewReady
-      ? `Added ${uploads.length} house photo/video file(s). Photos appear in the listing's in-card gallery.`
-      : "Your media was saved, but the house card could not refresh. Please ask a server manager to check the bot logs before reuploading.",
+  if (!interaction.customId.startsWith("house:media:")) return false;
+  // Stale modal submissions from before this deployment are acknowledged
+  // without changing the live post, images, videos or MongoDB gallery.
+  await interaction.reply({
+    content: "House media is now uploaded during listing creation. " +
+      "Existing house listings cannot accept additional media. " +
+      "Your current listing and its attachments were not modified.",
+    flags: MessageFlags.Ephemeral,
   });
   return true;
 }
