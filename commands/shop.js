@@ -623,14 +623,14 @@ export function dmShopTools(guildId, category, index) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:mix:${category}:${index}`)
       .setLabel("Preview Multiple").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:refresh:${category}:${index}`)
-      .setLabel("Refresh Points & Items").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:home`)
       .setLabel("All Categories").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:tradingPost`)
       .setLabel("Customize Trading Post").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:outfit`)
+      .setLabel("Customize Outfits").setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -708,6 +708,8 @@ export function dmCategoryHomeControls(guildId) {
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:tradingPost`)
       .setLabel("Customize Trading Post").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:outfit`)
+      .setLabel("Customize Outfits").setStyle(ButtonStyle.Primary),
   ));
   return rows;
 }
@@ -735,14 +737,14 @@ export function dmIndexTools(guildId, category, page) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:indexMix:${category}:0`)
       .setLabel("Preview Multiple").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:index:${category}:${page}`)
-      .setLabel("Refresh Index & Points").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:home`)
       .setLabel("All Categories").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:appearance`)
       .setLabel("Customize Profile").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:tradingPost`)
       .setLabel("Customize Trading Post").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`shop:dm:${guildId}:post:outfit`)
+      .setLabel("Customize Outfits").setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -1326,7 +1328,7 @@ export async function ensureMemberShopDM(guild, user, category = categories()[0]
 async function sendShopDM(interaction, category) {
   const { message, created } = await ensureMemberShopDM(interaction.guild, interaction.user, category, { refresh: true });
   await interaction.editReply({
-    content: `${created ? "I opened your personal shop!" : "Your personal shop is already in your DMs."} [**Open your shop**](${dmPanelUrl(message.channelId, message.id)}). You can browse categories, check Points, and customize your profile or Trading Post there.`,
+    content: `${created ? "I opened your personal shop!" : "Your personal shop is already in your DMs."} [**Open your shop**](${dmPanelUrl(message.channelId, message.id)}). You can browse categories, check Points, and customize your profile, Trading Post, or outfits there.`,
     allowedMentions: { parse: [] },
   });
 }
@@ -1368,11 +1370,13 @@ async function handleShopDM(interaction) {
   const context = { guildId, user: interaction.user, guild, interactionId: interaction.id };
 
   if (action === "post") {
-    if (!interaction.isButton() || categoryText !== "tradingPost") {
+    if (!interaction.isButton() || !["tradingPost", "outfit"].includes(categoryText)) {
       throw new UserFacingError("That post customization button is unavailable.");
     }
-    const { openTradingPostAppearanceDM } = await import("./listing-appearance-editor.js");
-    return openTradingPostAppearanceDM(interaction, guild);
+    const { openTradingPostAppearanceDM, showOutfitAppearancePicker } = await import("./listing-appearance-editor.js");
+    return categoryText === "outfit"
+      ? showOutfitAppearancePicker(interaction, guild)
+      : openTradingPostAppearanceDM(interaction, guild);
   }
 
 
