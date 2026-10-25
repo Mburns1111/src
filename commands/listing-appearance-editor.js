@@ -18,6 +18,7 @@ import {
 import { resolveAppearance, appearanceCatalogItem } from "../services/post-appearance.js";
 import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } from "../services/sticker-catalog.js";
 import { renderPostImage } from "../services/post-renderer.js";
+import { tradingPostPreviewPayload } from "../services/trading-post-display.js";
 import { refreshOutfitStyleCard } from "../services/outfit-card.js";
 import { getOutfitGalleryPage } from "../services/outfit-gallery.js";
 import { checkOutfitListingMessage, findCustomizableOutfits } from "../services/outfit-reconciliation.js";
@@ -66,14 +67,20 @@ async function editorPayload(post, draft, ownership, type = TARGET_TYPE) {
     images: outfit ? { photo: photoPage.imageBuffer } : {},
     appearance: filterOwnedAppearance(draft.appearance, ownership),
   });
+  const components = editorControls(post, draft, ownership, type);
+  if (!outfit) {
+    return tradingPostPreviewPayload(
+      png,
+      "**Customize Trading Post** — choose your owned shop styles. This is a private preview. **Save Trading Post Style** updates only your Trading Post, not your profile or other listings. **Discard Changes** leaves the public post unchanged.",
+      components,
+    );
+  }
   return {
-    content: outfit
-      ? `**Customize Outfit: ${String(post.title).slice(0, 90)}** — private preview. Save only this outfit's style, or discard. Other outfits and your profile will not change. Your saved photo appears directly inside this styled card. Photo buttons and listing actions remain beneath the published image.`
-      : "**Customize Trading Post** — choose your owned shop styles. This is a private preview. **Save Trading Post Style** updates only your Trading Post, not your profile or other listings. **Discard Changes** leaves the public post unchanged.",
+    content: `**Customize Outfit: ${String(post.title).slice(0, 90)}** — private preview. Save only this outfit's style, or discard. Other outfits and your profile will not change. Your saved photo appears directly inside this styled card. Photo buttons and listing actions remain beneath the published image.`,
     embeds: [new EmbedBuilder().setColor("#819287").setImage(`attachment://${filename}`)],
     files: [new AttachmentBuilder(png, { name: filename })],
     attachments: [],
-    components: editorControls(post, draft, ownership, type),
+    components,
     allowedMentions: { parse: [] },
   };
 }
