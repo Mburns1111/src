@@ -71,7 +71,7 @@ function makeCreateListingButton(userId) {
   );
 }
 
-function makeCreateListingModal(userId, message) {
+export function makeCreateListingModal(userId, message) {
   return new ModalBuilder()
     .setCustomId(`outfit:create:${userId}:${message.channelId}:${message.id}`)
     .setTitle("Create an outfit listing")
@@ -123,7 +123,7 @@ function makeCreateListingModal(userId, message) {
     );
 }
 
-function makeListingComponents(listing) {
+export function makeListingComponents(listing) {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
