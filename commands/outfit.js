@@ -247,7 +247,7 @@ export async function handleOutfitButton(interaction) {
 export async function handleOutfitPageButton(interaction) {
   const [, area, direction, listingId] = interaction.customId.split(":");
   if (area !== "page" || !["prev", "next"].includes(direction) ||
-      !/^[a-f\\d]{24}$/i.test(listingId || "")) {
+      !/^[0-9a-f]{24}$/i.test(listingId || "")) {
     throw new UserFacingError("That outfit photo action is not valid.");
   }
   await interaction.deferUpdate();
@@ -272,7 +272,7 @@ export async function handleOutfitPageButton(interaction) {
 export async function handleLegacyOutfitGalleryButton(interaction) {
   const [, area, direction, id] = interaction.customId.split(":");
   if (area !== "gallery" || !["prev", "next"].includes(direction) ||
-      !/^[a-f\\d]{24}$/i.test(id || "")) {
+      !/^[0-9a-f]{24}$/i.test(id || "")) {
     throw new UserFacingError("This old outfit gallery button is invalid.");
   }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
