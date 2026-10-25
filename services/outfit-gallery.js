@@ -119,6 +119,27 @@ export function galleryMessagePayload(listing, page, total) {
   };
 }
 
+/**
+ * Mongoose hydrates Schema Buffer fields as Buffers, but lean() exposes BSON
+ * Binary wrappers. Discord AttachmentBuilder accepts neither BSON Binary nor
+ * JSON Buffer objects. Normalize explicitly and reject corrupt data.
+ */
+export function galleryImageBuffer(value) {
+  let bytes = value;
+  if (value?._bsontype === "Binary" && typeof value.value === "function") {
+    bytes = value.value(true);
+  } else if (value?.type === "Buffer" && Array.isArray(value.data)) {
+    bytes = Buffer.from(value.data);
+  }
+  if (!Buffer.isBuffer(bytes) && bytes instanceof Uint8Array) {
+    bytes = Buffer.from(bytes);
+  }
+  if (!Buffer.isBuffer(bytes) || !bytes.length) {
+    throw new Error("The saved outfit gallery image is not a valid Buffer.");
+  }
+  return Buffer.from(bytes);
+}
+
 async function galleryImage(guildId, listingId, page) {
   const images = await OutfitGalleryImage.find({ guildId, listingId })
     .sort({ originalIndex: 1, _id: 1 })
@@ -137,7 +158,7 @@ export async function ensureOutfitGallery(guild, listing) {
     if (!count || !doc?.imageData) return null;
     const page = safePageIndex(listing.galleryPageIndex || 0, count);
     const payload = galleryMessagePayload(listing, page, count);
-    payload.files = [new AttachmentBuilder(doc.imageData, { name: fileName })];
+    payload.files = [new AttachmentBuilder(galleryImageBuffer(doc.imageData), { name: fileName })];
     let existing = null;
     if (listing.galleryMessageId) {
       existing = await channel.messages.fetch(listing.galleryMessageId).catch(() => null);
