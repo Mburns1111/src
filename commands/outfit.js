@@ -25,7 +25,7 @@ import {
   getMessageMedia,
   requireGuild,
   validateAttachments,
-  validateWebUrl,
+  validateOptionalWebUrl,
 } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 import { prepareMediaFiles } from "./video-compression.js";
@@ -112,7 +112,7 @@ export function makeCreateListingModal(userId, message) {
             .setRequired(false),
         ),
       new LabelBuilder()
-        .setLabel("Outfit video link (optional)")
+        .setLabel("Video link (optional; leave blank if uploading)")
         .setTextInputComponent(
           new TextInputBuilder()
             .setCustomId("video_url")
@@ -393,8 +393,8 @@ export async function handleOutfitCreateModal(interaction) {
       title: interaction.fields.getTextInputValue("title").trim(),
       description: interaction.fields.getTextInputValue("description").trim(),
       cost: interaction.fields.getTextInputValue("cost").trim(),
-      videoUrl: validateWebUrl(
-        interaction.fields.getTextInputValue("video_url").trim(),
+      videoUrl: validateOptionalWebUrl(
+        interaction.fields.getTextInputValue("video_url"),
         "Outfit video",
       ),
     };

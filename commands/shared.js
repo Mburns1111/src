@@ -77,6 +77,19 @@ export function getMessageMedia(message) {
   }));
 }
 
+/**
+ * Optional modal link fields often receive "N/A" or "none" from members
+ * uploading a video directly. Treat those answers as no external link.
+ * All other nonempty values still go through strict URL validation.
+ */
+export function validateOptionalWebUrl(value, label) {
+  const cleaned = String(value ?? "").trim();
+  if (!cleaned || /^(?:n\/?a|none|no|no\s+(?:link|video|url)|not\s+applicable|skip|-)$/i.test(cleaned)) {
+    return "";
+  }
+  return validateWebUrl(cleaned, label);
+}
+
 export function validateWebUrl(value, label) {
   if (!value) return "";
 
