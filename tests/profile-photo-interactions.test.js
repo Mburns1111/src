@@ -30,7 +30,7 @@ test("photo menu opens from the permanent entry without database round trips", a
   const i = makeInteraction("profile:entry:photos");
   assert.equal(await handleProfileEntryButton(i), true);
   assert.deepEqual(i.actions.map(a => a.type), ["defer", "edit"]);
-  assert.equal(i.actions[0].payload.components[0].components.length, 3);
+  assert.equal(i.actions[1].payload.components[0].components.length, 3);
 });
 
 test("photo menu opens from a profile card without fetching or rendering the card", async () => {
