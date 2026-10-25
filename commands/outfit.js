@@ -112,6 +112,14 @@ function makeCreateListingModal(userId, message) {
             .setMaxLength(500)
             .setRequired(false),
         ),
+      new LabelBuilder()
+        .setLabel("Upload outfit photos or videos (1–10)")
+        .setFileUploadComponent(
+          new FileUploadBuilder()
+            .setCustomId("outfit_media")
+            .setMinValues(1)
+            .setMaxValues(10),
+        ),
     );
 }
 
@@ -122,10 +130,6 @@ function makeListingComponents(listing) {
         .setCustomId(`outfit:sold:${String(listing._id)}`)
         .setLabel("Remove listing")
         .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(`outfit:media:${String(listing._id)}`)
-        .setLabel("Add pictures/video")
-        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`outfit:interest:${String(listing._id)}`)
         .setLabel(`Interested (${listing.interestedUserIds.length})`)
@@ -138,27 +142,6 @@ function makeListingComponents(listing) {
         .setStyle(ButtonStyle.Secondary),
     ),
   ];
-}
-
-function makeMediaModal(listing) {
-  const remainingUploads = Math.max(0, 10 - listing.mediaAttachments.filter(isGalleryMedia).length);
-  if (!remainingUploads) {
-    throw new UserFacingError("This listing already has the maximum of 10 media files.");
-  }
-
-  return new ModalBuilder()
-    .setCustomId(`outfit:media:${String(listing._id)}`)
-    .setTitle("Add outfit pictures or video")
-    .addLabelComponents(
-      new LabelBuilder()
-        .setLabel(`Choose up to ${remainingUploads} picture(s) or video(s)`)
-        .setFileUploadComponent(
-          new FileUploadBuilder()
-            .setCustomId("media")
-            .setMinValues(1)
-            .setMaxValues(remainingUploads),
-        ),
-    );
 }
 
 function makeListingEmbed(listing, firstImageName) {
@@ -248,11 +231,13 @@ export async function handleOutfitButton(interaction) {
     });
   }
   if (action !== "media") return false;
-  const listing = await getActiveListing(interaction, listingId);
-  if (interaction.message.id !== listing.postMessageId) {
-    throw new UserFacingError("That button doesn't belong to this outfit listing.");
-  }
-  await interaction.showModal(makeMediaModal(listing));
+  // Old public listing messages may still contain the retired button.
+  // Reject safely without modifying a single photo or video.
+  await interaction.reply({
+    content: "Outfit photos and videos are now uploaded when creating a listing. " +
+      "Existing outfits and their gallery are preserved; new uploads cannot be added afterward.",
+    flags: MessageFlags.Ephemeral,
+  });
   return true;
 }
 
@@ -265,87 +250,12 @@ export async function handleOutfitCreateButton(interaction) {
 }
 
 export async function handleOutfitModal(interaction) {
-  const [, action, listingId] = interaction.customId.split(":");
-  if (action !== "media") return false;
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-  const listing = await getActiveListing(interaction, listingId);
-  const uploads = Array.from(interaction.fields.getUploadedFiles("media", true).values());
-  validateAttachments(uploads);
-  const oldCount = listing.mediaAttachments.filter(isGalleryMedia).length;
-  if (oldCount + uploads.length > 10) {
-    throw new UserFacingError("An outfit listing can have up to ten photos or videos.");
-  }
-
-  // First archive every historical photo and create the first flipbook page.
-  // If even one old photo is not retrievable, leave the original post untouched.
-  await refreshOutfitStyleCard(interaction.guild, listing);
-
-  const images = uploads.filter(isGalleryPhoto);
-  const videos = uploads.filter(isGalleryVideo);
-  if (images.length) {
-    await saveOutfitGalleryImages(interaction.guildId, listing, images);
-  }
-
-  const message = await fetchListingMessage(interaction, listing);
-  const oldAttachments = Array.from(message.attachments.values());
-  const oldVideos = oldAttachments.filter(isGalleryVideo);
-  if (videos.length) {
-    // The original advert reserves one attachment for its banner.
-    // Never evict an uploaded video just to squeeze in a styled PNG.
-    if (oldVideos.length + videos.length >= 10) {
-      throw new UserFacingError(
-        "This outfit has too many video files for the banner. The photos already " +
-        "saved are preserved; contact a server manager for the video gallery.",
-      );
-    }
-    const banner = oldAttachments.find(item => item.name === OUTFIT_BANNER_NAME);
-    if (!banner) throw new UserFacingError("The outfit banner is missing. Please reopen the editor.");
-
-    const { files, cleanup } = await prepareMediaFiles(
-      videos, `outfit-${String(listing._id).slice(-8)}`,
-    );
-    let updated;
-    try {
-      updated = await message.edit({
-        attachments: [...oldVideos, banner].map(item => ({ id: item.id })),
-        files,
-        // The banner embed and original sold/interest buttons are untouched.
-      });
-    } finally {
-      await cleanup();
-    }
-    const preserved = new Set(Array.from(updated.attachments.values())
-      .filter(isGalleryVideo).map(item => item.id));
-    if (!oldVideos.every(item => preserved.has(item.id))) {
-      throw new UserFacingError(
-        "Discord did not retain all outfit videos. Do not upload again until a manager checks this listing.",
-      );
-    }
-    const newVideos = Array.from(updated.attachments.values())
-      .filter(item => isGalleryVideo(item) && !oldVideos.some(old => old.id === item.id));
-    if (newVideos.length !== videos.length) {
-      throw new UserFacingError("Some uploaded outfit videos were not retained by Discord.");
-    }
-    // Preserve stable IDs + download links of the newly uploaded video files.
-    listing.mediaAttachments = mergeOriginalMedia(listing.mediaAttachments, newVideos);
-  }
-
-  // Images have durable resized bytes in Mongo; record the original uploads
-  // for ownership and upload capacity without ever counting the banner.
-  listing.mediaAttachments = mergeOriginalMedia(listing.mediaAttachments, images);
-  try {
-    await listing.save();
-  } catch (error) {
-    console.error("Could not save outfit upload metadata:", error);
-    throw new UserFacingError(
-      "Some media reached the gallery but the listing could not be saved. " +
-      "Do not upload again until a server manager checks the post.",
-    );
-  }
-  if (images.length) await ensureOutfitGallery(interaction.guild, listing);
-  await interaction.editReply({
-    content: `Added ${uploads.length} outfit media file(s). Open the gallery beneath the banner to flip through photos.`,
+  // Support stale pre-update modal submissions without deleting attachments.
+  if (!interaction.customId.startsWith("outfit:media:")) return false;
+  await interaction.reply({
+    content: "Uploads now happen during outfit creation. This older upload form " +
+      "cannot change an existing gallery. Your saved outfit has not been modified.",
+    flags: MessageFlags.Ephemeral,
   });
   return true;
 }
