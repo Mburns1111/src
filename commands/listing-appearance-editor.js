@@ -18,7 +18,7 @@ import { STICKER_CATALOG, STICKER_OUTLINES, stickerDefaults, validStickerHex } f
 import { renderPostImage } from "../services/post-renderer.js";
 import {
   APPEARANCE_PAGES, makeAppearanceControls, availableAppearanceChoices,
-  appearanceChoicePage, adjustDraftSticker,
+  appearanceChoicePage, adjustDraftSticker, clearDraftStickers,
 } from "./profile.js";
 import { refreshTradingPostCard } from "./trading-post.js";
 import { UserFacingError } from "./errors.js";
@@ -253,6 +253,13 @@ export async function handleListingAppearanceDM(interaction) {
     return true;
   }
   if (kind === "button" && field === "refresh") {
+    await interaction.editReply(await editorPayload(post, draft, ownership));
+    return true;
+  }
+  if (kind === "button" && field === "clearStickers") {
+    clearDraftStickers(draft);
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await saveDraft(panel, draft);
     await interaction.editReply(await editorPayload(post, draft, ownership));
     return true;
   }
