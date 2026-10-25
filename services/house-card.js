@@ -3,24 +3,33 @@ import HouseListing from "../models/HouseListing.js";
 import UserProfile from "../models/UserProfile.js";
 import { displayListingAppearance } from "./listing-appearance.js";
 import { getAppearanceOwnership } from "./appearance-ownership.js";
-import { houseCardData, HOUSE_ART_NAME, isGalleryVideo, mergeOriginalMedia } from "./house-style.js";
+import { houseCardData, HOUSE_ART_NAME, mergeOriginalMedia } from "./house-style.js";
 import { houseActionComponents } from "./house-components.js";
 import { archiveExistingHousePhotos, getHouseGalleryPage } from "./house-gallery.js";
+import { ensureHouseMediaMessage, mergedHouseMediaMetadata } from "./house-media.js";
 import { renderPostImage } from "./post-renderer.js";
+import { discordMessageUrl } from "../commands/shared.js";
 
 const refreshQueue = new Map();
 
 /**
- * Artwork is attached as a normal PNG, not placed in an embed. User-uploaded
- * videos remain native attachments, and original photos are archived in Mongo
- * before their Discord attachments can be removed.
+ * Discord tiles multiple attachments side by side. The original house post
+ * carries ONLY the decorated PNG; all native video files live in the house
+ * media reply. House photos rotate inside the decorated image.
  */
-export function houseCardPayload(listing, photoPage, videos, image) {
-  const link = listing.videoUrl ? `\n[House tour video](${listing.videoUrl})` : "";
+export function houseCardPayload(listing, photoPage, image) {
+  const mediaLink = listing.mediaMessageId
+    ? `\n[Watch house video tour](${discordMessageUrl(
+      listing.guildId, listing.postChannelId, listing.mediaMessageId,
+    )})`
+    : "";
+  const videoLink = listing.videoUrl ? `\n[House tour link](${listing.videoUrl})` : "";
   return {
-    content: `House listing from ${listing.ownerName}${link}`,
+    content: `House listing from ${listing.ownerName}${mediaLink}${videoLink}`,
     embeds: [],
-    attachments: videos.map(v => ({ id: v.id })),
+    // Explicitly discard old original media only AFTER videos are present
+    // in the verified, separate media reply.
+    attachments: [],
     files: [new AttachmentBuilder(image, { name: HOUSE_ART_NAME })],
     components: houseActionComponents(listing, photoPage.count),
     allowedMentions: { parse: [] },
@@ -42,7 +51,8 @@ export async function refreshHouseStyleCard(guild, listing) {
     if (!original || original.author?.id !== guild.client.user.id) {
       throw new Error("Cannot edit a house post not authored by this bot.");
     }
-    // Photo storage must be complete BEFORE editing the original post.
+
+    // Historical original images must be archived before they are detached.
     const sources = await archiveExistingHousePhotos(guild, current, original);
     const photos = await getHouseGalleryPage(guild.id, current._id, current.galleryPageIndex ?? 0);
     if (current.galleryPageIndex !== photos.page) {
@@ -55,10 +65,17 @@ export async function refreshHouseStyleCard(guild, listing) {
       current.mediaAttachments = merged;
       await current.save();
     }
-    const videos = Array.from(original.attachments.values()).filter(isGalleryVideo);
-    if (videos.length > 9) {
-      throw new Error("Ten house videos occupy the available Discord slots; cannot safely add artwork.");
+
+    // This call is intentionally BEFORE the destructive attachment edit.
+    // It creates the separate video message and checks its actual files;
+    // on failure the original house image/videos are left as they were.
+    const media = await ensureHouseMediaMessage(guild, current, original, { channel });
+    if (media.message) {
+      const expected = mergedHouseMediaMetadata(current.mediaAttachments, media.videos);
+      current.mediaAttachments = expected;
+      await current.save();
     }
+
     const [profile, ownership] = await Promise.all([
       UserProfile.findOne({ guildId: guild.id, discordUserId: current.ownerId }),
       getAppearanceOwnership(guild.id, current.ownerId),
@@ -73,11 +90,10 @@ export async function refreshHouseStyleCard(guild, listing) {
       images: { photo: photos.imageBuffer },
       appearance: displayListingAppearance(current, profile, ownership),
     });
-    const updated = await original.edit(houseCardPayload(current, photos, videos, image));
-    const survivingVideos = new Set(Array.from(updated.attachments.values())
-      .filter(isGalleryVideo).map(video => video.id));
-    if (!videos.every(video => survivingVideos.has(video.id))) {
-      throw new Error("Discord failed to preserve original house videos.");
+    const updated = await original.edit(houseCardPayload(current, photos, image));
+    // Prevent accidental thumbnail tiling if discord.js edit semantics change.
+    if (Array.from(updated.attachments.values()).some(item => item.name !== HOUSE_ART_NAME)) {
+      console.warn("[House] Extra attachment remained on decorated card", String(current._id));
     }
     return updated;
   });
