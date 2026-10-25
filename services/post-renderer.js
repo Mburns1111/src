@@ -967,7 +967,20 @@ function drawOutfit(ctx, data, images, style, layout, appearance, stickerImages)
   });
 
   if (images.photo) {
-    drawContain(ctx, images.photo, 76, 234, 490, 485, style.imageRadius);
+    const others = [images.photo2, images.photo3].filter(Boolean);
+    if (!others.length) {
+      drawContain(ctx, images.photo, 76, 234, 490, 485, style.imageRadius);
+    } else {
+      // Show up to three uploaded pictures together; all originals stay in
+      // the listing's separate native Discord attachment gallery.
+      drawContain(ctx, images.photo, 76, 234, 490, 315, style.imageRadius);
+      if (others.length === 1) {
+        drawContain(ctx, others[0], 76, 565, 490, 154, style.imageRadius);
+      } else {
+        drawContain(ctx, others[0], 76, 565, 238, 154, style.imageRadius);
+        drawContain(ctx, others[1], 328, 565, 238, 154, style.imageRadius);
+      }
+    }
   } else {
     drawLabel(ctx, 'Outfit photos', { x: 100, y: 300, width: 440, height: 52 }, style);
     drawWrappedText(ctx, 'Photos and videos appear in the original listing.', {
@@ -1054,7 +1067,7 @@ export async function renderPostImage({
     ...(backgroundItem.kind === 'solid' && backgroundItem.color ? { background: backgroundItem.color } : {}),
   };
 
-  const [avatar, photo, background] = await Promise.all([
+  const [avatar, photo, background, photo2, photo3] = await Promise.all([
     loadImageSource(images.avatar).catch((error) => {
       console.warn(
         `[post-renderer] Could not load avatar: ${error.message}`
@@ -1076,6 +1089,14 @@ export async function renderPostImage({
             return null;
           })
       : Promise.resolve(null),
+    loadImageSource(images.photo2).catch(error => {
+      console.warn('[post-renderer] Second outfit photo unavailable:', error.message);
+      return null;
+    }),
+    loadImageSource(images.photo3).catch(error => {
+      console.warn('[post-renderer] Third outfit photo unavailable:', error.message);
+      return null;
+    }),
   ]);
 
   // Custom sticker assets are curated local files (e.g. transparent PNGs).
@@ -1113,7 +1134,7 @@ export async function renderPostImage({
     drawTradingPost(ctx, data, { avatar, photo, background }, resolvedStyle,
       layout, resolvedAppearance, stickerImages);
   } else if (type === 'outfit') {
-    drawOutfit(ctx, data, { avatar, photo, background }, resolvedStyle,
+    drawOutfit(ctx, data, { avatar, photo, photo2, photo3, background }, resolvedStyle,
       layout, resolvedAppearance, stickerImages);
   } else {
     throw new Error(
