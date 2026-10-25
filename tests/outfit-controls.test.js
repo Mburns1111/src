@@ -17,7 +17,7 @@ test("one outfit message has one styled image embed and all buttons underneath",
   assert.deepEqual(rows[0].map(b => b.label), ["◀ Previous", "Photo 1 / 3", "Next ▶", "Choose photo"]);
   assert.equal(rows[0][1].disabled, true);
   assert.deepEqual(rows[1].map(b => b.label),
-    ["Interested (0)", "Interest DMs: Off", "Remove listing"]);
+    ["Interested (0)", "Interest DMs: Off", "Remove listing", "Edit details"]);
   const payload = unifiedOutfitPayload(outfit, { count: 3, page: 0 }, [], Buffer.from("fake"));
   assert.equal(payload.embeds.length, 1);
   assert.equal(payload.embeds[0].toJSON().image.url, `attachment://${OUTFIT_BANNER_NAME}`);
@@ -39,7 +39,7 @@ test("single-photo and video-only outfits skip unnecessary page controls", () =>
   for (const count of [0, 1]) {
     const rows = outfitActionComponents(outfit, count).map(row => row.toJSON().components);
     assert.equal(rows.length, 1);
-    assert.equal(rows[0].length, 3);
+    assert.equal(rows[0].length, 4);
   }
 });
 

@@ -64,7 +64,7 @@ export function makeMemberListingDirectory(type, guildId, ownerId, entries, coun
         .setCustomId("member:edit:" + type + ":" + ownerId)
         .setPlaceholder("Edit one of these listings in DMs")
         .addOptions(editable.map(entry => ({
-          label: String(entry.title || "Untitled listing").replace(/[\\r\\n\\t]/g, " ").slice(0, 100),
+          label: String(entry.title || "Untitled listing").replace(/[\r\n\t]/g, " ").slice(0, 100),
           value: String(entry._id),
         }))),
     ));

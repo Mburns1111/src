@@ -64,7 +64,7 @@ test("house photo pagination and seller controls share ONE message", () => {
   assert.deepEqual(rows[0].map(b => b.label), ["◀ Previous", "Photo 1 / 3", "Next ▶", "Choose photo"]);
   assert.equal(rows[0][1].disabled, true);
   assert.deepEqual(rows[1].map(b => b.label), [
-    "Mark sold", "Interested (0)", "Interest DMs: Off",
+    "Mark sold", "Interested (0)", "Interest DMs: Off", "Edit details",
   ]);
   assert.equal(rows[0][2].custom_id, `house:page:next:${listing._id}`);
   assert.equal(rows[0][3].custom_id, `house:page:choose:${listing._id}`);

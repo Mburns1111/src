@@ -21,7 +21,7 @@ test("public gallery keeps count and Previous/Next while adding direct photo acc
     assert.deepEqual(rows[0].map(button=>button.label),
       ["◀ Previous","Photo 3 / 6","Next ▶","Choose photo"]);
     assert.equal(rows[0][3].custom_id,`${kind}:page:choose:${id}`);
-    assert.equal(rows[1].length,3,"Existing seller/member actions remain intact");
+    assert.equal(rows[1].length,4,"Existing actions and the new details editor coexist");
   }
 });
 
