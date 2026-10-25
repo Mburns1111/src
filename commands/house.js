@@ -15,7 +15,7 @@ import {
 import HouseListing from "../models/HouseListing.js";
 import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
 import { refreshHouseStyleCard } from "../services/house-card.js";
-import { ensureHouseMediaMessage, deleteHouseMediaMessage, mergedHouseMediaMetadata } from "../services/house-media.js";
+import { deleteHouseMediaMessage, houseVideoAssets, mergedHouseMediaMetadata } from "../services/house-media.js";
 import { houseActionComponents } from "../services/house-components.js";
 import { houseGalleryCount, archiveHousePhotos, deleteHouseGallery } from "../services/house-gallery.js";
 import { isGalleryPhoto, isGalleryVideo, mergeOriginalMedia, HOUSE_ART_NAME } from "../services/house-style.js";
@@ -364,8 +364,7 @@ export async function handleHouseCreateModal(interaction) {
     published = true;
     pendingHouseForms.delete(formKey);
     await clearPendingForm(interaction.guildId, channelId, messageId);
-    // The permanent channel entry should follow the house card and its
-    // playable video reply, rather than interrupting the listing.
+    // Keep the permanent channel entry below the combined video/card post.
     await ensureHouseEntry(interaction.guild, post.channel, { moveToBottom: true })
       .catch(error => console.warn("Could not move house entry to bottom:", error));
   } catch (error) {
@@ -534,34 +533,40 @@ async function publishHouseListing(interaction, values, post, uploads) {
   });
   let published = false;
   let metadataSaved = true;
-  let media;
+  let postedVideos = [];
   try {
     // Save every photo to Mongo BEFORE modifying the original form post.
     if (photos.length) await archiveHousePhotos(interaction.guildId, listing, photos);
 
-    // Video attachments are sent as their own bot-authored reply. Verify
-    // EVERY video was accepted by Discord before publishing the house card.
-    if (videos.length) {
-      media = await ensureHouseMediaMessage(interaction.guild, listing, post, {
-        videoSources: videos, channel: post.channel,
+    // Videos now live on the SAME Discord message as the styled card, just
+    // like outfits. Discord displays its native video preview above the
+    // embedded house artwork.
+    const prepared = videos.length
+      ? await prepareMediaFiles(videos, `house-${String(listing._id).slice(-8)}`)
+      : { files: [], cleanup: async () => {} };
+    let updatedPost;
+    try {
+      updatedPost = await post.edit({
+        content: `House listing from ${member.displayName}`,
+        embeds: [makeHouseEmbed(listing)],
+        components: makeHouseComponents(listing),
+        attachments: [],
+        files: prepared.files,
+        allowedMentions: { parse: [] },
       });
-      if (!media.message || media.videos.length !== videos.length) {
-        throw new Error("The house video post could not be verified.");
-      }
-      listing.mediaAttachments = mergedHouseMediaMetadata(photoMetadata, media.videos);
-      await listing.save();
+    } finally {
+      await prepared.cleanup().catch(error =>
+        console.warn("[House] Temporary video cleanup failed:", error));
     }
-
-    // No video is attached to this message: Discord displays a full-size
-    // styled card instead of tiling it next to a video preview.
-    await post.edit({
-      content: `House listing from ${member.displayName}`,
-      embeds: [makeHouseEmbed(listing)],
-      components: makeHouseComponents(listing),
-      attachments: [],
-      files: [],
-      allowedMentions: { parse: [] },
-    });
+    // Check actual retained attachments BEFORE marking the form published.
+    // On incomplete uploads keep the staging record and archived photos;
+    // never pretend that all video bytes arrived.
+    postedVideos = houseVideoAssets(updatedPost.attachments?.values?.());
+    if (postedVideos.length !== videos.length) {
+      throw new Error("Discord did not confirm every house video on the listing post.");
+    }
+    listing.mediaAttachments = mergedHouseMediaMetadata(photoMetadata, postedVideos);
+    await listing.save();
     published = true;
     // A Discord edit can finish immediately before the process stops. Keep
     // staging in Mongo until the edit actually succeeds, then publish.
@@ -585,7 +590,7 @@ async function publishHouseListing(interaction, values, post, uploads) {
 
   // From here onward the house is public: rendering or Mongo failures must
   // never restore a create form and erase uploaded media.
-  const videosSaved = videos.length === (media?.videos.length ?? 0);
+  const videosSaved = videos.length === postedVideos.length;
   try {
     if (!videos.length) {
       listing.mediaAttachments = photoMetadata;

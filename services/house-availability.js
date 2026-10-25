@@ -1,6 +1,5 @@
 import HouseListing from "../models/HouseListing.js";
 import { refreshHouseStyleCard } from "./house-card.js";
-import { houseMediaNeedsRepair, houseVideoAssets } from "./house-media.js";
 export async function checkHousePost(guild, listing) {
   if (!listing?.postChannelId || !listing?.postMessageId || (listing.status !== "active" || listing.publicationState === "staging")) {
     return { state: "unavailable" };
@@ -39,16 +38,22 @@ export async function findCustomizableHouses(guild, ownerId) {
 export function houseNeedsFormatUpgrade(listing, message) {
   const art = Array.from(message.attachments?.values?.() ?? [])
     .some(asset => asset.name === "house-style-card.png");
+  const imageEmbed = (message.embeds ?? []).some(embed =>
+    (embed.image?.url || embed.data?.image?.url || "").includes("house-style-card.png"));
   const buttons = (message.components ?? []).flatMap(row => row.components ?? [])
     .map(button => button.customId || button.custom_id || "");
   const ids = ["sold", "interest", "notify"];
-  return (listing.cardLayoutVersion ?? 0) < 1 || !art ||
+  const nativeVideos = Array.from(message.attachments?.values?.() ?? []).filter(asset =>
+    /^(video)\\//i.test(asset.contentType || "") ||
+    /\\.(mp4|webm|mov|m4v)$/i.test(asset.name || ""));
+  return (listing.cardLayoutVersion ?? 0) < 2 || !art || !imageEmbed ||
     ids.some(name => !buttons.includes(`house:${name}:${listing._id}`)) ||
     buttons.includes(`house:media:${listing._id}`) ||
-    Boolean(message.embeds?.length) ||
-    (houseMediaNeedsRepair(listing, message) && !listing.mediaMessageId) ||
-    Array.from(message.attachments?.values?.() ?? []).some(asset =>
-      /^(video)\//i.test(asset.contentType || "") || /\.(mp4|webm|mov|m4v)$/i.test(asset.name || ""));
+    Boolean(listing.mediaMessageId) ||
+    nativeVideos.length < (listing.expectedVideoCount ??
+      (listing.mediaAttachments ?? []).filter(asset =>
+        /^(video)\\//i.test(asset.contentType || "") ||
+        /\\.(mp4|webm|mov|m4v)$/i.test(asset.name || "")).length);
 }
 
 /** Repairs old house embeds on startup. Stops only the listing that fails. */
@@ -56,7 +61,7 @@ export async function reconcileHousesForGuild(guild, {
   records = null, check = checkHousePost, refresh = refreshHouseStyleCard,
 } = {}) {
   const listings = records ?? await HouseListing.find({
-    guildId: guild.id, status: "active",
+    guildId: guild.id, status: "active", publicationState: { $ne: "staging" },
     postChannelId: { $ne: "" }, postMessageId: { $ne: "" },
   }).sort({ createdAt: 1, _id: 1 });
   const stats = { scanned: 0, converted: 0, missing: 0, current: 0, unavailable: 0, failed: 0 };
@@ -66,27 +71,7 @@ export async function reconcileHousesForGuild(guild, {
       const result = await check(guild, listing);
       if (result.state === "missing") { stats.missing++; continue; }
       if (result.state !== "present") { stats.unavailable++; continue; }
-      let needsUpgrade = houseNeedsFormatUpgrade(listing, result.message);
-      if (!needsUpgrade && listing.mediaMessageId) {
-        try {
-          const channel = await guild.channels.fetch(listing.postChannelId);
-          const media = await channel.messages.fetch(listing.mediaMessageId);
-          if (!media || media.author?.id !== guild.client.user.id ||
-              houseVideoAssets(media.attachments?.values?.()).length === 0 ||
-              houseVideoAssets(media.attachments?.values?.()).length <
-                houseVideoAssets(listing.mediaAttachments || []).length) {
-            needsUpgrade = true;
-          }
-        } catch (error) {
-          if ([10003, 10008].includes(Number(error?.code))) {
-            needsUpgrade = true;
-          } else {
-            stats.unavailable++;
-            console.warn("[House reconciliation] Video reply could not be checked:", String(listing._id), error);
-            continue;
-          }
-        }
-      }
+      const needsUpgrade = houseNeedsFormatUpgrade(listing, result.message);
       if (!needsUpgrade) { stats.current++; continue; }
       await refresh(guild, listing);
       stats.converted++;

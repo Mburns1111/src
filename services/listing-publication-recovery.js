@@ -60,16 +60,15 @@ export async function recoverStagedListingPosts(guild, {
         if (expectedVideos) {
           let actualVideos = [];
           if (type === "house") {
-            if (!listing.mediaMessageId) {
-              results.pending++;
-              continue;
+            // New listings keep their videos above the styled artwork on the
+            // original post. Older staged replies are still recognized.
+            actualVideos = houseVideoAssets(message.attachments?.values?.());
+            if (actualVideos.length < expectedVideos && listing.mediaMessageId) {
+              const media = await channel.messages.fetch(listing.mediaMessageId);
+              if (media.author?.id === guild.client.user.id) {
+                actualVideos = houseVideoAssets(media.attachments?.values?.());
+              }
             }
-            const media = await channel.messages.fetch(listing.mediaMessageId);
-            if (media.author?.id !== guild.client.user.id) {
-              results.pending++;
-              continue;
-            }
-            actualVideos = houseVideoAssets(media.attachments?.values?.());
           } else {
             actualVideos = [...(message.attachments?.values?.() ?? [])]
               .filter(isGalleryVideo);

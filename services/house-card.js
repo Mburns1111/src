@@ -1,4 +1,4 @@
-import { AttachmentBuilder } from "discord.js";
+import { AttachmentBuilder, EmbedBuilder } from "discord.js";
 import HouseListing from "../models/HouseListing.js";
 import UserProfile from "../models/UserProfile.js";
 import { displayListingAppearance } from "./listing-appearance.js";
@@ -6,31 +6,23 @@ import { getAppearanceOwnership } from "./appearance-ownership.js";
 import { houseCardData, HOUSE_ART_NAME, mergeOriginalMedia } from "./house-style.js";
 import { houseActionComponents } from "./house-components.js";
 import { archiveExistingHousePhotos, getHouseGalleryPage } from "./house-gallery.js";
-import { ensureHouseMediaMessage, mergedHouseMediaMetadata } from "./house-media.js";
+import { houseVideoAssets, deleteHouseMediaMessage, mergedHouseMediaMetadata } from "./house-media.js";
+import { prepareMediaFiles } from "../commands/video-compression.js";
 import { renderPostImage } from "./post-renderer.js";
-import { discordMessageUrl } from "../commands/shared.js";
 
 const refreshQueue = new Map();
 
-/**
- * Discord tiles multiple attachments side by side. The original house post
- * carries ONLY the decorated PNG; all native video files live in the house
- * media reply. House photos rotate inside the decorated image.
- */
-export function houseCardPayload(listing, photoPage, image) {
-  const mediaLink = listing.mediaMessageId
-    ? `\n[Watch house video tour](${discordMessageUrl(
-      listing.guildId, listing.postChannelId, listing.mediaMessageId,
-    )})`
-    : "";
+/** Native video attachments render above the styled embed image on the same post. */
+export function houseCardPayload(listing, photoPage, image, videos = [], videoFiles = []) {
   const videoLink = listing.videoUrl ? `\n[House tour link](${listing.videoUrl})` : "";
   return {
-    content: `House listing from ${listing.ownerName}${mediaLink}${videoLink}`,
-    embeds: [],
-    // Explicitly discard old original media only AFTER videos are present
-    // in the verified, separate media reply.
-    attachments: [],
-    files: [new AttachmentBuilder(image, { name: HOUSE_ART_NAME })],
+    content: `House listing from ${listing.ownerName}${videoLink}`,
+    embeds: [new EmbedBuilder().setColor(0x819287)
+      .setImage(`attachment://${HOUSE_ART_NAME}`)],
+    // Existing videos are kept in place by ID; legacy tour videos are
+    // uploaded with the PNG before the old tour reply can be removed.
+    attachments: videos.map(asset => ({ id: asset.id })),
+    files: [...videoFiles, new AttachmentBuilder(image, { name: HOUSE_ART_NAME })],
     components: houseActionComponents(listing, photoPage.count),
     allowedMentions: { parse: [] },
   };
@@ -52,7 +44,7 @@ export async function refreshHouseStyleCard(guild, listing) {
       throw new Error("Cannot edit a house post not authored by this bot.");
     }
 
-    // Historical original images must be archived before they are detached.
+    // Store original photos before editing their Discord attachments.
     const sources = await archiveExistingHousePhotos(guild, current, original);
     const photos = await getHouseGalleryPage(guild.id, current._id, current.galleryPageIndex ?? 0);
     if (current.galleryPageIndex !== photos.page) {
@@ -66,15 +58,26 @@ export async function refreshHouseStyleCard(guild, listing) {
       await current.save();
     }
 
-    // This call is intentionally BEFORE the destructive attachment edit.
-    // It creates the separate video message and checks its actual files;
-    // on failure the original house image/videos are left as they were.
-    const media = await ensureHouseMediaMessage(guild, current, original, { channel });
-    if (media.message) {
-      const expected = mergedHouseMediaMetadata(current.mediaAttachments, media.videos);
-      current.mediaAttachments = expected;
-      await current.save();
+    const onCard = houseVideoAssets(original.attachments?.values?.());
+    const saved = houseVideoAssets(current.mediaAttachments || []);
+    let onReply = [];
+    if (current.mediaMessageId) {
+      try {
+        const legacyReply = await channel.messages.fetch(current.mediaMessageId);
+        if (legacyReply?.author?.id !== guild.client.user.id) {
+          throw new Error("The saved house tour belongs to another author.");
+        }
+        onReply = houseVideoAssets(legacyReply.attachments?.values?.());
+      } catch (error) {
+        // Already migrated cards may have had their legacy reply deleted,
+        // but never discard an only copy of a video just because it vanished.
+        if (![10003, 10008].includes(Number(error?.code))) throw error;
+        if (!onCard.length) throw new Error("House tour reply missing; native videos cannot be recovered safely.");
+      }
     }
+    const expectedVideos = Math.max(current.expectedVideoCount ?? 0,
+      onCard.length, saved.length, onReply.length);
+    if (expectedVideos > 9) throw new Error("A maximum of nine videos may share the house card.");
 
     const [profile, ownership] = await Promise.all([
       UserProfile.findOne({ guildId: guild.id, discordUserId: current.ownerId }),
@@ -90,20 +93,56 @@ export async function refreshHouseStyleCard(guild, listing) {
       images: { photo: photos.imageBuffer },
       appearance: displayListingAppearance(current, profile, ownership),
     });
-    const updated = await original.edit(houseCardPayload(current, photos, image));
-    // Mark successful compact rendering so startup reconciliation can
-    // upgrade older 1200×860 house cards automatically, not only on Save.
-    if ((current.cardLayoutVersion ?? 0) < 1) {
-      await HouseListing.updateOne({
+
+    // If this is an older separate-video listing, copy the files onto the
+    // original post. Never delete the reply until all files are confirmed.
+    const needsCopy = onCard.length < expectedVideos;
+    const sourceVideos = onReply.length >= expectedVideos ? onReply : saved;
+    if (needsCopy && sourceVideos.length < expectedVideos) {
+      throw new Error("A house video source is unavailable. The original post was left unchanged.");
+    }
+    let prepared = null;
+    try {
+      if (needsCopy) {
+        prepared = await prepareMediaFiles(sourceVideos,
+          `house-${String(current._id).slice(-8)}-card`);
+      }
+      const updated = await original.edit(houseCardPayload(
+        current, photos, image, needsCopy ? [] : onCard, prepared?.files ?? [],
+      ));
+      const actualVideos = houseVideoAssets(updated.attachments?.values?.());
+      const actualIds = new Set(actualVideos.map(item => item.id));
+      if (actualVideos.length < expectedVideos ||
+          (!needsCopy && !onCard.every(item => actualIds.has(item.id)))) {
+        throw new Error("Discord did not confirm every native house video. Old tour retained.");
+      }
+      if (!Array.from(updated.attachments?.values?.() ?? [])
+        .some(item => item.name === HOUSE_ART_NAME)) {
+        throw new Error("Discord did not confirm the styled house artwork attachment.");
+      }
+
+      // Save original-message metadata BEFORE retiring a legacy video reply.
+      const metadata = mergedHouseMediaMetadata(current.mediaAttachments, actualVideos);
+      const savedChange = await HouseListing.updateOne({
         _id: current._id, guildId: guild.id, status: "active",
         postMessageId: current.postMessageId,
-      }, { $set: { cardLayoutVersion: 1 } });
+      }, { $set: { cardLayoutVersion: 2, mediaAttachments: metadata } });
+      if (!savedChange.matchedCount) {
+        throw new Error("House card was edited, but its metadata could not be saved. Tour reply retained.");
+      }
+
+      if (current.mediaMessageId) {
+        await deleteHouseMediaMessage(guild, current);
+        await HouseListing.updateOne({
+          _id: current._id, guildId: guild.id, status: "active",
+          postMessageId: current.postMessageId, mediaMessageId: current.mediaMessageId,
+        }, { $set: { mediaMessageId: "" } });
+      }
+      return updated;
+    } finally {
+      if (prepared) await prepared.cleanup().catch(error =>
+        console.warn("[House] Could not clean temporary card videos:", error));
     }
-    // Prevent accidental thumbnail tiling if discord.js edit semantics change.
-    if (Array.from(updated.attachments.values()).some(item => item.name !== HOUSE_ART_NAME)) {
-      console.warn("[House] Extra attachment remained on decorated card", String(current._id));
-    }
-    return updated;
   });
   refreshQueue.set(key, job);
   try { return await job; }
