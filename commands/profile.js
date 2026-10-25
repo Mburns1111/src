@@ -86,14 +86,18 @@ export async function handleProfileEntryButton(interaction) {
     await openAppearanceDM(interaction, profile);
     return true;
   }
-  const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
+  // Photo management can acknowledge immediately; it only needs the
+  // profile database after the member selects a specific operation.
   if (interaction.customId === "profile:entry:photos") {
     await showPhotoActionPrompt(interaction, interaction.user.id);
-  } else if (interaction.customId === "profile:entry:video") {
-    await interaction.showModal(makeInventoryVideoModal(interaction.user.id));
-  } else {
-    await interaction.showModal(makeEditProfileModal(profile, interaction.user.id));
+    return true;
   }
+  if (interaction.customId === "profile:entry:video") {
+    await interaction.showModal(makeInventoryVideoModal(interaction.user.id));
+    return true;
+  }
+  const profile = await ensureProfileRecord(interaction.guildId, interaction.user);
+  await interaction.showModal(makeEditProfileModal(profile, interaction.user.id));
   return true;
 }
 
@@ -1362,6 +1366,11 @@ export async function handleProfileCardButton(interaction) {
   if (action === "appearance") {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   }
+  // Opening a photo menu does not need to load the existing album first.
+  if (action === "photos") {
+    await showPhotoActionPrompt(interaction, ownerId);
+    return;
+  }
 
   const profile = await UserProfile.findOne({
     guildId: interaction.guildId,
@@ -1377,8 +1386,6 @@ export async function handleProfileCardButton(interaction) {
     await openAppearanceDM(interaction, profile);
   } else if (action === "edit") {
     await interaction.showModal(makeEditProfileModal(profile, ownerId));
-  } else if (action === "photos") {
-    await showPhotoActionPrompt(interaction, ownerId);
   } else {
     await interaction.showModal(makeInventoryVideoModal(ownerId));
   }
@@ -1386,45 +1393,47 @@ export async function handleProfileCardButton(interaction) {
 
 export async function handleProfilePhotoActionButton(interaction) {
   const [, section, action, ownerId] = interaction.customId.split(":");
-  if (
-    section !== "photos-action" ||
-    !["add", "remove", "all", "confirm-all", "cancel-all"].includes(action) ||
-    ownerId !== interaction.user.id
-  ) {
+  if (section !== "photos-action" ||
+      !["add", "remove", "all", "confirm-all", "cancel-all"].includes(action) ||
+      ownerId !== interaction.user.id) {
     throw new UserFacingError("Only the profile owner can manage these photos.");
   }
 
+  // A modal MUST be the first response to a button. Opening it must never
+  // depend on slow album queries or an image render.
   if (action === "add") {
     await interaction.showModal(makeAddPhotosModal(ownerId));
     return;
   }
-
+  if (action === "remove") {
+    await interaction.showModal(makeRemovePhotosModal(ownerId));
+    return;
+  }
   if (action === "cancel-all") {
     await interaction.update({
       content: "Remove all cancelled. Your profile photos were not changed.",
-      components: [],
-      allowedMentions: { parse: [] },
+      components: [], allowedMentions: { parse: [] },
     });
     return;
   }
 
+  await interaction.deferUpdate();
   const profile = await UserProfile.findOne({
     guildId: interaction.guildId,
     discordUserId: ownerId,
   });
   if (!profile) throw new UserFacingError("Your profile could not be loaded.");
-  const photos = await getProfileAlbumImages(interaction.guild, profile);
-  if (!photos.length) {
-    await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
-    await interaction.update({
-      content: "There are no photos in your profile album to remove.",
-      components: [],
-      allowedMentions: { parse: [] },
-    });
-    return;
-  }
+
   if (action === "all") {
-    await interaction.update({
+    const photos = await getProfileAlbumImages(interaction.guild, profile);
+    if (!photos.length) {
+      await interaction.editReply({
+        content: "There are no photos in your profile album to remove.",
+        components: [], allowedMentions: { parse: [] },
+      });
+      return;
+    }
+    await interaction.editReply({
       content: `This will permanently remove all ${photos.length} photos from your profile. Are you sure?`,
       components: [
         new ActionRowBuilder().addComponents(
@@ -1442,23 +1451,15 @@ export async function handleProfilePhotoActionButton(interaction) {
     });
     return;
   }
-  if (action === "confirm-all") {
-    await interaction.deferUpdate();
-    const removedCount = await removeAllProfilePhotos(
-      interaction.guild,
-      profile,
-    );
-    await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
-    await interaction.editReply({
-      content: `Removed all ${removedCount} photos from your profile album.`,
-      components: [],
-      allowedMentions: { parse: [] },
-    });
-    return;
-  }
-  await interaction.showModal(makeRemovePhotosModal(ownerId, photos.length));
-}
 
+  const removedCount = await removeAllProfilePhotos(interaction.guild, profile);
+  const refreshed = await refreshProfileAfterPhotoChange(
+    interaction.guild, interaction.user);
+  await interaction.editReply({
+    content: `Removed all ${removedCount} photos from your profile album.${refreshed ? "" : " The profile card could not refresh; it will update the next time you refresh it."}`,
+    components: [], allowedMentions: { parse: [] },
+  });
+}
 export async function handleProfileAlbumPage(interaction) {
   const [, section, targetUserId, pageValue] = interaction.customId.split(":");
   if (section !== "album" || !/^\d{17,20}$/.test(targetUserId)) {
@@ -1602,7 +1603,7 @@ function makeAddPhotosModal(userId) {
     );
 }
 
-function makeRemovePhotosModal(userId, photoCount) {
+function makeRemovePhotosModal(userId) {
   return new ModalBuilder()
     .setCustomId(`profile:remove-photos:${userId}`)
     .setTitle("Remove photos from your profile")
@@ -1610,7 +1611,7 @@ function makeRemovePhotosModal(userId, photoCount) {
       new LabelBuilder()
         .setLabel("Photo numbers to remove")
         .setDescription(
-          `Use the card's Photo count, oldest first (1-${photoCount}); enter numbers or ranges.`,
+          "Use the card's photo numbers, oldest first; enter numbers or ranges.",
         )
         .setTextInputComponent(
           new TextInputBuilder()
@@ -1738,6 +1739,16 @@ export async function handleProfileMenuButton(interaction) {
   throw new UserFacingError("That profile option is not available.");
 }
 
+async function refreshProfileAfterPhotoChange(guild, user) {
+  try {
+    await ensureProfileCard(guild, user, { refresh: true });
+    return true;
+  } catch (error) {
+    console.error("[Profile photos] Changes saved, but card refresh failed:", error);
+    return false;
+  }
+}
+
 export async function handleProfileModal(interaction) {
   const [, action, ownerId] = interaction.customId.split(":");
   if (
@@ -1793,18 +1804,18 @@ export async function handleProfileModal(interaction) {
       interaction.fields.getUploadedFiles("images", true).values(),
     );
     validateAttachments(uploads, { imagesOnly: true });
-    await ensureProfileCard(interaction.guild, interaction.user);
-    const profile = await UserProfile.findOne(profileFilter);
-    if (!profile) throw new UserFacingError("Your profile could not be loaded.");
+    // Do not block uploads on a render of existing photos.
+    await ensureProfileRecord(interaction.guildId, interaction.user);
     await saveProfilePhotos(interaction.guildId, interaction.user.id, uploads);
-    await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+    const refreshed = await refreshProfileAfterPhotoChange(
+      interaction.guild, interaction.user);
     await awardMilestoneSafely(interaction.guildId, interaction.user.id,
       "inventoryFirstPost", "profile-photo-album");
 
     await interaction.editReply(
       makeMenuReply(
         interaction.user.id,
-        `Added ${uploads.length} photo(s) to your profile album.`,
+        `Added ${uploads.length} photo(s) to your profile album.${refreshed ? "" : " The profile card couldn't refresh; try refreshing it again later."}`,
       ),
     );
     return;
@@ -1823,11 +1834,12 @@ export async function handleProfileModal(interaction) {
       profile,
       photoNumbers,
     );
-    await ensureProfileCard(interaction.guild, interaction.user, { refresh: true });
+    const refreshed = await refreshProfileAfterPhotoChange(
+      interaction.guild, interaction.user);
     await interaction.editReply(
       makeMenuReply(
         interaction.user.id,
-        `Removed ${removedCount} photo(s) from your profile album.`,
+        `Removed ${removedCount} photo(s) from your profile album.${refreshed ? "" : " The profile card couldn't refresh; try refreshing it again later."}`,
       ),
     );
     return;
