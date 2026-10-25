@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { newListingEditorToken, isListingEditorToken } from "../services/listing-editor-token.js";
 import {
   AttachmentBuilder, EmbedBuilder, LabelBuilder, MessageFlags, ModalBuilder,
   TextInputBuilder, TextInputStyle,
@@ -96,7 +96,7 @@ export async function openTradingPostAppearanceDM(interaction, guild) {
     guildId: guild.id, user: interaction.user, kind: EDITOR_KIND,
     makeInitial: async () => {
       const draft = {
-        token: randomUUID().slice(0, 12),
+        token: newListingEditorToken(),
         appearance: displayListingAppearance(post, profile, ownership),
         page: "colors", selected: 0, stickerMode: "position", optionPages: {},
       };
@@ -156,7 +156,7 @@ function colorInput(id, current, label) {
 
 export async function handleListingAppearanceDM(interaction) {
   const [, , kind, token, field, stickerIndex] = interaction.customId.split(":");
-  if (!["button", "select", "modal"].includes(kind) || !/^[0-9a-f]{12}$/.test(token || "")) {
+  if (!["button", "select", "modal"].includes(kind) || !isListingEditorToken(token)) {
     throw new UserFacingError("That listing editor action is not valid.");
   }
   // Modals must be presented before acknowledging the button interaction.
