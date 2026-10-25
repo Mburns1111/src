@@ -28,6 +28,9 @@ import { ensureChannelEntry } from "./channel-entry.js";
 import {
   clearPendingForm,
   trackPendingForm,
+  addRemoveFormButton,
+  claimPendingFormOperation,
+  releasePendingFormOperation,
 } from "./pending-forms.js";
 
 export const data = new SlashCommandBuilder()
@@ -38,6 +41,11 @@ const activeTradeSubmissions = new Set();
 const openedTradeForms = new Set();
 const pendingTradeForms = new Map();
 const creatingTradeForms = new Set();
+export function forgetTradeForm(guildId, ownerId, messageId, channelId) {
+  const key = `${guildId}:${ownerId}`;
+  if (pendingTradeForms.get(key)?.messageId === messageId) pendingTradeForms.delete(key);
+  openedTradeForms.delete(`${guildId}:${channelId}:${messageId}`);
+}
 const tradeFormLifetimeMs = 60_000;
 const tradeModalLifetimeMs = 15 * 60_000;
 
@@ -63,12 +71,12 @@ export async function handleTradeVoteEntryButton(interaction) {
 }
 
 function makeCreateTradeButton(userId, expiresAt) {
-  return new ActionRowBuilder().addComponents(
+  return addRemoveFormButton(new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`trade:new:${userId}:${expiresAt}`)
       .setLabel("Create trade vote")
       .setStyle(ButtonStyle.Success),
-  );
+  ), "trade", userId);
 }
 
 function makeCreateTradeModal(userId, message, expiresAt) {
@@ -418,6 +426,9 @@ export async function handleTradeCreateModal(interaction) {
   if (activeTradeSubmissions.has(submissionKey)) {
     throw new UserFacingError("This trade vote is already being submitted.");
   }
+  if (!claimPendingFormOperation(interaction.guildId, channelId, messageId)) {
+    throw new UserFacingError("This form is already being submitted or removed.");
+  }
   activeTradeSubmissions.add(submissionKey);
 
   let post;
@@ -491,6 +502,7 @@ export async function handleTradeCreateModal(interaction) {
     throw error;
   } finally {
     activeTradeSubmissions.delete(submissionKey);
+    releasePendingFormOperation(interaction.guildId, channelId, messageId);
   }
 
   await interaction.editReply({

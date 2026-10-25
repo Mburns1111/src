@@ -37,6 +37,9 @@ import {
   discardPendingForm,
   getPendingFormStatus,
   trackPendingForm,
+  addRemoveFormButton,
+  claimPendingFormOperation,
+  releasePendingFormOperation,
 } from "./pending-forms.js";
 
 export const data = new SlashCommandBuilder()
@@ -46,6 +49,10 @@ export const data = new SlashCommandBuilder()
 const activeHouseSubmissions = new Set();
 const pendingHouseForms = new Map();
 const creatingHouseForms = new Set();
+export function forgetHouseForm(guildId, ownerId, messageId, channelId) {
+  const key = `${guildId}:${ownerId}`;
+  if (pendingHouseForms.get(key)?.messageId === messageId) pendingHouseForms.delete(key);
+}
 
 export async function ensureHouseEntry(guild, channel, { moveToBottom = false } = {}) {
   return ensureChannelEntry(guild, channel, {
@@ -65,12 +72,12 @@ export async function handleHouseEntryButton(interaction) {
 }
 
 function makeCreateListingButton(userId) {
-  return new ActionRowBuilder().addComponents(
+  return addRemoveFormButton(new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`house:new:${userId}`)
       .setLabel("Create house listing")
       .setStyle(ButtonStyle.Success),
-  );
+  ), "house", userId);
 }
 
 export function makeCreateListingModal(userId, message) {
@@ -306,6 +313,9 @@ export async function handleHouseCreateModal(interaction) {
   if (activeHouseSubmissions.has(submissionKey)) {
     throw new UserFacingError("This house listing is already being submitted.");
   }
+  if (!claimPendingFormOperation(interaction.guildId, channelId, messageId)) {
+    throw new UserFacingError("This form is already being submitted or removed.");
+  }
   activeHouseSubmissions.add(submissionKey);
 
   let post;
@@ -388,6 +398,7 @@ export async function handleHouseCreateModal(interaction) {
     throw error;
   } finally {
     activeHouseSubmissions.delete(submissionKey);
+    releasePendingFormOperation(interaction.guildId, channelId, messageId);
   }
 
   await interaction.editReply({

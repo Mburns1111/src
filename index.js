@@ -96,7 +96,10 @@ import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/tempo
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
 import UserProfile from "./models/UserProfile.js";
-import { cleanupPendingForms } from "./commands/pending-forms.js";
+import { cleanupPendingForms, handleRemovePendingForm } from "./commands/pending-forms.js";
+import { forgetHouseForm } from "./commands/house.js";
+import { forgetOutfitForm } from "./commands/outfit.js";
+import { forgetTradeForm } from "./commands/trade.js";
 
 const token = process.env.DISCORD_TOKEN;
 const mongoUri = process.env.MONGODB_URI;
@@ -405,6 +408,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("listing:dm:")) {
       await handleListingAppearanceDM(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("form:remove:")) {
+      await handleRemovePendingForm(interaction, {
+        forget: (type, guildId, ownerId, messageId, channelId) => {
+          if (type === "house") forgetHouseForm(guildId, ownerId, messageId, channelId);
+          if (type === "outfit") forgetOutfitForm(guildId, ownerId, messageId, channelId);
+          if (type === "trade") forgetTradeForm(guildId, ownerId, messageId, channelId);
+        },
+      });
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("house:new:")) {

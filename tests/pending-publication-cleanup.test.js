@@ -44,9 +44,9 @@ test("startup preserves a staged house submission and its pending form record", 
   assert.equal(result.removed, undefined);
   assert.deepEqual(result.actions, []);
 });
-test("startup preserves an interrupted disabled outfit form even if DB record wasn't saved", async () => {
+test("startup deletes abandoned disabled outfit forms when no upload staging exists", async () => {
   const result = await runCleanup("outfit", { staged: false });
-  assert.deepEqual(result.actions, []);
+  assert.deepEqual(result.actions, ["delete-message", "clear-record"]);
 });
 test("ordinary unfinished, enabled forms still get cleaned up safely", async () => {
   const result = await runCleanup("outfit", { staged: false, disabled: false });

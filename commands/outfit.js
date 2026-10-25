@@ -36,6 +36,9 @@ import {
   discardPendingForm,
   getPendingFormStatus,
   trackPendingForm,
+  addRemoveFormButton,
+  claimPendingFormOperation,
+  releasePendingFormOperation,
 } from "./pending-forms.js";
 
 export const data = new SlashCommandBuilder()
@@ -45,6 +48,10 @@ export const data = new SlashCommandBuilder()
 const activeSubmissions = new Set();
 const pendingForms = new Map();
 const creatingForms = new Set();
+export function forgetOutfitForm(guildId, ownerId, messageId, channelId) {
+  const key = `${guildId}:${ownerId}`;
+  if (pendingForms.get(key)?.messageId === messageId) pendingForms.delete(key);
+}
 
 export async function ensureOutfitEntry(guild, channel, { moveToBottom = false } = {}) {
   return ensureChannelEntry(guild, channel, {
@@ -64,12 +71,12 @@ export async function handleOutfitEntryButton(interaction) {
 }
 
 function makeCreateListingButton(userId) {
-  return new ActionRowBuilder().addComponents(
+  return addRemoveFormButton(new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`outfit:new:${userId}`)
       .setLabel("Create outfit listing")
       .setStyle(ButtonStyle.Success),
-  );
+  ), "outfit", userId);
 }
 
 export function makeCreateListingModal(userId, message) {
@@ -335,6 +342,9 @@ export async function handleOutfitCreateModal(interaction) {
   if (activeSubmissions.has(submissionKey)) {
     throw new UserFacingError("This outfit listing is already being submitted.");
   }
+  if (!claimPendingFormOperation(interaction.guildId, channelId, messageId)) {
+    throw new UserFacingError("This form is already being submitted or removed.");
+  }
   activeSubmissions.add(submissionKey);
 
   let post;
@@ -429,6 +439,7 @@ export async function handleOutfitCreateModal(interaction) {
     throw error;
   } finally {
     activeSubmissions.delete(submissionKey);
+    releasePendingFormOperation(interaction.guildId, channelId, messageId);
   }
 
   await interaction.editReply({
