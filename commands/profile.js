@@ -684,6 +684,10 @@ export function makeAppearanceControls(profile, page = "colors", selected = 0, o
     new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:confirm`).setLabel(saveLabel).setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:cancel`).setLabel("Discard Changes").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:refresh`).setLabel("Refresh Preview").setStyle(ButtonStyle.Secondary),
+    ...(dmToken && page === "stickers" && a.stickers.length
+      ? [new ButtonBuilder().setCustomId(`${editorPrefix}:button:${dmToken}:clearStickers`)
+          .setLabel("Remove All Stickers").setStyle(ButtonStyle.Danger)]
+      : []),
   );
   const pageMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -741,7 +745,7 @@ export function makeAppearanceControls(profile, page = "colors", selected = 0, o
           button("stickerColors", isTwoColor ? "Main & Accent HEX" : "Sticker HEX", ButtonStyle.Primary),
           button("stickerOutline", `Outline: ${(selectedSticker.outline || "auto").replace(/^./, c => c.toUpperCase())}`),
           button("stickerResetColors", "Reset Colors"),
-          button("remove", "Remove", ButtonStyle.Danger),
+          button("remove", "Remove Sticker", ButtonStyle.Danger),
         ));
         rows.push(new ActionRowBuilder().addComponents(
           button("stickerPosition", "← Position & Size", ButtonStyle.Primary),
@@ -750,6 +754,7 @@ export function makeAppearanceControls(profile, page = "colors", selected = 0, o
         rows.push(new ActionRowBuilder().addComponents(
           button("left", "← Left"), button("right", "Right →"),
           button("up", "↑ Up"), button("down", "↓ Down"),
+          button("remove", "Remove Sticker", ButtonStyle.Danger),
         ));
         rows.push(new ActionRowBuilder().addComponents(
           button("smaller", "− Size"), button("larger", "+ Size"),
@@ -941,6 +946,13 @@ async function saveDraftPanel(panel, draft) {
   await panel.save();
 }
 
+// Clearing a whole canvas is explicit; no purchase/ownership records are changed.
+export function clearDraftStickers(draft) {
+  draft.appearance.stickers = [];
+  draft.selected = 0;
+  draft.stickerMode = "position";
+}
+
 export function adjustDraftSticker(draft, action) {
   const sticker = draft.appearance.stickers[draft.selected];
   if (!sticker) throw new UserFacingError("Choose a sticker to edit.");
@@ -1130,6 +1142,13 @@ export async function handleProfileAppearanceDM(interaction) {
     return true;
   }
   if (kind === "button" && field === "refresh") {
+    await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
+    return true;
+  }
+  if (kind === "button" && field === "clearStickers") {
+    clearDraftStickers(draft);
+    draft.appearance = filterOwnedAppearance(resolveAppearance(draft.appearance), ownership);
+    await saveDraftPanel(panel, draft);
     await interaction.editReply(await appearanceDmPayload(guild, interaction.user, profile, draft));
     return true;
   }
