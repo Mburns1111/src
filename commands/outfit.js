@@ -15,6 +15,7 @@ import {
 import OutfitListing from "../models/OutfitListing.js";
 import { snapshotOwnedListingAppearance } from "../services/listing-appearance.js";
 import { refreshOutfitStyleCard, deleteOutfitStyleCard } from "../services/outfit-card.js";
+import { outfitActionComponents, ensureOutfitControls, deleteOutfitControls } from "../services/outfit-controls.js";
 import { isGalleryPhoto, isGalleryVideo, isGalleryMedia, OUTFIT_BANNER_NAME, mergeOriginalMedia } from "../services/outfit-gallery-utils.js";
 import { saveOutfitGalleryImages, ensureOutfitGallery, deleteOutfitGallery } from "../services/outfit-gallery.js";
 import UserProfile from "../models/UserProfile.js";
@@ -123,26 +124,7 @@ export function makeCreateListingModal(userId, message) {
     );
 }
 
-export function makeListingComponents(listing) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`outfit:sold:${String(listing._id)}`)
-        .setLabel("Remove listing")
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(`outfit:interest:${String(listing._id)}`)
-        .setLabel(`Interested (${listing.interestedUserIds.length})`)
-        .setStyle(ButtonStyle.Success),
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`outfit:notify:${String(listing._id)}`)
-        .setLabel(`Interest DMs: ${listing.notifyOnInterest ? "On" : "Off"}`)
-        .setStyle(ButtonStyle.Secondary),
-    ),
-  ];
-}
+export const makeListingComponents = outfitActionComponents;
 
 function makeListingEmbed(listing, firstImageName) {
   const fields = [];
@@ -182,13 +164,7 @@ export async function refreshOutfitListingPost(guild, listing) {
   // An admin/profile refresh must not replace the decorated outfit or drop
   // any of the owner's photos when updating the listing details/buttons.
   await refreshOutfitStyleCard(guild, listing);
-  const channel = await guild.channels.fetch(listing.postChannelId);
-  const message = await channel?.messages?.fetch(listing.postMessageId);
-  if (!message) throw new Error("Outfit listing message no longer exists.");
-  await message.edit({
-    components: makeListingComponents(listing),
-    allowedMentions: { parse: [] },
-  });
+  await ensureOutfitControls(guild, listing);
 }
 
 function canManageListing(interaction, listing) {
@@ -228,6 +204,7 @@ export async function handleOutfitButton(interaction) {
       ListingModel: OutfitListing,
       listingType: "outfit",
       makeComponents: makeListingComponents,
+      messageIdField: "controlsMessageId",
     });
   }
   if (action !== "media") return false;
@@ -341,6 +318,10 @@ export async function handleOutfitCreateModal(interaction) {
     }
     pendingForms.delete(formKey);
     await clearPendingForm(interaction.guildId, channelId, messageId);
+    // The channel's persistent entry must come AFTER banner, gallery and
+    // actions. Updating it before the flipbook appears puts it in the middle.
+    await ensureOutfitEntry(interaction.guild, post.channel, { moveToBottom: true })
+      .catch(error => console.warn("Could not move outfit entry to channel bottom:", error));
   } catch (error) {
     if (post && claimed && !published) {
       await post.edit({
@@ -558,7 +539,7 @@ export async function handleOutfitSold(interaction) {
     guildId: interaction.guildId,
     status: "active",
   });
-  if (!listing || listing.postMessageId !== interaction.message.id) {
+  if (!listing || (listing.controlsMessageId || listing.postMessageId) !== interaction.message.id) {
     throw new UserFacingError("This outfit listing is no longer active.");
   }
   if (!canManageListing(interaction, listing)) {
@@ -573,7 +554,10 @@ export async function handleOutfitSold(interaction) {
     throw new UserFacingError("This outfit listing has already been removed.");
   }
   try {
-    await interaction.message.delete();
+    // Delete the actual banner, not the separate action-controls message.
+    const channel = await interaction.guild.channels.fetch(listing.postChannelId);
+    const banner = await channel.messages.fetch(listing.postMessageId);
+    await banner.delete();
   } catch {
     await OutfitListing.updateOne(
       { _id: id, guildId: interaction.guildId, status: "sold" },
@@ -587,6 +571,7 @@ export async function handleOutfitSold(interaction) {
 
   await deleteOutfitStyleCard(interaction.guild, listing);
   await deleteOutfitGallery(interaction.guild, listing);
+  await deleteOutfitControls(interaction.guild, listing);
   await interaction.editReply({ content: "Outfit listing removed." });
   return listing.ownerId;
 }
