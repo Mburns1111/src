@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { OUTFIT_PICK_PAGE_SIZE, outfitPhotoUrl, outfitCardData, outfitPickerOptions } from "../services/outfit-style.js";
+import { OUTFIT_PICK_PAGE_SIZE, outfitPhotoUrl, outfitPhotoUrls, outfitCardData, outfitPickerOptions, outfitGalleryMedia, outfitStylePlacement, isOutfitMediaAttachment, OUTFIT_STYLE_IMAGE_NAME } from "../services/outfit-style.js";
 import { renderPostImage } from "../services/post-renderer.js";
 import { makeAppearanceControls } from "../commands/profile.js";
 import { FREE_APPEARANCE } from "../services/appearance-ownership.js";
@@ -90,4 +90,45 @@ test("outfit picker scales beyond 3 listings without losing identity", () => {
   const options = outfitPickerOptions(items);
   assert.equal(options.length, OUTFIT_PICK_PAGE_SIZE);
   assert.equal(new Set(options.map(item => item.value)).size, 20);
+});
+
+test("style PNG is never counted as an uploaded outfit picture", () => {
+  const media = [
+    { id: "media1", name: "look-front.jpg", contentType: "image/jpeg" },
+    { id: "style", name: OUTFIT_STYLE_IMAGE_NAME, contentType: "image/png" },
+    { id: "media2", name: "look-back.png", contentType: "image/png" },
+    { id: "media3", name: "walkthrough.mp4", contentType: "video/mp4" },
+  ];
+  assert.equal(isOutfitMediaAttachment(media[1]), false);
+  assert.deepEqual(outfitGalleryMedia(media).map(x => x.id),
+    ["media1", "media2", "media3"]);
+  assert.deepEqual(media.map(x => x.id), ["media1", "style", "media2", "media3"],
+    "The source gallery collection is not mutated");
+});
+
+test("outfit cards live on the original message with space, never evict ten uploads", () => {
+  for (const count of [0, 1, 2, 3, 9]) {
+    assert.equal(outfitStylePlacement(count), "original");
+    assert.ok(count + 1 <= 10);
+  }
+  assert.equal(outfitStylePlacement(10), "reply");
+  for (const invalid of [-1, 11, 1.2, null]) {
+    assert.throws(() => outfitStylePlacement(invalid), RangeError);
+  }
+});
+
+test("outfit collage includes three photo URLs without including videos", () => {
+  const gallery = { mediaAttachments: [
+    { url: "https://cdn.discordapp.com/1.jpg", name: "1.jpg", contentType: "image/jpeg" },
+    { url: "https://cdn.discordapp.com/video.mp4", name: "video.mp4", contentType: "video/mp4" },
+    { url: "https://cdn.discordapp.com/2.jpg", name: "2.jpg", contentType: "image/jpeg" },
+    { url: "https://cdn.discordapp.com/3.png", name: "3.png", contentType: "image/png" },
+    { url: "https://cdn.discordapp.com/4.jpg", name: "4.jpg", contentType: "image/jpeg" },
+  ] };
+  assert.deepEqual(outfitPhotoUrls(gallery), [
+    "https://cdn.discordapp.com/1.jpg",
+    "https://cdn.discordapp.com/2.jpg",
+    "https://cdn.discordapp.com/3.png",
+  ]);
+  assert.equal(gallery.mediaAttachments.length, 5);
 });
