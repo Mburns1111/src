@@ -5,7 +5,7 @@ import { displayListingAppearance } from "./listing-appearance.js";
 import { getAppearanceOwnership } from "./appearance-ownership.js";
 import { outfitCardData } from "./outfit-style.js";
 import { outfitActionComponents } from "./outfit-controls.js";
-import { renderPostImage } from "./post-renderer.js";
+import { renderListingCardCached } from "./listing-render-cache.js";
 import { isGalleryVideo, mergeOriginalMedia } from "./outfit-gallery-utils.js";
 import { ensureGalleryArchived, getOutfitGalleryPage } from "./outfit-gallery.js";
 
@@ -123,7 +123,7 @@ export async function refreshOutfitStyleCard(guild, listing) {
       UserProfile.findOne({ guildId: guild.id, discordUserId: current.ownerId }),
       getAppearanceOwnership(guild.id, current.ownerId),
     ]);
-    const png = await renderPostImage({
+    const png = await renderListingCardCached({
       type: "outfit",
       data: {
         ...outfitCardData(current),

@@ -243,7 +243,7 @@ const commandHandlers = new Map([
   [helpCommand.name, executeHelp],
 ]);
 
-let startupMaintenancePromise = Promise.resolve();
+// Startup maintenance is best-effort and must never gate a slash command.
 
 async function ensureConfiguredEntry(guild, channelId, ensureEntry, label) {
   if (!channelId) return;
@@ -309,7 +309,7 @@ client.once(Events.ClientReady, (readyClient) => {
   voiceActivityTimer = setInterval(() => void voiceActivityTick(), 60_000);
   voiceActivityTimer.unref?.();
   console.log(`Bot is online as ${readyClient.user.tag}.`);
-  startupMaintenancePromise = (async () => {
+  void (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
       try {
         await resumePendingTradingPostDeletes(guild);
@@ -380,12 +380,13 @@ client.once(Events.ClientReady, (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // Startup maintenance renders storefront images and may take time.
-    // Never wait for it before acknowledging button/select interactions:
-    // Discord expires unacknowledged interactions after a few seconds.
+    // Startup reconciliation may archive media or render many cards.
+    // Acknowledge slash commands immediately and execute against current
+    // MongoDB state; never await the unrelated maintenance pass here.
+    // Both branch-specific commands and entry creation already validate
+    // their current records, so they need no global startup barrier.
     if (interaction.isChatInputCommand()) {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      await startupMaintenancePromise;
     }
 
     if (interaction.isButton() && interaction.customId.startsWith("dm:notice:")) {

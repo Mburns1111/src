@@ -1,3 +1,4 @@
+import { yieldAfterMaintenanceBatch } from "./maintenance-batches.js";
 import HouseListing from "../models/HouseListing.js";
 import { refreshHouseStyleCard } from "./house-card.js";
 import { isGalleryVideo } from "./house-style.js";
@@ -75,6 +76,8 @@ export async function reconcileHousesForGuild(guild, {
     } catch (error) {
       stats.failed++;
       console.warn("[House reconciliation] Cannot safely reformat", String(listing._id), error);
+    } finally {
+      await yieldAfterMaintenanceBatch(stats.scanned);
     }
   }
   console.log(`[House reconciliation] Guild ${guild.id}: ${stats.scanned} checked, ${stats.converted} reformatted, ${stats.missing} deleted, ${stats.current} current, ${stats.unavailable} unavailable, ${stats.failed} failed.`);
