@@ -11,7 +11,7 @@ for (const entrypoint of ["index.js", "register-commands.js"]) {
     const source = readFileSync(resolve(root, entrypoint), "utf8");
     // Import declarations in these two entrypoints use an explicit "from".
     // Check the actual target file rather than relying only on syntax tests.
-    const relativeImports = [...source.matchAll(/\\bfrom\\s+["'](\\.[^"']+)["']/g)]
+    const relativeImports = [...source.matchAll(/\bfrom\s+["'](\.[^"']+)["']/g)]
       .map(match => match[1]);
     assert.ok(relativeImports.length > 0, "Expected to find relative imports");
     for (const specifier of relativeImports) {
