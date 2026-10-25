@@ -3,8 +3,11 @@ import { UserFacingError } from "./errors.js";
 
 export async function handleListingInterest(
   interaction,
-  { ListingModel, listingType, makeComponents },
+  { ListingModel, listingType, makeComponents, messageIdField = "postMessageId" },
 ) {
+  if (!["postMessageId", "controlsMessageId"].includes(messageIdField)) {
+    throw new Error("Unsupported listing action message field.");
+  }
   const [, action, listingId] = interaction.customId.split(":");
   if (!["interest", "notify"].includes(action)) return false;
 
@@ -18,7 +21,7 @@ export async function handleListingInterest(
     guildId: interaction.guildId,
     status: "active",
     postChannelId: interaction.channelId,
-    postMessageId: interaction.message.id,
+    [messageIdField]: interaction.message.id,
   });
   if (!listing) {
     throw new UserFacingError(`This ${listingType} listing is no longer active.`);
@@ -34,7 +37,7 @@ export async function handleListingInterest(
         guildId: interaction.guildId,
         ownerId: interaction.user.id,
         status: "active",
-        postMessageId: interaction.message.id,
+        [messageIdField]: interaction.message.id,
       },
       { $set: { notifyOnInterest: !listing.notifyOnInterest } },
       { returnDocument: "after", runValidators: true },
@@ -60,7 +63,7 @@ export async function handleListingInterest(
       _id: listing._id,
       guildId: interaction.guildId,
       status: "active",
-      postMessageId: interaction.message.id,
+      [messageIdField]: interaction.message.id,
       interestedUserIds: wasInterested
         ? interaction.user.id
         : { $ne: interaction.user.id },
