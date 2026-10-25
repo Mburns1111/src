@@ -307,7 +307,7 @@ export async function handleHousePhotoSelection(interaction) {
     await refreshHouseStyleCard(interaction.guild, updated);
   }
   await interaction.editReply({
-    content: \`Showing house photo \${page + 1} of \${count} on the public listing.\`,
+    content: `Showing house photo ${page + 1} of ${count} on the public listing.`,
     components: [], allowedMentions: { parse: [] },
   });
 }
