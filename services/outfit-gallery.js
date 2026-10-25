@@ -2,6 +2,7 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 import OutfitGalleryImage from "../models/OutfitGalleryImage.js";
 import { UserFacingError } from "../commands/errors.js";
 import { readDiscordAttachment } from "./media-transfer.js";
+import { assertImageSafeToDecode } from "./image-dimensions.js";
 import {
   GALLERY_HEIGHT, GALLERY_WIDTH, GALLERY_JPEG_QUALITY,
   MAX_IMAGE_BYTES, MAX_GALLERY_MEDIA, isGalleryPhoto,
@@ -23,6 +24,8 @@ async function fetchOriginalPhoto(asset) {
 }
 
 export async function resizeOutfitImage(bytes) {
+  // Reject decompression bombs using the file header before Canvas allocates.
+  assertImageSafeToDecode(bytes);
   const image = await loadImage(bytes);
   if (!image.width || !image.height || image.width > 12000 || image.height > 12000) {
     throw new UserFacingError("An outfit image has unsupported dimensions.");
