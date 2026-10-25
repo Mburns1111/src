@@ -159,9 +159,8 @@ export async function ensureGalleryArchived(guild, listing, originalMessage) {
           .find(asset => asset.name === "outfit-gallery-page.jpg");
         if (displayed) {
           await saveOutfitGalleryImages(guild.id, listing, [{
-            ...displayed,
-            name: "recovered-outfit-photo.jpg",
-            contentType: "image/jpeg",
+            id: displayed.id, url: displayed.url, size: displayed.size,
+            name: "recovered-outfit-photo.jpg", contentType: "image/jpeg",
           }]);
           count = await outfitGalleryCount(guild.id, listing._id);
           console.warn("[Outfit] Recovered one photo from older gallery reply for", String(listing._id));
