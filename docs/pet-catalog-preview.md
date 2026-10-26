@@ -6,17 +6,17 @@ Generated from source evidence dated **2026-10-26**. No MongoDB or network acces
 
 ## Overview
 
-- **782 distinct pets** from 783 source/evidence records (1 duplicate source entry consolidated).
-- **780** official rarities confirmed; **2** still unverified.
-- **4** canonical aliases selected; **9** extra official pets staged.
+- **793 distinct pets** from 794 source/evidence records (1 duplicate source entry consolidated).
+- **791** official rarities confirmed; **2** still unverified.
+- **4** canonical aliases selected; **20** extra official pets staged.
 - **1** historical rarity conflict adjudicated while preserving the provisional value.
-- **All 782 entries remain pending staff review.** Bulk source rights and artwork clearance: **NOT APPROVED**.
+- **All 793 entries remain pending staff review.** Bulk source rights and artwork clearance: **NOT APPROVED**.
 
 ### Rarity totals
 
 | Common | Uncommon | Rare | Ultra-Rare | Legendary | Unknown |
 |---:|---:|---:|---:|---:|---:|
-| 58 | 95 | 155 | 226 | 246 | 2 |
+| 59 | 100 | 157 | 228 | 247 | 2 |
 
 ## Items needing special attention
 
@@ -42,14 +42,25 @@ Generated from source evidence dated **2026-10-26**. No MongoDB or network acces
 
 | Name | Rarity | Official source |
 |---|---|---|
+| 2026 Birthday Butterfly | Uncommon | [Release notes](https://www.playadopt.me/discover/pets/2026-birthday-butterfly) |
+| 2D Doggy | Legendary | [Release notes](https://www.playadopt.me/discover/pets/2d-doggy) |
 | Bobageist | Ultra-Rare | [Release notes](https://www.playadopt.me/news/halloween-hauntlet-returns-notes) |
 | Boohoo | Rare | [Release notes](https://www.playadopt.me/news/halloween-stitches-spotlight-notes) |
 | Bubblegeist | Legendary | [Release notes](https://www.playadopt.me/news/halloween-hauntlet-returns-notes) |
+| Budgie Witch | Uncommon | [Release notes](https://www.playadopt.me/discover/pets/budgie-witch) |
 | Caramelgeist | Uncommon | [Release notes](https://www.playadopt.me/news/halloween-hauntlet-returns-notes) |
+| Chihuahua | Ultra-Rare | [Release notes](https://www.playadopt.me/discover/pets/chihuahua) |
 | Copycat | Legendary | [Release notes](https://www.playadopt.me/news/halloween-stitches-spotlight-notes) |
 | Count Slothula | Ultra-Rare | [Release notes](https://www.playadopt.me/news/halloween-wherebear-returns-notes) |
+| Dylan | Uncommon | [Release notes](https://www.playadopt.me/discover/pets/dylan) |
+| Granny Wolf | Rare | [Release notes](https://www.playadopt.me/discover/pets/granny-wolf) |
+| Ms. Muffet | Common | [Release notes](https://www.playadopt.me/discover/pets/ms-muffet) |
+| Pistachio | Uncommon | [Release notes](https://www.playadopt.me/discover/pets/pistachio) |
+| Ranger Beaver | Rare | [Release notes](https://www.playadopt.me/news/journey-to-summer-camp-week-1-notes) |
+| River | Uncommon | [Release notes](https://www.playadopt.me/discover/pets/river) |
 | Shoebill | Uncommon | [Release notes](https://www.playadopt.me/news/halloween-stitches-spotlight-notes) |
 | Stitches | Ultra-Rare | [Release notes](https://www.playadopt.me/news/halloween-stitches-spotlight-notes) |
+| Storm Condor | Ultra-Rare | [Release notes](https://www.playadopt.me/discover/pets/storm-condor) |
 | Stray Cat Dragon | Legendary | [Release notes](https://www.playadopt.me/news/halloween-wherebear-returns-notes) |
 
 ## Complete alphabetical catalogue
@@ -61,6 +72,8 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | 2021 Uplift Butterfly | `2021-uplift-butterfly` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/2021-uplift-butterfly) |
 | 2022 Uplift Butterfly | `2022-uplift-butterfly` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/2022-uplift-butterfly) |
 | 2025 Birthday Butterfly | `2025-birthday-butterfly` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/2025-birthday-butterfly) |
+| 2026 Birthday Butterfly | `2026-birthday-butterfly` | Uncommon | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/2026-birthday-butterfly) |
+| 2D Doggy | `2d-doggy` | Legendary | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/2d-doggy) |
 | 2D Kitty | `2d-kitty` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/2d-kitty) |
 | Abyssinian Cat | `abyssinian-cat` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/abyssinian-cat) |
 | Aestus | `aestus` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/aestus) |
@@ -152,6 +165,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Brown Springer Spaniel | `brown-springer-spaniel` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/brown-springer-spaniel) |
 | Brown-Chested Pheasant | `brown-chested-pheasant` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/brown-chested-pheasant) |
 | Bubblegeist | `bubblegeist` | Legendary | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/news/halloween-hauntlet-returns-notes) |
+| Budgie Witch | `budgie-witch` | Uncommon | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/budgie-witch) |
 | Buffalo | `buffalo` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/buffalo) |
 | Bullfrog | `bullfrog` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/bullfrog) |
 | Bunny | `bunny` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/bunny) |
@@ -189,6 +203,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Chick | `chick` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/chick) |
 | Chickatrice | `chickatrice` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/chickatrice) |
 | Chicken | `chicken` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/chicken) |
+| Chihuahua | `chihuahua` | Ultra-Rare | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/chihuahua) |
 | Chilling Spider | `chilling-spider` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/chilling-spider) |
 | Chimera | `chimera` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/chimera) |
 | Chipmunk | `chipmunk` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/chipmunk) |
@@ -263,6 +278,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Dragonfruit Fox | `dragonfruit-fox` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/news/fresh-fruit-pets-notes) |
 | Drake | `drake` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/drake) |
 | Dugong | `dugong` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/dugong) |
+| Dylan | `dylan` | Uncommon | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/dylan) |
 | Easter Bunny | `easter-bunny` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/easter-bunny) |
 | Eel | `eel` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/eel) |
 | Eggnog Dog | `eggnog-dog` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/eggnog-dog) |
@@ -366,6 +382,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Goldhorn | `goldhorn` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/goldhorn) |
 | Goose | `goose` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/goose) |
 | Gorilla | `gorilla` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/gorilla) |
+| Granny Wolf | `granny-wolf` | Rare | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/granny-wolf) |
 | Grave Owl | `grave-owl` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/grave-owl) |
 | Great Pyrenees | `great-pyrenees` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/great-pyrenees) |
 | Green Amazon | `green-amazon` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/green-amazon) |
@@ -527,6 +544,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Mouse | `mouse` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/mouse) |
 | Mr. Whiskerpips | `mr-whiskerpips` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/mr-whiskerpips) |
 | Mrs. Whiskerpips | `mrs-whiskerpips` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/mrs-whiskerpips) |
+| Ms. Muffet | `ms-muffet` | Common | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/ms-muffet) |
 | Mule | `mule` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/mule) |
 | Mummy Spider | `mummy-spider` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/news/halloween-ghost-gallery-notes) |
 | Munchkin Cat | `munchkin-cat` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/munchkin-cat) |
@@ -592,6 +610,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Piranha | `piranha` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/piranha) |
 | Pirate Ghost Capuchin Monkey | `pirate-ghost-capuchin-monkey` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/pirate-ghost-capuchin-monkey) |
 | Pirate Hermit Crab | `pirate-hermit-crab` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/pirate-hermit-crab) |
+| Pistachio | `pistachio` | Uncommon | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/pistachio) |
 | Platypus | `platypus` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/platypus) |
 | Poison Dart Frog | `poison-dart-frog` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/poison-dart-frog) |
 | Polar Bear | `polar-bear` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/polar-bear) |
@@ -626,6 +645,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Rainbow Dragon | `rainbow-dragon` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/rainbow-dragon) |
 | Rainbow Trout | `rainbow-trout` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/rainbow-trout) |
 | Ram | `ram` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/ram) |
+| Ranger Beaver | `ranger-beaver` | Rare | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/news/journey-to-summer-camp-week-1-notes) |
 | Rat | `rat` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/rat) |
 | Ratatoskr | `ratatoskr` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/ratatoskr) |
 | Rattlesnake | `rattlesnake` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/rattlesnake) |
@@ -644,6 +664,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Rice Cake Rabbit | `rice-cake-rabbit` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/rice-cake-rabbit) |
 | Ring-tailed Lemur | `ring-tailed-lemur` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/ring-tailed-lemur) |
 | Ringmaster Gibbon | `ringmaster-gibbon` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/ringmaster-gibbon) |
+| River | `river` | Uncommon | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/river) |
 | River Otter | `river-otter` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/river-otter) |
 | Roadrunner | `roadrunner` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/roadrunner) |
 | Robin | `robin` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/robin) |
@@ -737,6 +758,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Steppe Lion | `steppe-lion` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/steppe-lion) |
 | Stingray | `stingray` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/stingray) |
 | Stitches | `stitches` | Ultra-Rare | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/news/halloween-stitches-spotlight-notes) |
+| Storm Condor | `storm-condor` | Ultra-Rare | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/storm-condor) |
 | Strawberry Penguin | `strawberry-penguin` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/strawberry-penguin) |
 | Strawberry Shortcake Bat Dragon | `strawberry-shortcake-bat-dragon` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/strawberry-shortcake-bat-dragon) |
 | Strawberry Shortcake Ducky | `strawberry-shortcake-ducky` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/strawberry-shortcake-ducky) |
