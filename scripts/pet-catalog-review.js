@@ -83,7 +83,7 @@ export function attachPetCatalogExceptionDecisions(report, decisions) {
   const pendingRarities = decisions.identityConfirmedRarityPending.map(x => {
     const original = identityOnly.get(x.petId);
     if (!original || x.officialRarity !== null ||
-        x.decision !== "uncommon-provisional-only-official-rarity-unverified" ||
+        !["uncommon-provisional-only-official-rarity-unverified", "community-provisional-only-official-rarity-unverified"].includes(x.decision) ||
         !x.communityEvidenceUrl?.startsWith("https://") ||
         !x.communityReportedRarity) {
       throw new Error("Invalid pending official rarity decision: " + x.petId);
@@ -150,6 +150,7 @@ export function buildPetVerificationReport(matchedData, unmatchedData, curatedDa
       communityOnly.push({ ...result, reviewStatus: "needs-authoritative-check" });
     } else if (!entry.rarity) {
       identityOnly.push({ ...result, reviewStatus: "identity-confirmed-rarity-pending" });
+      if (location === "not-in-either-dataset") newOfficial.push({ ...result, reviewStatus: "new-pet-identity-confirmed-rarity-pending" });
     } else if (original?.rarity && original.rarity !== entry.rarity) {
       conflicting.push({ ...result, reviewStatus: "rarity-conflict" });
     } else if (entry.canonicalId) {
