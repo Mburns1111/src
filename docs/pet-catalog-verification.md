@@ -12,8 +12,8 @@ From the original **84 mismatches**:
 - **84 pet identities now have an official citation**, including four aliases to reconcile before import.
 - **0 remain unmatched on pet identity.** S’mores Raccoon is officially confirmed as Ultra-Rare via https://www.playadopt.me/discover/pets/smores-raccoon .
 - **9 additional recent pets** were found in official update notes but neither candidate dataset.
-- **72** of the 690 matching candidates have their rarities explicitly spot-checked against official pages (33 in the first Legendary / Ultra-Rare batch; 29 in the second).
-- **0 rarity conflicts** appeared in this reviewed sample; the rarities of the other **618 matching candidates remain single-source** and require further independent verification.
+- **109** of the 690 matching candidates have their rarities explicitly spot-checked against official pages (33 in the first Legendary / Ultra-Rare batch; 29 in the second).
+- **0 rarity conflicts** appeared in this reviewed sample; the rarities of the other **581 matching candidates remain single-source** and require further independent verification.
 
 Important: Blue Cat and Pink Dog have **official identity confirmation only**, and their rarities remain unknown. Do not infer these from other pets. No community-only evidence should silently override or approve official fields.
 
@@ -66,7 +66,7 @@ Tests are committed, but their successful execution has **not** been verified in
 ## Outstanding work
 
 1. Officially verify Blue Cat and Pink Dog rarities (official news confirms both exist but does not state rarity).
-2. Continue checking the **618** already matched pets whose rarity has only one data source. Prioritize Legendary and Ultra-Rare first.
+2. Continue checking the **581** already matched pets whose rarity has only one data source. Prioritize Legendary and Ultra-Rare first.
 3. Review alias normalization and licensing before previewing any database import.
 4. Add a staff-only preview/approval workflow and keep the live bot untouched.
 
@@ -78,4 +78,8 @@ No merging, deployment or MongoDB import occurred.
 
 ## 26 October 2026 — Legendary / Ultra-Rare second batch
 
-29 additional pet rarities were individually verified on official Adopt Me pet pages, with zero observed disagreements. **72 of 690** matching pets now have official rarity evidence, leaving **618** unmatched to an independent rarity source. The Astronaut Gorilla page could not be fetched, so this pet remains pending; no evidence was inferred from its URL alone. Source URLs are individually recorded in `data/pet-catalog-curated-verification.json`. Tests are run by GitHub Actions on commits; no records were imported into MongoDB.
+29 additional pet rarities were individually verified on official Adopt Me pet pages, with zero observed disagreements. **72 of 690** matching pets had official rarity evidence at the end of that batch, leaving **618** unmatched to an independent rarity source. The Astronaut Gorilla page could not be fetched, so this pet remains pending; no evidence was inferred from its URL alone. Source URLs are individually recorded in `data/pet-catalog-curated-verification.json`. Tests are run by GitHub Actions on commits; no records were imported into MongoDB.
+
+## 26 October 2026 — Legendary / Ultra-Rare third batch
+
+37 additional pets were individually checked against official Adopt Me pet pages; **37 agreed** with the candidate rarities and **0 conflicts** were observed. Cumulative official rarity confirmation is now **109 / 690**, with **581** matched rarities still pending. Astronaut Gorilla remains pending, because no confirmed official rarity page has been reviewed. Exact URL provenance is recorded in `data/pet-catalog-curated-verification.json`. The check and report do not copy official artwork or scrape the official directory with an automated crawler.
