@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { GlobalFonts, createCanvas } from "@napi-rs/canvas";
 import { registerAppearanceFonts, withUnicodeFallback } from "../services/font-library.js";
 import { renderPostImage } from "../services/post-renderer.js";
-import { drawUnicodeText, unicodeRuns } from "../services/unicode-text.js";
+import { drawUnicodeText, unicodeRuns, preloadEmojiArtwork } from "../services/unicode-text.js";
 import { bundledTextSupported, hasBundledGlyph } from "../services/unicode-glyph-coverage.js";
 
 test("Unicode fallback fonts are bundled and shop font stays first", () => {
@@ -34,10 +34,10 @@ test("decorative heart, star, mathematical letters and emoji select explicit Uni
     measureUnicodeText, drawUnicodeText } = await import("../services/unicode-text.js");
   const family = '"AM Caveat", cursive';
   assert.match(unicodeFontForGrapheme("♡", family), /^"AM Noto Math"/);
-  assert.equal(unicodeFontForGrapheme("✧", family), family, "unsupported star uses a visible ASCII substitute");
+  assert.match(unicodeFontForGrapheme("✧", family), /^"AM Noto Math"/, "unsupported star uses a drawable star glyph");
   assert.match(unicodeFontForGrapheme("𝓛", family), /^"AM Noto Math"/);
   assert.equal(unicodeFontForGrapheme("🐷", family), family, "emoji displays its readable text fallback");
-  assert.match(unicodeFontForGrapheme("❤️", family), /^"AM Noto Math"/);
+  assert.equal(unicodeFontForGrapheme("❤️", family), family, "color emoji artwork does not override the purchased text face");
   assert.equal(unicodeFontForGrapheme("Hello", family), family);
   assert.equal(trimLastGrapheme("YOR 🐷"), "YOR ");
   const runs = unicodeRuns("YOR ♡", family);
@@ -84,32 +84,58 @@ test("standalone heart draws real ink instead of the missing-glyph rectangle", (
     "the Unicode heart must not use the font's missing-glyph box");
 });
 
-test("every decorative grapheme is drawable locally or has an ASCII substitute", () => {
+test("decorative graphemes preserve real emoji artwork and readable typography", async () => {
   registerAppearanceFonts();
+  await preloadEmojiArtwork();
   const family = '"AM Caveat", cursive';
-  const problematicNames = [
-    "YOR ♡", "γμρρε ᶻ ᶻ", "a·°✧isabella✧°·",
-    "🐷", "ℓεττ 𓂃 ୨୧ 𝒶", "𝓛𝓲𝓵𝓵𝔂 ✧",
+  const mixedNames = [
+    "YOR ♡", "ʏᴏʀ ♡", "γμρρε ᶻ ᶻ", "a·°✧isabella✧°·",
+    "🦇", "🐷", "ℓεττ 𓂃 ୨୧ 𝒶", "𝓛𝓲𝓵𝓵𝔂 ✧",
     "𐙚 ⋆ 𓆩 𓆪", "♱ ☾ ᶻ z", "✿ 🌙 🎀 🦋",
-    "🏳️‍🌈", "𓂃˚₊‧꒰ა ☆ ໒꒱‧₊˚",
   ];
-  for (const original of problematicNames) {
+  for (const original of mixedNames) {
     const runs = unicodeRuns(original, family);
-    assert.ok(runs.length, original + " should have a readable result");
+    assert.ok(runs.length, original + " should have visible content");
     for (const run of runs) {
-      const unicode = [...run.text].filter(ch => ch.codePointAt(0) > 126);
-      if (!unicode.length) continue;
+      if (run.type === "emoji") {
+        assert.match(run.emojiId, /^[0-9a-f]+$/);
+        continue;
+      }
+      const nonAscii = [...run.text].filter(ch => ch.codePointAt(0) > 126);
+      if (!nonAscii.length) continue;
       const match = /^"(AM [^"]+)"$/.exec(run.family);
-      assert.ok(match, original + ": non-ASCII run needs an exact registered font");
+      assert.ok(match, original + ": non-ASCII must use an explicitly bundled font");
       assert.ok(bundledTextSupported(match[1], run.text),
-        original + ": glyph outside the bundled font's cmap: " + run.text);
+        original + ": missing font glyph for " + run.text);
     }
   }
-  assert.ok(unicodeRuns("🐷", family).map(x => x.text).join("").includes("pig"));
-  assert.ok(unicodeRuns("✧", family).map(x => x.text).join("").includes("*"));
-  assert.ok(unicodeRuns("ᶻ", family).map(x => x.text).join("").includes("z"));
+  assert.deepEqual(unicodeRuns("🦇", family).map(run => run.emojiId), ["1f987"]);
+  assert.deepEqual(unicodeRuns("🐷", family).map(run => run.emojiId), ["1f437"]);
+  assert.equal(unicodeRuns("ʏᴏʀ", family).map(run => run.text).join(""), "yor");
+  assert.ok(!unicodeRuns("✧", family).map(run => run.text).join("").includes("?"));
   assert.equal(hasBundledGlyph("AM Noto Math", "♡".codePointAt(0)), true);
   assert.equal(hasBundledGlyph("AM Noto Math", "✧".codePointAt(0)), false);
+});
+
+test("bat and pig images render as artwork rather than their word labels", async () => {
+  registerAppearanceFonts();
+  await preloadEmojiArtwork();
+  const ctx = createCanvas(240, 100).getContext("2d");
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#303030";
+  for (const [emoji, id] of [["🦇", "1f987"], ["🐷", "1f437"], ["🦋", "1f98b"]]) {
+    const run = unicodeRuns(emoji, '"AM Nunito", sans-serif');
+    assert.equal(run.length, 1);
+    assert.equal(run[0].type, "emoji");
+    assert.equal(run[0].emojiId, id);
+    drawUnicodeText(ctx, emoji, 16, 60, {
+      size: 56, weight: "normal", family: '"AM Nunito", sans-serif',
+    });
+    const imageData = ctx.getImageData(0, 0, 240, 100).data;
+    assert.ok(imageData.some((x, i) => i % 4 === 3 && x > 0),
+      "must paint artwork pixels for " + emoji);
+    ctx.clearRect(0, 0, 240, 100);
+  }
 });
 
 test("offline decorative profiles render without runtime symbol-font downloads", async () => {

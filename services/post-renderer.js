@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
 import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './post-appearance.js';
 import { registerAppearanceFonts, withUnicodeFallback } from './font-library.js';
-import { drawUnicodeText, measureUnicodeText, trimLastGrapheme } from './unicode-text.js';
+import { drawUnicodeText, measureUnicodeText, trimLastGrapheme, preloadEmojiArtwork } from './unicode-text.js';
 import { frameArtworkSvg } from './frame-artwork.js';
 import { drawStickerArtwork } from './sticker-artwork.js';
 import { readDiscordAttachment } from './media-transfer.js';
@@ -1074,6 +1074,7 @@ export async function renderPostImage({
   appearance = {},
 } = {}) {
   registerAppearanceFonts();
+  await preloadEmojiArtwork();
   const layout = POST_LAYOUTS[type];
 
   if (!layout) {
