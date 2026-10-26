@@ -9,6 +9,115 @@ const read = file => JSON.parse(readFileSync(resolve(root, "data", file), "utf8"
 const normalize = s => String(s || "").normalize("NFKD").toLowerCase()
   .replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+// Apply explicit reviewer decisions without erasing original source disagreements.
+// This remains an offline review report; it never authorizes a database import.
+export function attachPetCatalogExceptionDecisions(report, decisions) {
+  if (!decisions || !Array.isArray(decisions.rarityAdjudications) ||
+      !Array.isArray(decisions.canonicalAliases) ||
+      !Array.isArray(decisions.additionalOfficialPets) ||
+      !Array.isArray(decisions.identityConfirmedRarityPending) || !decisions.rightsReview) {
+    throw new Error("Invalid pet catalogue exception decisions");
+  }
+  const uniqueIds = (records, key) => {
+    const ids = records.map(x => x[key]);
+    if (ids.some(x => !x) || new Set(ids).size !== ids.length) {
+      throw new Error("Duplicate or invalid exception decision identifier: " + key);
+    }
+  };
+  const sourceCheck = (source, officialSource) => {
+    if (!source || source !== officialSource) throw new Error("Exception official source mismatch");
+  };
+  uniqueIds(decisions.rarityAdjudications, "petId");
+  uniqueIds(decisions.canonicalAliases, "aliasId");
+  uniqueIds(decisions.canonicalAliases, "canonicalId");
+  uniqueIds(decisions.additionalOfficialPets, "petId");
+  uniqueIds(decisions.identityConfirmedRarityPending, "petId");
+
+  const conflicts = new Map(report.conflicting.map(x => [x.petId, x]));
+  const aliases = new Map(report.aliases.map(x => [x.petId, x]));
+  const newPets = new Map(report.newOfficial.map(x => [x.petId, x]));
+  const identityOnly = new Map(report.identityOnly.map(x => [x.petId, x]));
+  if (conflicts.size !== decisions.rarityAdjudications.length ||
+      aliases.size !== decisions.canonicalAliases.length ||
+      newPets.size !== decisions.additionalOfficialPets.length ||
+      identityOnly.size !== decisions.identityConfirmedRarityPending.length) {
+    throw new Error("Exception decisions must account for all outstanding evidence groups");
+  }
+
+  const adjudicated = decisions.rarityAdjudications.map(x => {
+    const original = conflicts.get(x.petId);
+    if (!original || x.decision !== "official-rarity-selected" ||
+        x.originalRarity !== original.originalRarity ||
+        x.officialRarity !== original.rarity ||
+        x.selectedRarity !== original.rarity ||
+        !x.originalEvidenceRetained ||
+        !Array.isArray(x.sourceUrls) || !x.sourceUrls.includes(original.sourceUrl)) {
+      throw new Error("Invalid rarity adjudication: " + x.petId);
+    }
+    return { ...original, selectedRarity: x.selectedRarity,
+      decision: x.decision, evidenceUrls: x.sourceUrls, historicalConflictRetained: true };
+  });
+
+  const canonicalAliases = decisions.canonicalAliases.map(x => {
+    const original = aliases.get(x.aliasId);
+    if (!original || x.decision !== "canonical-identity-decided" ||
+        x.canonicalId !== original.canonicalId || x.rarity !== original.rarity ||
+        !x.canonicalName || x.aliasId === x.canonicalId) {
+      throw new Error("Invalid canonical alias decision: " + x.aliasId);
+    }
+    sourceCheck(x.officialSourceUrl, original.sourceUrl);
+    return { ...original, canonicalName: x.canonicalName,
+      decision: x.decision, duplicateEntryAllowed: false };
+  });
+
+  const stagedPets = decisions.additionalOfficialPets.map(x => {
+    const original = newPets.get(x.petId);
+    if (!original || x.decision !== "verified-staged-for-later-catalogue-preview" ||
+        x.name !== original.name || x.rarity !== original.rarity) {
+      throw new Error("Invalid official additional pet decision: " + x.petId);
+    }
+    sourceCheck(x.officialSourceUrl, original.sourceUrl);
+    return { ...original, decision: x.decision, imported: false };
+  });
+
+  const pendingRarities = decisions.identityConfirmedRarityPending.map(x => {
+    const original = identityOnly.get(x.petId);
+    if (!original || x.officialRarity !== null ||
+        x.decision !== "uncommon-provisional-only-official-rarity-unverified" ||
+        !x.communityEvidenceUrl?.startsWith("https://") ||
+        !x.communityReportedRarity) {
+      throw new Error("Invalid pending official rarity decision: " + x.petId);
+    }
+    sourceCheck(x.officialIdentitySourceUrl, original.sourceUrl);
+    return { ...original, communityReportedRarity: x.communityReportedRarity,
+      communityEvidenceUrl: x.communityEvidenceUrl,
+      officialRarity: null, decision: x.decision };
+  });
+
+  const rights = decisions.rightsReview;
+  if (rights.decision !== "not-cleared-for-bulk-import-or-republication" ||
+      rights.approvedForDatabaseImport !== false ||
+      rights.approvedForArtworkUse !== false ||
+      rights.requiresIndependentRightsClearance !== true ||
+      !rights.officialTermsUrl?.startsWith("https://")) {
+    throw new Error("Bulk data rights are not approved by exception review");
+  }
+  return {
+    ...report,
+    totals: {
+      ...report.totals,
+      adjudicatedRarityDisagreements: adjudicated.length,
+      unresolvedRarityDisagreements: conflicts.size - adjudicated.length,
+      canonicalAliasesDecided: canonicalAliases.length,
+      additionalOfficialPetsStaged: stagedPets.length,
+      officialRaritiesStillPendingOutsideMatchedSet: pendingRarities.length,
+      bulkDataReuseCleared: false,
+    },
+    exceptionDecisions: { adjudicated, canonicalAliases, stagedPets, pendingRarities,
+      rightsStatus: rights.decision, importPermitted: false },
+  };
+}
+
 export function buildPetVerificationReport(matchedData, unmatchedData, curatedData) {
   const matched = matchedData.matched;
   const onlyA = unmatchedData.onlyAdoptmeValues;
@@ -78,11 +187,11 @@ export function buildPetVerificationReport(matchedData, unmatchedData, curatedDa
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const report = buildPetVerificationReport(
+  const report = attachPetCatalogExceptionDecisions(buildPetVerificationReport(
     read("pet-catalog-matched-candidates.json"),
     read("pet-catalog-unmatched-review.json"),
     read("pet-catalog-curated-verification.json"),
-  );
+  ), read("pet-catalog-exception-decisions.json"));
   const output = resolve(root, "data", "pet-catalog-verification-report.json");
   writeFileSync(output, JSON.stringify(report, null, 2) + "\n");
   console.log(JSON.stringify(report.totals, null, 2));
