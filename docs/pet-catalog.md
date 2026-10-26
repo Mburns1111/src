@@ -11,7 +11,7 @@ This catalogue lives in **Mburns1111/src**, separately from any other bot reposi
 
 The draft branch includes a **searchable Markdown review catalogue** at [`docs/pet-catalog-preview.md`](pet-catalog-preview.md), a **filterable CSV** at [`data/pet-catalog-preview.csv`](../data/pet-catalog-preview.csv), and a structured JSON output at [`data/pet-catalog-preview.json`](../data/pet-catalog-preview.json). All three are generated from the same independently checked sources and exception decisions.
 
-**Preview totals:** 783 input/evidence records, **782 unique canonical pet identities**, **780 officially known rarity values**, and **2 official-rarity gaps** (Blue Cat and Pink Dog, shown as `Unknown`). Four source aliases are mapped to official canonical IDs; only the two source records `tio-de-nadal` and `ti-de-nadal` collapse into one pet. Nine October Halloween pets appear as **staged additions**, and The Black Dog is shown as official **Rare** with provisional **Ultra-Rare** retained as audit evidence.
+**Preview totals (updated 26 October):** 794 input/evidence records, **793 unique canonical pet identities**, **791 officially known rarity values**, and **2 official-rarity gaps** (Blue Cat and Pink Dog, shown as `Unknown`). Four source aliases are mapped to official canonical IDs; only the two source records `tio-de-nadal` and `ti-de-nadal` collapse into one pet. **20 verified additions are staged**: nine from October Halloween releases and eleven further pets found missing during comparison with the official Adopt Me directory. The Black Dog is shown as official **Rare** with provisional **Ultra-Rare** retained as audit evidence.
 
 Every preview row is **pending staff review**. No row is a database migration or an authorized asset. In particular, `Unknown` is not replaced with its community-provisional Uncommon value.
 
@@ -23,7 +23,7 @@ npm run pet-catalog:preview:check  # fail if committed previews differ from sour
 node --test tests/pet-catalog-preview.test.js
 ```
 
-The generator uses only local JSON, with **no network request, Discord call, MongoDB connection, or write outside those three preview files**. The consistency tests enforce unique IDs and names, exact record counts, correct alias consolidation, official-vs-community rarity separation, nine staged additions, and the rights gate.
+The generator uses only local JSON, with **no network request, Discord call, MongoDB connection, or write outside those three preview files**. The consistency tests enforce unique IDs and names, exact record counts, correct alias consolidation, official-vs-community rarity separation, all twenty staged additions, and the rights gate.
 
 **Rights clearance remains a prerequisite before bulk import or public use of art and data.** There is no staff approval button or production import in Phase 1. Phase 2 is a separate authorized staff approval design only after scope and rights are decided.
 
@@ -40,3 +40,5 @@ Collect factual pet metadata only from sources that permit the collection method
 2. Add a staff-only preview/apply importer (with duplicate/change review and source-history handling).
 3. Add catalogue browse/edit commands.
 4. Later connect approved pets to card series and edition stock without coupling the two databases.
+
+**Official directory completeness:** This preview is not yet an exhaustive directory census. **Dirty Ducky** appears in the first-party directory index, but the individual official page could not be verified; a community Common classification is not counted as an official rarity. It remains an outstanding discovery candidate, outside this approved-evidence preview. Other directory omissions may still exist.
