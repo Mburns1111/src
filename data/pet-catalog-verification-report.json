@@ -4,7 +4,7 @@
   "totals": {
     "matchedCandidates": 690,
     "initialUnmatched": 84,
-    "officialEvidenceReviewed": 88,
+    "officialEvidenceReviewed": 121,
     "officiallyConfirmedUnmatched": 84,
     "unresolvedUnmatched": 0,
     "rarityConflicts": 0,
@@ -12,9 +12,20 @@
     "communityOnlyEvidence": 0,
     "canonicalAliases": 4,
     "identityVerifiedButRarityPending": 2,
-    "matchedRaritiesSpotChecked": 10
+    "matchedRaritiesSpotChecked": 43
   },
   "verified": [
+    {
+      "petId": "2d-kitty",
+      "name": "2D Kitty",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/2d-kitty",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
     {
       "petId": "aestus",
       "name": "Aestus",
@@ -22,6 +33,94 @@
       "originalRarity": null,
       "originalDatasetLocation": "onlyB",
       "sourceUrl": "https://www.playadopt.me/discover/pets/aestus",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "african-wild-dog",
+      "name": "African Wild Dog",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/african-wild-dog",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "albatross",
+      "name": "Albatross",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/albatross",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "albino-bat",
+      "name": "Albino Bat",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/albino-bat",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "albino-gorilla",
+      "name": "Albino Gorilla",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/albino-gorilla",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "albino-monkey",
+      "name": "Albino Monkey",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/albino-monkey",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "alicorn",
+      "name": "Alicorn",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/alicorn",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "alley-cat",
+      "name": "Alley Cat",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/alley-cat",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "alpaca",
+      "name": "Alpaca",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/alpaca",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -38,6 +137,127 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "ancient-dragon",
+      "name": "Ancient Dragon",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ancient-dragon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "angus-bull",
+      "name": "Angus Bull",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/angus-bull",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "angus-calf",
+      "name": "Angus Calf",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/angus-calf",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "arctic-dusk-dragon",
+      "name": "Arctic Dusk Dragon",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/arctic-dusk-dragon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "arctic-fox",
+      "name": "Arctic Fox",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/arctic-fox",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "arctic-reindeer",
+      "name": "Arctic Reindeer",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/arctic-reindeer",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "aurora-fox",
+      "name": "Aurora Fox",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/aurora-fox",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "axolotl",
+      "name": "Axolotl",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/axolotl",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "badger",
+      "name": "Badger",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/badger",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "baku",
+      "name": "Baku",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/baku",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "bald-eagle",
+      "name": "Bald Eagle",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/bald-eagle",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "ballet-swan",
       "name": "Ballet Swan",
       "rarity": "Legendary",
@@ -49,12 +269,78 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "balloon-unicorn",
+      "name": "Balloon Unicorn",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/balloon-unicorn",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "bat-dragon",
       "name": "Bat Dragon",
       "rarity": "Legendary",
       "originalRarity": "Legendary",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/bat-dragon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "bauble-buddies",
+      "name": "Bauble Buddies",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/bauble-buddies",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "bee",
+      "name": "Bee",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/bee",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "berry-cool-cube",
+      "name": "Berry Cool Cube",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/berry-cool-cube",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "billy-goat",
+      "name": "Billy Goat",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/billy-goat",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "binturong",
+      "name": "Binturong",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/binturong",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -78,6 +364,83 @@
       "originalDatasetLocation": "onlyB",
       "sourceUrl": "https://www.playadopt.me/discover/pets/bison",
       "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "black-chested-pheasant",
+      "name": "Black-Chested Pheasant",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/black-chested-pheasant",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "black-chow-chow",
+      "name": "Black Chow-Chow",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/black-chow-chow",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "black-footed-ferret",
+      "name": "Black-Footed Ferret",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/news/endangered-egg-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "black-kite",
+      "name": "Black Kite",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/black-kite",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "black-macaque",
+      "name": "Black Macaque",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/black-macaque",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "black-springer-spaniel",
+      "name": "Black Springer Spaniel",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/black-springer-spaniel",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "black-widow",
+      "name": "Black Widow",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-surprise-spiders-notes",
+      "sourceType": "official-adopt-me-news",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
     },
@@ -1109,8 +1472,8 @@
       "sourceUrl": "https://www.playadopt.me/discover/pets/smores-raccoon",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
-      "reviewStatus": "alias-awaiting-canonical-merge",
-      "canonicalId": "smores-raccoon"
+      "canonicalId": "smores-raccoon",
+      "reviewStatus": "alias-awaiting-canonical-merge"
     },
     {
       "petId": "tio-de-nadal",
