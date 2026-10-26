@@ -5,12 +5,12 @@
     "matchedCandidates": 690,
     "initialUnmatched": 84,
     "officialEvidenceReviewed": 88,
-    "officiallyConfirmedUnmatched": 83,
-    "unresolvedUnmatched": 1,
+    "officiallyConfirmedUnmatched": 84,
+    "unresolvedUnmatched": 0,
     "rarityConflicts": 0,
     "officialPetsMissingFromBothDatasets": 9,
-    "communityOnlyEvidence": 1,
-    "canonicalAliases": 3,
+    "communityOnlyEvidence": 0,
+    "canonicalAliases": 4,
     "identityVerifiedButRarityPending": 2,
     "matchedRaritiesSpotChecked": 10
   },
@@ -1086,19 +1086,7 @@
       "reviewStatus": "new-pet-requires-catalogue-entry"
     }
   ],
-  "communityOnly": [
-    {
-      "petId": "s-mores-raccoon",
-      "name": "S'mores Raccoon",
-      "rarity": "Ultra-Rare",
-      "originalRarity": null,
-      "originalDatasetLocation": "onlyB",
-      "sourceUrl": "https://adoptme.rocks/pets/smores-raccoon",
-      "sourceType": "community-trading-reference",
-      "verifiedOn": "2026-10-26",
-      "reviewStatus": "needs-authoritative-check"
-    }
-  ],
+  "communityOnly": [],
   "aliases": [
     {
       "petId": "malaysian-tapir",
@@ -1111,6 +1099,18 @@
       "verifiedOn": "2026-10-26",
       "canonicalId": "malayan-tapir",
       "reviewStatus": "alias-awaiting-canonical-merge"
+    },
+    {
+      "petId": "s-mores-raccoon",
+      "name": "S'mores Raccoon",
+      "rarity": "Ultra-Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "onlyB",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/smores-raccoon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "alias-awaiting-canonical-merge",
+      "canonicalId": "smores-raccoon"
     },
     {
       "petId": "tio-de-nadal",
@@ -1161,10 +1161,5 @@
       "reviewStatus": "identity-confirmed-rarity-pending"
     }
   ],
-  "unreviewedUnmatched": [
-    {
-      "petId": "s-mores-raccoon",
-      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
-    }
-  ]
+  "unreviewedUnmatched": []
 }
