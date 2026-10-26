@@ -2133,6 +2133,90 @@
       "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
     },
     {
+      "petId": "frostbite-bear",
+      "name": "Frostbite Bear",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frostbite-bear",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "frostbite-cub",
+      "name": "Frostbite Cub",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frostbite-cub",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "frostclaw",
+      "name": "Frostclaw",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frostclaw",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "frozen-penguin",
+      "name": "Frozen Penguin",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frozen-penguin",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "gaelic-fae",
+      "name": "Gaelic Fae",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gaelic-fae",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "gargoyle",
+      "name": "Gargoyle",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gargoyle",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
       "petId": "general-sheepdog",
       "name": "General Sheepdog",
       "rarity": "Rare",
@@ -2143,6 +2227,188 @@
         "pet identity",
         "rarity"
       ]
+    },
+    {
+      "petId": "german-shepherd",
+      "name": "German Shepherd",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/german-shepherd",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "ghost-bunny",
+      "name": "Ghost Bunny",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ghost-bunny",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "ghost-chick",
+      "name": "Ghost Chick",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ghost-chick",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "ghostly-cat",
+      "name": "Ghostly Cat",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ghostly-cat",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "giant-black-scarab",
+      "name": "Giant Black Scarab",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/giant-black-scarab",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "giant-blue-scarab",
+      "name": "Giant Blue Scarab",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/giant-blue-scarab",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "giant-gold-scarab",
+      "name": "Giant Gold Scarab",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/giant-gold-scarab",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "giant-panda",
+      "name": "Giant Panda",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/giant-panda",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "gilded-snake",
+      "name": "Gilded Snake",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gilded-snake",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "ginger-cat",
+      "name": "Ginger Cat",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ginger-cat",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "gingerbread-hare",
+      "name": "Gingerbread Hare",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gingerbread-hare",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "gingerbread-mouse",
+      "name": "Gingerbread Mouse",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gingerbread-mouse",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "gingerbread-reindeer",
+      "name": "Gingerbread Reindeer",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gingerbread-reindeer",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
     },
     {
       "petId": "giraffe",
@@ -2157,6 +2423,34 @@
       ]
     },
     {
+      "petId": "glacier-kitsune",
+      "name": "Glacier Kitsune",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/glacier-kitsune",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "glacier-moth",
+      "name": "Glacier Moth",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/glacier-moth",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
       "petId": "glormy-crab",
       "name": "Glormy Crab",
       "rarity": "Legendary",
@@ -2169,6 +2463,48 @@
       ]
     },
     {
+      "petId": "glormy-dolphin",
+      "name": "Glormy Dolphin",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/glormy-dolphin",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "glormy-hound",
+      "name": "Glormy Hound",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/glormy-hound",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "glormy-leo",
+      "name": "Glormy Leo",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/glormy-leo",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
       "petId": "glyptodon-ducky",
       "name": "Glyptodon Ducky",
       "rarity": "Rare",
@@ -2179,6 +2515,216 @@
         "pet identity",
         "rarity"
       ]
+    },
+    {
+      "petId": "golden-albatross",
+      "name": "Golden Albatross",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-albatross",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-chow-chow",
+      "name": "Golden Chow Chow",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-chow-chow",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-dragon",
+      "name": "Golden Dragon",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-dragon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-griffin",
+      "name": "Golden Griffin",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-griffin",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-hamster",
+      "name": "Golden Hamster",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-hamster",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-hummingbird",
+      "name": "Golden Hummingbird",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-hummingbird",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-jaguar",
+      "name": "Golden Jaguar",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-jaguar",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-king-penguin",
+      "name": "Golden King Penguin",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-king-penguin",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-ladybug",
+      "name": "Golden Ladybug",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-ladybug",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-penguin",
+      "name": "Golden Penguin",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-penguin",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-rat",
+      "name": "Golden Rat",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-rat",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-tortoise-beetle",
+      "name": "Golden Tortoise Beetle",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-tortoise-beetle",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-unicorn",
+      "name": "Golden Unicorn",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-unicorn",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "golden-walrus",
+      "name": "Golden Walrus",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/golden-walrus",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "goldhorn",
+      "name": "Goldhorn",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/goldhorn",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
     },
     {
       "petId": "gumball-caterpillar",
