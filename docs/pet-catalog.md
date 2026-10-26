@@ -42,3 +42,21 @@ Collect factual pet metadata only from sources that permit the collection method
 4. Later connect approved pets to card series and edition stock without coupling the two databases.
 
 **Official directory completeness:** Six further missing pets were added to the staff preview. Golden Chow-Chow already existed as Golden Chow Chow under the same stable ID; no duplicate was added. Dirty Ducky has Unknown official rarity (community-provisional Common only). Completeness is not certified; the catalog and art remain unapproved for production.
+
+## MongoDB import preparation (not yet authorized)
+
+The catalog has **799** unique reviewed pets, including **three Unknown rarities**. The draft branch provides a non-writing validation command:
+
+```sh
+npm run pet-catalog:mongo:dry-run
+```
+
+This previews the pending pet records locally without connecting to MongoDB. A guarded import command also exists:
+
+```sh
+npm run pet-catalog:mongo:apply
+```
+
+**Do not run the apply command yet.** It rejects production writes while `rightsReview.approvedForDatabaseImport` remains false. Once the independent source-data rights review has cleared the particular intended use, the review manifest and preview workflow must be updated accordingly and an operator must explicitly supply `PET_CATALOG_IMPORT_APPROVED=YES` plus `MONGODB_URI`. Neither credential should be committed to GitHub.
+
+The importer uses `$setOnInsert` by canonical `petId`; existing pet records are left untouched, and newly inserted records remain `pending`. It does not copy artwork, grant ownership, create cards, or alter card supplies. It does not run from normal bot startup.
