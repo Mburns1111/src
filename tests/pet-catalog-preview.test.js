@@ -18,19 +18,19 @@ const get = (preview, id) => preview.pets.find(x => x.petId === id);
 
 test("catalogue preview has exactly one canonical record per pet and no approvals", () => {
   const preview = build();
-  assert.equal(preview.summary.inputEvidenceRecords, 783);
-  assert.equal(preview.summary.canonicalPets, 782);
+  assert.equal(preview.summary.inputEvidenceRecords, 794);
+  assert.equal(preview.summary.canonicalPets, 793);
   assert.equal(preview.summary.duplicateSourceEntriesCollapsed, 1);
   assert.equal(preview.summary.aliasesResolved, 4);
-  assert.equal(preview.summary.additionalOfficialPets, 9);
-  assert.equal(preview.summary.officialRarityConfirmed, 780);
+  assert.equal(preview.summary.additionalOfficialPets, 20);
+  assert.equal(preview.summary.officialRarityConfirmed, 791);
   assert.equal(preview.summary.officialRarityPending, 2);
   assert.equal(preview.summary.historicalDisagreementsAdjudicated, 1);
-  assert.equal(preview.summary.reviewPending, 782);
+  assert.equal(preview.summary.reviewPending, 793);
   assert.equal(preview.summary.rightsClearedForImport, false);
   assert.equal(preview.summary.databaseWritesPerformed, false);
   assert.deepEqual(preview.summary.rarityCounts, {
-    Common: 58, Uncommon: 95, Rare: 155, "Ultra-Rare": 226, Legendary: 246, Unknown: 2,
+    Common: 59, Uncommon: 100, Rare: 157, "Ultra-Rare": 228, Legendary: 247, Unknown: 2,
   });
   assert.equal(new Set(preview.pets.map(x => x.petId)).size, preview.pets.length);
   assert.ok(preview.pets.every(x => x.reviewStatus === "pending"));
@@ -52,7 +52,7 @@ test("aliases consolidate one duplicate and preserve all original source identif
     assert.ok(get(preview, canonical).aliasIds.includes(alias), "alias must remain searchable");
   }
   const totalOriginalIds = preview.pets.reduce((sum, pet) => sum + pet.sourceRecordIds.length, 0);
-  assert.equal(totalOriginalIds, 783);
+  assert.equal(totalOriginalIds, 794);
 });
 
 test("adjudicated rarity is official, original value is not erased, unknown is not guessed", () => {
@@ -80,9 +80,17 @@ test("nine Halloween pets are staged and not confused with original baseline rec
   const preview = build();
   const staged = preview.pets.filter(x => x.flags.includes("new-official-pet-staged"));
   assert.deepEqual(staged.map(x => x.petId).sort(), [
-    "bobageist", "boohoo", "bubblegeist", "caramelgeist", "copycat",
-    "count-slothula", "shoebill", "stitches", "stray-cat-dragon",
+    "2026-birthday-butterfly", "2d-doggy", "bobageist", "boohoo", "bubblegeist",
+    "budgie-witch", "caramelgeist", "chihuahua", "copycat", "count-slothula",
+    "dylan", "granny-wolf", "ms-muffet", "pistachio", "ranger-beaver",
+    "river", "shoebill", "stitches", "storm-condor", "stray-cat-dragon",
   ]);
+  assert.equal(get(preview, "ranger-beaver")?.rarity, "Rare");
+  assert.equal(get(preview, "ranger-beaver")?.officialSourceUrls[0],
+    "https://www.playadopt.me/news/journey-to-summer-camp-week-1-notes");
+  assert.equal(get(preview, "dylan")?.rarity, "Uncommon");
+  assert.equal(get(preview, "ms-muffet")?.rarity, "Common");
+  assert.equal(get(preview, "storm-condor")?.rarity, "Ultra-Rare");
   assert.ok(staged.every(x => x.reviewStatus === "pending" &&
     x.inputCategories.length === 1 && x.inputCategories[0] === "additional-official"));
 });
@@ -94,9 +102,9 @@ test("JSON, CSV and Markdown snapshots match deterministic offline generator", (
   const markdown = readFileSync(new URL("../docs/pet-catalog-preview.md", import.meta.url), "utf8");
   assert.equal(renderPetCatalogPreviewCsv(preview), csv);
   assert.equal(renderPetCatalogPreviewMarkdown(preview), markdown);
-  assert.equal(csv.split("\n").length - 2, 782);
+  assert.equal(csv.split("\n").length - 2, 793);
   assert.match(markdown, /Internal review only/);
-  assert.match(markdown, /All 782 entries remain pending staff review/);
+  assert.match(markdown, /All 793 entries remain pending staff review/);
 });
 
 test("preview refuses contradictory or missing source evidence", () => {
