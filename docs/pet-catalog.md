@@ -11,7 +11,7 @@ This catalogue lives in **Mburns1111/src**, separately from any other bot reposi
 
 The draft branch includes a **searchable Markdown review catalogue** at [`docs/pet-catalog-preview.md`](pet-catalog-preview.md), a **filterable CSV** at [`data/pet-catalog-preview.csv`](../data/pet-catalog-preview.csv), and a structured JSON output at [`data/pet-catalog-preview.json`](../data/pet-catalog-preview.json). All three are generated from the same independently checked sources and exception decisions.
 
-**Preview totals (updated 26 October):** 794 input/evidence records, **793 unique canonical pet identities**, **791 officially known rarity values**, and **2 official-rarity gaps** (Blue Cat and Pink Dog, shown as `Unknown`). Four source aliases are mapped to official canonical IDs; only the two source records `tio-de-nadal` and `ti-de-nadal` collapse into one pet. **20 verified additions are staged**: nine from October Halloween releases and eleven further pets found missing during comparison with the official Adopt Me directory. The Black Dog is shown as official **Rare** with provisional **Ultra-Rare** retained as audit evidence.
+**Preview totals (updated 26 October):** 800 input/evidence records, **799 unique canonical pet identities**, **796 officially known rarity values**, and **3 official-rarity gaps** (Blue Cat, Pink Dog and Dirty Ducky, shown as `Unknown`). Four source aliases are mapped to official canonical IDs; only the two source records `tio-de-nadal` and `ti-de-nadal` collapse into one pet. **26 staged additions are staged**: nine Halloween releases, eleven earlier discoveries, and six additional missing pets. The Black Dog is shown as official **Rare** with provisional **Ultra-Rare** retained as audit evidence.
 
 Every preview row is **pending staff review**. No row is a database migration or an authorized asset. In particular, `Unknown` is not replaced with its community-provisional Uncommon value.
 
@@ -41,4 +41,4 @@ Collect factual pet metadata only from sources that permit the collection method
 3. Add catalogue browse/edit commands.
 4. Later connect approved pets to card series and edition stock without coupling the two databases.
 
-**Official directory completeness:** This preview is not yet an exhaustive directory census. **Dirty Ducky** appears in the first-party directory index, but the individual official page could not be verified; a community Common classification is not counted as an official rarity. It remains an outstanding discovery candidate, outside this approved-evidence preview. Other directory omissions may still exist.
+**Official directory completeness:** Six further missing pets were added to the staff preview. Golden Chow-Chow already existed as Golden Chow Chow under the same stable ID; no duplicate was added. Dirty Ducky has Unknown official rarity (community-provisional Common only). Completeness is not certified; the catalog and art remain unapproved for production.
