@@ -321,6 +321,19 @@
       ]
     },
     {
+      "petId": "balloon-unicorn",
+      "name": "Balloon Unicorn",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/balloon-unicorn",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
       "petId": "bat-dragon",
       "name": "Bat Dragon",
       "rarity": "Legendary",
@@ -331,6 +344,71 @@
         "pet identity",
         "rarity"
       ]
+    },
+    {
+      "petId": "bauble-buddies",
+      "name": "Bauble Buddies",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/bauble-buddies",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
+      "petId": "bee",
+      "name": "Bee",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/bee",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
+      "petId": "berry-cool-cube",
+      "name": "Berry Cool Cube",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/berry-cool-cube",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
+      "petId": "billy-goat",
+      "name": "Billy Goat",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/billy-goat",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
+      "petId": "binturong",
+      "name": "Binturong",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/binturong",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
     },
     {
       "petId": "bird-of-paradise",
@@ -355,6 +433,97 @@
         "pet identity",
         "rarity"
       ]
+    },
+    {
+      "petId": "black-chested-pheasant",
+      "name": "Black-Chested Pheasant",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/black-chested-pheasant",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
+      "petId": "black-chow-chow",
+      "name": "Black Chow-Chow",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/black-chow-chow",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
+      "petId": "black-footed-ferret",
+      "name": "Black-Footed Ferret",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/endangered-egg-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
+      "petId": "black-kite",
+      "name": "Black Kite",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/black-kite",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
+      "petId": "black-macaque",
+      "name": "Black Macaque",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/black-macaque",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
+      "petId": "black-springer-spaniel",
+      "name": "Black Springer Spaniel",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/black-springer-spaniel",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
+    },
+    {
+      "petId": "black-widow",
+      "name": "Black Widow",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-surprise-spiders-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Manually checked official Adopt Me listing or update notes against provisional rarity."
     },
     {
       "petId": "blue-cat",
