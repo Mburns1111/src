@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "reviewedOn": "2026-10-26",
+  "purpose": "Explicit factual exception decisions only; no approved mass data reuse, import, artwork or database writes.",
+  "rarityAdjudications": [
+    {
+      "petId": "the-black-dog",
+      "originalRarity": "Ultra-Rare",
+      "officialRarity": "Rare",
+      "selectedRarity": "Rare",
+      "decision": "official-rarity-selected",
+      "originalEvidenceRetained": true,
+      "sourceUrls": [
+        "https://www.playadopt.me/discover/pets/the-black-dog",
+        "https://www.playadopt.me/news/halloween-surprise-spiders-notes"
+      ],
+      "notes": "The individual pet directory and 2025 Halloween Surprise Spiders release announcement both explicitly say Rare. This decision determines the canonical fact for a future separately authorized import; the provisional Ultra-Rare source remains in the immutable matched baseline and the historical conflict report."
+    }
+  ],
+  "canonicalAliases": [
+    {
+      "aliasId": "malaysian-tapir",
+      "canonicalId": "malayan-tapir",
+      "canonicalName": "Malayan Tapir",
+      "rarity": "Common",
+      "officialSourceUrl": "https://www.playadopt.me/discover/pets/malayan-tapir",
+      "decision": "canonical-identity-decided",
+      "notes": "Retain the old identifier as a search/lookup alias; never create a second record for the same pet."
+    },
+    {
+      "aliasId": "s-mores-raccoon",
+      "canonicalId": "smores-raccoon",
+      "canonicalName": "S'mores Raccoon",
+      "rarity": "Ultra-Rare",
+      "officialSourceUrl": "https://www.playadopt.me/discover/pets/smores-raccoon",
+      "decision": "canonical-identity-decided",
+      "notes": "Retain the old identifier as a search/lookup alias; never create a second record for the same pet."
+    },
+    {
+      "aliasId": "tio-de-nadal",
+      "canonicalId": "ti-de-nadal",
+      "canonicalName": "Tió De Nadal",
+      "rarity": "Legendary",
+      "officialSourceUrl": "https://www.playadopt.me/discover/pets/ti-de-nadal",
+      "decision": "canonical-identity-decided",
+      "notes": "Retain the old identifier as a search/lookup alias; never create a second record for the same pet."
+    },
+    {
+      "aliasId": "wooly-rhino",
+      "canonicalId": "woolly-rhino",
+      "canonicalName": "Woolly Rhino",
+      "rarity": "Ultra-Rare",
+      "officialSourceUrl": "https://www.playadopt.me/discover/pets/woolly-rhino",
+      "decision": "canonical-identity-decided",
+      "notes": "Retain the old identifier as a search/lookup alias; never create a second record for the same pet."
+    }
+  ],
+  "additionalOfficialPets": [
+    {
+      "petId": "bobageist",
+      "name": "Bobageist",
+      "rarity": "Ultra-Rare",
+      "officialSourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
+    },
+    {
+      "petId": "boohoo",
+      "name": "Boohoo",
+      "rarity": "Rare",
+      "officialSourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
+    },
+    {
+      "petId": "bubblegeist",
+      "name": "Bubblegeist",
+      "rarity": "Legendary",
+      "officialSourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
+    },
+    {
+      "petId": "caramelgeist",
+      "name": "Caramelgeist",
+      "rarity": "Uncommon",
+      "officialSourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
+    },
+    {
+      "petId": "copycat",
+      "name": "Copycat",
+      "rarity": "Legendary",
+      "officialSourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
+    },
+    {
+      "petId": "count-slothula",
+      "name": "Count Slothula",
+      "rarity": "Ultra-Rare",
+      "officialSourceUrl": "https://www.playadopt.me/news/halloween-wherebear-returns-notes",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
+    },
+    {
+      "petId": "shoebill",
+      "name": "Shoebill",
+      "rarity": "Uncommon",
+      "officialSourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
+    },
+    {
+      "petId": "stitches",
+      "name": "Stitches",
+      "rarity": "Ultra-Rare",
+      "officialSourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
+    },
+    {
+      "petId": "stray-cat-dragon",
+      "name": "Stray Cat Dragon",
+      "rarity": "Legendary",
+      "officialSourceUrl": "https://www.playadopt.me/news/halloween-wherebear-returns-notes",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
+    }
+  ],
+  "identityConfirmedRarityPending": [
+    {
+      "petId": "blue-cat",
+      "name": "Blue Cat",
+      "officialIdentitySourceUrl": "https://www.playadopt.me/news/cat-cafe-notes",
+      "communityReportedRarity": "Uncommon",
+      "communityEvidenceUrl": "https://traderie.com/adoptme/product/blue-cat",
+      "decision": "uncommon-provisional-only-official-rarity-unverified",
+      "officialRarity": null,
+      "notes": "September 2026 Adopt Me Cat Cafe notes confirm the new Throwback Egg pet, but do not publish its rarity. The third-party Uncommon claim is useful provisional evidence, never official confirmation. Distinct from Blue Dog and Pink Cat."
+    },
+    {
+      "petId": "pink-dog",
+      "name": "Pink Dog",
+      "officialIdentitySourceUrl": "https://www.playadopt.me/news/cat-cafe-notes",
+      "communityReportedRarity": "Uncommon",
+      "communityEvidenceUrl": "https://adoptme.rocks/pets/pink-dog",
+      "decision": "uncommon-provisional-only-official-rarity-unverified",
+      "officialRarity": null,
+      "notes": "September 2026 Adopt Me Cat Cafe notes confirm the new Throwback Egg pet, but do not publish its rarity. The third-party Uncommon claim is useful provisional evidence, never official confirmation. Distinct from Blue Dog and Pink Cat."
+    }
+  ],
+  "rightsReview": {
+    "decision": "not-cleared-for-bulk-import-or-republication",
+    "reviewDate": "2026-10-26",
+    "officialTermsUrl": "https://www.playadopt.me/legal/terms",
+    "fanArtPolicyUrl": "https://www.playadopt.me/legal/fan-art-and-ideas-submission-policy",
+    "sourceAUrl": "https://github.com/ironbabatekkral/adoptme-values",
+    "sourceBUrl": "https://github.com/gyanu1614/gamevault",
+    "wikiUrl": "https://adoptme.fandom.com/wiki/Adopt_Me%21_Wiki",
+    "requiresIndependentRightsClearance": true,
+    "approvedForDatabaseImport": false,
+    "approvedForArtworkUse": false,
+    "notes": "The MIT code license in source A does not grant rights in its third-party dataset or imagery. Source B attributes its source to an Adopt Me Wiki with CC BY-SA community content, but individual game assets/IP are not automatically covered. Adopt Me Terms restrict unapproved copying/extraction and automated access. Review any bulk reuse and fan-art plan separately; request permission/legal review as appropriate. Factual rarity evidence is not reuse authorization."
+  }
+}
