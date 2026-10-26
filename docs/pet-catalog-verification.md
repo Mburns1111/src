@@ -6,11 +6,11 @@ Repository: **Mburns1111/src** · Branch: **feature/pet-catalog**
 
 Initial comparison: 701 pet entries in `ironbabatekkral/adoptme-values`, 763 facts entries in `gyanu1614/gamevault`. There are 690 exact normalized identity matches, 11 entries unique to the first dataset, and 73 unique to the second. A third 2021 dataset matches 158 historic pet identities across both lists.
 
-The follow-up review recorded **103 evidence records**, including 88 official-source entries corroborating existing matches or unique records, 9 new official pets absent from both candidate lists, 3 name/ID alias resolutions, 2 official identity-only confirmations (Blue Cat and Pink Dog), and 1 community-only rarity reference (S'mores Raccoon).
+The follow-up review recorded **103 evidence records**, including 88 officially verified records in the primary reviewed category, 9 newly found official pets absent from both candidate lists, 4 name/ID aliases, and 2 official identity-only confirmations (Blue Cat and Pink Dog).
 
 From the original **84 mismatches**:
-- **83 pet identities now have an official citation**, including three aliases to reconcile before import.
-- **1 remains without an official rarity citation:** `s-mores-raccoon` (community sources say Ultra-Rare; not yet authoritatively confirmed).
+- **84 pet identities now have an official citation**, including four aliases to reconcile before import.
+- **0 remain unmatched on pet identity.** S’mores Raccoon is officially confirmed as Ultra-Rare via https://www.playadopt.me/discover/pets/smores-raccoon .
 - **9 additional recent pets** were found in official update notes but neither candidate dataset.
 - **10** of the 690 matching candidates had their rarities explicitly spot-checked against official pages.
 - **0 rarity conflicts** appeared in this reviewed sample; the rarities of the other **680 matching candidates remain single-source** and require further independent verification.
@@ -22,6 +22,8 @@ Important: Blue Cat and Pink Dog have **official identity confirmation only**, a
 `malaysian-tapir` → official **Malayan Tapir** (`malayan-tapir`).
 
 `wooly-rhino` → official **Woolly Rhino** (`woolly-rhino`).
+
+`s-mores-raccoon` → official **S'mores Raccoon** (`smores-raccoon`).
 
 `tio-de-nadal` → official **Tió De Nadal** (official page slug `ti-de-nadal`). The second dataset already has `ti-de-nadal` and this is one pet, not two.
 
@@ -63,7 +65,7 @@ Tests are committed, but their successful execution has **not** been verified in
 
 ## Outstanding work
 
-1. Officially verify Blue Cat and Pink Dog rarities; verify S'mores Raccoon with an authoritative source.
+1. Officially verify Blue Cat and Pink Dog rarities (official news confirms both exist but does not state rarity).
 2. Continue checking the **680** already matched pets whose rarity has only one data source.
 3. Review alias normalization and licensing before previewing any database import.
 4. Add a staff-only preview/approval workflow and keep the live bot untouched.
