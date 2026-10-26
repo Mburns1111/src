@@ -222,7 +222,7 @@ export function renderPetCatalogPreviewMarkdown(preview) {
     ...preview.pets.map(x =>
       `| ${escapeCell(x.name)} | \`${x.petId}\` | ${x.rarity} | ${x.rarityEvidence} | ${escapeCell(x.flags.join(", ")) || "—"} | [View](${x.officialSourceUrls[0]}) |`),
     "", "## Approval gates", "",
-    "1. Resolve the official rarity or retain Unknown for Blue Cat and Pink Dog.",
+    "1. Resolve the official rarity or retain Unknown for Blue Cat, Pink Dog and Dirty Ducky.",
     "2. Review upstream data-reuse rights and artwork permissions separately.",
     "3. Add staff authorization and an independently approved dry-run import diff before any MongoDB import.",
     "4. Keep this draft branch separate from production until authorized.",
