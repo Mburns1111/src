@@ -18,7 +18,7 @@ test("review report preserves separation between identity matches and official r
   assert.equal(report.totals.officialPetsMissingFromBothDatasets, 9);
   assert.equal(report.totals.canonicalAliases, 4);
   assert.equal(report.totals.identityVerifiedButRarityPending, 2);
-  assert.equal(report.totals.matchedRaritiesSpotChecked, 418);
+  assert.equal(report.totals.matchedRaritiesSpotChecked, 478);
   assert.equal(report.unreviewedUnmatched.length, 0);
   assert.equal(report.aliases.find(x => x.petId === 's-mores-raccoon')?.canonicalId, 'smores-raccoon');
   assert.equal(report.totals.rarityConflicts, 1);
@@ -54,13 +54,24 @@ test("review report preserves separation between identity matches and official r
     { rarity: "Rare", originalRarity: "Ultra-Rare", petId: "the-black-dog" },
   );
   assert.equal(report.conflicting[0].sourceUrl, "https://www.playadopt.me/discover/pets/the-black-dog");
+  assert.equal(report.verified.find(x => x.petId === "2021-uplift-butterfly")?.rarity, "Uncommon");
+  assert.equal(report.verified.find(x => x.petId === "abyssinian-cat")?.rarity, "Rare");
+  assert.equal(report.verified.find(x => x.petId === "angelfish")?.rarity, "Common");
+  assert.equal(report.verified.find(x => x.petId === "black-tiger")?.sourceType, "official-adopt-me-news");
+  assert.equal(report.verified.find(x => x.petId === "chocolate-labrador")?.rarity, "Uncommon");
+  const verifiedMatchedByRarity = report.verified.filter(x => x.originalDatasetLocation === "matched")
+    .reduce((counts, x) => (counts[x.rarity] = (counts[x.rarity] ?? 0) + 1, counts), {});
+  assert.deepEqual(verifiedMatchedByRarity, {
+    Uncommon: 21, Rare: 22, Common: 20, Legendary: 213, "Ultra-Rare": 202,
+  });
+
   const matched = load("pet-catalog-matched-candidates.json").matched;
   const priority = matched.filter(x => x.rarity === "Legendary" || x.rarity === "Ultra-Rare");
   assert.equal(priority.length, 416);
   const reviewed = new Set([...report.verified, ...report.conflicting].filter(x =>
     x.originalDatasetLocation === "matched").map(x => x.petId));
   assert.ok(priority.every(x => reviewed.has(x.petId)), "all high-rarity candidate identities have official evidence");
-  assert.equal(matched.length - report.totals.matchedRaritiesSpotChecked - report.totals.rarityConflicts, 271);
+  assert.equal(matched.length - report.totals.matchedRaritiesSpotChecked - report.totals.rarityConflicts, 211);
   assert.deepEqual(report, load("pet-catalog-verification-report.json"), "generated report must remain synchronized");
 });
 
