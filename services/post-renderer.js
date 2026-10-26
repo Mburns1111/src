@@ -1040,7 +1040,7 @@ function drawHouse(ctx, data, images, style, layout, appearance, stickerImages) 
       x: 78, y: 187, width: 345, height: 48,
     }, { fontSize: 40, minFontSize: 26, family: style.titleFontFamily,
       weight: style.titleFontWeight, color: style.text });
-    drawWrappedText(ctx, "Watch the playable video beneath this listing.", {
+    drawWrappedText(ctx, "Watch the playable video above this listing.", {
       x: 78, y: 251, width: 345, height: 78,
     }, { fontSize: 24, minFontSize: 17, family: style.fontFamily,
       weight: style.bodyFontWeight, color: style.mutedText, maxLines: 3 });
