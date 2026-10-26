@@ -77,6 +77,18 @@
       ]
     },
     {
+      "petId": "blue-cat",
+      "name": "Blue Cat",
+      "rarity": null,
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/cat-cafe-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity"
+      ],
+      "notes": "Official article confirms pet exists but does not explicitly state its rarity; leave rarity unset."
+    },
+    {
       "petId": "bobageist",
       "name": "Bobageist",
       "rarity": "Ultra-Rare",
@@ -176,6 +188,30 @@
       "rarity": "Common",
       "sourceType": "official-adopt-me-pet-directory",
       "sourceUrl": "https://www.playadopt.me/discover/pets/cat",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "catte",
+      "name": "Catte",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/cat-cafe-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "cattuccino",
+      "name": "Cattuccino",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/cat-cafe-notes",
       "verifiedOn": "2026-10-26",
       "verification": [
         "pet identity",
@@ -560,6 +596,18 @@
       "notes": "Dataset naming alias; preserve alias and do not create a second pet."
     },
     {
+      "petId": "matcha-cat",
+      "name": "Matcha Cat",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/cat-cafe-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
       "petId": "milk-choccybunny",
       "name": "Milk Choccybunny",
       "rarity": "Rare",
@@ -730,6 +778,18 @@
       ]
     },
     {
+      "petId": "pink-dog",
+      "name": "Pink Dog",
+      "rarity": null,
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/cat-cafe-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity"
+      ],
+      "notes": "Official article confirms pet exists but does not explicitly state its rarity; leave rarity unset."
+    },
+    {
       "petId": "pinkypillar",
       "name": "Pinkypillar",
       "rarity": "Common",
@@ -860,6 +920,18 @@
         "pet identity",
         "rarity"
       ]
+    },
+    {
+      "petId": "s-mores-raccoon",
+      "name": "S'mores Raccoon",
+      "rarity": "Ultra-Rare",
+      "sourceType": "community-trading-reference",
+      "sourceUrl": "https://adoptme.rocks/pets/smores-raccoon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "community-supplied-rarity"
+      ],
+      "notes": "Not yet confirmed via official Adopt Me source; keep rarity pending."
     },
     {
       "petId": "shadow-dragon",
@@ -1185,17 +1257,19 @@
     },
     {
       "petId": "wooly-rhino",
-      "name": "Wooly Rhino",
+      "name": "Woolly Rhino",
       "rarity": "Ultra-Rare",
       "releaseReference": "2022-12-29",
-      "sourceType": "community-adopt-me-wiki",
-      "sourceUrl": "https://adoptme.fandom.com/wiki/Wooly_Rhino",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/woolly-rhino",
       "verifiedOn": "2026-10-26",
       "verification": [
         "pet identity",
         "rarity"
       ],
-      "notes": "Community source only; requires authoritative rarity confirmation before approval."
+      "notes": "Official spelling replaces Wooly Rhino in candidate; retain wiki as historical secondary reference.",
+      "secondarySourceUrl": "https://adoptme.fandom.com/wiki/Wooly_Rhino",
+      "canonicalId": "woolly-rhino"
     },
     {
       "petId": "yellow-lipped-sea-krait",
