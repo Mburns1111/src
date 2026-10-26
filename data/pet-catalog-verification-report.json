@@ -12,7 +12,13 @@
     "communityOnlyEvidence": 0,
     "canonicalAliases": 4,
     "identityVerifiedButRarityPending": 2,
-    "matchedRaritiesSpotChecked": 689
+    "matchedRaritiesSpotChecked": 689,
+    "adjudicatedRarityDisagreements": 1,
+    "unresolvedRarityDisagreements": 0,
+    "canonicalAliasesDecided": 4,
+    "additionalOfficialPetsStaged": 9,
+    "officialRaritiesStillPendingOutsideMatchedSet": 2,
+    "bulkDataReuseCleared": false
   },
   "verified": [
     {
@@ -8642,5 +8648,242 @@
       "reviewStatus": "identity-confirmed-rarity-pending"
     }
   ],
-  "unreviewedUnmatched": []
+  "unreviewedUnmatched": [],
+  "exceptionDecisions": {
+    "adjudicated": [
+      {
+        "petId": "the-black-dog",
+        "name": "The Black Dog",
+        "rarity": "Rare",
+        "originalRarity": "Ultra-Rare",
+        "originalDatasetLocation": "matched",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/the-black-dog",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "rarity-conflict",
+        "selectedRarity": "Rare",
+        "decision": "official-rarity-selected",
+        "evidenceUrls": [
+          "https://www.playadopt.me/discover/pets/the-black-dog",
+          "https://www.playadopt.me/news/halloween-surprise-spiders-notes"
+        ],
+        "historicalConflictRetained": true
+      }
+    ],
+    "canonicalAliases": [
+      {
+        "petId": "malaysian-tapir",
+        "name": "Malayan Tapir",
+        "rarity": "Common",
+        "originalRarity": "Common",
+        "originalDatasetLocation": "onlyA",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/malayan-tapir",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "canonicalId": "malayan-tapir",
+        "reviewStatus": "alias-awaiting-canonical-merge",
+        "canonicalName": "Malayan Tapir",
+        "decision": "canonical-identity-decided",
+        "duplicateEntryAllowed": false
+      },
+      {
+        "petId": "s-mores-raccoon",
+        "name": "S'mores Raccoon",
+        "rarity": "Ultra-Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "onlyB",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/smores-raccoon",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "canonicalId": "smores-raccoon",
+        "reviewStatus": "alias-awaiting-canonical-merge",
+        "canonicalName": "S'mores Raccoon",
+        "decision": "canonical-identity-decided",
+        "duplicateEntryAllowed": false
+      },
+      {
+        "petId": "tio-de-nadal",
+        "name": "Tió De Nadal",
+        "rarity": "Legendary",
+        "originalRarity": "Legendary",
+        "originalDatasetLocation": "onlyA",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/ti-de-nadal",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "canonicalId": "ti-de-nadal",
+        "reviewStatus": "alias-awaiting-canonical-merge",
+        "canonicalName": "Tió De Nadal",
+        "decision": "canonical-identity-decided",
+        "duplicateEntryAllowed": false
+      },
+      {
+        "petId": "wooly-rhino",
+        "name": "Woolly Rhino",
+        "rarity": "Ultra-Rare",
+        "originalRarity": "Ultra-Rare",
+        "originalDatasetLocation": "onlyA",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/woolly-rhino",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "canonicalId": "woolly-rhino",
+        "reviewStatus": "alias-awaiting-canonical-merge",
+        "canonicalName": "Woolly Rhino",
+        "decision": "canonical-identity-decided",
+        "duplicateEntryAllowed": false
+      }
+    ],
+    "stagedPets": [
+      {
+        "petId": "bobageist",
+        "name": "Bobageist",
+        "rarity": "Ultra-Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "boohoo",
+        "name": "Boohoo",
+        "rarity": "Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "bubblegeist",
+        "name": "Bubblegeist",
+        "rarity": "Legendary",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "caramelgeist",
+        "name": "Caramelgeist",
+        "rarity": "Uncommon",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "copycat",
+        "name": "Copycat",
+        "rarity": "Legendary",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "count-slothula",
+        "name": "Count Slothula",
+        "rarity": "Ultra-Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/news/halloween-wherebear-returns-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "shoebill",
+        "name": "Shoebill",
+        "rarity": "Uncommon",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "stitches",
+        "name": "Stitches",
+        "rarity": "Ultra-Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "stray-cat-dragon",
+        "name": "Stray Cat Dragon",
+        "rarity": "Legendary",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/news/halloween-wherebear-returns-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      }
+    ],
+    "pendingRarities": [
+      {
+        "petId": "blue-cat",
+        "name": "Blue Cat",
+        "rarity": null,
+        "originalRarity": null,
+        "originalDatasetLocation": "onlyB",
+        "sourceUrl": "https://www.playadopt.me/news/cat-cafe-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "identity-confirmed-rarity-pending",
+        "communityReportedRarity": "Uncommon",
+        "communityEvidenceUrl": "https://traderie.com/adoptme/product/blue-cat",
+        "officialRarity": null,
+        "decision": "uncommon-provisional-only-official-rarity-unverified"
+      },
+      {
+        "petId": "pink-dog",
+        "name": "Pink Dog",
+        "rarity": null,
+        "originalRarity": null,
+        "originalDatasetLocation": "onlyB",
+        "sourceUrl": "https://www.playadopt.me/news/cat-cafe-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "identity-confirmed-rarity-pending",
+        "communityReportedRarity": "Uncommon",
+        "communityEvidenceUrl": "https://adoptme.rocks/pets/pink-dog",
+        "officialRarity": null,
+        "decision": "uncommon-provisional-only-official-rarity-unverified"
+      }
+    ],
+    "rightsStatus": "not-cleared-for-bulk-import-or-republication",
+    "importPermitted": false
+  }
 }
