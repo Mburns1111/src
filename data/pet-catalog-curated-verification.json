@@ -1,0 +1,261 @@
+{
+  "version": 1,
+  "generatedOn": "2026-10-26",
+  "purpose": "Human-reviewed external source references; records not imported or approved automatically.",
+  "rightsNotice": "Links and short factual metadata only; no images or article text are copied.",
+  "records": [
+    {
+      "petId": "jumpscare",
+      "name": "Jumpscare",
+      "rarity": "Rare",
+      "releaseReference": "2026-10-03",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "mummy-spider",
+      "name": "Mummy Spider",
+      "rarity": "Rare",
+      "releaseReference": "2026-10-03",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "jacobin-pigeon",
+      "name": "Jacobin Pigeon",
+      "rarity": "Common",
+      "releaseReference": "2026-10-03",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "jester-dragon",
+      "name": "Jester Dragon",
+      "rarity": "Legendary",
+      "releaseReference": "2026-10-03",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "bolt",
+      "name": "Bolt",
+      "rarity": "Uncommon",
+      "releaseReference": "2026-10-09",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "skelicorn",
+      "name": "Skelicorn",
+      "rarity": "Legendary",
+      "releaseReference": "2026-10-09",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "bubblegeist",
+      "name": "Bubblegeist",
+      "rarity": "Legendary",
+      "releaseReference": "2026-10-09",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "bobageist",
+      "name": "Bobageist",
+      "rarity": "Ultra-Rare",
+      "releaseReference": "2026-10-09",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "caramelgeist",
+      "name": "Caramelgeist",
+      "rarity": "Uncommon",
+      "releaseReference": "2026-10-09",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "stitches",
+      "name": "Stitches",
+      "rarity": "Ultra-Rare",
+      "releaseReference": "2026-10-16",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "boohoo",
+      "name": "Boohoo",
+      "rarity": "Rare",
+      "releaseReference": "2026-10-16",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "shoebill",
+      "name": "Shoebill",
+      "rarity": "Uncommon",
+      "releaseReference": "2026-10-16",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "copycat",
+      "name": "Copycat",
+      "rarity": "Legendary",
+      "releaseReference": "2026-10-16",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "count-slothula",
+      "name": "Count Slothula",
+      "rarity": "Ultra-Rare",
+      "releaseReference": "2026-10-23",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-wherebear-returns-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "stray-cat-dragon",
+      "name": "Stray Cat Dragon",
+      "rarity": "Legendary",
+      "releaseReference": "2026-10-23",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-wherebear-returns-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "dragonfruit-fox",
+      "name": "Dragonfruit Fox",
+      "rarity": "Legendary",
+      "releaseReference": "2026-01-08",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/fresh-fruit-pets-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "frost-dragon",
+      "name": "Frost Dragon",
+      "rarity": "Legendary",
+      "releaseReference": "Winter 2019",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frost-dragon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity",
+        "origin"
+      ],
+      "notes": "Individual official pet listing."
+    },
+    {
+      "petId": "wooly-rhino",
+      "name": "Wooly Rhino",
+      "rarity": "Ultra-Rare",
+      "releaseReference": "2022-12-29",
+      "sourceType": "community-adopt-me-wiki",
+      "sourceUrl": "https://adoptme.fandom.com/wiki/Wooly_Rhino",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Community source only; requires authoritative rarity confirmation before approval."
+    }
+  ]
+}
