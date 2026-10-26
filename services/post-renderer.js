@@ -1,8 +1,6 @@
 
-import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
-import { writeFile, mkdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { readFile } from 'node:fs/promises';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
 import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './post-appearance.js';
 import { registerAppearanceFonts, withUnicodeFallback } from './font-library.js';
@@ -12,62 +10,11 @@ import { drawStickerArtwork } from './sticker-artwork.js';
 import { readDiscordAttachment } from './media-transfer.js';
 import { assertImageSafeToDecode } from './image-dimensions.js';
 
-// Register a Unicode symbol font for decorative display names.
-// Downloaded once per process, with graceful fallback when offline.
-let symbolFontPromise;
-async function ensureSymbolFont() {
-  if (!symbolFontPromise) {
-    symbolFontPromise = (async () => {
-      try {
-        const url = 'https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssymbols2/NotoSansSymbols2-Regular.ttf';
-        const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const folder = join(tmpdir(), 'am-bot-fonts');
-        await mkdir(folder, { recursive: true });
-        const path = join(folder, 'NotoSansSymbols2-Regular.ttf');
-        await writeFile(path, Buffer.from(await response.arrayBuffer()));
-        if (!GlobalFonts.registerFromPath(path, 'AM Unicode Symbols')) {
-          throw new Error('Font registration failed');
-        }
-      } catch (error) {
-        console.warn('Optional decorative font unavailable:', error.message);
-      }
-    })();
-  }
-  return symbolFontPromise;
-}
-
-// A code-unit charAt(0) breaks surrogate-pair names (e.g. 𝓛 or emoji).
+// Keep the entire original display name in stored data. The drawing helper
+// provides readable offline fallbacks for missing glyphs on the image only.
 function firstDisplayGrapheme(value) {
   const parts = new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(String(value || 'P').trim());
   return Array.from(parts, part => part.segment).find(part => part.trim()) || 'P';
-}
-
-// Emoji coverage is loaded alongside Symbol2. It is optional and fetched once
-// per process; unlike ordinary fonts it is used only for emoji grapheme runs.
-let emojiFontPromise;
-async function ensureEmojiFont() {
-  if (!emojiFontPromise) {
-    emojiFontPromise = (async () => {
-      try {
-        const url = 'https://raw.githubusercontent.com/google/fonts/main/ofl/notoemoji/NotoEmoji%5Bwght%5D.ttf';
-        const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const bytes = Buffer.from(await response.arrayBuffer());
-        if (bytes.length > 6_000_000 || bytes.length < 1000) throw new Error('Unexpected font size');
-        const folder = join(tmpdir(), 'am-bot-fonts');
-        await mkdir(folder, { recursive: true });
-        const path = join(folder, 'NotoEmoji.ttf');
-        await writeFile(path, bytes);
-        if (!GlobalFonts.registerFromPath(path, 'AM Noto Emoji')) {
-          throw new Error('Font registration failed');
-        }
-      } catch (error) {
-        console.warn('Optional emoji font unavailable:', error.message);
-      }
-    })();
-  }
-  return emojiFontPromise;
 }
 
 const MAX_TEXT_LINES_DEFAULT = 6;
@@ -545,7 +492,9 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerIm
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = 'bold 110px ' + style.titleFontFamily;
-    ctx.fillText(firstDisplayGrapheme(data.displayName).toUpperCase(), cx, cy);
+    drawUnicodeText(ctx, firstDisplayGrapheme(data.displayName).toUpperCase(), cx, cy, {
+      size: 110, weight: 'bold', family: style.titleFontFamily, maxWidth: avatar.width * 0.82,
+    });
   }
   ctx.restore();
 
@@ -730,11 +679,12 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    ctx.fillText(
-      firstDisplayGrapheme(data.displayName).toUpperCase(),
+    drawUnicodeText(ctx, firstDisplayGrapheme(data.displayName).toUpperCase(),
       r.avatar.x + r.avatar.width / 2,
-      r.avatar.y + r.avatar.height / 2
-    );
+      r.avatar.y + r.avatar.height / 2, {
+        size: 144, weight: 'bold', family: style.titleFontFamily,
+        maxWidth: r.avatar.width * 0.82,
+      });
   }
 
   // Preserve the member's exact decorative display name.
@@ -1124,7 +1074,6 @@ export async function renderPostImage({
   appearance = {},
 } = {}) {
   registerAppearanceFonts();
-  await Promise.all([ensureSymbolFont(), ensureEmojiFont()]);
   const layout = POST_LAYOUTS[type];
 
   if (!layout) {

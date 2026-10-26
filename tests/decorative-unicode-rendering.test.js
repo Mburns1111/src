@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { GlobalFonts, createCanvas } from "@napi-rs/canvas";
 import { registerAppearanceFonts, withUnicodeFallback } from "../services/font-library.js";
 import { renderPostImage } from "../services/post-renderer.js";
-import { drawUnicodeText } from "../services/unicode-text.js";
+import { drawUnicodeText, unicodeRuns } from "../services/unicode-text.js";
+import { bundledTextSupported, hasBundledGlyph } from "../services/unicode-glyph-coverage.js";
 
 test("Unicode fallback fonts are bundled and shop font stays first", () => {
   registerAppearanceFonts();
@@ -33,10 +34,10 @@ test("decorative heart, star, mathematical letters and emoji select explicit Uni
     measureUnicodeText, drawUnicodeText } = await import("../services/unicode-text.js");
   const family = '"AM Caveat", cursive';
   assert.match(unicodeFontForGrapheme("♡", family), /^"AM Noto Math"/);
-  assert.match(unicodeFontForGrapheme("✧", family), /^"AM Noto Math"/);
+  assert.equal(unicodeFontForGrapheme("✧", family), family, "unsupported star uses a visible ASCII substitute");
   assert.match(unicodeFontForGrapheme("𝓛", family), /^"AM Noto Math"/);
-  assert.match(unicodeFontForGrapheme("🐷", family), /^"AM Noto Emoji"/);
-  assert.match(unicodeFontForGrapheme("❤️", family), /^"AM Noto Emoji"/);
+  assert.equal(unicodeFontForGrapheme("🐷", family), family, "emoji displays its readable text fallback");
+  assert.match(unicodeFontForGrapheme("❤️", family), /^"AM Noto Math"/);
   assert.equal(unicodeFontForGrapheme("Hello", family), family);
   assert.equal(trimLastGrapheme("YOR 🐷"), "YOR ");
   const runs = unicodeRuns("YOR ♡", family);
@@ -81,4 +82,42 @@ test("standalone heart draws real ink instead of the missing-glyph rectangle", (
   const missing = Buffer.from(ctx.getImageData(0, 0, 80, 80).data);
   assert.notDeepEqual(rendered, missing,
     "the Unicode heart must not use the font's missing-glyph box");
+});
+
+test("every decorative grapheme is drawable locally or has an ASCII substitute", () => {
+  registerAppearanceFonts();
+  const family = '"AM Caveat", cursive';
+  const problematicNames = [
+    "YOR ♡", "γμρρε ᶻ ᶻ", "a·°✧isabella✧°·",
+    "🐷", "ℓεττ 𓂃 ୨୧ 𝒶", "𝓛𝓲𝓵𝓵𝔂 ✧",
+    "𐙚 ⋆ 𓆩 𓆪", "♱ ☾ ᶻ z", "✿ 🌙 🎀 🦋",
+    "🏳️‍🌈", "𓂃˚₊‧꒰ა ☆ ໒꒱‧₊˚",
+  ];
+  for (const original of problematicNames) {
+    const runs = unicodeRuns(original, family);
+    assert.ok(runs.length, original + " should have a readable result");
+    for (const run of runs) {
+      const unicode = [...run.text].filter(ch => ch.codePointAt(0) > 126);
+      if (!unicode.length) continue;
+      const match = /^"(AM [^"]+)"$/.exec(run.family);
+      assert.ok(match, original + ": non-ASCII run needs an exact registered font");
+      assert.ok(bundledTextSupported(match[1], run.text),
+        original + ": glyph outside the bundled font's cmap: " + run.text);
+    }
+  }
+  assert.ok(unicodeRuns("🐷", family).map(x => x.text).join("").includes("pig"));
+  assert.ok(unicodeRuns("✧", family).map(x => x.text).join("").includes("*"));
+  assert.ok(unicodeRuns("ᶻ", family).map(x => x.text).join("").includes("z"));
+  assert.equal(hasBundledGlyph("AM Noto Math", "♡".codePointAt(0)), true);
+  assert.equal(hasBundledGlyph("AM Noto Math", "✧".codePointAt(0)), false);
+});
+
+test("offline decorative profiles render without runtime symbol-font downloads", async () => {
+  for (const displayName of ["🐷", "YOR ♡", "𐙚 ⋆ 𓆩 𓆪", "a·°✧isabella✧°·"]) {
+    const png = await renderPostImage({ type: "profile",
+      data: { displayName, bio: "I like 🦋 butterflies and ✧ sparkles" },
+    });
+    assert.equal(png.readUInt32BE(16), 1200);
+    assert.equal(png.readUInt32BE(20), 800);
+  }
 });
