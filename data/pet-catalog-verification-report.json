@@ -8,16 +8,16 @@
     "officiallyConfirmedUnmatched": 84,
     "unresolvedUnmatched": 0,
     "rarityConflicts": 1,
-    "officialPetsMissingFromBothDatasets": 20,
+    "officialPetsMissingFromBothDatasets": 26,
     "communityOnlyEvidence": 0,
     "canonicalAliases": 4,
-    "identityVerifiedButRarityPending": 2,
+    "identityVerifiedButRarityPending": 3,
     "matchedRaritiesSpotChecked": 689,
     "adjudicatedRarityDisagreements": 1,
     "unresolvedRarityDisagreements": 0,
     "canonicalAliasesDecided": 4,
-    "additionalOfficialPetsStaged": 20,
-    "officialRaritiesStillPendingOutsideMatchedSet": 2,
+    "additionalOfficialPetsStaged": 26,
+    "officialRaritiesStillPendingOutsideMatchedSet": 3,
     "bulkDataReuseCleared": false
   },
   "verified": [
@@ -8540,6 +8540,17 @@
       "reviewStatus": "new-pet-requires-catalogue-entry"
     },
     {
+      "petId": "cake-friend",
+      "name": "Cake Friend",
+      "rarity": "Ultra-Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cake-friend",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
       "petId": "caramelgeist",
       "name": "Caramelgeist",
       "rarity": "Uncommon",
@@ -8547,6 +8558,17 @@
       "originalDatasetLocation": "not-in-either-dataset",
       "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
       "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "chestnut-glyptodon",
+      "name": "Chestnut Glyptodon",
+      "rarity": "Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/chestnut-glyptodon",
+      "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "new-pet-requires-catalogue-entry"
     },
@@ -8584,6 +8606,17 @@
       "reviewStatus": "new-pet-requires-catalogue-entry"
     },
     {
+      "petId": "dirty-ducky",
+      "name": "Dirty Ducky",
+      "rarity": null,
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets",
+      "sourceType": "official-adopt-me-directory-index",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-identity-confirmed-rarity-pending"
+    },
+    {
       "petId": "dylan",
       "name": "Dylan",
       "rarity": "Uncommon",
@@ -8595,12 +8628,45 @@
       "reviewStatus": "new-pet-requires-catalogue-entry"
     },
     {
+      "petId": "forest-sprite",
+      "name": "Forest Sprite",
+      "rarity": "Common",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/forest-sprite",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "gecko-ducky",
+      "name": "Gecko Ducky",
+      "rarity": "Common",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gecko-ducky",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
       "petId": "granny-wolf",
       "name": "Granny Wolf",
       "rarity": "Rare",
       "originalRarity": null,
       "originalDatasetLocation": "not-in-either-dataset",
       "sourceUrl": "https://www.playadopt.me/discover/pets/granny-wolf",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "irish-setter",
+      "name": "Irish Setter",
+      "rarity": "Uncommon",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/irish-setter",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "new-pet-requires-catalogue-entry"
@@ -8754,6 +8820,17 @@
       "originalDatasetLocation": "onlyB",
       "sourceUrl": "https://www.playadopt.me/news/cat-cafe-notes",
       "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "identity-confirmed-rarity-pending"
+    },
+    {
+      "petId": "dirty-ducky",
+      "name": "Dirty Ducky",
+      "rarity": null,
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets",
+      "sourceType": "official-adopt-me-directory-index",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "identity-confirmed-rarity-pending"
     },
@@ -8933,6 +9010,19 @@
         "imported": false
       },
       {
+        "petId": "cake-friend",
+        "name": "Cake Friend",
+        "rarity": "Ultra-Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/cake-friend",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
         "petId": "caramelgeist",
         "name": "Caramelgeist",
         "rarity": "Uncommon",
@@ -8940,6 +9030,19 @@
         "originalDatasetLocation": "not-in-either-dataset",
         "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
         "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "chestnut-glyptodon",
+        "name": "Chestnut Glyptodon",
+        "rarity": "Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/chestnut-glyptodon",
+        "sourceType": "official-adopt-me-pet-directory",
         "verifiedOn": "2026-10-26",
         "reviewStatus": "new-pet-requires-catalogue-entry",
         "decision": "verified-staged-for-later-catalogue-preview",
@@ -8985,6 +9088,19 @@
         "imported": false
       },
       {
+        "petId": "dirty-ducky",
+        "name": "Dirty Ducky",
+        "rarity": null,
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets",
+        "sourceType": "official-adopt-me-directory-index",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-identity-confirmed-rarity-pending",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
         "petId": "dylan",
         "name": "Dylan",
         "rarity": "Uncommon",
@@ -8998,12 +9114,51 @@
         "imported": false
       },
       {
+        "petId": "forest-sprite",
+        "name": "Forest Sprite",
+        "rarity": "Common",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/forest-sprite",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "gecko-ducky",
+        "name": "Gecko Ducky",
+        "rarity": "Common",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/gecko-ducky",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
         "petId": "granny-wolf",
         "name": "Granny Wolf",
         "rarity": "Rare",
         "originalRarity": null,
         "originalDatasetLocation": "not-in-either-dataset",
         "sourceUrl": "https://www.playadopt.me/discover/pets/granny-wolf",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "irish-setter",
+        "name": "Irish Setter",
+        "rarity": "Uncommon",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/irish-setter",
         "sourceType": "official-adopt-me-pet-directory",
         "verifiedOn": "2026-10-26",
         "reviewStatus": "new-pet-requires-catalogue-entry",
@@ -9145,6 +9300,21 @@
         "communityEvidenceUrl": "https://adoptme.rocks/pets/pink-dog",
         "officialRarity": null,
         "decision": "uncommon-provisional-only-official-rarity-unverified"
+      },
+      {
+        "petId": "dirty-ducky",
+        "name": "Dirty Ducky",
+        "rarity": null,
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets",
+        "sourceType": "official-adopt-me-directory-index",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "identity-confirmed-rarity-pending",
+        "communityReportedRarity": "Common",
+        "communityEvidenceUrl": "https://adoptme.fandom.com/wiki/Dirty_Ducky",
+        "officialRarity": null,
+        "decision": "community-provisional-only-official-rarity-unverified"
       }
     ],
     "rightsStatus": "not-cleared-for-bulk-import-or-republication",
