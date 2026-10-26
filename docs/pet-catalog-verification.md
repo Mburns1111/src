@@ -231,3 +231,7 @@ Individual pages explicitly say **Type: Pet** and state the corresponding rarity
 **Dirty Ducky is NOT included yet:** it is named in the official directory index and independently reported as Common by community sources, but its direct official pet page and an explicit official rarity statement could not be checked. Record it as a discovery gap to verify rather than treating a community rarity as official. The full directory has not been exhaustively enumerated; further omissions may exist.
 
 No production Discord messages, database imports, merges, artwork or trading values were created as part of this update.
+
+## 26 October 2026 — six additional official-directory pets
+
+Six new distinct identities were added to the offline verification pipeline: Cake Friend (Ultra-Rare), Chestnut Glyptodon (Rare), Dirty Ducky (official identity only, rarity Unknown, community-provisional Common), Forest Sprite (Common), Gecko Ducky (Common), and Irish Setter (Uncommon). Golden Chow-Chow was **already present** in the original matched list as Golden Chow Chow under the same ID, so no duplicate was created. The five official rarities were confirmed on individual Adopt Me pet pages. Dirty Ducky is listed in the official directory, but its official rarity remains unconfirmed. The regenerated staff-only preview has **799 distinct pets**, **800 source/evidence records**, **796 confirmed rarities**, and **3 Unknown rarities**. All remain pending staff and rights review; no MongoDB import or deployment was performed. An exhaustive directory census is not yet certified.
