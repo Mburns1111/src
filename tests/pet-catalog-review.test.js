@@ -15,7 +15,7 @@ test("review report preserves separation between identity matches and official r
   assert.equal(report.totals.initialUnmatched, 84);
   assert.equal(report.totals.officiallyConfirmedUnmatched, 84);
   assert.equal(report.totals.unresolvedUnmatched, 0);
-  assert.equal(report.totals.officialPetsMissingFromBothDatasets, 9);
+  assert.equal(report.totals.officialPetsMissingFromBothDatasets, 20);
   assert.equal(report.totals.canonicalAliases, 4);
   assert.equal(report.totals.identityVerifiedButRarityPending, 2);
   assert.equal(report.totals.matchedRaritiesSpotChecked, 689);
@@ -25,14 +25,14 @@ test("review report preserves separation between identity matches and official r
   assert.equal(report.totals.adjudicatedRarityDisagreements, 1);
   assert.equal(report.totals.unresolvedRarityDisagreements, 0);
   assert.equal(report.totals.canonicalAliasesDecided, 4);
-  assert.equal(report.totals.additionalOfficialPetsStaged, 9);
+  assert.equal(report.totals.additionalOfficialPetsStaged, 20);
   assert.equal(report.totals.officialRaritiesStillPendingOutsideMatchedSet, 2);
   assert.equal(report.totals.bulkDataReuseCleared, false);
   assert.equal(report.exceptionDecisions.importPermitted, false);
   assert.equal(report.exceptionDecisions.adjudicated[0].selectedRarity, "Rare");
   assert.equal(report.exceptionDecisions.adjudicated[0].originalRarity, "Ultra-Rare");
   assert.equal(report.exceptionDecisions.adjudicated[0].historicalConflictRetained, true);
-  assert.equal(report.exceptionDecisions.stagedPets.length, 9);
+  assert.equal(report.exceptionDecisions.stagedPets.length, 20);
   assert.ok(report.exceptionDecisions.stagedPets.every(x => x.imported === false));
   assert.equal(report.exceptionDecisions.pendingRarities.length, 2);
   assert.ok(report.exceptionDecisions.pendingRarities.every(x =>
@@ -65,6 +65,13 @@ test("review report preserves separation between identity matches and official r
   assert.equal(report.verified.find(x => x.petId === "pangolin")?.rarity, "Ultra-Rare");
   assert.equal(report.verified.find(x => x.petId === "jester-dragon")?.rarity, "Legendary");
   assert.equal(report.newOfficial.find(x => x.petId === "copycat")?.rarity, "Legendary");
+  assert.equal(report.newOfficial.find(x => x.petId === "2d-doggy")?.rarity, "Legendary");
+  assert.equal(report.newOfficial.find(x => x.petId === "2026-birthday-butterfly")?.rarity, "Uncommon");
+  assert.equal(report.newOfficial.find(x => x.petId === "chihuahua")?.rarity, "Ultra-Rare");
+  assert.equal(report.newOfficial.find(x => x.petId === "ms-muffet")?.rarity, "Common");
+  assert.equal(report.newOfficial.find(x => x.petId === "ranger-beaver")?.rarity, "Rare");
+  assert.equal(report.newOfficial.find(x => x.petId === "ranger-beaver")?.sourceType, "official-adopt-me-news");
+
   assert.equal(report.aliases.find(x => x.petId === "wooly-rhino")?.canonicalId, "woolly-rhino");
   assert.equal(report.identityOnly.find(x => x.petId === "blue-cat")?.rarity, null);
   assert.equal(report.conflicting.length, 1);
@@ -204,9 +211,9 @@ test("review records exact official evidence and keeps unapproved candidates sep
   ]);
   for (const added of decisions.additionalOfficialPets) {
     assert.ok(!knownIds.has(added.petId), added.petId + " must not duplicate the original sources");
-    assert.match(added.officialSourceUrl, /^https:\/\/www\.playadopt\.me\/news\//);
+    assert.match(added.officialSourceUrl, /^https:\/\/www\.playadopt\.me\/(?:news|discover\/pets)\//);
   }
-  assert.equal(new Set(decisions.additionalOfficialPets.map(x => x.petId)).size, 9);
+  assert.equal(new Set(decisions.additionalOfficialPets.map(x => x.petId)).size, 20);
   assert.equal(new Set(decisions.canonicalAliases.map(x => x.canonicalId)).size, 4);
   for (const alias of decisions.canonicalAliases) {
     assert.notEqual(alias.aliasId, alias.canonicalId);
