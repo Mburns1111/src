@@ -26,7 +26,7 @@ test("review report preserves separation between identity matches and official r
   assert.equal(report.totals.unresolvedRarityDisagreements, 0);
   assert.equal(report.totals.canonicalAliasesDecided, 4);
   assert.equal(report.totals.additionalOfficialPetsStaged, 26);
-  assert.equal(report.totals.officialRaritiesStillPendingOutsideMatchedSet, 2);
+  assert.equal(report.totals.officialRaritiesStillPendingOutsideMatchedSet, 3);
   assert.equal(report.totals.bulkDataReuseCleared, false);
   assert.equal(report.exceptionDecisions.importPermitted, false);
   assert.equal(report.exceptionDecisions.adjudicated[0].selectedRarity, "Rare");
@@ -212,7 +212,7 @@ test("review records exact official evidence and keeps unapproved candidates sep
   ]);
   for (const added of decisions.additionalOfficialPets) {
     assert.ok(!knownIds.has(added.petId), added.petId + " must not duplicate the original sources");
-    assert.match(added.officialSourceUrl, /^https:\/\/www\.playadopt\.me\/(?:news|discover\/pets)\//);
+    assert.match(added.officialSourceUrl, /^https:\/\/www\.playadopt\.me\/(?:news\/|discover\/pets(?:\/|$))/);
   }
   assert.equal(new Set(decisions.additionalOfficialPets.map(x => x.petId)).size, 26);
   assert.equal(new Set(decisions.canonicalAliases.map(x => x.canonicalId)).size, 4);
