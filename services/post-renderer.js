@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
 import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './post-appearance.js';
 import { registerAppearanceFonts, withUnicodeFallback } from './font-library.js';
+import { drawUnicodeText, measureUnicodeText, trimLastGrapheme } from './unicode-text.js';
 import { frameArtworkSvg } from './frame-artwork.js';
 import { drawStickerArtwork } from './sticker-artwork.js';
 import { readDiscordAttachment } from './media-transfer.js';
@@ -40,6 +41,33 @@ async function ensureSymbolFont() {
 function firstDisplayGrapheme(value) {
   const parts = new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(String(value || 'P').trim());
   return Array.from(parts, part => part.segment).find(part => part.trim()) || 'P';
+}
+
+// Emoji coverage is loaded alongside Symbol2. It is optional and fetched once
+// per process; unlike ordinary fonts it is used only for emoji grapheme runs.
+let emojiFontPromise;
+async function ensureEmojiFont() {
+  if (!emojiFontPromise) {
+    emojiFontPromise = (async () => {
+      try {
+        const url = 'https://raw.githubusercontent.com/google/fonts/main/ofl/notoemoji/NotoEmoji%5Bwght%5D.ttf';
+        const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const bytes = Buffer.from(await response.arrayBuffer());
+        if (bytes.length > 6_000_000 || bytes.length < 1000) throw new Error('Unexpected font size');
+        const folder = join(tmpdir(), 'am-bot-fonts');
+        await mkdir(folder, { recursive: true });
+        const path = join(folder, 'NotoEmoji.ttf');
+        await writeFile(path, bytes);
+        if (!GlobalFonts.registerFromPath(path, 'AM Noto Emoji')) {
+          throw new Error('Font registration failed');
+        }
+      } catch (error) {
+        console.warn('Optional emoji font unavailable:', error.message);
+      }
+    })();
+  }
+  return emojiFontPromise;
 }
 
 const MAX_TEXT_LINES_DEFAULT = 6;
@@ -206,22 +234,23 @@ function drawFittedLine(ctx, value, region, options = {}) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   let size = fontSize;
+  const metrics = value => measureUnicodeText(ctx, value, { size, weight, family });
   while (size > minFontSize) {
-    ctx.font = weight + ' ' + size + 'px ' + family;
-    if (ctx.measureText(text).width <= region.width) break;
+    if (metrics(text) <= region.width) break;
     size--;
   }
-  ctx.font = weight + ' ' + size + 'px ' + family;
-  if (ctx.measureText(text).width > region.width) {
-    const chars = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment);
-    while (chars.length && ctx.measureText(chars.join('') + '…').width > region.width) chars.pop();
-    text = chars.join('') + '…';
+  if (metrics(text) > region.width) {
+    let truncated = text;
+    while (truncated && metrics(truncated + '…') > region.width) {
+      truncated = trimLastGrapheme(truncated);
+    }
+    text = truncated + '…';
   }
-  ctx.fillText(text, region.x, region.y);
+  drawUnicodeText(ctx, text, region.x, region.y, { size, weight, family, maxWidth: region.width });
   ctx.restore();
 }
 
-function wrapText(ctx, text, maxWidth) {
+function wrapText(ctx, text, maxWidth, measure = value => ctx.measureText(value).width) {
   const paragraphs = String(text ?? '').split(/\r?\n/);
   const lines = [];
 
@@ -238,7 +267,7 @@ function wrapText(ctx, text, maxWidth) {
     for (const word of words) {
       const candidate = line ? `${line} ${word}` : word;
 
-      if (line && ctx.measureText(candidate).width > maxWidth) {
+      if (line && measure(candidate) > maxWidth) {
         lines.push(line);
         line = word;
       } else {
@@ -271,10 +300,10 @@ function drawWrappedText(ctx, text, region, options = {}) {
 
   let size = fontSize;
   let lines;
+  const measure = value => measureUnicodeText(ctx, value, { size, weight, family });
 
   while (size >= minFontSize) {
-    ctx.font = `${weight} ${size}px ${family}`;
-    lines = wrapText(ctx, raw, region.width);
+    lines = wrapText(ctx, raw, region.width, measure);
 
     if (
       lines.length <= maxLines &&
@@ -287,8 +316,7 @@ function drawWrappedText(ctx, text, region, options = {}) {
   }
 
   size = Math.max(size, minFontSize);
-  ctx.font = `${weight} ${size}px ${family}`;
-  lines = wrapText(ctx, raw, region.width);
+  lines = wrapText(ctx, raw, region.width, measure);
 
   const lineStep = Math.round(lineHeight * size / fontSize);
 
@@ -302,9 +330,9 @@ function drawWrappedText(ctx, text, region, options = {}) {
 
     while (
       last &&
-      ctx.measureText(`${last}…`).width > region.width
+      measure(`${last}…`) > region.width
     ) {
-      last = last.slice(0, -1);
+      last = trimLastGrapheme(last);
     }
 
     visibleLines[visibleLines.length - 1] = `${last.trimEnd()}…`;
@@ -331,7 +359,9 @@ function drawWrappedText(ctx, text, region, options = {}) {
   }
 
   visibleLines.forEach((line, index) => {
-    ctx.fillText(line, x, y + index * lineStep, region.width);
+    drawUnicodeText(ctx, line, x, y + index * lineStep, {
+      size, weight, family, maxWidth: region.width,
+    });
   });
 }
 
@@ -1094,7 +1124,7 @@ export async function renderPostImage({
   appearance = {},
 } = {}) {
   registerAppearanceFonts();
-  await ensureSymbolFont();
+  await Promise.all([ensureSymbolFont(), ensureEmojiFont()]);
   const layout = POST_LAYOUTS[type];
 
   if (!layout) {

@@ -26,3 +26,37 @@ test("two same-length mathematical-alphabet usernames produce distinct profile i
       "distinct supplementary-plane letters must not render as the same missing-glyph squares");
   }
 });
+
+test("decorative heart, star, mathematical letters and emoji select explicit Unicode faces", async () => {
+  const { unicodeFontForGrapheme, unicodeRuns, trimLastGrapheme,
+    measureUnicodeText, drawUnicodeText } = await import("../services/unicode-text.js");
+  const family = '"AM Caveat", cursive';
+  assert.match(unicodeFontForGrapheme("♡", family), /^"AM Noto Math"/);
+  assert.match(unicodeFontForGrapheme("✧", family), /^"AM Noto Math"/);
+  assert.match(unicodeFontForGrapheme("𝓛", family), /^"AM Noto Math"/);
+  assert.match(unicodeFontForGrapheme("🐷", family), /^"AM Noto Emoji"/);
+  assert.match(unicodeFontForGrapheme("❤️", family), /^"AM Noto Emoji"/);
+  assert.equal(unicodeFontForGrapheme("Hello", family), family);
+  assert.equal(trimLastGrapheme("YOR 🐷"), "YOR ");
+  const runs = unicodeRuns("YOR ♡", family);
+  assert.equal(runs.length, 2);
+  assert.equal(runs[0].text, "YOR ");
+  assert.equal(runs[1].text, "♡");
+  const { createCanvas } = await import("@napi-rs/canvas");
+  const ctx = createCanvas(320, 100).getContext("2d");
+  const opts = { size: 36, weight: "normal", family };
+  assert.ok(measureUnicodeText(ctx, "YOR ♡", opts) > measureUnicodeText(ctx, "YOR", opts));
+  ctx.fillStyle = "#111";
+  drawUnicodeText(ctx, "YOR ♡", 3, 10, { ...opts, maxWidth: 120 });
+  assert.equal(ctx.canvas.width, 320);
+});
+
+test("decorative-only and emoji-only usernames generate valid profile images", async () => {
+  for (const displayName of ["♡", "🐷", "𝓛𝓲𝓵𝓵𝔂 ♡", "a·°✧isabella✧°·"]) {
+    const image = await renderPostImage({
+      type: "profile", data: { displayName, bio: "♡ Hi, my name is ♡" },
+    });
+    assert.equal(image.readUInt32BE(16), 1200);
+    assert.equal(image.readUInt32BE(20), 800);
+  }
+});
