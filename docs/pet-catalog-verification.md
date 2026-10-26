@@ -63,14 +63,18 @@ node --test tests/pet-catalog.test.js tests/pet-catalog-review.test.js
 
 Tests are committed, but their successful execution has **not** been verified in this handoff.
 
-## Outstanding work
+## Exception decisions and remaining launch gates
 
-1. Officially verify Blue Cat and Pink Dog rarities (official news confirms both exist but does not state rarity).
-2. Resolve the remaining **The Black Dog** Rare / Ultra-Rare mismatch with an explicit review decision, preserving both source values and the audit trail. No unreviewed rarity candidates remain among the original 690 identity matches.
-3. Review alias normalization and licensing before previewing any database import.
-4. Add a staff-only preview/approval workflow and keep the live bot untouched.
+The Black Dog has been **adjudicated to official Rare** for a future catalogue record, with provisional Ultra-Rare and the one historical conflict explicitly retained. The four documented spelling aliases now have decided canonical IDs, and the nine extra officially documented pets are **staged for later preview** rather than inserted into the original source baselines. All decisions live in `data/pet-catalog-exception-decisions.json` and are checked by the offline report generator.
 
-No merging, deployment or MongoDB import occurred.
+Blue Cat and Pink Dog are confirmed as distinct Throwback Egg pets by the September 18, 2026 official Cat Cafe notes. Third-party sources report both **Uncommon**, but the official release note does **not** state their rarities and their individual official pet-directory entries could not be verified. Their **official rarity remains null/pending**, not approved as Uncommon. Do not confuse Blue Cat with Blue Dog or Pink Dog with Pink Cat.
+
+Still requiring independent action before any import or card release:
+1. Explicit official pet rarity evidence for Blue Cat and Pink Dog, or a separately documented staff decision about allowing unverified rarity (default: do not approve).
+2. Source-rights and Uplift IP/artwork permission assessment. Bulk import and artwork remain **blocked** (see `docs/pet-catalog-source-provenance.md`).
+3. A staff-only preview/approval workflow for a future rights-cleared catalogue; no changes to MongoDB or the live bot.
+
+No merge, deployment, artwork download, mass import or production approval occurred.
 
 ## 26 October 2026 — Legendary / Ultra-Rare first batch
 
@@ -166,3 +170,38 @@ Completed individual official-source verification for **all 91 previously pendin
 - **0 previously matched rarity candidates await official evidence**. This does **not** mean the catalogue is ready for import: the separate Blue Cat and Pink Dog identity-only records still lack official rarity evidence, four canonical aliases require reconciliation, nine official pets absent from the original lists require planning, and licensing/attribution clearance remains outstanding.
 
 Only short factual classifications, official links and source review dates were saved. No automated directory scrape, artwork/image download, trading-value import, MongoDB write, merge to `main`, or Wispbyte deployment was performed.
+
+## 26 October 2026 — final exception adjudication
+
+### Rarity disagreement
+
+**The Black Dog** — [official pet page](https://www.playadopt.me/discover/pets/the-black-dog) and [Halloween: Surprise Spiders Notes](https://www.playadopt.me/news/halloween-surprise-spiders-notes) both explicitly say **Rare**. Selected canonical rarity: **Rare**. Provisional source value **Ultra-Rare** is retained for audit, not silently changed. The report now separately counts **one adjudicated historical difference** and **zero unadjudicated matched-candidate conflicts**.
+
+### Two 2026 identity-only pets
+
+**Blue Cat** and **Pink Dog** — [official Cat Cafe notes](https://www.playadopt.me/news/cat-cafe-notes) confirm their identity and Throwback Egg origin, but not their rarities. The official directory did not provide individual verifiable rarity pages for these names. [Traderie Blue Cat](https://traderie.com/adoptme/product/blue-cat) and [AdoptMe.Rocks Pink Dog](https://adoptme.rocks/pets/pink-dog) support a **community-provisional Uncommon** classification, **not** official verification. Both official-rarity fields remain unset; they are not counted in the 689 accepted official agreements.
+
+### Four canonical identity decisions
+
+| Source identifier | Canonical pet ID | Official name and rarity |
+|---|---|---|
+| `malaysian-tapir` | `malayan-tapir` | Malayan Tapir — Common |
+| `wooly-rhino` | `woolly-rhino` | Woolly Rhino — Ultra-Rare |
+| `tio-de-nadal` | `ti-de-nadal` | Tió De Nadal — Legendary |
+| `s-mores-raccoon` | `smores-raccoon` | S'mores Raccoon — Ultra-Rare |
+
+Canonical mappings are chosen for any later authorized import; source aliases are retained as lookup keys. Do not create two separate pets from any alias. Names, rarities and canonical URL slugs are confirmed by the individual official pet pages in the curated evidence.
+
+### Nine additional official pets, staged only
+
+- **Halloween Hauntlet Returns (9 Oct):** Bubblegeist (Legendary), Bobageist (Ultra-Rare), Caramelgeist (Uncommon).
+- **Halloween Stitches' Spotlight (16 Oct):** Stitches (Ultra-Rare), Boohoo (Rare), Shoebill (Uncommon), Copycat (Legendary).
+- **Halloween Where Bear Returns (23 Oct):** Count Slothula (Ultra-Rare), Stray Cat Dragon (Legendary).
+
+Each item has an official source URL and is staged in the exception manifest, **not** a new baseline import or MongoDB write.
+
+### Rights review outcome
+
+Uplift's [2026 Terms of Service](https://www.playadopt.me/legal/terms) restrict unapproved copying, extraction and automated access. Its [Fan Art and Ideas Submission Policy](https://www.playadopt.me/legal/fan-art-and-ideas-submission-policy) is not a blanket permission for official pet artwork. The upstream candidate repositories do not establish a transferable license for their third-party data/images. **Reuse and artwork rights remain unapproved**, regardless of factual verification completeness.
+
+`scripts/pet-catalog-review.js` now applies the explicit decision file when writing the offline report and keeps the historical conflict, selected official rarity, canonical aliases, staged pets, provisional-only labels and rights gate distinguishable. It neither scrapes nor imports. Manual owner authorization to merge/deploy is a separate gate.
