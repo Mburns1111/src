@@ -12,8 +12,8 @@ From the original **84 mismatches**:
 - **84 pet identities now have an official citation**, including four aliases to reconcile before import.
 - **0 remain unmatched on pet identity.** S’mores Raccoon is officially confirmed as Ultra-Rare via https://www.playadopt.me/discover/pets/smores-raccoon .
 - **9 additional recent pets** were found in official update notes but neither candidate dataset.
-- **418** of 690 matching candidates have officially confirmed rarities agreeing with the provisional catalogue. All 416 initially classified Legendary / Ultra-Rare matches have been reviewed: 415 agree with official evidence and 1 has a documented conflict.
-- **1 rarity conflict** is documented (The Black Dog: official Rare versus provisional Ultra-Rare). The other **271 matching candidates** still require independent rarity verification. Do not treat the conflict as an accepted match.
+- **478** of 690 matching candidates have officially confirmed rarities agreeing with the provisional catalogue. All 416 initially classified Legendary / Ultra-Rare matches have been reviewed: 415 agree with official evidence and 1 has a documented conflict.
+- **1 rarity conflict** is documented (The Black Dog: official Rare versus provisional Ultra-Rare). The other **211 matching candidates** still require independent rarity verification. Do not treat the conflict as an accepted match.
 
 Important: Blue Cat and Pink Dog have **official identity confirmation only**, and their rarities remain unknown. Do not infer these from other pets. No community-only evidence should silently override or approve official fields.
 
@@ -66,7 +66,7 @@ Tests are committed, but their successful execution has **not** been verified in
 ## Outstanding work
 
 1. Officially verify Blue Cat and Pink Dog rarities (official news confirms both exist but does not state rarity).
-2. Check the remaining **271** provisional Rare, Uncommon and Common matches against explicit official pet-rarity statements. Separately resolve The Black Dog's Rare/Ultra-Rare conflict without silently overwriting the original source.
+2. Check the remaining **211** provisional Rare, Uncommon and Common matches against explicit official pet-rarity statements. Separately resolve The Black Dog's Rare/Ultra-Rare conflict without silently overwriting the original source.
 3. Review alias normalization and licensing before previewing any database import.
 4. Add a staff-only preview/approval workflow and keep the live bot untouched.
 
@@ -121,3 +121,14 @@ Reviewed all **79** remaining Legendary / Ultra-Rare candidates individually on 
 Cumulative matched-rarity confirmations without conflict are **418 / 690**. All **416 originally Legendary / Ultra-Rare candidates** have now received an official rarity review, comprising **415 agreements and 1 conflict**. Of the other matching candidates, **271** still lack official rarity verification (135 Rare, 87 Uncommon, 49 Common). One separately documented high-rarity conflict also remains open. Previously verified Rare/Common candidates remain counted among the 418 agreements.
 
 The curated evidence contains the exact official URL and check date per reviewed pet. The report retains both the official rarity and original catalogue rarity for disagreements. **No pet records, artwork, images, trading values or card data were imported**, and the data-reuse rights review remains pending. No merge to `main` or deployment to Wispbyte was authorized.
+
+## 26 October 2026 — twelfth official rarity batch (Rare / Uncommon / Common)
+
+Reviewed the next **60** unmatched candidate rarities (2021 Uplift Butterfly through Classic Teapot). Each candidate was compared against an explicit rarity statement in its individual official Adopt Me pet directory page or, for **Black Tiger**, the official [Endangered Egg Notes](https://www.playadopt.me/news/endangered-egg-notes).
+
+- **21 Rare**, **21 Uncommon**, and **18 Common** classifications agreed with the provisional candidates.
+- **0 new conflicts** found. The earlier **Black Dog: official Rare / provisional Ultra-Rare** disagreement remains open and unchanged.
+- The direct Chocolate Labrador page could not be fetched, but an official directory search result explicitly showed **Type: Pet** and **Rarity: Uncommon**; this is documented in its per-pet evidence note.
+- The Black Tiger individual page initially rendered without details. The official Endangered Egg notes explicitly state **Black Tiger — Uncommon**. Its curated record uses that news URL rather than inferring rarity from the page URL alone.
+
+Cumulative confirmed, agreeing matched rarities: **478 / 690**. Another **211** matched pets need an official rarity source (**114 Rare**, **66 Uncommon**, and **31 Common**, based on original tiers); **1 separate conflict** remains under review. Exact sources and the date of verification are kept in the curated JSON. No automated scrape, image download, MongoDB import, production deployment or merge was performed.
