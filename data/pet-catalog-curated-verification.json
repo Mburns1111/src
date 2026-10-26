@@ -925,13 +925,15 @@
       "petId": "s-mores-raccoon",
       "name": "S'mores Raccoon",
       "rarity": "Ultra-Rare",
-      "sourceType": "community-trading-reference",
-      "sourceUrl": "https://adoptme.rocks/pets/smores-raccoon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/smores-raccoon",
       "verifiedOn": "2026-10-26",
       "verification": [
         "community-supplied-rarity"
       ],
-      "notes": "Not yet confirmed via official Adopt Me source; keep rarity pending."
+      "notes": "Official pet rarity Ultra-Rare. Upstream slug s-mores-raccoon is an alias; official URL slug is smores-raccoon. Original community reference retained as secondary source.",
+      "secondarySourceUrl": "https://adoptme.rocks/pets/smores-raccoon",
+      "canonicalId": "smores-raccoon"
     },
     {
       "petId": "shadow-dragon",
