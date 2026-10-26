@@ -18,7 +18,7 @@ test("review report preserves separation between identity matches and official r
   assert.equal(report.totals.officialPetsMissingFromBothDatasets, 9);
   assert.equal(report.totals.canonicalAliases, 4);
   assert.equal(report.totals.identityVerifiedButRarityPending, 2);
-  assert.equal(report.totals.matchedRaritiesSpotChecked, 10);
+  assert.equal(report.totals.matchedRaritiesSpotChecked, 43);
   assert.equal(report.unreviewedUnmatched.length, 0);
   assert.equal(report.aliases.find(x => x.petId === 's-mores-raccoon')?.canonicalId, 'smores-raccoon');
   assert.equal(report.totals.rarityConflicts, 0);
