@@ -55,7 +55,9 @@ export function buildPetCatalogPreview(matchedData, unmatchedData, curatedData, 
     const canonicalId = alias?.canonicalId || sourceId;
     if (!canonicalId || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(canonicalId)) fail("invalid canonical ID for " + sourceId);
     if (alias && (alias.decision !== "canonical-identity-decided" ||
-        alias.officialSourceUrl !== evidenceRow.sourceUrl || alias.rarity !== evidenceRow.rarity ||
+        alias.officialSourceUrl !== evidenceRow.sourceUrl ||
+        alias.officialSourceUrl !== "https://www.playadopt.me/discover/pets/" + canonicalId ||
+        alias.rarity !== evidenceRow.rarity ||
         alias.canonicalName !== evidenceRow.name || alias.aliasId === alias.canonicalId)) {
       fail("invalid alias mapping for " + sourceId);
     }
