@@ -4,7 +4,7 @@
   "totals": {
     "matchedCandidates": 690,
     "initialUnmatched": 84,
-    "officialEvidenceReviewed": 556,
+    "officialEvidenceReviewed": 616,
     "officiallyConfirmedUnmatched": 84,
     "unresolvedUnmatched": 0,
     "rarityConflicts": 1,
@@ -12,7 +12,7 @@
     "communityOnlyEvidence": 0,
     "canonicalAliases": 4,
     "identityVerifiedButRarityPending": 2,
-    "matchedRaritiesSpotChecked": 478
+    "matchedRaritiesSpotChecked": 538
   },
   "verified": [
     {
@@ -1534,6 +1534,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "clover-cow",
+      "name": "Clover Cow",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/clover-cow",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "clownfish",
       "name": "Clownfish",
       "rarity": "Ultra-Rare",
@@ -1573,6 +1584,17 @@
       "originalRarity": "Legendary",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/cobra",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "cockroach",
+      "name": "Cockroach",
+      "rarity": "Common",
+      "originalRarity": "Common",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cockroach",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -1644,12 +1666,45 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "cow-calf",
+      "name": "Cow Calf",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cow-calf",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "coyote",
+      "name": "Coyote",
+      "rarity": "Common",
+      "originalRarity": "Common",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/coyote",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "cozy-mistletroll",
       "name": "Cozy Mistletroll",
       "rarity": "Ultra-Rare",
       "originalRarity": "Ultra-Rare",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/cozy-mistletroll",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "crab",
+      "name": "Crab",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/crab",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -1727,6 +1782,17 @@
       "originalRarity": "Legendary",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/cupid-dragon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "cute-a-cabra",
+      "name": "Cute-A-Cabra",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cute-a-cabra",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -1919,6 +1985,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "dilophosaurus",
+      "name": "Dilophosaurus",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dilophosaurus",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "dimension-drifter",
       "name": "Dimension Drifter",
       "rarity": "Legendary",
@@ -1936,6 +2013,17 @@
       "originalRarity": "Legendary",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/dimorphodon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "dingo",
+      "name": "Dingo",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dingo",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -1963,6 +2051,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "dj-snooze",
+      "name": "DJ Snooze",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dj-snooze",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "dodo",
       "name": "Dodo",
       "rarity": "Legendary",
@@ -1980,6 +2079,50 @@
       "originalRarity": "Common",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/dog",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "dolphin",
+      "name": "Dolphin",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dolphin",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "donkey",
+      "name": "Donkey",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/donkey",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "dotted-eggy",
+      "name": "Dotted Eggy",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dotted-eggy",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "dracula-fish",
+      "name": "Dracula Fish",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dracula-fish",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2029,12 +2172,67 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "drake",
+      "name": "Drake",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/drake",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "dugong",
+      "name": "Dugong",
+      "rarity": "Common",
+      "originalRarity": "Common",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dugong",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "easter-bunny",
       "name": "Easter Bunny",
       "rarity": "Legendary",
       "originalRarity": null,
       "originalDatasetLocation": "onlyB",
       "sourceUrl": "https://www.playadopt.me/discover/pets/easter-bunny",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "eel",
+      "name": "Eel",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/eel",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "eggnog-dog",
+      "name": "Eggnog Dog",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/eggnog-dog",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "eggnog-hare",
+      "name": "Eggnog Hare",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/eggnog-hare",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2062,6 +2260,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "elephant",
+      "name": "Elephant",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/elephant",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "emberlight",
       "name": "Emberlight",
       "rarity": "Legendary",
@@ -2079,6 +2288,50 @@
       "originalRarity": "Legendary",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/emperor-gorilla",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "emperor-shrimp",
+      "name": "Emperor Shrimp",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/emperor-shrimp",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "emu",
+      "name": "Emu",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/emu",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "english-sheepdog",
+      "name": "English Sheepdog",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/english-sheepdog",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "ermine",
+      "name": "Ermine",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ermine",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2112,6 +2365,17 @@
       "originalRarity": "Ultra-Rare",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/evil-chickatrice",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "evil-rock",
+      "name": "Evil Rock",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/evil-rock",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2156,6 +2420,28 @@
       "originalRarity": "Ultra-Rare",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/fanghorn-tortoise",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "feesh",
+      "name": "Feesh",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/feesh",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "fennec-fox",
+      "name": "Fennec Fox",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fennec-fox",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2238,6 +2524,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "flaming-zebra",
+      "name": "Flaming Zebra",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/flaming-zebra",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "flamingo",
       "name": "Flamingo",
       "rarity": "Ultra-Rare",
@@ -2282,12 +2579,67 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "flying-fish",
+      "name": "Flying Fish",
+      "rarity": "Common",
+      "originalRarity": "Common",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/flying-fish",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "fossa",
+      "name": "Fossa",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fossa",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "frankenfeline",
+      "name": "Frankenfeline",
+      "rarity": "Common",
+      "originalRarity": "Common",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frankenfeline",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "french-bulldog",
+      "name": "French Bulldog",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/french-bulldog",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "frog",
       "name": "Frog",
       "rarity": "Ultra-Rare",
       "originalRarity": "Ultra-Rare",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/frog",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "frogspawn",
+      "name": "Frogspawn",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frogspawn",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2392,12 +2744,45 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "galapagos-sea-lion",
+      "name": "Galapagos Sea Lion",
+      "rarity": "Common",
+      "originalRarity": "Common",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/galapagos-sea-lion",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "garden-snake",
+      "name": "Garden Snake",
+      "rarity": "Common",
+      "originalRarity": "Common",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/garden-snake",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "gargoyle",
       "name": "Gargoyle",
       "rarity": "Legendary",
       "originalRarity": "Legendary",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/gargoyle",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "gecko",
+      "name": "Gecko",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gecko",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2425,6 +2810,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "ghost",
+      "name": "Ghost",
+      "rarity": "Common",
+      "originalRarity": "Common",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ghost",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "ghost-bunny",
       "name": "Ghost Bunny",
       "rarity": "Ultra-Rare",
@@ -2447,12 +2843,45 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "ghost-dog",
+      "name": "Ghost Dog",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ghost-dog",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "ghost-wolf",
+      "name": "Ghost Wolf",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ghost-wolf",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "ghostly-cat",
       "name": "Ghostly Cat",
       "rarity": "Ultra-Rare",
       "originalRarity": "Ultra-Rare",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/ghostly-cat",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "giant-anteater",
+      "name": "Giant Anteater",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/giant-anteater",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2497,6 +2926,28 @@
       "originalRarity": "Legendary",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/giant-panda",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "gibbon",
+      "name": "Gibbon",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gibbon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "gila-monster",
+      "name": "Gila Monster",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gila-monster",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2629,6 +3080,17 @@
       "originalRarity": "Legendary",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/glormy-leo",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "glyptodon",
+      "name": "Glyptodon",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/glyptodon",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2821,6 +3283,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "goldfish",
+      "name": "Goldfish",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/goldfish",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "goldhorn",
       "name": "Goldhorn",
       "rarity": "Legendary",
@@ -2832,12 +3305,45 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "goose",
+      "name": "Goose",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/goose",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "gorilla",
+      "name": "Gorilla",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gorilla",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "grave-owl",
       "name": "Grave Owl",
       "rarity": "Ultra-Rare",
       "originalRarity": "Ultra-Rare",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/grave-owl",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "great-pyrenees",
+      "name": "Great Pyrenees",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/great-pyrenees",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2909,6 +3415,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "ground-sloth",
+      "name": "Ground Sloth",
+      "rarity": "Common",
+      "originalRarity": "Common",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ground-sloth",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "groundhog",
       "name": "Groundhog",
       "rarity": "Ultra-Rare",
@@ -2964,6 +3481,39 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "halloween-black-mummy-cat",
+      "name": "Halloween Black Mummy Cat",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/halloween-black-mummy-cat",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "halloween-blue-scorpion",
+      "name": "Halloween Blue Scorpion",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/halloween-blue-scorpion",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "halloween-evil-dachshund",
+      "name": "Halloween Evil Dachshund",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/halloween-evil-dachshund",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "halloween-golden-mummy-cat",
       "name": "Halloween Golden Mummy Cat",
       "rarity": "Legendary",
@@ -2986,12 +3536,34 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "halloween-white-mummy-cat",
+      "name": "Halloween White Mummy Cat",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/halloween-white-mummy-cat",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "halloween-white-skeleton-dog",
       "name": "Halloween White Skeleton Dog",
       "rarity": "Ultra-Rare",
       "originalRarity": "Ultra-Rare",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/halloween-white-skeleton-dog",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "hammerhead-shark",
+      "name": "Hammerhead Shark",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hammerhead-shark",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -3014,6 +3586,39 @@
       "originalRarity": "Ultra-Rare",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/happy-clam",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "happy-duckling",
+      "name": "Happy Duckling",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/happy-duckling",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "hare",
+      "name": "Hare",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "harp-seal",
+      "name": "Harp Seal",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/harp-seal",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -3052,6 +3657,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "hermit-crab",
+      "name": "Hermit Crab",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hermit-crab",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "hero-gibbon",
       "name": "Hero Gibbon",
       "rarity": "Legendary",
@@ -3069,6 +3685,17 @@
       "originalRarity": "Ultra-Rare",
       "originalDatasetLocation": "matched",
       "sourceUrl": "https://www.playadopt.me/discover/pets/highland-cow",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "hippo",
+      "name": "Hippo",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hippo",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -3096,6 +3723,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "hopbop",
+      "name": "Hopbop",
+      "rarity": "Common",
+      "originalRarity": "Common",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hopbop",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "horse",
       "name": "Horse",
       "rarity": "Ultra-Rare",
@@ -3118,6 +3756,17 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "humbug",
+      "name": "Humbug",
+      "rarity": "Uncommon",
+      "originalRarity": "Uncommon",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/humbug",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "hummingbird",
       "name": "Hummingbird",
       "rarity": "Ultra-Rare",
@@ -3135,6 +3784,17 @@
       "originalRarity": null,
       "originalDatasetLocation": "onlyB",
       "sourceUrl": "https://www.playadopt.me/discover/pets/huntsman-robin",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "husky",
+      "name": "Husky",
+      "rarity": "Rare",
+      "originalRarity": "Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/husky",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
