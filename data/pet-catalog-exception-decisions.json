@@ -105,12 +105,28 @@
       "notes": "Official pet identity and rarity confirmed; included in offline staff preview only, pending review and rights clearance. Not imported into MongoDB."
     },
     {
+      "petId": "cake-friend",
+      "name": "Cake Friend",
+      "rarity": "Ultra-Rare",
+      "officialSourceUrl": "https://www.playadopt.me/discover/pets/cake-friend",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official type and rarity confirmed, for staff review only."
+    },
+    {
       "petId": "caramelgeist",
       "name": "Caramelgeist",
       "rarity": "Uncommon",
       "officialSourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
       "decision": "verified-staged-for-later-catalogue-preview",
       "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
+    },
+    {
+      "petId": "chestnut-glyptodon",
+      "name": "Chestnut Glyptodon",
+      "rarity": "Rare",
+      "officialSourceUrl": "https://www.playadopt.me/discover/pets/chestnut-glyptodon",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official type and rarity confirmed, for staff review only."
     },
     {
       "petId": "chihuahua",
@@ -137,6 +153,14 @@
       "notes": "Official news explicitly names this pet and states its rarity. Not inserted into either baseline or MongoDB."
     },
     {
+      "petId": "dirty-ducky",
+      "name": "Dirty Ducky",
+      "rarity": null,
+      "officialSourceUrl": "https://www.playadopt.me/discover/pets",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official identity only; rarity Unknown, community Common provisional. No import."
+    },
+    {
       "petId": "dylan",
       "name": "Dylan",
       "rarity": "Uncommon",
@@ -145,12 +169,36 @@
       "notes": "Official pet identity and rarity confirmed; included in offline staff preview only, pending review and rights clearance. Not imported into MongoDB."
     },
     {
+      "petId": "forest-sprite",
+      "name": "Forest Sprite",
+      "rarity": "Common",
+      "officialSourceUrl": "https://www.playadopt.me/discover/pets/forest-sprite",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official type and rarity confirmed, for staff review only."
+    },
+    {
+      "petId": "gecko-ducky",
+      "name": "Gecko Ducky",
+      "rarity": "Common",
+      "officialSourceUrl": "https://www.playadopt.me/discover/pets/gecko-ducky",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official type and rarity confirmed, for staff review only."
+    },
+    {
       "petId": "granny-wolf",
       "name": "Granny Wolf",
       "rarity": "Rare",
       "officialSourceUrl": "https://www.playadopt.me/discover/pets/granny-wolf",
       "decision": "verified-staged-for-later-catalogue-preview",
       "notes": "Official pet identity and rarity confirmed; included in offline staff preview only, pending review and rights clearance. Not imported into MongoDB."
+    },
+    {
+      "petId": "irish-setter",
+      "name": "Irish Setter",
+      "rarity": "Uncommon",
+      "officialSourceUrl": "https://www.playadopt.me/discover/pets/irish-setter",
+      "decision": "verified-staged-for-later-catalogue-preview",
+      "notes": "Official type and rarity confirmed, for staff review only."
     },
     {
       "petId": "ms-muffet",
@@ -237,6 +285,16 @@
       "decision": "uncommon-provisional-only-official-rarity-unverified",
       "officialRarity": null,
       "notes": "September 2026 Adopt Me Cat Cafe notes confirm the new Throwback Egg pet, but do not publish its rarity. The third-party Uncommon claim is useful provisional evidence, never official confirmation. Distinct from Blue Dog and Pink Cat."
+    },
+    {
+      "petId": "dirty-ducky",
+      "name": "Dirty Ducky",
+      "officialIdentitySourceUrl": "https://www.playadopt.me/discover/pets",
+      "communityReportedRarity": "Common",
+      "communityEvidenceUrl": "https://adoptme.fandom.com/wiki/Dirty_Ducky",
+      "decision": "community-provisional-only-official-rarity-unverified",
+      "officialRarity": null,
+      "notes": "Official rarity remains unknown."
     }
   ],
   "rightsReview": {
