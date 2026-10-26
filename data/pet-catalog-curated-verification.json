@@ -1968,6 +1968,20 @@
       "notes": "Official pet page inspected; pet name/type/rarity matched provisional record."
     },
     {
+      "petId": "clover-cow",
+      "name": "Clover Cow",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/clover-cow",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "clownfish",
       "name": "Clownfish",
       "rarity": "Ultra-Rare",
@@ -2018,6 +2032,20 @@
         "rarity"
       ],
       "notes": "Official pet page inspected; pet name/type/rarity matched provisional record."
+    },
+    {
+      "petId": "cockroach",
+      "name": "Cockroach",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cockroach",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "cocoadile",
@@ -2128,6 +2156,34 @@
       ]
     },
     {
+      "petId": "cow-calf",
+      "name": "Cow Calf",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cow-calf",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "coyote",
+      "name": "Coyote",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/coyote",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "cozy-mistletroll",
       "name": "Cozy Mistletroll",
       "rarity": "Ultra-Rare",
@@ -2140,6 +2196,20 @@
         "rarity"
       ],
       "notes": "Official pet page inspected; pet name/type/rarity matched provisional record."
+    },
+    {
+      "petId": "crab",
+      "name": "Crab",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/crab",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "crimson-cape",
@@ -2236,6 +2306,20 @@
         "rarity"
       ],
       "notes": "Official pet page inspected; pet name/type/rarity matched provisional record."
+    },
+    {
+      "petId": "cute-a-cabra",
+      "name": "Cute-A-Cabra",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cute-a-cabra",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "dalmatian",
@@ -2472,6 +2556,20 @@
       "notes": "Official pet page inspected; pet name/type/rarity matched provisional record."
     },
     {
+      "petId": "dilophosaurus",
+      "name": "Dilophosaurus",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dilophosaurus",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "dimension-drifter",
       "name": "Dimension Drifter",
       "rarity": "Legendary",
@@ -2498,6 +2596,20 @@
         "rarity"
       ],
       "notes": "Official pet page inspected; pet name/type/rarity matched provisional record."
+    },
+    {
+      "petId": "dingo",
+      "name": "Dingo",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dingo",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "dire-stag",
@@ -2528,6 +2640,20 @@
       "notes": "Official pet page inspected; pet name/type/rarity matched provisional record."
     },
     {
+      "petId": "dj-snooze",
+      "name": "DJ Snooze",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dj-snooze",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "dodo",
       "name": "Dodo",
       "rarity": "Legendary",
@@ -2552,6 +2678,62 @@
         "pet identity",
         "rarity"
       ]
+    },
+    {
+      "petId": "dolphin",
+      "name": "Dolphin",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dolphin",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "donkey",
+      "name": "Donkey",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/donkey",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "dotted-eggy",
+      "name": "Dotted Eggy",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dotted-eggy",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "dracula-fish",
+      "name": "Dracula Fish",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dracula-fish",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "dracula-parrot",
@@ -2610,6 +2792,34 @@
       "notes": "Rarity and identity stated in official update notes. Not an image license."
     },
     {
+      "petId": "drake",
+      "name": "Drake",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/drake",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "dugong",
+      "name": "Dugong",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dugong",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "easter-bunny",
       "name": "Easter Bunny",
       "rarity": "Legendary",
@@ -2620,6 +2830,48 @@
         "pet identity",
         "rarity"
       ]
+    },
+    {
+      "petId": "eel",
+      "name": "Eel",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/eel",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "eggnog-dog",
+      "name": "Eggnog Dog",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/eggnog-dog",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "eggnog-hare",
+      "name": "Eggnog Hare",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/eggnog-hare",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "ehecatl",
@@ -2650,6 +2902,20 @@
       "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
     },
     {
+      "petId": "elephant",
+      "name": "Elephant",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/elephant",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "emberlight",
       "name": "Emberlight",
       "rarity": "Legendary",
@@ -2676,6 +2942,62 @@
         "rarity"
       ],
       "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "emperor-shrimp",
+      "name": "Emperor Shrimp",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/emperor-shrimp",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "emu",
+      "name": "Emu",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/emu",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "english-sheepdog",
+      "name": "English Sheepdog",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/english-sheepdog",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "ermine",
+      "name": "Ermine",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ermine",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "evil-basilisk",
@@ -2718,6 +3040,20 @@
         "rarity"
       ],
       "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "evil-rock",
+      "name": "Evil Rock",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/evil-rock",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "evil-unicorn",
@@ -2774,6 +3110,34 @@
         "rarity"
       ],
       "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "feesh",
+      "name": "Feesh",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/feesh",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "fennec-fox",
+      "name": "Fennec Fox",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fennec-fox",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "field-mouse",
@@ -2874,6 +3238,20 @@
       "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
     },
     {
+      "petId": "flaming-zebra",
+      "name": "Flaming Zebra",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/flaming-zebra",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "flamingo",
       "name": "Flamingo",
       "rarity": "Ultra-Rare",
@@ -2930,6 +3308,62 @@
       "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
     },
     {
+      "petId": "flying-fish",
+      "name": "Flying Fish",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/flying-fish",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "fossa",
+      "name": "Fossa",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fossa",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "frankenfeline",
+      "name": "Frankenfeline",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frankenfeline",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "french-bulldog",
+      "name": "French Bulldog",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/french-bulldog",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "frog",
       "name": "Frog",
       "rarity": "Ultra-Rare",
@@ -2942,6 +3376,20 @@
         "rarity"
       ],
       "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "frogspawn",
+      "name": "Frogspawn",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frogspawn",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "frost-dragon",
@@ -3071,6 +3519,34 @@
       "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
     },
     {
+      "petId": "galapagos-sea-lion",
+      "name": "Galapagos Sea Lion",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/galapagos-sea-lion",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "garden-snake",
+      "name": "Garden Snake",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/garden-snake",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "gargoyle",
       "name": "Gargoyle",
       "rarity": "Legendary",
@@ -3083,6 +3559,20 @@
         "rarity"
       ],
       "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "gecko",
+      "name": "Gecko",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gecko",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "general-sheepdog",
@@ -3109,6 +3599,20 @@
         "rarity"
       ],
       "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "ghost",
+      "name": "Ghost",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ghost",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "ghost-bunny",
@@ -3139,6 +3643,34 @@
       "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
     },
     {
+      "petId": "ghost-dog",
+      "name": "Ghost Dog",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ghost-dog",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "ghost-wolf",
+      "name": "Ghost Wolf",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ghost-wolf",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "ghostly-cat",
       "name": "Ghostly Cat",
       "rarity": "Ultra-Rare",
@@ -3151,6 +3683,20 @@
         "rarity"
       ],
       "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "giant-anteater",
+      "name": "Giant Anteater",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/giant-anteater",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "giant-black-scarab",
@@ -3207,6 +3753,34 @@
         "rarity"
       ],
       "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "gibbon",
+      "name": "Gibbon",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gibbon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "gila-monster",
+      "name": "Gila Monster",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gila-monster",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "gilded-snake",
@@ -3371,6 +3945,20 @@
         "rarity"
       ],
       "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
+    },
+    {
+      "petId": "glyptodon",
+      "name": "Glyptodon",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/glyptodon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "glyptodon-ducky",
@@ -3609,6 +4197,20 @@
       "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
     },
     {
+      "petId": "goldfish",
+      "name": "Goldfish",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/goldfish",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "goldhorn",
       "name": "Goldhorn",
       "rarity": "Legendary",
@@ -3623,6 +4225,34 @@
       "notes": "Official Adopt Me pet directory result explicitly displays Type Pet and this Rarity; no artwork or full text copied."
     },
     {
+      "petId": "goose",
+      "name": "Goose",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/goose",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "gorilla",
+      "name": "Gorilla",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gorilla",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "grave-owl",
       "name": "Grave Owl",
       "rarity": "Ultra-Rare",
@@ -3635,6 +4265,20 @@
         "rarity"
       ],
       "notes": "Official web search result displayed matching pet name, Type Pet and Rarity."
+    },
+    {
+      "petId": "great-pyrenees",
+      "name": "Great Pyrenees",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/great-pyrenees",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "green-amazon",
@@ -3721,6 +4365,20 @@
       "notes": "Official web search result displayed matching pet name, Type Pet and Rarity."
     },
     {
+      "petId": "ground-sloth",
+      "name": "Ground Sloth",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ground-sloth",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "groundhog",
       "name": "Groundhog",
       "rarity": "Ultra-Rare",
@@ -3787,6 +4445,48 @@
       "notes": "Official web search result displayed matching pet name, Type Pet and Rarity."
     },
     {
+      "petId": "halloween-black-mummy-cat",
+      "name": "Halloween Black Mummy Cat",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/halloween-black-mummy-cat",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "halloween-blue-scorpion",
+      "name": "Halloween Blue Scorpion",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/halloween-blue-scorpion",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "halloween-evil-dachshund",
+      "name": "Halloween Evil Dachshund",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/halloween-evil-dachshund",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "halloween-golden-mummy-cat",
       "name": "Halloween Golden Mummy Cat",
       "rarity": "Legendary",
@@ -3815,6 +4515,20 @@
       "notes": "Official web search result displayed matching pet name, Type Pet and Rarity."
     },
     {
+      "petId": "halloween-white-mummy-cat",
+      "name": "Halloween White Mummy Cat",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/halloween-white-mummy-cat",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "halloween-white-skeleton-dog",
       "name": "Halloween White Skeleton Dog",
       "rarity": "Ultra-Rare",
@@ -3827,6 +4541,20 @@
         "rarity"
       ],
       "notes": "Official web search result displayed matching pet name, Type Pet and Rarity."
+    },
+    {
+      "petId": "hammerhead-shark",
+      "name": "Hammerhead Shark",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hammerhead-shark",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "hamster",
@@ -3855,6 +4583,48 @@
         "rarity"
       ],
       "notes": "Official web search result displayed matching pet name, Type Pet and Rarity."
+    },
+    {
+      "petId": "happy-duckling",
+      "name": "Happy Duckling",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/happy-duckling",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "hare",
+      "name": "Hare",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hare",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "harp-seal",
+      "name": "Harp Seal",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/harp-seal",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "hawk",
@@ -3897,6 +4667,20 @@
       ]
     },
     {
+      "petId": "hermit-crab",
+      "name": "Hermit Crab",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hermit-crab",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "hero-gibbon",
       "name": "Hero Gibbon",
       "rarity": "Legendary",
@@ -3923,6 +4707,20 @@
         "rarity"
       ],
       "notes": "Official web search result displayed matching pet name, Type Pet and Rarity."
+    },
+    {
+      "petId": "hippo",
+      "name": "Hippo",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hippo",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "hippogriff",
@@ -3953,6 +4751,20 @@
       "notes": "Official web search result displayed matching pet name, Type Pet and Rarity."
     },
     {
+      "petId": "hopbop",
+      "name": "Hopbop",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hopbop",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "horse",
       "name": "Horse",
       "rarity": "Ultra-Rare",
@@ -3981,6 +4793,20 @@
       "notes": "Official search result includes Type Pet and Rarity; agrees with provisional dataset. No artwork reproduced."
     },
     {
+      "petId": "humbug",
+      "name": "Humbug",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/humbug",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
       "petId": "hummingbird",
       "name": "Hummingbird",
       "rarity": "Ultra-Rare",
@@ -4005,6 +4831,20 @@
         "pet identity",
         "rarity"
       ]
+    },
+    {
+      "petId": "husky",
+      "name": "Husky",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/husky",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
       "petId": "hydra",
