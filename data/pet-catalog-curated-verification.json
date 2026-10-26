@@ -3719,6 +3719,132 @@
       ]
     },
     {
+      "petId": "llama",
+      "name": "Llama",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/llama",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "lunar-gold-tiger",
+      "name": "Lunar Gold Tiger",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/lunar-gold-tiger",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "lunar-moon-bear",
+      "name": "Lunar Moon Bear",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/lunar-moon-bear",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "lunar-ox",
+      "name": "Lunar Ox",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/lunar-ox",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "lunar-white-tiger",
+      "name": "Lunar White Tiger",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/lunar-white-tiger",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "magma-moose",
+      "name": "Magma Moose",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/magma-moose",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "magma-snail",
+      "name": "Magma Snail",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/magma-snail",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "maine-coon",
+      "name": "Maine Coon",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/maine-coon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "majestic-pony",
+      "name": "Majestic Pony",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/majestic-pony",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
       "petId": "malaysian-tapir",
       "name": "Malayan Tapir",
       "rarity": "Common",
@@ -3733,6 +3859,48 @@
       "notes": "Dataset naming alias; preserve alias and do not create a second pet."
     },
     {
+      "petId": "maneki-neko",
+      "name": "Maneki-Neko",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/maneki-neko",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "manta-ray",
+      "name": "Manta Ray",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/summer-sticker-sunset-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "many-mackerel",
+      "name": "Many Mackerel",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/many-mackerel",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
       "petId": "matcha-cat",
       "name": "Matcha Cat",
       "rarity": "Legendary",
@@ -3743,6 +3911,90 @@
         "pet identity",
         "rarity"
       ]
+    },
+    {
+      "petId": "mecha-meow",
+      "name": "Mecha Meow",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mecha-meow",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "mechapup",
+      "name": "Mechapup",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mechapup",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "mermicorn",
+      "name": "Mermicorn",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mermicorn",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "merry-mistletroll",
+      "name": "Merry Mistletroll",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/merry-mistletroll",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "metal-ox",
+      "name": "Metal Ox",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/metal-ox",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "midnight-dragon",
+      "name": "Midnight Dragon",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/midnight-dragon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
     },
     {
       "petId": "milk-choccybunny",
@@ -3757,6 +4009,34 @@
       ]
     },
     {
+      "petId": "mini-pig",
+      "name": "Mini Pig",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mini-pig",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "mirai-moth",
+      "name": "Mirai Moth",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mirai-moth",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
       "petId": "mochi-meow",
       "name": "Mochi Meow",
       "rarity": "Legendary",
@@ -3769,6 +4049,48 @@
       ]
     },
     {
+      "petId": "momma-moose",
+      "name": "Momma Moose",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/momma-moose",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "monkey-king",
+      "name": "Monkey King",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/monkey-king",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "moonbeam-butterfly",
+      "name": "Moonbeam Butterfly",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/moonbeam-butterfly",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
       "petId": "moonbeam-peacock",
       "name": "Moonbeam Peacock",
       "rarity": "Legendary",
@@ -3779,6 +4101,20 @@
         "pet identity",
         "rarity"
       ]
+    },
+    {
+      "petId": "moose-calf",
+      "name": "Moose Calf",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/moose-calf",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
     },
     {
       "petId": "mr-whiskerpips",
@@ -3817,6 +4153,62 @@
         "rarity"
       ],
       "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "mushroom-friend",
+      "name": "Mushroom Friend",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mushroom-friend",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "naga-dragon",
+      "name": "Naga Dragon",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/naga-dragon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "nautilus",
+      "name": "Nautilus",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/nautilus",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
+    },
+    {
+      "petId": "nessie",
+      "name": "Nessie",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/nessie",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Rarity explicitly confirmed in official Adopt Me pet page or official pet release notes; no images copied."
     },
     {
       "petId": "nurse-shark",
