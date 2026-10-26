@@ -12,8 +12,8 @@ From the original **84 mismatches**:
 - **84 pet identities now have an official citation**, including four aliases to reconcile before import.
 - **0 remain unmatched on pet identity.** S’mores Raccoon is officially confirmed as Ultra-Rare via https://www.playadopt.me/discover/pets/smores-raccoon .
 - **9 additional recent pets** were found in official update notes but neither candidate dataset.
-- **340** of the 690 matching candidates have their rarities explicitly spot-checked against official pages (33 in the first Legendary / Ultra-Rare batch; 29 in the second).
-- **0 rarity conflicts** appeared in this reviewed sample; the rarities of the other **350 matching candidates remain single-source** and require further independent verification.
+- **418** of 690 matching candidates have officially confirmed rarities agreeing with the provisional catalogue. All 416 initially classified Legendary / Ultra-Rare matches have been reviewed: 415 agree with official evidence and 1 has a documented conflict.
+- **1 rarity conflict** is documented (The Black Dog: official Rare versus provisional Ultra-Rare). The other **271 matching candidates** still require independent rarity verification. Do not treat the conflict as an accepted match.
 
 Important: Blue Cat and Pink Dog have **official identity confirmation only**, and their rarities remain unknown. Do not infer these from other pets. No community-only evidence should silently override or approve official fields.
 
@@ -66,7 +66,7 @@ Tests are committed, but their successful execution has **not** been verified in
 ## Outstanding work
 
 1. Officially verify Blue Cat and Pink Dog rarities (official news confirms both exist but does not state rarity).
-2. Continue checking the **350** already matched pets whose rarity has only one data source. Prioritize Legendary and Ultra-Rare first.
+2. Check the remaining **271** provisional Rare, Uncommon and Common matches against explicit official pet-rarity statements. Separately resolve The Black Dog's Rare/Ultra-Rare conflict without silently overwriting the original source.
 3. Review alias normalization and licensing before previewing any database import.
 4. Add a staff-only preview/approval workflow and keep the live bot untouched.
 
@@ -111,3 +111,13 @@ No merging, deployment or MongoDB import occurred.
 ## 26 October 2026 — tenth official rarity batch
 
 50 more entries were individually checked using live search results from the official Adopt Me pet directory. Each result explicitly stated pet name, **Type: Pet**, and rarity. All 50 matched the provisional classifications, including **Astronaut Gorilla — Legendary** and **Field Mouse — Legendary**, previously pending. Official source URLs are recorded for every entry in `data/pet-catalog-curated-verification.json`. Cumulative official rarity checks: **340 / 690**, with **350** matched rarities still pending. There are **79** still-pending Legendary or Ultra-Rare matches; the rest are other rarity tiers. No automated directory scraping or image import occurred. Retain provenance and confirm bulk-data reuse permissions before database import.
+
+## 26 October 2026 — eleventh official rarity batch (remaining high-rarity candidates)
+
+Reviewed all **79** remaining Legendary / Ultra-Rare candidates individually on Adopt Me's official pet pages. Each page explicitly identified the pet and its rarity. **78 matched** the provisional rarity (35 Legendary and 43 Ultra-Rare); **1 was a discrepancy**:
+
+- **The Black Dog**: the candidate list says **Ultra-Rare**, but the official pet directory states **Rare** — https://www.playadopt.me/discover/pets/the-black-dog. It is retained as a `rarity-conflict` in the generated report, not silently reclassified or approved as a matching candidate.
+
+Cumulative matched-rarity confirmations without conflict are **418 / 690**. All **416 originally Legendary / Ultra-Rare candidates** have now received an official rarity review, comprising **415 agreements and 1 conflict**. Of the other matching candidates, **271** still lack official rarity verification (135 Rare, 87 Uncommon, 49 Common). One separately documented high-rarity conflict also remains open. Previously verified Rare/Common candidates remain counted among the 418 agreements.
+
+The curated evidence contains the exact official URL and check date per reviewed pet. The report retains both the official rarity and original catalogue rarity for disagreements. **No pet records, artwork, images, trading values or card data were imported**, and the data-reuse rights review remains pending. No merge to `main` or deployment to Wispbyte was authorized.
