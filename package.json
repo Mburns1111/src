@@ -7,7 +7,9 @@
     "start": "node index.js",
     "test": "node --test tests/*.test.js",
     "preflight": "node scripts/deployment-preflight.js",
-    "check:source": "node scripts/check-source.js"
+    "check:source": "node scripts/check-source.js",
+    "pet-catalog:preview": "node scripts/pet-catalog-preview.js",
+    "pet-catalog:preview:check": "node scripts/pet-catalog-preview.js --check"
   },
   "type": "module",
   "dependencies": {
