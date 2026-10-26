@@ -77,6 +77,16 @@ export const data = new SlashCommandBuilder()
       .setMinValue(1).setMaxValue(MESSAGE_SCAN_MAX_HOURS))
     .addBooleanOption(o => o.setName("apply")
       .setDescription("Default false: preview only. True: actually credit members")))
+  .addSubcommand(c => c.setName("scan-exclude")
+    .setDescription("Ignore a channel/category and its children in historical message scans")
+    .addChannelOption(o => o.setName("channel").setRequired(true)
+      .setDescription("Channel or category to ignore during message scans")))
+  .addSubcommand(c => c.setName("scan-include")
+    .setDescription("Remove a channel/category from the historical scan ignore list")
+    .addChannelOption(o => o.setName("channel").setRequired(true)
+      .setDescription("Channel or category to scan again")))
+  .addSubcommand(c => c.setName("scan-exclusions")
+    .setDescription("List ignored channels/categories for historical message scans"))
   .addSubcommand(c => c.setName("audit")
     .setDescription("Review Points awarded across the server, grouped by reward type and member")
     .addIntegerOption(o => o.setName("days").setDescription("Past 1-90 days (default 1)")
@@ -166,6 +176,35 @@ export async function execute(interaction) {
     }
     return;
   }
+  if (op === "scan-exclude" || op === "scan-include" || op === "scan-exclusions") {
+    if (op === "scan-exclusions") {
+      const settings = await PointsSettings.findOne({ guildId }).lean();
+      const ids = settings?.messageScanExcludedChannelIds ?? [];
+      await interaction.editReply({
+        content: "**Historical message scan exclusions**\n" +
+          (ids.length ? ids.map(id => `• <#${id}> (${id})`).join("\n")
+            : "No channels excluded; all readable channels are eligible.") +
+          "\nThese settings do not change live message or voice rewards.",
+        allowedMentions: { parse: [] },
+      });
+      return;
+    }
+    const channel = interaction.options.getChannel("channel", true);
+    const exclude = op === "scan-exclude";
+    await PointsSettings.updateOne({ guildId },
+      exclude
+        ? { $addToSet: { messageScanExcludedChannelIds: channel.id } }
+        : { $pull: { messageScanExcludedChannelIds: channel.id } },
+      { upsert: exclude, setDefaultsOnInsert: true });
+    await interaction.editReply({
+      content: `**${exclude ? "Excluded from" : "Included in"} historical message scans:** ${channel}\n` +
+        (exclude ? "Child channels and threads are excluded too."
+          : "This channel may still be excluded by an ignored parent category/channel.") +
+        "\nLive message rewards are not changed. Use /points-admin scan-messages apply:false to preview.",
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
   if (op === "scan-messages") {
     const hours = interaction.options.getInteger("hours") ?? 24;
     const apply = interaction.options.getBoolean("apply") ?? false;
@@ -182,7 +221,7 @@ export async function execute(interaction) {
     const lines = [
       `**${apply ? "Message rewards applied" : "Message rewards preview — no Points changed"}**`,
       `Window: last ${hours} hour(s), excluding the most recent 30 minutes to avoid overlapping live rewards.`,
-      `Channels scanned: **${result.channels}** · inaccessible/unsupported: **${result.skippedInaccessible}**`,
+      `Channels scanned: **${result.channels}** · ignored: **${result.skippedExcluded}** · inaccessible/unsupported: **${result.skippedInaccessible}**`,
       `Messages examined: **${result.totalFetched}**`,
       `Qualifying unpaid message rewards: **${result.candidates}**, across **${result.recipientCount}** members`,
       `Potential Points: **${result.plannedPoints}**`,

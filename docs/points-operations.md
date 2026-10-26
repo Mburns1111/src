@@ -10,6 +10,13 @@ Scope: `feature/points-earning` development branch. This is a **code and workloa
 - The ledger now tracks **earned Points, shop spending and refunds**. Future spending features can reuse `spendPointsInSession()` with their own `sourceType` (for example event, ticket, or auction). **Purchases predating this code were not recorded as negative transactions**, so all-time ledger sums cannot yet be assumed to match every existing wallet balance. No fabricated backfill is performed.
 - No automatic receipt purging, retention deadline, or archival exists. Keep raw earning receipts until a deliberate retention/archive plan and verified backup exists; deleting entries without reworking idempotency could allow repeat rewards.
 
+## Historical message scan channel scope
+
+- `/points-admin scan-messages hours:24 apply:false` previews historical message rewards; `apply:true` is required to credit Points. The scan now permits **up to 100 readable channels**, covering servers with more than 50. The separate safety limits of 6,000 examined messages, 500 proposed awards and 168 hours still apply. Shorten the hours window when those limits are reached.
+- `/points-admin scan-exclude channel:#channel` permanently adds a channel or category to the scan-only ignore list. A category also ignores its child channels and active threads; ignoring a text channel also ignores its threads.
+- `/points-admin scan-include channel:#channel` removes an explicit exclusion; `/points-admin scan-exclusions` shows the full saved list. These settings are guild-specific, survive restarts, and **do not change live message or voice rewards**.
+- Preview output reports scanned, ignored, and inaccessible channel counts separately. Do not use `apply:true` until the scope and expected awards have been reviewed.
+
 ## Read-only commands for managers
 
 - `/points-admin audit days:1` (1–90 days; defaults to 1): Points earned, Points spent, Points refunded, net change, transaction count, affected members and totals by type. Filter by `type` and/or `member`. Executes an indexed time-window MongoDB aggregation, grouping by **member and reward type**, rather than retrieving every receipt into Node memory.
