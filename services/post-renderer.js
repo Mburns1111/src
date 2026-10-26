@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DEFAULT_POST_STYLE, POST_LAYOUTS } from './post-layouts.js';
 import { APPEARANCE_CATALOG, appearanceCatalogItem, resolveAppearance } from './post-appearance.js';
-import { registerAppearanceFonts } from './font-library.js';
+import { registerAppearanceFonts, withUnicodeFallback } from './font-library.js';
 import { frameArtworkSvg } from './frame-artwork.js';
 import { drawStickerArtwork } from './sticker-artwork.js';
 import { readDiscordAttachment } from './media-transfer.js';
@@ -34,6 +34,12 @@ async function ensureSymbolFont() {
     })();
   }
   return symbolFontPromise;
+}
+
+// A code-unit charAt(0) breaks surrogate-pair names (e.g. 𝓛 or emoji).
+function firstDisplayGrapheme(value) {
+  const parts = new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(String(value || 'P').trim());
+  return Array.from(parts, part => part.segment).find(part => part.trim()) || 'P';
 }
 
 const MAX_TEXT_LINES_DEFAULT = 6;
@@ -509,14 +515,14 @@ function drawOpenProfile(ctx, data, images, style, layout, appearance, stickerIm
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = 'bold 110px ' + style.titleFontFamily;
-    ctx.fillText(String(data.displayName || 'P').charAt(0).toUpperCase(), cx, cy);
+    ctx.fillText(firstDisplayGrapheme(data.displayName).toUpperCase(), cx, cy);
   }
   ctx.restore();
 
   drawFittedLine(ctx, String(data.displayName || 'Member') + "'s Profile",
     { x: 358, y: 72, width: 770 }, {
       fontSize: 57, minFontSize: 26,
-      family: '"AM Unicode Symbols", ' + style.titleFontFamily,
+      family: style.titleFontFamily,
        weight: style.titleFontWeight,
       color: style.accentDark,
     });
@@ -695,7 +701,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     ctx.textBaseline = 'middle';
 
     ctx.fillText(
-      String(data.displayName || 'P').trim().charAt(0).toUpperCase(),
+      firstDisplayGrapheme(data.displayName).toUpperCase(),
       r.avatar.x + r.avatar.width / 2,
       r.avatar.y + r.avatar.height / 2
     );
@@ -711,7 +717,7 @@ function drawDefaultProfile(ctx, data, images, style, layout, appearance, sticke
     ? { ...r.title, x: r.title.x + 10, y: r.title.y + 8, width: r.title.width - 34 }
     : r.title, {
     fontSize: images.background ? 57 : 66, minFontSize: 25,
-    family: '\"AM Unicode Symbols\", ' + style.titleFontFamily,
+    family: style.titleFontFamily,
     weight: style.titleFontWeight, color: style.accentDark,
   });
 
@@ -1115,11 +1121,11 @@ export async function renderPostImage({
   const resolvedStyle = {
     ...DEFAULT_POST_STYLE,
     ...style,
-    fontFamily: bodyFont.family,
+    fontFamily: withUnicodeFallback(bodyFont.family),
     bodyFontWeight: bodyFont.weight || 'normal',
-    labelFontFamily: headerFont.family,
+    labelFontFamily: withUnicodeFallback(headerFont.family),
     labelFontWeight: headerFont.weight || 'normal',
-    titleFontFamily: headerFont.titleFamily,
+    titleFontFamily: withUnicodeFallback(headerFont.titleFamily),
     titleFontWeight: headerFont.weight || 'normal',
     customHeading: resolvedAppearance.headerFont !== 'default',
     ...colors,
