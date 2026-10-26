@@ -5,7 +5,7 @@
   "baselinePreviewPets": 793,
   "comparisonBasis": "Official Adopt Me public pet directory names, manually compared with staged 793-pet preview; excluded egg listings. No automated official-directory scrape.",
   "scope": "All visible A-Z named pet listings from official directory search index, excluding eggs. Dynamic pagination and later directory changes not independently guaranteed.",
-  "status": "review-staging-not-imported",
+  "status": "reconciled-into-offline-preview",
   "rightsClearedForImport": false,
   "petEntries": [
     {
@@ -17,7 +17,7 @@
       "identityVerified": true,
       "rarityVerification": "official-individual-page",
       "communityReportedRarity": null,
-      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "reviewStatus": "integrated-preview-awaiting-staff-approval",
       "notes": "Individual official page explicitly states Type: Pet and rarity."
     },
     {
@@ -29,7 +29,7 @@
       "identityVerified": true,
       "rarityVerification": "official-individual-page",
       "communityReportedRarity": null,
-      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "reviewStatus": "integrated-preview-awaiting-staff-approval",
       "notes": "Individual official page explicitly states Type: Pet and rarity."
     },
     {
@@ -41,7 +41,7 @@
       "identityVerified": true,
       "rarityVerification": "community-common-official-page-unavailable",
       "communityReportedRarity": "Common",
-      "reviewStatus": "official-directory-identity-only-awaiting-rarity",
+      "reviewStatus": "integrated-preview-official-rarity-unknown",
       "notes": "Official directory lists Dirty Ducky; direct individual official page not accessible in review. Fandom and AdoptMeTradingValues identify Common, not treated as verified official rarity."
     },
     {
@@ -53,7 +53,7 @@
       "identityVerified": true,
       "rarityVerification": "official-individual-page",
       "communityReportedRarity": null,
-      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "reviewStatus": "integrated-preview-awaiting-staff-approval",
       "notes": "Individual official page explicitly states Type: Pet and rarity."
     },
     {
@@ -65,7 +65,7 @@
       "identityVerified": true,
       "rarityVerification": "official-individual-page",
       "communityReportedRarity": null,
-      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "reviewStatus": "integrated-preview-awaiting-staff-approval",
       "notes": "Individual official page explicitly states Type: Pet and rarity."
     },
     {
@@ -77,8 +77,8 @@
       "identityVerified": true,
       "rarityVerification": "official-individual-page",
       "communityReportedRarity": null,
-      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
-      "notes": "Individual official page explicitly states Type: Pet and rarity."
+      "reviewStatus": "already-present-name-variant-not-new-pet",
+      "notes": "Already present with canonical pet ID golden-chow-chow under name Golden Chow Chow. Do not add a second record."
     },
     {
       "petId": "irish-setter",
@@ -89,14 +89,28 @@
       "identityVerified": true,
       "rarityVerification": "official-individual-page",
       "communityReportedRarity": null,
-      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "reviewStatus": "integrated-preview-awaiting-staff-approval",
       "notes": "Individual official page explicitly states Type: Pet and rarity."
     }
   ],
   "unreviewedIssues": [
     "Official directory may update after comparison; source completeness not certified.",
     "Dirty Ducky has no independently accessible official rarity page.",
-    "These entries are staged separately to avoid bypassing required evidence/decision/report/preview generation gates.",
-    "Do not change production MongoDB or approve artwork on basis of this audit."
-  ]
+    "Do not change production MongoDB or approve artwork on basis of this audit.",
+    "Catalog now contains 799 canonical pets including six new entries; this comparison is not an exhaustive audited census."
+  ],
+  "reconciliation": {
+    "directoryCandidates": 7,
+    "newPetIdentities": 6,
+    "alreadyPresent": 1,
+    "existingPetId": "golden-chow-chow",
+    "existingCatalogName": "Golden Chow Chow",
+    "canonicalPetsAfterIntegration": 799,
+    "officialRarityUnknown": [
+      "blue-cat",
+      "pink-dog",
+      "dirty-ducky"
+    ],
+    "note": "Golden Chow-Chow has the same ID as the already listed Golden Chow Chow; do not create duplicate."
+  }
 }
