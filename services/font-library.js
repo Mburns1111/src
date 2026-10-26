@@ -34,6 +34,25 @@ export const SHOP_FONT_STYLES = Object.freeze({
   },
 });
 
+// Local Unicode coverage prevents tofu squares on hosts without system fonts.
+// The optional Noto Sans Symbols 2 download in the renderer is extra coverage.
+export const UNICODE_FALLBACK_FONTS = Object.freeze([
+  { id: "math", family: "AM Noto Math", asset: "../assets/fonts/NotoSansMath-Regular.ttf" },
+  { id: "symbols", family: "AM Noto Symbols", asset: "../assets/fonts/NotoSansSymbols.ttf" },
+]);
+
+// Put our bundled fallbacks before the generic family, without taking precedence
+// over a member's selected shop font (or the default serif/sans-serif).
+export function withUnicodeFallback(family = "sans-serif") {
+  const selected = String(family || "sans-serif").trim();
+  const fallbacks = '"AM Noto Math", "AM Noto Symbols", "AM Unicode Symbols"';
+  const generic = /,\s*(sans-serif|serif|monospace|cursive)\s*$/i.exec(selected);
+  if (generic) {
+    return selected.slice(0, generic.index) + ", " + fallbacks + ", " + generic[1];
+  }
+  return selected + ", " + fallbacks + ", sans-serif";
+}
+
 let fontsRegistered = false;
 
 export function registerAppearanceFonts() {
@@ -47,6 +66,16 @@ export function registerAppearanceFonts() {
       }
     } catch (error) {
       console.warn(`[fonts] ${id} unavailable; using a fallback:`, error.message);
+    }
+  }
+  for (const entry of UNICODE_FALLBACK_FONTS) {
+    try {
+      const path = fileURLToPath(new URL(entry.asset, import.meta.url));
+      if (!GlobalFonts.registerFromPath(path, entry.family)) {
+        console.warn(`[fonts] Could not register local Unicode font ${entry.id}.`);
+      }
+    } catch (error) {
+      console.warn(`[fonts] Unicode font ${entry.id} unavailable:`, error.message);
     }
   }
 }
