@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { planMessageCredits, collectRecentMessages, creditScannedMessage,
   timestampFromSnowflake, snowflakeAtTimestamp, MESSAGE_SCAN_MAX_HOURS,
+  MESSAGE_SCAN_MAX_CHANNELS, MESSAGE_SCAN_MAX_MESSAGES, MESSAGE_SCAN_MAX_AWARDS,
+  channelIgnoredByScan,
 } from "../services/message-reward-scan.js";
 import { MESSAGE_COOLDOWN_MS } from "../services/activity-rewards.js";
 import { data as adminCommand } from "../commands/points-admin.js";
@@ -140,4 +142,77 @@ test("scanned message credits update ledger, wallet and earnings totals only onc
   assert.equal(balance, 2);
   assert.equal(total, 2);
   assert.equal(receipts.size, 1);
+});
+
+test("scan safely supports 54 readable channels without changing the message-volume limit", async () => {
+  const now = new Date(base + 120 * 60_000);
+  const ids = Array.from({ length: 54 }, (_, i) => String(BigInt(channelId) + BigInt(i + 1)));
+  const categoryId = String(BigInt(channelId) + 5000n);
+  const calls = new Map();
+  const channels = new Map(ids.map((id, i) => [id, {
+    id, type: 0, parentId: i < 3 ? categoryId : null,
+    permissionsFor() { return { has() { return true; } }; },
+    messages: { async fetch() { calls.set(id, (calls.get(id) || 0) + 1); return new Map(); } },
+  }]));
+  channels.set(categoryId, { id: categoryId, type: 4 });
+  const guild = {
+    members: { me: { id: otherId } },
+    channels: {
+      async fetch() { return channels; },
+      async fetchActiveThreads() { return { threads: new Map() }; },
+    },
+  };
+  const all = await collectRecentMessages(guild, old, { now, hours: 2 });
+  assert.equal(all.channels, 54);
+  assert.equal(all.skippedExcluded, 0);
+  assert.equal(all.skippedInaccessible, 0);
+  assert.equal(calls.size, 54);
+  const ignored = await collectRecentMessages(guild, old, {
+    now, hours: 2, excludedChannelIds: [categoryId, ids[3]],
+  });
+  assert.equal(ignored.channels, 50);
+  assert.equal(ignored.skippedExcluded, 4);
+  assert.equal(ignored.skippedInaccessible, 0);
+  assert.equal(ignored.totalFetched, 0);
+});
+
+test("scan command exposes persistent ignore-list management but never auto-applies Points", () => {
+  const command = adminCommand.toJSON();
+  const options = new Map(command.options.map(option => [option.name, option]));
+  for (const name of ["scan-exclude", "scan-include", "scan-exclusions"]) {
+    assert.ok(options.has(name), name + " must be available to staff");
+  }
+  assert.equal(options.get("scan-exclude").options.find(o => o.name === "channel").required, true);
+  assert.equal(options.get("scan-messages").options.find(o => o.name === "apply").required, false);
+});
+
+test("scan exclusion follows channel/category parents through active threads", () => {
+  const cat = { id: "1900000000000000001", type: 4 };
+  const text = { id: "1900000000000000002", parentId: cat.id, type: 0 };
+  const thread = { id: "1900000000000000003", parentId: text.id, type: 11 };
+  const channels = new Map([cat, text, thread].map(c => [c.id, c]));
+  assert.equal(channelIgnoredByScan(thread, new Set([cat.id]), channels), true);
+  assert.equal(channelIgnoredByScan(thread, new Set([text.id]), channels), true);
+  assert.equal(channelIgnoredByScan(thread, new Set(["1900000000000000004"]), channels), false);
+  assert.equal(MESSAGE_SCAN_MAX_CHANNELS, 100);
+  assert.equal(MESSAGE_SCAN_MAX_MESSAGES, 6000);
+  assert.equal(MESSAGE_SCAN_MAX_AWARDS, 500);
+});
+
+test("historical scan still blocks more than 100 readable channels before fetching messages", async () => {
+  const channels = new Map(Array.from({ length: 101 }, (_, i) => {
+    const id = String(BigInt(channelId) + BigInt(i + 1));
+    return [id, {
+      id, type: 0, permissionsFor() { return { has() { return true; } }; },
+      messages: { async fetch() { throw new Error("Too many channels should not be fetched"); } },
+    }];
+  }));
+  const guild = {
+    members: { me: { id: otherId } },
+    channels: { async fetch() { return channels; } },
+  };
+  await assert.rejects(
+    collectRecentMessages(guild, old, { now: new Date(base + 120 * 60_000), hours: 2 }),
+    /at most 100/,
+  );
 });

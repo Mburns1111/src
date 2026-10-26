@@ -10,7 +10,7 @@ import { MESSAGE_BASE_POINTS, MESSAGE_COOLDOWN_MS,
 
 const DISCORD_EPOCH = 1420070400000n;
 export const MESSAGE_SCAN_MAX_HOURS = 168;
-export const MESSAGE_SCAN_MAX_CHANNELS = 50;
+export const MESSAGE_SCAN_MAX_CHANNELS = 100;
 export const MESSAGE_SCAN_MAX_MESSAGES = 6000;
 export const MESSAGE_SCAN_MAX_AWARDS = 500;
 
@@ -75,7 +75,24 @@ function hasAccess(channel, member, clientMember) {
   return Boolean(staffPermissions?.has(required) && botPermissions?.has(required));
 }
 
-export async function collectRecentMessages(guild, manager, { now = new Date(), hours = 24 } = {}) {
+// A configured category excludes its children; a configured text/announcement
+// channel excludes active threads beneath it. Unrelated channels are unaffected.
+export function channelIgnoredByScan(channel, excludedIds, channelMap) {
+  const seen = new Set();
+  let current = channel;
+  while (current && !seen.has(current.id)) {
+    if (excludedIds.has(current.id)) return true;
+    seen.add(current.id);
+    if (!current.parentId) break;
+    if (excludedIds.has(current.parentId)) return true;
+    current = channelMap.get(current.parentId);
+  }
+  return false;
+}
+
+export async function collectRecentMessages(guild, manager, {
+  now = new Date(), hours = 24, excludedChannelIds = [],
+} = {}) {
   if (!Number.isInteger(hours) || hours < 1 || hours > MESSAGE_SCAN_MAX_HOURS) {
     throw new Error(`Choose 1–${MESSAGE_SCAN_MAX_HOURS} hours to scan.`);
   }
@@ -92,17 +109,22 @@ export async function collectRecentMessages(guild, manager, { now = new Date(), 
     ChannelType.GuildText, ChannelType.GuildAnnouncement,
     ChannelType.PublicThread, ChannelType.PrivateThread, ChannelType.AnnouncementThread,
   ]);
+  const channelMap = new Map(all.filter(Boolean).map(channel => [channel.id, channel]));
   const unique = new Map();
   for (const channel of all) {
     if (channel && eligibleTypes.has(channel.type)) unique.set(channel.id, channel);
   }
-  const allowed = [...unique.values()].filter(channel =>
+  const excludedIds = new Set(excludedChannelIds);
+  const candidates = [...unique.values()].filter(channel =>
+    !channelIgnoredByScan(channel, excludedIds, channelMap));
+  const skippedExcluded = unique.size - candidates.length;
+  const allowed = candidates.filter(channel =>
     hasAccess(channel, manager, guild.members.me));
   if (allowed.length > MESSAGE_SCAN_MAX_CHANNELS) {
-    throw new Error(`Too many readable channels (${allowed.length}); a scan supports at most ${MESSAGE_SCAN_MAX_CHANNELS}. Narrow the scope before issuing Points.`);
+    throw new Error(`Too many readable channels (${allowed.length}); a scan supports at most ${MESSAGE_SCAN_MAX_CHANNELS}. Use /points-admin scan-exclude to omit channels or categories.`);
   }
   const messages = [], messageIds = new Set();
-  let totalFetched = 0, skippedInaccessible = unique.size - allowed.length;
+  let totalFetched = 0, skippedInaccessible = candidates.length - allowed.length;
   const cutoffSnowflake = snowflakeAtTimestamp(cutoff);
   for (const channel of allowed) {
     let before = cutoffSnowflake, channelFetched = 0;
@@ -138,7 +160,7 @@ export async function collectRecentMessages(guild, manager, { now = new Date(), 
     }
   }
   return { messages, totalFetched, channels: allowed.length,
-    skippedInaccessible, since, cutoff };
+    skippedExcluded, skippedInaccessible, since, cutoff };
 }
 
 export async function creditScannedMessage({ guildId, message, member, actorId,
@@ -179,7 +201,9 @@ export async function scanAndAwardMessages({ guild, manager, hours = 24,
   if (settings?.messageRewardsEnabled !== true) {
     throw new Error("Message earning is disabled. Enable it with /points-admin activity-toggle before scanning.");
   }
-  const snapshot = await collectRecentMessages(guild, manager, { hours, now });
+  const snapshot = await collectRecentMessages(guild, manager, {
+    hours, now, excludedChannelIds: settings.messageScanExcludedChannelIds ?? [],
+  });
   const ids = [...new Set(snapshot.messages.map(item => item.userId))];
   const members = new Map();
   for (const id of ids) {
