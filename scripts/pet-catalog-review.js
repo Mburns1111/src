@@ -21,7 +21,7 @@ export function buildPetVerificationReport(matchedData, unmatchedData, curatedDa
   const aMap = new Map(onlyA.map(x => [x.petId, x]));
   const bMap = new Map(onlyB.map(x => [x.petId, x]));
   const seen = new Set();
-  const verified = [], conflicting = [], newOfficial = [], communityOnly = [];
+  const verified = [], conflicting = [], newOfficial = [], communityOnly = [], aliases = [], identityOnly = [];
   for (const entry of evidence) {
     const id = normalize(entry.petId);
     if (!id || seen.has(id)) throw new Error("Duplicate or invalid evidence ID: " + id);
@@ -34,19 +34,24 @@ export function buildPetVerificationReport(matchedData, unmatchedData, curatedDa
       originalRarity: original?.rarity || null,
       originalDatasetLocation: location, sourceUrl: entry.sourceUrl,
       sourceType: entry.sourceType, verifiedOn: entry.verifiedOn,
+      ...(entry.canonicalId ? { canonicalId: entry.canonicalId } : {}),
     };
     if (!entry.sourceUrl?.startsWith("https://")) throw new Error("Missing provenance for " + id);
     if (!entry.sourceType?.startsWith("official-")) {
       communityOnly.push({ ...result, reviewStatus: "needs-authoritative-check" });
+    } else if (!entry.rarity) {
+      identityOnly.push({ ...result, reviewStatus: "identity-confirmed-rarity-pending" });
     } else if (original?.rarity && original.rarity !== entry.rarity) {
       conflicting.push({ ...result, reviewStatus: "rarity-conflict" });
+    } else if (entry.canonicalId) {
+      aliases.push({ ...result, reviewStatus: "alias-awaiting-canonical-merge" });
     } else if (location === "not-in-either-dataset") {
       newOfficial.push({ ...result, reviewStatus: "new-pet-requires-catalogue-entry" });
     } else {
       verified.push({ ...result, reviewStatus: "official-evidence-reviewed" });
     }
   }
-  const confirmedUnmatched = new Set(verified.filter(x =>
+  const confirmedUnmatched = new Set([...verified, ...aliases, ...identityOnly].filter(x =>
     x.originalDatasetLocation === "onlyA" || x.originalDatasetLocation === "onlyB").map(x => x.petId));
   const unreviewedUnmatched = [
     ...onlyA.filter(x => !confirmedUnmatched.has(x.petId)),
@@ -64,8 +69,11 @@ export function buildPetVerificationReport(matchedData, unmatchedData, curatedDa
       rarityConflicts: conflicting.length,
       officialPetsMissingFromBothDatasets: newOfficial.length,
       communityOnlyEvidence: communityOnly.length,
+      canonicalAliases: aliases.length,
+      identityVerifiedButRarityPending: identityOnly.length,
+      matchedRaritiesSpotChecked: verified.filter(x => x.originalDatasetLocation === "matched").length,
     },
-    verified, conflicting, newOfficial, communityOnly, unreviewedUnmatched,
+    verified, conflicting, newOfficial, communityOnly, aliases, identityOnly, unreviewedUnmatched,
   };
 }
 
