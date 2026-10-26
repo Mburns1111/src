@@ -8,7 +8,7 @@
     "officiallyConfirmedUnmatched": 84,
     "unresolvedUnmatched": 0,
     "rarityConflicts": 1,
-    "officialPetsMissingFromBothDatasets": 9,
+    "officialPetsMissingFromBothDatasets": 20,
     "communityOnlyEvidence": 0,
     "canonicalAliases": 4,
     "identityVerifiedButRarityPending": 2,
@@ -16,7 +16,7 @@
     "adjudicatedRarityDisagreements": 1,
     "unresolvedRarityDisagreements": 0,
     "canonicalAliasesDecided": 4,
-    "additionalOfficialPetsStaged": 9,
+    "additionalOfficialPetsStaged": 20,
     "officialRaritiesStillPendingOutsideMatchedSet": 2,
     "bulkDataReuseCleared": false
   },
@@ -8474,6 +8474,28 @@
   ],
   "newOfficial": [
     {
+      "petId": "2026-birthday-butterfly",
+      "name": "2026 Birthday Butterfly",
+      "rarity": "Uncommon",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/2026-birthday-butterfly",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "2d-doggy",
+      "name": "2D Doggy",
+      "rarity": "Legendary",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/2d-doggy",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
       "petId": "bobageist",
       "name": "Bobageist",
       "rarity": "Ultra-Rare",
@@ -8507,6 +8529,17 @@
       "reviewStatus": "new-pet-requires-catalogue-entry"
     },
     {
+      "petId": "budgie-witch",
+      "name": "Budgie Witch",
+      "rarity": "Uncommon",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/budgie-witch",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
       "petId": "caramelgeist",
       "name": "Caramelgeist",
       "rarity": "Uncommon",
@@ -8514,6 +8547,17 @@
       "originalDatasetLocation": "not-in-either-dataset",
       "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
       "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "chihuahua",
+      "name": "Chihuahua",
+      "rarity": "Ultra-Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/chihuahua",
+      "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "new-pet-requires-catalogue-entry"
     },
@@ -8540,6 +8584,72 @@
       "reviewStatus": "new-pet-requires-catalogue-entry"
     },
     {
+      "petId": "dylan",
+      "name": "Dylan",
+      "rarity": "Uncommon",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dylan",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "granny-wolf",
+      "name": "Granny Wolf",
+      "rarity": "Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/granny-wolf",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "ms-muffet",
+      "name": "Ms. Muffet",
+      "rarity": "Common",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ms-muffet",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "pistachio",
+      "name": "Pistachio",
+      "rarity": "Uncommon",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/pistachio",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "ranger-beaver",
+      "name": "Ranger Beaver",
+      "rarity": "Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/news/journey-to-summer-camp-week-1-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "river",
+      "name": "River",
+      "rarity": "Uncommon",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/river",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
       "petId": "shoebill",
       "name": "Shoebill",
       "rarity": "Uncommon",
@@ -8558,6 +8668,17 @@
       "originalDatasetLocation": "not-in-either-dataset",
       "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
       "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "storm-condor",
+      "name": "Storm Condor",
+      "rarity": "Ultra-Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/storm-condor",
+      "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "new-pet-requires-catalogue-entry"
     },
@@ -8734,6 +8855,32 @@
     ],
     "stagedPets": [
       {
+        "petId": "2026-birthday-butterfly",
+        "name": "2026 Birthday Butterfly",
+        "rarity": "Uncommon",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/2026-birthday-butterfly",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "2d-doggy",
+        "name": "2D Doggy",
+        "rarity": "Legendary",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/2d-doggy",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
         "petId": "bobageist",
         "name": "Bobageist",
         "rarity": "Ultra-Rare",
@@ -8773,6 +8920,19 @@
         "imported": false
       },
       {
+        "petId": "budgie-witch",
+        "name": "Budgie Witch",
+        "rarity": "Uncommon",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/budgie-witch",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
         "petId": "caramelgeist",
         "name": "Caramelgeist",
         "rarity": "Uncommon",
@@ -8780,6 +8940,19 @@
         "originalDatasetLocation": "not-in-either-dataset",
         "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
         "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "chihuahua",
+        "name": "Chihuahua",
+        "rarity": "Ultra-Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/chihuahua",
+        "sourceType": "official-adopt-me-pet-directory",
         "verifiedOn": "2026-10-26",
         "reviewStatus": "new-pet-requires-catalogue-entry",
         "decision": "verified-staged-for-later-catalogue-preview",
@@ -8812,6 +8985,84 @@
         "imported": false
       },
       {
+        "petId": "dylan",
+        "name": "Dylan",
+        "rarity": "Uncommon",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/dylan",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "granny-wolf",
+        "name": "Granny Wolf",
+        "rarity": "Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/granny-wolf",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "ms-muffet",
+        "name": "Ms. Muffet",
+        "rarity": "Common",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/ms-muffet",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "pistachio",
+        "name": "Pistachio",
+        "rarity": "Uncommon",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/pistachio",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "ranger-beaver",
+        "name": "Ranger Beaver",
+        "rarity": "Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/news/journey-to-summer-camp-week-1-notes",
+        "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "river",
+        "name": "River",
+        "rarity": "Uncommon",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/river",
+        "sourceType": "official-adopt-me-pet-directory",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
         "petId": "shoebill",
         "name": "Shoebill",
         "rarity": "Uncommon",
@@ -8832,6 +9083,19 @@
         "originalDatasetLocation": "not-in-either-dataset",
         "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
         "sourceType": "official-adopt-me-news",
+        "verifiedOn": "2026-10-26",
+        "reviewStatus": "new-pet-requires-catalogue-entry",
+        "decision": "verified-staged-for-later-catalogue-preview",
+        "imported": false
+      },
+      {
+        "petId": "storm-condor",
+        "name": "Storm Condor",
+        "rarity": "Ultra-Rare",
+        "originalRarity": null,
+        "originalDatasetLocation": "not-in-either-dataset",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/storm-condor",
+        "sourceType": "official-adopt-me-pet-directory",
         "verifiedOn": "2026-10-26",
         "reviewStatus": "new-pet-requires-catalogue-entry",
         "decision": "verified-staged-for-later-catalogue-preview",
