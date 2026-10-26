@@ -18,7 +18,7 @@ test("review report preserves separation between identity matches and official r
   assert.equal(report.totals.officialPetsMissingFromBothDatasets, 9);
   assert.equal(report.totals.canonicalAliases, 4);
   assert.equal(report.totals.identityVerifiedButRarityPending, 2);
-  assert.equal(report.totals.matchedRaritiesSpotChecked, 109);
+  assert.equal(report.totals.matchedRaritiesSpotChecked, 135);
   assert.equal(report.unreviewedUnmatched.length, 0);
   assert.equal(report.aliases.find(x => x.petId === 's-mores-raccoon')?.canonicalId, 'smores-raccoon');
   assert.equal(report.totals.rarityConflicts, 0);
@@ -27,6 +27,8 @@ test("review report preserves separation between identity matches and official r
   assert.ok(!report.verified.some(x => x.petId === "astronaut-gorilla"));
   assert.equal(report.verified.find(x => x.petId === "crow")?.rarity, "Legendary");
   assert.equal(report.verified.find(x => x.petId === "crocodile")?.rarity, "Ultra-Rare");
+  assert.equal(report.verified.find(x => x.petId === "evil-unicorn")?.rarity, "Legendary");
+  assert.equal(report.verified.find(x => x.petId === "frog")?.rarity, "Ultra-Rare");
   assert.equal(report.verified.find(x => x.petId === "jester-dragon")?.rarity, "Legendary");
   assert.equal(report.newOfficial.find(x => x.petId === "copycat")?.rarity, "Legendary");
   assert.equal(report.aliases.find(x => x.petId === "wooly-rhino")?.canonicalId, "woolly-rhino");
