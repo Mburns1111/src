@@ -6,23 +6,24 @@ Generated from source evidence dated **2026-10-26**. No MongoDB or network acces
 
 ## Overview
 
-- **793 distinct pets** from 794 source/evidence records (1 duplicate source entry consolidated).
-- **791** official rarities confirmed; **2** still unverified.
-- **4** canonical aliases selected; **20** extra official pets staged.
+- **799 distinct pets** from 800 source/evidence records (1 duplicate source entry consolidated).
+- **796** official rarities confirmed; **3** still unverified.
+- **4** canonical aliases selected; **26** extra official pets staged.
 - **1** historical rarity conflict adjudicated while preserving the provisional value.
-- **All 793 entries remain pending staff review.** Bulk source rights and artwork clearance: **NOT APPROVED**.
+- **All 799 entries remain pending staff review.** Bulk source rights and artwork clearance: **NOT APPROVED**.
 
 ### Rarity totals
 
 | Common | Uncommon | Rare | Ultra-Rare | Legendary | Unknown |
 |---:|---:|---:|---:|---:|---:|
-| 59 | 100 | 157 | 228 | 247 | 2 |
+| 61 | 101 | 158 | 229 | 247 | 3 |
 
 ## Items needing special attention
 
 ### Official rarity still missing
 
 - **Blue Cat** (`blue-cat`): official rarity **Unknown**; community-provisional Uncommon. [Official identity evidence](https://www.playadopt.me/news/cat-cafe-notes).
+- **Dirty Ducky** (`dirty-ducky`): official rarity **Unknown**; community-provisional Common. [Official identity evidence](https://www.playadopt.me/discover/pets).
 - **Pink Dog** (`pink-dog`): official rarity **Unknown**; community-provisional Uncommon. [Official identity evidence](https://www.playadopt.me/news/cat-cafe-notes).
 
 ### Historical disagreement selected
@@ -48,12 +49,18 @@ Generated from source evidence dated **2026-10-26**. No MongoDB or network acces
 | Boohoo | Rare | [Release notes](https://www.playadopt.me/news/halloween-stitches-spotlight-notes) |
 | Bubblegeist | Legendary | [Release notes](https://www.playadopt.me/news/halloween-hauntlet-returns-notes) |
 | Budgie Witch | Uncommon | [Release notes](https://www.playadopt.me/discover/pets/budgie-witch) |
+| Cake Friend | Ultra-Rare | [Release notes](https://www.playadopt.me/discover/pets/cake-friend) |
 | Caramelgeist | Uncommon | [Release notes](https://www.playadopt.me/news/halloween-hauntlet-returns-notes) |
+| Chestnut Glyptodon | Rare | [Release notes](https://www.playadopt.me/discover/pets/chestnut-glyptodon) |
 | Chihuahua | Ultra-Rare | [Release notes](https://www.playadopt.me/discover/pets/chihuahua) |
 | Copycat | Legendary | [Release notes](https://www.playadopt.me/news/halloween-stitches-spotlight-notes) |
 | Count Slothula | Ultra-Rare | [Release notes](https://www.playadopt.me/news/halloween-wherebear-returns-notes) |
+| Dirty Ducky | Unknown | [Release notes](https://www.playadopt.me/discover/pets) |
 | Dylan | Uncommon | [Release notes](https://www.playadopt.me/discover/pets/dylan) |
+| Forest Sprite | Common | [Release notes](https://www.playadopt.me/discover/pets/forest-sprite) |
+| Gecko Ducky | Common | [Release notes](https://www.playadopt.me/discover/pets/gecko-ducky) |
 | Granny Wolf | Rare | [Release notes](https://www.playadopt.me/discover/pets/granny-wolf) |
+| Irish Setter | Uncommon | [Release notes](https://www.playadopt.me/discover/pets/irish-setter) |
 | Ms. Muffet | Common | [Release notes](https://www.playadopt.me/discover/pets/ms-muffet) |
 | Pistachio | Uncommon | [Release notes](https://www.playadopt.me/discover/pets/pistachio) |
 | Ranger Beaver | Rare | [Release notes](https://www.playadopt.me/news/journey-to-summer-camp-week-1-notes) |
@@ -177,6 +184,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Cabbit | `cabbit` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/cabbit) |
 | Cactus Friend | `cactus-friend` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/cactus-friend) |
 | Caelum Cervi | `caelum-cervi` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/caelum-cervi) |
+| Cake Friend | `cake-friend` | Ultra-Rare | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/cake-friend) |
 | California Condor | `california-condor` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/california-condor) |
 | Camel | `camel` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/camel) |
 | Canadian Goose | `canadian-goose` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/canadian-goose) |
@@ -200,6 +208,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Cheetah | `cheetah` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/cheetah) |
 | Chef Gorilla | `chef-gorilla` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/chef-gorilla) |
 | Cherub Chipmunk | `cherub-chipmunk` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/cherub-chipmunk) |
+| Chestnut Glyptodon | `chestnut-glyptodon` | Rare | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/chestnut-glyptodon) |
 | Chick | `chick` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/chick) |
 | Chickatrice | `chickatrice` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/chickatrice) |
 | Chicken | `chicken` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/chicken) |
@@ -265,6 +274,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Dingo | `dingo` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/dingo) |
 | Dire Stag | `dire-stag` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/dire-stag) |
 | Dire Wolf | `dire-wolf` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/dire-wolf) |
+| Dirty Ducky | `dirty-ducky` | Unknown | official-identity-only | new-official-pet-staged, official-rarity-pending | [View](https://www.playadopt.me/discover/pets) |
 | DJ Snooze | `dj-snooze` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/dj-snooze) |
 | Dodo | `dodo` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/dodo) |
 | Dog | `dog` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/dog) |
@@ -315,6 +325,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Floral Eggy | `floral-eggy` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/floral-eggy) |
 | Flower Power Duckling | `flower-power-duckling` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/flower-power-duckling) |
 | Flying Fish | `flying-fish` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/flying-fish) |
+| Forest Sprite | `forest-sprite` | Common | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/forest-sprite) |
 | Fossa | `fossa` | Uncommon | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/fossa) |
 | Frankenfeline | `frankenfeline` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/frankenfeline) |
 | French Bulldog | `french-bulldog` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/french-bulldog) |
@@ -333,6 +344,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Garden Snake | `garden-snake` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/garden-snake) |
 | Gargoyle | `gargoyle` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/gargoyle) |
 | Gecko | `gecko` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/gecko) |
+| Gecko Ducky | `gecko-ducky` | Common | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/gecko-ducky) |
 | General Sheepdog | `general-sheepdog` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/general-sheepdog) |
 | German Shepherd | `german-shepherd` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/german-shepherd) |
 | Ghost | `ghost` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/ghost) |
@@ -441,6 +453,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 | Influencer Gibbon | `influencer-gibbon` | Legendary | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/influencer-gibbon) |
 | Inmate Capuchin Monkey | `inmate-capuchin-monkey` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/inmate-capuchin-monkey) |
 | Irish Elk | `irish-elk` | Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/irish-elk) |
+| Irish Setter | `irish-setter` | Uncommon | official-rarity-verified | new-official-pet-staged | [View](https://www.playadopt.me/discover/pets/irish-setter) |
 | Irish Water Spaniel | `irish-water-spaniel` | Ultra-Rare | official-rarity-verified | — | [View](https://www.playadopt.me/discover/pets/irish-water-spaniel) |
 | Island Tarsier | `island-tarsier` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/news/summer-sticker-sunset-notes) |
 | Jacobin Pigeon | `jacobin-pigeon` | Common | official-rarity-verified | — | [View](https://www.playadopt.me/news/halloween-ghost-gallery-notes) |
@@ -865,7 +878,7 @@ Use the accompanying CSV for spreadsheet filtering. **Every entry is pending**, 
 
 ## Approval gates
 
-1. Resolve the official rarity or retain Unknown for Blue Cat and Pink Dog.
+1. Resolve the official rarity or retain Unknown for Blue Cat, Pink Dog and Dirty Ducky.
 2. Review upstream data-reuse rights and artwork permissions separately.
 3. Add staff authorization and an independently approved dry-run import diff before any MongoDB import.
 4. Keep this draft branch separate from production until authorized.
