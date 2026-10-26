@@ -1728,6 +1728,20 @@
       "notes": "Official pet page inspected; pet name/type/rarity matched provisional record."
     },
     {
+      "petId": "dragonfly",
+      "name": "Dragonfly",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dragonfly",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
       "petId": "dragonfruit-fox",
       "name": "Dragonfruit Fox",
       "rarity": "Legendary",
@@ -1754,6 +1768,314 @@
       ]
     },
     {
+      "petId": "ehecatl",
+      "name": "Ehecatl",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ehecatl",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "elasmosaurus",
+      "name": "Elasmosaurus",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/elasmosaurus",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "emberlight",
+      "name": "Emberlight",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/emberlight",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "emperor-gorilla",
+      "name": "Emperor Gorilla",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/emperor-gorilla",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "evil-basilisk",
+      "name": "Evil Basilisk",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/evil-basilisk",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "evil-chick",
+      "name": "Evil Chick",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/evil-chick",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "evil-chickatrice",
+      "name": "Evil Chickatrice",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/evil-chickatrice",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "evil-unicorn",
+      "name": "Evil Unicorn",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/evil-unicorn",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "fairy-bat-dragon",
+      "name": "Fairy Bat Dragon",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fairy-bat-dragon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "fallow-deer",
+      "name": "Fallow Deer",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fallow-deer",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "fanghorn-tortoise",
+      "name": "Fanghorn Tortoise",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fanghorn-tortoise",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "fire-foal",
+      "name": "Fire Foal",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fire-foal",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "fire-mare",
+      "name": "Fire Mare",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fire-mare",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "fire-stallion",
+      "name": "Fire Stallion",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fire-stallion",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "firefighter-gibbon",
+      "name": "Firefighter Gibbon",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/firefighter-gibbon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "firefly",
+      "name": "Firefly",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/firefly",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "flaming-fox",
+      "name": "Flaming Fox",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/flaming-fox",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "flamingo",
+      "name": "Flamingo",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/flamingo",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "fleur-de-ice",
+      "name": "Fleur De Ice",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/fleur-de-ice",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "floral-eggy",
+      "name": "Floral Eggy",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/floral-eggy",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "flower-power-duckling",
+      "name": "Flower Power Duckling",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/flower-power-duckling",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "frog",
+      "name": "Frog",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frog",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
       "petId": "frost-dragon",
       "name": "Frost Dragon",
       "rarity": "Legendary",
@@ -1767,6 +2089,48 @@
         "origin"
       ],
       "notes": "Individual official pet listing."
+    },
+    {
+      "petId": "frost-fury",
+      "name": "Frost Fury",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frost-fury",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "frost-phoenix",
+      "name": "Frost Phoenix",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frost-phoenix",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
+    },
+    {
+      "petId": "frost-unicorn",
+      "name": "Frost Unicorn",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frost-unicorn",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official page's Pet type and Rarity fields checked against candidate; no artwork copied."
     },
     {
       "petId": "general-sheepdog",
