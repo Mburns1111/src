@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "checkedOn": "2026-10-26",
+  "branch": "feature/pet-catalog",
+  "baselinePreviewPets": 793,
+  "comparisonBasis": "Official Adopt Me public pet directory names, manually compared with staged 793-pet preview; excluded egg listings. No automated official-directory scrape.",
+  "scope": "All visible A-Z named pet listings from official directory search index, excluding eggs. Dynamic pagination and later directory changes not independently guaranteed.",
+  "status": "review-staging-not-imported",
+  "rightsClearedForImport": false,
+  "petEntries": [
+    {
+      "petId": "cake-friend",
+      "name": "Cake Friend",
+      "officialRarity": "Ultra-Rare",
+      "origin": "Birthday 2026",
+      "officialDirectoryUrl": "https://www.playadopt.me/discover/pets/cake-friend",
+      "identityVerified": true,
+      "rarityVerification": "official-individual-page",
+      "communityReportedRarity": null,
+      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "notes": "Individual official page explicitly states Type: Pet and rarity."
+    },
+    {
+      "petId": "chestnut-glyptodon",
+      "name": "Chestnut Glyptodon",
+      "officialRarity": "Rare",
+      "origin": "Summer 2026",
+      "officialDirectoryUrl": "https://www.playadopt.me/discover/pets/chestnut-glyptodon",
+      "identityVerified": true,
+      "rarityVerification": "official-individual-page",
+      "communityReportedRarity": null,
+      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "notes": "Individual official page explicitly states Type: Pet and rarity."
+    },
+    {
+      "petId": "dirty-ducky",
+      "name": "Dirty Ducky",
+      "officialRarity": null,
+      "origin": "Admin Abuse May 23 2026",
+      "officialDirectoryUrl": "https://www.playadopt.me/discover/pets/dirty-ducky",
+      "identityVerified": true,
+      "rarityVerification": "community-common-official-page-unavailable",
+      "communityReportedRarity": "Common",
+      "reviewStatus": "official-directory-identity-only-awaiting-rarity",
+      "notes": "Official directory lists Dirty Ducky; direct individual official page not accessible in review. Fandom and AdoptMeTradingValues identify Common, not treated as verified official rarity."
+    },
+    {
+      "petId": "forest-sprite",
+      "name": "Forest Sprite",
+      "officialRarity": "Common",
+      "origin": "Summer 2026",
+      "officialDirectoryUrl": "https://www.playadopt.me/discover/pets/forest-sprite",
+      "identityVerified": true,
+      "rarityVerification": "official-individual-page",
+      "communityReportedRarity": null,
+      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "notes": "Individual official page explicitly states Type: Pet and rarity."
+    },
+    {
+      "petId": "gecko-ducky",
+      "name": "Gecko Ducky",
+      "officialRarity": "Common",
+      "origin": "Journey Pass 2026",
+      "officialDirectoryUrl": "https://www.playadopt.me/discover/pets/gecko-ducky",
+      "identityVerified": true,
+      "rarityVerification": "official-individual-page",
+      "communityReportedRarity": null,
+      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "notes": "Individual official page explicitly states Type: Pet and rarity."
+    },
+    {
+      "petId": "golden-chow-chow",
+      "name": "Golden Chow-Chow",
+      "officialRarity": "Legendary",
+      "origin": "VIP Update 2022",
+      "officialDirectoryUrl": "https://www.playadopt.me/discover/pets/golden-chow-chow",
+      "identityVerified": true,
+      "rarityVerification": "official-individual-page",
+      "communityReportedRarity": null,
+      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "notes": "Individual official page explicitly states Type: Pet and rarity."
+    },
+    {
+      "petId": "irish-setter",
+      "name": "Irish Setter",
+      "officialRarity": "Uncommon",
+      "origin": "Summer 2026",
+      "officialDirectoryUrl": "https://www.playadopt.me/discover/pets/irish-setter",
+      "identityVerified": true,
+      "rarityVerification": "official-individual-page",
+      "communityReportedRarity": null,
+      "reviewStatus": "official-verified-awaiting-catalog-pipeline-integration",
+      "notes": "Individual official page explicitly states Type: Pet and rarity."
+    }
+  ],
+  "unreviewedIssues": [
+    "Official directory may update after comparison; source completeness not certified.",
+    "Dirty Ducky has no independently accessible official rarity page.",
+    "These entries are staged separately to avoid bypassing required evidence/decision/report/preview generation gates.",
+    "Do not change production MongoDB or approve artwork on basis of this audit."
+  ]
+}
