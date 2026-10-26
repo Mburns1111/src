@@ -18,19 +18,19 @@ const get = (preview, id) => preview.pets.find(x => x.petId === id);
 
 test("catalogue preview has exactly one canonical record per pet and no approvals", () => {
   const preview = build();
-  assert.equal(preview.summary.inputEvidenceRecords, 794);
-  assert.equal(preview.summary.canonicalPets, 793);
+  assert.equal(preview.summary.inputEvidenceRecords, 800);
+  assert.equal(preview.summary.canonicalPets, 799);
   assert.equal(preview.summary.duplicateSourceEntriesCollapsed, 1);
   assert.equal(preview.summary.aliasesResolved, 4);
-  assert.equal(preview.summary.additionalOfficialPets, 20);
-  assert.equal(preview.summary.officialRarityConfirmed, 791);
-  assert.equal(preview.summary.officialRarityPending, 2);
+  assert.equal(preview.summary.additionalOfficialPets, 26);
+  assert.equal(preview.summary.officialRarityConfirmed, 796);
+  assert.equal(preview.summary.officialRarityPending, 3);
   assert.equal(preview.summary.historicalDisagreementsAdjudicated, 1);
-  assert.equal(preview.summary.reviewPending, 793);
+  assert.equal(preview.summary.reviewPending, 799);
   assert.equal(preview.summary.rightsClearedForImport, false);
   assert.equal(preview.summary.databaseWritesPerformed, false);
   assert.deepEqual(preview.summary.rarityCounts, {
-    Common: 59, Uncommon: 100, Rare: 157, "Ultra-Rare": 228, Legendary: 247, Unknown: 2,
+    Common: 61, Uncommon: 101, Rare: 158, "Ultra-Rare": 229, Legendary: 247, Unknown: 3,
   });
   assert.equal(new Set(preview.pets.map(x => x.petId)).size, preview.pets.length);
   assert.ok(preview.pets.every(x => x.reviewStatus === "pending"));
@@ -52,7 +52,7 @@ test("aliases consolidate one duplicate and preserve all original source identif
     assert.ok(get(preview, canonical).aliasIds.includes(alias), "alias must remain searchable");
   }
   const totalOriginalIds = preview.pets.reduce((sum, pet) => sum + pet.sourceRecordIds.length, 0);
-  assert.equal(totalOriginalIds, 794);
+  assert.equal(totalOriginalIds, 800);
 });
 
 test("adjudicated rarity is official, original value is not erased, unknown is not guessed", () => {
@@ -71,6 +71,8 @@ test("adjudicated rarity is official, original value is not erased, unknown is n
     assert.equal(pet.rarityEvidence, "official-identity-only");
     assert.ok(pet.flags.includes("official-rarity-pending"));
   }
+  assert.equal(get(preview, "dirty-ducky")?.rarity, "Unknown");
+  assert.equal(get(preview, "dirty-ducky")?.communityProvisionalRarity, "Common");
   for (const id of ["blue-dog", "pink-cat"]) {
     assert.ok(get(preview, id) && get(preview, id).officialRarity);
   }
@@ -81,8 +83,8 @@ test("nine Halloween pets are staged and not confused with original baseline rec
   const staged = preview.pets.filter(x => x.flags.includes("new-official-pet-staged"));
   assert.deepEqual(staged.map(x => x.petId).sort(), [
     "2026-birthday-butterfly", "2d-doggy", "bobageist", "boohoo", "bubblegeist",
-    "budgie-witch", "caramelgeist", "chihuahua", "copycat", "count-slothula",
-    "dylan", "granny-wolf", "ms-muffet", "pistachio", "ranger-beaver",
+    "budgie-witch", "cake-friend", "caramelgeist", "chestnut-glyptodon", "chihuahua", "copycat", "count-slothula",
+    "dirty-ducky", "dylan", "forest-sprite", "gecko-ducky", "granny-wolf", "irish-setter", "ms-muffet", "pistachio", "ranger-beaver",
     "river", "shoebill", "stitches", "storm-condor", "stray-cat-dragon",
   ]);
   assert.equal(get(preview, "ranger-beaver")?.rarity, "Rare");
@@ -102,9 +104,9 @@ test("JSON, CSV and Markdown snapshots match deterministic offline generator", (
   const markdown = readFileSync(new URL("../docs/pet-catalog-preview.md", import.meta.url), "utf8");
   assert.equal(renderPetCatalogPreviewCsv(preview), csv);
   assert.equal(renderPetCatalogPreviewMarkdown(preview), markdown);
-  assert.equal(csv.split("\n").length - 2, 793);
+  assert.equal(csv.split("\n").length - 2, 799);
   assert.match(markdown, /Internal review only/);
-  assert.match(markdown, /All 793 entries remain pending staff review/);
+  assert.match(markdown, /All 799 entries remain pending staff review/);
 });
 
 test("preview refuses contradictory or missing source evidence", () => {
