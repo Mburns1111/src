@@ -1488,6 +1488,20 @@
       "notes": "Individually read official pet page and matched displayed rarity with provisional data."
     },
     {
+      "petId": "cake-friend",
+      "name": "Cake Friend",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cake-friend",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page confirmed pet type and rarity."
+    },
+    {
       "petId": "california-condor",
       "name": "California Condor",
       "rarity": "Common",
@@ -1800,6 +1814,20 @@
         "rarity"
       ],
       "notes": "Official individual pet page explicitly states Type Pet and matching rarity."
+    },
+    {
+      "petId": "chestnut-glyptodon",
+      "name": "Chestnut Glyptodon",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/chestnut-glyptodon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page confirmed pet type and rarity."
     },
     {
       "petId": "chick",
@@ -2696,6 +2724,19 @@
       "notes": "Official pet page inspected; pet name/type/rarity matched provisional record."
     },
     {
+      "petId": "dirty-ducky",
+      "name": "Dirty Ducky",
+      "rarity": null,
+      "sourceType": "official-adopt-me-directory-index",
+      "sourceUrl": "https://www.playadopt.me/discover/pets",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "directory listing"
+      ],
+      "notes": "Official directory identity only. Rarity Unknown; community Common provisional."
+    },
+    {
       "petId": "dj-snooze",
       "name": "DJ Snooze",
       "rarity": "Rare",
@@ -3392,6 +3433,20 @@
       "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
     },
     {
+      "petId": "forest-sprite",
+      "name": "Forest Sprite",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/forest-sprite",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page confirmed pet type and rarity."
+    },
+    {
       "petId": "fossa",
       "name": "Fossa",
       "rarity": "Uncommon",
@@ -3643,6 +3698,20 @@
         "rarity"
       ],
       "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "gecko-ducky",
+      "name": "Gecko Ducky",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gecko-ducky",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page confirmed pet type and rarity."
     },
     {
       "petId": "general-sheepdog",
@@ -5139,6 +5208,20 @@
         "rarity"
       ],
       "notes": "Official individual pet directory page explicitly identifies a Pet and its rarity; agrees with provisional catalogue."
+    },
+    {
+      "petId": "irish-setter",
+      "name": "Irish Setter",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/irish-setter",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official individual pet page confirmed pet type and rarity."
     },
     {
       "petId": "irish-water-spaniel",
