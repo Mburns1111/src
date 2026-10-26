@@ -5,23 +5,23 @@
   "summary": {
     "originalMatched": 690,
     "initiallyUnmatched": 84,
-    "additionalOfficialPets": 9,
-    "inputEvidenceRecords": 783,
-    "canonicalPets": 782,
+    "additionalOfficialPets": 20,
+    "inputEvidenceRecords": 794,
+    "canonicalPets": 793,
     "duplicateSourceEntriesCollapsed": 1,
     "aliasesResolved": 4,
-    "officialRarityConfirmed": 780,
+    "officialRarityConfirmed": 791,
     "officialRarityPending": 2,
     "historicalDisagreementsAdjudicated": 1,
-    "reviewPending": 782,
+    "reviewPending": 793,
     "rightsClearedForImport": false,
     "databaseWritesPerformed": false,
     "rarityCounts": {
-      "Common": 58,
-      "Uncommon": 95,
-      "Rare": 155,
-      "Ultra-Rare": 226,
-      "Legendary": 246,
+      "Common": 59,
+      "Uncommon": 100,
+      "Rare": 157,
+      "Ultra-Rare": 228,
+      "Legendary": 247,
       "Unknown": 2
     }
   },
@@ -87,6 +87,54 @@
       "flags": [],
       "officialSourceUrls": [
         "https://www.playadopt.me/discover/pets/2025-birthday-butterfly"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
+      "petId": "2026-birthday-butterfly",
+      "name": "2026 Birthday Butterfly",
+      "rarity": "Uncommon",
+      "officialRarity": "Uncommon",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "2026-birthday-butterfly"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/2026-birthday-butterfly"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
+      "petId": "2d-doggy",
+      "name": "2D Doggy",
+      "rarity": "Legendary",
+      "officialRarity": "Legendary",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "2d-doggy"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/2d-doggy"
       ],
       "verifiedOn": "2026-10-26",
       "communityProvisionalRarity": null,
@@ -2103,6 +2151,30 @@
       "historicalRarityConflict": null
     },
     {
+      "petId": "budgie-witch",
+      "name": "Budgie Witch",
+      "rarity": "Uncommon",
+      "officialRarity": "Uncommon",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "budgie-witch"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/budgie-witch"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
       "petId": "buffalo",
       "name": "Buffalo",
       "rarity": "Common",
@@ -2913,6 +2985,30 @@
       "flags": [],
       "officialSourceUrls": [
         "https://www.playadopt.me/discover/pets/chicken"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
+      "petId": "chihuahua",
+      "name": "Chihuahua",
+      "rarity": "Ultra-Rare",
+      "officialRarity": "Ultra-Rare",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "chihuahua"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/chihuahua"
       ],
       "verifiedOn": "2026-10-26",
       "communityProvisionalRarity": null,
@@ -4545,6 +4641,30 @@
       "flags": [],
       "officialSourceUrls": [
         "https://www.playadopt.me/discover/pets/dugong"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
+      "petId": "dylan",
+      "name": "Dylan",
+      "rarity": "Uncommon",
+      "officialRarity": "Uncommon",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "dylan"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/dylan"
       ],
       "verifiedOn": "2026-10-26",
       "communityProvisionalRarity": null,
@@ -6811,6 +6931,30 @@
       "flags": [],
       "officialSourceUrls": [
         "https://www.playadopt.me/discover/pets/gorilla"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
+      "petId": "granny-wolf",
+      "name": "Granny Wolf",
+      "rarity": "Rare",
+      "officialRarity": "Rare",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "granny-wolf"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/granny-wolf"
       ],
       "verifiedOn": "2026-10-26",
       "communityProvisionalRarity": null,
@@ -10363,6 +10507,30 @@
       "historicalRarityConflict": null
     },
     {
+      "petId": "ms-muffet",
+      "name": "Ms. Muffet",
+      "rarity": "Common",
+      "officialRarity": "Common",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "ms-muffet"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/ms-muffet"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
       "petId": "mule",
       "name": "Mule",
       "rarity": "Rare",
@@ -11795,6 +11963,30 @@
       "historicalRarityConflict": null
     },
     {
+      "petId": "pistachio",
+      "name": "Pistachio",
+      "rarity": "Uncommon",
+      "officialRarity": "Uncommon",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "pistachio"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/pistachio"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
       "petId": "platypus",
       "name": "Platypus",
       "rarity": "Ultra-Rare",
@@ -12543,6 +12735,30 @@
       "historicalRarityConflict": null
     },
     {
+      "petId": "ranger-beaver",
+      "name": "Ranger Beaver",
+      "rarity": "Rare",
+      "officialRarity": "Rare",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "ranger-beaver"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/news/journey-to-summer-camp-week-1-notes"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
       "petId": "rat",
       "name": "Rat",
       "rarity": "Rare",
@@ -12933,6 +13149,30 @@
       "flags": [],
       "officialSourceUrls": [
         "https://www.playadopt.me/discover/pets/ringmaster-gibbon"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
+      "petId": "river",
+      "name": "River",
+      "rarity": "Uncommon",
+      "officialRarity": "Uncommon",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "river"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/river"
       ],
       "verifiedOn": "2026-10-26",
       "communityProvisionalRarity": null,
@@ -14987,6 +15227,30 @@
       ],
       "officialSourceUrls": [
         "https://www.playadopt.me/news/halloween-stitches-spotlight-notes"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
+      "petId": "storm-condor",
+      "name": "Storm Condor",
+      "rarity": "Ultra-Rare",
+      "officialRarity": "Ultra-Rare",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "storm-condor"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/storm-condor"
       ],
       "verifiedOn": "2026-10-26",
       "communityProvisionalRarity": null,
