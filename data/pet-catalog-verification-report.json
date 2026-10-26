@@ -4,7 +4,7 @@
   "totals": {
     "matchedCandidates": 690,
     "initialUnmatched": 84,
-    "officialEvidenceReviewed": 313,
+    "officialEvidenceReviewed": 341,
     "officiallyConfirmedUnmatched": 84,
     "unresolvedUnmatched": 0,
     "rarityConflicts": 0,
@@ -12,7 +12,7 @@
     "communityOnlyEvidence": 0,
     "canonicalAliases": 4,
     "identityVerifiedButRarityPending": 2,
-    "matchedRaritiesSpotChecked": 235
+    "matchedRaritiesSpotChecked": 263
   },
   "verified": [
     {
@@ -2920,6 +2920,138 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "llama",
+      "name": "Llama",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/llama",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "lunar-gold-tiger",
+      "name": "Lunar Gold Tiger",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/lunar-gold-tiger",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "lunar-moon-bear",
+      "name": "Lunar Moon Bear",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/lunar-moon-bear",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "lunar-ox",
+      "name": "Lunar Ox",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/lunar-ox",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "lunar-white-tiger",
+      "name": "Lunar White Tiger",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/lunar-white-tiger",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "magma-moose",
+      "name": "Magma Moose",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/magma-moose",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "magma-snail",
+      "name": "Magma Snail",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/magma-snail",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "maine-coon",
+      "name": "Maine Coon",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/maine-coon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "majestic-pony",
+      "name": "Majestic Pony",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/majestic-pony",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "maneki-neko",
+      "name": "Maneki-Neko",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/maneki-neko",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "manta-ray",
+      "name": "Manta Ray",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/news/summer-sticker-sunset-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "many-mackerel",
+      "name": "Many Mackerel",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/many-mackerel",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "matcha-cat",
       "name": "Matcha Cat",
       "rarity": "Legendary",
@@ -2931,12 +3063,100 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "mecha-meow",
+      "name": "Mecha Meow",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mecha-meow",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "mechapup",
+      "name": "Mechapup",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mechapup",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "mermicorn",
+      "name": "Mermicorn",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mermicorn",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "merry-mistletroll",
+      "name": "Merry Mistletroll",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/merry-mistletroll",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "metal-ox",
+      "name": "Metal Ox",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/metal-ox",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "midnight-dragon",
+      "name": "Midnight Dragon",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/midnight-dragon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "milk-choccybunny",
       "name": "Milk Choccybunny",
       "rarity": "Rare",
       "originalRarity": null,
       "originalDatasetLocation": "onlyB",
       "sourceUrl": "https://www.playadopt.me/discover/pets/milk-choccybunny",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "mini-pig",
+      "name": "Mini Pig",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mini-pig",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "mirai-moth",
+      "name": "Mirai Moth",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mirai-moth",
       "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
@@ -2953,6 +3173,39 @@
       "reviewStatus": "official-evidence-reviewed"
     },
     {
+      "petId": "momma-moose",
+      "name": "Momma Moose",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/momma-moose",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "monkey-king",
+      "name": "Monkey King",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/monkey-king",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "moonbeam-butterfly",
+      "name": "Moonbeam Butterfly",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/moonbeam-butterfly",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
       "petId": "moonbeam-peacock",
       "name": "Moonbeam Peacock",
       "rarity": "Legendary",
@@ -2960,6 +3213,17 @@
       "originalDatasetLocation": "onlyB",
       "sourceUrl": "https://www.playadopt.me/news/salon-revamp-notes",
       "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "moose-calf",
+      "name": "Moose Calf",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/moose-calf",
+      "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
     },
@@ -2993,6 +3257,50 @@
       "originalDatasetLocation": "onlyB",
       "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
       "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "mushroom-friend",
+      "name": "Mushroom Friend",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mushroom-friend",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "naga-dragon",
+      "name": "Naga Dragon",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/naga-dragon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "nautilus",
+      "name": "Nautilus",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/nautilus",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "nessie",
+      "name": "Nessie",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/nessie",
+      "sourceType": "official-adopt-me-pet-directory",
       "verifiedOn": "2026-10-26",
       "reviewStatus": "official-evidence-reviewed"
     },
