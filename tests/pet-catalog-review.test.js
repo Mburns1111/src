@@ -1,16 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildPetVerificationReport } from "../scripts/pet-catalog-review.js";
+import { buildPetVerificationReport, attachPetCatalogExceptionDecisions } from "../scripts/pet-catalog-review.js";
 
 const load = name => JSON.parse(readFileSync(new URL("../data/" + name, import.meta.url), "utf8"));
 
 test("review report preserves separation between identity matches and official rarity evidence", () => {
-  const report = buildPetVerificationReport(
+  const report = attachPetCatalogExceptionDecisions(buildPetVerificationReport(
     load("pet-catalog-matched-candidates.json"),
     load("pet-catalog-unmatched-review.json"),
     load("pet-catalog-curated-verification.json"),
-  );
+  ), load("pet-catalog-exception-decisions.json"));
   assert.equal(report.totals.matchedCandidates, 690);
   assert.equal(report.totals.initialUnmatched, 84);
   assert.equal(report.totals.officiallyConfirmedUnmatched, 84);
@@ -22,6 +22,25 @@ test("review report preserves separation between identity matches and official r
   assert.equal(report.unreviewedUnmatched.length, 0);
   assert.equal(report.aliases.find(x => x.petId === 's-mores-raccoon')?.canonicalId, 'smores-raccoon');
   assert.equal(report.totals.rarityConflicts, 1);
+  assert.equal(report.totals.adjudicatedRarityDisagreements, 1);
+  assert.equal(report.totals.unresolvedRarityDisagreements, 0);
+  assert.equal(report.totals.canonicalAliasesDecided, 4);
+  assert.equal(report.totals.additionalOfficialPetsStaged, 9);
+  assert.equal(report.totals.officialRaritiesStillPendingOutsideMatchedSet, 2);
+  assert.equal(report.totals.bulkDataReuseCleared, false);
+  assert.equal(report.exceptionDecisions.importPermitted, false);
+  assert.equal(report.exceptionDecisions.adjudicated[0].selectedRarity, "Rare");
+  assert.equal(report.exceptionDecisions.adjudicated[0].originalRarity, "Ultra-Rare");
+  assert.equal(report.exceptionDecisions.adjudicated[0].historicalConflictRetained, true);
+  assert.equal(report.exceptionDecisions.stagedPets.length, 9);
+  assert.ok(report.exceptionDecisions.stagedPets.every(x => x.imported === false));
+  assert.equal(report.exceptionDecisions.pendingRarities.length, 2);
+  assert.ok(report.exceptionDecisions.pendingRarities.every(x =>
+    x.officialRarity === null && x.communityReportedRarity === "Uncommon"));
+  assert.equal(report.exceptionDecisions.canonicalAliases.find(x =>
+    x.petId === "tio-de-nadal")?.canonicalId, "ti-de-nadal");
+  assert.ok(report.exceptionDecisions.canonicalAliases.every(x => !x.duplicateEntryAllowed));
+
   assert.equal(report.verified.find(x => x.petId === "apple-owl")?.rarity, "Legendary");
   assert.equal(report.verified.find(x => x.petId === "brown-chested-pheasant")?.rarity, "Ultra-Rare");
   assert.ok(report.verified.some(x => x.petId === "astronaut-gorilla"));
@@ -150,4 +169,49 @@ test("official name-only evidence does not approve a rarity", () => {
   assert.equal(report.totals.identityVerifiedButRarityPending, 1);
   assert.equal(report.totals.officiallyConfirmedUnmatched, 1);
   assert.equal(report.verified.length, 0);
+});
+
+test("exception review rejects altered rarity adjudication or import approval", () => {
+  const raw = buildPetVerificationReport(
+    load("pet-catalog-matched-candidates.json"),
+    load("pet-catalog-unmatched-review.json"),
+    load("pet-catalog-curated-verification.json"),
+  );
+  const cases = [
+    decisions => { decisions.rarityAdjudications[0].selectedRarity = "Ultra-Rare"; },
+    decisions => { decisions.canonicalAliases[0].canonicalId = "wrong-pet"; },
+    decisions => { decisions.canonicalAliases.push({ ...decisions.canonicalAliases[0] }); },
+    decisions => { decisions.additionalOfficialPets[0].rarity = "Common"; },
+    decisions => { decisions.identityConfirmedRarityPending[0].officialRarity = "Uncommon"; },
+    decisions => { decisions.rightsReview.approvedForDatabaseImport = true; },
+    decisions => { decisions.rightsReview.approvedForArtworkUse = true; },
+  ];
+  for (const tamper of cases) {
+    const decisions = load("pet-catalog-exception-decisions.json");
+    tamper(decisions);
+    assert.throws(() => attachPetCatalogExceptionDecisions(raw, decisions));
+  }
+});
+
+test("review records exact official evidence and keeps unapproved candidates separate", () => {
+  const decisions = load("pet-catalog-exception-decisions.json");
+  const candidates = load("pet-catalog-matched-candidates.json").matched;
+  const initialUnmatched = load("pet-catalog-unmatched-review.json");
+  const knownIds = new Set([
+    ...candidates.map(x => x.petId),
+    ...initialUnmatched.onlyAdoptmeValues.map(x => x.petId),
+    ...initialUnmatched.onlyGamevaultFacts.map(x => x.petId),
+  ]);
+  for (const added of decisions.additionalOfficialPets) {
+    assert.ok(!knownIds.has(added.petId), added.petId + " must not duplicate the original sources");
+    assert.match(added.officialSourceUrl, /^https:\/\/www\.playadopt\.me\/news\//);
+  }
+  assert.equal(new Set(decisions.additionalOfficialPets.map(x => x.petId)).size, 9);
+  assert.equal(new Set(decisions.canonicalAliases.map(x => x.canonicalId)).size, 4);
+  for (const alias of decisions.canonicalAliases) {
+    assert.notEqual(alias.aliasId, alias.canonicalId);
+    assert.equal(alias.officialSourceUrl, "https://www.playadopt.me/discover/pets/" + alias.canonicalId);
+  }
+  assert.equal(decisions.rightsReview.approvedForDatabaseImport, false);
+  assert.equal(decisions.rightsReview.approvedForArtworkUse, false);
 });
