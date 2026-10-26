@@ -309,5 +309,28 @@
     "approvedForDatabaseImport": false,
     "approvedForArtworkUse": false,
     "notes": "The MIT code license in source A does not grant rights in its third-party dataset or imagery. Source B attributes its source to an Adopt Me Wiki with CC BY-SA community content, but individual game assets/IP are not automatically covered. Adopt Me Terms restrict unapproved copying/extraction and automated access. Review any bulk reuse and fan-art plan separately; request permission/legal review as appropriate. Factual rarity evidence is not reuse authorization."
+  },
+  "factualMetadataImport": {
+    "ownerApprovedOn": "2026-10-26",
+    "ownerApprovedForNamesAndRarities": true,
+    "scope": [
+      "petId",
+      "name",
+      "rarity",
+      "sources",
+      "rarityVerification",
+      "reviewStatus"
+    ],
+    "excluded": [
+      "images",
+      "trade values",
+      "release facts",
+      "card supply",
+      "card editions"
+    ],
+    "sourceAttributionRequired": true,
+    "officialManualEvidenceRequired": true,
+    "defaultReviewStatus": "pending",
+    "notes": "Owner directs import of pet names and rarity with attribution to original GitHub comparison sources and separately marked first-party manual verification. This is not independent legal certification or approval for copying third-party datasets/art."
   }
 }
