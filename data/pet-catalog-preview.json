@@ -5,24 +5,24 @@
   "summary": {
     "originalMatched": 690,
     "initiallyUnmatched": 84,
-    "additionalOfficialPets": 20,
-    "inputEvidenceRecords": 794,
-    "canonicalPets": 793,
+    "additionalOfficialPets": 26,
+    "inputEvidenceRecords": 800,
+    "canonicalPets": 799,
     "duplicateSourceEntriesCollapsed": 1,
     "aliasesResolved": 4,
-    "officialRarityConfirmed": 791,
-    "officialRarityPending": 2,
+    "officialRarityConfirmed": 796,
+    "officialRarityPending": 3,
     "historicalDisagreementsAdjudicated": 1,
-    "reviewPending": 793,
+    "reviewPending": 799,
     "rightsClearedForImport": false,
     "databaseWritesPerformed": false,
     "rarityCounts": {
-      "Common": 59,
-      "Uncommon": 100,
-      "Rare": 157,
-      "Ultra-Rare": 228,
+      "Common": 61,
+      "Uncommon": 101,
+      "Rare": 158,
+      "Ultra-Rare": 229,
       "Legendary": 247,
-      "Unknown": 2
+      "Unknown": 3
     }
   },
   "pets": [
@@ -2417,6 +2417,30 @@
       "historicalRarityConflict": null
     },
     {
+      "petId": "cake-friend",
+      "name": "Cake Friend",
+      "rarity": "Ultra-Rare",
+      "officialRarity": "Ultra-Rare",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "cake-friend"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/cake-friend"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
       "petId": "california-condor",
       "name": "California Condor",
       "rarity": "Common",
@@ -2919,6 +2943,30 @@
       "flags": [],
       "officialSourceUrls": [
         "https://www.playadopt.me/discover/pets/cherub-chipmunk"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
+      "petId": "chestnut-glyptodon",
+      "name": "Chestnut Glyptodon",
+      "rarity": "Rare",
+      "officialRarity": "Rare",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "chestnut-glyptodon"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/chestnut-glyptodon"
       ],
       "verifiedOn": "2026-10-26",
       "communityProvisionalRarity": null,
@@ -4361,6 +4409,31 @@
       "historicalRarityConflict": null
     },
     {
+      "petId": "dirty-ducky",
+      "name": "Dirty Ducky",
+      "rarity": "Unknown",
+      "officialRarity": null,
+      "rarityEvidence": "official-identity-only",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "dirty-ducky"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged",
+        "official-rarity-pending"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": "Common",
+      "historicalRarityConflict": null
+    },
+    {
       "petId": "dj-snooze",
       "name": "DJ Snooze",
       "rarity": "Rare",
@@ -5463,6 +5536,30 @@
       "historicalRarityConflict": null
     },
     {
+      "petId": "forest-sprite",
+      "name": "Forest Sprite",
+      "rarity": "Common",
+      "officialRarity": "Common",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "forest-sprite"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/forest-sprite"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
       "petId": "fossa",
       "name": "Fossa",
       "rarity": "Uncommon",
@@ -5853,6 +5950,30 @@
       "flags": [],
       "officialSourceUrls": [
         "https://www.playadopt.me/discover/pets/gecko"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
+      "petId": "gecko-ducky",
+      "name": "Gecko Ducky",
+      "rarity": "Common",
+      "officialRarity": "Common",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "gecko-ducky"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/gecko-ducky"
       ],
       "verifiedOn": "2026-10-26",
       "communityProvisionalRarity": null,
@@ -8231,6 +8352,30 @@
       "flags": [],
       "officialSourceUrls": [
         "https://www.playadopt.me/discover/pets/irish-elk"
+      ],
+      "verifiedOn": "2026-10-26",
+      "communityProvisionalRarity": null,
+      "historicalRarityConflict": null
+    },
+    {
+      "petId": "irish-setter",
+      "name": "Irish Setter",
+      "rarity": "Uncommon",
+      "officialRarity": "Uncommon",
+      "rarityEvidence": "official-rarity-verified",
+      "reviewStatus": "pending",
+      "sourceRecordIds": [
+        "irish-setter"
+      ],
+      "inputCategories": [
+        "additional-official"
+      ],
+      "aliasIds": [],
+      "flags": [
+        "new-official-pet-staged"
+      ],
+      "officialSourceUrls": [
+        "https://www.playadopt.me/discover/pets/irish-setter"
       ],
       "verifiedOn": "2026-10-26",
       "communityProvisionalRarity": null,
