@@ -6,6 +6,9 @@ const sourceSchema = new mongoose.Schema({
   name: { type: String, required: true },
   url: { type: String, default: "" },
   checkedAt: { type: Date, default: null },
+  role: { type: String, enum: ["candidate-dataset", "official-manual-review"], default: "candidate-dataset" },
+  fields: { type: [String], default: [] },
+  verifiedManually: { type: Boolean, default: false },
 }, { _id: false });
 
 const schema = new mongoose.Schema({
@@ -25,6 +28,7 @@ const schema = new mongoose.Schema({
     default: "unknown",
   },
   sources: { type: [sourceSchema], default: [] },
+  rarityVerification: { type: String, enum: ["official-verified", "official-adjudicated", "identity-only"], default: "identity-only" },
   reviewStatus: {
     type: String,
     enum: ["pending", "approved", "needs-review"],
