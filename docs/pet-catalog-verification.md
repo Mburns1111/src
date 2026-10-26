@@ -11,7 +11,7 @@ The follow-up review recorded **103 evidence records**, including 88 officially 
 From the original **84 mismatches**:
 - **84 pet identities now have an official citation**, including four aliases to reconcile before import.
 - **0 remain unmatched on pet identity.** S’mores Raccoon is officially confirmed as Ultra-Rare via https://www.playadopt.me/discover/pets/smores-raccoon .
-- **9 additional recent pets** were found in official update notes but neither candidate dataset.
+- **20 additional pets** are now documented with explicit official pet/rarity evidence and staged outside the two original candidate datasets: nine October Halloween additions, plus eleven discovered in a further official-directory comparison.
 - **689** of 690 matching candidates have officially confirmed rarities agreeing with the provisional catalogue. All **690** originally matched pet candidates now have explicit official rarity evidence: 689 agreements and 1 separately recorded conflict. All 416 initially classified Legendary / Ultra-Rare matches have been reviewed: 415 agree with official evidence and 1 has a documented conflict.
 - **1 rarity conflict** is documented (The Black Dog: official Rare versus provisional Ultra-Rare). **No originally matched pets remain without rarity evidence.** Do not treat the conflict as an accepted agreement.
 
@@ -205,3 +205,29 @@ Each item has an official source URL and is staged in the exception manifest, **
 Uplift's [2026 Terms of Service](https://www.playadopt.me/legal/terms) restrict unapproved copying, extraction and automated access. Its [Fan Art and Ideas Submission Policy](https://www.playadopt.me/legal/fan-art-and-ideas-submission-policy) is not a blanket permission for official pet artwork. The upstream candidate repositories do not establish a transferable license for their third-party data/images. **Reuse and artwork rights remain unapproved**, regardless of factual verification completeness.
 
 `scripts/pet-catalog-review.js` now applies the explicit decision file when writing the offline report and keeps the historical conflict, selected official rarity, canonical aliases, staged pets, provisional-only labels and rights gate distinguishable. It neither scrapes nor imports. Manual owner authorization to merge/deploy is a separate gate.
+
+## 26 October 2026 — official website omission follow-up (11 additional pets)
+
+A new comparison with the official [Adopt Me pet directory](https://www.playadopt.me/discover/pets) identified **11 distinct missing pets** that were absent from the prior staff preview and both original source comparisons. Their identity and rarity are now recorded as first-party verified evidence:
+
+| Pet | Official rarity | Evidence |
+|---|---|---|
+| 2026 Birthday Butterfly | Uncommon | [Individual pet page](https://www.playadopt.me/discover/pets/2026-birthday-butterfly) |
+| 2D Doggy | Legendary | [Individual pet page](https://www.playadopt.me/discover/pets/2d-doggy) |
+| Budgie Witch | Uncommon | [Individual pet page](https://www.playadopt.me/discover/pets/budgie-witch) |
+| Chihuahua | Ultra-Rare | [Individual pet page](https://www.playadopt.me/discover/pets/chihuahua) |
+| Dylan | Uncommon | [Individual pet page](https://www.playadopt.me/discover/pets/dylan) |
+| Granny Wolf | Rare | [Individual pet page](https://www.playadopt.me/discover/pets/granny-wolf) |
+| Ms. Muffet | Common | [Individual pet page](https://www.playadopt.me/discover/pets/ms-muffet) |
+| Pistachio | Uncommon | [Individual pet page](https://www.playadopt.me/discover/pets/pistachio) |
+| Ranger Beaver | Rare | [Journey to Summer Camp Week 1 official notes](https://www.playadopt.me/news/journey-to-summer-camp-week-1-notes), under New Pets |
+| River | Uncommon | [Individual pet page](https://www.playadopt.me/discover/pets/river) |
+| Storm Condor | Ultra-Rare | [Individual pet page](https://www.playadopt.me/discover/pets/storm-condor) |
+
+Individual pages explicitly say **Type: Pet** and state the corresponding rarity; for **Ranger Beaver**, the release notes explicitly place it in the **New Pets** section as **Rare**, separate from Rare pet-wear entries. No egg/container or pet sticker was imported as a pet.
+
+**Updated staff-preview counts:** **794 official evidence/source rows**, **793 distinct canonical pets**, **791 known official rarities**, **2 still Unknown** (Blue Cat and Pink Dog), and **20 additional officially evidenced pets staged** (nine prior plus these eleven). Only one duplicate source pair collapses (`tio-de-nadal` / `ti-de-nadal`). All **793** remain staff-pending, with bulk import and artwork rights **not cleared**.
+
+**Dirty Ducky is NOT included yet:** it is named in the official directory index and independently reported as Common by community sources, but its direct official pet page and an explicit official rarity statement could not be checked. Record it as a discovery gap to verify rather than treating a community rarity as official. The full directory has not been exhaustively enumerated; further omissions may exist.
+
+No production Discord messages, database imports, merges, artwork or trading values were created as part of this update.
