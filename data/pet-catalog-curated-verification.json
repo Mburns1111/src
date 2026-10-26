@@ -5,54 +5,84 @@
   "rightsNotice": "Links and short factual metadata only; no images or article text are copied.",
   "records": [
     {
-      "petId": "jumpscare",
-      "name": "Jumpscare",
-      "rarity": "Rare",
-      "releaseReference": "2026-10-03",
-      "sourceType": "official-adopt-me-news",
-      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
-      "verifiedOn": "2026-10-26",
-      "verification": [
-        "pet identity",
-        "rarity"
-      ],
-      "notes": "Rarity and identity stated in official update notes. Not an image license."
-    },
-    {
-      "petId": "mummy-spider",
-      "name": "Mummy Spider",
-      "rarity": "Rare",
-      "releaseReference": "2026-10-03",
-      "sourceType": "official-adopt-me-news",
-      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
-      "verifiedOn": "2026-10-26",
-      "verification": [
-        "pet identity",
-        "rarity"
-      ],
-      "notes": "Rarity and identity stated in official update notes. Not an image license."
-    },
-    {
-      "petId": "jacobin-pigeon",
-      "name": "Jacobin Pigeon",
-      "rarity": "Common",
-      "releaseReference": "2026-10-03",
-      "sourceType": "official-adopt-me-news",
-      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
-      "verifiedOn": "2026-10-26",
-      "verification": [
-        "pet identity",
-        "rarity"
-      ],
-      "notes": "Rarity and identity stated in official update notes. Not an image license."
-    },
-    {
-      "petId": "jester-dragon",
-      "name": "Jester Dragon",
+      "petId": "aestus",
+      "name": "Aestus",
       "rarity": "Legendary",
-      "releaseReference": "2026-10-03",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/aestus",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "amethyst-penguin",
+      "name": "Amethyst Penguin",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/amethyst-penguin",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "ballet-swan",
+      "name": "Ballet Swan",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ballet-swan",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "bat-dragon",
+      "name": "Bat Dragon",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/bat-dragon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "bird-of-paradise",
+      "name": "Bird of Paradise",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/bird-of-paradise",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "bison",
+      "name": "Bison",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/bison",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "bobageist",
+      "name": "Bobageist",
+      "rarity": "Ultra-Rare",
+      "releaseReference": "2026-10-09",
       "sourceType": "official-adopt-me-news",
-      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
       "verifiedOn": "2026-10-26",
       "verification": [
         "pet identity",
@@ -75,12 +105,12 @@
       "notes": "Rarity and identity stated in official update notes. Not an image license."
     },
     {
-      "petId": "skelicorn",
-      "name": "Skelicorn",
-      "rarity": "Legendary",
-      "releaseReference": "2026-10-09",
+      "petId": "boohoo",
+      "name": "Boohoo",
+      "rarity": "Rare",
+      "releaseReference": "2026-10-16",
       "sourceType": "official-adopt-me-news",
-      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
       "verifiedOn": "2026-10-26",
       "verification": [
         "pet identity",
@@ -103,18 +133,28 @@
       "notes": "Rarity and identity stated in official update notes. Not an image license."
     },
     {
-      "petId": "bobageist",
-      "name": "Bobageist",
+      "petId": "burger-bear",
+      "name": "Burger Bear",
       "rarity": "Ultra-Rare",
-      "releaseReference": "2026-10-09",
-      "sourceType": "official-adopt-me-news",
-      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/burger-bear",
       "verifiedOn": "2026-10-26",
       "verification": [
         "pet identity",
         "rarity"
-      ],
-      "notes": "Rarity and identity stated in official update notes. Not an image license."
+      ]
+    },
+    {
+      "petId": "candicorn",
+      "name": "Candicorn",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/candicorn",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
     },
     {
       "petId": "caramelgeist",
@@ -131,46 +171,64 @@
       "notes": "Rarity and identity stated in official update notes. Not an image license."
     },
     {
-      "petId": "stitches",
-      "name": "Stitches",
+      "petId": "cat",
+      "name": "Cat",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cat",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "chocolate-dutch-guinea-pig",
+      "name": "Chocolate Dutch Guinea Pig",
       "rarity": "Ultra-Rare",
-      "releaseReference": "2026-10-16",
-      "sourceType": "official-adopt-me-news",
-      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/chocolate-dutch-guinea-pig",
       "verifiedOn": "2026-10-26",
       "verification": [
         "pet identity",
         "rarity"
-      ],
-      "notes": "Rarity and identity stated in official update notes. Not an image license."
+      ]
     },
     {
-      "petId": "boohoo",
-      "name": "Boohoo",
-      "rarity": "Rare",
-      "releaseReference": "2026-10-16",
-      "sourceType": "official-adopt-me-news",
-      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
-      "verifiedOn": "2026-10-26",
-      "verification": [
-        "pet identity",
-        "rarity"
-      ],
-      "notes": "Rarity and identity stated in official update notes. Not an image license."
-    },
-    {
-      "petId": "shoebill",
-      "name": "Shoebill",
+      "petId": "clubtail-dragonfly",
+      "name": "Clubtail Dragonfly",
       "rarity": "Uncommon",
-      "releaseReference": "2026-10-16",
-      "sourceType": "official-adopt-me-news",
-      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/clubtail-dragonfly",
       "verifiedOn": "2026-10-26",
       "verification": [
         "pet identity",
         "rarity"
-      ],
-      "notes": "Rarity and identity stated in official update notes. Not an image license."
+      ]
+    },
+    {
+      "petId": "clumpty",
+      "name": "Clumpty",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/clumpty",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "cocoadile",
+      "name": "Cocoadile",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cocoadile",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
     },
     {
       "petId": "copycat",
@@ -201,18 +259,64 @@
       "notes": "Rarity and identity stated in official update notes. Not an image license."
     },
     {
-      "petId": "stray-cat-dragon",
-      "name": "Stray Cat Dragon",
-      "rarity": "Legendary",
-      "releaseReference": "2026-10-23",
-      "sourceType": "official-adopt-me-news",
-      "sourceUrl": "https://www.playadopt.me/news/halloween-wherebear-returns-notes",
+      "petId": "cow",
+      "name": "Cow",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/cow",
       "verifiedOn": "2026-10-26",
       "verification": [
         "pet identity",
         "rarity"
-      ],
-      "notes": "Rarity and identity stated in official update notes. Not an image license."
+      ]
+    },
+    {
+      "petId": "crimson-cape",
+      "name": "Crimson Cape",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/crimson-cape",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "dalmatian",
+      "name": "Dalmatian",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dalmatian",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "dark-choccybunny",
+      "name": "Dark Choccybunny",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dark-choccybunny",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "dog",
+      "name": "Dog",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dog",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
     },
     {
       "petId": "dragonfruit-fox",
@@ -227,6 +331,18 @@
         "rarity"
       ],
       "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "easter-bunny",
+      "name": "Easter Bunny",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/easter-bunny",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
     },
     {
       "petId": "frost-dragon",
@@ -244,6 +360,830 @@
       "notes": "Individual official pet listing."
     },
     {
+      "petId": "general-sheepdog",
+      "name": "General Sheepdog",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/general-sheepdog",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "giraffe",
+      "name": "Giraffe",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/giraffe",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "glormy-crab",
+      "name": "Glormy Crab",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/glormy-crab",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "glyptodon-ducky",
+      "name": "Glyptodon Ducky",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/stormy-ducky-drama-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "gumball-caterpillar",
+      "name": "Gumball Caterpillar",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gumball-caterpillar",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "gummy-guana",
+      "name": "Gummy Guana",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/gummy-guana",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "hedgehog",
+      "name": "Hedgehog",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/hedgehog",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "huntsman-robin",
+      "name": "Huntsman Robin",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/huntsman-robin",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "jacobin-pigeon",
+      "name": "Jacobin Pigeon",
+      "rarity": "Common",
+      "releaseReference": "2026-10-03",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "jester-dragon",
+      "name": "Jester Dragon",
+      "rarity": "Legendary",
+      "releaseReference": "2026-10-03",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "jiggly-jerboa",
+      "name": "Jiggly Jerboa",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/jiggly-jerboa",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "jumpscare",
+      "name": "Jumpscare",
+      "rarity": "Rare",
+      "releaseReference": "2026-10-03",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "kiwi-kiwi",
+      "name": "Kiwi Kiwi",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/kiwi-kiwi",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "latte-kitsune",
+      "name": "Latte Kitsune",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/latte-kitsune",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "little-lamb",
+      "name": "Little Lamb",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/little-lamb",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "malaysian-tapir",
+      "name": "Malayan Tapir",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/malayan-tapir",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "canonicalId": "malayan-tapir",
+      "notes": "Dataset naming alias; preserve alias and do not create a second pet."
+    },
+    {
+      "petId": "milk-choccybunny",
+      "name": "Milk Choccybunny",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/milk-choccybunny",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "mochi-meow",
+      "name": "Mochi Meow",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mochi-meow",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "moonbeam-peacock",
+      "name": "Moonbeam Peacock",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/salon-revamp-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "mr-whiskerpips",
+      "name": "Mr. Whiskerpips",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mr-whiskerpips",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "mrs-whiskerpips",
+      "name": "Mrs. Whiskerpips",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/mrs-whiskerpips",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "mummy-spider",
+      "name": "Mummy Spider",
+      "rarity": "Rare",
+      "releaseReference": "2026-10-03",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "nurse-shark",
+      "name": "Nurse Shark",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/nurse-shark",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "oakee",
+      "name": "Oakee",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/oakee",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "oakee-knight",
+      "name": "Oakee Knight",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/oakee-knight",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "oakee-wizard",
+      "name": "Oakee Wizard",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/oakee-wizard",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "owl",
+      "name": "Owl",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/owl",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "peachick",
+      "name": "Peachick",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/salon-revamp-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "peahen",
+      "name": "Peahen",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/salon-revamp-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "pilot-gull",
+      "name": "Pilot Gull",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/pilot-gull",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "pinkypillar",
+      "name": "Pinkypillar",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/pinkypillar",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "princess-mare",
+      "name": "Princess Mare",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/princess-mare",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "pupcake",
+      "name": "Pupcake",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/pupcake",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "purrowl",
+      "name": "Purrowl",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/purrowl",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "rainbow-trout",
+      "name": "Rainbow Trout",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/rainbow-trout",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "red-dutch-guinea-pig",
+      "name": "Red Dutch Guinea Pig",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/red-dutch-guinea-pig",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "red-panda-ducky",
+      "name": "Red Panda Ducky",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/red-panda-ducky",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "ring-tailed-lemur",
+      "name": "Ring-tailed Lemur",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ring-tailed-lemur",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "river-otter",
+      "name": "River Otter",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/river-otter",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "rubber-ducky",
+      "name": "Rubber Ducky",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/stormy-ducky-drama-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "ruddy-duck",
+      "name": "Ruddy Duck",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ruddy-duck",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "shadow-dragon",
+      "name": "Shadow Dragon",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/shadow-dragon",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "shadow-dragon-ducky",
+      "name": "Shadow Dragon Ducky",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/shadow-dragon-ducky",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "sheepdog-ducky",
+      "name": "Sheepdog Ducky",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/sheepdog-ducky",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "shoebill",
+      "name": "Shoebill",
+      "rarity": "Uncommon",
+      "releaseReference": "2026-10-16",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "skelicorn",
+      "name": "Skelicorn",
+      "rarity": "Legendary",
+      "releaseReference": "2026-10-09",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "solaris",
+      "name": "Solaris",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/solaris",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "stitches",
+      "name": "Stitches",
+      "rarity": "Ultra-Rare",
+      "releaseReference": "2026-10-16",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "strawberry-shortcake-ducky",
+      "name": "Strawberry Shortcake Ducky",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/strawberry-shortcake-ducky",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "strawberry-tortle",
+      "name": "Strawberry Tortle",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/strawberry-tortle",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "stray-cat-dragon",
+      "name": "Stray Cat Dragon",
+      "rarity": "Legendary",
+      "releaseReference": "2026-10-23",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-wherebear-returns-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "striped-eggy",
+      "name": "Striped Eggy",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/striped-eggy",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "stygian-owl",
+      "name": "Stygian Owl",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/stygian-owl",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "sunflower-friend",
+      "name": "Sunflower Friend",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/sunflower-friend",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "sushi-penguin",
+      "name": "Sushi Penguin",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/sushi-penguin",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "tealwood-monster",
+      "name": "Tealwood Monster",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/tealwood-monster",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "three-blind-mice",
+      "name": "Three Blind Mice",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/three-blind-mice",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "ti-de-nadal",
+      "name": "Tió De Nadal",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ti-de-nadal",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "tio-de-nadal",
+      "name": "Tió De Nadal",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ti-de-nadal",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ],
+      "canonicalId": "ti-de-nadal",
+      "notes": "Dataset naming alias; preserve alias and do not create a second pet."
+    },
+    {
+      "petId": "tortoiseshell-guinea-pig",
+      "name": "Tortoiseshell Guinea Pig",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/tortoiseshell-guinea-pig",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "tri-horned-treehopper",
+      "name": "Tri-horned Treehopper",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/tri-horned-treehopper",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "tuxedo-cat",
+      "name": "Tuxedo Cat",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/tuxedo-cat",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "unicorn-ducky",
+      "name": "Unicorn Ducky",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/unicorn-ducky",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "velocirooster",
+      "name": "Velocirooster",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/velocirooster",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "violet-friend",
+      "name": "Violet Friend",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/violet-friend",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "waffle-wyrm",
+      "name": "Waffle Wyrm",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/waffle-wyrm",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
+      "petId": "white-choccybunny",
+      "name": "White Choccybunny",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/white-choccybunny",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
+    },
+    {
       "petId": "wooly-rhino",
       "name": "Wooly Rhino",
       "rarity": "Ultra-Rare",
@@ -256,6 +1196,18 @@
         "rarity"
       ],
       "notes": "Community source only; requires authoritative rarity confirmation before approval."
+    },
+    {
+      "petId": "yellow-lipped-sea-krait",
+      "name": "Yellow-lipped Sea Krait",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/yellow-lipped-sea-krait",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "rarity"
+      ]
     }
   ]
 }
