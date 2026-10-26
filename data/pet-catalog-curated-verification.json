@@ -47,6 +47,34 @@
       "notes": "Official individual pet page explicitly states Type Pet and matching rarity."
     },
     {
+      "petId": "2026-birthday-butterfly",
+      "name": "2026 Birthday Butterfly",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/2026-birthday-butterfly",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Individual official Adopt Me directory page explicitly states Type Pet and matching rarity. Additional pet missing from the original source comparisons."
+    },
+    {
+      "petId": "2d-doggy",
+      "name": "2D Doggy",
+      "rarity": "Legendary",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/2d-doggy",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Individual official Adopt Me directory page explicitly states Type Pet and matching rarity. Additional pet missing from the original source comparisons."
+    },
+    {
       "petId": "2d-kitty",
       "name": "2D Kitty",
       "rarity": "Legendary",
@@ -1294,6 +1322,20 @@
       "notes": "Rarity and identity stated in official update notes. Not an image license."
     },
     {
+      "petId": "budgie-witch",
+      "name": "Budgie Witch",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/budgie-witch",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Individual official Adopt Me directory page explicitly states Type Pet and matching rarity. Additional pet missing from the original source comparisons."
+    },
+    {
       "petId": "buffalo",
       "name": "Buffalo",
       "rarity": "Common",
@@ -1800,6 +1842,20 @@
         "rarity"
       ],
       "notes": "Official individual pet page explicitly states Type Pet and matching rarity."
+    },
+    {
+      "petId": "chihuahua",
+      "name": "Chihuahua",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/chihuahua",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Individual official Adopt Me directory page explicitly states Type Pet and matching rarity. Additional pet missing from the original source comparisons."
     },
     {
       "petId": "chilling-spider",
@@ -2818,6 +2874,20 @@
         "rarity"
       ],
       "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "dylan",
+      "name": "Dylan",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/dylan",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Individual official Adopt Me directory page explicitly states Type Pet and matching rarity. Additional pet missing from the original source comparisons."
     },
     {
       "petId": "easter-bunny",
@@ -4251,6 +4321,20 @@
         "rarity"
       ],
       "notes": "Official individual pet page explicitly states Type Pet and the rarity; agrees with the provisional catalogue."
+    },
+    {
+      "petId": "granny-wolf",
+      "name": "Granny Wolf",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/granny-wolf",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Individual official Adopt Me directory page explicitly states Type Pet and matching rarity. Additional pet missing from the original source comparisons."
     },
     {
       "petId": "grave-owl",
@@ -6477,6 +6561,20 @@
       ]
     },
     {
+      "petId": "ms-muffet",
+      "name": "Ms. Muffet",
+      "rarity": "Common",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/ms-muffet",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Individual official Adopt Me directory page explicitly states Type Pet and matching rarity. Additional pet missing from the original source comparisons."
+    },
+    {
       "petId": "mule",
       "name": "Mule",
       "rarity": "Rare",
@@ -7348,6 +7446,20 @@
       "notes": "Official Adopt Me individual pet page identified Type Pet and the stated rarity; manually cross-checked via live search result. No artwork copied."
     },
     {
+      "petId": "pistachio",
+      "name": "Pistachio",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/pistachio",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Individual official Adopt Me directory page explicitly states Type Pet and matching rarity. Additional pet missing from the original source comparisons."
+    },
+    {
       "petId": "platypus",
       "name": "Platypus",
       "rarity": "Ultra-Rare",
@@ -7810,6 +7922,20 @@
       "notes": "Official Adopt Me individual pet page identified Type Pet and the stated rarity; manually cross-checked via live search result. No artwork copied."
     },
     {
+      "petId": "ranger-beaver",
+      "name": "Ranger Beaver",
+      "rarity": "Rare",
+      "sourceType": "official-adopt-me-news",
+      "sourceUrl": "https://www.playadopt.me/news/journey-to-summer-camp-week-1-notes",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Official May 29, 2026 Journey to Summer Camp Week 1 release notes explicitly include Ranger Beaver as a Rare pet in the Beaver Bob bundle. Distinguish from its separately listed pet-wear items."
+    },
+    {
       "petId": "rat",
       "name": "Rat",
       "rarity": "Rare",
@@ -8054,6 +8180,20 @@
         "rarity"
       ],
       "notes": "Official Adopt Me individual pet page identified Type Pet and the stated rarity; manually cross-checked via live search result. No artwork copied."
+    },
+    {
+      "petId": "river",
+      "name": "River",
+      "rarity": "Uncommon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/river",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Individual official Adopt Me directory page explicitly states Type Pet and matching rarity. Additional pet missing from the original source comparisons."
     },
     {
       "petId": "river-otter",
@@ -9342,6 +9482,20 @@
         "rarity"
       ],
       "notes": "Rarity and identity stated in official update notes. Not an image license."
+    },
+    {
+      "petId": "storm-condor",
+      "name": "Storm Condor",
+      "rarity": "Ultra-Rare",
+      "sourceType": "official-adopt-me-pet-directory",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/storm-condor",
+      "verifiedOn": "2026-10-26",
+      "verification": [
+        "pet identity",
+        "pet type",
+        "rarity"
+      ],
+      "notes": "Individual official Adopt Me directory page explicitly states Type Pet and matching rarity. Additional pet missing from the original source comparisons."
     },
     {
       "petId": "strawberry-penguin",
