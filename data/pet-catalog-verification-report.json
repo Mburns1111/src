@@ -1,0 +1,529 @@
+{
+  "generatedOn": "2026-10-26",
+  "disclaimer": "Evidence review, not licensed dataset clearance or a database import.",
+  "totals": {
+    "matchedCandidates": 690,
+    "initialUnmatched": 84,
+    "officialEvidenceReviewed": 8,
+    "officiallyConfirmedUnmatched": 7,
+    "unresolvedUnmatched": 77,
+    "rarityConflicts": 0,
+    "officialPetsMissingFromBothDatasets": 9,
+    "communityOnlyEvidence": 1
+  },
+  "verified": [
+    {
+      "petId": "jumpscare",
+      "name": "Jumpscare",
+      "rarity": "Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "onlyB",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "mummy-spider",
+      "name": "Mummy Spider",
+      "rarity": "Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "onlyB",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "jacobin-pigeon",
+      "name": "Jacobin Pigeon",
+      "rarity": "Common",
+      "originalRarity": null,
+      "originalDatasetLocation": "onlyB",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "jester-dragon",
+      "name": "Jester Dragon",
+      "rarity": "Legendary",
+      "originalRarity": null,
+      "originalDatasetLocation": "onlyB",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-ghost-gallery-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "bolt",
+      "name": "Bolt",
+      "rarity": "Uncommon",
+      "originalRarity": null,
+      "originalDatasetLocation": "onlyB",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "skelicorn",
+      "name": "Skelicorn",
+      "rarity": "Legendary",
+      "originalRarity": null,
+      "originalDatasetLocation": "onlyB",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "dragonfruit-fox",
+      "name": "Dragonfruit Fox",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "onlyA",
+      "sourceUrl": "https://www.playadopt.me/news/fresh-fruit-pets-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    },
+    {
+      "petId": "frost-dragon",
+      "name": "Frost Dragon",
+      "rarity": "Legendary",
+      "originalRarity": "Legendary",
+      "originalDatasetLocation": "matched",
+      "sourceUrl": "https://www.playadopt.me/discover/pets/frost-dragon",
+      "sourceType": "official-adopt-me-pet-directory",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "official-evidence-reviewed"
+    }
+  ],
+  "conflicting": [],
+  "newOfficial": [
+    {
+      "petId": "bubblegeist",
+      "name": "Bubblegeist",
+      "rarity": "Legendary",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "bobageist",
+      "name": "Bobageist",
+      "rarity": "Ultra-Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "caramelgeist",
+      "name": "Caramelgeist",
+      "rarity": "Uncommon",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-hauntlet-returns-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "stitches",
+      "name": "Stitches",
+      "rarity": "Ultra-Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "boohoo",
+      "name": "Boohoo",
+      "rarity": "Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "shoebill",
+      "name": "Shoebill",
+      "rarity": "Uncommon",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "copycat",
+      "name": "Copycat",
+      "rarity": "Legendary",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-stitches-spotlight-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "count-slothula",
+      "name": "Count Slothula",
+      "rarity": "Ultra-Rare",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-wherebear-returns-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    },
+    {
+      "petId": "stray-cat-dragon",
+      "name": "Stray Cat Dragon",
+      "rarity": "Legendary",
+      "originalRarity": null,
+      "originalDatasetLocation": "not-in-either-dataset",
+      "sourceUrl": "https://www.playadopt.me/news/halloween-wherebear-returns-notes",
+      "sourceType": "official-adopt-me-news",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "new-pet-requires-catalogue-entry"
+    }
+  ],
+  "communityOnly": [
+    {
+      "petId": "wooly-rhino",
+      "name": "Wooly Rhino",
+      "rarity": "Ultra-Rare",
+      "originalRarity": "Ultra-Rare",
+      "originalDatasetLocation": "onlyA",
+      "sourceUrl": "https://adoptme.fandom.com/wiki/Wooly_Rhino",
+      "sourceType": "community-adopt-me-wiki",
+      "verifiedOn": "2026-10-26",
+      "reviewStatus": "needs-authoritative-check"
+    }
+  ],
+  "unreviewedUnmatched": [
+    {
+      "petId": "bird-of-paradise",
+      "reason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "malaysian-tapir",
+      "reason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "mr-whiskerpips",
+      "reason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "mrs-whiskerpips",
+      "reason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "ring-tailed-lemur",
+      "reason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "striped-eggy",
+      "reason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "tio-de-nadal",
+      "reason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "tri-horned-treehopper",
+      "reason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "wooly-rhino",
+      "reason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "yellow-lipped-sea-krait",
+      "reason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "aestus",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "amethyst-penguin",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "ballet-swan",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "bison",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "blue-cat",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "burger-bear",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "candicorn",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "catte",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "cattuccino",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "chocolate-dutch-guinea-pig",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "clubtail-dragonfly",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "clumpty",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "cocoadile",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "crimson-cape",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "dark-choccybunny",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "easter-bunny",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "general-sheepdog",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "glormy-crab",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "glyptodon-ducky",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "gumball-caterpillar",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "gummy-guana",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "huntsman-robin",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "jiggly-jerboa",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "kiwi-kiwi",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "latte-kitsune",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "little-lamb",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "matcha-cat",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "milk-choccybunny",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "mochi-meow",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "moonbeam-peacock",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "nurse-shark",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "oakee",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "oakee-knight",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "oakee-wizard",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "peachick",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "peahen",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "pilot-gull",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "pink-dog",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "pinkypillar",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "princess-mare",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "pupcake",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "purrowl",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "rainbow-trout",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "red-dutch-guinea-pig",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "red-panda-ducky",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "river-otter",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "rubber-ducky",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "ruddy-duck",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "s-mores-raccoon",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "shadow-dragon-ducky",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "sheepdog-ducky",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "solaris",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "strawberry-shortcake-ducky",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "strawberry-tortle",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "stygian-owl",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "sunflower-friend",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "sushi-penguin",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "tealwood-monster",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "three-blind-mice",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "ti-de-nadal",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "tortoiseshell-guinea-pig",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "tuxedo-cat",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "unicorn-ducky",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "velocirooster",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "violet-friend",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "waffle-wyrm",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "white-choccybunny",
+      "reason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    }
+  ]
+}
