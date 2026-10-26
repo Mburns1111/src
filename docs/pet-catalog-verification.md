@@ -12,8 +12,8 @@ From the original **84 mismatches**:
 - **84 pet identities now have an official citation**, including four aliases to reconcile before import.
 - **0 remain unmatched on pet identity.** S’mores Raccoon is officially confirmed as Ultra-Rare via https://www.playadopt.me/discover/pets/smores-raccoon .
 - **9 additional recent pets** were found in official update notes but neither candidate dataset.
-- **598** of 690 matching candidates have officially confirmed rarities agreeing with the provisional catalogue. All 416 initially classified Legendary / Ultra-Rare matches have been reviewed: 415 agree with official evidence and 1 has a documented conflict.
-- **1 rarity conflict** is documented (The Black Dog: official Rare versus provisional Ultra-Rare). The other **91 matching candidates** still require independent rarity verification. Do not treat the conflict as an accepted match.
+- **689** of 690 matching candidates have officially confirmed rarities agreeing with the provisional catalogue. All **690** originally matched pet candidates now have explicit official rarity evidence: 689 agreements and 1 separately recorded conflict. All 416 initially classified Legendary / Ultra-Rare matches have been reviewed: 415 agree with official evidence and 1 has a documented conflict.
+- **1 rarity conflict** is documented (The Black Dog: official Rare versus provisional Ultra-Rare). **No originally matched pets remain without rarity evidence.** Do not treat the conflict as an accepted agreement.
 
 Important: Blue Cat and Pink Dog have **official identity confirmation only**, and their rarities remain unknown. Do not infer these from other pets. No community-only evidence should silently override or approve official fields.
 
@@ -66,7 +66,7 @@ Tests are committed, but their successful execution has **not** been verified in
 ## Outstanding work
 
 1. Officially verify Blue Cat and Pink Dog rarities (official news confirms both exist but does not state rarity).
-2. Check the remaining **91** provisional Rare, Uncommon and Common matches against explicit official pet-rarity statements. Separately resolve The Black Dog's Rare/Ultra-Rare conflict without silently overwriting the original source.
+2. Resolve the remaining **The Black Dog** Rare / Ultra-Rare mismatch with an explicit review decision, preserving both source values and the audit trail. No unreviewed rarity candidates remain among the original 690 identity matches.
 3. Review alias normalization and licensing before previewing any database import.
 4. Add a staff-only preview/approval workflow and keep the live bot untouched.
 
@@ -154,3 +154,15 @@ Checked the next **60** matched candidates, **Hyena** through **Patchy Bear**, a
 - The source URLs and individual check dates are saved in `data/pet-catalog-curated-verification.json`. The report and tests preserve agreement checks separately from conflicts.
 
 **Current cumulative status:** **598 / 690** matched pet rarities officially confirmed in agreement, **91 still pending** (48 Rare, 31 Uncommon, 12 Common), and **1 separately flagged conflict**. The work remains evidence review only, with no images, artwork, trading values or MongoDB imports and no merge or deployment.
+
+## 26 October 2026 — fifteenth batch: remaining 91 matching pet rarities
+
+Completed individual official-source verification for **all 91 previously pending matched pets**, from **Pig** through **Zombie Chick**, comprising **48 Rare**, **31 Uncommon**, and **12 Common** classifications. The official Adopt Me pet directory explicitly identifies the pet and its rarity for each record; official indexed snippets for nine pets were used when direct page fetches returned incomplete content. Those records state the evidence limitation in their notes: Scarecrow, Seahorse, Sneak Weasel, Snow Cat, Starhopper, Tarsier, Tawny Frogmouth, Toy Poodle and Warthog.
+
+- **91 agreements**, **0 newly discovered conflicts**.
+- **689 / 690** originally matched pet rarities now agree with explicit official evidence, and **all 690 have been reviewed**.
+- **1 existing conflict** remains separately flagged: **The Black Dog** is **Rare** on the [official pet page](https://www.playadopt.me/discover/pets/the-black-dog) but **Ultra-Rare** in the provisional source. Both values remain recorded; no automatic correction is approved.
+- Confirmed agreements by original matched rarity tier: **213 Legendary, 202 Ultra-Rare, 136 Rare, 87 Uncommon, and 51 Common**. The 203rd original Ultra-Rare candidate is the conflict.
+- **0 previously matched rarity candidates await official evidence**. This does **not** mean the catalogue is ready for import: the separate Blue Cat and Pink Dog identity-only records still lack official rarity evidence, four canonical aliases require reconciliation, nine official pets absent from the original lists require planning, and licensing/attribution clearance remains outstanding.
+
+Only short factual classifications, official links and source review dates were saved. No automated directory scrape, artwork/image download, trading-value import, MongoDB write, merge to `main`, or Wispbyte deployment was performed.
