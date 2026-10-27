@@ -34,10 +34,10 @@ function chooseWeighted(items, getWeight, random) {
 
 // Each eligible card is an approved, active design from ONE release.
 // Weight is an administrator-reviewed game value, not an automatic live trade-site feed.
-export function hatchCard({ cards, odds = DEFAULT_HATCH_ODDS, random = Math.random }) {
+export function hatchCard({ cards, odds = DEFAULT_HATCH_ODDS, random = Math.random, allowTestPlaceholders = false }) {
   validateHatchOdds(odds);
   if (!Array.isArray(cards)) throw new Error("Cards must be an array");
-  const eligible = cards.filter(card => card?.enabled === true && card?.artStatus === "approved" && CARD_RARITIES.includes(card.rarity));
+  const eligible = cards.filter(card => card?.enabled === true && (card?.artStatus === "approved" || (allowTestPlaceholders && card?.artStatus === "test-placeholder")) && CARD_RARITIES.includes(card.rarity));
   const groups = new Map(CARD_RARITIES.map(rarity => [rarity, eligible.filter(card => card.rarity === rarity)]));
   // Rarity percentages are renormalized when a release has no approved cards for a rarity.
   const possibleRarities = CARD_RARITIES.filter(rarity => groups.get(rarity).some(card => card.hatchWeight > 0) && odds[rarity] > 0);
@@ -47,8 +47,8 @@ export function hatchCard({ cards, odds = DEFAULT_HATCH_ODDS, random = Math.rand
   return { rarity, card };
 }
 
-export function revealDrop({ cards, odds = DEFAULT_HATCH_ODDS, random = Math.random, count = 3 }) {
+export function revealDrop({ cards, odds = DEFAULT_HATCH_ODDS, random = Math.random, count = 3, allowTestPlaceholders = false }) {
   if (!Number.isInteger(count) || count < 1 || count > 10) throw new Error("Invalid drop card count");
   // Duplicates are allowed: they are required for upgrades and dust.
-  return Array.from({ length: count }, () => hatchCard({ cards, odds, random }));
+  return Array.from({ length: count }, () => hatchCard({ cards, odds, random, allowTestPlaceholders }));
 }
