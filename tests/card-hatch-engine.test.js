@@ -20,7 +20,8 @@ test("default hatch probabilities are 26/26/26/14/8", () => {
 });
 test("weighted selection stays inside approved release pool", () => {
   assert.equal(hatchCard({ cards: pool, random: () => 0 }).card.petId, "dog");
-  assert.equal(hatchCard({ cards: pool, random: () => 0.5 }).card.petId, "cat");
+  let calls = 0;
+  assert.equal(hatchCard({ cards: pool, random: () => (++calls === 1 ? 0 : 0.8) }).card.petId, "cat");
   assert.equal(hatchCard({ cards: pool, random: () => 0.99 }).card.petId, "dragon");
 });
 test("three revealed cards are picked before claims; duplicates allowed", () => {
