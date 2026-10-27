@@ -39,13 +39,14 @@ export async function execute(interaction) {
   if (!isEnabled()) return interaction.editReply("Card test drops are disabled on this bot.");
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply("Only server managers can start test drops.");
   const releaseId = interaction.options.getString("release", true);
+  if (!releaseId.startsWith("test-")) return interaction.editReply("Test drops require a test-* release ID. Live releases cannot be triggered here.");
   const release = await CardRelease.findOne({ releaseId, status: "active" }).lean();
   if (!release) return interaction.editReply("No active release has that ID. Configure and approve a release first.");
   const odds = Object.fromEntries(["Common","Uncommon","Rare","Ultra-Rare","Legendary"].map(k => [k, release.hatchOdds[k]]));
   validateHatchOdds(odds);
-  const definitions = await CardDefinition.find({ releaseId, seriesId: release.seriesId, enabled: true, artStatus: "approved", hatchWeight: { $gt: 0 } }).lean();
+  const definitions = await CardDefinition.find({ releaseId, seriesId: release.seriesId, enabled: true, artStatus: { $in: ["approved", "test-placeholder"] }, hatchWeight: { $gt: 0 } }).lean();
   if (!definitions.length) return interaction.editReply("This release has no approved, enabled card artwork.");
-  const revealed = revealDrop({ cards: definitions, odds });
+  const revealed = revealDrop({ cards: definitions, odds, allowTestPlaceholders: true });
   const ids = [...new Set(revealed.map(x => x.card.petId))];
   const pets = await PetCatalog.find({ petId: { $in: ids } }).select("petId name").lean();
   const petNames = Object.fromEntries(pets.map(p => [p.petId, p.name]));
@@ -71,6 +72,7 @@ export async function handleCardGrab(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const parts = interaction.customId.split(":");
   const dropId = parts[2], slot = Number(parts[3]);
+  if (!interaction.guildId || !/^\\d+$/.test(parts[3] || "")) return interaction.editReply("Invalid card selection.");
   try {
     const awarded = await claimCardFromDrop({ dropId, slot, guildId: interaction.guildId, discordUserId: interaction.user.id });
     await interaction.editReply(`You grabbed **${escapeDiscord(awarded.petId)}** (${awarded.rarity})! Added to your card collection.`);
