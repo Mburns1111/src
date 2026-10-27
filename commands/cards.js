@@ -86,7 +86,8 @@ export async function handleCardGrab(interaction) {
         const allClaimed = drop.slots.every(slot => Boolean(slot.claimedBy));
         if (allClaimed) await CardDrop.updateOne({ _id: drop._id, status: "open" }, { $set: { status: "closed" } });
         const closed = allClaimed || drop.status === "closed" || new Date(drop.expiresAt) <= new Date();
-        await interaction.message.edit({ content: dropText({ ...drop, status: closed ? "closed" : "open" }, drop.releaseId, names), components: closed ? [] : [rowButtons(drop)], allowedMentions: { parse: [] } });
+        const release = await CardRelease.findOne({ releaseId: drop.releaseId }).select("name").lean();
+        await interaction.message.edit({ content: dropText({ ...drop, status: closed ? "closed" : "open" }, release?.name || drop.releaseId, names), components: closed ? [] : [rowButtons(drop)], allowedMentions: { parse: [] } });
         if (closed) await CardDrop.updateOne({ _id: drop._id }, { $set: { displayClosedAt: new Date() } });
       }
     } catch (error) { console.warn("[Cards] Could not refresh drop display:", error.message); }
@@ -119,8 +120,9 @@ export async function reconcileCardDropClosures(client) {
       const pets = await PetCatalog.find({ petId: { $in: drop.slots.map(s => s.petId) } })
         .select("petId name").lean();
       const names = Object.fromEntries(pets.map(p => [p.petId, p.name]));
+      const release = await CardRelease.findOne({ releaseId: drop.releaseId }).select("name").lean();
       await message.edit({
-        content: dropText(drop, drop.releaseId, names),
+        content: dropText(drop, release?.name || drop.releaseId, names),
         components: [], allowedMentions: { parse: [] },
       });
       await CardDrop.updateOne({ _id: drop._id }, { $set: { displayClosedAt: new Date() } });
