@@ -19,12 +19,13 @@ const rowButtons = drop => new ActionRowBuilder().addComponents(drop.slots.map((
   new ButtonBuilder().setCustomId(`cards:grab:${drop._id}:${i}`)
     .setLabel(slot.claimedBy ? `#${i + 1} Claimed` : `Grab #${i + 1}`)
     .setStyle(ButtonStyle.Primary).setDisabled(Boolean(slot.claimedBy) || drop.expiresAt <= new Date() || drop.status !== "open")));
-function dropText(drop, releaseName, petNames = {}) {
+export function dropText(drop, releaseName, petNames = {}) {
+  const closed = drop.status === "closed" || new Date(drop.expiresAt) <= new Date() || drop.slots.every(slot => Boolean(slot.claimedBy));
   return [
     `🥚 **${escapeDiscord(releaseName)} Egg — Hatched!**`,
-    "Pick one visible card to grab:",
+    closed ? "**Drop Closed**" : "Pick one visible card to grab:",
     ...drop.slots.map((slot, i) => `**${i + 1}. ${escapeDiscord(petNames[slot.petId] || slot.petId)}** · ${slot.rarity}${slot.claimedBy ? " · Claimed" : ""}`),
-    `Drop closes <t:${Math.floor(drop.expiresAt.getTime() / 1000)}:R>.`,
+    ...(closed ? [] : [`Drop closes <t:${Math.floor(new Date(drop.expiresAt).getTime() / 1000)}:R>.`]),
   ].join("\n");
 }
 export async function execute(interaction) {
@@ -82,11 +83,54 @@ export async function handleCardGrab(interaction) {
       if (drop && String(drop.messageId) === interaction.message.id) {
         const pets = await PetCatalog.find({ petId: { $in: drop.slots.map(s => s.petId) } }).select("petId name").lean();
         const names = Object.fromEntries(pets.map(p => [p.petId, p.name]));
-        await interaction.message.edit({ content: dropText(drop, drop.releaseId, names), components: [rowButtons(drop)], allowedMentions: { parse: [] } });
+        const allClaimed = drop.slots.every(slot => Boolean(slot.claimedBy));
+        if (allClaimed) await CardDrop.updateOne({ _id: drop._id, status: "open" }, { $set: { status: "closed" } });
+        const closed = allClaimed || drop.status === "closed" || new Date(drop.expiresAt) <= new Date();
+        await interaction.message.edit({ content: dropText({ ...drop, status: closed ? "closed" : "open" }, drop.releaseId, names), components: closed ? [] : [rowButtons(drop)], allowedMentions: { parse: [] } });
+        if (closed) await CardDrop.updateOne({ _id: drop._id }, { $set: { displayClosedAt: new Date() } });
       }
     } catch (error) { console.warn("[Cards] Could not refresh drop display:", error.message); }
   } catch (error) {
     if (error instanceof CardClaimError) return interaction.editReply(error.message);
     throw error;
+  }
+}
+
+/**
+ * Periodically close expired drops and remove their Discord buttons.
+ * Also revisits previously closed drops after a restart or transient API error.
+ * Claim transactions check expiry in MongoDB, independent of message cleanup.
+ */
+export async function reconcileCardDropClosures(client) {
+  if (!isEnabled()) return;
+  const now = new Date();
+  await CardDrop.updateMany(
+    { status: "open", expiresAt: { $lte: now } },
+    { $set: { status: "closed" } },
+  );
+  const pending = await CardDrop.find({
+    status: "closed", displayClosedAt: null, messageId: { $ne: "" },
+  }).sort({ expiresAt: 1 }).limit(30).lean();
+  for (const drop of pending) {
+    try {
+      const channel = await client.channels.fetch(drop.channelId);
+      if (!channel?.messages?.fetch) throw new Error("Channel unavailable");
+      const message = await channel.messages.fetch(drop.messageId);
+      const pets = await PetCatalog.find({ petId: { $in: drop.slots.map(s => s.petId) } })
+        .select("petId name").lean();
+      const names = Object.fromEntries(pets.map(p => [p.petId, p.name]));
+      await message.edit({
+        content: dropText(drop, drop.releaseId, names),
+        components: [], allowedMentions: { parse: [] },
+      });
+      await CardDrop.updateOne({ _id: drop._id }, { $set: { displayClosedAt: new Date() } });
+    } catch (error) {
+      // Deleted Discord messages do not need ongoing retries.
+      if (Number(error?.code) === 10008 || Number(error?.code) === 10003) {
+        await CardDrop.updateOne({ _id: drop._id }, { $set: { displayClosedAt: new Date() } });
+      } else {
+        console.warn("[Cards] Could not close drop message:", String(drop._id), error.message);
+      }
+    }
   }
 }
