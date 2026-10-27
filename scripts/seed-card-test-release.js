@@ -48,14 +48,14 @@ try {
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
-        await CardSeries.create([{ seriesId: SERIES, name: "TEST Series 1", status: "active" }], { session });
+        await CardSeries.create([{ seriesId: SERIES, name: "TEST Series 1", status: "active" }], { session, ordered: true });
         await CardRelease.create([{ releaseId: RELEASE, seriesId: SERIES, name: "TEST Release 1",
-          eggName: "Test Egg (placeholder)", status: "active", hatchOdds: DEFAULT_HATCH_ODDS }], { session });
+          eggName: "Test Egg (placeholder)", status: "active", hatchOdds: DEFAULT_HATCH_ODDS }], { session, ordered: true });
         await CardDefinition.create(pets.map(p => ({
           seriesId: SERIES, releaseId: RELEASE, petId: p.petId, rarity: p.rarity,
           artStatus: "test-placeholder", enabled: true, hatchWeight: 1,
           artUrl: "",
-        })), { session });
+        })), { session, ordered: true });
       });
     } finally { await session.endSession(); }
     console.log("Created isolated TEST release (10 placeholder definitions). No cards issued.");
