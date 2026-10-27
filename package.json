@@ -7,7 +7,11 @@
     "start": "node index.js",
     "test": "node --test tests/*.test.js",
     "preflight": "node scripts/deployment-preflight.js",
-    "check:source": "node scripts/check-source.js"
+    "check:source": "node scripts/check-source.js",
+    "pet-catalog:preview": "node scripts/pet-catalog-preview.js",
+    "pet-catalog:preview:check": "node scripts/pet-catalog-preview.js --check",
+    "pet-catalog:mongo:dry-run": "node scripts/pet-catalog-mongo-import.js",
+    "pet-catalog:mongo:apply": "node scripts/pet-catalog-mongo-import.js --apply"
   },
   "type": "module",
   "dependencies": {

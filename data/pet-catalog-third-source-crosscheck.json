@@ -1,0 +1,957 @@
+{
+  "checkedOn": "2026-10-26",
+  "source": "https://github.com/kennarddh/adopt_me_trading_api/blob/master/data.json",
+  "sourceTimestamp": "05/12/2021 12:04:16",
+  "petCount": 158,
+  "note": "Historical third-source identity evidence only. No rarity verification. No trading values or images included. Not approved for live import.",
+  "records": [
+    {
+      "petId": "2021-uplift-butterfly",
+      "name": "2021 Uplift Butterfly",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "albino-bat",
+      "name": "Albino Bat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "albino-monkey",
+      "name": "Albino Monkey",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "arctic-fox",
+      "name": "Arctic Fox",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "arctic-reindeer",
+      "name": "Arctic Reindeer",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "australian-kelpie",
+      "name": "Australian Kelpie",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "axolotl",
+      "name": "Axolotl",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "bandicoot",
+      "name": "Bandicoot",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "bat",
+      "name": "Bat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "bat-dragon",
+      "name": "Bat Dragon",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "beaver",
+      "name": "Beaver",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "bee",
+      "name": "Bee",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "black-panther",
+      "name": "Black Panther",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "blue-dog",
+      "name": "Blue Dog",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "brown-bear",
+      "name": "Brown Bear",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "buffalo",
+      "name": "Buffalo",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "bunny",
+      "name": "Bunny",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "business-monkey",
+      "name": "Business Monkey",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "capybara",
+      "name": "Capybara",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "cat",
+      "name": "Cat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "cerberus",
+      "name": "Cerberus",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "chicken",
+      "name": "Chicken",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "chocolate-labrador",
+      "name": "Chocolate Labrador",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "clownfish",
+      "name": "Clownfish",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "cobra",
+      "name": "Cobra",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "cow",
+      "name": "Cow",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "crab",
+      "name": "Crab",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "crocodile",
+      "name": "Crocodile",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "crow",
+      "name": "Crow",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "dalmatian",
+      "name": "Dalmatian",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "deinonychus",
+      "name": "Deinonychus",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "diamond-dragon",
+      "name": "Diamond Dragon",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "diamond-griffin",
+      "name": "Diamond Griffin",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "diamond-ladybug",
+      "name": "Diamond Ladybug",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "diamond-unicorn",
+      "name": "Diamond Unicorn",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "dilophosaurus",
+      "name": "Dilophosaurus",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "dingo",
+      "name": "Dingo",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "dodo",
+      "name": "Dodo",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "dog",
+      "name": "Dog",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "dolphin",
+      "name": "Dolphin",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "dragon",
+      "name": "Dragon",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "drake",
+      "name": "Drake",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "elephant",
+      "name": "Elephant",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "emu",
+      "name": "Emu",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "evil-unicorn",
+      "name": "Evil Unicorn",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "fennec-fox",
+      "name": "Fennec Fox",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "flamingo",
+      "name": "Flamingo",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "frog",
+      "name": "Frog",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "frost-dragon",
+      "name": "Frost Dragon",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "frost-fury",
+      "name": "Frost Fury",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "ghost-bunny",
+      "name": "Ghost Bunny",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "ginger-cat",
+      "name": "Ginger Cat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "giraffe",
+      "name": "Giraffe",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "glyptodon",
+      "name": "Glyptodon",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "golden-dragon",
+      "name": "Golden Dragon",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "golden-griffin",
+      "name": "Golden Griffin",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "golden-ladybug",
+      "name": "Golden Ladybug",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "golden-penguin",
+      "name": "Golden Penguin",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "golden-rat",
+      "name": "Golden Rat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "golden-unicorn",
+      "name": "Golden Unicorn",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "golden-walrus",
+      "name": "Golden Walrus",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "goldhorn",
+      "name": "Goldhorn",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "griffin",
+      "name": "Griffin",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "ground-sloth",
+      "name": "Ground Sloth",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "guardian-lion",
+      "name": "Guardian Lion",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "halloween-black-mummy-cat",
+      "name": "Halloween Black Mummy Cat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "halloween-blue-scorpion",
+      "name": "Halloween Blue Scorpion",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "halloween-evil-dachshund",
+      "name": "Halloween Evil Dachshund",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "halloween-golden-mummy-cat",
+      "name": "Halloween Golden Mummy Cat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "halloween-white-ghost-dragon",
+      "name": "Halloween White Ghost Dragon",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "halloween-white-mummy-cat",
+      "name": "Halloween White Mummy Cat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "halloween-white-skeleton-dog",
+      "name": "Halloween White Skeleton Dog",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "hedgehog",
+      "name": "Hedgehog",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "horse",
+      "name": "Horse",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "husky",
+      "name": "Husky",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "hydra",
+      "name": "Hydra",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "hyena",
+      "name": "Hyena",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "ice-golem",
+      "name": "Ice Golem",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "kangaroo",
+      "name": "Kangaroo",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "king-bee",
+      "name": "King Bee",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "kirin",
+      "name": "Kirin",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "kitsune",
+      "name": "Kitsune",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "koala",
+      "name": "Koala",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "ladybug",
+      "name": "Ladybug",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "lamb",
+      "name": "Lamb",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "lion",
+      "name": "Lion",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "llama",
+      "name": "Llama",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "lunar-ox",
+      "name": "Lunar Ox",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "lynx",
+      "name": "Lynx",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "meerkat",
+      "name": "Meerkat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "merhorse",
+      "name": "Merhorse",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "metal-ox",
+      "name": "Metal Ox",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "monkey",
+      "name": "Monkey",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "monkey-king",
+      "name": "Monkey King",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "musk-ox",
+      "name": "Musk Ox",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "narwhal",
+      "name": "Narwhal",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "ninja-monkey",
+      "name": "Ninja Monkey",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "octopus",
+      "name": "Octopus",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "otter",
+      "name": "Otter",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "owl",
+      "name": "Owl",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "ox",
+      "name": "Ox",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "panda",
+      "name": "Panda",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "parrot",
+      "name": "Parrot",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "peacock",
+      "name": "Peacock",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "penguin",
+      "name": "Penguin",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "phoenix",
+      "name": "Phoenix",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "pig",
+      "name": "Pig",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "pink-cat",
+      "name": "Pink Cat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "platypus",
+      "name": "Platypus",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "polar-bear",
+      "name": "Polar Bear",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "pterodactyl",
+      "name": "Pterodactyl",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "puffin",
+      "name": "Puffin",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "puma",
+      "name": "Puma",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "queen-bee",
+      "name": "Queen Bee",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "rabbit",
+      "name": "Rabbit",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "rat",
+      "name": "Rat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "red-panda",
+      "name": "Red Panda",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "red-squirrel",
+      "name": "Red Squirrel",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "reindeer",
+      "name": "Reindeer",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "rhino",
+      "name": "Rhino",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "robin",
+      "name": "Robin",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "robo-dog",
+      "name": "Robo Dog",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "sabertooth",
+      "name": "Sabertooth",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "sasquatch",
+      "name": "Sasquatch",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "seahorse",
+      "name": "Seahorse",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "shadow-dragon",
+      "name": "Shadow Dragon",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "shark",
+      "name": "Shark",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "shiba-inu",
+      "name": "Shiba Inu",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "shrew",
+      "name": "Shrew",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "silly-duck",
+      "name": "Silly Duck",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "skele-rex",
+      "name": "Skele-Rex",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "sloth",
+      "name": "Sloth",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "snow-cat",
+      "name": "Snow Cat",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "snow-leopard",
+      "name": "Snow Leopard",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "snow-owl",
+      "name": "Snow Owl",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "snow-puma",
+      "name": "Snow Puma",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "snowman",
+      "name": "Snowman",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "starfish",
+      "name": "Starfish",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "stegosaurus",
+      "name": "Stegosaurus",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "stingray",
+      "name": "Stingray",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "summer-walrus",
+      "name": "Summer Walrus",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "swan",
+      "name": "Swan",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "t-rex",
+      "name": "T-Rex",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "tasmanian-tiger",
+      "name": "Tasmanian Tiger",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "toucan",
+      "name": "Toucan",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "toy-monkey",
+      "name": "Toy Monkey",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "triceratops",
+      "name": "Triceratops",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "turkey",
+      "name": "Turkey",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "turtle",
+      "name": "Turtle",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "unicorn",
+      "name": "Unicorn",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "walrus",
+      "name": "Walrus",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "wild-boar",
+      "name": "Wild Boar",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "wolf",
+      "name": "Wolf",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "wolpertinger",
+      "name": "Wolpertinger",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "woolly-mammoth",
+      "name": "Woolly Mammoth",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "wyvern",
+      "name": "Wyvern",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "yeti",
+      "name": "Yeti",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    },
+    {
+      "petId": "zombie-buffalo",
+      "name": "Zombie Buffalo",
+      "inAdoptmeValues": true,
+      "inGamevaultFacts": true
+    }
+  ]
+}
