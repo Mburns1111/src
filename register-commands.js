@@ -25,6 +25,7 @@ const guildId = process.env.DISCORD_GUILD_ID;
 // This validation never sends an API request or prints environment secrets.
 validateRuntimeConfiguration({ mode: "register" });
 
+if (process.env.ENABLE_CARD_GAME_TEST === "1" && !guildId) throw new Error("Card testing requires DISCORD_GUILD_ID for test-guild-only registration.");
 const rest = new REST({ version: "10" }).setToken(token);
 
 const commands = [
@@ -38,7 +39,6 @@ const commands = [
   setupCommand,
   adminImportCommand,
   shopCommand,
-  ...(process.env.ENABLE_CARD_GAME_TEST === "1" ? [cardsCommand] : []),
   ...(process.env.ENABLE_TEST_POINTS === "1" ? [testPointsCommand] : []),
   pointsAdminCommand,
   pointsObserveCommand,
@@ -53,7 +53,7 @@ console.log(
 
 if (guildId) {
   await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-    body: commands,
+    body: process.env.ENABLE_CARD_GAME_TEST === "1" ? [...commands, cardsCommand.toJSON()] : commands,
   });
 
   console.log(`Also registered commands for test server ${guildId}.`);
