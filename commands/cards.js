@@ -72,7 +72,7 @@ export async function handleCardGrab(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const parts = interaction.customId.split(":");
   const dropId = parts[2], slot = Number(parts[3]);
-  if (!interaction.guildId || !/^\\d+$/.test(parts[3] || "")) return interaction.editReply("Invalid card selection.");
+  if (!interaction.guildId || parts.length !== 4 || !["0", "1", "2"].includes(parts[3])) return interaction.editReply("Invalid card selection.");
   try {
     const awarded = await claimCardFromDrop({ dropId, slot, guildId: interaction.guildId, discordUserId: interaction.user.id });
     await interaction.editReply(`You grabbed **${escapeDiscord(awarded.petId)}** (${awarded.rarity})! Added to your card collection.`);
