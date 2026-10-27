@@ -75,6 +75,7 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
+import { data as cardsCommand, execute as executeCards, handleCardGrab } from "./commands/cards.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -246,6 +247,7 @@ const commandHandlers = new Map([
   [setupCommand.name, executeSetup],
   [adminImportCommand.name, executeAdminImport],
   [shopCommand.name, executeShop],
+  [cardsCommand.name, executeCards],
   [testPointsCommand.name, executeTestPoints],
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
@@ -404,6 +406,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isModalSubmit() &&
         interaction.customId.startsWith("admin-import:")) {
       await handleAdminImportModal(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:grab:")) {
+      await handleCardGrab(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("dm:notice:")) {
@@ -663,6 +669,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         setupCommand.name,
         adminImportCommand.name,
         shopCommand.name,
+        cardsCommand.name,
         testPointsCommand.name,
         pointsAdminCommand.name,
         pointsObserveCommand.name,
@@ -672,7 +679,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     ) {
       await ensureProfileCard(interaction.guild, interaction.user);
     }
-    if (![setupCommand.name, adminImportCommand.name].includes(interaction.commandName) && interaction.guildId) {
+    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name].includes(interaction.commandName) && interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
       if (
         config?.commandChannelId &&
