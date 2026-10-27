@@ -14,6 +14,7 @@ const schema = new mongoose.Schema({
   slots: { type: [slotSchema], validate: v => v.length === 3 },
   expiresAt: { type: Date, required: true },
   status: { type: String, enum: ["open", "closed"], default: "open" },
+  displayClosedAt: { type: Date, default: null },
 }, { timestamps: true });
 schema.index({ guildId: 1, status: 1, expiresAt: 1 });
 export default mongoose.models.CardDrop || mongoose.model("CardDrop", schema);
