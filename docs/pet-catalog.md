@@ -43,20 +43,24 @@ Collect factual pet metadata only from sources that permit the collection method
 
 **Official directory completeness:** Six further missing pets were added to the staff preview. Golden Chow-Chow already existed as Golden Chow Chow under the same stable ID; no duplicate was added. Dirty Ducky has Unknown official rarity (community-provisional Common only). Completeness is not certified; the catalog and art remain unapproved for production.
 
-## MongoDB import preparation (not yet authorized)
+## MongoDB pet-name and rarity import (owner-scoped)
 
-The catalog has **799** unique reviewed pets, including **three Unknown rarities**. The draft branch provides a non-writing validation command:
+The owner has authorized the factual **pet ID, name and rarity** fields, provided we keep attribution to the GitHub comparison sources and explicitly mark which names/rarities were manually checked against Adopt Me's official directory and release notes. This is **not** a finding of general third-party dataset reuse rights. Other original data, artwork, trading values, printed cards and metadata remain outside this authorization.
+
+The importer takes **799 distinct pets** from the current offline preview, with three official rarities still **Unknown** (Blue Cat, Pink Dog and Dirty Ducky), and writes new documents as `pending` only. The `sources` array records source name, exact link, covered fields and whether the source was independently manually verified. The GitHub candidate datasets are attributed only to pets actually present in their records; official/manual-only discoveries are not falsely attributed to either GitHub dataset. The Black Dog keeps official Rare and its historical conflict in the separate audit.
+
+Preview without writing to MongoDB:
 
 ```sh
 npm run pet-catalog:mongo:dry-run
 ```
 
-This previews the pending pet records locally without connecting to MongoDB. A guarded import command also exists:
+After reviewing the preview and confirming your `MONGODB_URI` points at the intended database, a database operator can apply the authorized factual-only insert:
 
 ```sh
-npm run pet-catalog:mongo:apply
+PET_CATALOG_IMPORT_APPROVED=YES npm run pet-catalog:mongo:apply
 ```
 
-**Do not run the apply command yet.** It rejects production writes while `rightsReview.approvedForDatabaseImport` remains false. Once the independent source-data rights review has cleared the particular intended use, the review manifest and preview workflow must be updated accordingly and an operator must explicitly supply `PET_CATALOG_IMPORT_APPROVED=YES` plus `MONGODB_URI`. Neither credential should be committed to GitHub.
+The MongoDB URL must already be supplied securely in the environment, not committed to GitHub. The apply command uses `petId` and `$setOnInsert` so any existing pet documents are **left untouched**; rerunning is safe from duplicate canonical IDs. This is a deliberate one-time command, **not** a normal bot startup action. No code here creates or assigns collectible cards or art.
 
-The importer uses `$setOnInsert` by canonical `petId`; existing pet records are left untouched, and newly inserted records remain `pending`. It does not copy artwork, grant ownership, create cards, or alter card supplies. It does not run from normal bot startup.
+**Other reuse permissions remain unresolved.** The existing `rightsReview.approvedForDatabaseImport = false` continues to protect broader third-party dataset and media reuse. The separately recorded `factualMetadataImport` documents this narrower owner instruction; it is not independent legal clearance.
