@@ -12,6 +12,7 @@ import { data as tradeCommand } from "./commands/trade.js";
 import { data as setupCommand } from "./commands/setup.js";
 import { data as adminImportCommand } from "./commands/admin-import-listing.js";
 import { data as shopCommand } from "./commands/shop.js";
+import { data as cardsCommand } from "./commands/cards.js";
 import { data as testPointsCommand } from "./commands/test-points.js";
 import { data as pointsAdminCommand } from "./commands/points-admin.js";
 import { data as pointsObserveCommand } from "./commands/points-observe.js";
@@ -37,6 +38,7 @@ const commands = [
   setupCommand,
   adminImportCommand,
   shopCommand,
+  ...(process.env.ENABLE_CARD_GAME_TEST === "1" ? [cardsCommand] : []),
   ...(process.env.ENABLE_TEST_POINTS === "1" ? [testPointsCommand] : []),
   pointsAdminCommand,
   pointsObserveCommand,
