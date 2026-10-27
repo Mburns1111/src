@@ -35,7 +35,7 @@ export async function claimCardFromDrop({ dropId, slot, guildId, discordUserId, 
         originGuildId: guildId, upgradeLevel: "normal", state: "owned", source: "drop",
       });
       await copy.save({ session });
-      await CardClaim.create([{ dropId: drop._id, slot, discordUserId, cardCopyId: copy._id }], { session });
+      await CardClaim.create([{ dropId: drop._id, slot, discordUserId, cardCopyId: copy._id }], { session, ordered: true });
       awarded = { copyId: String(copy._id), petId: drop.slots[slot].petId, rarity: drop.slots[slot].rarity };
     });
     return awarded;
