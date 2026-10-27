@@ -34,6 +34,11 @@ test("invalid probabilities and weights are rejected", () => {
   assert.throws(() => validateHatchOdds({ ...DEFAULT_HATCH_ODDS, Legendary: 9 }), /total 100/);
   assert.throws(() => hatchCard({ cards: [{ ...pool[0], hatchWeight: -3 }] }), /no hatchable|Invalid hatch weight/);
 });
+test("placeholder artwork cannot hatch outside explicitly enabled test mode", () => {
+  const placeholder = [{ ...pool[0], artStatus: "test-placeholder" }];
+  assert.throws(() => hatchCard({ cards: placeholder, random: () => 0 }), /no hatchable/i);
+  assert.equal(hatchCard({ cards: placeholder, random: () => 0, allowTestPlaceholders: true }).card.petId, "dog");
+});
 test("collectibles never share profile data or impose print caps", () => {
   assert.equal(CardCollector.schema.path("discordUserId").options.unique, true);
   assert.equal(CardCopy.schema.path("printLimit"), undefined);
