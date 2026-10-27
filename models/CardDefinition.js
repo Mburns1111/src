@@ -5,7 +5,7 @@ const schema = new mongoose.Schema({
   releaseId: { type: String, required: true },
   petId: { type: String, required: true },
   rarity: { type: String, required: true, enum: ["Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"] },
-  artStatus: { type: String, enum: ["missing", "pending", "approved"], default: "missing" },
+  artStatus: { type: String, enum: ["missing", "pending", "approved", "test-placeholder"], default: "missing" },
   artUrl: { type: String, default: "" },
   hatchWeight: { type: Number, default: 1, min: 0 },
   valueReview: {
