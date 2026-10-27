@@ -17,3 +17,7 @@ test("cards track origin and are not print limited", () => {
   assert.ok(CardCopy.schema.path("originGuildId"));
   assert.equal(CardCopy.schema.path("printLimit"), undefined);
 });
+
+test("drop closure has durable Discord message cleanup marker", () => {
+  assert.ok(CardDrop.schema.path("displayClosedAt"));
+});
