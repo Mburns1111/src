@@ -8,6 +8,24 @@ import { preparePetCatalogImport } from "../services/pet-catalog-import.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const load = name => JSON.parse(readFileSync(resolve(root, "data", name), "utf8"));
+const GITHUB_VALUES = "https://github.com/ironbabatekkral/adoptme-values/blob/main/adoptme_values.json";
+const GITHUB_FACTS = "https://github.com/gyanu1614/gamevault/blob/main/scripts/values-seeds/adopt-me.facts.json";
+function petSources(pet) {
+  const categories = new Set(pet.inputCategories);
+  const sources = [];
+  const add = (name, url, role, fields, verifiedManually, checkedAt = null) =>
+    sources.push({ name, url, role, fields, verifiedManually, checkedAt });
+  if (categories.has("matched") || categories.has("only-adoptme-values"))
+    add("adoptme-values (GitHub candidate)", GITHUB_VALUES, "candidate-dataset", ["name", "rarity"], false);
+  if (categories.has("matched") || categories.has("only-gamevault"))
+    add("gamevault (GitHub candidate)", GITHUB_FACTS, "candidate-dataset", ["identity"], false);
+  for (const url of pet.officialSourceUrls) {
+    add("Adopt Me (manual official verification)", url, "official-manual-review",
+      pet.officialRarity == null ? ["identity"] : ["name", "rarity"], true, pet.verifiedOn || null);
+  }
+  return sources;
+}
+
 
 export function prepareReviewedCatalog(preview, decisions) {
   if (!Array.isArray(preview?.pets) || preview.summary?.canonicalPets !== preview.pets.length) {
@@ -19,20 +37,29 @@ export function prepareReviewedCatalog(preview, decisions) {
   if (!preview.pets.every(p => p.reviewStatus === "pending" && p.officialSourceUrls?.length)) {
     throw new Error("Missing review or provenance metadata");
   }
-  const rows = preview.pets.map(p => ({
-    petId: p.petId,
-    name: p.name,
-    rarity: p.officialRarity ?? "Unknown",
-    availability: "unknown",
-    sourceName: "Adopt Me official pet directory / release notes",
-    sourceUrl: p.officialSourceUrls[0],
-  }));
-  const prepared = preparePetCatalogImport(rows);
+
+  const prepared = preparePetCatalogImport(preview.pets.map(p => ({
+    petId: p.petId, name: p.name, rarity: p.officialRarity ?? "Unknown", availability: "unknown",
+  })));
+  if (prepared.rejected.length) {
+    throw new Error("Invalid rows: " + JSON.stringify(prepared.rejected.slice(0, 5)));
+  }
+  for (let i = 0; i < preview.pets.length; i++) {
+    const pet = preview.pets[i];
+    prepared.accepted[i].sources = petSources(pet);
+    prepared.accepted[i].rarityVerification = pet.officialRarity == null ? "identity-only" :
+      pet.rarityEvidence === "official-rarity-adjudicated" ? "official-adjudicated" : "official-verified";
+  }
   if (prepared.rejected.length || prepared.accepted.length !== preview.pets.length) {
     throw new Error("Invalid catalog rows: " + JSON.stringify(prepared.rejected.slice(0, 5)));
   }
-  if (decisions?.rightsReview?.approvedForDatabaseImport !== true) {
-    return { readyForImport: false, reason: "Database import rights not cleared", rows: prepared.accepted };
+  const approval = decisions?.factualMetadataImport;
+  if (!approval?.ownerApprovedForNamesAndRarities ||
+      approval.sourceAttributionRequired !== true ||
+      approval.officialManualEvidenceRequired !== true ||
+      approval.defaultReviewStatus !== "pending" ||
+      !["petId", "name", "rarity", "sources", "rarityVerification", "reviewStatus"].every(x => approval.scope?.includes(x))) {
+    return { readyForImport: false, reason: "Factual metadata authorization is missing", rows: prepared.accepted };
   }
   return { readyForImport: true, rows: prepared.accepted };
 }
@@ -50,8 +77,8 @@ console.log(JSON.stringify({
 }, null, 2));
 
 if (process.argv.includes("--apply")) {
-  if (!stage.readyForImport || decisions.rightsReview.approvedForDatabaseImport !== true) {
-    throw new Error("MongoDB import blocked: independent source rights clearance not recorded");
+  if (!stage.readyForImport) {
+    throw new Error("MongoDB import blocked: scoped factual metadata approval missing");
   }
   if (process.env.PET_CATALOG_IMPORT_APPROVED !== "YES") {
     throw new Error("Explicit PET_CATALOG_IMPORT_APPROVED=YES required");
