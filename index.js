@@ -75,7 +75,7 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
-import { data as cardsCommand, execute as executeCards, handleCardGrab } from "./commands/cards.js";
+import { data as cardsCommand, execute as executeCards, handleCardGrab, reconcileCardDropClosures } from "./commands/cards.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -198,6 +198,15 @@ client.on(Events.MessageCreate, message => {
 // Process each calendar minute only once while the bot is online. Cached voice
 // states require GuildVoiceStates intent; no recorded audio or speech analysis.
 let voiceActivityTimer;
+let cardDropCloseTimer;
+let cardDropCloseRunning = false;
+async function runCardDropCloseSweep() {
+  if (cardDropCloseRunning) return;
+  cardDropCloseRunning = true;
+  try { await reconcileCardDropClosures(client); }
+  catch (error) { console.error("[Cards] Drop-close sweep failed:", error); }
+  finally { cardDropCloseRunning = false; }
+}
 let voiceTickRunning = false;
 async function voiceActivityTick() {
   if (voiceTickRunning || !client.isReady()) return;
@@ -319,6 +328,11 @@ client.once(Events.ClientReady, (readyClient) => {
   startMediaTelemetry();
   voiceActivityTimer = setInterval(() => void voiceActivityTick(), 60_000);
   voiceActivityTimer.unref?.();
+  if (process.env.ENABLE_CARD_GAME_TEST === "1") {
+    cardDropCloseTimer = setInterval(() => void runCardDropCloseSweep(), 5000);
+    cardDropCloseTimer.unref?.();
+    void runCardDropCloseSweep();
+  }
   console.log(`Bot is online as ${readyClient.user.tag}.`);
   void (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
@@ -783,6 +797,7 @@ async function start() {
 async function shutdown(signal) {
   console.log(`Received ${signal}; shutting down.`);
   if (voiceActivityTimer) clearInterval(voiceActivityTimer);
+  if (cardDropCloseTimer) clearInterval(cardDropCloseTimer);
   await client.destroy();
   await mongoose.disconnect();
   process.exit(0);
