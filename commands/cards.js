@@ -11,7 +11,7 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("C
   .addSubcommand(c => c.setName("collection").setDescription("View your collectible cards"))
   .addSubcommand(c => c.setName("test-drop").setDescription("MANAGERS: reveal a test release egg with three cards")
     .addStringOption(o => o.setName("release").setDescription("Release ID (e.g. series1-release1)").setRequired(true))
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild));
+);
 
 const isEnabled = () => process.env.ENABLE_CARD_GAME_TEST === "1";
 const escapeDiscord = text => String(text ?? "").replace(/[@`*_~|<>]/g, "");
