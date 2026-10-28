@@ -37,14 +37,15 @@
       "displayName": "Upper-Trade-7110",
       "platform": "Reddit",
       "profileUrl": "https://www.reddit.com/user/Upper-Trade-7110/",
-      "notes": "User reports the artist has personally granted permission to use their artwork for AM Isa (2026-10-28). No specific artwork links or full permission message recorded yet. Avoid assuming all works, permitted edits, and sublicensing are included.",
+      "notes": "Artist reportedly gave permission directly to the owner for AM Isa. Four Reddit preview media links were supplied on 2026-10-28 (Butterfly+Slug, Beetle, Scorpion, Hedgehog), including one repeated Hedgehog link, and four photo uploads. Confirm original permission wording and which adaptations/crops are covered before publication.",
       "permission": {
         "status": "reported-by-project-owner",
         "reportedOn": "2026-10-28",
         "scope": "Artist reportedly said AM Isa may use their art; exact wording and scope not recorded.",
         "evidenceUrl": null,
         "notes": "Permission reported directly by project owner. Keep artwork associations and license details per image; request original image URLs and permission evidence for archival."
-      }
+      },
+      "researchCatalogPath": "data/artist-research-upper-trade-7110.json"
     }
   ],
   "artworks": [
@@ -131,6 +132,161 @@
       "intendedUse": "General visual for future project feature; specific placement undecided",
       "recordedOn": "2026-10-28",
       "notes": "Artwork depicts four pets and was explicitly excluded from individually identified pet card art. Keep unassigned to all releases and pet species until owner chooses a general application. Reddit preview URL is a source reference, not an imported or approved production asset."
+    },
+    {
+      "artworkId": "uppertrade-butterfly-slug-001",
+      "title": "Butterfly and Slug illustration",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-upper-trade-7110"
+      ],
+      "creditText": "Artwork by Upper-Trade-7110 (Reddit).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "8vey8mer4hhh1",
+        "imagePageUrl": null,
+        "providedAttributionUrl": "https://preview.redd.it/will-do-commissions-for-adm-pets-v0-8vey8mer4hhh1.jpg?width=1080&crop=smart&auto=webp&s=7d1ba2f391dff0f94e67d993986f239a81037978"
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Owner reports permission from Upper-Trade-7110. Original permission message, scope of use (including crops/edits), and exact underlying artwork attribution not independently verified. Keep in catalog as potential art but do not mark production-approved."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "depictedPets": [
+        "Butterfly (species unconfirmed)",
+        "Slug"
+      ],
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "source-reference-needs-crop-and-review",
+      "researchCatalogPath": "data/artist-research-upper-trade-7110.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "User labels this original image as butterfly and slug. A photographed art sheet shows a gray-bodied, green-winged flying insect and a green Slug; exact butterfly species is not confirmed."
+    },
+    {
+      "artworkId": "uppertrade-beetle-001",
+      "title": "Beetle illustration (exact variety pending)",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-upper-trade-7110"
+      ],
+      "creditText": "Artwork by Upper-Trade-7110 (Reddit).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "z7qc4ner4hhh1",
+        "imagePageUrl": null,
+        "providedAttributionUrl": "https://preview.redd.it/will-do-commissions-for-adm-pets-v0-z7qc4ner4hhh1.jpg?width=1080&crop=smart&auto=webp&s=84c432b4d95b8b7d9678a99b0981430cff754c2f"
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Owner reports permission from Upper-Trade-7110. Original permission message, scope of use (including crops/edits), and exact underlying artwork attribution not independently verified. Keep in catalog as potential art but do not mark production-approved."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "depictedPets": [
+        "Beetle (species unconfirmed)"
+      ],
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "source-reference-needs-crop-and-review",
+      "researchCatalogPath": "data/artist-research-upper-trade-7110.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "User labels this source as a beetle; exact Adopt Me pet name is unconfirmed. Do not automatically call it a Rhino Beetle or Bee."
+    },
+    {
+      "artworkId": "uppertrade-scorpion-001",
+      "title": "Blue Scorpion illustration (exact variety pending)",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-upper-trade-7110"
+      ],
+      "creditText": "Artwork by Upper-Trade-7110 (Reddit).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "vvhp1rer4hhh1",
+        "imagePageUrl": null,
+        "providedAttributionUrl": "https://preview.redd.it/will-do-commissions-for-adm-pets-v0-vvhp1rer4hhh1.jpg?width=1080&crop=smart&auto=webp&s=98503c4eaa597c93173686a521bf20b10c9bf687"
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Owner reports permission from Upper-Trade-7110. Original permission message, scope of use (including crops/edits), and exact underlying artwork attribution not independently verified. Keep in catalog as potential art but do not mark production-approved."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "depictedPets": [
+        "Scorpion (blue/purple, exact variety unconfirmed)"
+      ],
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "source-reference-needs-crop-and-review",
+      "researchCatalogPath": "data/artist-research-upper-trade-7110.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Art photographed by user shows large blue/purple segmented animal with claws and raised curved tail: scorpion, not lobster. Halloween Blue Scorpion is a plausible variant but is unverified."
+    },
+    {
+      "artworkId": "uppertrade-hedgehog-001",
+      "title": "Hedgehog illustration",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-upper-trade-7110"
+      ],
+      "creditText": "Artwork by Upper-Trade-7110 (Reddit).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "bhippqer4hhh1",
+        "imagePageUrl": null,
+        "providedAttributionUrl": "https://preview.redd.it/will-do-commissions-for-adm-pets-v0-bhippqer4hhh1.jpg?width=1080&crop=smart&auto=webp&s=9ca3c1ecf31e15f63e7f5afe9ff753aa8f86e30d"
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Owner reports permission from Upper-Trade-7110. Original permission message, scope of use (including crops/edits), and exact underlying artwork attribution not independently verified. Keep in catalog as potential art but do not mark production-approved."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "depictedPets": [
+        "Hedgehog"
+      ],
+      "series1PetMatches": [
+        "Hedgehog"
+      ],
+      "candidateUsage": "Series 1 pet-card candidate",
+      "imageStatus": "source-reference-needs-crop-and-review",
+      "researchCatalogPath": "data/artist-research-upper-trade-7110.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Brown-and-cream Hedgehog drawing photographed and identified by owner. User accidentally pasted this URL twice; keep one unique art record."
     }
   ],
   "releases": [
