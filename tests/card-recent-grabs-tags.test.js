@@ -33,3 +33,13 @@ test("no grabs shows an empty history rather than placeholder cards", () => {
   const result = formatCardCollectionSummary({ total: 0, rarity: {}, upgrade: {} });
   assert.match(result, /No cards grabbed yet/);
 });
+
+test("tag commands require name but have optional card ID for last grab", async () => {
+  const { data } = await import("../commands/cards.js");
+  const command = data.toJSON();
+  const tag = command.options.find(o => o.name === "tag");
+  const untag = command.options.find(o => o.name === "untag");
+  assert.equal(tag.options.find(o => o.name === "name").required, true);
+  assert.equal(tag.options.find(o => o.name === "card_id").required, false);
+  assert.equal(untag.options.find(o => o.name === "card_id").required, false);
+});
