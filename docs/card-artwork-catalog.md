@@ -62,9 +62,9 @@ The original in-game Turtle reference screenshot `zw2w9yz23lkg1` was posted by `
 
 The artwork is in the main artwork credits catalog because it has potential other uses, but has `petCardEligible: false` and an empty `releaseIds` list. The sole Release 1 **egg type** remains `egg-drop-001`.
 
-### Remaining open identification
+### Skipped illustration
 
-The dark furry pet illustration in `urkhhed6ujkg1` (Glum-Factor3313 request) still has no confirmed species. It remains in the research list rather than receiving a guessed pet assignment.
+The dark furry pet illustration `urkhhed6ujkg1` from the Glum-Factor3313 request has been **skipped by the owner**. It is excluded from pet-card selection and future general-artwork candidates. Its source link remains in the research JSON strictly for attribution and decision history; no species assignment is needed or pending.
 
 **These are research and artwork-credit records, not imported card art.** Before use in Discord cards, check the specific original file and the permission scope granted by the artist; preserve contributor attribution.
 
