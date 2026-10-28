@@ -26,6 +26,14 @@ For implemented egg releases, `CardRelease.eggArtworkId` can reference the artwo
 
 The finished image was edited/assembled by the project owner and **includes** material by stux. The composite-edit contribution and the original Pixabay visual contribution are credited separately: the creator of the component is not represented as the creator of the entire final egg graphic. Owner's preferred public credit name can be updated later. Editing an image does not, by itself, clear rights for any third-party art included.
 
+## Artist research — αriαℓ / u/softlambkin
+
+The owner reports direct permission from Reddit artist **αriαℓ** (**u/softlambkin**). Artist profile: https://www.reddit.com/user/softlambkin/ . Initial public source thread: https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/adopt_me_fanart_c/
+
+Research and **direct links to the artist's artwork replies** are stored in [`data/artist-research-softlambkin.json`](../data/artist-research-softlambkin.json). The current text-confirmed drawings cover **Wolf and Ghost Wolf together, Turtle, and neon Cute-A-Cabra**. Three pets (Wolf, Turtle, Cute-A-Cabra) match the owner's Series 1 working roster. Other finished works are only associated with pet nicknames/screenshot-only requests, so their species remain unconfirmed.
+
+**These are discovery/review records, not imported card artwork.** Permission message/evidence, reuse scope, final chosen files, and visual pet identification must be checked before assigning an artwork ID to a card.
+
 ## Adding images in the future
 
 1. Create or reuse an artist entry (`artistId`, name, profile URL).
