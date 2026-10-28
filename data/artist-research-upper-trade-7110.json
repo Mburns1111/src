@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "artistId": "reddit-upper-trade-7110",
+  "displayName": "Upper-Trade-7110",
+  "artistProfileUrl": "https://www.reddit.com/user/Upper-Trade-7110/",
+  "originalRedditPostSlug": "will-do-commissions-for-adm-pets",
+  "originalPostUrl": null,
+  "addedOn": "2026-10-28",
+  "attributionBasis": "Reddit artist identified by project owner in preceding message; the artist reportedly granted permission to use their artwork. Reddit post URL and original permission-message text not supplied.",
+  "imageSources": [
+    {
+      "researchId": "uppertrade-butterfly-slug",
+      "artworkId": "uppertrade-butterfly-slug-001",
+      "redditMediaId": "8vey8mer4hhh1",
+      "previewUrl": "https://preview.redd.it/will-do-commissions-for-adm-pets-v0-8vey8mer4hhh1.jpg?width=1080&crop=smart&auto=webp&s=7d1ba2f391dff0f94e67d993986f239a81037978",
+      "claimedSubjects": [
+        "Butterfly (species unconfirmed)",
+        "Slug"
+      ],
+      "series1Matches": [],
+      "confidence": "user-labeled-and-screenshot-visible",
+      "sourceStatus": "user-provided-reddit-media-url",
+      "notes": "User labels this original image as butterfly and slug. A photographed art sheet shows a gray-bodied, green-winged flying insect and a green Slug; exact butterfly species is not confirmed."
+    },
+    {
+      "researchId": "uppertrade-beetle",
+      "artworkId": "uppertrade-beetle-001",
+      "redditMediaId": "z7qc4ner4hhh1",
+      "previewUrl": "https://preview.redd.it/will-do-commissions-for-adm-pets-v0-z7qc4ner4hhh1.jpg?width=1080&crop=smart&auto=webp&s=84c432b4d95b8b7d9678a99b0981430cff754c2f",
+      "claimedSubjects": [
+        "Beetle (species unconfirmed)"
+      ],
+      "series1Matches": [],
+      "confidence": "user-labeled-species-unconfirmed",
+      "sourceStatus": "user-provided-reddit-media-url",
+      "notes": "User labels this source as a beetle; exact Adopt Me pet name is unconfirmed. Do not automatically call it a Rhino Beetle or Bee."
+    },
+    {
+      "researchId": "uppertrade-scorpion",
+      "artworkId": "uppertrade-scorpion-001",
+      "redditMediaId": "vvhp1rer4hhh1",
+      "previewUrl": "https://preview.redd.it/will-do-commissions-for-adm-pets-v0-vvhp1rer4hhh1.jpg?width=1080&crop=smart&auto=webp&s=98503c4eaa597c93173686a521bf20b10c9bf687",
+      "claimedSubjects": [
+        "Scorpion (blue/purple, exact variety unconfirmed)"
+      ],
+      "possibleAdoptMePet": "Halloween Blue Scorpion",
+      "series1Matches": [],
+      "confidence": "scorpion-visually-confirmed-variant-tentative",
+      "sourceStatus": "user-provided-reddit-media-url",
+      "notes": "Art photographed by user shows large blue/purple segmented animal with claws and raised curved tail: scorpion, not lobster. Halloween Blue Scorpion is a plausible variant but is unverified."
+    },
+    {
+      "researchId": "uppertrade-hedgehog",
+      "artworkId": "uppertrade-hedgehog-001",
+      "redditMediaId": "bhippqer4hhh1",
+      "previewUrl": "https://preview.redd.it/will-do-commissions-for-adm-pets-v0-bhippqer4hhh1.jpg?width=1080&crop=smart&auto=webp&s=9ca3c1ecf31e15f63e7f5afe9ff753aa8f86e30d",
+      "claimedSubjects": [
+        "Hedgehog"
+      ],
+      "series1Matches": [
+        "Hedgehog"
+      ],
+      "confidence": "confirmed-from-upload-and-user",
+      "sourceStatus": "user-provided-reddit-media-url",
+      "notes": "Brown-and-cream Hedgehog drawing photographed and identified by owner. User accidentally pasted this URL twice; keep one unique art record."
+    }
+  ],
+  "uploadedPhotoReferences": [
+    {
+      "uploadName": "image(20261028-214740).png",
+      "status": "not-in-github",
+      "description": "Orange/brown spotted, long-snouted creature lying with a potted plant on its back; exact species unresolved. No unique source link confidently matched to this crop.",
+      "possibleMatch": "Giant Anteater",
+      "confirmedPetSpecies": null,
+      "series1Match": null,
+      "notes": "Possible Giant Anteater but illustration differs from typical official striped brown/gray coloring; requires owner confirmation before assigning pet-card art."
+    },
+    {
+      "uploadName": "image(20261028-214752).png",
+      "status": "not-in-github",
+      "description": "Butterfly-like winged insect and green Slug on shared photographed page.",
+      "possiblyCorrespondsToArtworkId": "uppertrade-butterfly-slug-001"
+    },
+    {
+      "uploadName": "image(20261028-214846).png",
+      "status": "not-in-github",
+      "description": "Blue/purple scorpion and additional insects shown on paper. Exact separate beetle-versus-bee drawings not yet isolated.",
+      "possiblyCorrespondsToArtworkIds": [
+        "uppertrade-beetle-001",
+        "uppertrade-scorpion-001"
+      ]
+    },
+    {
+      "uploadName": "image(20261028-214911).png",
+      "status": "not-in-github",
+      "description": "Brown-and-cream Hedgehog on green background.",
+      "possiblyCorrespondsToArtworkId": "uppertrade-hedgehog-001"
+    }
+  ],
+  "notes": "Image URLs supplied directly by the owner in order alongside descriptions. Preview URLs were not independently retrievable; mapping is based on their descriptions and screenshots. The 4 Reddit media URLs are distinct; the Hedgehog link was pasted twice. The owner's uploaded photos have not been committed to GitHub. Research-only until full-resolution crop, permission scope and publication are ready."
+}
