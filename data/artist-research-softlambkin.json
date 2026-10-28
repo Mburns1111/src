@@ -19,7 +19,7 @@
       ],
       "variantNotes": "Requested pair of wolves; follow-up identifies a ghost wolf stealing the hat. Both in the artist's image reply.",
       "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cyk8t/",
-      "status": "species-identifiable-from-comment-context",
+      "status": "species-verified-visually",
       "reviewNeeded": [
         "Visually inspect original image",
         "Confirm permission covers this particular image and pet customization before card use"
@@ -33,9 +33,9 @@
       "series1Matches": [
         "Turtle"
       ],
-      "variantNotes": "Reply to direct request for a turtle drawing.",
+      "variantNotes": "Turtle visually confirmed in user-uploaded conversation screenshot. The game screenshot posted by PhoenixTheTortoise is the reference; the completed Turtle fanart was drawn and posted by softlambkin.",
       "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6d8z98/",
-      "status": "species-identifiable-from-comment-context",
+      "status": "species-verified-visually",
       "reviewNeeded": [
         "Visually inspect original image",
         "Confirm permission applies to art drawn in reply to another member"
@@ -49,9 +49,9 @@
       "series1Matches": [
         "Cute-A-Cabra"
       ],
-      "variantNotes": "Original request specifies neon Cute-A-Cabra; artist replies with finished drawing.",
+      "variantNotes": "Neon Cute-A-Cabra visually confirmed in user-uploaded screenshot; artist draws black/dark pet with purple details and petwear.",
       "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dfo1t/",
-      "status": "species-identifiable-from-comment-context",
+      "status": "species-verified-visually",
       "reviewNeeded": [
         "Visually inspect original image",
         "Mark neon version correctly before assigning to a card"
@@ -120,12 +120,12 @@
       "reason": "Elsewhere on Reddit a commenter credited the username in connection with color suggestions, but no independently verified pet illustration in this research."
     }
   ],
-  "notes": "Research includes confirmed pet names from comments and ten submitted image previews mapped to reply authors. The preview images could not be visually inspected. One submitted picture is from another artist and is explicitly excluded from softlambkin credits.",
+  "notes": "Original URLs preserved, plus visual review grounded in 14 owner-uploaded Reddit screenshots. Clear matches: Strawberry Shortcake Bat Dragon (two drawings), Bunny Swirl, Turtle, Wolf, Ghost Wolf, Neon Cute-A-Cabra. Several others remain tentative. The game screenshot contributed by PhoenixTheTortoise is NOT a piece of fan art; a separate unrelated pink illustration by that user must not be credited to softlambkin.",
   "submittedImageReview": {
     "addedOn": "2026-10-28",
     "imageCount": 10,
-    "contentStatus": "source-comment-mapped-image-binary-not-accessible",
-    "statement": "Ten source URLs were submitted; one message accidentally concatenated two URLs, now separated. Reddit comments identify authors and some pet nicknames, but do not reveal the species of these pictures. Nine links are artist-authored; the PhoenixTheTortoise reply is artwork by a different author and is NOT credited to softlambkin.",
+    "contentStatus": "screenshots-visually-reviewed-2026-10-28-some-species-remain-tentative",
+    "statement": "Ten original preview links matched to fourteen user-uploaded Reddit conversation screenshots; illustrated animals can now be identified or tentatively classified. Most original authored drawings belong to softlambkin. The preview zw2w9yz23lkg1 is a requester-submitted game screenshot of a Turtle, NOT a separate artist illustration; softlambkin's actual Turtle drawing appears in their reply. A separate pink illustration posted by PhoenixTheTortoise is excluded from softlambkin credits.",
     "images": [
       {
         "imageNumber": 1,
@@ -135,9 +135,13 @@
         "replyTo": "chocbscuit",
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6o0t5p/",
         "petNickname": null,
-        "petSpecies": null,
-        "reviewStatus": "needs-visual-identification",
-        "context": "Artist replied with drawing to image-only request."
+        "petSpecies": "Strawberry Shortcake Bat Dragon",
+        "reviewStatus": "identified-from-user-screenshot",
+        "context": "Artist replied with drawing to image-only request.",
+        "candidateSpecies": [],
+        "speciesConfidence": "high",
+        "series1Match": true,
+        "variantNotes": "Pink-recolored/styled Strawberry Shortcake Bat Dragon with dessert headwear and doughnut. Exact Neon/Mega status not confirmed."
       },
       {
         "imageNumber": 2,
@@ -147,9 +151,13 @@
         "replyTo": "Miludayoo",
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dqzqp/",
         "petNickname": null,
-        "petSpecies": null,
-        "reviewStatus": "needs-visual-identification",
-        "context": "Artist replied with drawing to image-only request."
+        "petSpecies": "Strawberry Shortcake Bat Dragon",
+        "reviewStatus": "identified-from-user-screenshot",
+        "context": "Artist replied with drawing to image-only request.",
+        "candidateSpecies": [],
+        "speciesConfidence": "high",
+        "series1Match": true,
+        "variantNotes": "Neon glow, pink wings and heart-themed petwear; same base pet as the first image, not a new species."
       },
       {
         "imageNumber": 3,
@@ -160,8 +168,13 @@
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dp5vo/",
         "petNickname": null,
         "petSpecies": null,
-        "reviewStatus": "needs-visual-identification",
-        "context": "Requester asked for art of about four pets. Could contain multiple species."
+        "reviewStatus": "multiple-pets-needs-confirmation",
+        "context": "Requester asked for art of about four pets. Could contain multiple species.",
+        "candidateSpecies": [],
+        "speciesConfidence": "unresolved",
+        "series1Match": null,
+        "variantNotes": "Finished artwork depicts four highly stylized pets (red bat-like pet plus brown, dark-gray, and pale-blue pet). Original screenshots show four decorated pets, but their species cannot be identified safely from this upload.",
+        "depictedPetCount": 4
       },
       {
         "imageNumber": 4,
@@ -171,9 +184,13 @@
         "replyTo": "BumblebeeNational352",
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dck3s/",
         "petNickname": "Buttercream",
-        "petSpecies": null,
-        "reviewStatus": "needs-visual-identification",
-        "context": "Drawing of a pet nicknamed Buttercream, wearing petwear; species not in text."
+        "petSpecies": "Bunny Swirl",
+        "reviewStatus": "identified-from-user-screenshot",
+        "context": "Drawing of a pet nicknamed Buttercream, wearing petwear; species not in text.",
+        "candidateSpecies": [],
+        "speciesConfidence": "high",
+        "series1Match": false,
+        "variantNotes": "Pet Buttercream is a Bunny Swirl with a cinnamon-roll body, donut and dessert-themed petwear. Not the standard Bunny."
       },
       {
         "imageNumber": 5,
@@ -183,9 +200,13 @@
         "replyTo": "softlambkin",
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dflxq/",
         "petNickname": null,
-        "petSpecies": null,
-        "reviewStatus": "other-artist-do-not-credit-softlambkin",
-        "context": "Image was posted by PhoenixTheTortoise after offering to draw softlambkin's pet; image is not softlambkin artwork. Neighboring thread mentions Turtle but that does not identify this image as a Turtle."
+        "petSpecies": "Turtle",
+        "reviewStatus": "source-pet-reference-not-artist-illustration",
+        "context": "PhoenixTheTortoise supplied a screenshot of their own Turtle pet. softlambkin drew a separate Turtle illustration in reply; this source screenshot is not a separately authored Phoenix fan-art image.",
+        "candidateSpecies": [],
+        "speciesConfidence": "high",
+        "series1Match": true,
+        "variantNotes": "This particular preview file is the REQUESTER'S game screenshot of a Turtle, not an illustration created by another artist. The reply beneath contains softlambkin's separate original Turtle illustration. A different pink pet illustration in the conversation was made by PhoenixTheTortoise and must not be credited to softlambkin."
       },
       {
         "imageNumber": 6,
@@ -196,8 +217,15 @@
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6d1t85/",
         "petNickname": "Winnie",
         "petSpecies": null,
-        "reviewStatus": "needs-visual-identification",
-        "context": "Drawing of a pet named Winnie; species not in text."
+        "reviewStatus": "visually-reviewed-needs-species-verification",
+        "context": "Drawing of a pet named Winnie; species not in text.",
+        "candidateSpecies": [
+          "Arctic Fox",
+          "recolored Fennec Fox"
+        ],
+        "speciesConfidence": "tentative",
+        "series1Match": null,
+        "variantNotes": "Winnie resembles a white fox with pointed ears and fluffy tapering tail, wearing red beret and red handbag. Looks closest to Arctic Fox, but its heavily styled source and drawing do not conclusively distinguish species."
       },
       {
         "imageNumber": 7,
@@ -208,8 +236,14 @@
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cq0i0/",
         "petNickname": null,
         "petSpecies": null,
-        "reviewStatus": "needs-visual-identification",
-        "context": "Artist drew pet shown in screenshots; owner praises aura; species not in text."
+        "reviewStatus": "visually-reviewed-needs-species-verification",
+        "context": "Artist drew pet shown in screenshots; owner praises aura; species not in text.",
+        "candidateSpecies": [
+          "Canadian Goose"
+        ],
+        "speciesConfidence": "tentative",
+        "series1Match": false,
+        "variantNotes": "Brown/black-headed goose-like bird with white wing and a box backpack. Appearance suggests Canadian Goose rather than the all-white Goose on Series 1, but exact identity needs owner confirmation."
       },
       {
         "imageNumber": 8,
@@ -220,8 +254,14 @@
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cmnun/",
         "petNickname": "Cloud",
         "petSpecies": null,
-        "reviewStatus": "needs-visual-identification",
-        "context": "Artist mentions pet Cloud; species not in text."
+        "reviewStatus": "visually-reviewed-needs-species-verification",
+        "context": "Artist mentions pet Cloud; species not in text.",
+        "candidateSpecies": [
+          "Happy Duckling"
+        ],
+        "speciesConfidence": "tentative",
+        "series1Match": null,
+        "variantNotes": "Cloud is a pale yellow/off-white ducklike pet wearing a white hood and unicorn-style costume/petwear; Happy Duckling is plausible, but costume obscures diagnostic features."
       },
       {
         "imageNumber": 9,
@@ -232,8 +272,14 @@
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cinh7/",
         "petNickname": "laffytaffy",
         "petSpecies": null,
-        "reviewStatus": "needs-visual-identification",
-        "context": "Pet named laffytaffy; this image is first of two artist variations."
+        "reviewStatus": "visually-reviewed-needs-species-verification",
+        "context": "Pet named laffytaffy; this image is first of two artist variations.",
+        "candidateSpecies": [
+          "Unicorn"
+        ],
+        "speciesConfidence": "tentative",
+        "series1Match": null,
+        "variantNotes": "Laffytaffy is a pink-purple horse/unicorn-shaped pet with elaborate butterfly headwear that obscures the forehead/horn; may be recolored Unicorn. Verify original pet identity before labeling as such."
       },
       {
         "imageNumber": 10,
@@ -244,10 +290,16 @@
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cd5wz/",
         "petNickname": null,
         "petSpecies": null,
-        "reviewStatus": "needs-visual-identification",
-        "context": "Requester says image shows them and their son; species not in text."
+        "reviewStatus": "visually-reviewed-needs-species-verification",
+        "context": "Requester says image shows them and their son; species not in text.",
+        "candidateSpecies": [],
+        "speciesConfidence": "unresolved",
+        "series1Match": null,
+        "variantNotes": "Illustration of a dark furry canine/feline-looking animal with wide eyes, based on source screenshot of small black pet with orange details next to Roblox avatar; exact species unclear."
       }
     ],
-    "notes": "Original source URLs preserved verbatim. URLs are 320px Reddit previews; for released card art request high-resolution originals and confirm artist's permission. Source comment authorship verified from the public thread. Do not infer pet species solely from Reddit usernames, nicknames, or nearby Turtle discussion."
+    "notes": "Original source URLs preserved verbatim. URLs are 320px Reddit previews; for released card art request high-resolution originals and confirm artist's permission. Source comment authorship verified from the public thread. Do not infer pet species solely from Reddit usernames, nicknames, or nearby Turtle discussion.",
+    "reviewedOn": "2026-10-28",
+    "reviewEvidence": "Fourteen full-conversation screenshots supplied by project owner in chat on 2026-10-28; original screenshot file paths are not permanent repository assets."
   }
 }
