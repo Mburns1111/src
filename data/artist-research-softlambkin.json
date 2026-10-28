@@ -60,54 +60,6 @@
   ],
   "completedButUnidentified": [
     {
-      "researchId": "softlambkin-winnie",
-      "petNickname": "Winnie",
-      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6d1t85/",
-      "notes": "Artist shared a completed drawing for pet Winnie, but the species is not identified in accessible text."
-    },
-    {
-      "researchId": "softlambkin-buttercream",
-      "petNickname": "Buttercream",
-      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dck3s/",
-      "notes": "Artist replied with a completed drawing; species needs image inspection."
-    },
-    {
-      "researchId": "softlambkin-laffytaffy",
-      "petNickname": "laffytaffy",
-      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cinh7/",
-      "notes": "Artist created a drawing plus a variation without a headpiece; species needs image inspection."
-    },
-    {
-      "researchId": "softlambkin-cloud",
-      "petNickname": "Cloud",
-      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cmnun/",
-      "notes": "Artist mentions Cloud in connection with a drawing; species not established from accessible context."
-    },
-    {
-      "researchId": "softlambkin-miludayoo-pet",
-      "petNickname": null,
-      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dqzqp/",
-      "notes": "Artist replied with drawing to screenshot-only pet request; species not established."
-    },
-    {
-      "researchId": "softlambkin-chocbscuit",
-      "petNickname": null,
-      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6o0t5p/",
-      "notes": "Artist-made drawing in response to screenshot-only request; species unknown."
-    },
-    {
-      "researchId": "softlambkin-strong-adeptness-four",
-      "petNickname": null,
-      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dp5vo/",
-      "notes": "Artist-made drawing for roughly four pets; species unknown."
-    },
-    {
-      "researchId": "softlambkin-thepotatoes31",
-      "petNickname": null,
-      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cq0i0/",
-      "notes": "Artist-made drawing for pet with aura; species unknown."
-    },
-    {
       "researchId": "softlambkin-glum-factor",
       "petNickname": null,
       "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cd5wz/",
@@ -120,12 +72,12 @@
       "reason": "Elsewhere on Reddit a commenter credited the username in connection with color suggestions, but no independently verified pet illustration in this research."
     }
   ],
-  "notes": "Original URLs preserved, plus visual review grounded in 14 owner-uploaded Reddit screenshots. Clear matches: Strawberry Shortcake Bat Dragon (two drawings), Bunny Swirl, Turtle, Wolf, Ghost Wolf, Neon Cute-A-Cabra. Several others remain tentative. The game screenshot contributed by PhoenixTheTortoise is NOT a piece of fan art; a separate unrelated pink illustration by that user must not be credited to softlambkin.",
+  "notes": "Includes direct Reddit post/preview URLs and owner follow-up identifications. Winnie = Arctic Fox, backpack bird = Canadian Goose, Laffytaffy = Unicorn. Cloud art is OWNER-SELECTED for Happy Duckling, not asserted to be the source pet's verified species. Multi-pet image reserved only for general artwork (no pet-card association). Unresolved Glum-Factor image remains to identify.",
   "submittedImageReview": {
     "addedOn": "2026-10-28",
     "imageCount": 10,
     "contentStatus": "screenshots-visually-reviewed-2026-10-28-some-species-remain-tentative",
-    "statement": "Ten original preview links matched to fourteen user-uploaded Reddit conversation screenshots; illustrated animals can now be identified or tentatively classified. Most original authored drawings belong to softlambkin. The preview zw2w9yz23lkg1 is a requester-submitted game screenshot of a Turtle, NOT a separate artist illustration; softlambkin's actual Turtle drawing appears in their reply. A separate pink illustration posted by PhoenixTheTortoise is excluded from softlambkin credits.",
+    "statement": "Images visually reviewed from user-uploaded Reddit conversation screenshots, followed by owner decisions. Winnie is Arctic Fox, backpack bird Canadian Goose, Laffytaffy Unicorn, Cloud art selected to represent Happy Duckling; four-pet group set aside for possible general-use artwork rather than a pet card. One image is a requester's Turtle screenshot, not the finished softlambkin illustration.",
     "images": [
       {
         "imageNumber": 1,
@@ -168,13 +120,17 @@
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dp5vo/",
         "petNickname": null,
         "petSpecies": null,
-        "reviewStatus": "multiple-pets-needs-confirmation",
+        "reviewStatus": "set-aside-for-future-general-use",
         "context": "Requester asked for art of about four pets. Could contain multiple species.",
         "candidateSpecies": [],
-        "speciesConfidence": "unresolved",
-        "series1Match": null,
-        "variantNotes": "Finished artwork depicts four highly stylized pets (red bat-like pet plus brown, dark-gray, and pale-blue pet). Original screenshots show four decorated pets, but their species cannot be identified safely from this upload.",
-        "depictedPetCount": 4
+        "speciesConfidence": "not-applicable",
+        "series1Match": false,
+        "variantNotes": "Group illustration of four pets. Owner chose not to use this as an individually identified pet card; reserve it as a general artwork asset for a future, unspecified project use. Preserve the artist credit and source; do not auto-assign to Release 1 or to a pet species.",
+        "depictedPetCount": 4,
+        "speciesDecisionBasis": "owner-excluded-from-pet-cards",
+        "artUsage": "general-artwork-unassigned",
+        "excludeFromPetCards": true,
+        "generalArtworkId": "softlambkin-general-multipet-001"
       },
       {
         "imageNumber": 4,
@@ -216,16 +172,14 @@
         "replyTo": "Caococoacoco",
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6d1t85/",
         "petNickname": "Winnie",
-        "petSpecies": null,
-        "reviewStatus": "visually-reviewed-needs-species-verification",
+        "petSpecies": "Arctic Fox",
+        "reviewStatus": "identified-by-project-owner",
         "context": "Drawing of a pet named Winnie; species not in text.",
-        "candidateSpecies": [
-          "Arctic Fox",
-          "recolored Fennec Fox"
-        ],
-        "speciesConfidence": "tentative",
-        "series1Match": null,
-        "variantNotes": "Winnie resembles a white fox with pointed ears and fluffy tapering tail, wearing red beret and red handbag. Looks closest to Arctic Fox, but its heavily styled source and drawing do not conclusively distinguish species."
+        "candidateSpecies": [],
+        "speciesConfidence": "high",
+        "series1Match": true,
+        "variantNotes": "Winnie is confirmed by the project owner as an Arctic Fox. Red beret and handbag are petwear; the illustration keeps the same pet species.",
+        "speciesDecisionBasis": "owner-confirmed"
       },
       {
         "imageNumber": 7,
@@ -235,15 +189,14 @@
         "replyTo": "ThePotatoes31",
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cq0i0/",
         "petNickname": null,
-        "petSpecies": null,
-        "reviewStatus": "visually-reviewed-needs-species-verification",
+        "petSpecies": "Canadian Goose",
+        "reviewStatus": "identified-by-project-owner",
         "context": "Artist drew pet shown in screenshots; owner praises aura; species not in text.",
-        "candidateSpecies": [
-          "Canadian Goose"
-        ],
-        "speciesConfidence": "tentative",
+        "candidateSpecies": [],
+        "speciesConfidence": "high",
         "series1Match": false,
-        "variantNotes": "Brown/black-headed goose-like bird with white wing and a box backpack. Appearance suggests Canadian Goose rather than the all-white Goose on Series 1, but exact identity needs owner confirmation."
+        "variantNotes": "The brown/white goose with a box backpack is confirmed by the project owner as Canadian Goose. This is distinct from the ordinary Goose listed for Series 1.",
+        "speciesDecisionBasis": "owner-confirmed"
       },
       {
         "imageNumber": 8,
@@ -253,15 +206,14 @@
         "replyTo": "[deleted]",
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cmnun/",
         "petNickname": "Cloud",
-        "petSpecies": null,
-        "reviewStatus": "visually-reviewed-needs-species-verification",
+        "petSpecies": "Happy Duckling",
+        "reviewStatus": "selected-for-happy-duckling-by-owner",
         "context": "Artist mentions pet Cloud; species not in text.",
-        "candidateSpecies": [
-          "Happy Duckling"
-        ],
-        "speciesConfidence": "tentative",
-        "series1Match": null,
-        "variantNotes": "Cloud is a pale yellow/off-white ducklike pet wearing a white hood and unicorn-style costume/petwear; Happy Duckling is plausible, but costume obscures diagnostic features."
+        "candidateSpecies": [],
+        "speciesConfidence": "high",
+        "series1Match": true,
+        "variantNotes": "Owner chose to USE Cloud's duck-like illustration to represent Happy Duckling. This is a deliberate card-art assignment, not independently verified identification of the original customized pet. Existing petwear/costume may be visible.",
+        "speciesDecisionBasis": "owner-selected-card-representation"
       },
       {
         "imageNumber": 9,
@@ -271,15 +223,14 @@
         "replyTo": "rooisswag",
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cinh7/",
         "petNickname": "laffytaffy",
-        "petSpecies": null,
-        "reviewStatus": "visually-reviewed-needs-species-verification",
+        "petSpecies": "Unicorn",
+        "reviewStatus": "identified-by-project-owner",
         "context": "Pet named laffytaffy; this image is first of two artist variations.",
-        "candidateSpecies": [
-          "Unicorn"
-        ],
-        "speciesConfidence": "tentative",
-        "series1Match": null,
-        "variantNotes": "Laffytaffy is a pink-purple horse/unicorn-shaped pet with elaborate butterfly headwear that obscures the forehead/horn; may be recolored Unicorn. Verify original pet identity before labeling as such."
+        "candidateSpecies": [],
+        "speciesConfidence": "high",
+        "series1Match": true,
+        "variantNotes": "Laffytaffy is confirmed by project owner as Unicorn. Pink-purple appearance and elaborate butterfly headwear are styling.",
+        "speciesDecisionBasis": "owner-confirmed"
       },
       {
         "imageNumber": 10,
@@ -301,5 +252,40 @@
     "notes": "Original source URLs preserved verbatim. URLs are 320px Reddit previews; for released card art request high-resolution originals and confirm artist's permission. Source comment authorship verified from the public thread. Do not infer pet species solely from Reddit usernames, nicknames, or nearby Turtle discussion.",
     "reviewedOn": "2026-10-28",
     "reviewEvidence": "Fourteen full-conversation screenshots supplied by project owner in chat on 2026-10-28; original screenshot file paths are not permanent repository assets."
+  },
+  "ownerDecisions": {
+    "recordedOn": "2026-10-28",
+    "note": "Owner specifically identified Winnie, the backpack goose, and Laffytaffy. Happy Duckling is a chosen card representation rather than independent verification of the underlying pet. Multi-pet artwork is excluded from pet cards and reserved for unspecified future general use.",
+    "confirmedPetIdentifications": [
+      {
+        "redditImageId": "ikg3l74flkkg1",
+        "petSpecies": "Arctic Fox",
+        "petNickname": "Winnie"
+      },
+      {
+        "redditImageId": "oup3bl978kkg1",
+        "petSpecies": "Canadian Goose",
+        "petNickname": null
+      },
+      {
+        "redditImageId": "c28dvwz60kkg1",
+        "petSpecies": "Unicorn",
+        "petNickname": "laffytaffy"
+      }
+    ],
+    "chosenCardRepresentations": [
+      {
+        "redditImageId": "mnmid66l4kkg1",
+        "representAs": "Happy Duckling",
+        "petNickname": "Cloud"
+      }
+    ],
+    "generalArtworkExclusions": [
+      {
+        "redditImageId": "xdlpsxxahlkg1",
+        "artworkId": "softlambkin-general-multipet-001",
+        "intendedUse": "future-general-unassigned"
+      }
+    ]
   }
 }
