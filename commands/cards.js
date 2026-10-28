@@ -4,6 +4,7 @@ import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
 import { getCardCollectionSummary, formatCardCollectionSummary, updateOwnedCardTag } from "../services/card-collection-summary.js";
 import PetCatalog from "../models/PetCatalog.js";
+import { updateMultipleOwnedCardTags, prepareTagDeletion, confirmTagDeletion } from "../services/card-tag-management.js";
 import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js";
 import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../services/card-drop-claims.js";
 
@@ -14,6 +15,13 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("C
     .addStringOption(o => o.setName("card_id").setDescription("Optional; defaults to last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("untag").setDescription("Remove the tag from one of your cards")
     .addStringOption(o => o.setName("card_id").setDescription("Optional; defaults to last grabbed card").setRequired(false)))
+  .addSubcommand(c => c.setName("tag-multiple").setDescription("Apply one tag to multiple cards you own")
+    .addStringOption(o => o.setName("name").setDescription("Tag to apply").setRequired(true).setMinLength(1).setMaxLength(32))
+    .addStringOption(o => o.setName("card_ids").setDescription("1–20 full card IDs separated by commas").setRequired(true)))
+  .addSubcommand(c => c.setName("untag-multiple").setDescription("Remove tags from multiple cards you own")
+    .addStringOption(o => o.setName("card_ids").setDescription("1–20 full card IDs separated by commas").setRequired(true)))
+  .addSubcommand(c => c.setName("delete-tag").setDescription("Remove a named tag from ALL your cards (confirmation required)")
+    .addStringOption(o => o.setName("name").setDescription("Exact tag to delete").setRequired(true)))
   .addSubcommand(c => c.setName("test-drop").setDescription("MANAGERS: reveal a test release egg with three cards")
     .addStringOption(o => o.setName("release").setDescription("Release ID (e.g. series1-release1)").setRequired(true))
 );
@@ -49,6 +57,39 @@ export async function execute(interaction) {
       return interaction.editReply(updated.tag
         ? `Card \`${updated.id}\` tagged **${updated.tag}**. It will appear in your collection summary.`
         : `Tag cleared for card \`${updated.id}\`.`);
+    } catch (error) {
+      return interaction.editReply(error.message);
+    }
+  }
+  if (["tag-multiple", "untag-multiple", "delete-tag"].includes(option)) {
+    if (!isEnabled()) return interaction.editReply("Card tagging is not enabled on this bot.");
+    try {
+      if (option === "delete-tag") {
+        const pending = await prepareTagDeletion({
+          discordUserId: interaction.user.id, tag: interaction.options.getString("name", true),
+        });
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`cards:tagdelete:yes:${pending.id}`)
+            .setLabel("Confirm — Remove Tag").setStyle(ButtonStyle.Danger),
+          new ButtonBuilder().setCustomId(`cards:tagdelete:no:${pending.id}`)
+            .setLabel("Cancel").setStyle(ButtonStyle.Secondary),
+        );
+        return interaction.editReply({
+          content: `**Delete Tag — Confirmation Required**\nTag: **${escapeDiscord(pending.tag)}**\nCards that will lose this tag: **${pending.count}**\n\nNo cards will be deleted, burned, traded or otherwise changed. Only their tag labels will be cleared. This confirmation expires in two minutes.`,
+          components: [row], allowedMentions: { parse: [] },
+        });
+      }
+      const ids = interaction.options.getString("card_ids", true);
+      const tag = option === "tag-multiple" ? interaction.options.getString("name", true) : null;
+      const result = await updateMultipleOwnedCardTags({
+        discordUserId: interaction.user.id, cardIds: ids, tag,
+      });
+      return interaction.editReply({
+        content: result.tag
+          ? `Tag **${escapeDiscord(result.tag)}** applied to ${result.selected} selected cards (${result.changed} changed).`
+          : `Tags cleared from ${result.changed} of ${result.selected} selected cards.`,
+        allowedMentions: { parse: [] },
+      });
     } catch (error) {
       return interaction.editReply(error.message);
     }
@@ -162,5 +203,27 @@ export async function reconcileCardDropClosures(client) {
         console.warn("[Cards] Could not close drop message:", String(drop._id), error.message);
       }
     }
+  }
+}
+
+export async function handleCardTagDeletion(interaction) {
+  if (!isEnabled()) return interaction.reply({ content: "Card tagging is disabled.", flags: MessageFlags.Ephemeral });
+  await interaction.deferUpdate();
+  const parts = interaction.customId.split(":");
+  if (parts.length !== 4 || !["yes", "no"].includes(parts[2])) {
+    return interaction.followUp({ content: "Invalid confirmation.", flags: MessageFlags.Ephemeral });
+  }
+  try {
+    const result = await confirmTagDeletion({
+      discordUserId: interaction.user.id, requestId: parts[3], confirm: parts[2] === "yes",
+    });
+    await interaction.editReply({
+      content: result.cancelled
+        ? `Cancelled. Tag **${escapeDiscord(result.tag)}** was not changed on any cards.`
+        : `Tag **${escapeDiscord(result.tag)}** removed from **${result.count} cards**. No cards were deleted or changed otherwise.`,
+      components: [], allowedMentions: { parse: [] },
+    });
+  } catch (error) {
+    await interaction.followUp({ content: error.message, flags: MessageFlags.Ephemeral });
   }
 }
