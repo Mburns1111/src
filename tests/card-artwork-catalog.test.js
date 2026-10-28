@@ -20,6 +20,13 @@ test("every artwork has a unique ID and links only to known artists", () => {
     assert.ok(art.source.imageId || art.source.imagePageUrl || art.file.localPath);
     assert.ok(["needs-review", "approved", "rejected"].includes(art.license.reviewStatus));
     assert.ok(Array.isArray(art.releaseIds));
+    if (art.artworkType === "edited-composite") {
+      assert.ok(Array.isArray(art.contributions) && art.contributions.length >= 2);
+      for (const contribution of art.contributions) {
+        assert.ok(art.artistIds.includes(contribution.artistId));
+        assert.ok(contribution.role);
+      }
+    }
   }
 });
 
@@ -31,7 +38,13 @@ test("the egg drop image records the provided stux/Pixabay attribution", () => {
   assert.equal(artist.profileUrl, "https://pixabay.com/users/stux-12364/");
   assert.equal(art.source.name, "Pixabay");
   assert.equal(art.source.imageId, "1255730");
-  assert.equal(art.creditText, "Image by stux from Pixabay");
+  assert.equal(art.creditText, "Edited for AM Isa using artwork by stux from Pixabay.");
+  assert.equal(art.artworkType, "edited-composite");
+  assert.equal(art.sourceScope, "incorporated-artwork-only");
+  assert.ok(art.artistIds.includes("pixabay-stux"));
+  assert.ok(art.artistIds.includes("am-isa-project-owner"));
+  assert.deepEqual(art.contributions.map(x => x.role), ["composition-and-editing", "incorporated-source-artwork"]);
+  assert.equal(art.contributions[1].artistId, "pixabay-stux");
   assert.equal(art.license.reviewStatus, "needs-review");
   assert.deepEqual(art.releaseIds, ["release-1"]);
 });
