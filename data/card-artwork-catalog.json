@@ -31,6 +31,20 @@
       },
       "researchCatalogPath": "data/artist-research-softlambkin.json",
       "researchThreadUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/adopt_me_fanart_c/"
+    },
+    {
+      "artistId": "reddit-upper-trade-7110",
+      "displayName": "Upper-Trade-7110",
+      "platform": "Reddit",
+      "profileUrl": "https://www.reddit.com/user/Upper-Trade-7110/",
+      "notes": "User reports the artist has personally granted permission to use their artwork for AM Isa (2026-10-28). No specific artwork links or full permission message recorded yet. Avoid assuming all works, permitted edits, and sublicensing are included.",
+      "permission": {
+        "status": "reported-by-project-owner",
+        "reportedOn": "2026-10-28",
+        "scope": "Artist reportedly said AM Isa may use their art; exact wording and scope not recorded.",
+        "evidenceUrl": null,
+        "notes": "Permission reported directly by project owner. Keep artwork associations and license details per image; request original image URLs and permission evidence for archival."
+      }
     }
   ],
   "artworks": [
