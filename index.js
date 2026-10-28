@@ -75,7 +75,7 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
-import { data as cardsCommand, execute as executeCards, handleCardGrab, reconcileCardDropClosures } from "./commands/cards.js";
+import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardTagDeletion, reconcileCardDropClosures } from "./commands/cards.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -420,6 +420,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isModalSubmit() &&
         interaction.customId.startsWith("admin-import:")) {
       await handleAdminImportModal(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:tagdelete:")) {
+      await handleCardTagDeletion(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:grab:")) {
