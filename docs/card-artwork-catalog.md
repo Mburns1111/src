@@ -83,9 +83,9 @@ The uploaded photograph `image(20261028-214740).png` also shows an orange-spotte
 
 All four artwork records exist in the main artist catalog with the artist credited and their original Reddit preview URLs. They are **source-only candidates**, not cropped/imported pet art or approved MongoDB card definitions. The original image URLs could not be independently retrieved during this review, so pet-to-media mapping follows the owner's supplied descriptions and photographs. `releaseIds` remains empty; the Release 1 egg drop still has its sole egg image record.
 
-## jovyisweird / u/InformalPrinciple834 — 17 uploaded artworks
+## jovyisweird / u/InformalPrinciple834 — 18 uploaded artworks
 
-The project owner reports permission from **jovyisweird** (Reddit `u/InformalPrinciple834`). Profile: https://www.reddit.com/user/InformalPrinciple834/ . All 17 image records, source-post matches, and file references are in [`data/artist-research-informalprinciple834.json`](../data/artist-research-informalprinciple834.json), with credit entries in the main catalog.
+The project owner reports permission from **jovyisweird** (Reddit `u/InformalPrinciple834`). Profile: https://www.reddit.com/user/InformalPrinciple834/ . All 18 image records, source-post matches, and file references are in [`data/artist-research-informalprinciple834.json`](../data/artist-research-informalprinciple834.json), with credit entries in the main catalog.
 
 **Series 1 candidates (5 pet types):** Unicorn (a two-variant gender-dimorphism *concept sheet*, so use only after choosing a crop), **Lion**, **Lamb**, **Owl**, and **Otter**. The brown barn-owl-style Owl art belongs to the Series 1 pet. The separately uploaded **Cupid Owl is not** the Series 1 Owl.
 
@@ -104,21 +104,36 @@ These three posts were verified as authored by `u/InformalPrinciple834`, and the
 
 **Other Reddit links provided by the owner, not yet matched to an individual upload:** [Glyptodon/Jawbreaker](https://www.reddit.com/r/AdoptMeRBX/comments/1llu6r0/jawbreaker_the_glyptodon_another_new_member_of_my/), [art dump](https://www.reddit.com/r/AdoptMeRBX/comments/1llogq8/more_of_my_art_dump_crap/), [Mega Neon Mecha Rabbit](https://www.reddit.com/r/AdoptMeRBX/comments/1k8z4hl/i_got_my_mega_neon_mecha_rabbit_today_ong_welcome/), and [Halloween fan art](https://www.reddit.com/r/AdoptMeRBX/comments/1fvzqi5/adm_halloween_fanart_of_two_of_my_pets/). Each source link is preserved in the research file even when the individual picture could not be matched.
 
-**File/permissions status:** The user uploaded 17 PNGs in the conversation, but the **binary image files have not been saved to the GitHub repository or the bot**. Each image is registered by its upload filename and 1080px dimensions. User reports artist permission; preserve original evidence and clarify reuse/crop permissions before making approved card art. Many redesign sheets also show an official game-model reference in the upper left; use a clean fan-art-only crop if preparing a card.
+**File/permissions status:** The user uploaded 18 PNGs in the conversation, but the **binary image files have not been saved to the GitHub repository or the bot**. Each image is registered by its upload filename and 1080px dimensions. User reports artist permission; preserve original evidence and clarify reuse/crop permissions before making approved card art. Many redesign sheets also show an official game-model reference in the upper left; use a clean fan-art-only crop if preparing a card.
 
 The **one egg type for Release 1** remains unchanged. Adding five candidate *pet-card* artworks does not add egg types or create MongoDB `CardDefinition` records.
 
-## Vampire Dragon redesign — attribution pending
+## Vampire Dragon redesign — credited to jovyisweird
 
-- **Pet:** Vampire Dragon, not included in the current 100-pet Series 1 roster.
-- **Original link supplied:** https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/
-- **Uploaded image:** `image(20261028-230148).png` (768 × 768); source upload is in the conversation, not the repository.
-- **Potential context artist:** jovyisweird / `u/InformalPrinciple834`, because the drawing followed their earlier art batch; this **does not verify authorship**.
-- **Attribution:** Not yet assigned. Original Reddit post returned an access error when inspected, and its poster could not be confirmed.
-- **Record:** `data/card-artwork-catalog.json` → `attributionPending` → `pending-vampire-dragon-redesign-001`, cross-linked from jovyisweird research.
-- **Usage:** Future-release artwork candidate only, pending verification of creator and permission for this specific work. Not imported or approved.
+- **Pet:** Vampire Dragon, outside the current Series 1 100-pet roster.
+- **Artist:** jovyisweird, Reddit `u/InformalPrinciple834` — authorship confirmed by the project owner.
+- **Original Reddit link:** https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/
+- **Credit:** "Artwork by jovyisweird (u/InformalPrinciple834)."
+- **Image reference:** `image(20261028-230148).png` (768 × 768), attached in conversation but not imported into GitHub.
+- **Catalog artwork ID:** `jovy-vampire-dragon-redesign-001` under `artworks`.
+- **Research link:** `data/artist-research-informalprinciple834.json`, image #18.
+- **Usage:** Future-release pet-card candidate. No egg or card release assignments.
+- **Rights record:** User reports the artist permitted use of their artwork, but the exact wording and crop/editing permissions have not been archived. Remains `needs-review` until final production preparation.
 
-Do not treat this as one of the 17 previously credited jovyisweird images, and do not assign a release until authorship and reuse permission are verified.
+The owner confirmed authorship directly; the original Reddit post's account name was not independently reverified. The earlier entry under `attributionPending` was resolved and moved into this credited collection.
+
+## Princess Mare — credited to 3yberpunks8
+
+- **Pet:** Princess Mare (not on the current Series 1 roster).
+- **Artist:** `u/3yberpunks8` — https://www.reddit.com/user/3yberpunks8/
+- **Original Reddit post:** https://www.reddit.com/r/AdoptMeRBX/comments/1w7vzbv/princess_mare_fanart/ (September 5, 2026).
+- **Credit:** "Artwork by 3yberpunks8 (Reddit)."
+- **Permission:** The project owner reports direct permission specifically to use the artist's **Princess Mare artwork**, and provided two images/screenshots in the conversation. Exact wording and a permanent permission-evidence URL are not archived; do not assume consent for the artist's whole portfolio.
+- **Catalog artwork ID:** `3yberpunks8-princess-mare-001`.
+- **Usage:** Future-release pet-card candidate; no egg or card assignment.
+- **File:** Image was supplied in the conversation, but has not been saved into the repository.
+
+The catalog's `needs-review` status indicates final source-file, cropping and evidence checks remain, **not** a denial that the user obtained permission.
 
 ## Adding images in the future
 
