@@ -1102,5 +1102,39 @@
       ],
       "notes": "This is the only planned egg type for Release 1. Future releases may have additional egg types. This grouping does not create a CardRelease database record."
     }
+  ],
+  "attributionPending": [
+    {
+      "candidateId": "pending-vampire-dragon-redesign-001",
+      "title": "Vampire Dragon redesign fan art",
+      "petSpecies": "Vampire Dragon",
+      "kind": "pet-artwork",
+      "intendedUse": "future-release-pet-card-candidate",
+      "series1Match": false,
+      "source": {
+        "name": "Reddit",
+        "redditPostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/",
+        "redditPostId": "18kzu0h",
+        "originalPosterUsername": null,
+        "verifiedAuthorship": false
+      },
+      "submittedImage": {
+        "fileName": "image(20261028-230148).png",
+        "width": 768,
+        "height": 768,
+        "storageStatus": "conversation-upload-not-saved-to-repository"
+      },
+      "possibleArtistContext": {
+        "artistId": "reddit-informalprinciple834",
+        "evidence": "Image shared immediately after a batch of jovyisweird's art, but direct verification of the linked post's author was unavailable.",
+        "verified": false
+      },
+      "creditText": null,
+      "permissionStatus": "not-established-for-specific-image",
+      "promotionCondition": "Verify who authored the Reddit post/artwork; then confirm this specific work is covered by that person's grant before creating a standard artist-credited artwork record.",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Distinct Vampire Dragon artwork, not Shadow Dragon or Bat Dragon. Original Reddit source page returned 429 / inaccessible when checked; avoid claiming the preceding artist authored it without evidence."
+    }
   ]
 }
