@@ -19,8 +19,9 @@ test("bulk ID parsing enforces unique, well-formed IDs and a limit of 20", () =>
   const a = "507f1f77bcf86cd799439011";
   const b = "507f1f77bcf86cd799439012";
   assert.deepEqual(parseCardIds(a + ", " + b).map(String), [a, b]);
+  assert.deepEqual(parseCardIds(a.slice(-12) + ", " + b.slice(-12)), [a.slice(-12), b.slice(-12)]);
   assert.throws(() => parseCardIds(a + " " + a), /only once/);
-  assert.throws(() => parseCardIds("cat"), /24-character/);
+  assert.throws(() => parseCardIds("cat"), /12 or 24/);
   assert.throws(() => parseCardIds(Array.from({ length: 21 }, (_, i) => i.toString(16).padStart(24, "0")).join(",")), /1–20/);
 });
 test("tag deletion confirmation tracks owner, label, count, expiry, status", () => {
