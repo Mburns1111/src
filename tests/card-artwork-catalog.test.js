@@ -209,3 +209,13 @@ test("Upper-Trade-7110 artwork sources are deduplicated and tracked as candidate
   assert.equal(firstPhoto.confirmedPetSpecies, null);
   assert.equal(catalog.releases.find(x => x.releaseId === "release-1").eggArtworkIds.length, 1);
 });
+
+test("jovyisweird's permission is recorded under their Reddit username", () => {
+  const artist = catalog.artists.find(x => x.artistId === "reddit-informalprinciple834");
+  assert.ok(artist);
+  assert.equal(artist.displayName, "jovyisweird");
+  assert.equal(artist.platformUsername, "InformalPrinciple834");
+  assert.equal(artist.profileUrl, "https://www.reddit.com/user/InformalPrinciple834/");
+  assert.equal(artist.permission.status, "reported-by-project-owner");
+  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 0);
+});
