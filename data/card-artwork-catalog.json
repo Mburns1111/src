@@ -46,6 +46,21 @@
         "notes": "Permission reported directly by project owner. Keep artwork associations and license details per image; request original image URLs and permission evidence for archival."
       },
       "researchCatalogPath": "data/artist-research-upper-trade-7110.json"
+    },
+    {
+      "artistId": "reddit-informalprinciple834",
+      "displayName": "jovyisweird",
+      "platform": "Reddit",
+      "platformUsername": "InformalPrinciple834",
+      "profileUrl": "https://www.reddit.com/user/InformalPrinciple834/",
+      "notes": "Project owner reports direct artwork-use permission from the artist (2026-10-28). The provided display name is jovyisweird and Reddit account is u/InformalPrinciple834. Original permission message and any specific restrictions are not yet archived. No individual artwork linked yet.",
+      "permission": {
+        "status": "reported-by-project-owner",
+        "reportedOn": "2026-10-28",
+        "scope": "User reports permission to use this artist's artwork for AM Isa; exact wording, whether edits/crops are permitted, and any restrictions not yet recorded.",
+        "evidenceUrl": null,
+        "notes": "Do not infer permissions for third-party material included in artwork. Keep per-artwork credits, links and review before import."
+      }
     }
   ],
   "artworks": [
