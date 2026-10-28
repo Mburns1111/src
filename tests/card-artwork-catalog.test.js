@@ -95,7 +95,12 @@ test("softlambkin artwork research preserves source links without publishing unr
     ids.add(entry.researchId);
     assert.ok(entry.originalArtistReply.startsWith(softlambkinResearch.sourceThreadUrl.replace("/adopt_me_fanart_c/", "/comment/")));
   }
-  assert.equal(catalog.artworks.filter(a => a.artistIds.includes("reddit-softlambkin")).length, 0, "Research references must not auto-publish artwork");
+  const artistAssets = catalog.artworks.filter(a => a.artistIds.includes("reddit-softlambkin"));
+  assert.equal(artistAssets.length, 1);
+  assert.equal(artistAssets[0].kind, "general-artwork");
+  assert.equal(artistAssets[0].petCardEligible, false);
+  assert.deepEqual(artistAssets[0].releaseIds, []);
+  assert.equal(artistAssets[0].license.reviewStatus, "needs-review");
 });
 
 test("submitted Reddit image URLs preserve provenance and verified/tentative identification", () => {
@@ -120,4 +125,36 @@ test("submitted Reddit image URLs preserve provenance and verified/tentative ide
     }
     if (image.petSpecies) assert.ok(["high"].includes(image.speciesConfidence));
   }
+});
+
+test("owner-reviewed pet identities and general-artwork exclusions stay distinct", () => {
+  const images = new Map(softlambkinResearch.submittedImageReview.images.map(x => [x.redditImageId, x]));
+  const expected = [
+    ["ikg3l74flkkg1", "Arctic Fox", true, "owner-confirmed"],
+    ["oup3bl978kkg1", "Canadian Goose", false, "owner-confirmed"],
+    ["mnmid66l4kkg1", "Happy Duckling", true, "owner-selected-card-representation"],
+    ["c28dvwz60kkg1", "Unicorn", true, "owner-confirmed"],
+  ];
+  for (const [id, petSpecies, series1Match, basis] of expected) {
+    const item = images.get(id);
+    assert.ok(item);
+    assert.equal(item.petSpecies, petSpecies);
+    assert.equal(item.series1Match, series1Match);
+    assert.equal(item.speciesDecisionBasis, basis);
+    assert.deepEqual(item.candidateSpecies, []);
+  }
+  const group = images.get("xdlpsxxahlkg1");
+  assert.equal(group.petSpecies, null);
+  assert.equal(group.excludeFromPetCards, true);
+  assert.equal(group.artUsage, "general-artwork-unassigned");
+  const general = catalog.artworks.find(art => art.artworkId === group.generalArtworkId);
+  assert.ok(general);
+  assert.equal(general.source.imageId, group.redditImageId);
+  assert.equal(general.kind, "general-artwork");
+  assert.equal(general.petCardEligible, false);
+  assert.equal(general.petId, null);
+  assert.equal(general.usageStatus, "reserved-for-future-general-use");
+  assert.deepEqual(general.releaseIds, []);
+  assert.equal(catalog.releases.find(release => release.releaseId === "release-1").eggArtworkIds.length, 1);
+  assert.ok(!catalog.releases[0].eggArtworkIds.includes(general.artworkId));
 });
