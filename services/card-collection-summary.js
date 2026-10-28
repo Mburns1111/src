@@ -1,8 +1,8 @@
-import mongoose from "mongoose";
 import CardCopy from "../models/CardCopy.js";
 import CardClaim from "../models/CardClaim.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
+import { displayCardId, resolveCardId, upgradeLabel } from "./card-identifiers.js";
 
 export const COLLECTION_RARITIES = Object.freeze(["Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"]);
 export const COLLECTION_UPGRADES = Object.freeze(["normal", "neon", "mega"]);
@@ -26,7 +26,7 @@ export async function updateOwnedCardTag({ discordUserId, cardId, tag }) {
     if (!lastGrab) throw new Error("You haven't collected a card yet. Grab a card first or enter a card ID.");
     targetId = lastGrab.cardCopyId;
   }
-  if (!mongoose.isValidObjectId(targetId)) throw new Error("Enter a valid card ID from your collection.");
+  targetId = await resolveCardId(targetId);
   const normalized = tag === null ? "" : normalizeCardTag(tag);
   const card = await CardCopy.findOneAndUpdate(
     { _id: targetId, ownerDiscordUserId: discordUserId, state: "owned" },
@@ -34,7 +34,16 @@ export async function updateOwnedCardTag({ discordUserId, cardId, tag }) {
     { returnDocument: "after", runValidators: true },
   );
   if (!card) throw new Error("That card is no longer in your owned collection. Enter the ID of a card you currently own.");
-  return { id: String(card._id), tag: card.tag };
+  const definition = await CardDefinition.findById(card.cardDefinitionId).select("petId rarity").lean();
+  const pet = definition && await PetCatalog.findOne({ petId: definition.petId }).select("name").lean();
+  return {
+    id: displayCardId(card._id),
+    fullId: String(card._id),
+    name: pet?.name || definition?.petId || "Unknown pet",
+    rarity: definition?.rarity || "Unknown",
+    upgradeLevel: card.upgradeLevel,
+    tag: card.tag,
+  };
 }
 
 export async function getCardCollectionSummary(discordUserId) {
@@ -78,7 +87,7 @@ export async function getCardCollectionSummary(discordUserId) {
     const copy = copyById.get(String(claim.cardCopyId));
     const def = copy && definitionById.get(String(copy.cardDefinitionId));
     return {
-      id: String(claim.cardCopyId),
+      id: displayCardId(claim.cardCopyId),
       name: petNames.get(def?.petId) || def?.petId || "Unknown pet",
       rarity: def?.rarity || "Unknown",
       upgradeLevel: copy?.upgradeLevel || "normal",
@@ -93,7 +102,7 @@ export async function getCardCollectionSummary(discordUserId) {
 export function formatCardCollectionSummary({ total, rarity, upgrade, recent = [] }) {
   const safe = value => String(value).replace(/[`*_~|<>@]/g, "");
   const recentLines = recent.length ? recent.flatMap((card, i) => [
-    `${i + 1}. **${safe(card.name)}** · ${safe(card.rarity)} · ${card.upgradeLevel === "mega" ? "Mega Neon" : card.upgradeLevel === "neon" ? "Neon" : "Normal"}${card.owned ? "" : " · No longer owned"}`,
+    `${i + 1}. **${safe(card.name)}** · ${safe(card.rarity)} · ${upgradeLabel(card.upgradeLevel)}${card.owned ? "" : " · No longer owned"}`,
     `   ID: \`${safe(card.id)}\`${card.tag ? ` · Tag: **${safe(card.tag)}**` : ""}`,
   ]) : ["No cards grabbed yet."];
   return [
