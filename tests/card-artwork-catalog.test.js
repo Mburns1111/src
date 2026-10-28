@@ -283,6 +283,10 @@ test("3yberpunks8 Princess Mare permission is recorded for the specific artwork"
   assert.deepEqual(art.releaseIds, []);
   assert.equal(art.license.reviewStatus, "needs-review");
   assert.equal(art.uploadReference.storedInRepository, false);
+  assert.equal(art.officialPetReference.rarity, "Uncommon");
+  assert.equal(art.officialPetReference.petId, "princess-mare");
+  assert.equal(art.illustrationDetails.petVisibility, "small-in-main-composition");
+  assert.ok(art.illustrationDetails.cardPreparation.includes("pet-focused"));
   assert.deepEqual(catalog.releases.find(x => x.releaseId === "release-1").eggArtworkIds, ["egg-drop-001"]);
 });
 
@@ -300,6 +304,10 @@ test("art-first Series 1 draft retains 100 unique pets and rarity distribution",
   });
   assert.equal(draftRoster.status, "proposed-for-owner-review—not-live");
   assert.equal(draftRoster.replacements.length, 10);
+  const mareSwap = draftRoster.replacements.find(x => x.add === "Princess Mare");
+  assert.ok(mareSwap);
+  assert.equal(mareSwap.tier, "Uncommon");
+  assert.equal(mareSwap.artworkSuitability, "conditional-needs-pet-centered-crop-or-alternative");
   for (const change of draftRoster.replacements) {
     assert.ok(groups[change.tier].includes(change.add));
     assert.ok(!groups[change.tier].includes(change.remove));
