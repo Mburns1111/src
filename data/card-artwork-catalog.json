@@ -53,14 +53,15 @@
       "platform": "Reddit",
       "platformUsername": "InformalPrinciple834",
       "profileUrl": "https://www.reddit.com/user/InformalPrinciple834/",
-      "notes": "Project owner reports direct artwork-use permission from the artist (2026-10-28). The provided display name is jovyisweird and Reddit account is u/InformalPrinciple834. Original permission message and any specific restrictions are not yet archived. No individual artwork linked yet.",
+      "notes": "Project owner reports permission to use jovyisweird/u/InformalPrinciple834 art. On 2026-10-28, 17 PNG examples and seven Reddit post links were provided; 13 images matched three verified redesign posts, five pet names appear on Series 1, four other images are concept/uncertain or unmatched to original posts. Art files are not yet imported into GitHub. Preserve exact permission scope and image credits for each eventual card.",
       "permission": {
         "status": "reported-by-project-owner",
         "reportedOn": "2026-10-28",
         "scope": "User reports permission to use this artist's artwork for AM Isa; exact wording, whether edits/crops are permitted, and any restrictions not yet recorded.",
         "evidenceUrl": null,
         "notes": "Do not infer permissions for third-party material included in artwork. Keep per-artwork credits, links and review before import."
-      }
+      },
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json"
     }
   ],
   "artworks": [
@@ -302,6 +303,794 @@
       "releaseIds": [],
       "recordedOn": "2026-10-28",
       "notes": "Brown-and-cream Hedgehog drawing photographed and identified by owner. User accidentally pasted this URL twice; keep one unique art record."
+    },
+    {
+      "artworkId": "jovy-unicorn-gender-concept-001",
+      "title": "Unicorn — gender dimorphism concept",
+      "kind": "concept-art",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "User-supplied artist artwork upload",
+        "websiteUrl": null,
+        "imageId": "image(20261028-225310).png",
+        "imagePageUrl": null,
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225310).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Unicorn"
+      ],
+      "subjectDescription": "Unicorn",
+      "series1PetMatches": [
+        "Unicorn"
+      ],
+      "candidateUsage": "series-1-concept-needs-single-image-choice",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "A unicorn gender-dimorphism headcanon with two variants and a small hybrid illustration; select and crop a single design before possible card use. Original Reddit post association: unmatched-to-individual-reddit-post."
+    },
+    {
+      "artworkId": "jovy-cupid-owl-001",
+      "title": "Cupid Owl — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "User-supplied artist artwork upload",
+        "websiteUrl": null,
+        "imageId": "image(20261028-225327).png",
+        "imagePageUrl": null,
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225327).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Cupid Owl"
+      ],
+      "subjectDescription": "Cupid Owl",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Pink winged Cupid Owl and separate bow illustration; distinct from the Series 1 Owl. Original Reddit post association: unmatched-to-individual-reddit-post."
+    },
+    {
+      "artworkId": "jovy-lion-001",
+      "title": "Lion — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225421).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1kq332s/pet_redesigns_part_3/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225421).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Lion"
+      ],
+      "subjectDescription": "Lion",
+      "series1PetMatches": [
+        "Lion"
+      ],
+      "candidateUsage": "series-1-candidate-unprepared",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Species explicitly labeled on the upload and described by the artist in their Reddit post. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-koi-carp-001",
+      "title": "Koi Carp — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225427).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1kq332s/pet_redesigns_part_3/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225427).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Koi Carp"
+      ],
+      "subjectDescription": "Koi Carp",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Artist redesign of Koi Carp, not in the 100 Series 1 pets. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-baku-001",
+      "title": "Baku — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225433).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1kq332s/pet_redesigns_part_3/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225433).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Baku"
+      ],
+      "subjectDescription": "Baku",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Artist's dreamlike redesigned Baku. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-hot-doggo-001",
+      "title": "Hot Doggo — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225438).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1kq332s/pet_redesigns_part_3/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225438).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Hot Doggo"
+      ],
+      "subjectDescription": "Hot Doggo",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Artist's dachshund-like redesigned Hot Doggo. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-lamb-001",
+      "title": "Lamb — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225451).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1korpq6/adopt_me_redesigns_part_2/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225451).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Lamb"
+      ],
+      "subjectDescription": "Lamb",
+      "series1PetMatches": [
+        "Lamb"
+      ],
+      "candidateUsage": "series-1-candidate-unprepared",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Stylized Lamb with black face and curled wool; matches the Series 1 Lamb. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-shark-001",
+      "title": "Shark — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225456).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1korpq6/adopt_me_redesigns_part_2/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225456).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Shark"
+      ],
+      "subjectDescription": "Shark",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Artist's realistic shark redesign. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-leopard-shark-001",
+      "title": "Leopard Shark — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225503).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1korpq6/adopt_me_redesigns_part_2/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225503).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Leopard Shark"
+      ],
+      "subjectDescription": "Leopard Shark",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Distinct from Shark and Shark Puppy. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-shark-puppy-001",
+      "title": "Shark Puppy — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225509).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1korpq6/adopt_me_redesigns_part_2/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225509).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Shark Puppy"
+      ],
+      "subjectDescription": "Shark Puppy",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Artist's puppy-like shark redesign. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-candy-floss-chick-001",
+      "title": "Candy Floss Chick — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225516).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1korpq6/adopt_me_redesigns_part_2/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225516).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Candy Floss Chick"
+      ],
+      "subjectDescription": "Candy Floss Chick",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Distinct from the ordinary Chick on Series 1; colorful candy-floss redesign. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-dragonfly-001",
+      "title": "Dragonfly — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225533).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1koppjd/pet_redesigns_because_yes/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225533).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Dragonfly"
+      ],
+      "subjectDescription": "Dragonfly",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Artist's elongated dragonfly redesign. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-glacier-moth-001",
+      "title": "Glacier Moth — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225537).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1koppjd/pet_redesigns_because_yes/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225537).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Glacier Moth"
+      ],
+      "subjectDescription": "Glacier Moth",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Artist's blue moth redesign. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-owl-001",
+      "title": "Owl — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225542).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1koppjd/pet_redesigns_because_yes/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225542).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Owl"
+      ],
+      "subjectDescription": "Owl",
+      "series1PetMatches": [
+        "Owl"
+      ],
+      "candidateUsage": "series-1-candidate-unprepared",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Brown barn-owl-style redesign of the Adopt Me Owl; Series 1. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-otter-001",
+      "title": "Otter — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "image(20261028-225548).png",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1koppjd/pet_redesigns_because_yes/",
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225548).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Otter"
+      ],
+      "subjectDescription": "Otter",
+      "series1PetMatches": [
+        "Otter"
+      ],
+      "candidateUsage": "series-1-candidate-unprepared",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Artist's upright river-otter redesign; Series 1. Original Reddit post association: artist-post-and-pet-name-confirmed."
+    },
+    {
+      "artworkId": "jovy-robot-character-001",
+      "title": "Mecha Rabbit (tentative) — fan art",
+      "kind": "unverified-illustration",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "User-supplied artist artwork upload",
+        "websiteUrl": null,
+        "imageId": "image(20261028-225612).png",
+        "imagePageUrl": null,
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225612).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [],
+      "subjectDescription": "Mecha Rabbit (tentative)",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Close-up of gray/orange robotic rabbit-like character. Possible relationship to the linked Mega Neon Mecha Rabbit post, but the exact image/source match was not verified. Original Reddit post association: unmatched-to-individual-reddit-post."
+    },
+    {
+      "artworkId": "jovy-costumed-fan-character-001",
+      "title": "Unidentified costumed bird character — fan art",
+      "kind": "unverified-illustration",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "User-supplied artist artwork upload",
+        "websiteUrl": null,
+        "imageId": "image(20261028-225725).png",
+        "imagePageUrl": null,
+        "providedAttributionUrl": null
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist permission is reported by owner. Original message and exact reuse/crop/resize scope not archived. Illustration includes an official Adopt Me reference thumbnail in some cases; prepare a crop of fan art only before use."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-225725).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 1080,
+        "height": 790,
+        "storedInRepository": false
+      },
+      "depictedPets": [],
+      "subjectDescription": "Unidentified costumed bird character",
+      "series1PetMatches": [],
+      "candidateUsage": "general-art-unassigned",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Anthropomorphic, multi-eyed fan/bird-like character with elaborate costume. No verified Adopt Me pet species or matching source post; do not assign to a collectible pet card. Original Reddit post association: unmatched-to-individual-reddit-post."
     }
   ],
   "releases": [
