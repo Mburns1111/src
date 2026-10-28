@@ -389,5 +389,18 @@
     "Unicorn page has multiple reinterpretations and requires choosing a card-ready crop.",
     "Unidentified art should not receive a fabricated official species.",
     "The GitHub catalog is metadata, not proof of image upload, approval, or production deployment."
+  ],
+  "unverifiedAttributionLeads": [
+    {
+      "candidateId": "pending-vampire-dragon-redesign-001",
+      "petSpecies": "Vampire Dragon",
+      "sourceRedditUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/",
+      "uploadFilename": "image(20261028-230148).png",
+      "context": "Shared after artist's collection in conversation, but the Reddit post's author could not be independently verified.",
+      "authorship": "unverified-not-attributed-to-jovyisweird",
+      "status": "pending-authorship-check",
+      "series1Match": false,
+      "notes": "Do not count as jovyisweird work or as covered by their permission until attribution is verified. Pending item tracked in card-artwork-catalog.json attributionPending."
+    }
   ]
 }
