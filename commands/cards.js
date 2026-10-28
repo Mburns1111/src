@@ -10,10 +10,10 @@ import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../se
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Collectible card game")
   .addSubcommand(c => c.setName("collection").setDescription("View your collectible cards"))
   .addSubcommand(c => c.setName("tag").setDescription("Give a card you own a personal tag")
-    .addStringOption(o => o.setName("card_id").setDescription("Card ID shown in your collection").setRequired(true))
-    .addStringOption(o => o.setName("name").setDescription("Tag, up to 32 characters").setMinLength(1).setMaxLength(32).setRequired(true)))
+    .addStringOption(o => o.setName("name").setDescription("Tag, up to 32 characters").setMinLength(1).setMaxLength(32).setRequired(true))
+    .addStringOption(o => o.setName("card_id").setDescription("Optional; defaults to last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("untag").setDescription("Remove the tag from one of your cards")
-    .addStringOption(o => o.setName("card_id").setDescription("Card ID shown in your collection").setRequired(true)))
+    .addStringOption(o => o.setName("card_id").setDescription("Optional; defaults to last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("test-drop").setDescription("MANAGERS: reveal a test release egg with three cards")
     .addStringOption(o => o.setName("release").setDescription("Release ID (e.g. series1-release1)").setRequired(true))
 );
@@ -43,7 +43,7 @@ export async function execute(interaction) {
   if (option === "tag" || option === "untag") {
     if (!isEnabled()) return interaction.editReply("Card tagging is not enabled on this bot.");
     try {
-      const cardId = interaction.options.getString("card_id", true).trim();
+      const cardId = interaction.options.getString("card_id")?.trim() || null;
       const tag = option === "tag" ? interaction.options.getString("name", true) : null;
       const updated = await updateOwnedCardTag({ discordUserId: interaction.user.id, cardId, tag });
       return interaction.editReply(updated.tag
