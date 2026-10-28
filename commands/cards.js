@@ -5,7 +5,7 @@ import CardDrop from "../models/CardDrop.js";
 import CardCopy from "../models/CardCopy.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js";
-import { CardClaimError, claimCardFromDrop } from "../services/card-drop-claims.js";
+import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../services/card-drop-claims.js";
 
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Collectible card game")
   .addSubcommand(c => c.setName("collection").setDescription("View your collectible cards"))
@@ -17,14 +17,14 @@ const isEnabled = () => process.env.ENABLE_CARD_GAME_TEST === "1";
 const escapeDiscord = text => String(text ?? "").replace(/[@`*_~|<>]/g, "");
 const rowButtons = drop => new ActionRowBuilder().addComponents(drop.slots.map((slot, i) =>
   new ButtonBuilder().setCustomId(`cards:grab:${drop._id}:${i}`)
-    .setLabel(slot.claimedBy ? `#${i + 1} Claimed` : `Grab #${i + 1}`)
+    .setLabel(slot.claimedBy ? `#${i + 1} Reserved` : `Grab #${i + 1}`)
     .setStyle(ButtonStyle.Primary).setDisabled(Boolean(slot.claimedBy) || drop.expiresAt <= new Date() || drop.status !== "open")));
 export function dropText(drop, releaseName, petNames = {}) {
-  const closed = drop.status === "closed" || new Date(drop.expiresAt) <= new Date() || drop.slots.every(slot => Boolean(slot.claimedBy));
+  const closed = drop.status === "closed" || new Date(drop.expiresAt) <= new Date();
   return [
     closed ? `🥚 **${escapeDiscord(releaseName)} Egg**` : `🥚 **${escapeDiscord(releaseName)} Egg — Hatched!**`,
     closed ? "**Drop Ended**" : "Pick one visible card to grab:",
-    ...drop.slots.map((slot, i) => `**${i + 1}. ${escapeDiscord(petNames[slot.petId] || slot.petId)}** · ${slot.rarity}${slot.claimedBy ? " · Claimed" : closed ? " · Unclaimed" : ""}`),
+    ...drop.slots.map((slot, i) => `**${i + 1}. ${escapeDiscord(petNames[slot.petId] || slot.petId)}** · ${slot.rarity}${slot.claimedBy ? closed ? " · Claimed" : " · Reserved" : closed ? " · Unclaimed" : ""}`),
     ...(closed ? [] : [`Drop closes <t:${Math.floor(new Date(drop.expiresAt).getTime() / 1000)}:R>.`]),
   ].join("\n");
 }
@@ -75,17 +75,15 @@ export async function handleCardGrab(interaction) {
   const dropId = parts[2], slot = Number(parts[3]);
   if (!interaction.guildId || parts.length !== 4 || !["0", "1", "2"].includes(parts[3])) return interaction.editReply("Invalid card selection.");
   try {
-    const awarded = await claimCardFromDrop({ dropId, slot, guildId: interaction.guildId, discordUserId: interaction.user.id });
-    await interaction.editReply(`You grabbed **${escapeDiscord(awarded.petId)}** (${awarded.rarity})! Added to your card collection.`);
+    const reserved = await reserveCardFromDrop({ dropId, slot, guildId: interaction.guildId, discordUserId: interaction.user.id });
+    await interaction.editReply(`You reserved **${escapeDiscord(reserved.petId)}** (${reserved.rarity}). It will be added to your collection when the drop ends.`);
     // Updating buttons is cosmetic; the MongoDB transaction is authoritative.
     try {
       const drop = await CardDrop.findById(dropId).lean();
       if (drop && String(drop.messageId) === interaction.message.id) {
         const pets = await PetCatalog.find({ petId: { $in: drop.slots.map(s => s.petId) } }).select("petId name").lean();
         const names = Object.fromEntries(pets.map(p => [p.petId, p.name]));
-        const allClaimed = drop.slots.every(slot => Boolean(slot.claimedBy));
-        if (allClaimed) await CardDrop.updateOne({ _id: drop._id, status: "open" }, { $set: { status: "closed" } });
-        const closed = allClaimed || drop.status === "closed" || new Date(drop.expiresAt) <= new Date();
+        const closed = drop.status === "closed" || new Date(drop.expiresAt) <= new Date();
         const release = await CardRelease.findOne({ releaseId: drop.releaseId }).select("name").lean();
         await interaction.message.edit({ content: dropText({ ...drop, status: closed ? "closed" : "open" }, release?.name || drop.releaseId, names), components: closed ? [] : [rowButtons(drop)], allowedMentions: { parse: [] } });
         if (closed) await CardDrop.updateOne({ _id: drop._id }, { $set: { displayClosedAt: new Date() } });
@@ -110,9 +108,20 @@ export async function reconcileCardDropClosures(client) {
     { $set: { status: "closed" } },
   );
   const pending = await CardDrop.find({
-    status: "closed", displayClosedAt: null, messageId: { $ne: "" },
+    status: "closed", expiresAt: { $lte: now },
+    $or: [
+      { displayClosedAt: null, messageId: { $ne: "" } },
+      { slots: { $elemMatch: { claimedBy: { $ne: null }, settledAt: null } } },
+    ],
   }).sort({ expiresAt: 1 }).limit(30).lean();
   for (const drop of pending) {
+    try {
+      await settleClosedCardDrop(drop);
+    } catch (error) {
+      console.error("[Cards] Could not settle reserved cards:", String(drop._id), error);
+      continue;
+    }
+    if (drop.displayClosedAt || !drop.messageId) continue;
     try {
       const channel = await client.channels.fetch(drop.channelId);
       if (!channel?.messages?.fetch) throw new Error("Channel unavailable");
