@@ -3,6 +3,7 @@ import CardDrop from "../models/CardDrop.js";
 import CardClaim from "../models/CardClaim.js";
 import CardCopy from "../models/CardCopy.js";
 import CardCollector from "../models/CardCollector.js";
+import { allocateCardId } from "./card-identifiers.js";
 
 export class CardClaimError extends Error {}
 
@@ -52,7 +53,9 @@ export async function settleReservedCard({ dropId, slot, now = new Date() }) {
           { $setOnInsert: { discordUserId: reservation.claimedBy } },
           { upsert: true, session },
         );
+        const publicId = await allocateCardId(session);
         const copy = new CardCopy({
+          publicId,
           cardDefinitionId: reservation.cardDefinitionId,
           ownerDiscordUserId: reservation.claimedBy,
           originGuildId: drop.guildId,
