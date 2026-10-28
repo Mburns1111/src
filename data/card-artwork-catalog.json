@@ -15,6 +15,20 @@
       "platform": "Pixabay",
       "profileUrl": "https://pixabay.com/users/stux-12364/",
       "notes": "Artist name and profile URL provided with the original Pixabay attribution."
+    },
+    {
+      "artistId": "reddit-softlambkin",
+      "displayName": "αriαℓ",
+      "platform": "Reddit",
+      "profileUrl": "https://www.reddit.com/user/softlambkin/",
+      "notes": "User reports direct permission from this Reddit artist to use their artwork in the AM Isa project (2026-10-28). Permission message/evidence and scope not yet attached. No specific pet illustrations confidently attributed from indexed public posts in initial research. A public AdoptMeRBX comment credits u/softlambkin for a visual/color suggestion, but the underlying artwork has not been verified: https://www.reddit.com/r/AdoptMeRBX/comments/1r9ni5j/hes_home_need_name_suggestions/",
+      "permission": {
+        "status": "reported-by-project-owner",
+        "reportedOn": "2026-10-28",
+        "scope": "unspecified",
+        "evidenceUrl": null,
+        "notes": "Do not mark a particular image approved until its authorship and permission scope are confirmed."
+      }
     }
   ],
   "artworks": [
