@@ -58,21 +58,14 @@
       ]
     }
   ],
-  "completedButUnidentified": [
-    {
-      "researchId": "softlambkin-glum-factor",
-      "petNickname": null,
-      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cd5wz/",
-      "notes": "Artist-made drawing in response to requester with their son; species unknown."
-    }
-  ],
+  "completedButUnidentified": [],
   "excludedFromConfirmed": [
     {
       "name": "Cryptid",
       "reason": "Elsewhere on Reddit a commenter credited the username in connection with color suggestions, but no independently verified pet illustration in this research."
     }
   ],
-  "notes": "Includes direct Reddit post/preview URLs and owner follow-up identifications. Winnie = Arctic Fox, backpack bird = Canadian Goose, Laffytaffy = Unicorn. Cloud art is OWNER-SELECTED for Happy Duckling, not asserted to be the source pet's verified species. Multi-pet image reserved only for general artwork (no pet-card association). Unresolved Glum-Factor image remains to identify.",
+  "notes": "Artist research with verified sources and owner decisions. Dark furry Glum-Factor3313 drawing is excluded by owner (skipped), not pending identification. Source URL is preserved for history only.",
   "submittedImageReview": {
     "addedOn": "2026-10-28",
     "imageCount": 10,
@@ -241,12 +234,16 @@
         "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cd5wz/",
         "petNickname": null,
         "petSpecies": null,
-        "reviewStatus": "visually-reviewed-needs-species-verification",
+        "reviewStatus": "skipped-by-project-owner",
         "context": "Requester says image shows them and their son; species not in text.",
         "candidateSpecies": [],
-        "speciesConfidence": "unresolved",
-        "series1Match": null,
-        "variantNotes": "Illustration of a dark furry canine/feline-looking animal with wide eyes, based on source screenshot of small black pet with orange details next to Roblox avatar; exact species unclear."
+        "speciesConfidence": "not-applicable",
+        "series1Match": false,
+        "variantNotes": "Dark furry pet drawn for Glum-Factor3313. Project owner elected to skip this image; do not propose it for Release 1, assign a pet species or reserve it as general-use artwork.",
+        "speciesDecisionBasis": "owner-excluded-from-selection",
+        "excludeFromPetCards": true,
+        "artUsage": "excluded",
+        "exclusionReason": "User chose to skip this illustration instead of further identifying or using it."
       }
     ],
     "notes": "Original source URLs preserved verbatim. URLs are 320px Reddit previews; for released card art request high-resolution originals and confirm artist's permission. Source comment authorship verified from the public thread. Do not infer pet species solely from Reddit usernames, nicknames, or nearby Turtle discussion.",
@@ -255,7 +252,7 @@
   },
   "ownerDecisions": {
     "recordedOn": "2026-10-28",
-    "note": "Owner specifically identified Winnie, the backpack goose, and Laffytaffy. Happy Duckling is a chosen card representation rather than independent verification of the underlying pet. Multi-pet artwork is excluded from pet cards and reserved for unspecified future general use.",
+    "note": "Owner specifically identified Winnie, the backpack goose, and Laffytaffy. Happy Duckling is a chosen card representation rather than independent verification of the underlying pet. Multi-pet artwork is excluded from pet cards and reserved for unspecified future general use. Dark furry illustration for Glum-Factor3313 skipped by owner; do not suggest it as an open identification or general-use asset.",
     "confirmedPetIdentifications": [
       {
         "redditImageId": "ikg3l74flkkg1",
@@ -285,6 +282,14 @@
         "redditImageId": "xdlpsxxahlkg1",
         "artworkId": "softlambkin-general-multipet-001",
         "intendedUse": "future-general-unassigned"
+      }
+    ],
+    "skippedArtworks": [
+      {
+        "redditImageId": "urkhhed6ujkg1",
+        "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cd5wz/",
+        "decision": "skip",
+        "notes": "Exclude from pet-card and general-use candidates; source link retained for attribution/review history."
       }
     ]
   }
