@@ -2,13 +2,18 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionF
 import CardRelease from "../models/CardRelease.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
-import { getCardCollectionSummary, formatCardCollectionSummary } from "../services/card-collection-summary.js";
+import { getCardCollectionSummary, formatCardCollectionSummary, updateOwnedCardTag } from "../services/card-collection-summary.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js";
 import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../services/card-drop-claims.js";
 
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Collectible card game")
   .addSubcommand(c => c.setName("collection").setDescription("View your collectible cards"))
+  .addSubcommand(c => c.setName("tag").setDescription("Give a card you own a personal tag")
+    .addStringOption(o => o.setName("card_id").setDescription("Card ID shown in your collection").setRequired(true))
+    .addStringOption(o => o.setName("name").setDescription("Tag, up to 32 characters").setMinLength(1).setMaxLength(32).setRequired(true)))
+  .addSubcommand(c => c.setName("untag").setDescription("Remove the tag from one of your cards")
+    .addStringOption(o => o.setName("card_id").setDescription("Card ID shown in your collection").setRequired(true)))
   .addSubcommand(c => c.setName("test-drop").setDescription("MANAGERS: reveal a test release egg with three cards")
     .addStringOption(o => o.setName("release").setDescription("Release ID (e.g. series1-release1)").setRequired(true))
 );
@@ -34,6 +39,19 @@ export async function execute(interaction) {
   if (option === "collection") {
     const summary = await getCardCollectionSummary(interaction.user.id);
     return interaction.editReply(formatCardCollectionSummary(summary));
+  }
+  if (option === "tag" || option === "untag") {
+    if (!isEnabled()) return interaction.editReply("Card tagging is not enabled on this bot.");
+    try {
+      const cardId = interaction.options.getString("card_id", true).trim();
+      const tag = option === "tag" ? interaction.options.getString("name", true) : null;
+      const updated = await updateOwnedCardTag({ discordUserId: interaction.user.id, cardId, tag });
+      return interaction.editReply(updated.tag
+        ? `Card \`${updated.id}\` tagged **${updated.tag}**. It will appear in your collection summary.`
+        : `Tag cleared for card \`${updated.id}\`.`);
+    } catch (error) {
+      return interaction.editReply(error.message);
+    }
   }
   if (!isEnabled()) return interaction.editReply("Card test drops are disabled on this bot.");
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply("Only server managers can start test drops.");
