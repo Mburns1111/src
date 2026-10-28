@@ -37,7 +37,7 @@ export async function updateOwnedCardTag({ discordUserId, cardId, tag }) {
   const definition = await CardDefinition.findById(card.cardDefinitionId).select("petId rarity").lean();
   const pet = definition && await PetCatalog.findOne({ petId: definition.petId }).select("name").lean();
   return {
-    id: displayCardId(card._id),
+    id: displayCardId(card),
     fullId: String(card._id),
     name: pet?.name || definition?.petId || "Unknown pet",
     rarity: definition?.rarity || "Unknown",
@@ -87,7 +87,7 @@ export async function getCardCollectionSummary(discordUserId) {
     const copy = copyById.get(String(claim.cardCopyId));
     const def = copy && definitionById.get(String(copy.cardDefinitionId));
     return {
-      id: displayCardId(claim.cardCopyId),
+      id: displayCardId(copy),
       name: petNames.get(def?.petId) || def?.petId || "Unknown pet",
       rarity: def?.rarity || "Unknown",
       upgradeLevel: copy?.upgradeLevel || "normal",
