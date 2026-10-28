@@ -172,3 +172,12 @@ test("owner-skipped Glum-Factor3313 artwork is excluded from candidates", () => 
   assert.equal(softlambkinResearch.completedButUnidentified.length, 0);
   assert.equal(catalog.artworks.some(x => x.source?.imageId === skippedId), false);
 });
+
+test("Upper-Trade-7110's reported permission is recorded without attributing unidentified art", () => {
+  const artist = catalog.artists.find(x => x.artistId === "reddit-upper-trade-7110");
+  assert.ok(artist);
+  assert.equal(artist.displayName, "Upper-Trade-7110");
+  assert.equal(artist.platform, "Reddit");
+  assert.equal(artist.permission.status, "reported-by-project-owner");
+  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 0);
+});
