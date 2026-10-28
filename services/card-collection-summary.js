@@ -38,7 +38,6 @@ export async function updateOwnedCardTag({ discordUserId, cardId, tag }) {
   const pet = definition && await PetCatalog.findOne({ petId: definition.petId }).select("name").lean();
   return {
     id: displayCardId(card),
-    fullId: String(card._id),
     name: pet?.name || definition?.petId || "Unknown pet",
     rarity: definition?.rarity || "Unknown",
     upgradeLevel: card.upgradeLevel,
