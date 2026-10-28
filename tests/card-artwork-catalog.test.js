@@ -251,3 +251,19 @@ test("jovyisweird uploaded artwork index has complete credits and distinct entri
   assert.equal(jovyResearch.images.find(x => x.identifiedSubject.includes("Unidentified")).series1Match, null);
   assert.deepEqual(catalog.releases.find(x => x.releaseId === "release-1").eggArtworkIds, ["egg-drop-001"]);
 });
+
+test("Vampire Dragon artwork remains pending until creator is confirmed", () => {
+  const id = "pending-vampire-dragon-redesign-001";
+  const art = catalog.attributionPending.find(x => x.candidateId === id);
+  assert.ok(art);
+  assert.equal(art.petSpecies, "Vampire Dragon");
+  assert.equal(art.series1Match, false);
+  assert.equal(art.source.redditPostId, "18kzu0h");
+  assert.equal(art.source.verifiedAuthorship, false);
+  assert.equal(art.possibleArtistContext.verified, false);
+  assert.equal(art.creditText, null);
+  assert.deepEqual(art.releaseIds, []);
+  assert.equal(catalog.artworks.some(x => x.artworkId === id), false);
+  assert.equal(catalog.artworks.filter(x => x.artistIds.includes("reddit-informalprinciple834")).length, 17);
+  assert.ok(jovyResearch.unverifiedAttributionLeads.some(x => x.candidateId === id));
+});
