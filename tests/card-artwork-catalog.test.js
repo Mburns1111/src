@@ -6,6 +6,7 @@ import CardRelease from "../models/CardRelease.js";
 const catalog = JSON.parse(readFileSync(new URL("../data/card-artwork-catalog.json", import.meta.url), "utf8"));
 const softlambkinResearch = JSON.parse(readFileSync(new URL("../data/artist-research-softlambkin.json", import.meta.url), "utf8"));
 const upperTradeResearch = JSON.parse(readFileSync(new URL("../data/artist-research-upper-trade-7110.json", import.meta.url), "utf8"));
+const jovyResearch = JSON.parse(readFileSync(new URL("../data/artist-research-informalprinciple834.json", import.meta.url), "utf8"));
 
 test("every artwork has a unique ID and links only to known artists", () => {
   assert.equal(catalog.schemaVersion, 2);
@@ -218,4 +219,35 @@ test("jovyisweird's permission is recorded under their Reddit username", () => {
   assert.equal(artist.profileUrl, "https://www.reddit.com/user/InformalPrinciple834/");
   assert.equal(artist.permission.status, "reported-by-project-owner");
   assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 0);
+});
+
+test("jovyisweird uploaded artwork index has complete credits and distinct entries", () => {
+  assert.equal(jovyResearch.artistId, "reddit-informalprinciple834");
+  assert.equal(jovyResearch.images.length, 17);
+  assert.equal(new Set(jovyResearch.images.map(x => x.artworkId)).size, 17);
+  assert.equal(new Set(jovyResearch.images.map(x => x.submittedFileName)).size, 17);
+  for (const image of jovyResearch.images) {
+    const art = catalog.artworks.find(a => a.artworkId === image.artworkId);
+    assert.ok(art, `Unregistered artwork: ${image.artworkId}`);
+    assert.deepEqual(art.artistIds, ["reddit-informalprinciple834"]);
+    assert.ok(art.creditText.includes("jovyisweird"));
+    assert.equal(art.uploadReference.fileName, image.submittedFileName);
+    assert.equal(art.uploadReference.storedInRepository, false);
+    assert.equal(art.file.localPath, null);
+    assert.equal(art.license.reviewStatus, "needs-review");
+    assert.deepEqual(art.releaseIds, []);
+    assert.deepEqual(art.series1PetMatches, image.series1Match ? [image.identifiedSubject] : []);
+  }
+  assert.deepEqual(
+    jovyResearch.images.filter(x => x.series1Match).map(x => x.identifiedSubject).sort(),
+    ["Lamb", "Lion", "Otter", "Owl", "Unicorn"]
+  );
+  assert.equal(jovyResearch.images.filter(x => x.originalRedditPostUrl !== null).length, 13);
+  const owl = jovyResearch.images.find(x => x.identifiedSubject === "Owl");
+  const cupidOwl = jovyResearch.images.find(x => x.identifiedSubject === "Cupid Owl");
+  assert.equal(owl.series1Match, true);
+  assert.equal(cupidOwl.series1Match, false);
+  assert.equal(jovyResearch.images.find(x => x.identifiedSubject.includes("Mecha Rabbit")).series1Match, false);
+  assert.equal(jovyResearch.images.find(x => x.identifiedSubject.includes("Unidentified")).series1Match, null);
+  assert.deepEqual(catalog.releases.find(x => x.releaseId === "release-1").eggArtworkIds, ["egg-drop-001"]);
 });
