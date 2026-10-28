@@ -597,7 +597,7 @@
       "researchCatalogPath": "data/artist-research-informalprinciple834.json",
       "releaseIds": [],
       "recordedOn": "2026-10-28",
-      "notes": "Artist's dachshund-like redesigned Hot Doggo. Original Reddit post association: artist-post-and-pet-name-confirmed."
+      "notes": "Previously proposed as Series 1 swap, but owner selected Shark Puppy instead. Retained as a permitted-artist art candidate for future releases. Original Reddit post association: artist-post-and-pet-name-confirmed."
     },
     {
       "artworkId": "jovy-lamb-001",
@@ -777,13 +777,15 @@
         "Shark Puppy"
       ],
       "subjectDescription": "Shark Puppy",
-      "series1PetMatches": [],
-      "candidateUsage": "future-release-candidate",
+      "series1PetMatches": [
+        "Shark Puppy"
+      ],
+      "candidateUsage": "owner-selected-Series-1-draft-Legendary",
       "imageStatus": "original-upload-only-not-imported",
       "researchCatalogPath": "data/artist-research-informalprinciple834.json",
       "releaseIds": [],
       "recordedOn": "2026-10-28",
-      "notes": "Artist's puppy-like shark redesign. Original Reddit post association: artist-post-and-pet-name-confirmed."
+      "notes": "Owner requested Shark Puppy in Series 1 for its appeal. Art by jovyisweird from Adopt Me redesigns part 2. Chosen in 100-pet art-first draft in place of previously proposed Hot Doggo; crop/asset import and permission-evidence review still pending."
     },
     {
       "artworkId": "jovy-candy-floss-chick-001",
@@ -1192,11 +1194,11 @@
       ],
       "subjectDescription": "Princess Mare",
       "series1PetMatches": [],
-      "candidateUsage": "Series 1 art-first draft candidate (not approved or assigned)",
+      "candidateUsage": "owner-selected-humanized-Princess-Mare-for-Series-1-draft",
       "imageStatus": "conversation-reference-not-imported",
       "releaseIds": [],
       "recordedOn": "2026-10-28",
-      "notes": "Owner provided reference to Princess Mare's official appearance in their Fandom page; verified against official Adopt Me pet entry. Main art depicts a large humanized interpretation holding a small Princess Mare, and a game-model reference. This is not a close-up pet portrait. Princess Mare is proposed in the Series 1 art-first draft, not in the existing approved original roster. Artist permission reported by owner; cropped/card-sized image and exact editing permission have not been recorded; no live release changed.",
+      "notes": "User shared the official pet reference and selected this humanized illustration by 3yberpunks8 for Princess Mare's Series 1 draft card. A pet-only crop is NOT a requirement. Artist permission is reported; actual final image file is not yet imported, final card layout and permission documentation remain to be completed.",
       "officialPetReference": {
         "name": "Princess Mare",
         "petId": "princess-mare",
@@ -1210,9 +1212,10 @@
         "composition": "The large foreground character is a humanized/stylized rendition; the small horse-like pet held in her arms depicts Princess Mare. The image also includes a game-pet reference on the right.",
         "petVisibility": "small-in-main-composition",
         "additionalAttachment": "A separate simplified human-head drawing was supplied; it is not another Princess Mare pet illustration.",
-        "cardPreparation": "Find a higher-resolution pet-focused image or use a careful, artist-permitted crop; cropping the tiny horse out of this composite may be too low-resolution for a card.",
+        "cardPreparation": "Use the full humanized Princess Mare composition as the owner's intended card art; no horse-only crop is required. Fit the artwork legibly within card layout and keep artist signature/credit where applicable.",
         "verificationBasis": "Official pet reference plus user-shared images on 2026-10-28",
-        "usageFit": "possible-but-needs-pet-centered-art-review"
+        "usageFit": "owner-approved-humanized-art-style",
+        "ownerDecision": "The user likes the cute human version and explicitly wants it featured on the Princess Mare card, even though the mare itself is small."
       }
     }
   ],
