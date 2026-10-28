@@ -68,6 +68,21 @@ The dark furry pet illustration `urkhhed6ujkg1` from the Glum-Factor3313 request
 
 **These are research and artwork-credit records, not imported card art.** Before use in Discord cards, check the specific original file and the permission scope granted by the artist; preserve contributor attribution.
 
+## Upper-Trade-7110 — reported permission and photographed pet art
+
+Reddit: https://www.reddit.com/user/Upper-Trade-7110/ . The project owner reports the artist gave permission to use their art. The exact wording and whether cropping/editing is included have not yet been archived. Their four distinct Reddit photo/media links (one Hedgehog URL was duplicated in the user message) and four user-uploaded reference photographs are tracked in [`data/artist-research-upper-trade-7110.json`](../data/artist-research-upper-trade-7110.json).
+
+| Artwork record | What is depicted | Series 1 status |
+|---|---|---|
+| `uppertrade-butterfly-slug-001` | Butterfly and Slug; exact butterfly species unconfirmed | Future-releases candidate |
+| `uppertrade-beetle-001` | Beetle; exact species unconfirmed | Future-releases candidate |
+| `uppertrade-scorpion-001` | Blue-purple **Scorpion**, not a lobster; could be Halloween Blue Scorpion, not confirmed | Future-releases candidate |
+| `uppertrade-hedgehog-001` | **Hedgehog** | Series 1 candidate (Ultra-Rare) |
+
+The uploaded photograph `image(20261028-214740).png` also shows an orange-spotted, long-snouted animal with a plant pot. It **might be** a stylized Giant Anteater, but this is not confirmed and no direct Reddit media link is confidently matched to that crop. Preserve this reference in the research file without prematurely labeling it or assigning a card.
+
+All four artwork records exist in the main artist catalog with the artist credited and their original Reddit preview URLs. They are **source-only candidates**, not cropped/imported pet art or approved MongoDB card definitions. The original image URLs could not be independently retrieved during this review, so pet-to-media mapping follows the owner's supplied descriptions and photographs. `releaseIds` remains empty; the Release 1 egg drop still has its sole egg image record.
+
 ## Adding images in the future
 
 1. Create or reuse an artist entry (`artistId`, name, profile URL).
