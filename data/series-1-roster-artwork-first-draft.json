@@ -1,0 +1,369 @@
+{
+  "schemaVersion": 1,
+  "status": "proposed-for-owner-review—not-live",
+  "preparedOn": "2026-10-28",
+  "release": "Series 1",
+  "description": "Artwork-first revision of the owner-approved 100-pet Series 1 working roster. This draft is not approved by the owner, does not modify MongoDB, and should not silently replace the existing production roster.",
+  "sourceRoster": "AM Isa — Series 1 Egg Pet List (user-provided 100 pets; 13 Common/18 Uncommon/24 Rare/28 Ultra-Rare/17 Legendary)",
+  "designRules": {
+    "exactTotal": 100,
+    "rarityTierCounts": {
+      "Common": 13,
+      "Uncommon": 18,
+      "Rare": 24,
+      "Ultra-Rare": 28,
+      "Legendary": 17
+    },
+    "tierHatchPercent": {
+      "Common": 26,
+      "Uncommon": 26,
+      "Rare": 26,
+      "Ultra-Rare": 14,
+      "Legendary": 8
+    },
+    "notes": "Tier-level odds retained from previous decision, but any individual species/weight mapping must be recalculated and reviewed before implementation. Not a replacement for original pet-catalog fact database."
+  },
+  "artCoverage": {
+    "alreadyCoveredDifferentSpecies": [
+      "Otter",
+      "Wolf",
+      "Cute-A-Cabra",
+      "Happy Duckling",
+      "Lamb",
+      "Hedgehog",
+      "Arctic Fox",
+      "Lion",
+      "Strawberry Shortcake Bat Dragon",
+      "Unicorn",
+      "Turtle",
+      "Owl"
+    ],
+    "proposedNewCoveredSpecies": [
+      "Canadian Goose",
+      "Princess Mare",
+      "Slug",
+      "Koi Carp",
+      "Leopard Shark",
+      "Bunny Swirl",
+      "Glacier Moth",
+      "Vampire Dragon",
+      "Candyfloss Chick",
+      "Hot Doggo"
+    ],
+    "estimatedCoveredSpeciesCount": 22,
+    "definition": "Artwork from artists who reportedly gave permission; images may still need source files, crop preparation and permission-term archiving before card publication."
+  },
+  "replacements": [
+    {
+      "tier": "Uncommon",
+      "remove": "Chocolate Labrador",
+      "add": "Canadian Goose",
+      "artist": "αriαℓ (u/softlambkin)",
+      "sourceArtworkId": null,
+      "sourceResearchId": "oup3bl978kkg1",
+      "reason": "Confirmed individual illustration for a new uncommon pet",
+      "officialPetId": "canadian-goose",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/canadian-goose"
+    },
+    {
+      "tier": "Uncommon",
+      "remove": "Quokka",
+      "add": "Princess Mare",
+      "artist": "3yberpunks8",
+      "sourceArtworkId": "3yberpunks8-princess-mare-001",
+      "reason": "Artist granted specific permission; princess/player-focused illustration needs a card-ready crop",
+      "officialPetId": "princess-mare",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/princess-mare"
+    },
+    {
+      "tier": "Uncommon",
+      "remove": "Stegosaurus",
+      "add": "Slug",
+      "artist": "Upper-Trade-7110",
+      "sourceArtworkId": "uppertrade-butterfly-slug-001",
+      "reason": "Artist permitted a sheet with Slug and Butterfly; isolate the Slug drawing",
+      "officialPetId": "slug",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/slug"
+    },
+    {
+      "tier": "Rare",
+      "remove": "English Sheepdog",
+      "add": "Koi Carp",
+      "artist": "jovyisweird (u/InformalPrinciple834)",
+      "sourceArtworkId": "jovy-koi-carp-001",
+      "reason": "Completed labeled redesign with source post",
+      "officialPetId": "koi-carp",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/koi-carp"
+    },
+    {
+      "tier": "Rare",
+      "remove": "Ring-tailed Lemur",
+      "add": "Leopard Shark",
+      "artist": "jovyisweird (u/InformalPrinciple834)",
+      "sourceArtworkId": "jovy-leopard-shark-001",
+      "reason": "Completed labeled redesign with source post",
+      "officialPetId": "leopard-shark",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/leopard-shark"
+    },
+    {
+      "tier": "Ultra-Rare",
+      "remove": "Albino Bat",
+      "add": "Bunny Swirl",
+      "artist": "αriαℓ (u/softlambkin)",
+      "sourceArtworkId": null,
+      "sourceResearchId": "ovz9uv3uykkg1",
+      "reason": "Colorful dessert-themed Bunny Swirl artwork confirmed by screenshot",
+      "officialPetId": "bunny-swirl",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/bunny-swirl"
+    },
+    {
+      "tier": "Ultra-Rare",
+      "remove": "Corgi",
+      "add": "Glacier Moth",
+      "artist": "jovyisweird (u/InformalPrinciple834)",
+      "sourceArtworkId": "jovy-glacier-moth-001",
+      "reason": "Completed labeled redesign with source post",
+      "officialPetId": "glacier-moth",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/glacier-moth"
+    },
+    {
+      "tier": "Legendary",
+      "remove": "Dodo",
+      "add": "Vampire Dragon",
+      "artist": "jovyisweird (u/InformalPrinciple834)",
+      "sourceArtworkId": "jovy-vampire-dragon-redesign-001",
+      "reason": "Recognizable dragon and confirmed artist source",
+      "officialPetId": "vampire-dragon",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/vampire-dragon"
+    },
+    {
+      "tier": "Legendary",
+      "remove": "Phoenix",
+      "add": "Candyfloss Chick",
+      "artist": "jovyisweird (u/InformalPrinciple834)",
+      "sourceArtworkId": "jovy-candy-floss-chick-001",
+      "sourceNameAlias": "Candy Floss Chick",
+      "reason": "Colorful popular pet; official canonical spelling is Candyfloss Chick",
+      "officialPetId": "candyfloss-chick",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/candyfloss-chick"
+    },
+    {
+      "tier": "Legendary",
+      "remove": "Frost Fury",
+      "add": "Hot Doggo",
+      "artist": "jovyisweird (u/InformalPrinciple834)",
+      "sourceArtworkId": "jovy-hot-doggo-001",
+      "reason": "Distinctive recognizable pet and completed redesign",
+      "officialPetId": "hot-doggo",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/hot-doggo"
+    }
+  ],
+  "petsByRarity": {
+    "Common": [
+      "Cat",
+      "Dog",
+      "Otter",
+      "Robin",
+      "Chick",
+      "Chicken",
+      "Mouse",
+      "Beluga Whale",
+      "Dugong",
+      "Walrus",
+      "Ghost",
+      "Kid Goat",
+      "Brachiosaurus"
+    ],
+    "Uncommon": [
+      "Canadian Goose",
+      "Fennec Fox",
+      "Poodle",
+      "Wolf",
+      "Bat",
+      "Silly Duck",
+      "Drake",
+      "Meerkat",
+      "Capybara",
+      "Pink Cat",
+      "Blue Dog",
+      "Princess Mare",
+      "Raccoon",
+      "Cute-A-Cabra",
+      "Black Panther",
+      "Snowman",
+      "Dolphin",
+      "Slug"
+    ],
+    "Rare": [
+      "Cow",
+      "Pig",
+      "Elephant",
+      "Brown Bear",
+      "Polar Bear",
+      "Swan",
+      "Reindeer",
+      "Bunny",
+      "Rabbit",
+      "Shrew",
+      "Goose",
+      "Happy Duckling",
+      "Husky",
+      "Border Collie",
+      "Koi Carp",
+      "Red Fox",
+      "Seahorse",
+      "Lynx",
+      "Monkey",
+      "Clover Cow",
+      "Hare",
+      "Hyena",
+      "Leopard Shark",
+      "Giant Anteater"
+    ],
+    "Ultra-Rare": [
+      "Bee",
+      "Frog",
+      "Koala",
+      "Panda",
+      "Red Panda",
+      "Hamster",
+      "Lamb",
+      "Hedgehog",
+      "Dalmatian",
+      "Flamingo",
+      "Crocodile",
+      "Jellyfish",
+      "Peppermint Penguin",
+      "Arctic Fox",
+      "Ghost Bunny",
+      "Bunny Swirl",
+      "Glacier Moth",
+      "Pomeranian",
+      "Lion",
+      "Mini Pig",
+      "Highland Cow",
+      "African Wild Dog",
+      "Siamese Cat",
+      "Alpaca",
+      "Caterpillar",
+      "Puffin",
+      "Lion Cub",
+      "Christmas Pudding Pup"
+    ],
+    "Legendary": [
+      "Bat Dragon",
+      "Frost Dragon",
+      "Shadow Dragon",
+      "Strawberry Shortcake Bat Dragon",
+      "Chocolate Chip Bat Dragon",
+      "Unicorn",
+      "Turtle",
+      "Kangaroo",
+      "Owl",
+      "Parrot",
+      "Hot Doggo",
+      "Vampire Dragon",
+      "Candyfloss Chick",
+      "Axolotl",
+      "Fairy Bat Dragon",
+      "Nessie",
+      "Sugar Axolotl"
+    ]
+  },
+  "exclusionsAndAlternatives": {
+    "futureSwapCandidates": [
+      {
+        "pet": "Shark Puppy",
+        "rarity": "Legendary",
+        "artworkId": "jovy-shark-puppy-001",
+        "note": "Cute kid-friendly alternative if you prefer it over one of the proposed new Legendary pets."
+      },
+      {
+        "pet": "Shark",
+        "rarity": "Legendary",
+        "artworkId": "jovy-shark-001"
+      },
+      {
+        "pet": "Dragonfly",
+        "rarity": "Legendary",
+        "artworkId": "jovy-dragonfly-001"
+      },
+      {
+        "pet": "Baku",
+        "rarity": "Legendary",
+        "artworkId": "jovy-baku-001"
+      },
+      {
+        "pet": "Bunny Swirl",
+        "rarity": "Ultra-Rare",
+        "note": "Included in recommended swaps."
+      },
+      {
+        "pet": "Glyptodon",
+        "rarity": "Uncommon",
+        "source": "https://www.reddit.com/r/AdoptMeRBX/comments/1llu6r0/jawbreaker_the_glyptodon_another_new_member_of_my/",
+        "note": "Artist permitted but actual illustration not yet individually inspected; could replace Slug or Princess Mare if preferred."
+      },
+      {
+        "pet": "Halloween Blue Scorpion",
+        "rarity": "Uncommon",
+        "sourceArtworkId": "uppertrade-scorpion-001",
+        "note": "Exact scorpion species still unconfirmed; do not swap without confirmation."
+      }
+    ],
+    "doNotCountAsKnownExactOfficialPets": [
+      {
+        "artistArtwork": "Cupid Owl",
+        "reason": "No matching official pet name confirmed; do not confuse it with original Owl."
+      },
+      {
+        "artistArtwork": "Candy Floss Chick",
+        "officialPetName": "Candyfloss Chick",
+        "reason": "Canonical spelling corrected from artist sheet."
+      },
+      {
+        "artistArtwork": "Butterfly",
+        "reason": "Exact Adopt Me butterfly variant not identified."
+      },
+      {
+        "artistArtwork": "Beetle",
+        "reason": "Exact Beetle variant not identified."
+      }
+    ],
+    "preserveExistingFavorites": [
+      "Bat Dragon",
+      "Frost Dragon",
+      "Shadow Dragon",
+      "Strawberry Shortcake Bat Dragon",
+      "Chocolate Chip Bat Dragon",
+      "Unicorn",
+      "Turtle",
+      "Kangaroo",
+      "Owl",
+      "Parrot",
+      "Nessie",
+      "Sugar Axolotl",
+      "Fairy Bat Dragon",
+      "Cow",
+      "Blue Dog",
+      "Pink Cat"
+    ]
+  },
+  "implementation": {
+    "requiresOwnerApproval": true,
+    "mergedToMain": false,
+    "updatesMongoDb": false,
+    "importsOrPublishesArtwork": false
+  },
+  "validations": {
+    "sourcePetNamesUnique": true,
+    "officialRarityMismatches": [],
+    "expectedTierCounts": {
+      "Common": 13,
+      "Uncommon": 18,
+      "Rare": 24,
+      "Ultra-Rare": 28,
+      "Legendary": 17
+    }
+  }
+}
