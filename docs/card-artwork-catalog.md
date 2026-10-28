@@ -34,6 +34,16 @@ Research and **direct links to the artist's artwork replies** are stored in [`da
 
 **These are discovery/review records, not imported card artwork.** Permission message/evidence, reuse scope, final chosen files, and visual pet identification must be checked before assigning an artwork ID to a card.
 
+## Submitted Reddit image links (10)
+
+The project owner supplied ten Reddit preview image links from the fan-art thread (two were accidentally pasted together and are separated in the registry). They are preserved in `data/artist-research-softlambkin.json` under `submittedImageReview.images`, each with an exact source URL, Reddit image ID, original poster and reply context.
+
+**Important provenance distinction:** Nine supplied images were posted by `u/softlambkin`. The file `zw2w9yz23lkg1.png` was posted by **u/PhoenixTheTortoise** as a separate drawing offered in exchange, not by `u/softlambkin`, and is excluded from their attributed artwork. Do not interpret the surrounding Turtle request as establishing the depicted pet's species.
+
+The images' pixel content was not accessible through the current inspection method, so none of these ten image files has been assigned a confirmed Adopt Me pet species. Replies identify the nicknames **Winnie, Buttercream, laffytaffy, and Cloud** for some images; these are not species labels. Where the artist replied to another person's uploaded pet screenshot, the species still requires visual verification.
+
+Keep these as research-only previews, not approved image files or card assets. When the original pictures/screenshots become available for visual inspection, update each `petSpecies`, confirm whether it matches the 100-pet Series 1 list, and record the higher-resolution source and permission scope before artwork approval.
+
 ## Adding images in the future
 
 1. Create or reuse an artist entry (`artistId`, name, profile URL).
