@@ -17,14 +17,23 @@ export function normalizeCardTag(value) {
 }
 
 export async function updateOwnedCardTag({ discordUserId, cardId, tag }) {
-  if (!mongoose.isValidObjectId(cardId)) throw new Error("Enter a valid card ID from your collection.");
+  // Default to the most recent *awarded* grab, not an in-progress reservation.
+  // If it was traded or consumed, report that instead of silently tagging an older card.
+  let targetId = cardId;
+  if (!targetId) {
+    const lastGrab = await CardClaim.findOne({ discordUserId })
+      .sort({ createdAt: -1, _id: -1 }).select("cardCopyId").lean();
+    if (!lastGrab) throw new Error("You haven't collected a card yet. Grab a card first or enter a card ID.");
+    targetId = lastGrab.cardCopyId;
+  }
+  if (!mongoose.isValidObjectId(targetId)) throw new Error("Enter a valid card ID from your collection.");
   const normalized = tag === null ? "" : normalizeCardTag(tag);
   const card = await CardCopy.findOneAndUpdate(
-    { _id: cardId, ownerDiscordUserId: discordUserId, state: "owned" },
+    { _id: targetId, ownerDiscordUserId: discordUserId, state: "owned" },
     { $set: { tag: normalized } },
     { returnDocument: "after", runValidators: true },
   );
-  if (!card) throw new Error("That card was not found in your owned collection.");
+  if (!card) throw new Error("That card is no longer in your owned collection. Enter the ID of a card you currently own.");
   return { id: String(card._id), tag: card.tag };
 }
 
@@ -100,6 +109,6 @@ export function formatCardCollectionSummary({ total, rarity, upgrade, recent = [
     "**Last 5 grabbed cards**",
     ...recentLines,
     "",
-    "*Use /cards tag or /cards untag with a card ID. Full gallery and trading are coming next.*",
+    "*Use /cards tag or /cards untag. Card ID is optional and defaults to your last grabbed card. Full gallery and trading are coming next.*",
   ].join("\n");
 }
