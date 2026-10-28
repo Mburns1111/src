@@ -9,9 +9,9 @@ test("recent grabs include unique card ids, rarity, tier and optional tag", () =
     rarity: { Common: 1, Uncommon: 0, Rare: 0, "Ultra-Rare": 0, Legendary: 1 },
     upgrade: { normal: 2, neon: 0, mega: 0 },
     recent: [
-      { id: "507f1f77bcf86cd799439011", name: "Shadow Dragon", rarity: "Legendary",
+      { id: "86cd799439011", name: "Shadow Dragon", rarity: "Legendary",
         upgradeLevel: "normal", tag: "Favorite", owned: true },
-      { id: "507f1f77bcf86cd799439012", name: "Cat", rarity: "Common",
+      { id: "86cd799439012", name: "Cat", rarity: "Common",
         upgradeLevel: "normal", tag: "", owned: true },
     ],
   });
