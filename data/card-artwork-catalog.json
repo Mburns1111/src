@@ -591,13 +591,15 @@
         "Hot Doggo"
       ],
       "subjectDescription": "Hot Doggo",
-      "series1PetMatches": [],
-      "candidateUsage": "future-release-candidate",
+      "series1PetMatches": [
+        "Hot Doggo"
+      ],
+      "candidateUsage": "owner-selected-Series-1-draft-Legendary",
       "imageStatus": "original-upload-only-not-imported",
       "researchCatalogPath": "data/artist-research-informalprinciple834.json",
       "releaseIds": [],
       "recordedOn": "2026-10-28",
-      "notes": "Previously proposed as Series 1 swap, but owner selected Shark Puppy instead. Retained as a permitted-artist art candidate for future releases. Original Reddit post association: artist-post-and-pet-name-confirmed."
+      "notes": "Owner expressly wants Hot Doggo and Shark Puppy together in the Series 1 draft. Hot Doggo replaces Frost Fury. Artist permission reported; source image and final layout not imported."
     },
     {
       "artworkId": "jovy-lamb-001",
@@ -785,7 +787,7 @@
       "researchCatalogPath": "data/artist-research-informalprinciple834.json",
       "releaseIds": [],
       "recordedOn": "2026-10-28",
-      "notes": "Owner requested Shark Puppy in Series 1 for its appeal. Art by jovyisweird from Adopt Me redesigns part 2. Chosen in 100-pet art-first draft in place of previously proposed Hot Doggo; crop/asset import and permission-evidence review still pending."
+      "notes": "Owner explicitly wants Shark Puppy and Hot Doggo in Series 1. Shark Puppy replaces unillustrated Axolotl, keeping 17 Legendary pets. Artist permission reported; source image and final layout not imported."
     },
     {
       "artworkId": "jovy-candy-floss-chick-001",
