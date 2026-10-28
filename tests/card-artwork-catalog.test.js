@@ -5,6 +5,7 @@ import CardRelease from "../models/CardRelease.js";
 
 const catalog = JSON.parse(readFileSync(new URL("../data/card-artwork-catalog.json", import.meta.url), "utf8"));
 const softlambkinResearch = JSON.parse(readFileSync(new URL("../data/artist-research-softlambkin.json", import.meta.url), "utf8"));
+const upperTradeResearch = JSON.parse(readFileSync(new URL("../data/artist-research-upper-trade-7110.json", import.meta.url), "utf8"));
 
 test("every artwork has a unique ID and links only to known artists", () => {
   assert.equal(catalog.schemaVersion, 2);
@@ -180,4 +181,31 @@ test("Upper-Trade-7110's reported permission is recorded without attributing uni
   assert.equal(artist.platform, "Reddit");
   assert.equal(artist.permission.status, "reported-by-project-owner");
   assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 0);
+});
+
+test("Upper-Trade-7110 artwork sources are deduplicated and tracked as candidates", () => {
+  const sourceImages = upperTradeResearch.imageSources;
+  assert.equal(sourceImages.length, 4);
+  assert.equal(new Set(sourceImages.map(x => x.redditMediaId)).size, 4);
+  assert.equal(new Set(sourceImages.map(x => x.artworkId)).size, 4);
+  assert.equal(upperTradeResearch.uploadedPhotoReferences.length, 4);
+  const ids = ["8vey8mer4hhh1", "z7qc4ner4hhh1", "vvhp1rer4hhh1", "bhippqer4hhh1"];
+  assert.deepEqual(sourceImages.map(x => x.redditMediaId), ids);
+  for (const image of sourceImages) {
+    const artwork = catalog.artworks.find(x => x.artworkId === image.artworkId);
+    assert.ok(artwork);
+    assert.deepEqual(artwork.artistIds, ["reddit-upper-trade-7110"]);
+    assert.equal(artwork.source.imageId, image.redditMediaId);
+    assert.equal(artwork.source.providedAttributionUrl, image.previewUrl);
+    assert.equal(artwork.license.reviewStatus, "needs-review");
+    assert.deepEqual(artwork.releaseIds, []);
+    assert.deepEqual(artwork.series1PetMatches, image.series1Matches);
+    assert.equal(artwork.imageStatus, "source-reference-needs-crop-and-review");
+  }
+  const hedgehog = catalog.artworks.find(x => x.artworkId === "uppertrade-hedgehog-001");
+  assert.deepEqual(hedgehog.series1PetMatches, ["Hedgehog"]);
+  assert.equal(catalog.artworks.filter(x => x.source.imageId === "bhippqer4hhh1").length, 1);
+  const firstPhoto = upperTradeResearch.uploadedPhotoReferences.find(x => x.uploadName === "image(20261028-214740).png");
+  assert.equal(firstPhoto.confirmedPetSpecies, null);
+  assert.equal(catalog.releases.find(x => x.releaseId === "release-1").eggArtworkIds.length, 1);
 });
