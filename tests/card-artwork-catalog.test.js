@@ -181,7 +181,7 @@ test("Upper-Trade-7110's reported permission is recorded without attributing uni
   assert.equal(artist.displayName, "Upper-Trade-7110");
   assert.equal(artist.platform, "Reddit");
   assert.equal(artist.permission.status, "reported-by-project-owner");
-  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 0);
+  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 18);
 });
 
 test("Upper-Trade-7110 artwork sources are deduplicated and tracked as candidates", () => {
@@ -223,9 +223,9 @@ test("jovyisweird's permission is recorded under their Reddit username", () => {
 
 test("jovyisweird uploaded artwork index has complete credits and distinct entries", () => {
   assert.equal(jovyResearch.artistId, "reddit-informalprinciple834");
-  assert.equal(jovyResearch.images.length, 17);
-  assert.equal(new Set(jovyResearch.images.map(x => x.artworkId)).size, 17);
-  assert.equal(new Set(jovyResearch.images.map(x => x.submittedFileName)).size, 17);
+  assert.equal(jovyResearch.images.length, 18);
+  assert.equal(new Set(jovyResearch.images.map(x => x.artworkId)).size, 18);
+  assert.equal(new Set(jovyResearch.images.map(x => x.submittedFileName)).size, 18);
   for (const image of jovyResearch.images) {
     const art = catalog.artworks.find(a => a.artworkId === image.artworkId);
     assert.ok(art, `Unregistered artwork: ${image.artworkId}`);
@@ -242,7 +242,7 @@ test("jovyisweird uploaded artwork index has complete credits and distinct entri
     jovyResearch.images.filter(x => x.series1Match).map(x => x.identifiedSubject).sort(),
     ["Lamb", "Lion", "Otter", "Owl", "Unicorn"]
   );
-  assert.equal(jovyResearch.images.filter(x => x.originalRedditPostUrl !== null).length, 13);
+  assert.equal(jovyResearch.images.filter(x => x.originalRedditPostUrl !== null).length, 14);
   const owl = jovyResearch.images.find(x => x.identifiedSubject === "Owl");
   const cupidOwl = jovyResearch.images.find(x => x.identifiedSubject === "Cupid Owl");
   assert.equal(owl.series1Match, true);
@@ -252,18 +252,35 @@ test("jovyisweird uploaded artwork index has complete credits and distinct entri
   assert.deepEqual(catalog.releases.find(x => x.releaseId === "release-1").eggArtworkIds, ["egg-drop-001"]);
 });
 
-test("Vampire Dragon artwork remains pending until creator is confirmed", () => {
-  const id = "pending-vampire-dragon-redesign-001";
-  const art = catalog.attributionPending.find(x => x.candidateId === id);
+test("owner-confirmed jovy Vampire Dragon is attributed and not in Series 1", () => {
+  const id = "jovy-vampire-dragon-redesign-001";
+  const art = catalog.artworks.find(x => x.artworkId === id);
   assert.ok(art);
-  assert.equal(art.petSpecies, "Vampire Dragon");
-  assert.equal(art.series1Match, false);
-  assert.equal(art.source.redditPostId, "18kzu0h");
-  assert.equal(art.source.verifiedAuthorship, false);
-  assert.equal(art.possibleArtistContext.verified, false);
-  assert.equal(art.creditText, null);
+  assert.deepEqual(art.artistIds, ["reddit-informalprinciple834"]);
+  assert.equal(art.source.imagePageUrl, "https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/");
+  assert.deepEqual(art.depictedPets, ["Vampire Dragon"]);
+  assert.deepEqual(art.series1PetMatches, []);
+  assert.equal(art.license.reviewStatus, "needs-review");
   assert.deepEqual(art.releaseIds, []);
-  assert.equal(catalog.artworks.some(x => x.artworkId === id), false);
-  assert.equal(catalog.artworks.filter(x => x.artistIds.includes("reddit-informalprinciple834")).length, 17);
-  assert.ok(jovyResearch.unverifiedAttributionLeads.some(x => x.candidateId === id));
+  assert.ok(jovyResearch.images.some(x => x.artworkId === id && x.identificationBasis === "direct-project-owner-confirmation"));
+  assert.ok(!catalog.attributionPending.some(x => x.candidateId === "pending-vampire-dragon-redesign-001"));
+  assert.ok(!jovyResearch.unverifiedAttributionLeads.some(x => x.petSpecies === "Vampire Dragon"));
+});
+
+test("3yberpunks8 Princess Mare permission is recorded for the specific artwork", () => {
+  const artist = catalog.artists.find(x => x.artistId === "reddit-3yberpunks8");
+  assert.ok(artist);
+  assert.equal(artist.displayName, "3yberpunks8");
+  assert.equal(artist.permission.status, "reported-by-project-owner");
+  assert.ok(artist.permission.scope.includes("Princess Mare"));
+  const art = catalog.artworks.find(x => x.artworkId === "3yberpunks8-princess-mare-001");
+  assert.ok(art);
+  assert.deepEqual(art.artistIds, [artist.artistId]);
+  assert.equal(art.source.imagePageUrl, "https://www.reddit.com/r/AdoptMeRBX/comments/1w7vzbv/princess_mare_fanart/");
+  assert.deepEqual(art.depictedPets, ["Princess Mare"]);
+  assert.deepEqual(art.series1PetMatches, []);
+  assert.deepEqual(art.releaseIds, []);
+  assert.equal(art.license.reviewStatus, "needs-review");
+  assert.equal(art.uploadReference.storedInRepository, false);
+  assert.deepEqual(catalog.releases.find(x => x.releaseId === "release-1").eggArtworkIds, ["egg-drop-001"]);
 });
