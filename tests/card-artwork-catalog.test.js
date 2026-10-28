@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import CardRelease from "../models/CardRelease.js";
 
 const catalog = JSON.parse(readFileSync(new URL("../data/card-artwork-catalog.json", import.meta.url), "utf8"));
+const softlambkinResearch = JSON.parse(readFileSync(new URL("../data/artist-research-softlambkin.json", import.meta.url), "utf8"));
 
 test("every artwork has a unique ID and links only to known artists", () => {
   assert.equal(catalog.schemaVersion, 2);
@@ -76,4 +77,23 @@ test("egg release schema can reference an artwork without changing its image URL
   const release = new CardRelease({ releaseId: "test-release", seriesId: "test-series", name: "Test", eggName: "Test Egg" });
   assert.equal(release.eggArtworkId, "");
   assert.equal(release.eggImageUrl, "");
+});
+
+test("softlambkin artwork research preserves source links without publishing unreviewed art", () => {
+  const artist = catalog.artists.find(a => a.artistId === "reddit-softlambkin");
+  assert.ok(artist);
+  assert.equal(artist.researchCatalogPath, "data/artist-research-softlambkin.json");
+  assert.equal(softlambkinResearch.artistId, artist.artistId);
+  assert.equal(softlambkinResearch.confirmedDrawings.length, 3);
+  assert.deepEqual(
+    [...new Set(softlambkinResearch.confirmedDrawings.flatMap(d => d.series1Matches))].sort(),
+    ["Cute-A-Cabra", "Turtle", "Wolf"]
+  );
+  const ids = new Set();
+  for (const entry of [...softlambkinResearch.confirmedDrawings, ...softlambkinResearch.completedButUnidentified]) {
+    assert.ok(!ids.has(entry.researchId));
+    ids.add(entry.researchId);
+    assert.ok(entry.originalArtistReply.startsWith(softlambkinResearch.sourceThreadUrl.replace("/adopt_me_fanart_c/", "/comment/")));
+  }
+  assert.equal(catalog.artworks.filter(a => a.artistIds.includes("reddit-softlambkin")).length, 0, "Research references must not auto-publish artwork");
 });
