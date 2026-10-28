@@ -98,7 +98,7 @@ test("softlambkin artwork research preserves source links without publishing unr
   assert.equal(catalog.artworks.filter(a => a.artistIds.includes("reddit-softlambkin")).length, 0, "Research references must not auto-publish artwork");
 });
 
-test("submitted Reddit image URLs preserve author attribution and do not invent species", () => {
+test("submitted Reddit image URLs preserve provenance and verified/tentative identification", () => {
   const submitted = softlambkinResearch.submittedImageReview.images;
   assert.equal(submitted.length, 10);
   assert.equal(new Set(submitted.map(x => x.redditImageId)).size, 10);
@@ -106,10 +106,18 @@ test("submitted Reddit image URLs preserve author attribution and do not invent 
   assert.equal(submitted.filter(x => x.postedBy !== "softlambkin").length, 1);
   const otherArtistImage = submitted.find(x => x.redditImageId === "zw2w9yz23lkg1");
   assert.equal(otherArtistImage.postedBy, "PhoenixTheTortoise");
-  assert.equal(otherArtistImage.reviewStatus, "other-artist-do-not-credit-softlambkin");
+  assert.equal(otherArtistImage.reviewStatus, "source-pet-reference-not-artist-illustration");
+  assert.equal(otherArtistImage.petSpecies, "Turtle");
+  assert.equal(softlambkinResearch.submittedImageReview.images.filter(x => x.petSpecies === "Strawberry Shortcake Bat Dragon").length, 2);
+  assert.equal(softlambkinResearch.submittedImageReview.images.find(x => x.redditImageId === "ovz9uv3uykkg1").petSpecies, "Bunny Swirl");
   for (const image of submitted) {
     assert.ok(image.imageUrl.includes(image.redditImageId));
-    assert.equal(image.petSpecies, null, "Do not infer species from inaccessible image");
-    assert.ok(image.reviewStatus.includes("identification") || image.reviewStatus.includes("other-artist"));
+    assert.ok(image.speciesConfidence);
+    assert.ok(image.reviewStatus);
+    if (image.speciesConfidence === "tentative") {
+      assert.equal(image.petSpecies, null, "Tentative image identities must not be accepted as confirmed");
+      assert.ok(image.candidateSpecies.length >= 1);
+    }
+    if (image.petSpecies) assert.ok(["high"].includes(image.speciesConfidence));
   }
 });
