@@ -158,3 +158,17 @@ test("owner-reviewed pet identities and general-artwork exclusions stay distinct
   assert.equal(catalog.releases.find(release => release.releaseId === "release-1").eggArtworkIds.length, 1);
   assert.ok(!catalog.releases[0].eggArtworkIds.includes(general.artworkId));
 });
+
+test("owner-skipped Glum-Factor3313 artwork is excluded from candidates", () => {
+  const skippedId = "urkhhed6ujkg1";
+  const img = softlambkinResearch.submittedImageReview.images.find(x => x.redditImageId === skippedId);
+  assert.ok(img);
+  assert.equal(img.reviewStatus, "skipped-by-project-owner");
+  assert.equal(img.excludeFromPetCards, true);
+  assert.equal(img.artUsage, "excluded");
+  assert.equal(img.petSpecies, null);
+  assert.equal(img.series1Match, false);
+  assert.ok(softlambkinResearch.ownerDecisions.skippedArtworks.some(x => x.redditImageId === skippedId));
+  assert.equal(softlambkinResearch.completedButUnidentified.length, 0);
+  assert.equal(catalog.artworks.some(x => x.source?.imageId === skippedId), false);
+});
