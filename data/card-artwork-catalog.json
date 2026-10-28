@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "description": "AM Isa card-game artwork and artist credit registry. Keeps artwork attribution separate from factual pet metadata and links artwork to an egg release by artworkId when assigned.",
+  "artists": [
+    {
+      "artistId": "pixabay-stux",
+      "displayName": "stux",
+      "platform": "Pixabay",
+      "profileUrl": "https://pixabay.com/users/stux-12364/",
+      "notes": "Artist name and profile URL provided with the original Pixabay attribution."
+    }
+  ],
+  "artworks": [
+    {
+      "artworkId": "egg-drop-001",
+      "title": "Egg Drop Image",
+      "kind": "egg-drop",
+      "artistIds": [
+        "pixabay-stux"
+      ],
+      "creditText": "Image by stux from Pixabay",
+      "source": {
+        "name": "Pixabay",
+        "websiteUrl": "https://pixabay.com/",
+        "imageId": "1255730",
+        "imagePageUrl": null,
+        "providedAttributionUrl": "https://pixabay.com//?utm_source=link-attribution&utm_medium=referral&utm_campaign=image&utm_content=1255730"
+      },
+      "license": {
+        "referenceName": "Pixabay terms/content license (specific asset terms not confirmed)",
+        "referenceUrl": "https://pixabay.com/service/terms/",
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "The creator attribution does not by itself verify this image's license, publication date, third-party rights, or permission for the intended presentation. Review original image page and Pixabay terms before approval."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "User-supplied source for the egg-drop image. No egg release ID or actual image file was provided, so this record is intentionally unlinked and cannot be used to publish an image."
+    }
+  ]
+}
