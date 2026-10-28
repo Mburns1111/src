@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { CARD_ID_CAPACITY, encodeCardNumber, displayCardId, normalizeCardReference, upgradeLabel } from "../services/card-identifiers.js";
 
 test("public card IDs use five case-sensitive characters, including letters and symbols", () => {
-  assert.equal(encodeCardNumber(1), "00001");
-  assert.equal(encodeCardNumber(10), "0000A");
-  assert.equal(encodeCardNumber(63), "0000_");
-  assert.equal(encodeCardNumber(64), "00010");
-  assert.equal(encodeCardNumber(CARD_ID_CAPACITY-1), "_____");
+  assert.equal(encodeCardNumber(1), "KlQPA");
+  assert.equal(encodeCardNumber(10), "KpwP1");
+  assert.equal(encodeCardNumber(63), "LEQOC");
+  assert.equal(encodeCardNumber(64), "LEwOB");
+  assert.equal(encodeCardNumber(CARD_ID_CAPACITY-1), "KkQPC");
   assert.equal(displayCardId({ publicId: "A7_kQ" }), "A7_kQ");
   assert.equal(normalizeCardReference("A7_kQ"), "A7_kQ");
   assert.equal(normalizeCardReference("a7_kq"), "a7_kq");
