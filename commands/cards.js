@@ -11,17 +11,17 @@ import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../se
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Collectible card game")
   .addSubcommand(c => c.setName("collection").setDescription("View your collectible cards"))
   .addSubcommand(c => c.setName("tag").setDescription("Give a card you own a personal tag")
-    .addStringOption(o => o.setName("name").setDescription("Tag, up to 32 characters").setMinLength(1).setMaxLength(32).setRequired(true))
+    .addStringOption(o => o.setName("tag").setDescription("Tag, up to 32 characters").setMinLength(1).setMaxLength(32).setRequired(true))
     .addStringOption(o => o.setName("card_id").setDescription("Optional; defaults to last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("untag").setDescription("Remove the tag from one of your cards")
     .addStringOption(o => o.setName("card_id").setDescription("Optional; defaults to last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("tag-multiple").setDescription("Apply one tag to multiple cards you own")
-    .addStringOption(o => o.setName("name").setDescription("Tag to apply").setRequired(true).setMinLength(1).setMaxLength(32))
+    .addStringOption(o => o.setName("tag").setDescription("Tag to apply").setRequired(true).setMinLength(1).setMaxLength(32))
     .addStringOption(o => o.setName("card_ids").setDescription("1–20 full card IDs separated by commas").setRequired(true)))
   .addSubcommand(c => c.setName("untag-multiple").setDescription("Remove tags from multiple cards you own")
     .addStringOption(o => o.setName("card_ids").setDescription("1–20 full card IDs separated by commas").setRequired(true)))
   .addSubcommand(c => c.setName("delete-tag").setDescription("Remove a named tag from ALL your cards (confirmation required)")
-    .addStringOption(o => o.setName("name").setDescription("Exact tag to delete").setRequired(true)))
+    .addStringOption(o => o.setName("tag").setDescription("Exact tag to delete").setRequired(true)))
   .addSubcommand(c => c.setName("test-drop").setDescription("MANAGERS: reveal a test release egg with three cards")
     .addStringOption(o => o.setName("release").setDescription("Release ID (e.g. series1-release1)").setRequired(true))
 );
@@ -52,7 +52,7 @@ export async function execute(interaction) {
     if (!isEnabled()) return interaction.editReply("Card tagging is not enabled on this bot.");
     try {
       const cardId = interaction.options.getString("card_id")?.trim() || null;
-      const tag = option === "tag" ? interaction.options.getString("name", true) : null;
+      const tag = option === "tag" ? interaction.options.getString("tag", true) : null;
       const updated = await updateOwnedCardTag({ discordUserId: interaction.user.id, cardId, tag });
       return interaction.editReply(updated.tag
         ? `Card \`${updated.id}\` tagged **${updated.tag}**. It will appear in your collection summary.`
@@ -66,7 +66,7 @@ export async function execute(interaction) {
     try {
       if (option === "delete-tag") {
         const pending = await prepareTagDeletion({
-          discordUserId: interaction.user.id, tag: interaction.options.getString("name", true),
+          discordUserId: interaction.user.id, tag: interaction.options.getString("tag", true),
         });
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId(`cards:tagdelete:yes:${pending.id}`)
@@ -80,7 +80,7 @@ export async function execute(interaction) {
         });
       }
       const ids = interaction.options.getString("card_ids", true);
-      const tag = option === "tag-multiple" ? interaction.options.getString("name", true) : null;
+      const tag = option === "tag-multiple" ? interaction.options.getString("tag", true) : null;
       const result = await updateMultipleOwnedCardTags({
         discordUserId: interaction.user.id, cardIds: ids, tag,
       });
