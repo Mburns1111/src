@@ -7,6 +7,8 @@ const schema = new mongoose.Schema({
   rarity: { type: String, required: true, enum: ["Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"] },
   artStatus: { type: String, enum: ["missing", "pending", "approved", "test-placeholder"], default: "missing" },
   artUrl: { type: String, default: "" },
+  artistCredit: { type: String, default: "", maxlength: 100 },
+  artistUrl: { type: String, default: "" },
   hatchWeight: { type: Number, default: 1, min: 0 },
   valueReview: {
     valueScore: { type: Number, default: null },
