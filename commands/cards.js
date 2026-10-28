@@ -17,7 +17,7 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("C
     .addStringOption(o => o.setName("card_id").setDescription("Optional; defaults to last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("tag-multiple").setDescription("Apply one tag to multiple cards you own")
     .addStringOption(o => o.setName("tag").setDescription("Tag to apply").setRequired(true).setMinLength(1).setMaxLength(32))
-    .addStringOption(o => o.setName("card_ids").setDescription("1–20 full card IDs separated by commas").setRequired(true)))
+    .addStringOption(o => o.setName("card_ids").setDescription("1–20 short or full card IDs, comma-separated").setRequired(true)))
   .addSubcommand(c => c.setName("untag-multiple").setDescription("Remove tags from multiple cards you own")
     .addStringOption(o => o.setName("card_ids").setDescription("1–20 full card IDs separated by commas").setRequired(true)))
   .addSubcommand(c => c.setName("delete-tag").setDescription("Remove a named tag from ALL your cards (confirmation required)")
@@ -54,9 +54,13 @@ export async function execute(interaction) {
       const cardId = interaction.options.getString("card_id")?.trim() || null;
       const tag = option === "tag" ? interaction.options.getString("tag", true) : null;
       const updated = await updateOwnedCardTag({ discordUserId: interaction.user.id, cardId, tag });
-      return interaction.editReply(updated.tag
-        ? `Card \`${updated.id}\` tagged **${updated.tag}**. It will appear in your collection summary.`
-        : `Tag cleared for card \`${updated.id}\`.`);
+      const cardDescription = `**${escapeDiscord(updated.name)}** · ${escapeDiscord(updated.rarity)} · ${updated.upgradeLevel === "mega" ? "Mega Neon" : updated.upgradeLevel === "neon" ? "Neon" : "Normal"}\nCard ID: \`${updated.id}\``;
+      return interaction.editReply({
+        content: updated.tag
+          ? `${cardDescription}\nTag: **${escapeDiscord(updated.tag)}** (saved)`
+          : `${cardDescription}\nTag removed.`,
+        allowedMentions: { parse: [] },
+      });
     } catch (error) {
       return interaction.editReply(error.message);
     }
