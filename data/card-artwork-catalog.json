@@ -53,7 +53,7 @@
       "platform": "Reddit",
       "platformUsername": "InformalPrinciple834",
       "profileUrl": "https://www.reddit.com/user/InformalPrinciple834/",
-      "notes": "Project owner reports permission to use jovyisweird/u/InformalPrinciple834 art. On 2026-10-28, 17 PNG examples and seven Reddit post links were provided; 13 images matched three verified redesign posts, five pet names appear on Series 1, four other images are concept/uncertain or unmatched to original posts. Art files are not yet imported into GitHub. Preserve exact permission scope and image credits for each eventual card.",
+      "notes": "Owner reports direct permission from jovyisweird/u/InformalPrinciple834 and confirmed that the 2023 Vampire Dragon redesign is theirs. 18 uploaded illustrations recorded by 2026-10-28; original PNGs and precise permission wording have not been imported or archived.",
       "permission": {
         "status": "reported-by-project-owner",
         "reportedOn": "2026-10-28",
@@ -62,6 +62,21 @@
         "notes": "Do not infer permissions for third-party material included in artwork. Keep per-artwork credits, links and review before import."
       },
       "researchCatalogPath": "data/artist-research-informalprinciple834.json"
+    },
+    {
+      "artistId": "reddit-3yberpunks8",
+      "displayName": "3yberpunks8",
+      "platform": "Reddit",
+      "platformUsername": "3yberpunks8",
+      "profileUrl": "https://www.reddit.com/user/3yberpunks8/",
+      "notes": "User reports the artist granted permission specifically for Princess Mare fan art on 2026-10-28; two images/screenshots shared in chat. Exact permission text and persistent evidence URL not archived.",
+      "permission": {
+        "status": "reported-by-project-owner",
+        "reportedOn": "2026-10-28",
+        "scope": "Princess Mare fan art linked to Reddit post 1w7vzbv only, not assumed to cover full portfolio.",
+        "evidenceUrl": null,
+        "notes": "Permission reported and screenshots supplied in conversation, but no persistent permission-evidence link exists in repository. Confirm crop/edit uses before publishing."
+      }
     }
   ],
   "artworks": [
@@ -1091,6 +1106,97 @@
       "releaseIds": [],
       "recordedOn": "2026-10-28",
       "notes": "Anthropomorphic, multi-eyed fan/bird-like character with elaborate costume. No verified Adopt Me pet species or matching source post; do not assign to a collectible pet card. Original Reddit post association: unmatched-to-individual-reddit-post."
+    },
+    {
+      "artworkId": "jovy-vampire-dragon-redesign-001",
+      "title": "Vampire Dragon — fan-art redesign",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-informalprinciple834"
+      ],
+      "creditText": "Artwork by jovyisweird (u/InformalPrinciple834).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "18kzu0h",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/",
+        "providedAttributionUrl": null
+      },
+      "attributionBasis": "Authorship confirmed by project owner directly on 2026-10-28. Reddit original poster not independently reverified.",
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Owner confirmed authorship by jovyisweird and previously reported permission for the artist's work. Archive wording of grant and check editing/cropping scope before publishing."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261028-230148).png",
+        "source": "2026-10-28 conversation upload",
+        "width": 768,
+        "height": 768,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Vampire Dragon"
+      ],
+      "subjectDescription": "Vampire Dragon",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-pet-card-candidate",
+      "imageStatus": "original-upload-only-not-imported",
+      "researchCatalogPath": "data/artist-research-informalprinciple834.json",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Transferred from attribution-pending record after owner confirmed creator; not part of 100-pet Series 1."
+    },
+    {
+      "artworkId": "3yberpunks8-princess-mare-001",
+      "title": "Princess Mare — fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-3yberpunks8"
+      ],
+      "creditText": "Artwork by 3yberpunks8 (Reddit).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "1w7vzbv",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1w7vzbv/princess_mare_fanart/",
+        "providedAttributionUrl": null
+      },
+      "attributionBasis": "Project owner identifies artist as 3yberpunks8 and reports artist permission for Princess Mare art; original post describes the picture as their fan-art work.",
+      "license": {
+        "referenceName": "Direct artist permission for Princess Mare reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Permission reported for this Princess Mare art only; screenshots were supplied in chat. Exact permission wording and crop/resize rights have not been archived. Keep original artist attribution."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": null,
+        "source": "Two user-provided image attachments/screenshots in 2026-10-28 conversation; filename not verified",
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Princess Mare"
+      ],
+      "subjectDescription": "Princess Mare",
+      "series1PetMatches": [],
+      "candidateUsage": "future-release-pet-card-candidate",
+      "imageStatus": "conversation-reference-not-imported",
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "notes": "Reddit fan art post dated September 5, 2026. Princess Mare is not in 100-pet Series 1 roster. User reports specific permission; no live card or egg artwork changed."
     }
   ],
   "releases": [
@@ -1103,38 +1209,5 @@
       "notes": "This is the only planned egg type for Release 1. Future releases may have additional egg types. This grouping does not create a CardRelease database record."
     }
   ],
-  "attributionPending": [
-    {
-      "candidateId": "pending-vampire-dragon-redesign-001",
-      "title": "Vampire Dragon redesign fan art",
-      "petSpecies": "Vampire Dragon",
-      "kind": "pet-artwork",
-      "intendedUse": "future-release-pet-card-candidate",
-      "series1Match": false,
-      "source": {
-        "name": "Reddit",
-        "redditPostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/",
-        "redditPostId": "18kzu0h",
-        "originalPosterUsername": null,
-        "verifiedAuthorship": false
-      },
-      "submittedImage": {
-        "fileName": "image(20261028-230148).png",
-        "width": 768,
-        "height": 768,
-        "storageStatus": "conversation-upload-not-saved-to-repository"
-      },
-      "possibleArtistContext": {
-        "artistId": "reddit-informalprinciple834",
-        "evidence": "Image shared immediately after a batch of jovyisweird's art, but direct verification of the linked post's author was unavailable.",
-        "verified": false
-      },
-      "creditText": null,
-      "permissionStatus": "not-established-for-specific-image",
-      "promotionCondition": "Verify who authored the Reddit post/artwork; then confirm this specific work is covered by that person's grant before creating a standard artist-credited artwork record.",
-      "releaseIds": [],
-      "recordedOn": "2026-10-28",
-      "notes": "Distinct Vampire Dragon artwork, not Shadow Dragon or Bat Dragon. Original Reddit source page returned 429 / inaccessible when checked; avoid claiming the preceding artist authored it without evidence."
-    }
-  ]
+  "attributionPending": []
 }
