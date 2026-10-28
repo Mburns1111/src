@@ -2,27 +2,30 @@ import mongoose from "mongoose";
 import CardCopy from "../models/CardCopy.js";
 import PendingCardTagDeletion from "../models/PendingCardTagDeletion.js";
 import { normalizeCardTag } from "./card-collection-summary.js";
+import { normalizeCardReference, resolveCardId } from "./card-identifiers.js";
 
 const MAX_BATCH = 20;
 
 export function parseCardIds(input) {
   const ids = String(input ?? "").split(/[\s,;]+/).filter(Boolean);
   if (ids.length < 1 || ids.length > MAX_BATCH) {
-    throw new Error("Enter 1–20 full card IDs, separated by commas or spaces.");
+    throw new Error("Enter 1–20 card IDs, separated by commas or spaces.");
   }
-  if (ids.some(id => !/^[0-9a-fA-F]{24}$/.test(id))) {
-    throw new Error("Every card ID must be a full 24-character hexadecimal ID.");
+  if (ids.some(id => !/^(?:[0-9a-fA-F]{12}|[0-9a-fA-F]{24})$/.test(id))) {
+    throw new Error("Every card ID must be 12 or 24 hexadecimal characters.");
   }
   if (new Set(ids.map(id => id.toLowerCase())).size !== ids.length) {
     throw new Error("Each card ID can appear only once.");
   }
-  return ids.map(id => new mongoose.Types.ObjectId(id));
+  return ids.map(normalizeCardReference);
 }
 
 // Validate the ENTIRE batch first; don't partially apply user mistakes.
 // Only tag is modified. Ownership, card state, rarity and upgrade level remain.
 export async function updateMultipleOwnedCardTags({ discordUserId, cardIds, tag }) {
-  const ids = parseCardIds(cardIds);
+  const references = parseCardIds(cardIds);
+  const ids = await Promise.all(references.map(resolveCardId));
+  if (new Set(ids.map(String)).size !== ids.length) throw new Error("Each card ID can appear only once.");
   const normalized = tag === null ? "" : normalizeCardTag(tag);
   const owned = await CardCopy.countDocuments({
     _id: { $in: ids }, ownerDiscordUserId: discordUserId, state: "owned",
