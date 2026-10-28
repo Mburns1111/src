@@ -21,14 +21,16 @@
       "displayName": "αriαℓ",
       "platform": "Reddit",
       "profileUrl": "https://www.reddit.com/user/softlambkin/",
-      "notes": "User reports direct permission from this Reddit artist to use their artwork in the AM Isa project (2026-10-28). Permission message/evidence and scope not yet attached. No specific pet illustrations confidently attributed from indexed public posts in initial research. A public AdoptMeRBX comment credits u/softlambkin for a visual/color suggestion, but the underlying artwork has not been verified: https://www.reddit.com/r/AdoptMeRBX/comments/1r9ni5j/hes_home_need_name_suggestions/",
+      "notes": "Artist-created Adopt Me fan-art replies verified in their own Reddit thread. Research includes three identifiable drawings covering four pet types (Wolf, Ghost Wolf, Turtle, and neon Cute-A-Cabra), plus additional drawings whose species are not yet verified.",
       "permission": {
         "status": "reported-by-project-owner",
         "reportedOn": "2026-10-28",
         "scope": "unspecified",
         "evidenceUrl": null,
-        "notes": "Do not mark a particular image approved until its authorship and permission scope are confirmed."
-      }
+        "notes": "The project owner reports direct permission from the Reddit artist. Public Reddit thread shows artwork authored by the artist, but original permission evidence and exact reuse scope have not been recorded; do not treat third-party requests or individual illustrations as fully cleared for card publication until reviewed."
+      },
+      "researchCatalogPath": "data/artist-research-softlambkin.json",
+      "researchThreadUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/adopt_me_fanart_c/"
     }
   ],
   "artworks": [
