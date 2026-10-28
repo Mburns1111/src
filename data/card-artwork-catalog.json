@@ -81,6 +81,42 @@
         }
       ],
       "sourceScope": "incorporated-artwork-only"
+    },
+    {
+      "artworkId": "softlambkin-general-multipet-001",
+      "title": "αriαℓ — Four-pet group illustration",
+      "kind": "general-artwork",
+      "artworkType": "multi-pet-illustration",
+      "artistIds": [
+        "reddit-softlambkin"
+      ],
+      "creditText": "Artwork by αriαℓ (u/softlambkin) on Reddit.",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "xdlpsxxahlkg1",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dp5vo/",
+        "providedAttributionUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-xdlpsxxahlkg1.png?width=320&crop=smart&auto=webp&s=0072ce0f5fd78f6c7a660bab66f297535932fe8f"
+      },
+      "license": {
+        "referenceName": "Direct artist permission reported by AM Isa project owner (scope not yet documented)",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "Artist's permission reported by owner. Confirm the general-use scope and retain evidence before publishing; preserve Reddit attribution and request the full-resolution artwork."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "releaseIds": [],
+      "petId": null,
+      "petCardEligible": false,
+      "usageStatus": "reserved-for-future-general-use",
+      "intendedUse": "General visual for future project feature; specific placement undecided",
+      "recordedOn": "2026-10-28",
+      "notes": "Artwork depicts four pets and was explicitly excluded from individually identified pet card art. Keep unassigned to all releases and pet species until owner chooses a general application. Reddit preview URL is a source reference, not an imported or approved production asset."
     }
   ],
   "releases": [
