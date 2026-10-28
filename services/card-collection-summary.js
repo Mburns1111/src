@@ -103,7 +103,7 @@ export function formatCardCollectionSummary({ total, rarity, upgrade, recent = [
   const safe = value => String(value).replace(/[`*_~|<>@]/g, "");
   const recentLines = recent.length ? recent.flatMap((card, i) => [
     `${i + 1}. **${safe(card.name)}** · ${safe(card.rarity)} · ${upgradeLabel(card.upgradeLevel)}${card.owned ? "" : " · No longer owned"}`,
-    `   ID: \`${safe(card.id)}\`${card.tag ? ` · Tag: **${safe(card.tag)}**` : ""}`,
+    `   ID: \`${card.id}\`${card.tag ? ` · Tag: **${safe(card.tag)}**` : ""}`,
   ]) : ["No cards grabbed yet."];
   return [
     `**Your Card Collection — ${total} cards**`,
