@@ -7,6 +7,7 @@ const catalog = JSON.parse(readFileSync(new URL("../data/card-artwork-catalog.js
 const softlambkinResearch = JSON.parse(readFileSync(new URL("../data/artist-research-softlambkin.json", import.meta.url), "utf8"));
 const upperTradeResearch = JSON.parse(readFileSync(new URL("../data/artist-research-upper-trade-7110.json", import.meta.url), "utf8"));
 const jovyResearch = JSON.parse(readFileSync(new URL("../data/artist-research-informalprinciple834.json", import.meta.url), "utf8"));
+const draftRoster = JSON.parse(readFileSync(new URL("../data/series-1-roster-artwork-first-draft.json", import.meta.url), "utf8"));
 
 test("every artwork has a unique ID and links only to known artists", () => {
   assert.equal(catalog.schemaVersion, 2);
@@ -283,4 +284,42 @@ test("3yberpunks8 Princess Mare permission is recorded for the specific artwork"
   assert.equal(art.license.reviewStatus, "needs-review");
   assert.equal(art.uploadReference.storedInRepository, false);
   assert.deepEqual(catalog.releases.find(x => x.releaseId === "release-1").eggArtworkIds, ["egg-drop-001"]);
+});
+
+test("art-first Series 1 draft retains 100 unique pets and rarity distribution", () => {
+  const groups = draftRoster.petsByRarity;
+  const names = Object.values(groups).flat();
+  assert.equal(names.length, 100);
+  assert.equal(new Set(names).size, 100);
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(groups).map(([tier, entries]) => [tier, entries.length])),
+    draftRoster.designRules.rarityTierCounts
+  );
+  assert.deepEqual(draftRoster.designRules.tierHatchPercent, {
+    Common: 26, Uncommon: 26, Rare: 26, "Ultra-Rare": 14, Legendary: 8,
+  });
+  assert.equal(draftRoster.status, "proposed-for-owner-review—not-live");
+  assert.equal(draftRoster.replacements.length, 10);
+  for (const change of draftRoster.replacements) {
+    assert.ok(groups[change.tier].includes(change.add));
+    assert.ok(!groups[change.tier].includes(change.remove));
+    assert.ok(change.officialPetId);
+    assert.ok(change.officialPetUrl?.startsWith("https://www.playadopt.me/discover/pets/"));
+    if (change.sourceArtworkId) {
+      assert.ok(catalog.artworks.some(x => x.artworkId === change.sourceArtworkId));
+    } else {
+      assert.ok(change.sourceResearchId);
+      assert.ok(softlambkinResearch.submittedImageReview.images.some(x => x.redditImageId === change.sourceResearchId));
+    }
+  }
+  const covered = [
+    ...draftRoster.artCoverage.alreadyCoveredDifferentSpecies,
+    ...draftRoster.artCoverage.proposedNewCoveredSpecies,
+  ];
+  assert.equal(covered.length, draftRoster.artCoverage.estimatedCoveredSpeciesCount);
+  assert.equal(new Set(covered).size, covered.length);
+  for (const pet of covered) assert.ok(names.includes(pet), `Missing art-covered species ${pet}`);
+  assert.deepEqual(catalog.releases.find(x => x.releaseId === "release-1").eggArtworkIds, ["egg-drop-001"]);
+  assert.equal(draftRoster.implementation.mergedToMain, false);
+  assert.equal(draftRoster.implementation.requiresOwnerApproval, true);
 });
