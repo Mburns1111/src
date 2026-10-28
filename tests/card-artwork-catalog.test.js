@@ -6,7 +6,7 @@ import CardRelease from "../models/CardRelease.js";
 const catalog = JSON.parse(readFileSync(new URL("../data/card-artwork-catalog.json", import.meta.url), "utf8"));
 
 test("every artwork has a unique ID and links only to known artists", () => {
-  assert.equal(catalog.schemaVersion, 1);
+  assert.equal(catalog.schemaVersion, 2);
   const artistIds = catalog.artists.map(artist => artist.artistId);
   const artworkIds = catalog.artworks.map(art => art.artworkId);
   assert.equal(new Set(artistIds).size, artistIds.length);
@@ -33,7 +33,28 @@ test("the egg drop image records the provided stux/Pixabay attribution", () => {
   assert.equal(art.source.imageId, "1255730");
   assert.equal(art.creditText, "Image by stux from Pixabay");
   assert.equal(art.license.reviewStatus, "needs-review");
-  assert.deepEqual(art.releaseIds, []);
+  assert.deepEqual(art.releaseIds, ["release-1"]);
+});
+
+test("Release 1 has precisely one egg type and all release artwork references resolve", () => {
+  assert.equal(catalog.releases.find(r => r.releaseId === "release-1").eggArtworkIds.length, 1);
+  assert.deepEqual(catalog.releases.find(r => r.releaseId === "release-1").eggArtworkIds, ["egg-drop-001"]);
+  const releases = new Map(catalog.releases.map(release => [release.releaseId, release]));
+  assert.equal(releases.size, catalog.releases.length);
+  const artworks = new Map(catalog.artworks.map(art => [art.artworkId, art]));
+  for (const release of releases.values()) {
+    assert.equal(new Set(release.eggArtworkIds).size, release.eggArtworkIds.length);
+    for (const artId of release.eggArtworkIds) {
+      assert.ok(artworks.has(artId), `Unknown egg artwork: ${artId}`);
+      assert.ok(artworks.get(artId).releaseIds.includes(release.releaseId));
+    }
+  }
+  for (const art of artworks.values()) {
+    for (const releaseId of art.releaseIds) {
+      assert.ok(releases.has(releaseId));
+      assert.ok(releases.get(releaseId).eggArtworkIds.includes(art.artworkId));
+    }
+  }
 });
 
 test("egg release schema can reference an artwork without changing its image URL", () => {
