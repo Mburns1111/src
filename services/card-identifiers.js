@@ -13,7 +13,9 @@ export function encodeCardNumber(number) {
   if (!Number.isSafeInteger(number) || number < 1 || number >= CARD_ID_CAPACITY) {
     throw new Error("The five-character card ID space is exhausted.");
   }
-  let n = number;
+  // Reversible permutation across the ID space (odd multiplier, modulus 2^30).
+  // Keeps numbers unique while making adjacent awards look different.
+  let n = (number * 131071 + 347842123) % CARD_ID_CAPACITY;
   let output = "";
   for (let i = 0; i < CARD_ID_LENGTH; i++) {
     output = CARD_ID_ALPHABET[n % CARD_ID_ALPHABET.length] + output;
