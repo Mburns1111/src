@@ -1192,11 +1192,28 @@
       ],
       "subjectDescription": "Princess Mare",
       "series1PetMatches": [],
-      "candidateUsage": "future-release-pet-card-candidate",
+      "candidateUsage": "Series 1 art-first draft candidate (not approved or assigned)",
       "imageStatus": "conversation-reference-not-imported",
       "releaseIds": [],
       "recordedOn": "2026-10-28",
-      "notes": "Reddit fan art post dated September 5, 2026. Princess Mare is not in 100-pet Series 1 roster. User reports specific permission; no live card or egg artwork changed."
+      "notes": "Owner provided reference to Princess Mare's official appearance in their Fandom page; verified against official Adopt Me pet entry. Main art depicts a large humanized interpretation holding a small Princess Mare, and a game-model reference. This is not a close-up pet portrait. Princess Mare is proposed in the Series 1 art-first draft, not in the existing approved original roster. Artist permission reported by owner; cropped/card-sized image and exact editing permission have not been recorded; no live release changed.",
+      "officialPetReference": {
+        "name": "Princess Mare",
+        "petId": "princess-mare",
+        "sourceUrl": "https://www.playadopt.me/discover/pets/princess-mare",
+        "userProvidedWikiUrl": "https://adoptme.fandom.com/wiki/Princess_Mare",
+        "rarity": "Uncommon",
+        "origin": "Fairytale Egg 2026",
+        "description": "Cream-colored equine with a rounded muzzle, golden curled mane, and light-blue princess dress"
+      },
+      "illustrationDetails": {
+        "composition": "The large foreground character is a humanized/stylized rendition; the small horse-like pet held in her arms depicts Princess Mare. The image also includes a game-pet reference on the right.",
+        "petVisibility": "small-in-main-composition",
+        "additionalAttachment": "A separate simplified human-head drawing was supplied; it is not another Princess Mare pet illustration.",
+        "cardPreparation": "Find a higher-resolution pet-focused image or use a careful, artist-permitted crop; cropping the tiny horse out of this composite may be too low-resolution for a card.",
+        "verificationBasis": "Official pet reference plus user-shared images on 2026-10-28",
+        "usageFit": "possible-but-needs-pet-centered-art-review"
+      }
     }
   ],
   "releases": [
