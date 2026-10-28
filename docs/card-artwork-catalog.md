@@ -132,7 +132,7 @@ The owner confirmed authorship directly; the original Reddit post's account name
 - **Catalog artwork ID:** `3yberpunks8-princess-mare-001`.
 - **Reference:** https://adoptme.fandom.com/wiki/Princess_Mare (supplied by the project owner); official pet entry: https://www.playadopt.me/discover/pets/princess-mare
 - **Composition:** The large blonde character is a stylized *humanized interpretation* of Princess Mare; the **small horse she holds** and the in-game thumbnail on the right represent the actual pet (cream-colored mare with golden curls and light-blue dress). A second supplied simple human-head sketch is not another Princess Mare pet illustration.
-- **Usage:** Conditional candidate for the art-first Series 1 roster, not yet assigned to an egg or pet card. Need a pet-focused crop or another permitted illustration that stays clear at card size.
+- **Usage:** The owner specifically selected this cute, **humanized Princess Mare** illustration for Series 1 draft. Preserve the artist's character-led composition (with the small mare) as intended; a pet-only crop is not required. Final card layout/source-file import and documentation of permission details remain.
 - **File:** Image was supplied in the conversation, but has not been saved into the repository.
 
 The catalog's `needs-review` status indicates final source-file, cropping and evidence checks remain, **not** a denial that the user obtained permission.
