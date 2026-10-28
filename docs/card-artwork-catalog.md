@@ -108,6 +108,18 @@ These three posts were verified as authored by `u/InformalPrinciple834`, and the
 
 The **one egg type for Release 1** remains unchanged. Adding five candidate *pet-card* artworks does not add egg types or create MongoDB `CardDefinition` records.
 
+## Vampire Dragon redesign — attribution pending
+
+- **Pet:** Vampire Dragon, not included in the current 100-pet Series 1 roster.
+- **Original link supplied:** https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/
+- **Uploaded image:** `image(20261028-230148).png` (768 × 768); source upload is in the conversation, not the repository.
+- **Potential context artist:** jovyisweird / `u/InformalPrinciple834`, because the drawing followed their earlier art batch; this **does not verify authorship**.
+- **Attribution:** Not yet assigned. Original Reddit post returned an access error when inspected, and its poster could not be confirmed.
+- **Record:** `data/card-artwork-catalog.json` → `attributionPending` → `pending-vampire-dragon-redesign-001`, cross-linked from jovyisweird research.
+- **Usage:** Future-release artwork candidate only, pending verification of creator and permission for this specific work. Not imported or approved.
+
+Do not treat this as one of the 17 previously credited jovyisweird images, and do not assign a release until authorship and reuse permission are verified.
+
 ## Adding images in the future
 
 1. Create or reuse an artist entry (`artistId`, name, profile URL).
