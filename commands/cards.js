@@ -22,9 +22,9 @@ const rowButtons = drop => new ActionRowBuilder().addComponents(drop.slots.map((
 export function dropText(drop, releaseName, petNames = {}) {
   const closed = drop.status === "closed" || new Date(drop.expiresAt) <= new Date() || drop.slots.every(slot => Boolean(slot.claimedBy));
   return [
-    `🥚 **${escapeDiscord(releaseName)} Egg — Hatched!**`,
-    closed ? "**Drop Closed**" : "Pick one visible card to grab:",
-    ...drop.slots.map((slot, i) => `**${i + 1}. ${escapeDiscord(petNames[slot.petId] || slot.petId)}** · ${slot.rarity}${slot.claimedBy ? " · Claimed" : ""}`),
+    closed ? `🥚 **${escapeDiscord(releaseName)} Egg**` : `🥚 **${escapeDiscord(releaseName)} Egg — Hatched!**`,
+    closed ? "**Drop Ended**" : "Pick one visible card to grab:",
+    ...drop.slots.map((slot, i) => `**${i + 1}. ${escapeDiscord(petNames[slot.petId] || slot.petId)}** · ${slot.rarity}${slot.claimedBy ? " · Claimed" : closed ? " · Unclaimed" : ""}`),
     ...(closed ? [] : [`Drop closes <t:${Math.floor(new Date(drop.expiresAt).getTime() / 1000)}:R>.`]),
   ].join("\n");
 }
