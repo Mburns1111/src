@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "artistId": "reddit-softlambkin",
+  "artistDisplayName": "αriαℓ",
+  "artistProfileUrl": "https://www.reddit.com/user/softlambkin/",
+  "sourceThreadUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/adopt_me_fanart_c/",
+  "reviewedOn": "2026-10-28",
+  "scope": "Initial public Reddit thread research. Some drawings appear in image-only replies and cannot be assigned to a named pet species from the accessible text alone; not an exhaustive author gallery.",
+  "permission": "Project owner reports direct artist permission; specifics/evidence not attached to this file. These references are research candidates, not approved/imported card artworks.",
+  "confirmedDrawings": [
+    {
+      "researchId": "softlambkin-wolf-duo",
+      "petNames": [
+        "Wolf",
+        "Ghost Wolf"
+      ],
+      "series1Matches": [
+        "Wolf"
+      ],
+      "variantNotes": "Requested pair of wolves; follow-up identifies a ghost wolf stealing the hat. Both in the artist's image reply.",
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cyk8t/",
+      "status": "species-identifiable-from-comment-context",
+      "reviewNeeded": [
+        "Visually inspect original image",
+        "Confirm permission covers this particular image and pet customization before card use"
+      ]
+    },
+    {
+      "researchId": "softlambkin-turtle",
+      "petNames": [
+        "Turtle"
+      ],
+      "series1Matches": [
+        "Turtle"
+      ],
+      "variantNotes": "Reply to direct request for a turtle drawing.",
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6d8z98/",
+      "status": "species-identifiable-from-comment-context",
+      "reviewNeeded": [
+        "Visually inspect original image",
+        "Confirm permission applies to art drawn in reply to another member"
+      ]
+    },
+    {
+      "researchId": "softlambkin-neon-cute-a-cabra",
+      "petNames": [
+        "Cute-A-Cabra"
+      ],
+      "series1Matches": [
+        "Cute-A-Cabra"
+      ],
+      "variantNotes": "Original request specifies neon Cute-A-Cabra; artist replies with finished drawing.",
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dfo1t/",
+      "status": "species-identifiable-from-comment-context",
+      "reviewNeeded": [
+        "Visually inspect original image",
+        "Mark neon version correctly before assigning to a card"
+      ]
+    }
+  ],
+  "completedButUnidentified": [
+    {
+      "researchId": "softlambkin-winnie",
+      "petNickname": "Winnie",
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6d1t85/",
+      "notes": "Artist shared a completed drawing for pet Winnie, but the species is not identified in accessible text."
+    },
+    {
+      "researchId": "softlambkin-buttercream",
+      "petNickname": "Buttercream",
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dck3s/",
+      "notes": "Artist replied with a completed drawing; species needs image inspection."
+    },
+    {
+      "researchId": "softlambkin-laffytaffy",
+      "petNickname": "laffytaffy",
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cinh7/",
+      "notes": "Artist created a drawing plus a variation without a headpiece; species needs image inspection."
+    },
+    {
+      "researchId": "softlambkin-cloud",
+      "petNickname": "Cloud",
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cmnun/",
+      "notes": "Artist mentions Cloud in connection with a drawing; species not established from accessible context."
+    },
+    {
+      "researchId": "softlambkin-miludayoo-pet",
+      "petNickname": null,
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dqzqp/",
+      "notes": "Artist replied with drawing to screenshot-only pet request; species not established."
+    }
+  ],
+  "excludedFromConfirmed": [
+    {
+      "name": "Cryptid",
+      "reason": "Elsewhere on Reddit a commenter credited the username in connection with color suggestions, but no independently verified pet illustration in this research."
+    }
+  ],
+  "notes": "Do not confuse pet nicknames with Adopt Me pet species. Artwork in another user's request/comment should receive its own authorship and permission review before use. Series 1 matches are based on the owner-provided 100-pet working roster."
+}
