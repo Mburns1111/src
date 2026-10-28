@@ -4,6 +4,7 @@ const slotSchema = new mongoose.Schema({
   petId: { type: String, required: true },
   rarity: { type: String, required: true },
   claimedBy: { type: String, default: null },
+  settledAt: { type: Date, default: null },
 }, { _id: false });
 const schema = new mongoose.Schema({
   guildId: { type: String, required: true },
