@@ -8,6 +8,7 @@ const schema = new mongoose.Schema({
   state: { type: String, enum: ["owned", "consumed", "burned"], default: "owned" },
   source: { type: String, enum: ["drop", "upgrade", "admin"], default: "drop" },
   consumedAt: { type: Date, default: null },
+  tag: { type: String, default: "", maxlength: 32, trim: true },
   createdFrom: { type: [mongoose.Schema.Types.ObjectId], default: [] },
 }, { timestamps: true });
 schema.index({ ownerDiscordUserId: 1, state: 1, cardDefinitionId: 1 });
