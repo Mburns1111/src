@@ -66,6 +66,13 @@
       "postUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1fvzqi5/adm_halloween_fanart_of_two_of_my_pets/",
       "petArtNames": [],
       "postStatus": "owner-provided-link-images-not-individually-matched"
+    },
+    {
+      "postUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/",
+      "petArtNames": [
+        "Vampire Dragon"
+      ],
+      "postStatus": "artist-confirmed-by-project-owner"
     }
   ],
   "images": [
@@ -374,6 +381,24 @@
       "notes": "Anthropomorphic, multi-eyed fan/bird-like character with elaborate costume. No verified Adopt Me pet species or matching source post; do not assign to a collectible pet card.",
       "assetStatus": "uploaded-in-conversation-not-committed-to-github",
       "cardUsage": "general-art-unassigned"
+    },
+    {
+      "artworkId": "jovy-vampire-dragon-redesign-001",
+      "imageNumber": 18,
+      "submittedFileName": "image(20261028-230148).png",
+      "submittedFormat": "PNG",
+      "submittedWidth": 768,
+      "submittedHeight": 768,
+      "identifiedSubject": "Vampire Dragon",
+      "kind": "pet-artwork",
+      "series1Match": false,
+      "originalRedditPostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/",
+      "sourcePostMatchStatus": "owner-confirmed-artist-and-pet",
+      "identificationBasis": "direct-project-owner-confirmation",
+      "status": "artist-confirmed-by-owner",
+      "notes": "Vampire Dragon redesign. Project owner confirms jovyisweird created this picture. Reddit author not independently verified.",
+      "assetStatus": "uploaded-in-conversation-not-committed-to-github",
+      "cardUsage": "future-release-candidate"
     }
   ],
   "firstReleasePetNames": [
@@ -383,24 +408,12 @@
     "Owl",
     "Otter"
   ],
-  "notes": "17 PNG uploads received in current conversation. Fourteen artist-design labels plus Unicorn concept were visualized; 13 are tied to original Reddit posts where the artist confirms depicted pet names. Cupid Owl, Unicorn concept, Mecha Rabbit-like portrait, and elaborate bird character are not matched to individual original Reddit post/image IDs. Source posts with no matched uploaded image remain research leads. The uploads are NOT embedded in the GitHub repository; original artwork or approved image crops must be hosted/imported separately. Redesign sheets contain small official Adopt Me reference thumbnails, which should not be accidentally included in collectible card crops.",
+  "notes": "18 PNG illustrations recorded in current conversation for jovyisweird. The owner specifically confirmed that the additional Vampire Dragon redesign is by jovyisweird; its Reddit post author was not independently reverified. 13 image-source matches across three verified redesign posts; Vampire Dragon source link and artist are separately owner-confirmed. Four images remain without independently matched Reddit originals. Files are conversation uploads, not imported into GitHub or the bot; preserve actual permission evidence/cropping rights and exclude small official reference thumbnails from final card crops.",
   "issues": [
     "Do not conflate Cupid Owl with Series 1 Owl.",
     "Unicorn page has multiple reinterpretations and requires choosing a card-ready crop.",
     "Unidentified art should not receive a fabricated official species.",
     "The GitHub catalog is metadata, not proof of image upload, approval, or production deployment."
   ],
-  "unverifiedAttributionLeads": [
-    {
-      "candidateId": "pending-vampire-dragon-redesign-001",
-      "petSpecies": "Vampire Dragon",
-      "sourceRedditUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/18kzu0h/my_vampire_dragon_redesign_fanart/",
-      "uploadFilename": "image(20261028-230148).png",
-      "context": "Shared after artist's collection in conversation, but the Reddit post's author could not be independently verified.",
-      "authorship": "unverified-not-attributed-to-jovyisweird",
-      "status": "pending-authorship-check",
-      "series1Match": false,
-      "notes": "Do not count as jovyisweird work or as covered by their permission until attribution is verified. Pending item tracked in card-artwork-catalog.json attributionPending."
-    }
-  ]
+  "unverifiedAttributionLeads": []
 }
