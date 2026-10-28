@@ -34,15 +34,28 @@ Research and **direct links to the artist's artwork replies** are stored in [`da
 
 **These are discovery/review records, not imported card artwork.** Permission message/evidence, reuse scope, final chosen files, and visual pet identification must be checked before assigning an artwork ID to a card.
 
-## Submitted Reddit image links (10)
+## Submitted Reddit image links — visual follow-up
 
-The project owner supplied ten Reddit preview image links from the fan-art thread (two were accidentally pasted together and are separated in the registry). They are preserved in `data/artist-research-softlambkin.json` under `submittedImageReview.images`, each with an exact source URL, Reddit image ID, original poster and reply context.
+Ten Reddit preview links from the fan-art thread are tracked under `submittedImageReview.images` in `data/artist-research-softlambkin.json`. The owner later provided **14 conversation screenshots** containing original in-game pet references and finished art; each preview retains its Reddit image ID, source URL, comment and poster.
 
-**Important provenance distinction:** Nine supplied images were posted by `u/softlambkin`. The file `zw2w9yz23lkg1.png` was posted by **u/PhoenixTheTortoise** as a separate drawing offered in exchange, not by `u/softlambkin`, and is excluded from their attributed artwork. Do not interpret the surrounding Turtle request as establishing the depicted pet's species.
+**Visual identifications (high confidence):**
+- `4n7u9ef90xkg1`: Strawberry Shortcake Bat Dragon, dressed/recolored — Series 1.
+- `2mly8s5aklkg1`: another Strawberry Shortcake Bat Dragon, Neon effects — Series 1.
+- `ovz9uv3uykkg1`: Buttercream is a Bunny Swirl (dessert petwear) — **not** Series 1.
+- `zw2w9yz23lkg1`: requester's gameplay screenshot of a Turtle — Series 1. The actual **Turtle drawing in the reply was made by softlambkin**. Do not count the gameplay screenshot as a separate fan illustration.
+- The previously linked Wolf/Ghost Wolf pair, Turtle illustration, and neon Cute-A-Cabra illustration were visually corroborated; Wolf, Turtle, Cute-A-Cabra are on Series 1.
 
-The images' pixel content was not accessible through the current inspection method, so none of these ten image files has been assigned a confirmed Adopt Me pet species. Replies identify the nicknames **Winnie, Buttercream, laffytaffy, and Cloud** for some images; these are not species labels. Where the artist replied to another person's uploaded pet screenshot, the species still requires visual verification.
+**Candidate identifications, not final:**
+- `ikg3l74flkkg1`: Winnie resembles Arctic Fox or possibly a recolored Fennec Fox — both on Series 1, exact species uncertain.
+- `oup3bl978kkg1`: brown and white goose-like bird, likely Canadian Goose rather than the Series 1 Goose — uncertain.
+- `mnmid66l4kkg1`: Cloud is a costumed pale duck-like bird, possibly Happy Duckling — uncertain.
+- `c28dvwz60kkg1`: Laffytaffy resembles a pink-purple Unicorn, but heavy petwear obscures identifying features — uncertain.
+- `xdlpsxxahlkg1`: collage depicting four animals, individual species uncertain.
+- `urkhhed6ujkg1`: dark furry canine/feline-looking animal, exact species uncertain.
 
-Keep these as research-only previews, not approved image files or card assets. When the original pictures/screenshots become available for visual inspection, update each `petSpecies`, confirm whether it matches the 100-pet Series 1 list, and record the higher-resolution source and permission scope before artwork approval.
+**Creator attribution:** `u/PhoenixTheTortoise` supplied an in-game Turtle screenshot to request art and separately drew pink fan artwork of softlambkin's pet. The pink drawing is **not** softlambkin's work and should not be placed in their credited collection. The submitted Turtle gameplay screenshot is also not authored art; softlambkin's separate Turtle illustration is correctly credited to softlambkin.
+
+All images remain **research records**, not cleared or imported card assets. Record the higher-resolution finished art, exact permission scope and final pet identity before assigning it to a card.
 
 ## Adding images in the future
 
