@@ -12,6 +12,8 @@
 
 ## Ten proposed same-rarity swaps
 
+**Princess Mare remains a conditional swap**, not a locked replacement for Quokka: the existing image focuses on a human character, and the pet itself is small.
+
 | Rarity | Remove | Add (art available by permission report) | Artist/source |
 |---|---|---|---|
 | Uncommon | Chocolate Labrador | **Canadian Goose** | αriαℓ (u/softlambkin) |
@@ -148,7 +150,7 @@ Legend: **★** = pet already on the old roster with potentially permitted art; 
 
 ## Artwork preparation and boundaries
 
-- **Princess Mare:** the submitted illustration prominently features a person with a small Princess Mare; find a card-ready crop or higher-resolution pet-focused version before locking in.
+- **Princess Mare (conditional):** the original Uncommon pet is a cream-colored mare with curled golden mane and a blue princess dress ([official entry](https://www.playadopt.me/discover/pets/princess-mare)). The artist's image mainly features a humanized interpretation holding a **small actual mare**. A simple second sketch is human-only. Do not count this as card-ready until we have a clear pet-focused crop or alternate permitted artwork. If that is not possible, **keep Quokka instead** or choose a different Uncommon.
 - **Slug:** shared on a sheet with Butterfly; isolate the Slug without including unrelated art.
 - **Bunny Swirl:** the buttercream-themed picture is the official Bunny Swirl pet, not Bunny or Rabbit.
 - **Candyfloss Chick:** official pet name is one word, although the artist labeled the illustration “Candy Floss Chick.”
