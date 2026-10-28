@@ -124,13 +124,15 @@ The owner confirmed authorship directly; the original Reddit post's account name
 
 ## Princess Mare — credited to 3yberpunks8
 
-- **Pet:** Princess Mare (not on the current Series 1 roster).
+- **Pet:** Princess Mare, an **Uncommon** Fairytale Egg 2026 equine pet; not on the original approved 100-pet roster, but proposed in the **artwork-first Series 1 draft**.
 - **Artist:** `u/3yberpunks8` — https://www.reddit.com/user/3yberpunks8/
 - **Original Reddit post:** https://www.reddit.com/r/AdoptMeRBX/comments/1w7vzbv/princess_mare_fanart/ (September 5, 2026).
 - **Credit:** "Artwork by 3yberpunks8 (Reddit)."
 - **Permission:** The project owner reports direct permission specifically to use the artist's **Princess Mare artwork**, and provided two images/screenshots in the conversation. Exact wording and a permanent permission-evidence URL are not archived; do not assume consent for the artist's whole portfolio.
 - **Catalog artwork ID:** `3yberpunks8-princess-mare-001`.
-- **Usage:** Future-release pet-card candidate; no egg or card assignment.
+- **Reference:** https://adoptme.fandom.com/wiki/Princess_Mare (supplied by the project owner); official pet entry: https://www.playadopt.me/discover/pets/princess-mare
+- **Composition:** The large blonde character is a stylized *humanized interpretation* of Princess Mare; the **small horse she holds** and the in-game thumbnail on the right represent the actual pet (cream-colored mare with golden curls and light-blue dress). A second supplied simple human-head sketch is not another Princess Mare pet illustration.
+- **Usage:** Conditional candidate for the art-first Series 1 roster, not yet assigned to an egg or pet card. Need a pet-focused crop or another permitted illustration that stays clear at card size.
 - **File:** Image was supplied in the conversation, but has not been saved into the repository.
 
 The catalog's `needs-review` status indicates final source-file, cropping and evidence checks remain, **not** a denial that the user obtained permission.
