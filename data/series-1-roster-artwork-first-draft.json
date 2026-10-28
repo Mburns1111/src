@@ -51,7 +51,8 @@
       "Hot Doggo"
     ],
     "estimatedCoveredSpeciesCount": 22,
-    "definition": "Artwork from artists who reportedly gave permission; images may still need source files, crop preparation and permission-term archiving before card publication."
+    "definition": "Artwork from artists who reportedly gave permission; images may still need source files, crop preparation and permission-term archiving before card publication.",
+    "notes": "The 22 species have some artwork associated with artists who reportedly gave permission, but are not yet 22 card-ready images. Princess Mare in particular is a humanized illustration with the pet small in the composition; the card-art decision is conditional on a usable pet-focused version."
   },
   "replacements": [
     {
@@ -71,9 +72,13 @@
       "add": "Princess Mare",
       "artist": "3yberpunks8",
       "sourceArtworkId": "3yberpunks8-princess-mare-001",
-      "reason": "Artist granted specific permission; princess/player-focused illustration needs a card-ready crop",
+      "reason": "The artist has permission, but the shared illustration mainly shows a humanized Princess Mare character holding the small horse-like pet. Card suitability needs a clearer pet-focused image or permitted crop.",
       "officialPetId": "princess-mare",
-      "officialPetUrl": "https://www.playadopt.me/discover/pets/princess-mare"
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/princess-mare",
+      "artworkSuitability": "conditional-needs-pet-centered-crop-or-alternative",
+      "officialAppearance": "Cream-colored equine with golden curled mane and light blue princess dress",
+      "userProvidedReference": "https://adoptme.fandom.com/wiki/Princess_Mare",
+      "replacementApproval": "proposed-only"
     },
     {
       "tier": "Uncommon",
@@ -347,6 +352,14 @@
       "Cow",
       "Blue Dog",
       "Pink Cat"
+    ],
+    "pendingArtSuitability": [
+      {
+        "pet": "Princess Mare",
+        "replaces": "Quokka",
+        "decision": "keep-proposed-with-visual-review",
+        "note": "Retain as proposed Uncommon swap only if art can show the horse-like Princess Mare clearly at collectible-card size; otherwise keep Quokka or choose another Uncommon with usable permitted art."
+      }
     ]
   },
   "implementation": {
