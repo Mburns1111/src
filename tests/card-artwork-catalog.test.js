@@ -175,13 +175,13 @@ test("owner-skipped Glum-Factor3313 artwork is excluded from candidates", () => 
   assert.equal(catalog.artworks.some(x => x.source?.imageId === skippedId), false);
 });
 
-test("Upper-Trade-7110's reported permission is recorded without attributing unidentified art", () => {
+test("Upper-Trade-7110's permission and art are tracked without publication approval", () => {
   const artist = catalog.artists.find(x => x.artistId === "reddit-upper-trade-7110");
   assert.ok(artist);
   assert.equal(artist.displayName, "Upper-Trade-7110");
   assert.equal(artist.platform, "Reddit");
   assert.equal(artist.permission.status, "reported-by-project-owner");
-  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 18);
+  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 4);
 });
 
 test("Upper-Trade-7110 artwork sources are deduplicated and tracked as candidates", () => {
@@ -218,7 +218,7 @@ test("jovyisweird's permission is recorded under their Reddit username", () => {
   assert.equal(artist.platformUsername, "InformalPrinciple834");
   assert.equal(artist.profileUrl, "https://www.reddit.com/user/InformalPrinciple834/");
   assert.equal(artist.permission.status, "reported-by-project-owner");
-  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 0);
+  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 18);
 });
 
 test("jovyisweird uploaded artwork index has complete credits and distinct entries", () => {
