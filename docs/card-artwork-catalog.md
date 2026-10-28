@@ -83,6 +83,31 @@ The uploaded photograph `image(20261028-214740).png` also shows an orange-spotte
 
 All four artwork records exist in the main artist catalog with the artist credited and their original Reddit preview URLs. They are **source-only candidates**, not cropped/imported pet art or approved MongoDB card definitions. The original image URLs could not be independently retrieved during this review, so pet-to-media mapping follows the owner's supplied descriptions and photographs. `releaseIds` remains empty; the Release 1 egg drop still has its sole egg image record.
 
+## jovyisweird / u/InformalPrinciple834 — 17 uploaded artworks
+
+The project owner reports permission from **jovyisweird** (Reddit `u/InformalPrinciple834`). Profile: https://www.reddit.com/user/InformalPrinciple834/ . All 17 image records, source-post matches, and file references are in [`data/artist-research-informalprinciple834.json`](../data/artist-research-informalprinciple834.json), with credit entries in the main catalog.
+
+**Series 1 candidates (5 pet types):** Unicorn (a two-variant gender-dimorphism *concept sheet*, so use only after choosing a crop), **Lion**, **Lamb**, **Owl**, and **Otter**. The brown barn-owl-style Owl art belongs to the Series 1 pet. The separately uploaded **Cupid Owl is not** the Series 1 Owl.
+
+**Other known pet art (10):** Cupid Owl, Koi Carp, Baku, Hot Doggo, Shark, Leopard Shark, Shark Puppy, Candy Floss Chick, Dragonfly, and Glacier Moth. These are retained for potential later releases, not assigned to Series 1.
+
+**Two unresolved / special illustrations:**
+- Gray-and-orange robot-like character, plausibly related to **Mecha Rabbit**, but direct source-image and species confirmation is pending.
+- Elaborately costumed bird/fan character with multiple eye markings: species unknown. Do **not** match it to a known pet.
+  
+**Verified Reddit redesign post attribution:**
+- [Pet redesigns because yes](https://www.reddit.com/r/AdoptMeRBX/comments/1koppjd/pet_redesigns_because_yes/) — Dragonfly, Glacier Moth, Owl, Otter.
+- [Adopt me redesigns part 2](https://www.reddit.com/r/AdoptMeRBX/comments/1korpq6/adopt_me_redesigns_part_2/) — Lamb, Shark, Leopard Shark, Shark Puppy, Candy Floss Chick.
+- [Pet redesigns part 3](https://www.reddit.com/r/AdoptMeRBX/comments/1kq332s/pet_redesigns_part_3/) — Lion, Koi Carp, Baku, Hot Doggo.
+
+These three posts were verified as authored by `u/InformalPrinciple834`, and the artist's post text confirms the 13 depicted pet names.
+
+**Other Reddit links provided by the owner, not yet matched to an individual upload:** [Glyptodon/Jawbreaker](https://www.reddit.com/r/AdoptMeRBX/comments/1llu6r0/jawbreaker_the_glyptodon_another_new_member_of_my/), [art dump](https://www.reddit.com/r/AdoptMeRBX/comments/1llogq8/more_of_my_art_dump_crap/), [Mega Neon Mecha Rabbit](https://www.reddit.com/r/AdoptMeRBX/comments/1k8z4hl/i_got_my_mega_neon_mecha_rabbit_today_ong_welcome/), and [Halloween fan art](https://www.reddit.com/r/AdoptMeRBX/comments/1fvzqi5/adm_halloween_fanart_of_two_of_my_pets/). Each source link is preserved in the research file even when the individual picture could not be matched.
+
+**File/permissions status:** The user uploaded 17 PNGs in the conversation, but the **binary image files have not been saved to the GitHub repository or the bot**. Each image is registered by its upload filename and 1080px dimensions. User reports artist permission; preserve original evidence and clarify reuse/crop permissions before making approved card art. Many redesign sheets also show an official game-model reference in the upper left; use a clean fan-art-only crop if preparing a card.
+
+The **one egg type for Release 1** remains unchanged. Adding five candidate *pet-card* artworks does not add egg types or create MongoDB `CardDefinition` records.
+
 ## Adding images in the future
 
 1. Create or reuse an artist entry (`artistId`, name, profile URL).
