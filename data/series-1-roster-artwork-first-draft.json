@@ -3,7 +3,7 @@
   "status": "proposed-for-owner-review—not-live",
   "preparedOn": "2026-10-28",
   "release": "Series 1",
-  "description": "Artwork-first Series 1 roster revision, with owner-confirmed humanized Princess Mare art and Shark Puppy replacing Hot Doggo. Draft remains unmerged and not deployed until final roster approval.",
+  "description": "Artwork-first Series 1 revision with both Shark Puppy and Hot Doggo included, Axolotl provisionally swapped out for Shark Puppy, and humanized Princess Mare art explicitly owner-approved. Draft not yet merged or deployed.",
   "sourceRoster": "AM Isa — Series 1 Egg Pet List (user-provided 100 pets; 13 Common/18 Uncommon/24 Rare/28 Ultra-Rare/17 Legendary)",
   "designRules": {
     "exactTotal": 100,
@@ -48,11 +48,12 @@
       "Glacier Moth",
       "Vampire Dragon",
       "Candyfloss Chick",
-      "Shark Puppy"
+      "Shark Puppy",
+      "Hot Doggo"
     ],
-    "estimatedCoveredSpeciesCount": 22,
+    "estimatedCoveredSpeciesCount": 23,
     "definition": "Artwork from artists who reportedly gave permission; images may still need source files, crop preparation and permission-term archiving before card publication.",
-    "notes": "22 species have artwork associated with permission-granting artists. Owner explicitly selected the humanized Princess Mare artwork for the Princess Mare card as-is in concept; source import, layout fit, and archival of exact permission wording still remain. Shark Puppy replaces Hot Doggo in the proposed Legendary tier because the owner prefers its appeal."
+    "notes": "Potential coverage increases to 23 distinct pet species using artwork by artists who have reportedly granted permission. Owner wants both Shark Puppy and Hot Doggo in the Series 1 draft, and approves the humanized Princess Mare fanart as the intended card image. These are art-source matches, not imported, production-ready images; permission evidence and layout work are still pending."
   },
   "replacements": [
     {
@@ -156,13 +157,24 @@
     {
       "tier": "Legendary",
       "remove": "Frost Fury",
+      "add": "Hot Doggo",
+      "artist": "jovyisweird (u/InformalPrinciple834)",
+      "sourceArtworkId": "jovy-hot-doggo-001",
+      "reason": "Keep Hot Doggo in Series 1 alongside Shark Puppy, as the owner explicitly requested; retain the prior Frost Fury removal.",
+      "officialPetId": "hot-doggo",
+      "officialPetUrl": "https://www.playadopt.me/discover/pets/hot-doggo",
+      "selectionBasis": "owner-confirmed-2026-10-28"
+    },
+    {
+      "tier": "Legendary",
+      "remove": "Axolotl",
       "add": "Shark Puppy",
       "artist": "jovyisweird (u/InformalPrinciple834)",
       "sourceArtworkId": "jovy-shark-puppy-001",
-      "reason": "Owner prefers Shark Puppy for its kid appeal and cute artist illustration; Hot Doggo remains a future-release option.",
+      "reason": "Owner wants Shark Puppy and Hot Doggo in Series 1; Axolotl has no currently cataloged permitted art and is replaced to preserve the 17-Legendary cap.",
       "officialPetId": "shark-puppy",
       "officialPetUrl": "https://www.playadopt.me/discover/pets/shark-puppy",
-      "selectionBasis": "owner-requested-2026-10-28"
+      "selectionBasis": "owner-confirmed-both-pets-2026-10-28"
     }
   ],
   "petsByRarity": {
@@ -271,7 +283,7 @@
       "Shark Puppy",
       "Vampire Dragon",
       "Candyfloss Chick",
-      "Axolotl",
+      "Hot Doggo",
       "Fairy Bat Dragon",
       "Nessie",
       "Sugar Axolotl"
@@ -279,12 +291,6 @@
   },
   "exclusionsAndAlternatives": {
     "futureSwapCandidates": [
-      {
-        "pet": "Hot Doggo",
-        "rarity": "Legendary",
-        "artworkId": "jovy-hot-doggo-001",
-        "note": "Previously proposed for Series 1, replaced by user-preferred Shark Puppy; retain for future release."
-      },
       {
         "pet": "Shark",
         "rarity": "Legendary",
@@ -367,9 +373,25 @@
       {
         "pet": "Shark Puppy",
         "rarity": "Legendary",
-        "choice": "Replace Hot Doggo in proposed Series 1",
+        "choice": "Include both Shark Puppy and Hot Doggo",
         "artworkId": "jovy-shark-puppy-001",
-        "notes": "Owner requested Shark Puppy because of its popularity; Hot Doggo stays on future-release artwork candidate list."
+        "notes": "Keep both user-selected Legendary pets; Shark Puppy replaces unillustrated Axolotl while Hot Doggo remains in the roster."
+      },
+      {
+        "pet": "Hot Doggo",
+        "rarity": "Legendary",
+        "choice": "Keep in Series 1 with Shark Puppy",
+        "artworkId": "jovy-hot-doggo-001",
+        "notes": "Owner expressly requested retaining both Legendary pets."
+      }
+    ],
+    "removedWithoutArtForOwnerPreference": [
+      {
+        "pet": "Axolotl",
+        "rarity": "Legendary",
+        "replacement": "Shark Puppy",
+        "reason": "No matching credited artwork currently recorded; preserves one-to-one Legendary swap and exact 100 pets.",
+        "reconsideration": "Can be swapped for another unillustrated Legendary if the owner prefers Axolotl."
       }
     ]
   },
@@ -395,6 +417,11 @@
       "date": "2026-10-28",
       "decision": "Princess Mare humanized image intentionally selected; Shark Puppy included instead of Hot Doggo in Legendary swaps.",
       "origin": "Owner decision in conversation"
+    },
+    {
+      "date": "2026-10-28",
+      "decision": "Keep both Shark Puppy and Hot Doggo; swap out Axolotl (no matching artist art) to keep 100 and 17 Legendaries.",
+      "origin": "Owner decision to keep both; assistant selected the unillustrated Axolotl for replacement, subject to owner veto"
     }
   ]
 }
