@@ -1,20 +1,19 @@
 # AM Isa — Series 1 art-first 100-pet roster (DRAFT)
 
-> **Proposal for owner review only.** The existing confirmed Series 1 roster, runtime bot releases, MongoDB definitions and hatch odds have **not** been changed. The user may veto any proposed removal.
+> **Draft only:** the existing runtime card release, original roster, MongoDB data, hatch odds and production branch are unchanged. The owner has explicitly chosen Princess Mare's humanized art and requested both Shark Puppy and Hot Doggo; the other roster swaps remain reviewable.
 
-## Why this version
+## Summary
 
-- Keeps **100 pets** and the original **13 / 18 / 24 / 28 / 17** distribution across Common, Uncommon, Rare, Ultra-Rare and Legendary.
-- Keeps category hatch rates **26% / 26% / 26% / 14% / 8%**, but individual-pet weights need review when new pets are implemented.
-- Increases *potential* coverage by artists who gave the project owner permission from **12** unique pet types to **22**. This is not the number of ready-to-publish art assets; many need cropping, image import and recording of permission terms.
-- Preserves flagship pets such as Bat Dragon, Frost Dragon, Shadow Dragon, Owl, Parrot, Turtle, Cow, Strawberry Shortcake Bat Dragon, Chocolate Chip Bat Dragon, Unicorn and Sugar Axolotl.
-- Official pet identity/rarity was checked against the curated Adopt Me catalog. **Candyfloss Chick** uses official spelling (the artist sheet says “Candy Floss Chick”).
+- 100 unique pets; Common 13, Uncommon 18, Rare 24, Ultra-Rare 28, Legendary 17.
+- Hatch tiers retained as Common 26%, Uncommon 26%, Rare 26%, Ultra-Rare 14%, Legendary 8%. Individual pet weights require review.
+- 23 distinct pets have candidate artwork from artists who reportedly granted permission, not 23 fully prepared/approved card images.
+- Retains prominent pets such as Bat Dragon, Frost Dragon, Shadow Dragon, Strawberry Shortcake Bat Dragon, Chocolate Chip Bat Dragon, Unicorn, Turtle, Kangaroo, Owl, Parrot, Fairy Bat Dragon, Nessie and Sugar Axolotl.
+- **Owner choice:** use the humanized Princess Mare artwork by 3yberpunks8, featuring the small mare in the composition. A pet-only crop is **not** required.
+- **Owner choice:** keep **both Shark Puppy and Hot Doggo**. Shark Puppy replaces Axolotl, which currently has no cataloged permitted artwork. Axolotl is the proposed removal; it can be reconsidered if preferred.
 
-## Ten proposed same-rarity swaps
+## Eleven artwork-aware same-rarity swaps
 
-**Princess Mare remains a conditional swap**, not a locked replacement for Quokka: the existing image focuses on a human character, and the pet itself is small.
-
-| Rarity | Remove | Add (art available by permission report) | Artist/source |
+| Rarity | Remove | Add | Artist |
 |---|---|---|---|
 | Uncommon | Chocolate Labrador | **Canadian Goose** | αriαℓ (u/softlambkin) |
 | Uncommon | Quokka | **Princess Mare** | 3yberpunks8 |
@@ -26,12 +25,13 @@
 | Legendary | Dodo | **Vampire Dragon** | jovyisweird (u/InformalPrinciple834) |
 | Legendary | Phoenix | **Candyfloss Chick** | jovyisweird (u/InformalPrinciple834) |
 | Legendary | Frost Fury | **Hot Doggo** | jovyisweird (u/InformalPrinciple834) |
+| Legendary | Axolotl | **Shark Puppy** | jovyisweird (u/InformalPrinciple834) |
 
-The **Legendary swaps (Dodo, Phoenix, Frost Fury)** are the most subjective: those are established recognizable pets too, so review them carefully. The replacements were chosen to keep popular dragons and high-interest staples while adding distinctive artist drawings.
+The choices above preserve the number of pets in each rarity. Existing art for a pet is a selection advantage, but any artist-approved image still needs to be prepared, attributed and connected before publication.
 
-## Full proposed roster
+## Complete proposed Series 1 roster
 
-Legend: **★** = pet already on the old roster with potentially permitted art; **✦** = newly added pet with potentially permitted art; plain text = still seeking art.
+**★** = retained pet with candidate permitted artwork; **✦** = newly added pet with candidate permitted artwork. No mark means no matching art currently cataloged.
 
 ### Common — 13 pets
 
@@ -140,31 +140,33 @@ Legend: **★** = pet already on the old roster with potentially permitted art; 
 91. Kangaroo
 92. Owl **★**
 93. Parrot
-94. Hot Doggo **✦**
+94. Shark Puppy **✦**
 95. Vampire Dragon **✦**
 96. Candyfloss Chick **✦**
-97. Axolotl
+97. Hot Doggo **✦**
 98. Fairy Bat Dragon
 99. Nessie
 100. Sugar Axolotl
 
-## Artwork preparation and boundaries
+## Artwork and formatting guidance
 
-- **Princess Mare (conditional):** the original Uncommon pet is a cream-colored mare with curled golden mane and a blue princess dress ([official entry](https://www.playadopt.me/discover/pets/princess-mare)). The artist's image mainly features a humanized interpretation holding a **small actual mare**. A simple second sketch is human-only. Do not count this as card-ready until we have a clear pet-focused crop or alternate permitted artwork. If that is not possible, **keep Quokka instead** or choose a different Uncommon.
-- **Slug:** shared on a sheet with Butterfly; isolate the Slug without including unrelated art.
-- **Bunny Swirl:** the buttercream-themed picture is the official Bunny Swirl pet, not Bunny or Rabbit.
-- **Candyfloss Chick:** official pet name is one word, although the artist labeled the illustration “Candy Floss Chick.”
-- **Canadian Goose:** Uncommon; do not confuse with the existing Rare Goose (which remains in Series 1).
-- **Existing draws:** Neon/art outfit/artist interpretations don't create separate pet species.
-- **Pending alternatives:** Shark Puppy, Shark, Dragonfly, Baku and a linked Glyptodon post can be considered if you dislike the proposed Legendary/Uncommon cuts; scorpion and generic butterfly/beetle art need exact species verification.
-- Original Reddit artist credit, art source, permission scope and final image file are tracked in the artwork catalog and artist research records. These roster changes do not grant any new rights.
+- **Princess Mare:** The large character is a cute human interpretation of the Uncommon equine pet, holding the smaller mare. The owner *wants* this full humanized version; design the card around the composition, rather than requiring a horse-only crop. Source: [Reddit artwork](https://www.reddit.com/r/AdoptMeRBX/comments/1w7vzbv/princess_mare_fanart/); [official pet](https://www.playadopt.me/discover/pets/princess-mare).
+- **Shark Puppy:** included as a Legendary alongside Hot Doggo; [jovyisweird's Shark Puppy drawing](https://www.reddit.com/r/AdoptMeRBX/comments/1korpq6/adopt_me_redesigns_part_2/) is cataloged.
+- **Hot Doggo:** included as a Legendary, also from jovyisweird's [redesign post](https://www.reddit.com/r/AdoptMeRBX/comments/1kq332s/pet_redesigns_part_3/).
+- **Axolotl:** omitted in this proposed revision solely to preserve the 100-pet cap and the Legendary total while making room for both requested pets; no matching permission-granted art is currently cataloged.
+- **Slug:** shared artwork sheet with Butterfly; isolate the Slug without including other animals.
+- **Bunny Swirl:** its dessert-themed drawing is the official Bunny Swirl, not the plain Bunny/Rabbit.
+- **Candyfloss Chick:** use the official name (one word), despite the artwork's label saying “Candy Floss Chick.”
+- **Canadian Goose:** distinct from the existing Rare Goose; Canadian Goose is Uncommon.
+- **Neon variants and petwear:** do not create additional species in this roster; they are card-art interpretations.
+- **Artist credits:** preserve original source and signature, permission scope, and final imported image path. The registry alone doesn't upload the artwork.
 
-## Related files
+## Sources and tracking
 
-- [Structured proposal and source links](../data/series-1-roster-artwork-first-draft.json)
-- [Artists and artwork credits](../data/card-artwork-catalog.json)
-- [αriαℓ research](../data/artist-research-softlambkin.json)
+- [Structured 100-pet roster with source-artwork IDs](../data/series-1-roster-artwork-first-draft.json)
+- [Main artist credit catalog](../data/card-artwork-catalog.json)
+- [αriαℓ / softlambkin research](../data/artist-research-softlambkin.json)
 - [Upper-Trade-7110 research](../data/artist-research-upper-trade-7110.json)
 - [jovyisweird research](../data/artist-research-informalprinciple834.json)
 
-**Next decision:** Accept these ten swaps or revise the removals; only then turn the draft into the official release roster and set individual pet weights.
+This draft does not merge to main, change actual hatch odds, publish artwork or alter the existing egg release. Final roster decisions and individual artwork preparations are still separate steps.
