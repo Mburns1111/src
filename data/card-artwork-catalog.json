@@ -3,6 +3,13 @@
   "description": "AM Isa card-game artist/source registry. Artwork records are grouped by planned egg releases, while source credits remain reusable and independent of pet metadata or image hosting.",
   "artists": [
     {
+      "artistId": "am-isa-project-owner",
+      "displayName": "AM Isa project owner",
+      "platform": "Original project artwork/edit",
+      "profileUrl": "",
+      "notes": "User-created edit/composition for AM Isa. Public creator display name can be updated if the owner prefers a specific credit."
+    },
+    {
       "artistId": "pixabay-stux",
       "displayName": "stux",
       "platform": "Pixabay",
@@ -13,12 +20,13 @@
   "artworks": [
     {
       "artworkId": "egg-drop-001",
-      "title": "Egg Drop Image",
+      "title": "Release 1 — Egg Drop Composite",
       "kind": "egg-drop",
       "artistIds": [
+        "am-isa-project-owner",
         "pixabay-stux"
       ],
-      "creditText": "Image by stux from Pixabay",
+      "creditText": "Edited for AM Isa using artwork by stux from Pixabay.",
       "source": {
         "name": "Pixabay",
         "websiteUrl": "https://pixabay.com/",
@@ -31,7 +39,7 @@
         "referenceUrl": "https://pixabay.com/service/terms/",
         "reviewStatus": "needs-review",
         "permissionEvidenceUrl": null,
-        "notes": "The creator attribution does not by itself verify this image's license, publication date, third-party rights, or permission for the intended presentation. Review original image page and Pixabay terms before approval."
+        "notes": "Image contains incorporated Pixabay artwork by stux. Editing/composition does not replace the need to verify licensing for the included third-party material and any underlying rights. Review original item and applicable Pixabay terms before public use."
       },
       "file": {
         "localPath": null,
@@ -42,7 +50,21 @@
         "release-1"
       ],
       "recordedOn": "2026-10-28",
-      "notes": "Confirmed by owner as the sole egg type for Release 1. Image file and any runtime CardRelease identifier have not yet been supplied; credit/rights review remains pending."
+      "notes": "Only egg type planned for Release 1. Final egg-drop graphic is an edited/composite image created by the AM Isa project owner incorporating art by stux, not an unmodified image wholly authored by stux. Actual finished image file/runtime CardRelease identifier still not supplied.",
+      "artworkType": "edited-composite",
+      "contributions": [
+        {
+          "artistId": "am-isa-project-owner",
+          "role": "composition-and-editing",
+          "notes": "Edited and assembled the final egg-drop image for AM Isa."
+        },
+        {
+          "artistId": "pixabay-stux",
+          "role": "incorporated-source-artwork",
+          "notes": "Original visual artwork incorporated into the edited composition; does not imply authorship of the complete final image."
+        }
+      ],
+      "sourceScope": "incorporated-artwork-only"
     }
   ],
   "releases": [
