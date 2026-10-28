@@ -6,6 +6,8 @@ const schema = new mongoose.Schema({
   name: { type: String, required: true },
   eggName: { type: String, required: true },
   eggImageUrl: { type: String, default: "" },
+  // Optional reference to data/card-artwork-catalog.json; independent of image hosting.
+  eggArtworkId: { type: String, default: "" },
   hatchOdds: {
     Common: { type: Number, default: 26, min: 0, max: 100 },
     Uncommon: { type: Number, default: 26, min: 0, max: 100 },
