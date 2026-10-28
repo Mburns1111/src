@@ -2,7 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionF
 import CardRelease from "../models/CardRelease.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
-import CardCopy from "../models/CardCopy.js";
+import { getCardCollectionSummary, formatCardCollectionSummary } from "../services/card-collection-summary.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js";
 import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../services/card-drop-claims.js";
@@ -32,10 +32,8 @@ export async function execute(interaction) {
   if (!interaction.guildId) return interaction.editReply("Use card commands inside a server.");
   const option = interaction.options.getSubcommand();
   if (option === "collection") {
-    const copies = await CardCopy.find({ ownerDiscordUserId: interaction.user.id, state: "owned" }).limit(200).lean();
-    const counts = {};
-    for (const copy of copies) counts[copy.upgradeLevel] = (counts[copy.upgradeLevel] || 0) + 1;
-    return interaction.editReply(`Your collection (first 200 cards): **${copies.length}** · Normal ${counts.normal || 0} · Neon ${counts.neon || 0} · Mega ${counts.mega || 0}.\nFull gallery and filtering are coming next.`);
+    const summary = await getCardCollectionSummary(interaction.user.id);
+    return interaction.editReply(formatCardCollectionSummary(summary));
   }
   if (!isEnabled()) return interaction.editReply("Card test drops are disabled on this bot.");
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply("Only server managers can start test drops.");
