@@ -39,7 +39,7 @@ test("tag commands require name but have optional card ID for last grab", async 
   const command = data.toJSON();
   const tag = command.options.find(o => o.name === "tag");
   const untag = command.options.find(o => o.name === "untag");
-  assert.equal(tag.options.find(o => o.name === "name").required, true);
+  assert.equal(tag.options.find(o => o.name === "tag").required, true);
   assert.equal(tag.options.find(o => o.name === "card_id").required, false);
   assert.equal(untag.options.find(o => o.name === "card_id").required, false);
 });
