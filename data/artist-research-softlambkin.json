@@ -88,6 +88,30 @@
       "petNickname": null,
       "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dqzqp/",
       "notes": "Artist replied with drawing to screenshot-only pet request; species not established."
+    },
+    {
+      "researchId": "softlambkin-chocbscuit",
+      "petNickname": null,
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6o0t5p/",
+      "notes": "Artist-made drawing in response to screenshot-only request; species unknown."
+    },
+    {
+      "researchId": "softlambkin-strong-adeptness-four",
+      "petNickname": null,
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dp5vo/",
+      "notes": "Artist-made drawing for roughly four pets; species unknown."
+    },
+    {
+      "researchId": "softlambkin-thepotatoes31",
+      "petNickname": null,
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cq0i0/",
+      "notes": "Artist-made drawing for pet with aura; species unknown."
+    },
+    {
+      "researchId": "softlambkin-glum-factor",
+      "petNickname": null,
+      "originalArtistReply": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cd5wz/",
+      "notes": "Artist-made drawing in response to requester with their son; species unknown."
     }
   ],
   "excludedFromConfirmed": [
@@ -96,5 +120,134 @@
       "reason": "Elsewhere on Reddit a commenter credited the username in connection with color suggestions, but no independently verified pet illustration in this research."
     }
   ],
-  "notes": "Do not confuse pet nicknames with Adopt Me pet species. Artwork in another user's request/comment should receive its own authorship and permission review before use. Series 1 matches are based on the owner-provided 100-pet working roster."
+  "notes": "Research includes confirmed pet names from comments and ten submitted image previews mapped to reply authors. The preview images could not be visually inspected. One submitted picture is from another artist and is explicitly excluded from softlambkin credits.",
+  "submittedImageReview": {
+    "addedOn": "2026-10-28",
+    "imageCount": 10,
+    "contentStatus": "source-comment-mapped-image-binary-not-accessible",
+    "statement": "Ten source URLs were submitted; one message accidentally concatenated two URLs, now separated. Reddit comments identify authors and some pet nicknames, but do not reveal the species of these pictures. Nine links are artist-authored; the PhoenixTheTortoise reply is artwork by a different author and is NOT credited to softlambkin.",
+    "images": [
+      {
+        "imageNumber": 1,
+        "redditImageId": "4n7u9ef90xkg1",
+        "imageUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-4n7u9ef90xkg1.png?width=320&crop=smart&auto=webp&s=685e358e32c5b790657293b20941850e030c469b",
+        "postedBy": "softlambkin",
+        "replyTo": "chocbscuit",
+        "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6o0t5p/",
+        "petNickname": null,
+        "petSpecies": null,
+        "reviewStatus": "needs-visual-identification",
+        "context": "Artist replied with drawing to image-only request."
+      },
+      {
+        "imageNumber": 2,
+        "redditImageId": "2mly8s5aklkg1",
+        "imageUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-2mly8s5aklkg1.png?width=320&crop=smart&auto=webp&s=05d6a40e3bf8cdffd3befca83bf9cd1d59b71bf8",
+        "postedBy": "softlambkin",
+        "replyTo": "Miludayoo",
+        "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dqzqp/",
+        "petNickname": null,
+        "petSpecies": null,
+        "reviewStatus": "needs-visual-identification",
+        "context": "Artist replied with drawing to image-only request."
+      },
+      {
+        "imageNumber": 3,
+        "redditImageId": "xdlpsxxahlkg1",
+        "imageUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-xdlpsxxahlkg1.png?width=320&crop=smart&auto=webp&s=0072ce0f5fd78f6c7a660bab66f297535932fe8f",
+        "postedBy": "softlambkin",
+        "replyTo": "Strong_Adeptness7664",
+        "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dp5vo/",
+        "petNickname": null,
+        "petSpecies": null,
+        "reviewStatus": "needs-visual-identification",
+        "context": "Requester asked for art of about four pets. Could contain multiple species."
+      },
+      {
+        "imageNumber": 4,
+        "redditImageId": "ovz9uv3uykkg1",
+        "imageUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-ovz9uv3uykkg1.png?width=320&crop=smart&auto=webp&s=e27bc199447953363b0abcdab12a752613a4d6a5",
+        "postedBy": "softlambkin",
+        "replyTo": "BumblebeeNational352",
+        "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dck3s/",
+        "petNickname": "Buttercream",
+        "petSpecies": null,
+        "reviewStatus": "needs-visual-identification",
+        "context": "Drawing of a pet nicknamed Buttercream, wearing petwear; species not in text."
+      },
+      {
+        "imageNumber": 5,
+        "redditImageId": "zw2w9yz23lkg1",
+        "imageUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-zw2w9yz23lkg1.png?width=320&crop=smart&auto=webp&s=67dce6b716c95e3c755320541d12dd56b0f8eff7",
+        "postedBy": "PhoenixTheTortoise",
+        "replyTo": "softlambkin",
+        "sourceCommentUrl": null,
+        "petNickname": null,
+        "petSpecies": null,
+        "reviewStatus": "other-artist-do-not-credit-softlambkin",
+        "context": "Image was posted by PhoenixTheTortoise after offering to draw softlambkin's pet; image is not softlambkin artwork. Neighboring thread mentions Turtle but that does not identify this image as a Turtle."
+      },
+      {
+        "imageNumber": 6,
+        "redditImageId": "ikg3l74flkkg1",
+        "imageUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-ikg3l74flkkg1.png?width=320&crop=smart&auto=webp&s=1eb693c0b064d50b55e5358b9dcc20f2582c1531",
+        "postedBy": "softlambkin",
+        "replyTo": "Caococoacoco",
+        "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6d1t85/",
+        "petNickname": "Winnie",
+        "petSpecies": null,
+        "reviewStatus": "needs-visual-identification",
+        "context": "Drawing of a pet named Winnie; species not in text."
+      },
+      {
+        "imageNumber": 7,
+        "redditImageId": "oup3bl978kkg1",
+        "imageUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-oup3bl978kkg1.png?width=320&crop=smart&auto=webp&s=2f94f939a4d1d711a5f7ddb5683c32265fd0e078",
+        "postedBy": "softlambkin",
+        "replyTo": "ThePotatoes31",
+        "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cq0i0/",
+        "petNickname": null,
+        "petSpecies": null,
+        "reviewStatus": "needs-visual-identification",
+        "context": "Artist drew pet shown in screenshots; owner praises aura; species not in text."
+      },
+      {
+        "imageNumber": 8,
+        "redditImageId": "mnmid66l4kkg1",
+        "imageUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-mnmid66l4kkg1.png?width=320&crop=smart&auto=webp&s=4f6d97e1c1ea4952d706588add848fca3cdf2585",
+        "postedBy": "softlambkin",
+        "replyTo": "[deleted]",
+        "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cmnun/",
+        "petNickname": "Cloud",
+        "petSpecies": null,
+        "reviewStatus": "needs-visual-identification",
+        "context": "Artist mentions pet Cloud; species not in text."
+      },
+      {
+        "imageNumber": 9,
+        "redditImageId": "c28dvwz60kkg1",
+        "imageUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-c28dvwz60kkg1.png?width=320&crop=smart&auto=webp&s=b7e5c4272f3a5ff0e276984ac0cf470ab436bca2",
+        "postedBy": "softlambkin",
+        "replyTo": "rooisswag",
+        "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cinh7/",
+        "petNickname": "laffytaffy",
+        "petSpecies": null,
+        "reviewStatus": "needs-visual-identification",
+        "context": "Pet named laffytaffy; this image is first of two artist variations."
+      },
+      {
+        "imageNumber": 10,
+        "redditImageId": "urkhhed6ujkg1",
+        "imageUrl": "https://preview.redd.it/adopt-me-fanart-c-v0-urkhhed6ujkg1.png?width=320&crop=smart&auto=webp&s=22593e29636e6468e042c0a7f5aff13160ac4eb0",
+        "postedBy": "softlambkin",
+        "replyTo": "Glum-Factor3313",
+        "sourceCommentUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6cd5wz/",
+        "petNickname": null,
+        "petSpecies": null,
+        "reviewStatus": "needs-visual-identification",
+        "context": "Requester says image shows them and their son; species not in text."
+      }
+    ],
+    "notes": "Original source URLs preserved verbatim. URLs are 320px Reddit previews; for released card art request high-resolution originals and confirm artist's permission. Source comment authorship verified from the public thread. Do not infer pet species solely from Reddit usernames, nicknames, or nearby Turtle discussion."
+  }
 }
