@@ -28,34 +28,45 @@ The finished image was edited/assembled by the project owner and **includes** ma
 
 ## Artist research — αriαℓ / u/softlambkin
 
-The owner reports direct permission from Reddit artist **αriαℓ** (**u/softlambkin**). Artist profile: https://www.reddit.com/user/softlambkin/ . Initial public source thread: https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/adopt_me_fanart_c/
+The owner reports direct permission from Reddit artist **αriαℓ** (`u/softlambkin`). Artist profile: https://www.reddit.com/user/softlambkin/ . Source thread: https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/adopt_me_fanart_c/
 
-Research and **direct links to the artist's artwork replies** are stored in [`data/artist-research-softlambkin.json`](../data/artist-research-softlambkin.json). The current text-confirmed drawings cover **Wolf and Ghost Wolf together, Turtle, and neon Cute-A-Cabra**. Three pets (Wolf, Turtle, Cute-A-Cabra) match the owner's Series 1 working roster. Other finished works are only associated with pet nicknames/screenshot-only requests, so their species remain unconfirmed.
+The image-by-image review, Reddit image URLs, comment links and owner decisions are stored in [`data/artist-research-softlambkin.json`](../data/artist-research-softlambkin.json). Owner uploaded conversation screenshots and confirmed further pet identities on 28 October 2026.
 
-**These are discovery/review records, not imported card artwork.** Permission message/evidence, reuse scope, final chosen files, and visual pet identification must be checked before assigning an artwork ID to a card.
+### Identified drawings and Series 1 matching
 
-## Submitted Reddit image links — visual follow-up
+| Pet illustration | Reddit image / context | Current Series 1 |
+|---|---|---|
+| Strawberry Shortcake Bat Dragon, styled version | `4n7u9ef90xkg1` | Yes |
+| Strawberry Shortcake Bat Dragon, Neon effects | `2mly8s5aklkg1` | Yes (same pet species) |
+| Wolf and Ghost Wolf pair | `softlambkin-wolf-duo` | Wolf only |
+| Turtle, drawn in response to a request | `softlambkin-turtle` | Yes |
+| Neon Cute-A-Cabra | `softlambkin-neon-cute-a-cabra` | Yes |
+| Bunny Swirl, named Buttercream | `ovz9uv3uykkg1` | No |
+| **Arctic Fox**, named Winnie | `ikg3l74flkkg1` | **Yes — owner-confirmed** |
+| **Canadian Goose**, with a box backpack | `oup3bl978kkg1` | **No — different from Series 1 Goose; owner-confirmed** |
+| **Happy Duckling**, using art of Cloud | `mnmid66l4kkg1` | **Yes — owner-selected representation** |
+| **Unicorn**, named Laffytaffy | `c28dvwz60kkg1` | **Yes — owner-confirmed** |
 
-Ten Reddit preview links from the fan-art thread are tracked under `submittedImageReview.images` in `data/artist-research-softlambkin.json`. The owner later provided **14 conversation screenshots** containing original in-game pet references and finished art; each preview retains its Reddit image ID, source URL, comment and poster.
+**Important distinction:** The owner selected the costumed drawing of Cloud to **represent Happy Duckling**. This does not establish the source screenshot's species as a verified fact. Its planned card-art association is a creative selection. It is not yet assigned to a database card definition or approved for public display.
 
-**Visual identifications (high confidence):**
-- `4n7u9ef90xkg1`: Strawberry Shortcake Bat Dragon, dressed/recolored — Series 1.
-- `2mly8s5aklkg1`: another Strawberry Shortcake Bat Dragon, Neon effects — Series 1.
-- `ovz9uv3uykkg1`: Buttercream is a Bunny Swirl (dessert petwear) — **not** Series 1.
-- `zw2w9yz23lkg1`: requester's gameplay screenshot of a Turtle — Series 1. The actual **Turtle drawing in the reply was made by softlambkin**. Do not count the gameplay screenshot as a separate fan illustration.
-- The previously linked Wolf/Ghost Wolf pair, Turtle illustration, and neon Cute-A-Cabra illustration were visually corroborated; Wolf, Turtle, Cute-A-Cabra are on Series 1.
+The original in-game Turtle reference screenshot `zw2w9yz23lkg1` was posted by `u/PhoenixTheTortoise`. Softlambkin made the **finished Turtle drawing** in the reply. PhoenixTheTortoise also drew a separate pink fan-art picture in that conversation; that other illustration is **not** softlambkin's work.
 
-**Candidate identifications, not final:**
-- `ikg3l74flkkg1`: Winnie resembles Arctic Fox or possibly a recolored Fennec Fox — both on Series 1, exact species uncertain.
-- `oup3bl978kkg1`: brown and white goose-like bird, likely Canadian Goose rather than the Series 1 Goose — uncertain.
-- `mnmid66l4kkg1`: Cloud is a costumed pale duck-like bird, possibly Happy Duckling — uncertain.
-- `c28dvwz60kkg1`: Laffytaffy resembles a pink-purple Unicorn, but heavy petwear obscures identifying features — uncertain.
-- `xdlpsxxahlkg1`: collage depicting four animals, individual species uncertain.
-- `urkhhed6ujkg1`: dark furry canine/feline-looking animal, exact species uncertain.
+### Four-pet group illustration — reserved for general use
 
-**Creator attribution:** `u/PhoenixTheTortoise` supplied an in-game Turtle screenshot to request art and separately drew pink fan artwork of softlambkin's pet. The pink drawing is **not** softlambkin's work and should not be placed in their credited collection. The submitted Turtle gameplay screenshot is also not authored art; softlambkin's separate Turtle illustration is correctly credited to softlambkin.
+- **Image:** `xdlpsxxahlkg1`
+- **Catalog artwork ID:** `softlambkin-general-multipet-001`
+- **Artist:** αriαℓ (`u/softlambkin`)
+- **Source:** https://www.reddit.com/r/AdoptMeRBX/comments/1r9g9qo/comment/o6dp5vo/
+- **Intended usage:** Undecided future general graphic, **not an individual pet card**.
+- **Restrictions:** Unassigned to any release, pet species, or bot feature. Permission scope and full-resolution image still need recording before public use.
 
-All images remain **research records**, not cleared or imported card assets. Record the higher-resolution finished art, exact permission scope and final pet identity before assigning it to a card.
+The artwork is in the main artwork credits catalog because it has potential other uses, but has `petCardEligible: false` and an empty `releaseIds` list. The sole Release 1 **egg type** remains `egg-drop-001`.
+
+### Remaining open identification
+
+The dark furry pet illustration in `urkhhed6ujkg1` (Glum-Factor3313 request) still has no confirmed species. It remains in the research list rather than receiving a guessed pet assignment.
+
+**These are research and artwork-credit records, not imported card art.** Before use in Discord cards, check the specific original file and the permission scope granted by the artist; preserve contributor attribution.
 
 ## Adding images in the future
 
