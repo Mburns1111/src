@@ -9,12 +9,12 @@ const MAX_BATCH = 20;
 export function parseCardIds(input) {
   const ids = String(input ?? "").split(/[\s,;]+/).filter(Boolean);
   if (ids.length < 1 || ids.length > MAX_BATCH) {
-    throw new Error("Enter 1–20 card IDs, separated by commas or spaces.");
+    throw new Error("Enter 1–20 five-character card IDs, separated by commas or spaces.");
   }
-  if (ids.some(id => !/^(?:[0-9a-fA-F]{12}|[0-9a-fA-F]{24})$/.test(id))) {
-    throw new Error("Every card ID must be 12 or 24 hexadecimal characters.");
+  if (ids.some(id => !/^[0-9A-Za-z_-]{5}$/.test(id))) {
+    throw new Error("Every card ID must be exactly five characters (letters, numbers, - or _).");
   }
-  if (new Set(ids.map(id => id.toLowerCase())).size !== ids.length) {
+  if (new Set(ids).size !== ids.length) {
     throw new Error("Each card ID can appear only once.");
   }
   return ids.map(normalizeCardReference);
