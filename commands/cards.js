@@ -83,10 +83,13 @@ export async function handleCardGrab(interaction) {
       if (drop && String(drop.messageId) === interaction.message.id) {
         const pets = await PetCatalog.find({ petId: { $in: drop.slots.map(s => s.petId) } }).select("petId name").lean();
         const names = Object.fromEntries(pets.map(p => [p.petId, p.name]));
-        const closed = drop.status === "closed" || new Date(drop.expiresAt) <= new Date();
-        const release = await CardRelease.findOne({ releaseId: drop.releaseId }).select("name").lean();
-        await interaction.message.edit({ content: dropText({ ...drop, status: closed ? "closed" : "open" }, release?.name || drop.releaseId, names), components: closed ? [] : [rowButtons(drop)], allowedMentions: { parse: [] } });
-        if (closed) await CardDrop.updateOne({ _id: drop._id }, { $set: { displayClosedAt: new Date() } });
+        // The expiry worker settles awards before publishing the final result.
+        // Do not mark the closed message refreshed here; a click near the
+        // deadline must not skip the worker's final display update.
+        if (drop.status === "open" && new Date(drop.expiresAt) > new Date()) {
+          const release = await CardRelease.findOne({ releaseId: drop.releaseId }).select("name").lean();
+          await interaction.message.edit({ content: dropText(drop, release?.name || drop.releaseId, names), components: [rowButtons(drop)], allowedMentions: { parse: [] } });
+        }
       }
     } catch (error) { console.warn("[Cards] Could not refresh drop display:", error.message); }
   } catch (error) {
