@@ -286,7 +286,8 @@ test("3yberpunks8 Princess Mare permission is recorded for the specific artwork"
   assert.equal(art.officialPetReference.rarity, "Uncommon");
   assert.equal(art.officialPetReference.petId, "princess-mare");
   assert.equal(art.illustrationDetails.petVisibility, "small-in-main-composition");
-  assert.ok(art.illustrationDetails.cardPreparation.includes("pet-focused"));
+  assert.equal(art.illustrationDetails.usageFit, "owner-approved-humanized-art-style");
+  assert.ok(art.illustrationDetails.cardPreparation.includes("no horse-only crop is required"));
   assert.deepEqual(catalog.releases.find(x => x.releaseId === "release-1").eggArtworkIds, ["egg-drop-001"]);
 });
 
@@ -303,11 +304,25 @@ test("art-first Series 1 draft retains 100 unique pets and rarity distribution",
     Common: 26, Uncommon: 26, Rare: 26, "Ultra-Rare": 14, Legendary: 8,
   });
   assert.equal(draftRoster.status, "proposed-for-owner-review—not-live");
-  assert.equal(draftRoster.replacements.length, 10);
+  assert.equal(draftRoster.replacements.length, 11);
   const mareSwap = draftRoster.replacements.find(x => x.add === "Princess Mare");
   assert.ok(mareSwap);
   assert.equal(mareSwap.tier, "Uncommon");
-  assert.equal(mareSwap.artworkSuitability, "conditional-needs-pet-centered-crop-or-alternative");
+  assert.equal(mareSwap.artworkSuitability, "owner-approved-humanized-interpretation");
+  assert.equal(mareSwap.presentationPreference, "humanized-illustration-intentional-no-pet-only-crop-required");
+  assert.ok(draftRoster.petsByRarity.Uncommon.includes("Princess Mare"));
+  assert.ok(groups.Legendary.includes("Shark Puppy"));
+  assert.ok(groups.Legendary.includes("Hot Doggo"));
+  assert.ok(!groups.Legendary.includes("Axolotl"));
+  assert.ok(draftRoster.replacements.some(r => r.remove === "Axolotl" && r.add === "Shark Puppy"));
+  assert.ok(draftRoster.replacements.some(r => r.remove === "Frost Fury" && r.add === "Hot Doggo"));
+  assert.equal(draftRoster.artCoverage.estimatedCoveredSpeciesCount, 23);
+  for (const artId of ["jovy-shark-puppy-001", "jovy-hot-doggo-001"]) {
+    const art = catalog.artworks.find(x => x.artworkId === artId);
+    assert.ok(art);
+    assert.ok(art.series1PetMatches.length === 1);
+    assert.equal(art.candidateUsage, "owner-selected-Series-1-draft-Legendary");
+  }
   for (const change of draftRoster.replacements) {
     assert.ok(groups[change.tier].includes(change.add));
     assert.ok(!groups[change.tier].includes(change.remove));
