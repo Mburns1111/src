@@ -3,7 +3,7 @@ import CardRelease from "../models/CardRelease.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
-import { createSeries, createRelease, editRelease, addReleasePet, removeReleasePet, setReleasePetWeight, setReleaseOdds, checkRelease } from "../services/card-global-releases.js";
+import { createSeries, createRelease, editRelease, addReleasePet, addReleasePetsBulk, removeReleasePet, setReleasePetWeight, setReleaseOdds, checkRelease } from "../services/card-global-releases.js";
 
 const PAGE_SIZE = 15;
 const clean = value => String(value ?? "").replace(/[@`*_~|<>]/g, "").slice(0, 120);
@@ -33,8 +33,12 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(command => command.setName("add-pet")
     .setDescription("OWNER: add a master-catalog pet to a DRAFT release")
     .addStringOption(o => o.setName("release").setDescription("Global release ID").setRequired(true))
-    .addStringOption(o => o.setName("pet").setDescription("Canonical pet ID, e.g. abyssinian-cat").setRequired(true))
+    .addStringOption(o => o.setName("pet").setDescription("Canonical ID or full pet name").setRequired(true))
     .addNumberOption(o => o.setName("weight").setDescription("Relative hatch weight; default 1").setMinValue(0).setMaxValue(10000)))
+  .addSubcommand(command => command.setName("add-pets")
+    .setDescription("OWNER: add up to 100 pets to a DRAFT in one atomic operation")
+    .addStringOption(o => o.setName("release").setDescription("Global release ID").setRequired(true))
+    .addStringOption(o => o.setName("pets").setDescription("Comma-separated pet IDs or exact names").setRequired(true).setMaxLength(6000)))
   .addSubcommand(command => command.setName("remove-pet")
     .setDescription("OWNER: remove a pet with no approved art from a DRAFT")
     .addStringOption(o => o.setName("release").setDescription("Global release ID").setRequired(true))
@@ -71,7 +75,7 @@ export async function execute(interaction) {
   const page = interaction.options.getInteger("page") || 1;
   const option = interaction.options.getSubcommand();
   if (["create-series", "create-release", "edit-release", "add-pet",
-      "remove-pet", "set-weight", "set-odds", "release-check"].includes(option)) {
+      "add-pets", "remove-pet", "set-weight", "set-odds", "release-check"].includes(option)) {
     const string = key => interaction.options.getString(key);
     const number = key => interaction.options.getNumber(key);
     try {
@@ -100,6 +104,13 @@ export async function execute(interaction) {
         return interaction.editReply("Added **" + clean(result.petName) + "** (" + clean(result.rarity) +
           ") to draft " + clean(result.releaseId) + "; weight " + result.weight +
           ". Not yet hatchable; artwork and approval still required.");
+      }
+      if (option === "add-pets") {
+        const result = await addReleasePetsBulk({
+          releaseId: string("release"), pets: string("pets"),
+        });
+        return interaction.editReply("Added **" + result.added + "** disabled pet designs to draft " +
+          clean(result.releaseId) + ". All entries succeeded together. Artwork remains missing.");
       }
       if (option === "remove-pet") {
         const result = await removeReleasePet({ releaseId: string("release"), petId: string("pet") });
