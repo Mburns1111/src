@@ -66,3 +66,16 @@ test("upgrade autocomplete is attached to the single card field and uses owned-o
   assert.match(index, /interaction\.isAutocomplete\(\)/);
   assert.match(index, /await autocompleteCards\(interaction\)/);
 });
+
+test("completed upgrades announce the newly rendered card publicly while confirmation stays private", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("../commands/cards.js", import.meta.url), "utf8");
+  const handler = source.slice(source.indexOf("export async function handleCardUpgrade"), source.indexOf("export async function handleCardGrab"));
+  assert.match(handler, /await confirmCardUpgrade\(token, interaction\.user\.id, interaction\.guildId\)/);
+  assert.match(handler, /renderCollectibleCardPreview\(/);
+  assert.match(handler, /interaction\.channel\.send\(/);
+  assert.match(handler, /new AttachmentBuilder\(image, \{ name: "upgraded-card\.png" \}\)/);
+  assert.match(handler, /allowedMentions: \{ users: \[interaction\.user\.id\], parse: \[\] \}/);
+  assert.match(handler, /Upgrade completed but public image failed/);
+  assert.match(handler, /interaction\.editReply\(/);
+});
