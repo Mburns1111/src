@@ -2,19 +2,19 @@ import { execute as executeCards } from "../commands/cards.js";
 
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
-  const found = /^\\/?(help|drop|collection|upgrade|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|preview|trade|burn)(?:\\s+([\\s\\S]*))?$/i.exec(text);
+  const found = /^\/?(help|drop|collection|upgrade|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|preview|trade|burn)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "drop") return { action: "test-drop", options: { release: args || "test-s1-r1" } };
   if (action === "collection") return { action, options: { member: args } };
   if (action === "upgrade") return { action, options: { card: args } };
   if (action === "tag") {
-    const match = /^([0-9A-Za-z_-]{5})\\s+(.+)$/.exec(args);
+    const match = /^([0-9A-Za-z_-]{5})\s+(.+)$/.exec(args);
     return { action, options: match ? { card_id: match[1], tag: match[2].trim() } : { tag: args } };
   }
   if (["untag", "stats", "preview"].includes(action)) return { action, options: { card_id: args } };
   if (action === "tag-multiple") {
-    const [tag, ...ids] = args.split(/\\s+/);
+    const [tag, ...ids] = args.split(/\s+/);
     return { action, options: { tag: tag || "", card_ids: ids.join(" ") } };
   }
   if (action === "untag-multiple") return { action, options: { card_ids: args } };
@@ -32,7 +32,7 @@ export const HATCHEM_GUIDE = [
   "drop — staff-only test egg",
   "help — list more commands",
   "Trade and burn are planned, not enabled yet.",
-].join("\\n");
+].join("\n");
 
 export const HATCHEM_HELP = [
   "**🥚 Hatchem typed commands**",
@@ -44,7 +44,7 @@ export const HATCHEM_HELP = [
   "delete-tag Favorites · stats CardID · preview CardID",
   "trade and burn — coming later; not active",
   "Card IDs are case-sensitive; pet names are not.",
-].join("\\n");
+].join("\n");
 
 export async function runHatchemText(message, parsed) {
   if (!parsed) return false;
@@ -54,7 +54,7 @@ export async function runHatchemText(message, parsed) {
     await message.reply({ content, allowedMentions: { parse: [] } });
     return true;
   }
-  const match = /^<@!?(\\d{17,20})>$/.exec(parsed.options.member || "");
+  const match = /^<@!?(\d{17,20})>$/.exec(parsed.options.member || "");
   if (parsed.action === "collection" && parsed.options.member && !match) {
     await message.reply({ content: "Use collection or collection @member.", allowedMentions: { parse: [] } });
     return true;
