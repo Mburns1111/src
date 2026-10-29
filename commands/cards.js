@@ -316,7 +316,7 @@ export async function execute(interaction) {
         );
         return interaction.editReply({
           content: [`**Card Artwork Library** — ${result.total} assets · page ${result.page}/${result.pages}`,
-            ...rows, rows.length ? "Use /cards art-info key:... for details and image." : "No artwork matches these filters."].join("\\n"),
+            ...rows, rows.length ? "Use /cards art-info key:... for details and image." : "No artwork matches these filters."].join("\n"),
           allowedMentions: { parse: [] },
         });
       }
@@ -345,7 +345,7 @@ export async function execute(interaction) {
           `Revision note: ${escapeDiscord(artwork.revisionNote || "none")}`,
           `Newer versions: ${revisions.map(r => escapeDiscord(r.key)).join(", ") || "none"}`,
           "**Recent reviews**", ...(historyLines.length ? historyLines : ["None"]),
-        ].join("\\n").slice(0, 1900),
+        ].join("\n").slice(0, 1900),
         files: [new AttachmentBuilder(asset.bytes, { name: `card-artwork.${ext}` })],
         allowedMentions: { parse: [] },
       });
