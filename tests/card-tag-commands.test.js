@@ -18,6 +18,11 @@ test("Hatchem accepts saved tags, newest cards, case-insensitive prefixes and qu
   assert.deepEqual(parseHatchemText('.tag "Abyssinian Cat" "My Cute Pets"'), {
     action: "tag", options: { card_id: "Abyssinian Cat", tag: "My Cute Pets" },
   });
+  assert.deepEqual(parseHatchemText(".tag 2d do cute"), { action: "tag", options: { card_id: "2d do", tag: "cute" } });
+  assert.deepEqual(parseHatchemText('.tag 2D Doggy "Very Cute"'), { action: "tag", options: { card_id: "2D Doggy", tag: "Very Cute" } });
+  assert.deepEqual(parseHatchemText(".tag 2d do -- Very Cute"), { action: "tag", options: { card_id: "2d do", tag: "Very Cute" } });
+  assert.deepEqual(parseHatchemText(".tag KxQOo very cute"), { action: "tag", options: { card_id: "KxQOo", tag: "very cute" } });
+  assert.deepEqual(parseHatchemText(".untag 2D Doggy"), { action: "untag", options: { card_id: "2D Doggy" } });
   assert.deepEqual(parseHatchemText(".untag abys"), { action: "untag", options: { card_id: "abys" } });
   assert.equal(parseHatchemText("tag cute"), null);
   const commands = data.toJSON().options;
