@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import CardCopy from "../models/CardCopy.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
+import { listCollectorTags } from "./card-tag-catalog.js";
 
 export const COLLECTION_PAGE_SIZE = 8;
 export const COLLECTION_RARITY_OPTIONS = ["all", "Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"];
@@ -132,10 +133,7 @@ export async function listCollectionRarities(ownerId) {
 }
 
 export async function listCollectionTags(ownerId) {
-  const rows = await CardCopy.distinct("tag", {
-    ownerDiscordUserId: ownerId, state: "owned", tag: { $type: "string", $ne: "" },
-  });
-  return rows.filter(t => typeof t === "string" && t.trim()).sort((a, b) => a.localeCompare(b));
+  return listCollectorTags(ownerId);
 }
 
 export async function findOwnedCollectionCard(ownerId, copyId) {
