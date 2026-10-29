@@ -1,7 +1,6 @@
 import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
 import CardRelease from "../models/CardRelease.js";
+import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
 import CardCopy from "../models/CardCopy.js";
@@ -210,12 +209,9 @@ export async function execute(interaction) {
   const dropPng = await renderThreeCardDropImage({
     releaseName: release.name,
     seriesName: series?.name || release.seriesId,
-    // Release 1's supplied artwork can be uploaded to this stable local path
-    // in Replit. The configured URL takes priority for future releases.
-    eggImageUrl: release.eggImageUrl
-      || (release.releaseId === "test-s1-r1"
-        && existsSync(resolve("assets/card-eggs/release-1.png"))
-        ? resolve("assets/card-eggs/release-1.png") : ""),
+    // Resolve artwork already in MongoDB, without a Replit upload or ZIP.
+    // A configured URL is retained for backward compatibility.
+    eggImageSource: release.eggImageUrl || await loadStoredReleaseEggImage(release),
     cards: revealed.map(({ card, rarity }) => ({
       petName: petNames[card.petId] || card.petId,
       rarity,
