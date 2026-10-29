@@ -2,38 +2,23 @@ import CardCopy from "../models/CardCopy.js";
 import CardClaim from "../models/CardClaim.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
-import { displayCardId, resolveCardId, upgradeLabel } from "./card-identifiers.js";
+import { displayCardId, upgradeLabel } from "./card-identifiers.js";
+import { findOwnedCardForCommand } from "./card-owned-selection.js";
+import { normalizeCardTag, tagKey, createCollectorTag } from "./card-tag-catalog.js";
+export { normalizeCardTag } from "./card-tag-catalog.js";
 
 export const COLLECTION_RARITIES = Object.freeze(["Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"]);
 export const COLLECTION_UPGRADES = Object.freeze(["normal", "neon", "mega"]);
-export const MAX_CARD_TAG_LENGTH = 32;
-
-export function normalizeCardTag(value) {
-  const tag = String(value ?? "").trim().replace(/\s+/g, " ");
-  if (!tag || tag.length > MAX_CARD_TAG_LENGTH || !/^[\p{L}\p{N} _-]+$/u.test(tag)) {
-    throw new Error("Tags must be 1–32 characters using letters, numbers, spaces, - or _.");
-  }
-  return tag;
-}
-
 export async function updateOwnedCardTag({ discordUserId, cardId, tag }) {
-  // Default to the most recent *awarded* grab, not an in-progress reservation.
-  // If it was traded or consumed, report that instead of silently tagging an older card.
-  let targetId = cardId;
-  if (!targetId) {
-    const lastGrab = await CardClaim.findOne({ discordUserId })
-      .sort({ createdAt: -1, _id: -1 }).select("cardCopyId").lean();
-    if (!lastGrab) throw new Error("You haven't collected a card yet. Grab a card first or enter a card ID.");
-    targetId = lastGrab.cardCopyId;
-  }
-  targetId = await resolveCardId(targetId);
-  const normalized = tag === null ? "" : normalizeCardTag(tag);
+  const target = await findOwnedCardForCommand(discordUserId, cardId);
+  const normalized = tag === null ? "" : tagKey(tag);
   const card = await CardCopy.findOneAndUpdate(
-    { _id: targetId, ownerDiscordUserId: discordUserId, state: "owned" },
+    { _id: target._id, ownerDiscordUserId: discordUserId, state: "owned" },
     { $set: { tag: normalized } },
     { returnDocument: "after", runValidators: true },
   );
-  if (!card) throw new Error("That card is no longer in your owned collection. Enter the ID of a card you currently own.");
+  if (!card) throw new Error("That card is no longer in your owned collection.");
+  if (normalized) await createCollectorTag(discordUserId, normalized);
   const definition = await CardDefinition.findById(card.cardDefinitionId).select("petId rarity").lean();
   const pet = definition && await PetCatalog.findOne({ petId: definition.petId }).select("name").lean();
   return {
@@ -117,6 +102,6 @@ export function formatCardCollectionSummary({ total, rarity, upgrade, recent = [
     "**Last 5 grabbed cards**",
     ...recentLines,
     "",
-    "*Use /cards tag or /cards untag. Card ID is optional and defaults to your last grabbed card. Full gallery and trading are coming next.*",
+    "*Use /cards tag or /cards untag. Card ID is optional; tags target your newest owned card (including upgrades). Full gallery and trading are coming next.*",
   ].join("\n");
 }
