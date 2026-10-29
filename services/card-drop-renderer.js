@@ -4,12 +4,12 @@ import { loadImageSource } from "./post-renderer.js";
 
 // The release banner is not part of any individual card. It is a distinct
 // horizontal strip above the three-card composite.
-export const CARD_DROP_IMAGE_SIZE = Object.freeze({ width: 1920, height: 1140 });
+export const CARD_DROP_IMAGE_SIZE = Object.freeze({ width: 1920, height: 1510 });
 const MARGIN = 46;
-const BANNER = { x: MARGIN, y: 36, w: 1828, h: 240 };
+const BANNER = { x: MARGIN, y: 36, w: 1828, h: 600 };
 const CARD_WIDTH = 548;
 const CARD_HEIGHT = Math.round(CARD_WIDTH * CARD_PREVIEW_SIZE.height / CARD_PREVIEW_SIZE.width);
-const CARD_TOP = 317;
+const CARD_TOP = 670;
 const CARD_LEFTS = [86, 686, 1286];
 
 function rounded(ctx, x, y, w, h, r) {
@@ -25,6 +25,13 @@ function fit(ctx, value, maxWidth, size, min = 27) {
   }
   return fontSize;
 }
+// The egg banner is an independent image. Do not crop its eggs or title.
+function contain(ctx, image, x, y, w, h) {
+  const scale = Math.min(w / image.width, h / image.height);
+  const iw = image.width * scale, ih = image.height * scale;
+  ctx.drawImage(image, x + (w - iw) / 2, y + (h - ih) / 2, iw, ih);
+}
+
 function cover(ctx, image, x, y, w, h) {
   const scale = Math.max(w / image.width, h / image.height);
   const iw = image.width * scale, ih = image.height * scale;
@@ -69,13 +76,13 @@ export async function renderThreeCardDropImage({
     catch (error) { console.warn("[Cards] Egg banner unavailable:", error.message); }
   }
   if (image) {
-    cover(ctx, image, BANNER.x, BANNER.y, BANNER.w, BANNER.h);
+    contain(ctx, image, BANNER.x, BANNER.y, BANNER.w, BANNER.h);
   } else {
     // A deliberate text-only banner fallback, not an invented egg illustration.
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     fit(ctx, `${releaseName} Egg`, BANNER.w - 100, 102);
     ctx.fillStyle = "#76548B";
-    ctx.fillText(`${releaseName} Egg`, W / 2, BANNER.y + 123);
+    ctx.fillText(`${releaseName} Egg`, W / 2, BANNER.y + BANNER.h / 2);
   }
   ctx.restore();
 
