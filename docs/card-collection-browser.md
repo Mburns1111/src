@@ -20,3 +20,13 @@ The `/cards collection` command opens a **private, interactive collection** on t
 Pull the dev branch and run `npm test`, `node register-commands.js` if not yet registered, then `npm start`.
 Use `/cards collection` after grabbing test cards. Verify rarity sort, release selection, next/previous, and card inspection.
 No new artwork is required to test; placeholders render normally.
+
+
+## Public collection lookup (new)
+
+- \`/cards collection\` posts the invoking member's collection publicly.
+- \`/cards collection member:@someone\` posts that member's collection in the channel.
+- Every member can see the list and selected full-card images.
+- **Only the person who executed the slash command** can use the dropdowns. Unauthorized interactions receive a private message and do not change the public post.
+- The displayed cards, rarity choices, release options, and tags all come from the **selected member's owned cards**, not from the command invoker's inventory.
+- After pulling, run \`node register-commands.js\` once to register the new optional member argument. Other commands keep their private responses.
