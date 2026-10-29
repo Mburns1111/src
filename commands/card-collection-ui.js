@@ -46,19 +46,15 @@ async function collectionView(id, ownerId) {
     safe(c.petName),
     safe(c.rarityName),
     labelStage(c.upgradeLevel),
-    \`${safe(c.publicId || "PENDING")}\`,
+    `ID:${safe(c.publicId || "PENDING")}`,
     safe(c.releaseName),
     ...(c.tag ? [`#${safe(c.tag)}`] : []),
   ].join(" · ").replace(/^([0-9]+\\.) · /, "$1 "));
   const embed = new EmbedBuilder()
     .setColor(0xB9A4D7)
     .setTitle(`Your Card Collection · ${summary.total} owned`)
-    .setDescription(rows.length ? rows.join("\\n") : "No cards match these filters.")
-    .addFields({
-      name: "Collection",
-      value: `Normal ${summary.upgrade.normal || 0}  ·  Neon ${summary.upgrade.neon || 0}  ·  Mega ${summary.upgrade.mega || 0}`,
-    })
-    .setFooter({ text: `${page.total} matching · page ${page.page + 1}/${page.pages} · Select a card to view` });
+    .setDescription(rows.length ? rows.join("\n") : "No cards match these filters.")
+    .setFooter({ text: `Normal ${summary.upgrade.normal || 0} · Neon ${summary.upgrade.neon || 0} · Mega ${summary.upgrade.mega || 0}  |  ${page.total} matching · page ${page.page + 1}/${page.pages}` });
   const rarity = select(`cards:collection:rarity:${id}`, "Filter by rarity",
     COLLECTION_RARITY_OPTIONS.map(x => ({ label: x === "all" ? "All rarities" : x, value: x })), session.rarity);
   const release = select(`cards:collection:release:${id}`, "Filter by release",
