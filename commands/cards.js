@@ -15,7 +15,7 @@ import { resolveCardId } from "../services/card-identifiers.js";
 import { renderCollectibleCardPreview } from "../services/card-preview-renderer.js";
 import { renderThreeCardDropImage } from "../services/card-drop-renderer.js";
 import { getCardCollectionSummary, formatCardCollectionSummary, updateOwnedCardTag } from "../services/card-collection-summary.js";
-import { findOwnedCardForCommand } from "../services/card-owned-selection.js";
+import { findOwnedCardForCommand, suggestOwnedCardReferences } from "../services/card-owned-selection.js";
 import { createCollectorTag, listCollectorTags } from "../services/card-tag-catalog.js";
 import { startCardCollection } from "./card-collection-ui.js";
 import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade, suggestOwnedCardUpgrades } from "../services/card-upgrades.js";
@@ -30,14 +30,14 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c => c.setName("upgrade").setDescription("Combine 4 matching cards into Neon or Mega Neon")
     .addStringOption(o => o.setName("card").setDescription("One card ID or pet name; bot finds four matching copies").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c => c.setName("stats").setDescription("See collector, burn and upgrade statistics for a card")
-    .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false)))
+    .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false).setAutocomplete(true)))
   .addSubcommand(c => c.setName("preview").setDescription("View a portrait preview of an owned collectible card")
-    .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false)))
+    .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false).setAutocomplete(true)))
   .addSubcommand(c => c.setName("tag").setDescription("Tag your newest card or select one by pet name/ID")
     .addStringOption(o => o.setName("tag").setDescription("Tag, up to 32 characters").setMinLength(1).setMaxLength(32).setRequired(true))
-    .addStringOption(o => o.setName("card_id").setDescription("Optional ID or pet-name prefix; defaults to newest owned card").setRequired(false)))
+    .addStringOption(o => o.setName("card_id").setDescription("Optional ID or pet-name prefix; defaults to newest owned card").setRequired(false).setAutocomplete(true)))
   .addSubcommand(c => c.setName("untag").setDescription("Remove the tag from one of your cards")
-    .addStringOption(o => o.setName("card_id").setDescription("Optional ID or pet-name prefix; defaults to newest owned").setRequired(false)))
+    .addStringOption(o => o.setName("card_id").setDescription("Optional ID or pet-name prefix; defaults to newest owned").setRequired(false).setAutocomplete(true)))
   .addSubcommand(c => c.setName("tag-multiple").setDescription("Apply one tag to multiple cards you own")
     .addStringOption(o => o.setName("tag").setDescription("Tag to apply").setRequired(true).setMinLength(1).setMaxLength(32))
     .addStringOption(o => o.setName("card_ids").setDescription("1–20 five-character card IDs, comma-separated").setRequired(true)))
@@ -655,15 +655,20 @@ export async function handleCardTagDeletion(interaction) {
 
 /** Discord autocomplete must respond directly; it is never deferred. */
 export async function autocompleteCards(interaction) {
-  if (interaction.options.getSubcommand(false) !== "upgrade" || !isEnabled()) {
-    return interaction.respond([]);
-  }
+  if (!isEnabled()) return interaction.respond([]);
   try {
-    const input = interaction.options.getFocused();
-    const suggestions = await suggestOwnedCardUpgrades(interaction.user.id, input);
-    return interaction.respond(suggestions);
+    const option = interaction.options.getSubcommand(false);
+    const focused = interaction.options.getFocused();
+    if (option === "upgrade") {
+      return interaction.respond(await suggestOwnedCardUpgrades(interaction.user.id, focused));
+    }
+    if (["tag", "untag", "stats", "preview"].includes(option)) {
+      return interaction.respond(await suggestOwnedCardReferences(interaction.user.id, focused,
+        { includePets: option === "tag" || option === "untag" }));
+    }
+    return interaction.respond([]);
   } catch (error) {
-    console.warn("[Cards] Upgrade autocomplete failed:", error.message);
+    console.warn("[Cards] Autocomplete failed:", error.message);
     return interaction.respond([]);
   }
 }
