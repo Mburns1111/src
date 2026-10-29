@@ -2,7 +2,7 @@ import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, Messag
 import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
 import { storeTestEggArtwork } from "../services/card-egg-artwork-upload.js";
-import { uploadCardArtwork, loadCardArtwork } from "../services/card-artwork-assets.js";
+import { uploadCardArtwork, loadCardArtwork, browseCardArtwork, getCardArtworkDetails, reviewCardArtwork } from "../services/card-artwork-assets.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
 import CardCopy from "../models/CardCopy.js";
@@ -44,12 +44,27 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("C
     .addStringOption(o => o.setName("kind").setDescription("Layer type").setRequired(true)
       .addChoices({ name: "Pet illustration", value: "pet" }, { name: "Card background", value: "background" }, { name: "Transparent frame", value: "frame" }))
     .addAttachmentOption(o => o.setName("image").setDescription("PNG, JPG or WebP image").setRequired(true))
-    .addStringOption(o => o.setName("artist").setDescription("Artist to credit (required for pet art)").setRequired(false)))
+    .addStringOption(o => o.setName("artist").setDescription("Artist to credit (required for pet art)").setRequired(false))
+    .addStringOption(o => o.setName("replaces").setDescription("Older artwork key for a new revision").setRequired(false))
+    .addStringOption(o => o.setName("revision_note").setDescription("What changed? Required for revisions").setRequired(false)))
   .addSubcommand(c => c.setName("art-assign").setDescription("MANAGERS: assign uploaded artwork to TEST cards or release")
     .addStringOption(o => o.setName("kind").setDescription("Which layer to assign").setRequired(true)
       .addChoices({ name: "Pet illustration", value: "pet" }, { name: "Card background", value: "background" }, { name: "Transparent frame", value: "frame" }))
     .addStringOption(o => o.setName("key").setDescription("Uploaded artwork ID").setRequired(true))
     .addStringOption(o => o.setName("pet_id").setDescription("Required only for pet illustration, from test release").setRequired(false)))
+  .addSubcommand(c => c.setName("art-list").setDescription("MANAGERS: browse uploaded card artwork")
+    .addStringOption(o => o.setName("kind").setDescription("Optional layer category")
+      .addChoices({ name: "Pet art", value: "pet" }, { name: "Background", value: "background" }, { name: "Frame", value: "frame" }).setRequired(false))
+    .addStringOption(o => o.setName("status").setDescription("Optional review status")
+      .addChoices({ name: "Needs review", value: "needs-review" }, { name: "Approved", value: "approved" }, { name: "Rejected", value: "rejected" }).setRequired(false))
+    .addIntegerOption(o => o.setName("page").setDescription("Page number, 8 items each").setMinValue(1).setMaxValue(1000).setRequired(false)))
+  .addSubcommand(c => c.setName("art-info").setDescription("MANAGERS: inspect artwork, credits and revision history")
+    .addStringOption(o => o.setName("key").setDescription("Artwork key to inspect").setRequired(true)))
+  .addSubcommand(c => c.setName("art-review").setDescription("MANAGERS: record an artwork review decision")
+    .addStringOption(o => o.setName("key").setDescription("Artwork key").setRequired(true))
+    .addStringOption(o => o.setName("decision").setDescription("Review decision").setRequired(true)
+      .addChoices({ name: "Approve", value: "approved" }, { name: "Reject", value: "rejected" }, { name: "Return to review", value: "needs-review" }))
+    .addStringOption(o => o.setName("note").setDescription("Review reason and permission evidence").setRequired(true).setMinLength(5).setMaxLength(1000)))
   .addSubcommand(c => c.setName("test-drop").setDescription("MANAGERS: reveal a test release egg with three cards")
     .addStringOption(o => o.setName("release").setDescription("Release ID (e.g. series1-release1)").setRequired(true))
 );
@@ -248,9 +263,11 @@ export async function execute(interaction) {
         const result = await uploadCardArtwork({
           kind, key, attachment: interaction.options.getAttachment("image", true),
           artistCredit: interaction.options.getString("artist") || "", uploadedBy: interaction.user.id,
+          replacesKey: interaction.options.getString("replaces") || "",
+          revisionNote: interaction.options.getString("revision_note") || "",
         });
         return interaction.editReply({
-          content: `Saved **${escapeDiscord(result.key)}** (${result.kind}) to MongoDB. Artwork remains under review. Use /cards art-assign to display it in TEST cards.`,
+          content: `Saved **${escapeDiscord(result.key)}** (${result.kind}) to MongoDB. Artwork remains under review. ${interaction.options.getString("replaces") ? "The original version was preserved. " : ""}Use /cards art-info to inspect it and /cards art-assign to display it in TEST cards.`,
           allowedMentions: { parse: [] },
         });
       }
@@ -282,6 +299,59 @@ export async function execute(interaction) {
     } catch (error) {
       console.error("[Cards] Artwork management failed:", error);
       return interaction.editReply("Card artwork operation failed: " + error.message);
+    }
+  }
+  if (["art-list", "art-info", "art-review"].includes(option)) {
+    if (!isEnabled()) return interaction.editReply("Card artwork tools are enabled only on the development bot.");
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply("Only server managers can manage card artwork.");
+    try {
+      if (option === "art-list") {
+        const result = await browseCardArtwork({
+          kind: interaction.options.getString("kind"),
+          status: interaction.options.getString("status"),
+          page: interaction.options.getInteger("page") || 1,
+        });
+        const rows = result.items.map(a =>
+          `• \`${escapeDiscord(a.key)}\` · ${a.kind} · **${a.licenseReviewStatus}** · ${escapeDiscord(a.artistCredit || "credit pending")}${a.replacesKey ? " · revision" : ""}`
+        );
+        return interaction.editReply({
+          content: [`**Card Artwork Library** — ${result.total} assets · page ${result.page}/${result.pages}`,
+            ...rows, rows.length ? "Use /cards art-info key:... for details and image." : "No artwork matches these filters."].join("\\n"),
+          allowedMentions: { parse: [] },
+        });
+      }
+      const key = interaction.options.getString("key", true);
+      if (option === "art-review") {
+        const result = await reviewCardArtwork({
+          key, decision: interaction.options.getString("decision", true),
+          note: interaction.options.getString("note", true), reviewerId: interaction.user.id,
+        });
+        return interaction.editReply({
+          content: `Artwork \`${escapeDiscord(result.key)}\`: **${result.previousStatus} → ${result.status}**. Review decision recorded with your note. This does not publish a release or change existing card assignments.`,
+          allowedMentions: { parse: [] },
+        });
+      }
+      const { artwork, history, revisions } = await getCardArtworkDetails(key);
+      const asset = await loadCardArtwork(artwork.key, artwork.kind);
+      const ext = artwork.mime === "image/png" ? "png" : artwork.mime === "image/webp" ? "webp" : "jpg";
+      const historyLines = history.map(h => `• ${h.action}: ${escapeDiscord(h.note)} (by <@${h.reviewerId}>)`);
+      return interaction.editReply({
+        content: [
+          `**Artwork \`${escapeDiscord(artwork.key)}\`** · ${artwork.kind} · **${artwork.licenseReviewStatus}**`,
+          `Artist: **${escapeDiscord(artwork.artistCredit || "not provided")}**`,
+          `File: ${artwork.mime} · ${artwork.byteLength} bytes`,
+          `Uploaded by: <@${artwork.uploadedBy}>`,
+          `Replaces: ${escapeDiscord(artwork.replacesKey || "none")}`,
+          `Revision note: ${escapeDiscord(artwork.revisionNote || "none")}`,
+          `Newer versions: ${revisions.map(r => escapeDiscord(r.key)).join(", ") || "none"}`,
+          "**Recent reviews**", ...(historyLines.length ? historyLines : ["None"]),
+        ].join("\\n").slice(0, 1900),
+        files: [new AttachmentBuilder(asset.bytes, { name: `card-artwork.${ext}` })],
+        allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      console.error("[Cards] Artwork library operation failed:", error);
+      return interaction.editReply("Artwork management failed: " + error.message);
     }
   }
   if (!isEnabled()) return interaction.editReply("Card test drops are disabled on this bot.");
