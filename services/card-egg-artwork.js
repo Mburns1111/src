@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { Readable } from "node:stream";
 import { assertImageSafeToDecode } from "./image-dimensions.js";
 
 // Resolve an existing image in the SAME MongoDB database. Never copy artwork
@@ -10,10 +9,6 @@ export const EGG_ART_BUCKETS = Object.freeze([
 ]);
 export const EGG_ART_MAX_BYTES = 12 * 1024 * 1024;
 const allowedBucket = new Set(EGG_ART_BUCKETS);
-const fileNameCandidates = name => [...new Set([
-  String(name || "").trim(),
-  String(name || "").trim().replace(/\s+/g, " "),
-].filter(Boolean))];
 
 function db() {
   if (!mongoose.connection.db) throw new Error("MongoDB connection required to load egg artwork");
