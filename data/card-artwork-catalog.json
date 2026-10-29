@@ -85,7 +85,7 @@
       "platformUsername": "some1_named_maggie",
       "profileUrl": "https://www.reddit.com/user/some1_named_maggie/",
       "submittedPostsUrl": "https://www.reddit.com/user/some1_named_maggie/submitted/",
-      "notes": "Project owner reports that Maggie/u/some1_named_maggie granted permission to use her artwork for AM Isa on 2026-10-28. Owner has not yet reviewed which of Maggie's artworks to select. No images or pets identified, attributed, assigned to releases, or imported.",
+      "notes": "Project owner reports Maggie/u/some1_named_maggie granted permission for her artwork. Two initial images received: a Boohoo teardrop drawing and 'Riddle/Copycall', a personified Copycat OC character sheet. No art files have been imported into GitHub; source URLs and credits are recorded. Further portfolio review still pending.",
       "permission": {
         "status": "reported-by-project-owner",
         "reportedOn": "2026-10-28",
@@ -94,10 +94,14 @@
         "notes": "Track original Reddit post URLs and specific chosen artwork when the owner reviews her submitted posts. Do not assign pet art or claim ready-to-publish status based on this artist-level entry alone."
       },
       "artworkReview": {
-        "status": "not-yet-reviewed",
+        "status": "partially-reviewed",
         "sourceUrl": "https://www.reddit.com/user/some1_named_maggie/submitted/",
+        "reviewedArtworkIds": [
+          "maggie-boohoo-001",
+          "maggie-riddle-copycat-oc-001"
+        ],
         "selectedArtworkIds": [],
-        "reviewNotes": "Owner plans to look through Maggie's artwork first."
+        "reviewNotes": "Two images and original Reddit source links were provided as examples. Final card selections and any matching Series 1 roster swaps are not yet chosen. Boohoo has a straightforward Rare pet depiction; Riddle/Copycall is an OC-like ref sheet inspired by Legendary Copycat and needs character use review."
       }
     }
   ],
@@ -1241,6 +1245,114 @@
         "usageFit": "owner-approved-humanized-art-style",
         "ownerDecision": "The user likes the cute human version and explicitly wants it featured on the Princess Mare card, even though the mare itself is small."
       }
+    },
+    {
+      "artworkId": "maggie-boohoo-001",
+      "title": "Boohoo — crying teardrop fan art",
+      "kind": "pet-artwork",
+      "artistIds": [
+        "reddit-some1_named_maggie"
+      ],
+      "creditText": "Artwork by Maggie (u/some1_named_maggie).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "1xgje0a",
+        "imagePageUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1xgje0a/boohoo_art/",
+        "providedAttributionUrl": null
+      },
+      "attributionBasis": "Artist credited per AM Isa project owner's message sharing Maggie's image and matching source link. The linked Reddit pages were not independently retrievable during this review.",
+      "license": {
+        "referenceName": "Artwork permission from Maggie reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "User reports permission from Maggie for her artwork; exact permission message and any modification/crop restrictions not archived. Colored-paper drawing with original date at the bottom; owner may want to retain date, author signature and visible paper texture, or choose permission-compliant crop."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261029-030730).png",
+        "source": "User-supplied conversation image (October 28–29, 2026)",
+        "width": 1080,
+        "height": 1080,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Boohoo"
+      ],
+      "subjectDescription": "Blue teardrop-shaped Boohoo with heavy, teary eyes and drawn droplets. Photograph/sketch dated 10/26/2026.",
+      "officialPetReference": {
+        "petId": "boohoo",
+        "officialRarity": "Rare",
+        "petName": "Boohoo",
+        "raritySource": "curated official PetCatalog preview verified 2026-10-26"
+      },
+      "series1PetMatches": [],
+      "candidateUsage": "future-or-series-1-rare-art-candidate",
+      "imageStatus": "conversation-reference-not-imported",
+      "researchCatalogPath": null,
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "interpretationNotes": "Fan illustration of the official Boohoo pet.",
+      "notes": "Colored-paper drawing with original date at the bottom; owner may want to retain date, author signature and visible paper texture, or choose permission-compliant crop."
+    },
+    {
+      "artworkId": "maggie-riddle-copycat-oc-001",
+      "title": "Riddle / Copycall — Copycat-inspired character reference sheet",
+      "kind": "character-reference-artwork",
+      "artistIds": [
+        "reddit-some1_named_maggie"
+      ],
+      "creditText": "Artwork by Maggie (u/some1_named_maggie).",
+      "source": {
+        "name": "Reddit",
+        "websiteUrl": "https://www.reddit.com/",
+        "imageId": "1xbj923",
+        "imagePageUrl": "https://www.reddit.com/r/ArtfightProfiles/comments/1xbj923/new_ref_sheets_ref_sheets_everywhere/",
+        "providedAttributionUrl": null
+      },
+      "attributionBasis": "Artist credited per AM Isa project owner's message sharing Maggie's image and matching source link. The linked Reddit pages were not independently retrievable during this review.",
+      "license": {
+        "referenceName": "Artwork permission from Maggie reported by AM Isa project owner",
+        "referenceUrl": null,
+        "reviewStatus": "needs-review",
+        "permissionEvidenceUrl": null,
+        "notes": "User reports permission from Maggie for her artwork; exact permission message and any modification/crop restrictions not archived. ArtFight OC/custom character may have separate character ownership or commission-use restrictions even if Maggie grants artwork permission. Confirm the character owner and card-usage scope before representing it as an official generic Copycat pet."
+      },
+      "file": {
+        "localPath": null,
+        "hostedUrl": null,
+        "modifiedVersionOf": null
+      },
+      "uploadReference": {
+        "fileName": "image(20261029-030816).png",
+        "source": "User-supplied conversation image (October 28–29, 2026)",
+        "width": 1080,
+        "height": 641,
+        "storedInRepository": false
+      },
+      "depictedPets": [
+        "Copycat (inspiration/character species; stylized OC)"
+      ],
+      "subjectDescription": "Character reference sheet labeled 'Riddle', Daylight-Warrior name 'Copycall', with black-and-white spotted feline, yellow eyes, a scarf, character notes, and character-specific design markers.",
+      "officialPetReference": {
+        "petId": "copycat",
+        "officialRarity": "Legendary",
+        "petName": "Copycat",
+        "raritySource": "curated official PetCatalog preview verified 2026-10-26"
+      },
+      "series1PetMatches": [],
+      "candidateUsage": "copycat-character-art-review-needed",
+      "imageStatus": "conversation-reference-not-imported",
+      "researchCatalogPath": null,
+      "releaseIds": [],
+      "recordedOn": "2026-10-28",
+      "interpretationNotes": "Original character/ref sheet inspired by Adopt Me Copycat, not necessarily a generic depiction of the official Copycat pet.",
+      "notes": "ArtFight OC/custom character may have separate character ownership or commission-use restrictions even if Maggie grants artwork permission. Confirm the character owner and card-usage scope before representing it as an official generic Copycat pet."
     }
   ],
   "releases": [
