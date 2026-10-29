@@ -662,7 +662,16 @@ function cardTagConfirmationPayload(request) {
       "Confirm untag (" + request.affected + ")");
   const cancel = new ButtonBuilder().setCustomId("cards:tagchange:cancel:" + request.token)
     .setStyle(ButtonStyle.Secondary).setLabel("Cancel");
-  const components = [new ActionRowBuilder().addComponents(allButton, cancel)];
+  const actions = [allButton];
+  if (request.preferredId && request.cards.length > 1) {
+    const preferred = request.cards.find(card => card.id === request.preferredId);
+    actions.push(new ButtonBuilder()
+      .setCustomId("cards:tagchange:preferred:" + request.token)
+      .setStyle(ButtonStyle.Success)
+      .setLabel("Only " + (preferred?.publicId || "selected ID")));
+  }
+  actions.push(cancel);
+  const components = [new ActionRowBuilder().addComponents(actions)];
   if (request.cards.length > 1) {
     const choices = request.cards.slice(0, 25).map(card => ({
       label: (card.publicId + " · " +
@@ -698,7 +707,7 @@ function cardTagConfirmationPayload(request) {
 
 export async function handleCardTagChange(interaction) {
   const parts = interaction.customId.split(":");
-  if (parts.length !== 4 || !["all", "one", "cancel"].includes(parts[2]))
+  if (parts.length !== 4 || !["all", "one", "preferred", "cancel"].includes(parts[2]))
     return interaction.reply({ content: "Invalid card tag confirmation.", flags: MessageFlags.Ephemeral });
   let request;
   try {
@@ -716,8 +725,9 @@ export async function handleCardTagChange(interaction) {
       return interaction.editReply({ content: "Tag change cancelled. No cards were altered.",
         components: [], allowedMentions: { parse: [] } });
     }
-    const selectedId = parts[2] === "one" ? interaction.values?.[0] : null;
-    if (parts[2] === "one" && !selectedId) throw new Error("Select a card ID first.");
+    const selectedId = parts[2] === "one" ? interaction.values?.[0] :
+      parts[2] === "preferred" ? request.preferredId : null;
+    if (["one", "preferred"].includes(parts[2]) && !selectedId) throw new Error("Select a card ID first.");
     const result = await confirmCardTagChange({
       token: request.token, ownerId: interaction.user.id, selectedId,
     });
