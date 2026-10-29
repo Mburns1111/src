@@ -53,5 +53,8 @@ test("collection tag filter is a dropdown of owned tags, not a text popup", asyn
   assert.match(source, /All tags/);
   assert.doesNotMatch(source, /showModal|TextInputBuilder|Find Tag/);
   assert.ok(source.includes("cards:collection:sort:${id}"));
-  assert.match(source, /const components = \[rarity, release, tag\]/);
+  assert.match(source, /const components = \[rarity, release, tag, sort, controls\]/);
+  assert.ok(source.includes("cards:collection:choose:${id}"));
+  assert.ok(source.includes("cards:collection:pick:${id}"));
+  assert.doesNotMatch(source, /setLabel\(`Sort:/);
 });
