@@ -16,7 +16,7 @@ test("Hatchem parses only leading recognized commands with typed arguments", () 
   assert.equal(parseHatchemText("I want to upgrade"), null);
   assert.equal(parseHatchemText("upgrade Doggy"), null);
   assert.equal(parseHatchemText("/upgrade Doggy"), null);
-  assert.equal(parseHatchemText(".drop"), null);
+  assert.equal(parseHatchemText("drop"), null);
   assert.equal(parseHatchemText("collection"), null);
   assert.equal(parseHatchemText(".upgrade Doggy").options.card, "Doggy");
   assert.equal(parseHatchemText(".DROP").action, "test-drop");
