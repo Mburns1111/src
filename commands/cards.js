@@ -1,4 +1,4 @@
-import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, MessageFlags, SlashCommandBuilder } from "discord.js";
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, MessageFlags, SlashCommandBuilder, StringSelectMenuBuilder } from "discord.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
 import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
@@ -17,6 +17,8 @@ import { renderThreeCardDropImage } from "../services/card-drop-renderer.js";
 import { getCardCollectionSummary, formatCardCollectionSummary, updateOwnedCardTag } from "../services/card-collection-summary.js";
 import { findOwnedCardForCommand, suggestOwnedCardReferences } from "../services/card-owned-selection.js";
 import { createCollectorTag, listCollectorTags } from "../services/card-tag-catalog.js";
+import { selectOwnedTagTargets } from "../services/card-tag-targets.js";
+import { prepareCardTagConfirmation, getCardTagConfirmation, cancelCardTagConfirmation, confirmCardTagChange } from "../services/card-tag-confirmations.js";
 import { startCardCollection } from "./card-collection-ui.js";
 import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade, suggestOwnedCardUpgrades } from "../services/card-upgrades.js";
 import PetCatalog from "../models/PetCatalog.js";
@@ -34,10 +36,10 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
     .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false).setAutocomplete(true)))
   .addSubcommand(c => c.setName("view").setDescription("View a card you own")
     .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false).setAutocomplete(true)))
-  .addSubcommand(c => c.setName("tag").setDescription("Tag your newest card or select one by pet name/ID")
+  .addSubcommand(c => c.setName("tag").setDescription("Tag newest, all matching pet copies, or one card ID")
     .addStringOption(o => o.setName("tag").setDescription("Tag, up to 32 characters").setMinLength(1).setMaxLength(32).setRequired(true))
     .addStringOption(o => o.setName("card_id").setDescription("Optional ID or pet-name prefix; defaults to newest owned card").setRequired(false).setAutocomplete(true)))
-  .addSubcommand(c => c.setName("untag").setDescription("Remove the tag from one of your cards")
+  .addSubcommand(c => c.setName("untag").setDescription("Confirm removing tags from one or all matching cards")
     .addStringOption(o => o.setName("card_id").setDescription("Optional ID or pet-name prefix; defaults to newest owned").setRequired(false).setAutocomplete(true)))
   .addSubcommand(c => c.setName("tag-multiple").setDescription("Apply one tag to multiple cards you own")
     .addStringOption(o => o.setName("tag").setDescription("Tag to apply").setRequired(true).setMinLength(1).setMaxLength(32))
@@ -223,21 +225,24 @@ export async function execute(interaction) {
     try {
       const cardId = interaction.options.getString("card_id")?.trim() || null;
       const tag = option === "tag" ? interaction.options.getString("tag", true) : null;
+      const targets = await selectOwnedTagTargets(interaction.user.id, cardId);
+      // All untagging, and tagging a pet with multiple owned copies, require confirmation.
+      if (option === "untag" || targets.cards.length > 1) {
+        const request = await prepareCardTagConfirmation({
+          discordUserId: interaction.user.id, cardId, tag,
+        });
+        return interaction.editReply(cardTagConfirmationPayload(request));
+      }
       const updated = await updateOwnedCardTag({ discordUserId: interaction.user.id, cardId, tag });
-      const scope = updated.mode === "pet"
-        ? "**" + escapeDiscord(updated.name) + "** · **" + updated.count +
-          (updated.count === 1 ? " owned card" : " owned cards") + "** (all copies, releases and stages)"
-        : "**" + escapeDiscord(updated.name) + "** · " + escapeDiscord(updated.rarity) +
-          " · " + (updated.upgradeLevel === "mega" ? "Mega Neon" : updated.upgradeLevel === "neon" ? "Neon" : "Normal") +
-          "\nCard ID: " + String.fromCharCode(96) + updated.id + String.fromCharCode(96);
       return interaction.editReply({
-        content: updated.tag
-          ? scope + "\nTag: **" + escapeDiscord(updated.tag) + "** (" + updated.changed + " changed)"
-          : scope + "\nTag removed (" + updated.changed + " changed).",
+        content: "**" + escapeDiscord(updated.name) + "** · Card ID: " +
+          String.fromCharCode(96) + updated.id + String.fromCharCode(96) +
+          "\nTag: **" + escapeDiscord(updated.tag) + "** (" +
+          updated.changed + " changed).",
         allowedMentions: { parse: [] },
       });
     } catch (error) {
-      return interaction.editReply(error.message);
+      return interaction.editReply({ content: escapeDiscord(error.message), allowedMentions: { parse: [] } });
     }
   }
   if (["tag-multiple", "untag-multiple", "delete-tag"].includes(option)) {
@@ -630,6 +635,95 @@ export async function reconcileCardDropClosures(client) {
         console.warn("[Cards] Could not close drop message:", String(drop._id), error.message);
       }
     }
+  }
+}
+
+
+function cardTagConfirmationPayload(request) {
+  const heading = request.tag ? "Apply tag #" + escapeDiscord(request.tag) : "Remove tags";
+  const rows = request.cards.slice(0, 15).map(card => {
+    const stage = card.upgradeLevel === "mega" ? "Mega Neon" :
+      card.upgradeLevel === "neon" ? "Neon" : "Normal";
+    return "• " + escapeDiscord(card.publicId) + " · " + stage +
+      " · " + escapeDiscord(card.releaseId) + " · Frame: " + escapeDiscord(card.frame);
+  });
+  const allButton = new ButtonBuilder()
+    .setCustomId("cards:tagchange:all:" + request.token)
+    .setStyle(request.tag ? ButtonStyle.Primary : ButtonStyle.Danger)
+    .setLabel(request.tag ? "Apply to all (" + request.cards.length + ")" :
+      "Confirm untag (" + request.affected + ")");
+  const cancel = new ButtonBuilder().setCustomId("cards:tagchange:cancel:" + request.token)
+    .setStyle(ButtonStyle.Secondary).setLabel("Cancel");
+  const components = [new ActionRowBuilder().addComponents(allButton, cancel)];
+  if (request.cards.length > 1) {
+    const choices = request.cards.slice(0, 25).map(card => ({
+      label: (card.publicId + " · " +
+        (card.upgradeLevel === "mega" ? "Mega" : card.upgradeLevel === "neon" ? "Neon" : "Normal") +
+        " · " + card.releaseId).slice(0, 100),
+      value: card.id,
+      description: ("Frame: " + card.frame).slice(0, 100),
+    }));
+    const picker = new StringSelectMenuBuilder()
+      .setCustomId("cards:tagchange:one:" + request.token)
+      .setPlaceholder(request.tag ? "Confirm tag on one card ID" : "Confirm untag on one card ID")
+      .addOptions(choices);
+    components.push(new ActionRowBuilder().addComponents(picker));
+  }
+  const more = request.cards.length > 15
+    ? "\n…plus " + (request.cards.length - 15) + " more matching cards." : "";
+  const overflow = request.cards.length > 25
+    ? "\nOnly the first 25 IDs appear in the picker. Use the ID directly for other copies." : "";
+  return {
+    content: [
+      "**" + heading + " — Confirm**",
+      request.name ? "Pet: **" + escapeDiscord(request.name) + "**" : "",
+      "Owned matching cards: **" + request.cards.length + "**",
+      "Cards whose tags would change: **" + request.affected + "**",
+      request.cards.length > 1 ? "Choose **all copies** or select **one card ID** below." :
+        "Confirm this single-card change or cancel.",
+      rows.join("\n") + more + overflow,
+      "No tags will change until you confirm. This request expires in 2 minutes.",
+    ].filter(Boolean).join("\n"),
+    components, allowedMentions: { parse: [] },
+  };
+}
+
+export async function handleCardTagChange(interaction) {
+  const parts = interaction.customId.split(":");
+  if (parts.length !== 4 || !["all", "one", "cancel"].includes(parts[2]))
+    return interaction.reply({ content: "Invalid card tag confirmation.", flags: MessageFlags.Ephemeral });
+  let request;
+  try {
+    request = getCardTagConfirmation(parts[3], interaction.user.id);
+  } catch (error) {
+    return interaction.reply({
+      content: escapeDiscord(error.message), flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] },
+    });
+  }
+  await interaction.deferUpdate();
+  try {
+    if (parts[2] === "cancel") {
+      cancelCardTagConfirmation(request.token, interaction.user.id);
+      return interaction.editReply({ content: "Tag change cancelled. No cards were altered.",
+        components: [], allowedMentions: { parse: [] } });
+    }
+    const selectedId = parts[2] === "one" ? interaction.values?.[0] : null;
+    if (parts[2] === "one" && !selectedId) throw new Error("Select a card ID first.");
+    const result = await confirmCardTagChange({
+      token: request.token, ownerId: interaction.user.id, selectedId,
+    });
+    return interaction.editReply({
+      content: (result.tag ? "**Tag #" + escapeDiscord(result.tag) + "** applied" :
+        "**Tags removed**") + " on **" + result.changed +
+        (result.changed === 1 ? " card" : " cards") +
+        "**." + (result.selectedId ? " Card ID: " + String.fromCharCode(96) +
+          result.selectedId + String.fromCharCode(96) + "." : ""),
+      components: [], allowedMentions: { parse: [] },
+    });
+  } catch (error) {
+    return interaction.editReply({ content: escapeDiscord(error.message),
+      components: [], allowedMentions: { parse: [] } });
   }
 }
 
