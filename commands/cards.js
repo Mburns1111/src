@@ -14,6 +14,8 @@ import { resolveCardId } from "../services/card-identifiers.js";
 import { renderCollectibleCardPreview } from "../services/card-preview-renderer.js";
 import { renderThreeCardDropImage } from "../services/card-drop-renderer.js";
 import { getCardCollectionSummary, formatCardCollectionSummary, updateOwnedCardTag } from "../services/card-collection-summary.js";
+import { findOwnedCardForCommand } from "../services/card-owned-selection.js";
+import { createCollectorTag, listCollectorTags } from "../services/card-tag-catalog.js";
 import { startCardCollection } from "./card-collection-ui.js";
 import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade, suggestOwnedCardUpgrades } from "../services/card-upgrades.js";
 import PetCatalog from "../models/PetCatalog.js";
@@ -27,12 +29,12 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c => c.setName("upgrade").setDescription("Combine 4 matching cards into Neon or Mega Neon")
     .addStringOption(o => o.setName("card").setDescription("One card ID or pet name; bot finds four matching copies").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c => c.setName("stats").setDescription("See collector, burn and upgrade statistics for a card")
-    .addStringOption(o => o.setName("card_id").setDescription("Optional five-character ID; defaults to your last grabbed card").setRequired(false)))
+    .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false)))
   .addSubcommand(c => c.setName("preview").setDescription("View a portrait preview of an owned collectible card")
-    .addStringOption(o => o.setName("card_id").setDescription("Optional five-character ID; defaults to last grabbed card").setRequired(false)))
-  .addSubcommand(c => c.setName("tag").setDescription("Give a card you own a personal tag")
+    .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false)))
+  .addSubcommand(c => c.setName("tag").setDescription("Tag your newest card or select one by pet name/ID")
     .addStringOption(o => o.setName("tag").setDescription("Tag, up to 32 characters").setMinLength(1).setMaxLength(32).setRequired(true))
-    .addStringOption(o => o.setName("card_id").setDescription("Optional; defaults to last grabbed card").setRequired(false)))
+    .addStringOption(o => o.setName("card_id").setDescription("Optional ID or pet-name prefix; defaults to newest owned card").setRequired(false)))
   .addSubcommand(c => c.setName("untag").setDescription("Remove the tag from one of your cards")
     .addStringOption(o => o.setName("card_id").setDescription("Optional; defaults to last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("tag-multiple").setDescription("Apply one tag to multiple cards you own")
@@ -40,6 +42,9 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
     .addStringOption(o => o.setName("card_ids").setDescription("1–20 five-character card IDs, comma-separated").setRequired(true)))
   .addSubcommand(c => c.setName("untag-multiple").setDescription("Remove tags from multiple cards you own")
     .addStringOption(o => o.setName("card_ids").setDescription("1–20 five-character card IDs, comma-separated").setRequired(true)))
+  .addSubcommand(c => c.setName("create-tag").setDescription("Save a reusable collection tag, even with no assigned cards")
+    .addStringOption(o => o.setName("tag").setDescription("Your tag name").setRequired(true).setMinLength(1).setMaxLength(32)))
+  .addSubcommand(c => c.setName("tags").setDescription("List your saved collection tags"))
   .addSubcommand(c => c.setName("delete-tag").setDescription("Remove a named tag from ALL your cards (confirmation required)")
     .addStringOption(o => o.setName("tag").setDescription("Exact tag to delete").setRequired(true)))
   .addSubcommand(c => c.setName("egg-art-upload").setDescription("MANAGERS: save the Release 1 egg artwork to MongoDB")
@@ -125,17 +130,7 @@ export async function execute(interaction) {
     if (!isEnabled()) return interaction.editReply("Card statistics are disabled on this bot.");
     const reference = interaction.options.getString("card_id")?.trim();
     try {
-      let copyId;
-      if (reference) copyId = await resolveCardId(reference);
-      else {
-        const lastGrab = await CardClaim.findOne({ discordUserId: interaction.user.id })
-          .sort({ createdAt: -1, _id: -1 }).select("cardCopyId").lean();
-        if (!lastGrab) return interaction.editReply("You haven't collected a card yet.");
-        copyId = lastGrab.cardCopyId;
-      }
-      const copy = await CardCopy.findOne({
-        _id: copyId, ownerDiscordUserId: interaction.user.id, state: "owned",
-      }).lean();
+      const copy = await findOwnedCardForCommand(interaction.user.id, reference);
       if (!copy) return interaction.editReply("That card is not in your collection.");
       const definition = await CardDefinition.findById(copy.cardDefinitionId).select("petId rarity").lean();
       if (!definition) return interaction.editReply("Card definition not found.");
@@ -162,17 +157,7 @@ export async function execute(interaction) {
     if (!isEnabled()) return interaction.editReply("Card previews are disabled on this bot.");
     try {
       const reference = interaction.options.getString("card_id")?.trim();
-      let copyId;
-      if (reference) copyId = await resolveCardId(reference);
-      else {
-        const lastGrab = await CardClaim.findOne({ discordUserId: interaction.user.id })
-          .sort({ createdAt: -1, _id: -1 }).select("cardCopyId").lean();
-        if (!lastGrab) return interaction.editReply("You haven't collected a card yet.");
-        copyId = lastGrab.cardCopyId;
-      }
-      const copy = await CardCopy.findOne({
-        _id: copyId, ownerDiscordUserId: interaction.user.id, state: "owned",
-      }).lean();
+      const copy = await findOwnedCardForCommand(interaction.user.id, reference);
       if (!copy) return interaction.editReply("That card is not in your current collection.");
       if (!copy.publicId) return interaction.editReply("This card needs its five-character ID assigned. Run the development backfill first.");
       const definition = await CardDefinition.findById(copy.cardDefinitionId).lean();
@@ -208,6 +193,26 @@ export async function execute(interaction) {
     } catch (error) {
       console.error("[Cards] Preview failed:", error);
       return interaction.editReply("Unable to render this card preview. Check the development bot logs.");
+    }
+  }
+  if (option === "create-tag" || option === "tags") {
+    if (!isEnabled()) return interaction.editReply("Card tags are disabled on this bot.");
+    try {
+      if (option === "create-tag") {
+        const name = await createCollectorTag(interaction.user.id, interaction.options.getString("tag", true));
+        return interaction.editReply({
+          content: `Saved tag **${escapeDiscord(name)}**. Use \`.tag ${name}\` for your newest card, or \`.tag abys ${name}\` to target a pet.`,
+          allowedMentions: { parse: [] },
+        });
+      }
+      const tags = await listCollectorTags(interaction.user.id);
+      return interaction.editReply({
+        content: tags.length ? `**Your collection tags:** ${tags.map(escapeDiscord).join(", ")}` :
+          "No tags yet. Use \`.create-tag cute\` to save one.",
+        allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      return interaction.editReply(error.message);
     }
   }
   if (option === "tag" || option === "untag") {
