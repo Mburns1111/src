@@ -75,7 +75,7 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
-import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, handleCardTagDeletion, reconcileCardDropClosures } from "./commands/cards.js";
+import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, reconcileCardDropClosures } from "./commands/cards.js";
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
@@ -406,6 +406,14 @@ client.once(Events.ClientReady, (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    if (interaction.isAutocomplete()) {
+      if (interaction.commandName === cardsCommand.name) {
+        await autocompleteCards(interaction);
+      } else {
+        await interaction.respond([]);
+      }
+      return;
+    }
     // Startup reconciliation may archive media or render many cards.
     // Acknowledge slash commands immediately and execute against current
     // MongoDB state; never await the unrelated maintenance pass here.
