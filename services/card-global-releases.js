@@ -81,7 +81,7 @@ export async function findCatalogPet(reference) {
     const found = await PetCatalog.findOne({ petId: asId }).lean();
     if (found) return found;
   }
-  const escaped = text.replace(/[^\p{L}\p{N} ]/gu, "\\export async function addReleasePet({ releaseId: requestedId, petId, weight = 1 }) {");
+  const escaped = text.replace(/[^\p{L}\p{N} ]/gu, "\\$&");
   const matches = await PetCatalog.find({ name: new RegExp("^" + escaped + "$", "i") })
     .limit(2).lean();
   if (matches.length > 1) throw new Error("More than one pet has that name. Use its canonical pet ID.");
