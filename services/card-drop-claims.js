@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import mongoose from "mongoose";
 import CardDrop from "../models/CardDrop.js";
 import CardClaim from "../models/CardClaim.js";
@@ -7,31 +8,95 @@ import { allocateCardId } from "./card-identifiers.js";
 
 export class CardClaimError extends Error {}
 
-// Reserving a visible card is NOT awarding it. The user receives the card
-// only when the timed grab window ends and settlement completes.
+// An entrant may enter ONE card in a drop. The drop creator receives priority:
+// choosing a card clears competing entries for that slot and refunds their
+// opportunity, so those people can enter another available slot instead.
+// All changes are atomic on the single CardDrop document.
 export async function reserveCardFromDrop({ dropId, slot, guildId, discordUserId, now = new Date() }) {
   if (!mongoose.isValidObjectId(dropId) || ![0, 1, 2].includes(slot) || !guildId || !discordUserId) {
     throw new CardClaimError("Invalid card selection.");
   }
-  const reserved = await CardDrop.findOneAndUpdate({
-    _id: dropId, guildId, status: "open", expiresAt: { $gt: now },
-    [`slots.${slot}.claimedBy`]: null,
-    // One atomic update enforces both one slot per member and one member per slot.
-    slots: { $not: { $elemMatch: { claimedBy: discordUserId } } },
-  }, { $set: { [`slots.${slot}.claimedBy`]: discordUserId } },
-  { returnDocument: "after" }).lean();
-  if (!reserved) {
-    const existing = await CardDrop.findOne({ _id: dropId, guildId }).lean();
-    if (existing?.slots.some(s => s.claimedBy === discordUserId)) {
-      throw new CardClaimError("You can reserve only one card from this drop.");
-    }
-    throw new CardClaimError("That card has already been reserved or the drop has ended.");
+  const base = { _id: dropId, guildId, status: "open", expiresAt: { $gt: now } };
+  const current = await CardDrop.findOne(base).lean();
+  if (!current) throw new CardClaimError("This drop has ended.");
+  const creator = current.createdBy === discordUserId;
+  // Old reservations are still honored on drops created before this feature.
+  if (current.slots.some(s => s.claimedBy === discordUserId || s.entrants?.includes(discordUserId))) {
+    throw new CardClaimError("You have already entered a card in this drop.");
   }
-  return { petId: reserved.slots[slot].petId, rarity: reserved.slots[slot].rarity };
+  if (current.slots[slot].claimedBy || current.slots[slot].winnerId) {
+    throw new CardClaimError("The drop creator has already chosen this card.");
+  }
+  const noOtherEntry = {
+    slots: {
+      $not: {
+        $elemMatch: {
+          $or: [
+            { claimedBy: discordUserId },
+            { entrants: discordUserId },
+          ],
+        },
+      },
+    },
+  };
+  let updated;
+  if (creator) {
+    // Match the original current candidate list to prevent a concurrent guest
+    // entry being silently lost; retry after a conflict.
+    for (let retry = 0; retry < 4; retry += 1) {
+      const latest = retry ? await CardDrop.findOne(base).lean() : current;
+      if (!latest) break;
+      if (latest.slots.some(s => s.claimedBy === discordUserId || s.entrants?.includes(discordUserId))) {
+        throw new CardClaimError("You have already chosen a card in this drop.");
+      }
+      if (latest.slots[slot].claimedBy || latest.slots[slot].winnerId) throw new CardClaimError("That card is already reserved.");
+      const previous = latest.slots[slot].entrants || [];
+      updated = await CardDrop.findOneAndUpdate({
+        ...base, ...noOtherEntry,
+        [`slots.${slot}.claimedBy`]: null,
+        [`slots.${slot}.winnerId`]: null,
+        [`slots.${slot}.entrants`]: previous,
+      }, {
+        $set: {
+          [`slots.${slot}.entrants`]: [discordUserId],
+          [`slots.${slot}.winnerId`]: discordUserId,
+        },
+      }, { returnDocument: "after" }).lean();
+      if (updated) {
+        return {
+          petId: updated.slots[slot].petId, rarity: updated.slots[slot].rarity,
+          creatorPriority: true, refundedEntrants: previous.length,
+        };
+      }
+    }
+  } else {
+    updated = await CardDrop.findOneAndUpdate({
+      ...base, ...noOtherEntry,
+      [`slots.${slot}.claimedBy`]: null,
+      [`slots.${slot}.winnerId`]: null,
+    }, { $addToSet: { [`slots.${slot}.entrants`]: discordUserId } },
+    { returnDocument: "after" }).lean();
+    if (updated) {
+      return { petId: updated.slots[slot].petId, rarity: updated.slots[slot].rarity, creatorPriority: false };
+    }
+  }
+  const latest = await CardDrop.findById(dropId).lean();
+  if (latest?.slots.some(s => s.entrants?.includes(discordUserId) || s.claimedBy === discordUserId)) {
+    throw new CardClaimError("You have already entered a card in this drop.");
+  }
+  throw new CardClaimError("That card was locked by the drop creator or the drop ended.");
 }
 
-// Idempotent: a prior claim (including copies awarded by the earlier test
-// prototype) is never minted again. Each claimed slot is settled once.
+export function selectDropWinner(slot, creatorId, randomIndex = count => randomInt(count)) {
+  if (slot.claimedBy) return slot.claimedBy; // grandfather existing reservations
+  if (slot.winnerId) return slot.winnerId;
+  const entrants = [...new Set(slot.entrants || [])];
+  if (entrants.includes(creatorId)) return creatorId;
+  return entrants.length ? entrants[randomIndex(entrants.length)] : null;
+}
+
+// The winner is chosen only at expiry, then awarded atomically with the card.
+// All retries honor the already committed CardClaim and the settled timestamp.
 export async function settleReservedCard({ dropId, slot, now = new Date() }) {
   const session = await mongoose.startSession();
   try {
@@ -41,38 +106,34 @@ export async function settleReservedCard({ dropId, slot, now = new Date() }) {
         _id: dropId, status: "closed", expiresAt: { $lte: now },
       }).session(session);
       if (!drop) return;
-      const reservation = drop.slots[slot];
-      if (!reservation?.claimedBy || reservation.settledAt) {
-        outcome = "already-settled";
-        return;
-      }
+      const entry = drop.slots[slot];
+      if (!entry || entry.settledAt) { outcome = "already-settled"; return; }
+      const winner = selectDropWinner(entry, drop.createdBy);
+      if (!winner) { outcome = "no-entries"; return; }
       const oldClaim = await CardClaim.findOne({ dropId: drop._id, slot }).session(session);
       if (!oldClaim) {
         await CardCollector.updateOne(
-          { discordUserId: reservation.claimedBy },
-          { $setOnInsert: { discordUserId: reservation.claimedBy } },
-          { upsert: true, session },
+          { discordUserId: winner },
+          { $setOnInsert: { discordUserId: winner } }, { upsert: true, session },
         );
         const publicId = await allocateCardId(session);
         const copy = new CardCopy({
-          publicId,
-          cardDefinitionId: reservation.cardDefinitionId,
-          ownerDiscordUserId: reservation.claimedBy,
-          originGuildId: drop.guildId,
+          publicId, cardDefinitionId: entry.cardDefinitionId,
+          ownerDiscordUserId: winner, originGuildId: drop.guildId,
           upgradeLevel: "normal", state: "owned", source: "drop",
         });
         await copy.save({ session });
         await CardClaim.create([{
-          dropId: drop._id, slot, discordUserId: reservation.claimedBy,
-          cardCopyId: copy._id,
+          dropId: drop._id, slot, discordUserId: winner, cardCopyId: copy._id,
         }], { session, ordered: true });
       }
       const updated = await CardDrop.updateOne({
-        _id: drop._id,
-        [`slots.${slot}.claimedBy`]: reservation.claimedBy,
-        [`slots.${slot}.settledAt`]: null,
-      }, { $set: { [`slots.${slot}.settledAt`]: now } }, { session });
-      if (!updated.modifiedCount) throw new Error("Card reservation settlement conflict");
+        _id: drop._id, [`slots.${slot}.settledAt`]: null,
+      }, { $set: {
+        [`slots.${slot}.settledAt`]: now,
+        [`slots.${slot}.winnerId`]: oldClaim?.discordUserId || winner,
+      } }, { session });
+      if (!updated.modifiedCount) throw new Error("Drop award settlement conflict.");
       outcome = oldClaim ? "already-awarded" : "awarded";
     });
     return outcome;
@@ -84,8 +145,8 @@ export async function settleReservedCard({ dropId, slot, now = new Date() }) {
 export async function settleClosedCardDrop(drop) {
   if (drop.status !== "closed" || new Date(drop.expiresAt) > new Date()) return;
   for (let slot = 0; slot < drop.slots.length; slot += 1) {
-    if (drop.slots[slot].claimedBy && !drop.slots[slot].settledAt) {
-      await settleReservedCard({ dropId: drop._id, slot });
+    if (drop.slots[slot].claimedBy || drop.slots[slot].winnerId || drop.slots[slot].entrants?.length) {
+      if (!drop.slots[slot].settledAt) await settleReservedCard({ dropId: drop._id, slot });
     }
   }
 }
