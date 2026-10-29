@@ -76,6 +76,8 @@ import {
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, reconcileCardDropClosures } from "./commands/cards.js";
+import { data as cardsAdminCommand, execute as executeCardsAdmin } from "./commands/cards-admin.js";
+import { data as cardsOwnerCommand, execute as executeCardsOwner } from "./commands/cards-owner.js";
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
@@ -273,6 +275,8 @@ const commandHandlers = new Map([
   [adminImportCommand.name, executeAdminImport],
   [shopCommand.name, executeShop],
   [cardsCommand.name, executeCards],
+  [cardsAdminCommand.name, executeCardsAdmin],
+  [cardsOwnerCommand.name, executeCardsOwner],
   [testPointsCommand.name, executeTestPoints],
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
@@ -744,6 +748,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         adminImportCommand.name,
         shopCommand.name,
         cardsCommand.name,
+        cardsAdminCommand.name,
+        cardsOwnerCommand.name,
         testPointsCommand.name,
         pointsAdminCommand.name,
         pointsObserveCommand.name,
@@ -753,7 +759,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     ) {
       await ensureProfileCard(interaction.guild, interaction.user);
     }
-    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name].includes(interaction.commandName) && interaction.guildId) {
+    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name].includes(interaction.commandName) && interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
       if (
         config?.commandChannelId &&
