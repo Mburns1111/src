@@ -111,10 +111,10 @@ export async function execute(interaction) {
         content: [
           `**Upgrade ${escapeDiscord(request.petName)} → ${request.target === "neon" ? "Neon" : "Mega Neon"}?**`,
           `Release: ${escapeDiscord(request.releaseId)}`,
-          `Consume exactly four cards: ${request.ids.map(id => `\\`${id}\\``).join(", ")}`,
+          `Consume exactly four cards: ${request.ids.join(", ")}`,
           "**These four original card IDs will be permanently consumed**, and one NEW unique five-character card ID will be created.",
           "Tagged cards cannot be used. You have 90 seconds to confirm.",
-        ].join("\\n"),
+        ].join("\n"),
         components: [row], allowedMentions: { parse: [] },
       });
     } catch (error) {
@@ -465,7 +465,7 @@ export async function handleCardUpgrade(interaction) {
     await interaction.deferUpdate();
     const result = await confirmCardUpgrade(token, interaction.user.id, interaction.guildId);
     return interaction.editReply({
-      content: `**Upgrade complete!** ${escapeDiscord(result.petName)} → **${result.target === "neon" ? "Neon" : "Mega Neon"}**\nNew card ID: \\`${result.publicId}\\`\nConsumed: ${result.consumedIds.map(id => `\\`${id}\\``).join(", ")}\nUse /cards collection to see your new card.`,
+      content: `**Upgrade complete!** ${escapeDiscord(result.petName)} → **${result.target === "neon" ? "Neon" : "Mega Neon"}**\nNew card ID: ${result.publicId}\nConsumed: ${result.consumedIds.join(", ")}\nUse /cards collection to see your new card.`,
       components: [], allowedMentions: { parse: [] },
     });
   } catch (error) {
