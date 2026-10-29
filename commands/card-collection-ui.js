@@ -48,6 +48,9 @@ async function collectionView(id, ownerId) {
   // Show only existing tags owned by this member; reserve one option for All tags.
   session.tagOptions = tags.slice(0, 24);
   if (session.tag && !tags.some(t => t.toLowerCase() === session.tag.toLowerCase())) session.tag = "";
+  if (session.tag && !session.tagOptions.includes(session.tag)) {
+    session.tagOptions = [...tags.slice(0, 23), session.tag];
+  }
   const rows = page.cards.map((c, i) => [
     `${page.page * 8 + i + 1}.`,
     safe(c.petName),
