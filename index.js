@@ -77,7 +77,7 @@ import {
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, reconcileCardDropClosures } from "./commands/cards.js";
 import { data as cardsAdminCommand, execute as executeCardsAdmin } from "./commands/cards-admin.js";
-import { data as cardsOwnerCommand, execute as executeCardsOwner } from "./commands/cards-owner.js";
+import { data as cardsOwnerCommand, execute as executeCardsOwner, autocompleteCardsOwner } from "./commands/cards-owner.js";
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
@@ -435,6 +435,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         } else {
           await interaction.respond([]);
         }
+      } else if (interaction.commandName === cardsOwnerCommand.name) {
+        await autocompleteCardsOwner(interaction);
       } else {
         await interaction.respond([]);
       }
