@@ -422,7 +422,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isAutocomplete()) {
       if (interaction.commandName === cardsCommand.name) {
-        await autocompleteCards(interaction);
+        const config = interaction.guildId
+          ? await GuildConfig.findOne({ guildId: interaction.guildId }).select("hatchemChannelId").lean()
+          : null;
+        if (config?.hatchemChannelId && interaction.channelId === config.hatchemChannelId) {
+          await autocompleteCards(interaction);
+        } else {
+          await interaction.respond([]);
+        }
       } else {
         await interaction.respond([]);
       }
