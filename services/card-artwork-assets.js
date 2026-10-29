@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import CardArtwork from "../models/CardArtwork.js";
+import CardArtworkReview from "../models/CardArtworkReview.js";
 import { readDiscordAttachment } from "./media-transfer.js";
 import { assertImageSafeToDecode } from "./image-dimensions.js";
 
@@ -20,13 +21,22 @@ function imageType(bytes) {
   if (bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP") return { mime: "image/webp", ext: "webp" };
   throw new Error("Only PNG, JPG and WebP artwork is supported.");
 }
-export async function uploadCardArtwork({ key, kind, attachment, artistCredit = "", uploadedBy }) {
+export async function uploadCardArtwork({ key, kind, attachment, artistCredit = "", uploadedBy, replacesKey = "", revisionNote = "" }) {
   const artworkKey = validateCardArtworkKey(key);
   if (!CARD_ARTWORK_KINDS.includes(kind)) throw new Error("Invalid card artwork layer type.");
   if (!attachment?.url || !attachment?.name) throw new Error("Attach a PNG, JPG or WebP image.");
   if (attachment.size > CARD_ARTWORK_MAX_BYTES) throw new Error("Artwork exceeds 12 MB.");
   if (kind === "pet" && !String(artistCredit).trim()) throw new Error("Pet artwork requires an artist credit.");
   if (await CardArtwork.exists({ key: artworkKey })) throw new Error("This artwork key already exists. Use a new key; existing artwork is never overwritten.");
+  let predecessor = null;
+  if (replacesKey) {
+    const previous = validateCardArtworkKey(replacesKey);
+    if (previous === artworkKey) throw new Error("A revision needs a new artwork key.");
+    predecessor = await CardArtwork.findOne({ key: previous }).lean();
+    if (!predecessor) throw new Error("Original artwork revision does not exist.");
+    if (predecessor.kind !== kind) throw new Error("A revision must have the same layer type.");
+    if (!String(revisionNote).trim()) throw new Error("Explain what changed in this revision.");
+  }
   const bytes = await readDiscordAttachment(attachment.url, { maxBytes: CARD_ARTWORK_MAX_BYTES });
   const dimensions = assertImageSafeToDecode(bytes);
   const { mime, ext } = imageType(bytes);
@@ -51,6 +61,7 @@ export async function uploadCardArtwork({ key, kind, attachment, artistCredit = 
       mime, originalFilename: String(attachment.name).slice(0, 255),
       byteLength: bytes.length, artistCredit: String(artistCredit).trim(),
       uploadedBy, licenseReviewStatus: "needs-review",
+      replacesKey: predecessor?.key || "", revisionNote: String(revisionNote).trim().slice(0, 500),
     });
     return { key: artworkKey, kind, bytes: bytes.length };
   } catch (error) {
@@ -80,4 +91,66 @@ export async function loadCardArtwork(key, expectedKind) {
   const bytes = Buffer.concat(chunks);
   assertImageSafeToDecode(bytes);
   return { bytes, artwork };
+}
+
+/** Managers only. Limited, newest-first results to avoid huge Discord messages. */
+export async function browseCardArtwork({ kind, status, page = 1 } = {}) {
+  if (kind && !CARD_ARTWORK_KINDS.includes(kind)) throw new Error("Invalid artwork kind.");
+  if (status && !["needs-review", "approved", "rejected"].includes(status)) throw new Error("Invalid artwork status.");
+  const number = Number(page);
+  if (!Number.isSafeInteger(number) || number < 1 || number > 1000) throw new Error("Page must be 1–1000.");
+  const query = { ...(kind ? { kind } : {}), ...(status ? { licenseReviewStatus: status } : {}) };
+  const [total, items] = await Promise.all([
+    CardArtwork.countDocuments(query),
+    CardArtwork.find(query).sort({ createdAt: -1, _id: -1 })
+      .skip((number - 1) * 8).limit(8).select("key kind artistCredit replacesKey licenseReviewStatus createdAt").lean(),
+  ]);
+  return { total, page: number, pages: Math.max(1, Math.ceil(total / 8)), items };
+}
+
+export async function getCardArtworkDetails(key) {
+  const normalized = validateCardArtworkKey(key);
+  const [artwork, history, revisions] = await Promise.all([
+    CardArtwork.findOne({ key: normalized }).lean(),
+    CardArtworkReview.find({ artworkKey: normalized }).sort({ createdAt: -1 }).limit(8).lean(),
+    CardArtwork.find({ replacesKey: normalized }).select("key createdAt").sort({ createdAt: -1 }).limit(8).lean(),
+  ]);
+  if (!artwork) throw new Error("Artwork key was not found.");
+  return { artwork, history, revisions };
+}
+
+/** Records status decisions, without silently modifying any card definitions. */
+export async function reviewCardArtwork({ key, decision, note, reviewerId }) {
+  const normalized = validateCardArtworkKey(key);
+  if (!["approved", "rejected", "needs-review"].includes(decision)) throw new Error("Invalid artwork decision.");
+  const explanation = String(note || "").trim();
+  if (explanation.length < 5 || explanation.length > 1000) throw new Error("Provide a review note between 5 and 1000 characters, including permission/source evidence for approvals.");
+  if (!reviewerId) throw new Error("Reviewer ID is required.");
+  const previous = await CardArtwork.findOne({ key: normalized }).lean();
+  if (!previous) throw new Error("Artwork not found.");
+  if (decision === "approved" && !previous.artistCredit) throw new Error("Artist credit is required before approval.");
+  if (previous.licenseReviewStatus === decision) throw new Error("Artwork already has that status. No duplicate review was recorded.");
+  const updated = await CardArtwork.updateOne(
+    { _id: previous._id, licenseReviewStatus: previous.licenseReviewStatus },
+    { $set: { licenseReviewStatus: decision, reviewedBy: reviewerId, reviewedAt: new Date() } },
+  );
+  if (updated.modifiedCount !== 1) throw new Error("Artwork changed during review; please try again.");
+  try {
+    await CardArtworkReview.create({
+      artworkKey: normalized, action: decision, previousStatus: previous.licenseReviewStatus,
+      reviewerId, note: explanation,
+    });
+  } catch (error) {
+    // If audit logging fails, roll back the state rather than approve silently.
+    await CardArtwork.updateOne(
+      { _id: previous._id, licenseReviewStatus: decision, reviewedBy: reviewerId },
+      { $set: {
+        licenseReviewStatus: previous.licenseReviewStatus,
+        reviewedBy: previous.reviewedBy || "",
+        reviewedAt: previous.reviewedAt || null,
+      } },
+    );
+    throw error;
+  }
+  return { key: normalized, previousStatus: previous.licenseReviewStatus, status: decision };
 }
