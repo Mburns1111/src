@@ -1,4 +1,5 @@
 import { createCanvas } from "@napi-rs/canvas";
+import { loadImage } from "@napi-rs/canvas";
 import { loadImageSource } from "./post-renderer.js";
 import { upgradeLabel } from "./card-identifiers.js";
 
@@ -68,6 +69,7 @@ export async function renderCollectibleCardPreview({
   petName, rarity, upgradeLevel = "normal", releaseName = "Release 1",
   seriesName = "Series 1", publicId = "PREVIEW", artistCredit = "", otherCollectorCount = 0,
   artUrl = "", artStatus = "missing", dropMode = false,
+  petImageSource = null, backgroundImageSource = null, frameImageSource = null,
 } = {}) {
   const { width: W, height: H } = CARD_PREVIEW_SIZE;
   const canvas = createCanvas(W, H);
@@ -80,6 +82,11 @@ export async function renderCollectibleCardPreview({
   const outer = ctx.createLinearGradient(0, 0, W, H);
   outer.addColorStop(0, "#F8F4F1"); outer.addColorStop(1, "#E4EDE8");
   ctx.fillStyle = outer; ctx.fillRect(0, 0, W, H);
+  // Optional full-card background, beneath all text, cards and frames.
+  if (backgroundImageSource) {
+    const bg = await loadImage(backgroundImageSource);
+    ctx.drawImage(bg, 0, 0, W, H);
+  }
   // Subtle background motif leaves space for Canva replacement artwork.
   for (let i = 0; i < 10; i++) {
     ctx.strokeStyle = rim + "16"; ctx.lineWidth = 8;
@@ -111,7 +118,9 @@ export async function renderCollectibleCardPreview({
   ctx.fillStyle = backdrop; ctx.fillRect(art.x, art.y, art.w, art.h);
 
   let image = null;
-  if (artStatus === "approved" && artUrl) {
+  if (petImageSource) {
+    image = await loadImage(petImageSource);
+  } else if (artStatus === "approved" && artUrl) {
     try { image = await loadImageSource(artUrl); }
     catch (error) { console.warn("[Cards] Preview image unavailable:", error.message); }
   }
@@ -130,6 +139,14 @@ export async function renderCollectibleCardPreview({
     roundRect(ctx, 110, 1011, 680, 55, 18, "#EAF0EA", light, 2);
   }
   centered(ctx, upgradeLabel(upgradeLevel).toUpperCase(), W/2, 1049, 640, 28, "#3D5750");
+
+  // Transparent decorative frame overlays sit above the art and panels,
+  // but beneath bot-generated names, credits, identifiers and metadata.
+  // Frame artists must leave readable spaces in the 900x1260 template.
+  if (frameImageSource) {
+    const frame = await loadImage(frameImageSource);
+    ctx.drawImage(frame, 0, 0, W, H);
+  }
 
   // All displayed artwork is credited on the card, including drop cards.
   // A test-placeholder is explicitly described as a placeholder, not as real artist art.
