@@ -57,7 +57,9 @@ Slash-command autocomplete is confined to Hatchem. Typed messages do not show Di
 - `.view KxQOo` or `/cards view card_id:KxQOo` renders the card image. The former `.preview` user command was renamed to `view`.
 - `.tag 2d do cute` when there are multiple owned 2D Doggy copies opens a confirmation with the total matching cards, count whose tags change, unique IDs, upgrade stages and release-level frame names. Choose **Apply to all** or select **one specific ID** from the dropdown. Changes happen only on confirmation.
 - `.tag KxQOo cute` directly tags one owned ID; `.tag cute` directly tags the newest owned card if no name is given.
-- **Every `.untag` request is confirmed**, including one-card IDs. The prompt shows how many cards would lose a tag, with options for all or a specific copy when multiple cards match. Cancelling leaves all tags untouched.
+- **Every `.untag` request is confirmed**, including one-card IDs and `/cards untag-multiple`. The prompt shows how many cards would lose a tag, with options for all or a specific copy when multiple cards match. Cancelling leaves all tags untouched.
 - The bot presently stores frames as **release-level frame artwork**, not distinct per-copy frame equipment. Confirmation can display the release's frame key and card upgrade stage. Per-copy applied decorative frames require a future card customization model.
 - Upgrade confirmation warns that decorations applied to consumed originals do not transfer. Four original IDs are consumed and replaced by one new upgrade ID.
 - Confirmation expires after two minutes or on process restart. Only the member who requested the change can use the buttons.
+
+- When a specified five-character ID has other owned copies of the same pet, the confirmation includes an **Only selected ID** button and an **All copies** button.
