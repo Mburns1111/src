@@ -77,6 +77,28 @@
         "evidenceUrl": null,
         "notes": "Permission reported and screenshots supplied in conversation, but no persistent permission-evidence link exists in repository. Confirm crop/edit uses before publishing."
       }
+    },
+    {
+      "artistId": "reddit-some1_named_maggie",
+      "displayName": "Maggie",
+      "platform": "Reddit",
+      "platformUsername": "some1_named_maggie",
+      "profileUrl": "https://www.reddit.com/user/some1_named_maggie/",
+      "submittedPostsUrl": "https://www.reddit.com/user/some1_named_maggie/submitted/",
+      "notes": "Project owner reports that Maggie/u/some1_named_maggie granted permission to use her artwork for AM Isa on 2026-10-28. Owner has not yet reviewed which of Maggie's artworks to select. No images or pets identified, attributed, assigned to releases, or imported.",
+      "permission": {
+        "status": "reported-by-project-owner",
+        "reportedOn": "2026-10-28",
+        "scope": "Artwork-use permission reported by owner; specific works, permitted edits/crops, credit preferences, restrictions, and exact permission language not yet recorded.",
+        "evidenceUrl": null,
+        "notes": "Track original Reddit post URLs and specific chosen artwork when the owner reviews her submitted posts. Do not assign pet art or claim ready-to-publish status based on this artist-level entry alone."
+      },
+      "artworkReview": {
+        "status": "not-yet-reviewed",
+        "sourceUrl": "https://www.reddit.com/user/some1_named_maggie/submitted/",
+        "selectedArtworkIds": [],
+        "reviewNotes": "Owner plans to look through Maggie's artwork first."
+      }
     }
   ],
   "artworks": [
