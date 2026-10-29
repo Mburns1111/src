@@ -28,8 +28,12 @@ export async function uploadCardArtwork({ key, kind, attachment, artistCredit = 
   if (kind === "pet" && !String(artistCredit).trim()) throw new Error("Pet artwork requires an artist credit.");
   if (await CardArtwork.exists({ key: artworkKey })) throw new Error("This artwork key already exists. Use a new key; existing artwork is never overwritten.");
   const bytes = await readDiscordAttachment(attachment.url, { maxBytes: CARD_ARTWORK_MAX_BYTES });
-  assertImageSafeToDecode(bytes);
+  const dimensions = assertImageSafeToDecode(bytes);
   const { mime, ext } = imageType(bytes);
+  if ((kind === "background" || kind === "frame") &&
+      (!dimensions || dimensions.width !== 900 || dimensions.height !== 1260)) {
+    throw new Error("Card backgrounds and frames must be exactly 900 × 1260 pixels. Export at the artist template size.");
+  }
   if (kind === "frame" && mime !== "image/png" && mime !== "image/webp") throw new Error("Frame overlays must be PNG or WebP with transparency.");
   if (!mongoose.connection.db) throw new Error("MongoDB must be connected.");
   const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: CARD_ARTWORK_BUCKET });
