@@ -49,10 +49,9 @@ export function selectUpgradeSet(cards, preferredId = null) {
 // Short names, e.g. Cat, still require the entire name.
 const matchingPetName = text => {
   const value = String(text).trim();
-  const escaped = value.replace(/[^\\p{L}\\p{N} ]/gu, "\\\\const exactName = text => new RegExp("^" + String(text).replace(/[^\p{L}\p{N} ]/gu, "\\$&") + "$", "i");");
+  const escaped = value.replace(/[^\p{L}\p{N} ]/gu, "\\$&");
   return new RegExp("^" + escaped + (value.length < 4 ? "$" : ""), "i");
 };
-
 
 /**
  * Discord autocomplete lists only upgrade-eligible pets the member actually
