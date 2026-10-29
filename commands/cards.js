@@ -78,8 +78,8 @@ const isEnabled = () => process.env.ENABLE_CARD_GAME_TEST === "1";
 const escapeDiscord = text => String(text ?? "").replace(/[@`*_~|<>]/g, "");
 const rowButtons = drop => new ActionRowBuilder().addComponents(drop.slots.map((slot, i) =>
   new ButtonBuilder().setCustomId(`cards:grab:${drop._id}:${i}`)
-    .setLabel(slot.claimedBy ? `#${i + 1} Reserved` : `Grab #${i + 1}`)
-    .setStyle(ButtonStyle.Primary).setDisabled(Boolean(slot.claimedBy) || drop.expiresAt <= new Date() || drop.status !== "open")));
+    .setLabel((slot.claimedBy || slot.winnerId) ? `#${i + 1} Chosen` : `Grab #${i + 1}`)
+    .setStyle(ButtonStyle.Primary).setDisabled(Boolean(slot.claimedBy || slot.winnerId) || drop.expiresAt <= new Date() || drop.status !== "open")));
 export function dropText(drop, releaseName) {
   const closed = drop.status === "closed" || new Date(drop.expiresAt) <= new Date();
   return closed
@@ -449,7 +449,7 @@ export async function execute(interaction) {
     await CardDrop.updateOne({ _id: drop._id }, { $set: { status: "closed" } });
     throw error;
   }
-  return interaction.editReply("Test release egg hatched in this channel. Cards are available to grab for 75 seconds.");
+  return interaction.editReply("Test release egg hatched in this channel. Cards are open for entries for 75 seconds; winners are drawn at expiry.");
 }
 export async function handleCardUpgrade(interaction) {
   const [, , action, token] = interaction.customId.split(":");
@@ -483,7 +483,9 @@ export async function handleCardGrab(interaction) {
   if (!interaction.guildId || parts.length !== 4 || !["0", "1", "2"].includes(parts[3])) return interaction.editReply("Invalid card selection.");
   try {
     const reserved = await reserveCardFromDrop({ dropId, slot, guildId: interaction.guildId, discordUserId: interaction.user.id });
-    await interaction.editReply(`You reserved **${escapeDiscord(reserved.petId)}** (${reserved.rarity}). It will be added to your collection when the drop ends.`);
+    await interaction.editReply(reserved.creatorPriority
+      ? `You chose **${escapeDiscord(reserved.petId)}** (${reserved.rarity}). Your pick has priority. ${reserved.refundedEntrants ? `${reserved.refundedEntrants} earlier entrant(s) can now try another card.` : ""}`
+      : `You entered for **${escapeDiscord(reserved.petId)}** (${reserved.rarity}). The winner is chosen randomly when the drop ends, unless the drop creator chooses this card. If displaced, your grab opportunity is returned.`);
     // Updating buttons is cosmetic; the MongoDB transaction is authoritative.
     try {
       const drop = await CardDrop.findById(dropId).lean();
@@ -522,6 +524,8 @@ export async function reconcileCardDropClosures(client) {
     $or: [
       { displayClosedAt: null, messageId: { $ne: "" } },
       { slots: { $elemMatch: { claimedBy: { $ne: null }, settledAt: null } } },
+      { slots: { $elemMatch: { winnerId: { $ne: null }, settledAt: null } } },
+      { slots: { $elemMatch: { "entrants.0": { $exists: true }, settledAt: null } } },
     ],
   }).sort({ expiresAt: 1 }).limit(30).lean();
   for (const drop of pending) {
