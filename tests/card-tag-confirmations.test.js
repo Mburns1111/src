@@ -29,20 +29,30 @@ test("collection cute is a tag filter and card display is called view", () => {
 });
 
 test("untag confirmation shows exact affected count and rejects other users", async () => {
+  const PetCatalog = (await import("../models/PetCatalog.js")).default;
   const old = {
-    findOne: CardCopy.findOne, definitions: CardDefinition.find,
-    releases: CardRelease.find,
+    findOne: CardCopy.findOne, copies: CardCopy.find,
+    definitions: CardDefinition.find, byId: CardDefinition.findById,
+    releases: CardRelease.find, pet: PetCatalog.findOne,
   };
   const id = new mongoose.Types.ObjectId();
+  const definitionId = new mongoose.Types.ObjectId();
   try {
     CardCopy.findOne = query => {
       assert.equal(query.ownerDiscordUserId, owner);
       return { lean: async()=> ({
-        _id:id, cardDefinitionId:new mongoose.Types.ObjectId(),
+        _id:id, cardDefinitionId:definitionId,
         publicId:"KxQOo", upgradeLevel:"neon", tag:"cute",
       }) };
     };
-    CardDefinition.find = () => ({ select:()=>({ lean:async()=>[] }) });
+    CardDefinition.findById = () => ({ select:()=>({ lean:async()=>({ petId:"2d-doggy" }) }) });
+    CardDefinition.find = () => ({ select:()=>({ lean:async()=>[
+      { _id:definitionId, petId:"2d-doggy", releaseId:"test-s1-r1" },
+    ] }) });
+    PetCatalog.findOne = () => ({ select:()=>({ lean:async()=>({ name:"2D Doggy" }) }) });
+    CardCopy.find = () => ({ lean:async()=>[
+      { _id:id, cardDefinitionId:definitionId, publicId:"KxQOo", upgradeLevel:"neon", tag:"cute" },
+    ] });
     CardRelease.find = () => ({ select:()=>({ lean:async()=>[] }) });
     const request = await prepareCardTagConfirmation({
       discordUserId:owner, cardId:"KxQOo", tag:null,
@@ -55,8 +65,9 @@ test("untag confirmation shows exact affected count and rejects other users", as
     assert.equal(cancelled.token, request.token);
     assert.throws(()=>getCardTagConfirmation(request.token, owner), /expired/);
   } finally {
-    CardCopy.findOne=old.findOne; CardDefinition.find=old.definitions;
-    CardRelease.find=old.releases;
+    CardCopy.findOne=old.findOne; CardCopy.find=old.copies;
+    CardDefinition.find=old.definitions; CardDefinition.findById=old.byId;
+    CardRelease.find=old.releases; PetCatalog.findOne=old.pet;
   }
 });
 
