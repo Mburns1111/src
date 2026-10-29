@@ -25,7 +25,7 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("C
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
     .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false)))
   .addSubcommand(c => c.setName("upgrade").setDescription("Combine 4 matching cards into Neon or Mega Neon")
-    .addStringOption(o => o.setName("card_ids").setDescription("Exactly 4 card IDs, separated by commas").setRequired(true)))
+    .addStringOption(o => o.setName("card").setDescription("One card ID or pet name; bot finds four matching copies").setRequired(true)))
   .addSubcommand(c => c.setName("stats").setDescription("See collector, burn and upgrade statistics for a card")
     .addStringOption(o => o.setName("card_id").setDescription("Optional five-character ID; defaults to your last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("preview").setDescription("View a portrait preview of an owned collectible card")
@@ -99,7 +99,7 @@ export async function execute(interaction) {
     try {
       const request = await prepareCardUpgrade({
         ownerId: interaction.user.id, guildId: interaction.guildId,
-        cardIds: interaction.options.getString("card_ids", true),
+        cardReference: interaction.options.getString("card", true),
       });
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`cards:upgrade:yes:${request.token}`)
@@ -113,7 +113,7 @@ export async function execute(interaction) {
           `Release: ${escapeDiscord(request.releaseId)}`,
           `Consume exactly four cards: ${request.ids.join(", ")}`,
           "**These four original card IDs will be permanently consumed**, and one NEW unique five-character card ID will be created.",
-          "Tagged cards cannot be used. You have 90 seconds to confirm.",
+          "Tagged cards are eligible; check the four listed IDs before confirming. You have 90 seconds.",
         ].join("\n"),
         components: [row], allowedMentions: { parse: [] },
       });
