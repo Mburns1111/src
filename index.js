@@ -415,7 +415,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // acknowledgement. All other slash commands keep their fast defer.
     if (interaction.isChatInputCommand() &&
         interaction.commandName !== adminImportCommand.name) {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      // Collections are intentionally public so other members can browse them.
+      // All other slash commands retain their existing private replies.
+      const publicCollection = interaction.commandName === cardsCommand.name &&
+        interaction.options.getSubcommand(false) === "collection" &&
+        process.env.ENABLE_CARD_GAME_TEST === "1";
+      await interaction.deferReply(publicCollection ? {} : { flags: MessageFlags.Ephemeral });
     }
 
     if (interaction.isModalSubmit() &&
