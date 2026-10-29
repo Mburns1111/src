@@ -27,15 +27,19 @@ export function parseHatchemTagArguments(raw) {
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|drop|collection|upgrade|create-tag|tags|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|preview|trade|burn)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|drop|collection|upgrade|create-tag|tags|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|view|trade|burn)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "drop") return { action: "test-drop", options: { release: args || "test-s1-r1" } };
-  if (action === "collection") return { action, options: { member: args } };
+  if (action === "collection") {
+    const tokens = args.split(/\s+/).filter(Boolean);
+    const member = /^<@!?\d{17,20}>$/.test(tokens[0] || "") ? tokens.shift() : "";
+    return { action, options: { member, tag: tokens.join(" ").replace(/^"|"$/g, "") } };
+  }
   if (action === "upgrade") return { action, options: { card: args } };
   if (action === "tag") return { action, options: parseHatchemTagArguments(args) };
   if (action === "create-tag") return { action, options: { tag: args.replace(/^"|"$/g, "") } };
-  if (["untag", "stats", "preview"].includes(action)) return { action, options: { card_id: args } };
+  if (["untag", "stats", "view"].includes(action)) return { action, options: { card_id: args } };
   if (action === "tag-multiple") {
     const [tag, ...ids] = args.split(/\s+/);
     return { action, options: { tag: tag || "", card_ids: ids.join(" ") } };
@@ -48,11 +52,11 @@ export function parseHatchemText(content) {
 export const HATCHEM_GUIDE = [
   "**🥚 Hatchem — Hatch, Collect & Upgrade!**",
   "Type a command starting with a dot (.) here, or use /cards:",
-  ".collection [@member] — public collection",
+  ".collection [tag] or .collection @member [tag] — filter collection",
   ".upgrade [pet name or card ID] — combine four matching cards",
   ".create-tag cute · .tags · .tag cute (newest card)",
   ".tag 2d do cute (all 2D Doggy copies) · .untag abys",
-  ".stats [card ID] · .preview [card ID]",
+  ".stats [card ID] · .view [card ID]",
   ".drop — staff-only test egg",
   ".help — list more commands",
   "Trade and burn are planned, not enabled yet.",
@@ -61,7 +65,8 @@ export const HATCHEM_GUIDE = [
 export const HATCHEM_HELP = [
   "**🥚 Hatchem typed commands — start with a dot (.)**",
   ".drop — staff test egg (test-s1-r1)",
-  ".collection or .collection @member — public collection",
+  ".collection or .collection cute — optionally filter by tag",
+  ".collection @member or .collection @member cute — public collection",
   ".upgrade Pet Name or .upgrade CardID — confirm a four-card upgrade",
   ".create-tag cute — save a tag · .tags — list saved tags",
   ".tag cute — tag your newest owned card (even a Neon upgrade)",
@@ -70,7 +75,7 @@ export const HATCHEM_HELP = [
   '.tag CardID Favorites — one card · .tag "My Favorite" — newest',
   '.tag 2d do "Very Cute" — all matching pets with spaced tag',
   ".tag-multiple Favorites ID1,ID2 · .untag-multiple ID1,ID2",
-  ".delete-tag Favorites · .stats abys · .preview abys",
+  ".delete-tag Favorites · .stats abys · .view abys",
   ".trade and .burn — coming later; not active",
   "Pet names and tags ignore capitalization. A 5-character card ID targets only one owned card.",
 ].join("\n");
@@ -84,10 +89,6 @@ export async function runHatchemText(message, parsed) {
     return true;
   }
   const match = /^<@!?(\d{17,20})>$/.exec(parsed.options.member || "");
-  if (parsed.action === "collection" && parsed.options.member && !match) {
-    await message.reply({ content: "Use .collection or .collection @member.", allowedMentions: { parse: [] } });
-    return true;
-  }
   const target = match ? (message.mentions.users.get(match[1]) ||
     await message.client.users.fetch(match[1]).catch(() => null)) : null;
   if (match && !target) {
