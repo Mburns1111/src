@@ -192,7 +192,8 @@ client.on(Events.MessageCreate, message => {
   if (!message.guildId || message.author?.bot || !message.content) return;
   // Only commands typed in the assigned Hatchem text channel are parsed.
   // Ordinary chat and every other channel are ignored by this handler.
-  const parsed = process.env.ENABLE_CARD_GAME_TEST === "1"
+  const parsed = process.env.ENABLE_CARD_GAME_TEST === "1" &&
+    message.content.startsWith(".")
     ? parseHatchemText(message.content) : null;
   if (parsed) {
     void (async () => {
