@@ -18,9 +18,9 @@ test("single card preview renders valid PNG for normal neon and mega", async () 
     assert.equal(bytes.readUInt32BE(20), CARD_PREVIEW_SIZE.height);
   }
 });
-test("preview command defaults to last owned card", () => {
+test("view command defaults to newest owned card", () => {
   const command = cardsCommand.toJSON();
-  const preview = command.options.find(option => option.name === "preview");
+  const preview = command.options.find(option => option.name === "view");
   assert.ok(preview);
   assert.equal(preview.options.find(o => o.name === "card_id").required, false);
 });
