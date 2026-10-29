@@ -16,9 +16,10 @@ Saved 2026-10-29 on the development branch. **Manual results are not recorded as
 - [ ] `.collection cute` opens a filtered collection and displays only copies tagged `cute`; `.collection @member cute` works as intended.
 - [ ] `.tag 2d do cute` shows copy count, ID/stage/release/frame details, and 'all' or 'one' selection when multiple 2D Doggys are owned.
 - [ ] Choosing a single card ID affects only that copy; choosing All applies to every currently owned copy of the named pet. Other pets must remain unchanged.
-- [ ] `.tag KxQOo cute` tags only that one ID, even when the owner has other copies or Neon/Mega variants.
+- [ ] `.tag KxQOo cute`: if the owner has other copies of the same pet, the bot asks **Only KxQOo** versus **All copies**; select only KxQOo and verify no other IDs change. If only one copy exists, the ID is tagged directly.
 - [ ] `.untag 2D Doggy` requires confirmation with number of affected cards before changing tags; selecting Cancel leaves all existing tags in place.
-- [ ] `.untag KxQOo` requires confirmation, even for a single card; verify count of one when tagged.
+- [ ] `.untag KxQOo` requires confirmation; if multiple matching pet copies exist, compare **Only this ID** and **All copies**. Verify displayed affected-card count matches cards that actually have tags.
+- [ ] `/cards untag-multiple` also shows the affected-card count and requires confirmation; Cancel must not change any tags.
 - [ ] Old/expired tag confirmations and changed card ownership/tags fail without overwriting new changes.
 - [ ] `/cards-owner create-series` followed by `create-release` succeeds, and autocomplete offers already-created series/release IDs and catalog pets.
 - [ ] Upgrade confirmation explicitly warns that decorations/frames on consumed cards will not transfer.
