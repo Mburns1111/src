@@ -131,14 +131,28 @@ export async function renderCollectibleCardPreview({
   }
   centered(ctx, upgradeLabel(upgradeLevel).toUpperCase(), W/2, 1049, 640, 28, "#3D5750");
 
-  ctx.font = "26px sans-serif"; ctx.fillStyle = "#62716B"; ctx.textAlign = "left";
-  ctx.fillText(`${seriesName}  ·  ${releaseName}`, 88, 1120);
-  ctx.textAlign = "right"; ctx.font = "bold 24px sans-serif"; ctx.fillStyle = "#4C605A";
-  ctx.fillText(`Other collectors: ${Math.max(0, Number(otherCollectorCount) || 0)}`, 812, 1120);
+  // Dedicated footer rows: don't let right-aligned collector text leak into artist credit.
+  // Canva safe zone: x=88..812, bottom baseline <=1192.
+  ctx.save();
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#62716B";
+  ctx.font = "24px sans-serif";
+  ctx.fillText(`${seriesName}  ·  ${releaseName}`, 88, 1117, 724);
 
-  ctx.font = "23px sans-serif"; ctx.fillText(artistCredit ? `Art: ${artistCredit}` : "Art credit: pending", 88, 1167);
-  ctx.textAlign = "right"; ctx.fillStyle = "#384A44"; ctx.font = "bold 32px monospace";
-  ctx.fillText(publicId, 810, 1167);
+  ctx.font = "bold 24px sans-serif";
+  ctx.fillStyle = "#4C605A";
+  ctx.fillText(`Other collectors: ${Math.max(0, Number(otherCollectorCount) || 0)}`, 88, 1154, 724);
+
+  ctx.font = "23px sans-serif";
+  ctx.fillStyle = "#62716B";
+  ctx.fillText(artistCredit ? `Art: ${artistCredit}` : "Art credit: pending", 88, 1191, 515);
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#384A44";
+  ctx.font = "bold 30px monospace";
+  ctx.fillText(publicId, 810, 1191, 165);
+  ctx.restore();
 
   return canvas.toBuffer("image/png");
 }
