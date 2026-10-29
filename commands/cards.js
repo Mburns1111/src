@@ -506,7 +506,7 @@ export async function handleCardUpgrade(interaction) {
         otherCollectorCount,
       });
       publicPost = await interaction.channel.send({
-        content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(pet?.name || definition.petId)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: \\`${result.publicId}\\``,
+        content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(pet?.name || definition.petId)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: ${result.publicId}`,
         files: [new AttachmentBuilder(image, { name: "upgraded-card.png" })],
         allowedMentions: { users: [interaction.user.id], parse: [] },
       });
@@ -515,7 +515,7 @@ export async function handleCardUpgrade(interaction) {
       // Preserve the public announcement even if an image asset is corrupt.
       try {
         publicPost = await interaction.channel.send({
-          content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(result.petName)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: \\`${result.publicId}\\` (card image unavailable)`,
+          content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(result.petName)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: ${result.publicId} (card image unavailable)`,
           allowedMentions: { users: [interaction.user.id], parse: [] },
         });
       } catch (sendError) {
@@ -524,8 +524,8 @@ export async function handleCardUpgrade(interaction) {
     }
     return interaction.editReply({
       content: publicPost
-        ? `**Upgrade complete!** Your new ${result.target === "neon" ? "Neon" : "Mega Neon"} card \\`${result.publicId}\\` has been posted in this channel.`
-        : `**Upgrade complete!** Your new card ID is \\`${result.publicId}\\`. I couldn't post it publicly; check /cards collection. Nothing was lost.`,
+        ? `**Upgrade complete!** Your new ${result.target === "neon" ? "Neon" : "Mega Neon"} card ${result.publicId} has been posted in this channel.`
+        : `**Upgrade complete!** Your new card ID is ${result.publicId}. I couldn't post it publicly; check /cards collection. Nothing was lost.`,
       components: [], allowedMentions: { parse: [] },
     });
   } catch (error) {
