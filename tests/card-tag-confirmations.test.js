@@ -127,3 +127,69 @@ test("confirmed tag change checks original tag values and only changes chosen ID
     mongoose.startSession=old.session;
   }
 });
+
+
+test("when a selected ID has other owned pet variants, prompt for only ID or all copies", async () => {
+  const PetCatalog = (await import("../models/PetCatalog.js")).default;
+  const primary = new mongoose.Types.ObjectId(), other = new mongoose.Types.ObjectId();
+  const definitionId = new mongoose.Types.ObjectId();
+  const original = {
+    one:CardCopy.findOne, many:CardCopy.find,
+    def:CardDefinition.find, byId:CardDefinition.findById,
+    pet:PetCatalog.findOne, releases:CardRelease.find,
+  };
+  try {
+    CardCopy.findOne = () => ({ lean:async()=>({
+      _id:primary, publicId:"KxQOo", cardDefinitionId:definitionId, upgradeLevel:"neon", tag:"",
+    }) });
+    CardDefinition.findById = () => ({ select:()=>({ lean:async()=>({petId:"2d-doggy"}) }) });
+    CardDefinition.find = () => ({ select:()=>({ lean:async()=>[
+      {_id:definitionId, petId:"2d-doggy", releaseId:"test-s1-r1"},
+    ] }) });
+    PetCatalog.findOne = () => ({ select:()=>({ lean:async()=>({name:"2D Doggy"}) }) });
+    CardCopy.find = () => ({ lean:async()=>[
+      {_id:primary, publicId:"KxQOo", cardDefinitionId:definitionId, upgradeLevel:"neon",tag:""},
+      {_id:other, publicId:"AbCde", cardDefinitionId:definitionId, upgradeLevel:"normal",tag:""},
+    ] });
+    CardRelease.find = () => ({ select:()=>({ lean:async()=>[
+      {releaseId:"test-s1-r1",cardFrameKey:"star-frame"},
+    ] }) });
+    const request = await prepareCardTagConfirmation({
+      discordUserId:owner,cardId:"KxQOo",tag:"CuTe",
+    });
+    assert.equal(request.mode, "id-choice");
+    assert.equal(request.preferredId, String(primary));
+    assert.equal(request.cards.length, 2);
+    assert.equal(request.cards[0].frame, "star-frame");
+    assert.equal(request.affected, 2);
+    cancelCardTagConfirmation(request.token, owner);
+  } finally {
+    CardCopy.findOne=original.one;CardCopy.find=original.many;
+    CardDefinition.find=original.def;CardDefinition.findById=original.byId;
+    PetCatalog.findOne=original.pet;CardRelease.find=original.releases;
+  }
+});
+
+test("bulk untag also prepares a confirmation with the total number of affected IDs", async () => {
+  const x = new mongoose.Types.ObjectId(), y = new mongoose.Types.ObjectId();
+  const definitionId = new mongoose.Types.ObjectId();
+  const original = { copy:CardCopy.findOne, def:CardDefinition.find, releases:CardRelease.find };
+  try {
+    CardCopy.findOne = query => ({ lean:async()=>({
+      _id:query.publicId==="Abc12"?x:y, publicId:query.publicId,
+      cardDefinitionId:definitionId, upgradeLevel:"normal", tag:"cute",
+    }) });
+    CardDefinition.find = () => ({ select:()=>({ lean:async()=>[] }) });
+    CardRelease.find = () => ({ select:()=>({ lean:async()=>[] }) });
+    const request = await prepareCardTagConfirmation({
+      discordUserId:owner,cardIds:"Abc12, Def34", tag:null,
+    });
+    assert.equal(request.mode,"ids");
+    assert.equal(request.cards.length,2);
+    assert.equal(request.affected,2);
+    cancelCardTagConfirmation(request.token, owner);
+  } finally {
+    CardCopy.findOne=original.copy;CardDefinition.find=original.def;
+    CardRelease.find=original.releases;
+  }
+});
