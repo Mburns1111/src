@@ -4,6 +4,7 @@ import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
 import CardCopy from "../models/CardCopy.js";
 import { countOtherCardCollectors } from "../services/card-ownership-stats.js";
+import { getCardLifecycleStats } from "../services/card-lifecycle-stats.js";
 import CardClaim from "../models/CardClaim.js";
 import CardSeries from "../models/CardSeries.js";
 import { resolveCardId } from "../services/card-identifiers.js";
@@ -16,6 +17,8 @@ import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../se
 
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Collectible card game")
   .addSubcommand(c => c.setName("collection").setDescription("View your collectible cards"))
+  .addSubcommand(c => c.setName("stats").setDescription("See collector, burn and upgrade statistics for a card")
+    .addStringOption(o => o.setName("card_id").setDescription("Optional five-character ID; defaults to your last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("preview").setDescription("View a portrait preview of an owned collectible card")
     .addStringOption(o => o.setName("card_id").setDescription("Optional five-character ID; defaults to last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("tag").setDescription("Give a card you own a personal tag")
@@ -55,6 +58,43 @@ export async function execute(interaction) {
   if (option === "collection") {
     const summary = await getCardCollectionSummary(interaction.user.id);
     return interaction.editReply(formatCardCollectionSummary(summary));
+  }
+  if (option === "stats") {
+    if (!isEnabled()) return interaction.editReply("Card statistics are disabled on this bot.");
+    const reference = interaction.options.getString("card_id")?.trim();
+    try {
+      let copyId;
+      if (reference) copyId = await resolveCardId(reference);
+      else {
+        const lastGrab = await CardClaim.findOne({ discordUserId: interaction.user.id })
+          .sort({ createdAt: -1, _id: -1 }).select("cardCopyId").lean();
+        if (!lastGrab) return interaction.editReply("You haven't collected a card yet.");
+        copyId = lastGrab.cardCopyId;
+      }
+      const copy = await CardCopy.findOne({
+        _id: copyId, ownerDiscordUserId: interaction.user.id, state: "owned",
+      }).lean();
+      if (!copy) return interaction.editReply("That card is not in your collection.");
+      const definition = await CardDefinition.findById(copy.cardDefinitionId).select("petId rarity").lean();
+      if (!definition) return interaction.editReply("Card definition not found.");
+      const [pet, others, lifecycle] = await Promise.all([
+        PetCatalog.findOne({ petId: definition.petId }).select("name").lean(),
+        countOtherCardCollectors({ cardDefinitionId: copy.cardDefinitionId, ownerDiscordUserId: interaction.user.id }),
+        getCardLifecycleStats(copy.cardDefinitionId),
+      ]);
+      return interaction.editReply({
+        content: [
+          `**${escapeDiscord(pet?.name || definition.petId)}** · ${definition.rarity} · \`${copy.publicId || "PENDING"}\``,
+          `**Other collectors currently owning this release card:** ${others}`,
+          `**Recorded cards burned:** ${lifecycle.burned}`,
+          `**Recorded Neon upgrades:** ${lifecycle.upgradedToNeon}`,
+          `**Recorded Mega Neon upgrades:** ${lifecycle.upgradedToMega}`,
+          "*Burn/upgrade tracking is prepared for future actions; none are implemented yet.*",
+        ].join("\n"), allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      return interaction.editReply(error.message);
+    }
   }
   if (option === "preview") {
     if (!isEnabled()) return interaction.editReply("Card previews are disabled on this bot.");
