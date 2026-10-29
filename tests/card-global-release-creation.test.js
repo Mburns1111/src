@@ -6,7 +6,7 @@ import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import {
   releaseId, releaseName, hatchWeight, releaseOdds, requireDraft,
-  createSeries, createRelease, editRelease, addReleasePet,
+  createSeries, createRelease, editRelease, addReleasePet, parseReleasePetBatch,
   removeReleasePet, setReleasePetWeight, setReleaseOdds, checkRelease,
 } from "../services/card-global-releases.js";
 import { data as command, execute as runOwnerCommand } from "../commands/cards-owner.js";
@@ -141,11 +141,18 @@ test("owner-only release mutations deny outsiders before touching MongoDB", asyn
 
 test("owner slash commands expose draft creation, roster and read-only review actions", () => {
   const cmds = command.toJSON().options;
-  for (const name of ["create-series","create-release","edit-release","add-pet",
+  for (const name of ["create-series","create-release","edit-release","add-pet","add-pets",
     "remove-pet","set-weight","set-odds","release-check","releases","inspect"]) {
     assert.ok(cmds.some(option => option.name === name), name);
   }
   const create = cmds.find(option => option.name === "create-release");
   assert.ok(create.options.every(option => option.required));
   assert.equal(cmds.some(option => ["activate", "publish", "retire"].includes(option.name)), false);
+});
+
+test("bulk pet list parser supports the first 100 selected release pets, but refuses oversized lists", () => {
+  assert.deepEqual(parseReleasePetBatch("cow, unicorn\nAbyssinian Cat"), ["cow", "unicorn", "Abyssinian Cat"]);
+  assert.equal(parseReleasePetBatch(Array.from({length:100},(_,n) => "pet-" + n).join(",")).length, 100);
+  assert.throws(() => parseReleasePetBatch(Array.from({length:101},(_,n) => "pet-" + n).join(",")), /1–100/);
+  assert.throws(() => parseReleasePetBatch(""), /1–100/);
 });
