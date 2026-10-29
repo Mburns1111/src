@@ -44,14 +44,11 @@ const rowButtons = drop => new ActionRowBuilder().addComponents(drop.slots.map((
   new ButtonBuilder().setCustomId(`cards:grab:${drop._id}:${i}`)
     .setLabel(slot.claimedBy ? `#${i + 1} Reserved` : `Grab #${i + 1}`)
     .setStyle(ButtonStyle.Primary).setDisabled(Boolean(slot.claimedBy) || drop.expiresAt <= new Date() || drop.status !== "open")));
-export function dropText(drop, releaseName, petNames = {}) {
+export function dropText(drop, releaseName) {
   const closed = drop.status === "closed" || new Date(drop.expiresAt) <= new Date();
-  return [
-    closed ? `🥚 **${escapeDiscord(releaseName)} Egg**` : `🥚 **${escapeDiscord(releaseName)} Egg — Hatched!**`,
-    closed ? "**Drop Ended**" : "Pick one visible card to grab:",
-    ...drop.slots.map((slot, i) => `**${i + 1}. ${escapeDiscord(petNames[slot.petId] || slot.petId)}** · ${slot.rarity}${slot.claimedBy ? closed ? " · Claimed" : " · Reserved" : closed ? " · Unclaimed" : ""}`),
-    ...(closed ? [] : [`Drop closes <t:${Math.floor(new Date(drop.expiresAt).getTime() / 1000)}:R>.`]),
-  ].join("\n");
+  return closed
+    ? `🥚 **${escapeDiscord(releaseName)} Egg — Drop Ended**`
+    : `🥚 **${escapeDiscord(releaseName)} Egg — Hatched!**`;
 }
 export async function execute(interaction) {
   if (!interaction.guildId) return interaction.editReply("Use card commands inside a server.");
