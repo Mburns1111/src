@@ -28,7 +28,7 @@ export async function prepareCardTagConfirmation({ discordUserId, cardId, cardId
       throw new Error("Each card ID can appear only once.");
     targets = { cards: copies, name: null, mode: "ids" };
   } else {
-    targets = await selectOwnedTagTargets(discordUserId, cardId);
+    targets = await selectOwnedTagTargets(discordUserId, cardId, { includeRelatedForId: true });
   }
   const nextTag = tag === null ? "" : tagKey(tag);
   const cards = targets.cards.map(card => ({
@@ -57,6 +57,7 @@ export async function prepareCardTagConfirmation({ discordUserId, cardId, cardId
   const token = randomBytes(12).toString("hex");
   const entry = {
     token, ownerId: discordUserId, name: targets.name, mode: targets.mode,
+    preferredId: targets.preferredId || null,
     cards: enriched, tag: nextTag, affected, expiresAt: now + TIMEOUT_MS,
     processing: false,
   };
