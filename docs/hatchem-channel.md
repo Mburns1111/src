@@ -39,3 +39,14 @@ Slash-command autocomplete is confined to Hatchem. Typed messages do not show Di
 - A four-letter pet prefix must identify one distinct pet you currently own. If several pets match, type more of the name or use a card ID; if you own multiple copies of the same pet, the newest is selected.
 - Multiword tags used without a card selector should be quoted, e.g. `.tag "My Favorites"`.
 - This is the Replit development bot, not Wispbyte production.
+
+## Tagging pet names with spaces
+
+- `.tag cute` targets only one newest currently owned card.
+- `.tag 2d do cute` or `.tag "2D Doggy" cute` tags **every owned 2D Doggy**, across all releases and upgrade stages.
+- `.tag abys cute` tags every owned Abyssinian Cat; `.untag abys` removes their tags.
+- `.tag KxQOo cute` tags **only that one card ID**.
+- `.tag 2d do "Very Cute"` or `.tag 2d do -- Very Cute` supports a spaced pet name and multiword tag.
+- `.tag "Very Cute"` tags the newest card without specifying a pet.
+- Individual card IDs and copies remain distinct in collection views; pet-name tagging writes the same tag to each copy.
+- Slash `/cards tag` and `/cards untag` now suggest owned pet groups and individual card IDs. Typed dot commands cannot show Discord autocomplete.
