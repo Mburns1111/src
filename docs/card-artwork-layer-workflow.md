@@ -25,3 +25,16 @@ Use new artwork keys for revisions; existing keys are deliberately immutable. Cu
 
 ## Not yet implemented
 Moderation approval, asset replacement/revision history, separate Neon/Mega art variants and production-release artwork publishing are future stages. No production database or live bot was changed by this feature branch.
+
+## Artwork management library
+
+All of these commands are **manager-only**, gated behind `ENABLE_CARD_GAME_TEST=1`:
+
+- `/cards art-list` — Browse 8 assets per page, optionally filter by `kind` or `status`.
+- `/cards art-info key:<asset-key>` — See the stored image, credited artist, uploader, status, prior key, newer direct revisions and recent reviewer notes.
+- `/cards art-review key:<asset-key> decision:Approve note:<permission evidence>` — Record that the artist permission/source terms were verified. You are responsible for checking the rights; the bot cannot verify licenses. You can also reject or return an item to review with an explanation.
+- `/cards art-upload ... replaces:<old-key> revision_note:<what changed>` — Store a new permanent version without replacing the old image. Example: upload `cat-art-v2` replacing `cat-art-v1`, then separately `/cards art-assign` the new key to the TEST card if you want it displayed.
+
+Approval/rejection/return-to-review decisions are recorded separately in `CardArtworkReview` with the reviewer and note. Assets default to `needs-review`; new revisions **never inherit approval**. Revisions do not automatically change assigned cards or releases. The existing image bytes and prior artist metadata are preserved in their original records.
+
+The art-info command is for staff; do not post private attribution/permission documents in a public channel. None of the review commands grants legal rights: the manager must first establish permission or a suitable license. Production rollout, approval-based publishing, and complex revision management remain separate future work.
