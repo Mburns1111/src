@@ -67,7 +67,7 @@ function cover(ctx, image, x, y, w, h) {
 export async function renderCollectibleCardPreview({
   petName, rarity, upgradeLevel = "normal", releaseName = "Release 1",
   seriesName = "Series 1", publicId = "PREVIEW", artistCredit = "", otherCollectorCount = 0,
-  artUrl = "", artStatus = "missing",
+  artUrl = "", artStatus = "missing", dropMode = false,
 } = {}) {
   const { width: W, height: H } = CARD_PREVIEW_SIZE;
   const canvas = createCanvas(W, H);
@@ -130,6 +130,9 @@ export async function renderCollectibleCardPreview({
     roundRect(ctx, 110, 1011, 680, 55, 18, "#EAF0EA", light, 2);
   }
   centered(ctx, upgradeLabel(upgradeLevel).toUpperCase(), W/2, 1049, 640, 28, "#3D5750");
+
+  // Unclaimed drop cards have no owner, no public card ID or personal statistics.
+  if (dropMode) return canvas.toBuffer("image/png");
 
   // Dedicated footer rows: don't let right-aligned collector text leak into artist credit.
   // Canva safe zone: x=88..812, bottom baseline <=1192.
