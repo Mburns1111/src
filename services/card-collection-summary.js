@@ -3,30 +3,34 @@ import CardClaim from "../models/CardClaim.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { displayCardId, upgradeLabel } from "./card-identifiers.js";
-import { findOwnedCardForCommand } from "./card-owned-selection.js";
+import { selectOwnedTagTargets } from "./card-tag-targets.js";
 import { normalizeCardTag, tagKey, createCollectorTag } from "./card-tag-catalog.js";
 export { normalizeCardTag } from "./card-tag-catalog.js";
 
 export const COLLECTION_RARITIES = Object.freeze(["Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"]);
 export const COLLECTION_UPGRADES = Object.freeze(["normal", "neon", "mega"]);
 export async function updateOwnedCardTag({ discordUserId, cardId, tag }) {
-  const target = await findOwnedCardForCommand(discordUserId, cardId);
+  const target = await selectOwnedTagTargets(discordUserId, cardId);
   const normalized = tag === null ? "" : tagKey(tag);
-  const card = await CardCopy.findOneAndUpdate(
-    { _id: target._id, ownerDiscordUserId: discordUserId, state: "owned" },
-    { $set: { tag: normalized } },
-    { returnDocument: "after", runValidators: true },
-  );
-  if (!card) throw new Error("That card is no longer in your owned collection.");
+  const ids = target.cards.map(copy => copy._id);
+  const filter = { _id: { $in: ids }, ownerDiscordUserId: discordUserId, state: "owned" };
+  const result = await CardCopy.updateMany(filter, { $set: { tag: normalized } },
+    { runValidators: true });
+  if (result.matchedCount !== ids.length)
+    throw new Error("Your collection changed during tagging. Please check the affected cards.");
   if (normalized) await createCollectorTag(discordUserId, normalized);
-  const definition = await CardDefinition.findById(card.cardDefinitionId).select("petId rarity").lean();
+  const copy = target.cards[0];
+  const definition = await CardDefinition.findById(copy.cardDefinitionId).select("petId rarity").lean();
   const pet = definition && await PetCatalog.findOne({ petId: definition.petId }).select("name").lean();
   return {
-    id: displayCardId(card),
-    name: pet?.name || definition?.petId || "Unknown pet",
+    id: displayCardId(copy),
+    name: target.name || pet?.name || definition?.petId || "Unknown pet",
     rarity: definition?.rarity || "Unknown",
-    upgradeLevel: card.upgradeLevel,
-    tag: card.tag,
+    upgradeLevel: copy.upgradeLevel,
+    tag: normalized,
+    count: ids.length,
+    changed: result.modifiedCount,
+    mode: target.mode,
   };
 }
 
