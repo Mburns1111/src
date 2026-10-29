@@ -1,6 +1,6 @@
 import {
   ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle,
-  EmbedBuilder, StringSelectMenuBuilder,
+  EmbedBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle,
 } from "discord.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardRelease from "../models/CardRelease.js";
@@ -12,7 +12,7 @@ import { countOtherCardCollectors } from "../services/card-ownership-stats.js";
 import { getCardCollectionSummary } from "../services/card-collection-summary.js";
 import {
   openCollectionSession, getCollectionSession, updateCollectionSession,
-  closeCollectionSession, getCollectionPage, listCollectionReleases,
+  closeCollectionSession, getCollectionPage, listCollectionReleases, listCollectionRarities, listCollectionTags,
   findOwnedCollectionCard, COLLECTION_RARITY_OPTIONS, COLLECTION_SORT_OPTIONS,
 } from "../services/card-collection-browser.js";
 
@@ -31,16 +31,21 @@ function select(id, placeholder, options, selected) {
 
 async function collectionView(id, ownerId) {
   const session = getCollectionSession(id, ownerId);
-  const [page, summary, releases] = await Promise.all([
+  const [page, summary, releases, ownedRarities, tags] = await Promise.all([
     getCollectionPage(ownerId, session),
     getCardCollectionSummary(ownerId),
     listCollectionReleases(ownerId),
+    listCollectionRarities(ownerId),
+    listCollectionTags(ownerId),
   ]);
   // Discord allows only 25 select choices. Reserve one for All releases.
   session.releaseOptions = releases.slice(0, 24);
   if (session.release !== "all" && !session.releaseOptions.includes(session.release)) session.release = "all";
   // Discord embeds keep every card on a single compact, regular-weight line.
   // Names and tags are escaped; no extra heading/ID rows for each card.
+  session.rarityOptions = ownedRarities;
+  if (session.rarity !== "all" && !ownedRarities.includes(session.rarity)) session.rarity = "all";
+  session.tagOptions = tags;
   const rows = page.cards.map((c, i) => [
     `${page.page * 8 + i + 1}.`,
     safe(c.petName),
@@ -53,10 +58,10 @@ async function collectionView(id, ownerId) {
   const embed = new EmbedBuilder()
     .setColor(0xB9A4D7)
     .setTitle(`Your Card Collection · ${summary.total} owned`)
-    .setDescription(rows.length ? rows.join("\n") : "No cards match these filters.")
+    .setDescription([session.tag ? `Tag filter: **#${safe(session.tag)}**` : "", rows.length ? rows.join("\n") : "No cards match these filters."].filter(Boolean).join("\n"))
     .setFooter({ text: `Normal ${summary.upgrade.normal || 0} · Neon ${summary.upgrade.neon || 0} · Mega ${summary.upgrade.mega || 0}  |  ${page.total} matching · page ${page.page + 1}/${page.pages}` });
   const rarity = select(`cards:collection:rarity:${id}`, "Filter by rarity",
-    COLLECTION_RARITY_OPTIONS.map(x => ({ label: x === "all" ? "All rarities" : x, value: x })), session.rarity);
+    ["all", ...ownedRarities].map(x => ({ label: x === "all" ? "All rarities" : x, value: x })), session.rarity);
   const release = select(`cards:collection:release:${id}`, "Filter by release",
     [{ label: "All releases", value: "all" }, ...session.releaseOptions.map(x => ({ label: x, value: x }))], session.release);
   const sort = select(`cards:collection:sort:${id}`, "Sort cards",
@@ -69,6 +74,10 @@ async function collectionView(id, ownerId) {
       .setStyle(ButtonStyle.Secondary).setDisabled(page.page === 0),
     new ButtonBuilder().setCustomId(`cards:collection:next:${id}`).setLabel("Next")
       .setStyle(ButtonStyle.Secondary).setDisabled(page.page + 1 >= page.pages),
+    new ButtonBuilder().setCustomId(`cards:collection:tag:${id}`).setLabel("Find Tag")
+      .setStyle(ButtonStyle.Primary).setDisabled(tags.length === 0),
+    new ButtonBuilder().setCustomId(`cards:collection:cleartag:${id}`).setLabel("Clear Tag")
+      .setStyle(ButtonStyle.Secondary).setDisabled(!session.tag),
     new ButtonBuilder().setCustomId(`cards:collection:close:${id}`).setLabel("Close")
       .setStyle(ButtonStyle.Secondary),
   );
@@ -88,10 +97,23 @@ export async function startCardCollection(interaction) {
 }
 
 export async function handleCardCollectionInteraction(interaction) {
-  await interaction.deferUpdate();
   const parts = interaction.customId.split(":");
   const action = parts[2], id = parts[3];
-  if (parts.length !== 4 || !id) return interaction.editReply({ content: "Invalid collection menu.", embeds: [], components: [] });
+  if (parts.length !== 4 || !id) return interaction.reply({ content: "Invalid collection menu.", ephemeral: true });
+  if (action === "tag" && interaction.isButton()) {
+    try {
+      const session = getCollectionSession(id, interaction.user.id);
+      const modal = new ModalBuilder().setCustomId(`cards:collection:tagsearch:${id}`).setTitle("Find cards by tag");
+      const field = new TextInputBuilder().setCustomId("tag").setLabel("Tag name (leave empty for all cards)")
+        .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(32)
+        .setPlaceholder(session.tag || "e.g. New");
+      modal.addComponents(new ActionRowBuilder().addComponents(field));
+      return interaction.showModal(modal);
+    } catch (error) {
+      return interaction.reply({ content: safe(error.message), ephemeral: true });
+    }
+  }
+  await interaction.deferUpdate();
   try {
     const session = getCollectionSession(id, interaction.user.id);
     if (action === "close") {
@@ -99,9 +121,11 @@ export async function handleCardCollectionInteraction(interaction) {
       return interaction.editReply({ content: "Collection closed. Use /cards collection to open it again.", embeds: [], components: [], attachments: [] });
     }
     if (action === "back") return interaction.editReply(await collectionView(id, interaction.user.id));
+    if (action === "cleartag") updateCollectionSession(id, interaction.user.id, { tag: "" });
     if (action === "prev" || action === "next") {
       updateCollectionSession(id, interaction.user.id, { page: Math.max(0, session.page + (action === "next" ? 1 : -1)) });
     } else if (action === "rarity") {
+      if (!session.rarityOptions?.includes(interaction.values?.[0]) && interaction.values?.[0] !== "all") throw new Error("That rarity is not in your collection.");
       updateCollectionSession(id, interaction.user.id, { rarity: interaction.values?.[0] });
     } else if (action === "release") {
       updateCollectionSession(id, interaction.user.id, { release: interaction.values?.[0] });
@@ -156,5 +180,22 @@ export async function handleCardCollectionInteraction(interaction) {
       attachments: [],
       allowedMentions: { parse: [] },
     });
+  }
+}
+
+export async function handleCardCollectionTagSearch(interaction) {
+  await interaction.deferUpdate();
+  const id = interaction.customId.split(":")[3];
+  try {
+    const tag = interaction.fields.getTextInputValue("tag");
+    const session = getCollectionSession(id, interaction.user.id);
+    const availableTags = await listCollectionTags(interaction.user.id);
+    if (tag.trim() && !availableTags.some(t => t.toLowerCase() === tag.trim().toLowerCase())) {
+      throw new Error("You don't currently have any owned cards with that tag.");
+    }
+    updateCollectionSession(id, interaction.user.id, { tag: tag.trim() });
+    return interaction.editReply(await collectionView(id, interaction.user.id));
+  } catch (error) {
+    return interaction.followUp({ content: safe(error.message), ephemeral: true });
   }
 }
