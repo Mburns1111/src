@@ -75,3 +75,48 @@ export async function findOwnedCardForCommand(ownerId, reference = null) {
   if (!newest) throw new Error("That card is no longer owned by you.");
   return newest;
 }
+
+
+/** Discord choices for owned cards. A pet-name choice groups owned copies
+ * when used by tag/untag; a five-character ID choice always selects one.
+ */
+export async function suggestOwnedCardReferences(ownerId, input, { includePets = true } = {}) {
+  const filter = String(input || "").trim().toLocaleLowerCase();
+  const copies = await CardCopy.find({ ownerDiscordUserId: ownerId, state: "owned" })
+    .select("publicId cardDefinitionId upgradeLevel").sort({ createdAt: -1, _id: -1 }).limit(250).lean();
+  const definitions = await CardDefinition.find({
+    _id: { $in: copies.map(c => c.cardDefinitionId) },
+  }).select("_id petId").lean();
+  const byDefinition = new Map(definitions.map(d => [String(d._id), d.petId]));
+  const pets = await PetCatalog.find({ petId: { $in: definitions.map(d => d.petId) } })
+    .select("petId name").lean();
+  const names = new Map(pets.map(p => [p.petId, p.name]));
+  const grouped = new Map();
+  for (const copy of copies) {
+    const pid = byDefinition.get(String(copy.cardDefinitionId));
+    if (!pid) continue;
+    const name = names.get(pid) || pid;
+    if (!grouped.has(pid)) grouped.set(pid, { name, cards: [] });
+    grouped.get(pid).cards.push(copy);
+  }
+  const choices = [];
+  if (includePets) for (const group of grouped.values()) {
+    if (group.name.length > 100) continue;
+    if (!group.name.toLocaleLowerCase().includes(filter)) continue;
+    choices.push({
+      name: ("All " + group.name + " (" + group.cards.length + " copies)").slice(0, 100),
+      value: group.name,
+    });
+  }
+  for (const group of grouped.values()) for (const card of group.cards) {
+    if (!card.publicId) continue;
+    if (!group.name.toLocaleLowerCase().includes(filter) &&
+        !card.publicId.toLocaleLowerCase().includes(filter)) continue;
+    const stage = card.upgradeLevel === "mega" ? "Mega" : card.upgradeLevel === "neon" ? "Neon" : "Normal";
+    choices.push({
+      name: (group.name + " · " + card.publicId + " · " + stage).slice(0, 100),
+      value: card.publicId,
+    });
+  }
+  return choices.slice(0, 25);
+}
