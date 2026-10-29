@@ -13,8 +13,12 @@ const schema = new mongoose.Schema({
   byteLength: { type: Number, required: true },
   artistCredit: { type: String, default: "", maxlength: 100 },
   artistUrl: { type: String, default: "" },
-  licenseReviewStatus: { type: String, enum: ["needs-review", "approved"], default: "needs-review" },
+  replacesKey: { type: String, default: "", index: true },
+  revisionNote: { type: String, default: "", maxlength: 500 },
+  licenseReviewStatus: { type: String, enum: ["needs-review", "approved", "rejected"], default: "needs-review" },
   uploadedBy: { type: String, required: true },
+  reviewedBy: { type: String, default: "" },
+  reviewedAt: { type: Date, default: null },
 }, { timestamps: true });
 
 export default mongoose.models.CardArtwork || mongoose.model("CardArtwork", schema);
