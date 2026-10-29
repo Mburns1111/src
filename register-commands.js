@@ -13,6 +13,8 @@ import { data as setupCommand } from "./commands/setup.js";
 import { data as adminImportCommand } from "./commands/admin-import-listing.js";
 import { data as shopCommand } from "./commands/shop.js";
 import { data as cardsCommand } from "./commands/cards.js";
+import { data as cardsAdminCommand } from "./commands/cards-admin.js";
+import { data as cardsOwnerCommand } from "./commands/cards-owner.js";
 import { data as testPointsCommand } from "./commands/test-points.js";
 import { data as pointsAdminCommand } from "./commands/points-admin.js";
 import { data as pointsObserveCommand } from "./commands/points-observe.js";
@@ -53,7 +55,9 @@ console.log(
 
 if (guildId) {
   await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-    body: process.env.ENABLE_CARD_GAME_TEST === "1" ? [...commands, cardsCommand.toJSON()] : commands,
+    body: process.env.ENABLE_CARD_GAME_TEST === "1"
+      ? [...commands, cardsCommand.toJSON(), cardsAdminCommand.toJSON(), cardsOwnerCommand.toJSON()]
+      : commands,
   });
 
   console.log(`Also registered commands for test server ${guildId}.`);
