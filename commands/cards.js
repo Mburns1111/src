@@ -9,6 +9,7 @@ import CardClaim from "../models/CardClaim.js";
 import CardSeries from "../models/CardSeries.js";
 import { resolveCardId } from "../services/card-identifiers.js";
 import { renderCollectibleCardPreview } from "../services/card-preview-renderer.js";
+import { renderThreeCardDropImage } from "../services/card-drop-renderer.js";
 import { getCardCollectionSummary, formatCardCollectionSummary, updateOwnedCardTag } from "../services/card-collection-summary.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { updateMultipleOwnedCardTags, prepareTagDeletion, confirmTagDeletion } from "../services/card-tag-management.js";
@@ -204,6 +205,21 @@ export async function execute(interaction) {
   const ids = [...new Set(revealed.map(x => x.card.petId))];
   const pets = await PetCatalog.find({ petId: { $in: ids } }).select("petId name").lean();
   const petNames = Object.fromEntries(pets.map(p => [p.petId, p.name]));
+  // Render before creating the drop: a renderer failure never leaves a
+  // claimable drop record without an image in Discord.
+  const series = await CardSeries.findOne({ seriesId: release.seriesId }).select("name").lean();
+  const dropPng = await renderThreeCardDropImage({
+    releaseName: release.name,
+    seriesName: series?.name || release.seriesId,
+    eggImageUrl: release.eggImageUrl,
+    cards: revealed.map(({ card, rarity }) => ({
+      petName: petNames[card.petId] || card.petId,
+      rarity,
+      artStatus: card.artStatus,
+      artUrl: card.artUrl,
+      artistCredit: card.artistCredit,
+    })),
+  });
   const drop = await CardDrop.create({
     guildId: interaction.guildId, channelId: interaction.channelId,
     releaseId, createdBy: interaction.user.id, expiresAt: new Date(Date.now() + 75_000),
@@ -211,7 +227,9 @@ export async function execute(interaction) {
   });
   try {
     const message = await interaction.channel.send({
-      content: dropText(drop, release.name, petNames), components: [rowButtons(drop)],
+      content: dropText(drop, release.name, petNames),
+      files: [new AttachmentBuilder(dropPng, { name: "card-drop.png" })],
+      components: [rowButtons(drop)],
       allowedMentions: { parse: [] },
     });
     await CardDrop.updateOne({ _id: drop._id }, { $set: { messageId: message.id } });
