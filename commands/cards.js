@@ -21,7 +21,7 @@ import { updateMultipleOwnedCardTags, prepareTagDeletion, confirmTagDeletion } f
 import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js";
 import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../services/card-drop-claims.js";
 
-export const data = new SlashCommandBuilder().setName("cards").setDescription("Collectible card game")
+export const data = new SlashCommandBuilder().setName("cards").setDescription("Hatchem collectible card game")
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
     .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false)))
   .addSubcommand(c => c.setName("upgrade").setDescription("Combine 4 matching cards into Neon or Mega Neon")
