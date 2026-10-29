@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { data } from "../commands/cards.js";
 import { COLLECTION_PAGE_SIZE, COLLECTION_RARITY_OPTIONS, COLLECTION_SORT_OPTIONS,
-  openCollectionSession, getCollectionSession, updateCollectionSession, closeCollectionSession } from "../services/card-collection-browser.js";
+  openCollectionSession, getCollectionSession, updateCollectionSession, closeCollectionSession,
+  listCollectionRarities, listCollectionTags } from "../services/card-collection-browser.js";
 import { startCardCollection, handleCardCollectionInteraction } from "../commands/card-collection-ui.js";
 
 test("private collection viewer supports 8-card pages and sortable filters", () => {
@@ -28,4 +29,18 @@ test("collection sessions reject other members and invalid inputs", () => {
   assert.throws(() => updateCollectionSession(id, "collector-a", { release: "unowned" }));
   closeCollectionSession(id, "collector-a");
   assert.throws(() => getCollectionSession(id, "collector-a"), /expired/);
+});
+
+test("tag searches reset pagination and support clearing the tag", () => {
+  const id = openCollectionSession("tag-owner");
+  updateCollectionSession(id, "tag-owner", { page: 3 });
+  updateCollectionSession(id, "tag-owner", { tag: "  My   Favorites  " });
+  assert.equal(getCollectionSession(id, "tag-owner").tag, "My Favorites");
+  assert.equal(getCollectionSession(id, "tag-owner").page, 0);
+  assert.throws(() => updateCollectionSession(id, "tag-owner", { tag: "bad.*regex" }), /valid tag/);
+  updateCollectionSession(id, "tag-owner", { tag: "" });
+  assert.equal(getCollectionSession(id, "tag-owner").tag, "");
+  closeCollectionSession(id, "tag-owner");
+  assert.equal(typeof listCollectionRarities, "function");
+  assert.equal(typeof listCollectionTags, "function");
 });
