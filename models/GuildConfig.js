@@ -21,6 +21,8 @@ const guildConfigSchema = new mongoose.Schema(
     shopMessageId: { type: String, default: "" },
     shopCategoryMessageIds: { type: Map, of: String, default: () => ({}) },
     commandChannelId: { type: String, default: "" },
+    hatchemChannelId: { type: String, default: "" },
+    hatchemGuideMessageId: { type: String, default: "" },
     profileChannelId: { type: String, default: "" },
     profileEntryChannelId: { type: String, default: "" },
     profileEntryMessageId: { type: String, default: "" },
