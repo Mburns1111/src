@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 const schema = new mongoose.Schema({
   discordUserId: { type: String, required: true },
   tag: { type: String, required: true, maxlength: 32 },
-  expectedCount: { type: Number, required: true, min: 1 },
+  expectedCount: { type: Number, required: true, min: 0 },
   expiresAt: { type: Date, required: true },
   status: { type: String, enum: ["pending", "confirmed", "cancelled"], default: "pending" },
 }, { timestamps: true });
