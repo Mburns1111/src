@@ -210,7 +210,7 @@ export async function execute(interaction) {
           `Credit: ${result.creditText}`,
           "Source/license review remains pending. This upload is for development testing only.",
           "Run /cards test-drop release:test-s1-r1 to preview it.",
-        ].join("\\n"),
+        ].join("\n"),
         allowedMentions: { parse: [] },
       });
     } catch (error) {
