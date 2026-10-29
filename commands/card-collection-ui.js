@@ -122,7 +122,7 @@ export async function handleCardCollectionInteraction(interaction) {
     }
     if (action === "back") return interaction.editReply(await collectionView(id, interaction.user.id));
     if (action === "cleartag") updateCollectionSession(id, interaction.user.id, { tag: "" });
-    if (action === "prev" || action === "next") {
+    else if (action === "prev" || action === "next") {
       updateCollectionSession(id, interaction.user.id, { page: Math.max(0, session.page + (action === "next" ? 1 : -1)) });
     } else if (action === "rarity") {
       if (!session.rarityOptions?.includes(interaction.values?.[0]) && interaction.values?.[0] !== "all") throw new Error("That rarity is not in your collection.");
