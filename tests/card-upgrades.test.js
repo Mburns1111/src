@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { data, handleCardUpgrade } from "../commands/cards.js";
-import { inspectUpgradeCards, selectUpgradeSet, CARDS_PER_UPGRADE } from "../services/card-upgrades.js";
+import { inspectUpgradeCards, selectUpgradeSet, suggestOwnedCardUpgrades, CARDS_PER_UPGRADE } from "../services/card-upgrades.js";
 import CardLifecycleEvent from "../models/CardLifecycleEvent.js";
 import CardCopy from "../models/CardCopy.js";
 
@@ -50,4 +50,19 @@ test("upgrade is private, explicitly confirmed, auditable and assigned a new cop
   assert.match(source, /session\.withTransaction/);
   assert.match(source, /allocateCardId\(session\)/);
   assert.match(source, /modifiedCount !== CARDS_PER_UPGRADE/);
+});
+
+test("upgrade autocomplete is attached to the single card field and uses owned-only candidates", async () => {
+  const upgrade = data.toJSON().options.find(o => o.name === "upgrade");
+  const field = upgrade.options.find(o => o.name === "card");
+  assert.equal(field.autocomplete, true);
+  assert.equal(typeof suggestOwnedCardUpgrades, "function");
+  const { readFileSync } = await import("node:fs");
+  const service = readFileSync(new URL("../services/card-upgrades.js", import.meta.url), "utf8");
+  const index = readFileSync(new URL("../index.js", import.meta.url), "utf8");
+  assert.match(service, /ownerDiscordUserId: ownerId, state: "owned"/);
+  assert.match(service, /count: \{ \$gte: CARDS_PER_UPGRADE \}/);
+  assert.match(service, /\.slice\(0, 25\)/);
+  assert.match(index, /interaction\.isAutocomplete\(\)/);
+  assert.match(index, /await autocompleteCards\(interaction\)/);
 });
