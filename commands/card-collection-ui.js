@@ -31,11 +31,11 @@ function select(id, placeholder, options, selected) {
 async function collectionView(id, ownerId) {
   const session = getCollectionSession(id, ownerId);
   const [page, summary, releases, ownedRarities, tags] = await Promise.all([
-    getCollectionPage(ownerId, session),
-    getCardCollectionSummary(ownerId),
-    listCollectionReleases(ownerId),
-    listCollectionRarities(ownerId),
-    listCollectionTags(ownerId),
+    getCollectionPage(session.collectionOwnerId, session),
+    getCardCollectionSummary(session.collectionOwnerId),
+    listCollectionReleases(session.collectionOwnerId),
+    listCollectionRarities(session.collectionOwnerId),
+    listCollectionTags(session.collectionOwnerId),
   ]);
   // Discord allows only 25 select choices. Reserve one for All releases.
   session.releaseOptions = releases.slice(0, 24);
@@ -61,7 +61,7 @@ async function collectionView(id, ownerId) {
   ].join(" · ").replace(/^([0-9]+\\.) · /, "$1 "));
   const embed = new EmbedBuilder()
     .setColor(0xB9A4D7)
-    .setTitle(`Your Card Collection · ${summary.total} owned`)
+    .setTitle(`${safe(session.collectionName)} · ${summary.total} owned`)
     .setDescription([session.tag ? `Tag filter: **#${safe(session.tag)}**` : "", rows.length ? rows.join("\n") : "No cards match these filters."].filter(Boolean).join("\n"))
     .setFooter({ text: `Normal ${summary.upgrade.normal || 0} · Neon ${summary.upgrade.neon || 0} · Mega ${summary.upgrade.mega || 0}  |  ${page.total} matching · page ${page.page + 1}/${page.pages}` });
   const rarity = select(`cards:collection:rarity:${id}`, "Filter by rarity",
@@ -91,17 +91,26 @@ async function collectionView(id, ownerId) {
 }
 
 export async function startCardCollection(interaction) {
-  const id = openCollectionSession(interaction.user.id);
+  const target = interaction.options.getUser("member") || interaction.user;
+  const name = target.id === interaction.user.id ? "Your Card Collection" : `${target.username}’s Card Collection`;
+  const id = openCollectionSession(interaction.user.id, target.id, name);
   return interaction.editReply(await collectionView(id, interaction.user.id));
 }
 
 export async function handleCardCollectionInteraction(interaction) {
   const parts = interaction.customId.split(":");
   const action = parts[2], id = parts[3];
-  if (parts.length !== 4 || !id) return interaction.reply({ content: "Invalid collection menu.", ephemeral: true });
+  if (parts.length !== 4 || !id) return interaction.reply({ content: "Invalid collection menu.", flags: 64 });
+  // Public controls belong only to the member who opened this collection.
+  // Never acknowledge with deferUpdate for another user: that would edit their view.
+  let session;
+  try {
+    session = getCollectionSession(id, interaction.user.id);
+  } catch (error) {
+    return interaction.reply({ content: safe(error.message), flags: 64, allowedMentions: { parse: [] } });
+  }
   await interaction.deferUpdate();
   try {
-    const session = getCollectionSession(id, interaction.user.id);
     if (action === "pick" && ["__prev__", "__next__", "__back__", "__empty__"].includes(interaction.values?.[0])) {
       const selected = interaction.values?.[0];
       if (selected === "__prev__" || selected === "__next__") {
@@ -127,17 +136,17 @@ export async function handleCardCollectionInteraction(interaction) {
       updateCollectionSession(id, interaction.user.id, { tag: selected === "all" ? "" : selected });
     } else if (action === "pick") {
       // Check the selected card belongs to the current displayed page.
-      const page = await getCollectionPage(interaction.user.id, session);
+      const page = await getCollectionPage(session.collectionOwnerId, session);
       if (!page.cards.some(c => String(c._id) === interaction.values?.[0])) throw new Error("That card is not on this page.");
-      const copy = await findOwnedCollectionCard(interaction.user.id, interaction.values?.[0]);
-      if (!copy) throw new Error("You no longer own that card.");
+      const copy = await findOwnedCollectionCard(session.collectionOwnerId, interaction.values?.[0]);
+      if (!copy) throw new Error("That card is no longer in this collection.");
       const def = await CardDefinition.findById(copy.cardDefinitionId).lean();
       if (!def) throw new Error("Card definition missing.");
       const [pet, release, series, count] = await Promise.all([
         PetCatalog.findOne({ petId: def.petId }).select("name").lean(),
         CardRelease.findOne({ releaseId: def.releaseId }).select("name cardBackgroundKey cardFrameKey").lean(),
         CardSeries.findOne({ seriesId: def.seriesId }).select("name").lean(),
-        countOtherCardCollectors({ cardDefinitionId: copy.cardDefinitionId, ownerDiscordUserId: interaction.user.id }),
+        countOtherCardCollectors({ cardDefinitionId: copy.cardDefinitionId, ownerDiscordUserId: session.collectionOwnerId }),
       ]);
       const [petImage, background, frame] = await Promise.all([
         loadCardArtwork(def.petArtworkKey, "pet"),
