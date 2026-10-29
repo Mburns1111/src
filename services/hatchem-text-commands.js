@@ -54,7 +54,7 @@ export const HATCHEM_HELP = [
   ".create-tag cute — save a tag · .tags — list saved tags",
   ".tag cute — tag your newest owned card (even a Neon upgrade)",
   ".tag abys cute — newest Abyssinian Cat · .untag abys",
-  ".tag CardID Favorites · .tag \\"My Favorite\\" (spaces)",
+  '.tag CardID Favorites · .tag "My Favorite" (spaces)',
   ".tag-multiple Favorites ID1,ID2 · .untag-multiple ID1,ID2",
   ".delete-tag Favorites · .stats abys · .preview abys",
   ".trade and .burn — coming later; not active",
