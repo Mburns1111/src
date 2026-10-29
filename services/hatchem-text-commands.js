@@ -2,14 +2,26 @@ import { execute as executeCards } from "../commands/cards.js";
 
 export function parseHatchemTagArguments(raw) {
   const args = String(raw || "").trim();
-  // Quotes let a tag or a full pet name contain spaces without ambiguity.
+  if (!args) return { tag: "" };
+  const stripQuotes = value => String(value).trim().replace(/^"|"$/g, "");
+  // Double hyphen separates a multiword pet and a multiword tag.
+  const separator = args.indexOf(" -- ");
+  if (separator > 0) {
+    return { card_id: stripQuotes(args.slice(0, separator)), tag: stripQuotes(args.slice(separator + 4)) };
+  }
   const quotedReference = /^"([^"]+)"\s+(.+)$/.exec(args);
-  if (quotedReference) return { card_id: quotedReference[1], tag: quotedReference[2].replace(/^"|"$/g, "").trim() };
+  if (quotedReference) return { card_id: quotedReference[1], tag: stripQuotes(quotedReference[2]) };
   const quotedTag = /^"([^"]+)"$/.exec(args);
   if (quotedTag) return { tag: quotedTag[1] };
-  const target = /^(\S+)\s+(.+)$/.exec(args);
-  if (target) return { card_id: target[1], tag: target[2].replace(/^"|"$/g, "").trim() };
-  return { tag: args };
+  const quotedSuffix = /^(.+?)\s+"([^"]+)"$/.exec(args);
+  if (quotedSuffix) return { card_id: quotedSuffix[1].trim(), tag: quotedSuffix[2] };
+  // An exact five-character card ID always targets ONE copy.
+  const singleId = /^([0-9A-Za-z_-]{5})\s+(.+)$/.exec(args);
+  if (singleId) return { card_id: singleId[1], tag: singleId[2].trim() };
+  const words = args.split(/\s+/);
+  if (words.length === 1) return { tag: args };
+  // All but the final word is the pet name/prefix.
+  return { card_id: words.slice(0, -1).join(" "), tag: words.at(-1) };
 }
 
 export function parseHatchemText(content) {
@@ -39,7 +51,7 @@ export const HATCHEM_GUIDE = [
   ".collection [@member] — public collection",
   ".upgrade [pet name or card ID] — combine four matching cards",
   ".create-tag cute · .tags · .tag cute (newest card)",
-  ".tag abys cute (pet prefix) · .untag abys",
+  ".tag 2d do cute (all 2D Doggy copies) · .untag abys",
   ".stats [card ID] · .preview [card ID]",
   ".drop — staff-only test egg",
   ".help — list more commands",
@@ -53,12 +65,14 @@ export const HATCHEM_HELP = [
   ".upgrade Pet Name or .upgrade CardID — confirm a four-card upgrade",
   ".create-tag cute — save a tag · .tags — list saved tags",
   ".tag cute — tag your newest owned card (even a Neon upgrade)",
-  ".tag abys cute — newest Abyssinian Cat · .untag abys",
-  '.tag CardID Favorites · .tag "My Favorite" (spaces)',
+  ".tag 2d do cute — every owned 2D Doggy (case-insensitive)",
+  ".tag abys cute — every Abyssinian Cat · .untag abys — clear all",
+  '.tag CardID Favorites — one card · .tag "My Favorite" — newest',
+  '.tag 2d do "Very Cute" — all matching pets with spaced tag',
   ".tag-multiple Favorites ID1,ID2 · .untag-multiple ID1,ID2",
   ".delete-tag Favorites · .stats abys · .preview abys",
   ".trade and .burn — coming later; not active",
-  "Pet names and tags ignore capitalization. Card IDs accept case-insensitive input only when unambiguous.",
+  "Pet names and tags ignore capitalization. A 5-character card ID targets only one owned card.",
 ].join("\n");
 
 export async function runHatchemText(message, parsed) {
