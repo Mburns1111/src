@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import CardRelease from "../models/CardRelease.js";
+import CardSeries from "../models/CardSeries.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
@@ -21,36 +22,36 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("name").setDescription("Display title, e.g. Series 1").setRequired(true)))
   .addSubcommand(command => command.setName("create-release")
     .setDescription("OWNER: create an inactive global egg release under a series")
-    .addStringOption(o => o.setName("series").setDescription("Existing series ID").setRequired(true))
+    .addStringOption(o => o.setName("series").setDescription("Select an existing global series").setRequired(true).setAutocomplete(true))
     .addStringOption(o => o.setName("id").setDescription("Unique release ID, e.g. s1-r1").setRequired(true))
     .addStringOption(o => o.setName("name").setDescription("Release title").setRequired(true))
     .addStringOption(o => o.setName("egg").setDescription("Egg display name").setRequired(true)))
   .addSubcommand(command => command.setName("edit-release")
     .setDescription("OWNER: edit the name of a DRAFT release or egg")
-    .addStringOption(o => o.setName("release").setDescription("Release ID").setRequired(true))
+    .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true))
     .addStringOption(o => o.setName("name").setDescription("Optional replacement release name"))
     .addStringOption(o => o.setName("egg").setDescription("Optional replacement egg name")))
   .addSubcommand(command => command.setName("add-pet")
     .setDescription("OWNER: add a master-catalog pet to a DRAFT release")
-    .addStringOption(o => o.setName("release").setDescription("Global release ID").setRequired(true))
-    .addStringOption(o => o.setName("pet").setDescription("Canonical ID or full pet name").setRequired(true))
+    .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("pet").setDescription("Search available pet names").setRequired(true).setAutocomplete(true))
     .addNumberOption(o => o.setName("weight").setDescription("Relative hatch weight; default 1").setMinValue(0).setMaxValue(10000)))
   .addSubcommand(command => command.setName("add-pets")
     .setDescription("OWNER: add up to 100 pets to a DRAFT in one atomic operation")
-    .addStringOption(o => o.setName("release").setDescription("Global release ID").setRequired(true))
+    .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true))
     .addStringOption(o => o.setName("pets").setDescription("Comma-separated pet IDs or exact names").setRequired(true).setMaxLength(6000)))
   .addSubcommand(command => command.setName("remove-pet")
     .setDescription("OWNER: remove a pet with no approved art from a DRAFT")
-    .addStringOption(o => o.setName("release").setDescription("Global release ID").setRequired(true))
-    .addStringOption(o => o.setName("pet").setDescription("Canonical pet ID").setRequired(true)))
+    .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("pet").setDescription("Search pets already assigned to this release").setRequired(true).setAutocomplete(true)))
   .addSubcommand(command => command.setName("set-weight")
     .setDescription("OWNER: adjust a draft release pet's relative hatch weight")
-    .addStringOption(o => o.setName("release").setDescription("Global release ID").setRequired(true))
-    .addStringOption(o => o.setName("pet").setDescription("Canonical pet ID").setRequired(true))
+    .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("pet").setDescription("Search pets already assigned to this release").setRequired(true).setAutocomplete(true))
     .addNumberOption(o => o.setName("weight").setDescription("Weight, 0 disables its chance").setMinValue(0).setMaxValue(10000).setRequired(true)))
   .addSubcommand(command => command.setName("set-odds")
     .setDescription("OWNER: set all five rarity percentages in a DRAFT release")
-    .addStringOption(o => o.setName("release").setDescription("Release ID").setRequired(true))
+    .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true))
     .addNumberOption(o => o.setName("common").setDescription("Common %").setRequired(true).setMinValue(0).setMaxValue(100))
     .addNumberOption(o => o.setName("uncommon").setDescription("Uncommon %").setRequired(true).setMinValue(0).setMaxValue(100))
     .addNumberOption(o => o.setName("rare").setDescription("Rare %").setRequired(true).setMinValue(0).setMaxValue(100))
@@ -58,11 +59,11 @@ export const data = new SlashCommandBuilder()
     .addNumberOption(o => o.setName("legendary").setDescription("Legendary %").setRequired(true).setMinValue(0).setMaxValue(100)))
   .addSubcommand(command => command.setName("release-check")
     .setDescription("OWNER: privately inspect readiness without activating an egg")
-    .addStringOption(o => o.setName("release").setDescription("Global release ID").setRequired(true)))
+    .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true)))
   .addSubcommand(command => command.setName("inspect")
     .setDescription("Privately inspect all pets and weights in an egg release")
     .addStringOption(option => option.setName("release")
-      .setDescription("The global release ID").setRequired(true))
+      .setDescription("Select a global release").setRequired(true).setAutocomplete(true))
     .addIntegerOption(option => option.setName("page")
       .setDescription("Page of the release's pets").setMinValue(1).setRequired(false)));
 
@@ -177,4 +178,65 @@ export async function execute(interaction) {
     ].join("\n"));
   }
   return interaction.editReply("Unknown owner action.");
+}
+
+
+/** Autocomplete reveals release rosters only to the configured owner. */
+export async function autocompleteCardsOwner(interaction) {
+  if (!isCardGameOwner(interaction.user?.id)) return interaction.respond([]);
+  const focused = interaction.options.getFocused(true);
+  const query = String(focused?.value ?? "").trim().slice(0, 90).toLocaleLowerCase();
+  const matches = name => String(name || "").toLocaleLowerCase().includes(query);
+  const option = interaction.options.getSubcommand(false);
+  try {
+    let suggestions = [];
+    if (focused.name === "series" && option === "create-release") {
+      const series = await CardSeries.find({ status: { $ne: "retired" } })
+        .select("seriesId name").sort({ name: 1 }).limit(200).lean();
+      suggestions = series.filter(s => matches(s.name) || matches(s.seriesId))
+        .slice(0, 25).map(s => ({ name: (s.name + " · " + s.seriesId).slice(0, 100), value: s.seriesId }));
+    } else if (focused.name === "release") {
+      const releases = await CardRelease.find({}).select("releaseId name status")
+        .sort({ createdAt: -1 }).limit(200).lean();
+      suggestions = releases.filter(r => matches(r.name) || matches(r.releaseId))
+        .slice(0, 25).map(r => ({
+          name: (r.name + " · " + r.releaseId + " (" + r.status + ")").slice(0, 100),
+          value: r.releaseId,
+        }));
+    } else if (focused.name === "pet" && option === "add-pet") {
+      const escaped = query.replace(/[^\p{L}\p{N} -]/gu, "\\$&");
+      const pets = await PetCatalog.find({
+        rarity: { $ne: "Unknown" },
+        $or: [
+          { name: { $regex: escaped, $options: "i" } },
+          { petId: { $regex: escaped, $options: "i" } },
+        ],
+      }).select("petId name rarity").sort({ name: 1 }).limit(100).lean();
+      const selectedRelease = interaction.options.getString("release");
+      const assigned = selectedRelease
+        ? await CardDefinition.distinct("petId", { releaseId: selectedRelease,
+            petId: { $in: pets.map(p => p.petId) } })
+        : [];
+      const existing = new Set(assigned);
+      suggestions = pets.filter(p => !existing.has(p.petId)).slice(0, 25)
+        .map(p => ({ name: (p.name + " · " + p.rarity).slice(0, 100), value: p.petId }));
+    } else if (focused.name === "pet" && ["remove-pet", "set-weight"].includes(option)) {
+      const selectedRelease = interaction.options.getString("release");
+      if (!selectedRelease) return interaction.respond([]);
+      const assigned = await CardDefinition.find({ releaseId: selectedRelease })
+        .select("petId rarity").limit(250).lean();
+      const pets = await PetCatalog.find({ petId: { $in: assigned.map(d => d.petId) } })
+        .select("petId name").lean();
+      const names = new Map(pets.map(p => [p.petId, p.name]));
+      suggestions = assigned.filter(d => matches(names.get(d.petId)) || matches(d.petId))
+        .slice(0, 25).map(d => ({
+          name: ((names.get(d.petId) || d.petId) + " · " + d.rarity).slice(0, 100),
+          value: d.petId,
+        }));
+    }
+    return interaction.respond(suggestions);
+  } catch (error) {
+    console.warn("[Cards] Owner autocomplete failed:", error.message);
+    return interaction.respond([]);
+  }
 }
