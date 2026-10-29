@@ -131,8 +131,21 @@ export async function renderCollectibleCardPreview({
   }
   centered(ctx, upgradeLabel(upgradeLevel).toUpperCase(), W/2, 1049, 640, 28, "#3D5750");
 
-  // Unclaimed drop cards have no owner, no public card ID or personal statistics.
-  if (dropMode) return canvas.toBuffer("image/png");
+  // All displayed artwork is credited on the card, including drop cards.
+  // A test-placeholder is explicitly described as a placeholder, not as real artist art.
+  if (dropMode) {
+    ctx.save();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#566760";
+    ctx.font = "bold 26px sans-serif";
+    const credit = artistCredit?.trim()
+      ? `Art: ${artistCredit.trim()}`
+      : "Test placeholder · Artist pending";
+    ctx.fillText(credit, 88, 1158, 724);
+    ctx.restore();
+    return canvas.toBuffer("image/png");
+  }
 
   // Dedicated footer rows: don't let right-aligned collector text leak into artist credit.
   // Canva safe zone: x=88..812, bottom baseline <=1192.
