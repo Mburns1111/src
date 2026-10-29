@@ -346,3 +346,15 @@ test("art-first Series 1 draft retains 100 unique pets and rarity distribution",
   assert.equal(draftRoster.implementation.mergedToMain, false);
   assert.equal(draftRoster.implementation.requiresOwnerApproval, true);
 });
+
+test("Maggie's reported permission is recorded while her art remains unreviewed", () => {
+  const artist = catalog.artists.find(x => x.artistId === "reddit-some1_named_maggie");
+  assert.ok(artist);
+  assert.equal(artist.displayName, "Maggie");
+  assert.equal(artist.platformUsername, "some1_named_maggie");
+  assert.equal(artist.submittedPostsUrl, "https://www.reddit.com/user/some1_named_maggie/submitted/");
+  assert.equal(artist.permission.status, "reported-by-project-owner");
+  assert.equal(artist.artworkReview.status, "not-yet-reviewed");
+  assert.deepEqual(artist.artworkReview.selectedArtworkIds, []);
+  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 0);
+});
