@@ -1,6 +1,5 @@
 import {
-  ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle,
-  EmbedBuilder, StringSelectMenuBuilder,
+  ActionRowBuilder, AttachmentBuilder, EmbedBuilder, StringSelectMenuBuilder,
 } from "discord.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardRelease from "../models/CardRelease.js";
@@ -77,19 +76,17 @@ async function collectionView(id, ownerId) {
       value,
       label: { newest: "Newest first", oldest: "Oldest first", name: "Pet name A–Z", rarity: "Highest rarity first" }[value],
     })), session.sort);
-  const controls = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`cards:collection:prev:${id}`).setLabel("Previous")
-      .setStyle(ButtonStyle.Secondary).setDisabled(page.page === 0),
-    new ButtonBuilder().setCustomId(`cards:collection:next:${id}`).setLabel("Next")
-      .setStyle(ButtonStyle.Secondary).setDisabled(page.page + 1 >= page.pages),
-    new ButtonBuilder().setCustomId(`cards:collection:choose:${id}`).setLabel("View Card")
-      .setStyle(ButtonStyle.Primary).setDisabled(page.cards.length === 0),
-    new ButtonBuilder().setCustomId(`cards:collection:close:${id}`).setLabel("Close")
-      .setStyle(ButtonStyle.Secondary),
-  );
-  // Four filters plus buttons use Discord's five available component rows.
-  // Open the card picker as a second view instead of squeezing in a sixth row.
-  const components = [rarity, release, tag, sort, controls];
+  // Keep the entire collection within Discord's five action rows: four
+  // filters and one card picker. Page navigation lives in the picker.
+  const cardChoices = page.cards.map((c, i) => ({
+    label: `${page.page * 8 + i + 1}. ${c.petName}`,
+    value: String(c._id),
+  }));
+  if (page.page > 0) cardChoices.push({ label: "← Previous page", value: "__prev__" });
+  if (page.page + 1 < page.pages) cardChoices.push({ label: "Next page →", value: "__next__" });
+  if (!cardChoices.length) cardChoices.push({ label: "No cards to open", value: "__empty__" });
+  const picker = select(`cards:collection:pick:${id}`, "Open a card or change page", cardChoices, undefined);
+  const components = [rarity, release, tag, sort, picker];
   return { content: "", embeds: [embed], components, attachments: [], allowedMentions: { parse: [] } };
 }
 
@@ -105,37 +102,23 @@ export async function handleCardCollectionInteraction(interaction) {
   await interaction.deferUpdate();
   try {
     const session = getCollectionSession(id, interaction.user.id);
-    if (action === "close") {
-      closeCollectionSession(id, interaction.user.id);
-      return interaction.editReply({ content: "Collection closed. Use /cards collection to open it again.", embeds: [], components: [], attachments: [] });
-    }
-    if (action === "back") return interaction.editReply(await collectionView(id, interaction.user.id));
-    if (action === "choose") {
+    if (action === "pick") {
+      const selected = interaction.values?.[0];
+      if (selected === "__prev__" || selected === "__next__") {
+        updateCollectionSession(id, interaction.user.id, {
+          page: Math.max(0, session.page + (selected === "__next__" ? 1 : -1)),
+        });
+        return interaction.editReply(await collectionView(id, interaction.user.id));
+      }
+      if (selected === "__back__" || selected === "__empty__") {
+        return interaction.editReply(await collectionView(id, interaction.user.id));
+      }
+      // Ensure the chosen ID is from the currently displayed page, as well
+      // as owned by the member (ownership is checked again below).
       const page = await getCollectionPage(interaction.user.id, session);
-      if (!page.cards.length) return interaction.editReply(await collectionView(id, interaction.user.id));
-      const picker = select(`cards:collection:pick:${id}`, "Choose a card to preview",
-        page.cards.map((c, i) => ({
-          label: `${page.page * 8 + i + 1}. ${c.petName}`,
-          value: String(c._id),
-        })), undefined);
-      const actions = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`cards:collection:back:${id}`).setLabel("Back to collection")
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(`cards:collection:close:${id}`).setLabel("Close")
-          .setStyle(ButtonStyle.Secondary),
-      );
-      return interaction.editReply({
-        content: "Select a card below to view its illustration.",
-        embeds: [],
-        components: [picker, actions],
-        attachments: [],
-        allowedMentions: { parse: [] },
-      });
-    }
-
-    if (action === "prev" || action === "next") {
-      updateCollectionSession(id, interaction.user.id, { page: Math.max(0, session.page + (action === "next" ? 1 : -1)) });
+      if (!page.cards.some(c => String(c._id) === selected)) throw new Error("That card is not on this page.");
     } else if (action === "rarity") {
+
       if (!session.rarityOptions?.includes(interaction.values?.[0]) && interaction.values?.[0] !== "all") throw new Error("That rarity is not in your collection.");
       updateCollectionSession(id, interaction.user.id, { rarity: interaction.values?.[0] });
     } else if (action === "release") {
@@ -175,10 +158,8 @@ export async function handleCardCollectionInteraction(interaction) {
         embeds: [],
         files: [new AttachmentBuilder(png, { name: "collection-card.png" })],
         attachments: [],
-        components: [new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`cards:collection:back:${id}`).setLabel("Back to collection").setStyle(ButtonStyle.Primary),
-          new ButtonBuilder().setCustomId(`cards:collection:close:${id}`).setLabel("Close").setStyle(ButtonStyle.Secondary),
-        )],
+        components: [select(`cards:collection:pick:${id}`, "Back to collection",
+          [{ label: "← Back to collection", value: "__back__" }], undefined)],
         allowedMentions: { parse: [] },
       });
     } else {
@@ -189,9 +170,8 @@ export async function handleCardCollectionInteraction(interaction) {
     return interaction.editReply({
       content: safe(error.message),
       embeds: [],
-      components: [new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`cards:collection:back:${id}`).setLabel("Back").setStyle(ButtonStyle.Secondary),
-      )],
+      components: [select(`cards:collection:pick:${id}`, "Back to collection",
+        [{ label: "← Back to collection", value: "__back__" }], undefined)],
       attachments: [],
       allowedMentions: { parse: [] },
     });
