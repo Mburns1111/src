@@ -72,24 +72,24 @@ async function collectionView(id, ownerId) {
   const tag = select(`cards:collection:tag:${id}`, "Filter by tag",
     [{ label: "All tags", value: "all" }, ...session.tagOptions.map(t => ({ label: t, value: t }))],
     session.tag || "all");
-  const sortLabels = { newest: "Newest", oldest: "Oldest", name: "Name A–Z", rarity: "Rarity" };
+  const sort = select(`cards:collection:sort:${id}`, "Sort cards",
+    COLLECTION_SORT_OPTIONS.map(value => ({
+      value,
+      label: { newest: "Newest first", oldest: "Oldest first", name: "Pet name A–Z", rarity: "Highest rarity first" }[value],
+    })), session.sort);
   const controls = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`cards:collection:prev:${id}`).setLabel("Previous")
       .setStyle(ButtonStyle.Secondary).setDisabled(page.page === 0),
     new ButtonBuilder().setCustomId(`cards:collection:next:${id}`).setLabel("Next")
       .setStyle(ButtonStyle.Secondary).setDisabled(page.page + 1 >= page.pages),
-    new ButtonBuilder().setCustomId(`cards:collection:sort:${id}`).setLabel(`Sort: ${sortLabels[session.sort]}`)
-      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`cards:collection:choose:${id}`).setLabel("View Card")
+      .setStyle(ButtonStyle.Primary).setDisabled(page.cards.length === 0),
     new ButtonBuilder().setCustomId(`cards:collection:close:${id}`).setLabel("Close")
       .setStyle(ButtonStyle.Secondary),
   );
-  const components = [rarity, release, tag];
-  if (page.cards.length) components.push(select(`cards:collection:pick:${id}`, "Open a card",
-    page.cards.map((c, i) => ({
-      label: `${page.page * 8 + i + 1}. ${c.petName}`,
-      value: String(c._id),
-    })), undefined));
-  components.push(controls);
+  // Four filters plus buttons use Discord's five available component rows.
+  // Open the card picker as a second view instead of squeezing in a sixth row.
+  const components = [rarity, release, tag, sort, controls];
   return { content: "", embeds: [embed], components, attachments: [], allowedMentions: { parse: [] } };
 }
 
@@ -110,6 +110,29 @@ export async function handleCardCollectionInteraction(interaction) {
       return interaction.editReply({ content: "Collection closed. Use /cards collection to open it again.", embeds: [], components: [], attachments: [] });
     }
     if (action === "back") return interaction.editReply(await collectionView(id, interaction.user.id));
+    if (action === "choose") {
+      const page = await getCollectionPage(interaction.user.id, session);
+      if (!page.cards.length) return interaction.editReply(await collectionView(id, interaction.user.id));
+      const picker = select(`cards:collection:pick:${id}`, "Choose a card to preview",
+        page.cards.map((c, i) => ({
+          label: `${page.page * 8 + i + 1}. ${c.petName}`,
+          value: String(c._id),
+        })), undefined);
+      const actions = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`cards:collection:back:${id}`).setLabel("Back to collection")
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`cards:collection:close:${id}`).setLabel("Close")
+          .setStyle(ButtonStyle.Secondary),
+      );
+      return interaction.editReply({
+        content: "Select a card below to view its illustration.",
+        embeds: [],
+        components: [picker, actions],
+        attachments: [],
+        allowedMentions: { parse: [] },
+      });
+    }
+
     if (action === "prev" || action === "next") {
       updateCollectionSession(id, interaction.user.id, { page: Math.max(0, session.page + (action === "next" ? 1 : -1)) });
     } else if (action === "rarity") {
@@ -118,8 +141,7 @@ export async function handleCardCollectionInteraction(interaction) {
     } else if (action === "release") {
       updateCollectionSession(id, interaction.user.id, { release: interaction.values?.[0] });
     } else if (action === "sort") {
-      const next = COLLECTION_SORT_OPTIONS[(COLLECTION_SORT_OPTIONS.indexOf(session.sort) + 1) % COLLECTION_SORT_OPTIONS.length];
-      updateCollectionSession(id, interaction.user.id, { sort: next });
+      updateCollectionSession(id, interaction.user.id, { sort: interaction.values?.[0] });
     } else if (action === "tag") {
       const selected = interaction.values?.[0];
       if (selected !== "all" && !session.tagOptions?.includes(selected)) throw new Error("That tag is no longer available.");
