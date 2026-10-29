@@ -66,7 +66,7 @@ function cover(ctx, image, x, y, w, h) {
 
 export async function renderCollectibleCardPreview({
   petName, rarity, upgradeLevel = "normal", releaseName = "Release 1",
-  seriesName = "Series 1", publicId = "PREVIEW", artistCredit = "",
+  seriesName = "Series 1", publicId = "PREVIEW", artistCredit = "", otherCollectorCount = 0,
   artUrl = "", artStatus = "missing",
 } = {}) {
   const { width: W, height: H } = CARD_PREVIEW_SIZE;
@@ -133,6 +133,8 @@ export async function renderCollectibleCardPreview({
 
   ctx.font = "26px sans-serif"; ctx.fillStyle = "#62716B"; ctx.textAlign = "left";
   ctx.fillText(`${seriesName}  ·  ${releaseName}`, 88, 1120);
+  ctx.textAlign = "right"; ctx.font = "bold 24px sans-serif"; ctx.fillStyle = "#4C605A";
+  ctx.fillText(`Other collectors: ${Math.max(0, Number(otherCollectorCount) || 0)}`, 812, 1120);
 
   ctx.font = "23px sans-serif"; ctx.fillText(artistCredit ? `Art: ${artistCredit}` : "Art credit: pending", 88, 1167);
   ctx.textAlign = "right"; ctx.fillStyle = "#384A44"; ctx.font = "bold 32px monospace";
