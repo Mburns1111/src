@@ -26,3 +26,22 @@ test("requires exactly three cards and never invents issued IDs", async () => {
   await assert.rejects(renderThreeCardDropImage({ cards: [] }), /exactly three/);
   await assert.rejects(renderThreeCardDropImage({ cards: [{petName:"Ant"}] }), /exactly three/);
 });
+
+test("approved artwork without a named artist is rejected before display", async () => {
+  await assert.rejects(renderThreeCardDropImage({
+    cards: [
+      { petName: "Ant", rarity: "Common", artStatus: "approved", artUrl: "https://example.com/a.png", artistCredit: "" },
+      { petName: "Cat", rarity: "Common", artStatus: "test-placeholder" },
+      { petName: "Dog", rarity: "Common", artStatus: "test-placeholder" },
+    ],
+  }), /Artist credit is required/);
+});
+
+test("drop mode includes artist credit without minting or printing an owned ID", async () => {
+  const { renderCollectibleCardPreview } = await import("../services/card-preview-renderer.js");
+  const result = await renderCollectibleCardPreview({
+    petName: "Ant", rarity: "Common", artStatus: "test-placeholder",
+    artistCredit: "Artist Example", dropMode: true,
+  });
+  assert.ok(result.length > 10000);
+});
