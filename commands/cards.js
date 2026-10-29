@@ -206,12 +206,18 @@ export async function execute(interaction) {
   // Render before creating the drop: a renderer failure never leaves a
   // claimable drop record without an image in Discord.
   const series = await CardSeries.findOne({ seriesId: release.seriesId }).select("name").lean();
+  // Existing art is read directly from MongoDB; no local PNGs or ZIP files.
+  const eggImageSource = release.eggImageUrl || await loadStoredReleaseEggImage(release);
+  if (!eggImageSource && release.releaseId === "test-s1-r1") {
+    return interaction.editReply(
+      "Release 1 egg artwork was not found in the configured MongoDB image collections. " +
+      "Run `node scripts/find-release-egg-artwork.js test-s1-r1` in Replit to identify its stored filename/bucket. No drop was created."
+    );
+  }
   const dropPng = await renderThreeCardDropImage({
     releaseName: release.name,
     seriesName: series?.name || release.seriesId,
-    // Resolve artwork already in MongoDB, without a Replit upload or ZIP.
-    // A configured URL is retained for backward compatibility.
-    eggImageSource: release.eggImageUrl || await loadStoredReleaseEggImage(release),
+    eggImageSource,
     cards: revealed.map(({ card, rarity }) => ({
       petName: petNames[card.petId] || card.petId,
       rarity,
