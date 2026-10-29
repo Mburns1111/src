@@ -222,11 +222,16 @@ export async function execute(interaction) {
       const cardId = interaction.options.getString("card_id")?.trim() || null;
       const tag = option === "tag" ? interaction.options.getString("tag", true) : null;
       const updated = await updateOwnedCardTag({ discordUserId: interaction.user.id, cardId, tag });
-      const cardDescription = `**${escapeDiscord(updated.name)}** · ${escapeDiscord(updated.rarity)} · ${updated.upgradeLevel === "mega" ? "Mega Neon" : updated.upgradeLevel === "neon" ? "Neon" : "Normal"}\nCard ID: \`${updated.id}\``;
+      const scope = updated.mode === "pet"
+        ? "**" + escapeDiscord(updated.name) + "** · **" + updated.count +
+          (updated.count === 1 ? " owned card" : " owned cards") + "** (all copies, releases and stages)"
+        : "**" + escapeDiscord(updated.name) + "** · " + escapeDiscord(updated.rarity) +
+          " · " + (updated.upgradeLevel === "mega" ? "Mega Neon" : updated.upgradeLevel === "neon" ? "Neon" : "Normal") +
+          "\nCard ID: " + String.fromCharCode(96) + updated.id + String.fromCharCode(96);
       return interaction.editReply({
         content: updated.tag
-          ? `${cardDescription}\nTag: **${escapeDiscord(updated.tag)}** (saved)`
-          : `${cardDescription}\nTag removed.`,
+          ? scope + "\nTag: **" + escapeDiscord(updated.tag) + "** (" + updated.changed + " changed)"
+          : scope + "\nTag removed (" + updated.changed + " changed).",
         allowedMentions: { parse: [] },
       });
     } catch (error) {
