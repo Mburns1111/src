@@ -464,8 +464,68 @@ export async function handleCardUpgrade(interaction) {
     }
     await interaction.deferUpdate();
     const result = await confirmCardUpgrade(token, interaction.user.id, interaction.guildId);
+    // The upgrade is committed before publishing. Never tell the member it
+    // failed (or consume their cards again) if Discord or rendering fails.
+    let publicPost;
+    try {
+      const upgraded = await CardCopy.findOne({
+        publicId: result.publicId, ownerDiscordUserId: interaction.user.id,
+        state: "owned", source: "upgrade",
+      }).lean();
+      if (!upgraded) throw new Error("Upgraded card not found after settlement");
+      const definition = await CardDefinition.findById(upgraded.cardDefinitionId).lean();
+      if (!definition) throw new Error("Upgraded card definition missing");
+      const [pet, release, series, otherCollectorCount] = await Promise.all([
+        PetCatalog.findOne({ petId: definition.petId }).select("name").lean(),
+        CardRelease.findOne({ releaseId: definition.releaseId })
+          .select("name cardBackgroundKey cardFrameKey").lean(),
+        CardSeries.findOne({ seriesId: definition.seriesId }).select("name").lean(),
+        countOtherCardCollectors({
+          cardDefinitionId: upgraded.cardDefinitionId,
+          ownerDiscordUserId: interaction.user.id,
+        }),
+      ]);
+      const [petImage, backgroundImage, frameImage] = await Promise.all([
+        loadCardArtwork(definition.petArtworkKey, "pet"),
+        loadCardArtwork(release?.cardBackgroundKey, "background"),
+        loadCardArtwork(release?.cardFrameKey, "frame"),
+      ]);
+      const image = await renderCollectibleCardPreview({
+        petImageSource: petImage?.bytes,
+        backgroundImageSource: backgroundImage?.bytes,
+        frameImageSource: frameImage?.bytes,
+        petName: pet?.name || definition.petId,
+        rarity: definition.rarity,
+        upgradeLevel: upgraded.upgradeLevel,
+        publicId: upgraded.publicId,
+        releaseName: release?.name || definition.releaseId,
+        seriesName: series?.name || definition.seriesId,
+        artistCredit: definition.artistCredit,
+        artUrl: definition.artUrl,
+        artStatus: definition.artStatus,
+        otherCollectorCount,
+      });
+      publicPost = await interaction.channel.send({
+        content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(pet?.name || definition.petId)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: \\`${result.publicId}\\``,
+        files: [new AttachmentBuilder(image, { name: "upgraded-card.png" })],
+        allowedMentions: { users: [interaction.user.id], parse: [] },
+      });
+    } catch (postError) {
+      console.error("[Cards] Upgrade completed but public image failed:", postError);
+      // Preserve the public announcement even if an image asset is corrupt.
+      try {
+        publicPost = await interaction.channel.send({
+          content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(result.petName)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: \\`${result.publicId}\\` (card image unavailable)`,
+          allowedMentions: { users: [interaction.user.id], parse: [] },
+        });
+      } catch (sendError) {
+        console.error("[Cards] Upgrade completed but channel announcement failed:", sendError);
+      }
+    }
     return interaction.editReply({
-      content: `**Upgrade complete!** ${escapeDiscord(result.petName)} → **${result.target === "neon" ? "Neon" : "Mega Neon"}**\nNew card ID: ${result.publicId}\nConsumed: ${result.consumedIds.join(", ")}\nUse /cards collection to see your new card.`,
+      content: publicPost
+        ? `**Upgrade complete!** Your new ${result.target === "neon" ? "Neon" : "Mega Neon"} card \\`${result.publicId}\\` has been posted in this channel.`
+        : `**Upgrade complete!** Your new card ID is \\`${result.publicId}\\`. I couldn't post it publicly; check /cards collection. Nothing was lost.`,
       components: [], allowedMentions: { parse: [] },
     });
   } catch (error) {
