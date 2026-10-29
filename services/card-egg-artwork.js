@@ -5,7 +5,7 @@ import { assertImageSafeToDecode } from "./image-dimensions.js";
 // into the source repository, issue a network URL, or use a member's other
 // assets without an exact match.
 export const EGG_ART_BUCKETS = Object.freeze([
-  "artwork", "artworks", "cardArtwork", "cardArt", "assets", "fs", "profilePhotos",
+  "cardEggArtwork", "artwork", "artworks", "cardArtwork", "cardArt", "assets", "fs", "profilePhotos",
 ]);
 export const EGG_ART_MAX_BYTES = 12 * 1024 * 1024;
 const allowedBucket = new Set(EGG_ART_BUCKETS);
