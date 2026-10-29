@@ -4,7 +4,8 @@ import CardCopy from "../models/CardCopy.js";
 import CardLifecycleEvent from "../models/CardLifecycleEvent.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
-import { allocateCardId, normalizeCardReference } from "./card-identifiers.js";
+import { allocateCardId } from "./card-identifiers.js";
+import { findOwnedCardById } from "./card-owned-selection.js";
 
 export const CARDS_PER_UPGRADE = 4;
 const PENDING_TTL_MS = 90_000;
@@ -94,7 +95,7 @@ async function findMatchingUpgradeCards(ownerId, reference) {
   if (!input || input.length > 100) throw new Error("Enter a card ID or pet name (up to 100 characters).");
   // An owned public ID resolves to a precise release and upgrade stage.
   const matchingId = /^[0-9A-Za-z_-]{5}$/.test(input)
-    ? await CardCopy.findOne({ publicId: normalizeCardReference(input), ownerDiscordUserId: ownerId, state: "owned" }).lean()
+    ? await findOwnedCardById(ownerId, input)
     : null;
   if (matchingId) {
     const cards = await CardCopy.find({
