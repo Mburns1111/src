@@ -1,6 +1,6 @@
 import {
   ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle,
-  StringSelectMenuBuilder,
+  EmbedBuilder, StringSelectMenuBuilder,
 } from "discord.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardRelease from "../models/CardRelease.js";
@@ -39,18 +39,26 @@ async function collectionView(id, ownerId) {
   // Discord allows only 25 select choices. Reserve one for All releases.
   session.releaseOptions = releases.slice(0, 24);
   if (session.release !== "all" && !session.releaseOptions.includes(session.release)) session.release = "all";
-  const rows = page.cards.map((c, i) =>
-    `**${page.page * 8 + i + 1}. ${safe(c.petName)}** · ${safe(c.rarityName)} · ${labelStage(c.upgradeLevel)}\n` +
-    `   ID: \`${safe(c.publicId || "PENDING")}\` · ${safe(c.releaseName)}${c.tag ? ` · #${safe(c.tag)}` : ""}`
-  );
-  const content = [
-    `**Your Card Collection — ${summary.total} owned**`,
-    `Normal ${summary.upgrade.normal || 0} · Neon ${summary.upgrade.neon || 0} · Mega ${summary.upgrade.mega || 0}`,
-    `**Showing ${page.total} matching cards · page ${page.page + 1}/${page.pages}**`,
-    ...rows,
-    ...(rows.length ? [] : ["No cards match these filters."]),
-    "Pick a card below to see its full illustration. Only you can use this menu.",
-  ].join("\n");
+  // Discord embeds keep every card on a single compact, regular-weight line.
+  // Names and tags are escaped; no extra heading/ID rows for each card.
+  const rows = page.cards.map((c, i) => [
+    `${page.page * 8 + i + 1}.`,
+    safe(c.petName),
+    safe(c.rarityName),
+    labelStage(c.upgradeLevel),
+    \`${safe(c.publicId || "PENDING")}\`,
+    safe(c.releaseName),
+    ...(c.tag ? [`#${safe(c.tag)}`] : []),
+  ].join(" · ").replace(/^([0-9]+\\.) · /, "$1 "));
+  const embed = new EmbedBuilder()
+    .setColor(0xB9A4D7)
+    .setTitle(`Your Card Collection · ${summary.total} owned`)
+    .setDescription(rows.length ? rows.join("\\n") : "No cards match these filters.")
+    .addFields({
+      name: "Collection",
+      value: `Normal ${summary.upgrade.normal || 0}  ·  Neon ${summary.upgrade.neon || 0}  ·  Mega ${summary.upgrade.mega || 0}`,
+    })
+    .setFooter({ text: `${page.total} matching · page ${page.page + 1}/${page.pages} · Select a card to view` });
   const rarity = select(`cards:collection:rarity:${id}`, "Filter by rarity",
     COLLECTION_RARITY_OPTIONS.map(x => ({ label: x === "all" ? "All rarities" : x, value: x })), session.rarity);
   const release = select(`cards:collection:release:${id}`, "Filter by release",
@@ -75,7 +83,7 @@ async function collectionView(id, ownerId) {
       value: String(c._id),
     })), undefined));
   components.push(controls);
-  return { content, components, attachments: [], allowedMentions: { parse: [] } };
+  return { content: "", embeds: [embed], components, attachments: [], allowedMentions: { parse: [] } };
 }
 
 export async function startCardCollection(interaction) {
@@ -87,12 +95,12 @@ export async function handleCardCollectionInteraction(interaction) {
   await interaction.deferUpdate();
   const parts = interaction.customId.split(":");
   const action = parts[2], id = parts[3];
-  if (parts.length !== 4 || !id) return interaction.editReply({ content: "Invalid collection menu.", components: [] });
+  if (parts.length !== 4 || !id) return interaction.editReply({ content: "Invalid collection menu.", embeds: [], components: [] });
   try {
     const session = getCollectionSession(id, interaction.user.id);
     if (action === "close") {
       closeCollectionSession(id, interaction.user.id);
-      return interaction.editReply({ content: "Collection closed. Use /cards collection to open it again.", components: [], attachments: [] });
+      return interaction.editReply({ content: "Collection closed. Use /cards collection to open it again.", embeds: [], components: [], attachments: [] });
     }
     if (action === "back") return interaction.editReply(await collectionView(id, interaction.user.id));
     if (action === "prev" || action === "next") {
@@ -129,6 +137,7 @@ export async function handleCardCollectionInteraction(interaction) {
       });
       return interaction.editReply({
         content: `**${safe(pet?.name || def.petId)}** · ${safe(def.rarity)} · ${labelStage(copy.upgradeLevel)}\nCard ID: \`${safe(copy.publicId || "PENDING")}\`${copy.tag ? ` · Tag: ${safe(copy.tag)}` : ""}`,
+        embeds: [],
         files: [new AttachmentBuilder(png, { name: "collection-card.png" })],
         attachments: [],
         components: [new ActionRowBuilder().addComponents(
@@ -144,6 +153,7 @@ export async function handleCardCollectionInteraction(interaction) {
   } catch (error) {
     return interaction.editReply({
       content: safe(error.message),
+      embeds: [],
       components: [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`cards:collection:back:${id}`).setLabel("Back").setStyle(ButtonStyle.Secondary),
       )],
