@@ -12,7 +12,7 @@ const RARITY_PALETTE = Object.freeze({
   Uncommon: ["#88C3A6", "#3C8A67"],
   Rare: ["#8CAEDB", "#3B659B"],
   "Ultra-Rare": ["#CDA4E6", "#8855B3"],
-  Legendary: ["#F6D68A", "#B9863D"],
+  Legendary: ["#E6D6F6", "#8661B7"], // soft amethyst instead of gold
 });
 
 function roundRect(ctx, x, y, w, h, r, color, strokeColor, strokeWidth = 1) {
@@ -74,7 +74,8 @@ export async function renderCollectibleCardPreview({
   const ctx = canvas.getContext("2d");
   const [light, accent] = RARITY_PALETTE[rarity] || RARITY_PALETTE.Common;
   const neon = upgradeLevel === "neon", mega = upgradeLevel === "mega";
-  const rim = mega ? "#E5A7EC" : neon ? "#6FE0C4" : accent;
+  const rim = accent; // Keep rarity identity consistent for all upgrades.
+  const stageGlow = mega ? "#DCA7FA" : neon ? "#71E6C5" : null;
 
   const outer = ctx.createLinearGradient(0, 0, W, H);
   outer.addColorStop(0, "#F8F4F1"); outer.addColorStop(1, "#E4EDE8");
@@ -84,9 +85,8 @@ export async function renderCollectibleCardPreview({
     ctx.strokeStyle = rim + "16"; ctx.lineWidth = 8;
     ctx.beginPath(); ctx.ellipse(W/2, H/2, 210 + i*54, 320 + i*65, .12, 0, Math.PI*2); ctx.stroke();
   }
-  ctx.shadowColor = mega ? "#EE99DF" : neon ? "#6DD8B9" : rim;
-  ctx.shadowBlur = mega ? 45 : neon ? 38 : 11;
-  roundRect(ctx, 32, 32, W-64, H-64, 43, "#FFFEFA", rim, mega ? 17 : neon ? 14 : 9);
+  // Keep the exterior light. A THIN stage-colored edge only appears on upgrades.
+  roundRect(ctx, 32, 32, W-64, H-64, 43, "#FFFEFA", stageGlow || light, neon || mega ? 5 : 2);
   ctx.shadowBlur = 0;
   roundRect(ctx, 51, 51, W-102, H-102, 28, null, light, 3);
   if (neon || mega) {
@@ -97,11 +97,13 @@ export async function renderCollectibleCardPreview({
     roundRect(ctx, 63, 61, W-126, 12, 6, band);
   }
 
-  centered(ctx, String(petName || "Mystery Pet"), W/2, 148, W-160, 65, "#2E3937");
+  centered(ctx, String(petName || "Mystery Pet"), W/2, 157, W-130, 88, "#2E3937");
   centered(ctx, String(rarity || "Common").toUpperCase(), W/2, 206, W-190, 27, accent);
 
   const art = { x: 83, y: 242, w: 734, h: 748 };
-  roundRect(ctx, art.x-6, art.y-6, art.w+12, art.h+12, 27, "#F3F7F3", rim, 5);
+  // Artwork has its own rounded rarity-colored frame, independent of stage glow.
+  roundRect(ctx, art.x-10, art.y-10, art.w+20, art.h+20, 30, "#F3F7F3", accent, 10);
+  roundRect(ctx, art.x-3, art.y-3, art.w+6, art.h+6, 24, null, light, 3);
   ctx.save(); ctx.beginPath(); ctx.roundRect(art.x, art.y, art.w, art.h, 20); ctx.clip();
   const backdrop = ctx.createLinearGradient(art.x, art.y, art.x + art.w, art.y + art.h);
   backdrop.addColorStop(0, "#FAF9F4");
@@ -117,7 +119,16 @@ export async function renderCollectibleCardPreview({
   else placeholderPet(ctx, petName, art.x, art.y, art.w, art.h, accent);
   ctx.restore();
 
-  roundRect(ctx, 110, 1011, 680, 55, 18, mega ? "#F3DFF4" : neon ? "#D8F4EC" : "#EAF0EA");
+  // Put upgrade effects around the stage badge, not around the artwork or main frame.
+  if (stageGlow) {
+    ctx.save();
+    ctx.shadowColor = stageGlow;
+    ctx.shadowBlur = mega ? 36 : 27;
+    roundRect(ctx, 104, 1005, 692, 67, 23, mega ? "#F3E2F6" : "#DEF8EF", stageGlow, 6);
+    ctx.restore();
+  } else {
+    roundRect(ctx, 110, 1011, 680, 55, 18, "#EAF0EA", light, 2);
+  }
   centered(ctx, upgradeLabel(upgradeLevel).toUpperCase(), W/2, 1049, 640, 28, "#3D5750");
 
   ctx.font = "26px sans-serif"; ctx.fillStyle = "#62716B"; ctx.textAlign = "left";
