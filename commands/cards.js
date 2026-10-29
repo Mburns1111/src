@@ -225,7 +225,7 @@ export async function execute(interaction) {
     try {
       const cardId = interaction.options.getString("card_id")?.trim() || null;
       const tag = option === "tag" ? interaction.options.getString("tag", true) : null;
-      const targets = await selectOwnedTagTargets(interaction.user.id, cardId);
+      const targets = await selectOwnedTagTargets(interaction.user.id, cardId, { includeRelatedForId: true });
       // All untagging, and tagging a pet with multiple owned copies, require confirmation.
       if (option === "untag" || targets.cards.length > 1) {
         const request = await prepareCardTagConfirmation({
