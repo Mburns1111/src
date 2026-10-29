@@ -12,7 +12,7 @@ const pending = new Map();
 const MAX_PENDING = 500;
 
 export function inspectUpgradeCards(cards, ownerId) {
-  if (!Array.isArray(cards) || cards.length !== CARDS_PER_UPGRADE) throw new Error("Choose exactly four card IDs.");
+  if (!Array.isArray(cards) || cards.length !== CARDS_PER_UPGRADE) throw new Error("An upgrade requires four matching cards.");
   if (cards.some(c => !c || c.ownerDiscordUserId !== ownerId || c.state !== "owned")) {
     throw new Error("All four cards must still belong to you.");
   }
@@ -21,17 +21,66 @@ export function inspectUpgradeCards(cards, ownerId) {
     throw new Error("All four cards must be the same pet from the same release.");
   }
   if (cards.some(c => c.upgradeLevel !== first.upgradeLevel)) throw new Error("All four cards must have the same upgrade stage.");
-  if (cards.some(c => String(c.tag || "").trim())) throw new Error("Tagged cards are protected. Remove their tags before upgrading.");
   if (cards.some(c => !c.publicId)) throw new Error("Every card needs its five-character ID before upgrading.");
   if (!["normal", "neon"].includes(first.upgradeLevel)) throw new Error("Mega Neon cards cannot be upgraded further.");
   return first.upgradeLevel === "normal" ? "neon" : "mega";
 }
-export function normalizeUpgradeIds(input) {
-  const ids = String(input || "").split(/[\s,]+/).map(x => x.trim()).filter(Boolean);
-  if (ids.length !== CARDS_PER_UPGRADE) throw new Error("Enter exactly four five-character IDs, separated by commas.");
-  const normalized = ids.map(normalizeCardReference);
-  if (new Set(normalized).size !== CARDS_PER_UPGRADE) throw new Error("Enter four different cards; duplicate IDs are not allowed.");
-  return normalized;
+export function selectUpgradeSet(cards, preferredId = null) {
+  // Prefer untagged copies for automatic selection when available, but never
+  // prohibit a tagged card: tags only protect against burning.
+  const available = cards.filter(c => c?.state === "owned" && c.publicId);
+  const sorted = [...available].sort((a, b) =>
+    Number(Boolean(a.tag)) - Number(Boolean(b.tag)) ||
+    String(a.createdAt || "").localeCompare(String(b.createdAt || "")) ||
+    String(a.publicId).localeCompare(String(b.publicId)));
+  const stages = preferredId ? [available.find(c => c.publicId === preferredId)?.upgradeLevel] : ["normal", "neon"];
+  for (const stage of stages) {
+    if (!["normal", "neon"].includes(stage)) continue;
+    const matching = sorted.filter(c => c.upgradeLevel === stage);
+    if (matching.length < CARDS_PER_UPGRADE) continue;
+    const selected = preferredId
+      ? [matching.find(c => c.publicId === preferredId), ...matching.filter(c => c.publicId !== preferredId)].slice(0, CARDS_PER_UPGRADE)
+      : matching.slice(0, CARDS_PER_UPGRADE);
+    if (selected.length === CARDS_PER_UPGRADE && selected.every(Boolean)) return selected;
+  }
+  return null;
+}
+const exactName = text => new RegExp(`^${String(text).replace(/[.*+?^$\\{\\}()|[\\]\\\\]/g, "\\\\$&")}$`, "i");
+
+async function findMatchingUpgradeCards(ownerId, reference) {
+  const input = String(reference || "").trim();
+  if (!input || input.length > 100) throw new Error("Enter a card ID or pet name (up to 100 characters).");
+  // An owned public ID resolves to a precise release and upgrade stage.
+  const matchingId = /^[0-9A-Za-z_-]{5}$/.test(input)
+    ? await CardCopy.findOne({ publicId: normalizeCardReference(input), ownerDiscordUserId: ownerId, state: "owned" }).lean()
+    : null;
+  if (matchingId) {
+    const cards = await CardCopy.find({
+      cardDefinitionId: matchingId.cardDefinitionId,
+      ownerDiscordUserId: ownerId, state: "owned", upgradeLevel: matchingId.upgradeLevel,
+    }).sort({ createdAt: 1, _id: 1 }).limit(250).lean();
+    const selected = selectUpgradeSet(cards, matchingId.publicId);
+    if (!selected) throw new Error("You need four owned copies of the same pet, release, and upgrade stage.");
+    return selected;
+  }
+  if (/^[0-9A-Za-z_-]{5}$/.test(input)) {
+    // A five-character pet name is still a valid name; try exact name lookup.
+  }
+  const pets = await PetCatalog.find({ name: exactName(input) }).select("petId").limit(15).lean();
+  if (!pets.length) throw new Error("No pet matches that name in the card catalog.");
+  const defs = await CardDefinition.find({ petId: { $in: pets.map(p => p.petId) } }).select("_id").limit(100).lean();
+  const eligible = [];
+  for (const def of defs) {
+    const copies = await CardCopy.find({
+      ownerDiscordUserId: ownerId, state: "owned", cardDefinitionId: def._id,
+      upgradeLevel: { $in: ["normal", "neon"] },
+    }).sort({ createdAt: 1, _id: 1 }).limit(250).lean();
+    const selected = selectUpgradeSet(copies);
+    if (selected) eligible.push(selected);
+  }
+  if (!eligible.length) throw new Error("You need four owned copies of that pet from the same release and stage.");
+  if (eligible.length > 1) throw new Error("Several releases of that pet can be upgraded. Use one card ID to choose the release.");
+  return eligible[0];
 }
 async function lookupCards(ids, ownerId, session = null) {
   const query = CardCopy.find({ publicId: { $in: ids }, ownerDiscordUserId: ownerId, state: "owned" });
@@ -40,9 +89,9 @@ async function lookupCards(ids, ownerId, session = null) {
   if (cards.length !== CARDS_PER_UPGRADE) throw new Error("One or more cards are missing or no longer owned.");
   return cards;
 }
-export async function prepareCardUpgrade({ ownerId, guildId, cardIds }) {
-  const ids = normalizeUpgradeIds(cardIds);
-  const cards = await lookupCards(ids, ownerId);
+export async function prepareCardUpgrade({ ownerId, guildId, cardReference }) {
+  const cards = await findMatchingUpgradeCards(ownerId, cardReference);
+  const ids = cards.map(c => c.publicId);
   const target = inspectUpgradeCards(cards, ownerId);
   const def = await CardDefinition.findById(cards[0].cardDefinitionId).select("petId releaseId").lean();
   if (!def) throw new Error("The card definition is missing.");
@@ -95,7 +144,7 @@ export async function confirmCardUpgrade(token, ownerId, guildId) {
       const now = new Date();
       const consumed = await CardCopy.updateMany({
         _id: { $in: cards.map(c => c._id) },
-        ownerDiscordUserId: ownerId, state: "owned", tag: "",
+        ownerDiscordUserId: ownerId, state: "owned",
         upgradeLevel: cards[0].upgradeLevel, cardDefinitionId: cards[0].cardDefinitionId,
       }, { $set: { state: "consumed", consumedAt: now } }, { session });
       if (consumed.modifiedCount !== CARDS_PER_UPGRADE) throw new Error("Upgrade cancelled: one or more cards changed.");
