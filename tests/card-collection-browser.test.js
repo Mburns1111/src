@@ -48,10 +48,10 @@ test("tag searches reset pagination and support clearing the tag", () => {
 test("collection tag filter is a dropdown of owned tags, not a text popup", async () => {
   const { readFileSync } = await import("node:fs");
   const source = readFileSync(new URL("../commands/card-collection-ui.js", import.meta.url), "utf8");
-  assert.match(source, /cards:collection:tag:\\$\\{id\\}/);
+  assert.ok(source.includes("cards:collection:tag:${id}"));
   assert.match(source, /session\.tagOptions\.map/);
   assert.match(source, /All tags/);
   assert.doesNotMatch(source, /showModal|TextInputBuilder|Find Tag/);
-  assert.match(source, /cards:collection:sort:\\$\\{id\\}/);
+  assert.ok(source.includes("cards:collection:sort:${id}"));
   assert.match(source, /const components = \[rarity, release, tag\]/);
 });
