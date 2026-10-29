@@ -14,6 +14,7 @@ import { resolveCardId } from "../services/card-identifiers.js";
 import { renderCollectibleCardPreview } from "../services/card-preview-renderer.js";
 import { renderThreeCardDropImage } from "../services/card-drop-renderer.js";
 import { getCardCollectionSummary, formatCardCollectionSummary, updateOwnedCardTag } from "../services/card-collection-summary.js";
+import { startCardCollection } from "./card-collection-ui.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { updateMultipleOwnedCardTags, prepareTagDeletion, confirmTagDeletion } from "../services/card-tag-management.js";
 import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js";
@@ -85,6 +86,7 @@ export async function execute(interaction) {
   if (!interaction.guildId) return interaction.editReply("Use card commands inside a server.");
   const option = interaction.options.getSubcommand();
   if (option === "collection") {
+    if (isEnabled()) return startCardCollection(interaction);
     const summary = await getCardCollectionSummary(interaction.user.id);
     return interaction.editReply(formatCardCollectionSummary(summary));
   }
