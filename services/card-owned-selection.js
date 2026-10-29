@@ -14,6 +14,26 @@ export function petNameSearchPattern(reference) {
 }
 
 /**
+ * Resolve a player-facing card ID against the owner's collection.
+ * IDs remain case-sensitive internally; a non-exact input only succeeds
+ * when its case-insensitive spelling identifies one owned copy.
+ */
+export async function findOwnedCardById(ownerId, reference) {
+  const input = String(reference || "").trim();
+  if (!/^[0-9A-Za-z_-]{5}$/.test(input)) throw new Error("Enter a five-character card ID.");
+  const base = { ownerDiscordUserId: ownerId, state: "owned" };
+  const exact = await CardCopy.findOne({ ...base, publicId: input }).lean();
+  if (exact) return exact;
+  const similar = await CardCopy.find({
+    ...base, publicId: new RegExp("^" + escapePetNameSearch(input) + "$", "i"),
+  }).limit(2).lean();
+  if (similar.length > 1) {
+    throw new Error("More than one of your card IDs has those letters. Use the exact capitalization shown in your collection.");
+  }
+  return similar[0] || null;
+}
+
+/**
  * Pick an OWNED card. With no reference, prefer the newest owned card (including
  * upgrades), never a historic grab that may have been consumed or traded.
  * A pet prefix chooses the newest owned copy of that specific pet. If the
@@ -28,15 +48,8 @@ export async function findOwnedCardForCommand(ownerId, reference = null) {
     return newest;
   }
   if (/^[0-9A-Za-z_-]{5}$/.test(input)) {
-    const exact = await CardCopy.findOne({ ...base, publicId: input }).lean();
-    if (exact) return exact;
-    const similar = await CardCopy.find({
-      ...base, publicId: new RegExp("^" + escapePetNameSearch(input) + "$", "i"),
-    }).limit(2).lean();
-    if (similar.length > 1) {
-      throw new Error("More than one of your card IDs has those letters. Use the exact capitalization shown in your collection.");
-    }
-    if (similar.length === 1) return similar[0];
+    const match = await findOwnedCardById(ownerId, input);
+    if (match) return match;
   }
   const pets = await PetCatalog.find({ name: petNameSearchPattern(input) })
     .select("petId name").limit(200).lean();
