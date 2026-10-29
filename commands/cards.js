@@ -26,12 +26,13 @@ import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../se
 
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Hatchem collectible card game")
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
-    .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false)))
+    .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false))
+    .addStringOption(o => o.setName("tag").setDescription("Optional saved tag filter, e.g. cute").setRequired(false)))
   .addSubcommand(c => c.setName("upgrade").setDescription("Combine 4 matching cards into Neon or Mega Neon")
     .addStringOption(o => o.setName("card").setDescription("One card ID or pet name; bot finds four matching copies").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c => c.setName("stats").setDescription("See collector, burn and upgrade statistics for a card")
     .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false).setAutocomplete(true)))
-  .addSubcommand(c => c.setName("preview").setDescription("View a portrait preview of an owned collectible card")
+  .addSubcommand(c => c.setName("view").setDescription("View a card you own")
     .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false).setAutocomplete(true)))
   .addSubcommand(c => c.setName("tag").setDescription("Tag your newest card or select one by pet name/ID")
     .addStringOption(o => o.setName("tag").setDescription("Tag, up to 32 characters").setMinLength(1).setMaxLength(32).setRequired(true))
@@ -119,6 +120,7 @@ export async function execute(interaction) {
           `Release: ${escapeDiscord(request.releaseId)}`,
           `Consume exactly four cards: ${request.ids.join(", ")}`,
           "**These four original card IDs will be permanently consumed**, and one NEW unique five-character card ID will be created.",
+          "**All decorative frames will be removed from the consumed cards if any are applied. Frames and decorations do not transfer to the upgraded card.**",
           "Tagged cards are eligible; check the four listed IDs before confirming. You have 90 seconds.",
         ].join("\n"),
         components: [row], allowedMentions: { parse: [] },
@@ -154,7 +156,7 @@ export async function execute(interaction) {
       return interaction.editReply(error.message);
     }
   }
-  if (option === "preview") {
+  if (option === "view") {
     if (!isEnabled()) return interaction.editReply("Card previews are disabled on this bot.");
     try {
       const reference = interaction.options.getString("card_id")?.trim();
@@ -662,7 +664,7 @@ export async function autocompleteCards(interaction) {
     if (option === "upgrade") {
       return interaction.respond(await suggestOwnedCardUpgrades(interaction.user.id, focused));
     }
-    if (["tag", "untag", "stats", "preview"].includes(option)) {
+    if (["tag", "untag", "stats", "view"].includes(option)) {
       return interaction.respond(await suggestOwnedCardReferences(interaction.user.id, focused,
         { includePets: option === "tag" || option === "untag" }));
     }
