@@ -13,26 +13,22 @@ const slots = [
   { petId: "dog", rarity: "Common", claimedBy: null, settledAt: null },
 ];
 
-test("a selected card is only reserved, not presented as awarded", () => {
+test("open drop has only one clean hatched heading, even after reservations", () => {
   const message = dropText({ status: "open", expiresAt: future, slots }, "Test 1");
-  assert.match(message, /Reserved/);
-  assert.doesNotMatch(message, /Drop Ended| · Claimed/);
+  assert.equal(message, "🥚 **Test 1 Egg — Hatched!**");
+  assert.doesNotMatch(message, /Reserved|Pick one|Drop closes|Amber|Claimed/);
 });
 
-test("even if all 3 cards are reserved, drop remains open until expiry", () => {
-  const message = dropText({
-    status: "open", expiresAt: future,
-    slots: slots.map(s => ({ ...s, claimedBy: "user" })),
-  }, "Test 1");
-  assert.doesNotMatch(message, /Drop Ended/);
+test("all three reservations do not end the drop before expiry", () => {
+  const message = dropText({ status: "open", expiresAt: future,
+    slots: slots.map(s => ({ ...s, claimedBy: "user" })) }, "Test 1");
+  assert.equal(message, "🥚 **Test 1 Egg — Hatched!**");
 });
 
-test("expired drop shows final claims and no new reservation state", () => {
+test("closed drop has only its final one-line heading", () => {
   const message = dropText({ status: "closed", expiresAt: past, slots }, "Test 1");
-  assert.match(message, /Drop Ended/);
-  assert.match(message, /Claimed/);
-  assert.match(message, /Unclaimed/);
-  assert.doesNotMatch(message, /Reserved|Drop closes/);
+  assert.equal(message, "🥚 **Test 1 Egg — Drop Ended**");
+  assert.doesNotMatch(message, /Claimed|Unclaimed|Reserved|Drop closes/);
 });
 
 test("drop slots retain a separate settlement timestamp", () => {
