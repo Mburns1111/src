@@ -5,6 +5,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { requireGuild } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 import { ensureHouseEntry } from "./house.js";
@@ -121,6 +122,9 @@ export async function execute(interaction) {
   // Ensure the shop before updating channel settings so its existing message IDs
   // are checked against the previous channel when a shop is moved.
   if (shopChannel) await ensureShopEntry(interaction.guild, shopChannel);
+  const previousHatchem = hatchemChannel
+    ? await GuildConfig.findOne({ guildId: interaction.guildId }).select("hatchemChannelId hatchemGuideMessageId").lean()
+    : null;
 
   await GuildConfig.findOneAndUpdate(
     { guildId: interaction.guildId },
@@ -134,6 +138,20 @@ export async function execute(interaction) {
   if (tradeVoting) await ensureTradeVoteEntry(interaction.guild, tradeVoting);
   if (tradingPostChannel) {
     await ensureTradingPostEntry(interaction.guild, tradingPostChannel);
+  }
+
+  if (hatchemChannel) {
+    let guide = null;
+    if (previousHatchem?.hatchemChannelId === hatchemChannel.id && previousHatchem.hatchemGuideMessageId) {
+      guide = await hatchemChannel.messages.fetch(previousHatchem.hatchemGuideMessageId).catch(() => null);
+      if (guide?.author?.id !== interaction.client.user.id) guide = null;
+    }
+    if (guide) await guide.edit({ content: HATCHEM_GUIDE, allowedMentions: { parse: [] } });
+    else {
+      guide = await hatchemChannel.send({ content: HATCHEM_GUIDE, allowedMentions: { parse: [] } });
+      await GuildConfig.updateOne({ guildId: interaction.guildId },
+        { $set: { hatchemGuideMessageId: guide.id } });
+    }
   }
 
   const configured = [];
