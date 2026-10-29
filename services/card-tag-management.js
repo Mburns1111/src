@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import CardCopy from "../models/CardCopy.js";
 import PendingCardTagDeletion from "../models/PendingCardTagDeletion.js";
-import { normalizeCardTag } from "./card-collection-summary.js";
+import CardCollector from "../models/CardCollector.js";
+import { tagKey, createCollectorTag, listCollectorTags, matchingTagRegex } from "./card-tag-catalog.js";
 import { normalizeCardReference, resolveCardId } from "./card-identifiers.js";
 
 const MAX_BATCH = 20;
@@ -26,7 +27,7 @@ export async function updateMultipleOwnedCardTags({ discordUserId, cardIds, tag 
   const references = parseCardIds(cardIds);
   const ids = await Promise.all(references.map(resolveCardId));
   if (new Set(ids.map(String)).size !== ids.length) throw new Error("Each card ID can appear only once.");
-  const normalized = tag === null ? "" : normalizeCardTag(tag);
+  const normalized = tag === null ? "" : tagKey(tag);
   const owned = await CardCopy.countDocuments({
     _id: { $in: ids }, ownerDiscordUserId: discordUserId, state: "owned",
   });
@@ -39,15 +40,17 @@ export async function updateMultipleOwnedCardTags({ discordUserId, cardIds, tag 
   if (result.matchedCount !== ids.length) {
     throw new Error("Your collection changed while tagging; check the affected cards.");
   }
+  if (normalized) await createCollectorTag(discordUserId, normalized);
   return { selected: ids.length, changed: result.modifiedCount, tag: normalized };
 }
 
 export async function prepareTagDeletion({ discordUserId, tag, now = new Date() }) {
-  const normalized = normalizeCardTag(tag);
+  const normalized = tagKey(tag);
+  const saved = await listCollectorTags(discordUserId);
+  if (!saved.includes(normalized)) throw new Error("You have no saved tag with that name.");
   const expectedCount = await CardCopy.countDocuments({
-    ownerDiscordUserId: discordUserId, state: "owned", tag: normalized,
+    ownerDiscordUserId: discordUserId, state: "owned", tag: matchingTagRegex(normalized),
   });
-  if (!expectedCount) throw new Error("You have no owned cards with that exact tag.");
   const request = await PendingCardTagDeletion.create({
     discordUserId, tag: normalized, expectedCount,
     expiresAt: new Date(now.getTime() + 120000),
@@ -75,7 +78,7 @@ export async function confirmTagDeletion({ discordUserId, requestId, confirm, no
         return;
       }
       const count = await CardCopy.countDocuments({
-        ownerDiscordUserId: discordUserId, state: "owned", tag: request.tag,
+        ownerDiscordUserId: discordUserId, state: "owned", tag: matchingTagRegex(request.tag),
       }).session(session);
       if (count !== request.expectedCount) {
         // Do not touch a different set of cards than the user approved.
@@ -91,6 +94,8 @@ export async function confirmTagDeletion({ discordUserId, requestId, confirm, no
       if (result.modifiedCount !== request.expectedCount) {
         throw new Error("Cards changed during confirmation. No tags were removed; try again.");
       }
+      await CardCollector.updateOne({ discordUserId },
+        { $pull: { tagNames: tagKey(request.tag) } }, { session });
       outcome = { cancelled: false, tag: request.tag, count: result.modifiedCount };
     });
     return outcome;
