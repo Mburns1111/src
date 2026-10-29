@@ -3,7 +3,8 @@ import CardCopy from "../models/CardCopy.js";
 import PendingCardTagDeletion from "../models/PendingCardTagDeletion.js";
 import CardCollector from "../models/CardCollector.js";
 import { tagKey, createCollectorTag, listCollectorTags, matchingTagRegex } from "./card-tag-catalog.js";
-import { normalizeCardReference, resolveCardId } from "./card-identifiers.js";
+import { normalizeCardReference } from "./card-identifiers.js";
+import { findOwnedCardById } from "./card-owned-selection.js";
 
 const MAX_BATCH = 20;
 
@@ -25,7 +26,11 @@ export function parseCardIds(input) {
 // Only tag is modified. Ownership, card state, rarity and upgrade level remain.
 export async function updateMultipleOwnedCardTags({ discordUserId, cardIds, tag }) {
   const references = parseCardIds(cardIds);
-  const ids = await Promise.all(references.map(resolveCardId));
+  const ids = await Promise.all(references.map(async reference => {
+    const card = await findOwnedCardById(discordUserId, reference);
+    if (!card) throw new Error("One or more card IDs are not in your collection. No tags were changed.");
+    return card._id;
+  }));
   if (new Set(ids.map(String)).size !== ids.length) throw new Error("Each card ID can appear only once.");
   const normalized = tag === null ? "" : tagKey(tag);
   const owned = await CardCopy.countDocuments({
