@@ -72,11 +72,28 @@ export async function editRelease({ releaseId: requestedId, name, eggName }) {
     { $set: fields }, { new: true, runValidators: true }).lean();
   return requireDraft(updated);
 }
+// Accept a full exact pet name or canonical ID; never guess a partial match.
+export async function findCatalogPet(reference) {
+  const text = String(reference ?? "").trim();
+  if (!text || text.length > 120) throw new Error("Enter a pet name or catalog ID.");
+  const asId = text.toLowerCase();
+  if (/^[a-z0-9][a-z0-9-]{1,63}$/.test(asId)) {
+    const found = await PetCatalog.findOne({ petId: asId }).lean();
+    if (found) return found;
+  }
+  const escaped = text.replace(/[^\p{L}\p{N} ]/gu, "\\export async function addReleasePet({ releaseId: requestedId, petId, weight = 1 }) {");
+  const matches = await PetCatalog.find({ name: new RegExp("^" + escaped + "$", "i") })
+    .limit(2).lean();
+  if (matches.length > 1) throw new Error("More than one pet has that name. Use its canonical pet ID.");
+  if (!matches.length) throw new Error("Pet not found in the master catalog.");
+  return matches[0];
+}
+
 export async function addReleasePet({ releaseId: requestedId, petId, weight = 1 }) {
-  const id = releaseId(requestedId), pid = releaseId(petId), selectedWeight = hatchWeight(weight);
+  const id = releaseId(requestedId), selectedWeight = hatchWeight(weight);
   const current = requireDraft(await CardRelease.findOne({ releaseId: id }).lean());
-  const pet = await PetCatalog.findOne({ petId: pid }).lean();
-  if (!pet) throw new Error("Pet not found in the master catalog.");
+  const pet = await findCatalogPet(petId);
+  const pid = pet.petId;
   if (!CARD_RARITIES.includes(pet.rarity))
     throw new Error("This pet has an unresolved official rarity.");
   if (!await CardRelease.exists({ releaseId: id, status: "draft" }))
