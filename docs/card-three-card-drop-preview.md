@@ -1,7 +1,7 @@
 # Three-card Discord drop preview (development)
 
 The `/cards test-drop release:test-s1-r1` command now posts one **1920 × 1510 PNG**:
-- A **release banner at the top**, independent of the individual cards. If `CardRelease.eggImageUrl` is set to an accessible image URL, it is cropped to the 1828×600 banner area (fit without cropping); otherwise a styled text header is used. The supplied Release 1 egg art is available in the project handoff conversation; to activate it in Replit, put the original PNG at `assets/card-eggs/release-1.png` in the development workspace. It is not checked into GitHub and is not live until uploaded. The test release detects this path automatically when the release has no configured image URL.
+- A **release banner at the top**, independent of the individual cards. If `CardRelease.eggImageUrl` is set to an accessible image URL, it is cropped to the 1828×600 banner area (fit without cropping); otherwise a styled text header is used. The bot now reads the release egg art from its already-existing MongoDB GridFS image store. It looks for a uniquely matching file name such as `Release 1.png` or `Release 1(1).png` in known buckets. No local upload, ZIP or duplicate image record is required. The optional `CardRelease.eggImageFileId` / `eggImageBucket` allow pointing to an exact stored file; a configured `eggImageUrl` remains a legacy fallback.
 - Three normal-stage card previews in the same order as Grab #1/#2/#3.
 - Each card uses the existing portrait-card style: pet name, rarity colors, artwork frame, and placeholder or approved art. **Each drop card always shows an artist-credit field**. Test placeholders show `Test placeholder · Artist pending`; approved art is rejected if the artist name is missing.
 - **No public card IDs** and no collector statistics on unclaimed drop cards. IDs are minted only at the end when reserved cards are awarded.
@@ -10,6 +10,6 @@ The `/cards test-drop release:test-s1-r1` command now posts one **1920 × 1510 P
 
 Test by pulling `feature/card-game-foundation`, running `npm test`, restarting the development bot and using `/cards test-drop release:test-s1-r1`. No slash command registration or database migration is required for the layout.
 
-To show the actual supplied Release 1 egg banner, place the uploaded image at `assets/card-eggs/release-1.png` in the Replit project, or set `CardRelease.eggImageUrl` to a stable approved image URL. Preserve the original attribution/source notes; confirm redistributable rights before making a public production release.
+Run `node scripts/find-release-egg-artwork.js test-s1-r1` (read-only) to see the matching stored files and their GridFS buckets. If no match is found, confirm the filename and database collection; the test drop will explain the missing asset instead of silently using the placeholder. Nothing is uploaded or duplicated. Preserve the original attribution/source notes; confirm redistributable rights before making a public production release.
 
 This change does not touch production, card ownership or the grab/settlement rules.
