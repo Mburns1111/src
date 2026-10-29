@@ -45,7 +45,13 @@ export function selectUpgradeSet(cards, preferredId = null) {
   }
   return null;
 }
-const exactName = text => new RegExp("^" + String(text).replace(/[^\p{L}\p{N} ]/gu, "\\$&") + "$", "i");
+// Four letters (case-insensitive) can identify a pet during upgrades too.
+// Short names, e.g. Cat, still require the entire name.
+const matchingPetName = text => {
+  const value = String(text).trim();
+  const escaped = value.replace(/[^\\p{L}\\p{N} ]/gu, "\\\\const exactName = text => new RegExp("^" + String(text).replace(/[^\p{L}\p{N} ]/gu, "\\$&") + "$", "i");");
+  return new RegExp("^" + escaped + (value.length < 4 ? "$" : ""), "i");
+};
 
 
 /**
@@ -103,8 +109,8 @@ async function findMatchingUpgradeCards(ownerId, reference) {
   if (/^[0-9A-Za-z_-]{5}$/.test(input)) {
     // A five-character pet name is still a valid name; try exact name lookup.
   }
-  const pets = await PetCatalog.find({ name: exactName(input) }).select("petId").limit(15).lean();
-  if (!pets.length) throw new Error("No pet matches that name in the card catalog.");
+  const pets = await PetCatalog.find({ name: matchingPetName(input) }).select("petId").limit(15).lean();
+  if (!pets.length) throw new Error("No pet matches that name in the card catalog. Enter at least the first four letters.");
   const defs = await CardDefinition.find({ petId: { $in: pets.map(p => p.petId) } }).select("_id").limit(100).lean();
   const eligible = [];
   for (const def of defs) {
