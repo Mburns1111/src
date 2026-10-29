@@ -85,8 +85,10 @@ export async function renderThreeCardDropImage({
     catch (error) { console.warn("[Cards] Egg banner unavailable:", error.message); }
   }
   if (image) {
-    // Trim the empty upper/lower margin, preserving both eggs and title.
-    cover(ctx, image, BANNER.x, BANNER.y, BANNER.w, BANNER.h);
+    // Preserve the complete source image, including its thin pink outline.
+    // The release artwork is wider/taller in proportion than this banner box;
+    // using cover cropped its top/bottom decorative border.
+    contain(ctx, image, BANNER.x, BANNER.y, BANNER.w, BANNER.h);
   } else {
     // A deliberate text-only banner fallback, not an invented egg illustration.
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
