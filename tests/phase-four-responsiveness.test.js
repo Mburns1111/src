@@ -25,7 +25,8 @@ test("invalid maintenance batch arguments cannot silently disable yielding",asyn
 test("slash commands do not wait for potentially long startup reconciliation",()=>{
   const root=dirname(dirname(fileURLToPath(import.meta.url)));
   const index=readFileSync(resolve(root,"index.js"),"utf8");
-  assert.match(index,/await interaction\.deferReply\(\{ flags: MessageFlags\.Ephemeral \}\)/);
+  assert.match(index,/await interaction\.deferReply\(publicCollection \? \{\} : \{ flags: MessageFlags\.Ephemeral \}\)/);
+  assert.match(index,/interaction\.options\.getSubcommand\(false\) === "collection"/);
   assert.doesNotMatch(index,/await\s+startupMaintenancePromise/);
   assert.match(index,/void \(async \(\) => \{/);
   assert.match(index,/Startup channel maintenance failed/);
