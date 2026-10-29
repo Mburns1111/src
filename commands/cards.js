@@ -15,6 +15,7 @@ import { renderCollectibleCardPreview } from "../services/card-preview-renderer.
 import { renderThreeCardDropImage } from "../services/card-drop-renderer.js";
 import { getCardCollectionSummary, formatCardCollectionSummary, updateOwnedCardTag } from "../services/card-collection-summary.js";
 import { startCardCollection } from "./card-collection-ui.js";
+import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade } from "../services/card-upgrades.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { updateMultipleOwnedCardTags, prepareTagDeletion, confirmTagDeletion } from "../services/card-tag-management.js";
 import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js";
@@ -23,6 +24,8 @@ import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../se
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Collectible card game")
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
     .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false)))
+  .addSubcommand(c => c.setName("upgrade").setDescription("Combine 4 matching cards into Neon or Mega Neon")
+    .addStringOption(o => o.setName("card_ids").setDescription("Exactly 4 card IDs, separated by commas").setRequired(true)))
   .addSubcommand(c => c.setName("stats").setDescription("See collector, burn and upgrade statistics for a card")
     .addStringOption(o => o.setName("card_id").setDescription("Optional five-character ID; defaults to your last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("preview").setDescription("View a portrait preview of an owned collectible card")
@@ -90,6 +93,33 @@ export async function execute(interaction) {
     if (isEnabled()) return startCardCollection(interaction);
     const summary = await getCardCollectionSummary(interaction.user.id);
     return interaction.editReply(formatCardCollectionSummary(summary));
+  }
+  if (option === "upgrade") {
+    if (!isEnabled()) return interaction.editReply("Card upgrades are enabled only on the development bot.");
+    try {
+      const request = await prepareCardUpgrade({
+        ownerId: interaction.user.id, guildId: interaction.guildId,
+        cardIds: interaction.options.getString("card_ids", true),
+      });
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`cards:upgrade:yes:${request.token}`)
+          .setStyle(ButtonStyle.Danger).setLabel("Confirm Upgrade"),
+        new ButtonBuilder().setCustomId(`cards:upgrade:no:${request.token}`)
+          .setStyle(ButtonStyle.Secondary).setLabel("Cancel"),
+      );
+      return interaction.editReply({
+        content: [
+          `**Upgrade ${escapeDiscord(request.petName)} → ${request.target === "neon" ? "Neon" : "Mega Neon"}?**`,
+          `Release: ${escapeDiscord(request.releaseId)}`,
+          `Consume exactly four cards: ${request.ids.map(id => `\\`${id}\\``).join(", ")}`,
+          "**These four original card IDs will be permanently consumed**, and one NEW unique five-character card ID will be created.",
+          "Tagged cards cannot be used. You have 90 seconds to confirm.",
+        ].join("\\n"),
+        components: [row], allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      return interaction.editReply({ content: error.message, allowedMentions: { parse: [] } });
+    }
   }
   if (option === "stats") {
     if (!isEnabled()) return interaction.editReply("Card statistics are disabled on this bot.");
@@ -421,6 +451,30 @@ export async function execute(interaction) {
   }
   return interaction.editReply("Test release egg hatched in this channel. Cards are available to grab for 75 seconds.");
 }
+export async function handleCardUpgrade(interaction) {
+  const [, , action, token] = interaction.customId.split(":");
+  if (!["yes", "no"].includes(action) || !/^[0-9a-f]{24}$/.test(token || "")) {
+    return interaction.reply({ content: "Invalid upgrade confirmation.", flags: MessageFlags.Ephemeral });
+  }
+  // This message is private and bound to the requesting member.
+  try {
+    if (action === "no") {
+      cancelCardUpgrade(token, interaction.user.id);
+      return interaction.update({ content: "Card upgrade cancelled. Your cards are unchanged.", components: [] });
+    }
+    await interaction.deferUpdate();
+    const result = await confirmCardUpgrade(token, interaction.user.id, interaction.guildId);
+    return interaction.editReply({
+      content: `**Upgrade complete!** ${escapeDiscord(result.petName)} → **${result.target === "neon" ? "Neon" : "Mega Neon"}**\nNew card ID: \\`${result.publicId}\\`\nConsumed: ${result.consumedIds.map(id => `\\`${id}\\``).join(", ")}\nUse /cards collection to see your new card.`,
+      components: [], allowedMentions: { parse: [] },
+    });
+  } catch (error) {
+    console.error("[Cards] Upgrade failed:", error);
+    if (interaction.deferred || interaction.replied) return interaction.editReply({ content: error.message, components: [] });
+    return interaction.reply({ content: error.message, flags: MessageFlags.Ephemeral });
+  }
+}
+
 export async function handleCardGrab(interaction) {
   if (!isEnabled()) return interaction.reply({ content: "Card grabbing is disabled.", flags: MessageFlags.Ephemeral });
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
