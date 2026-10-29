@@ -4,13 +4,12 @@ import { loadImageSource } from "./post-renderer.js";
 
 // The release banner is not part of any individual card. It is a distinct
 // horizontal strip above the three-card composite.
-export const CARD_DROP_IMAGE_SIZE = Object.freeze({ width: 1920, height: 1370 });
-const MARGIN = 46;
-const BANNER = { x: MARGIN, y: 36, w: 1828, h: 460 };
-const CARD_WIDTH = 548;
+export const CARD_DROP_IMAGE_SIZE = Object.freeze({ width: 1920, height: 1280 });
+const BANNER = { x: 210, y: 34, w: 1500, h: 355 };
+const CARD_WIDTH = 530;
 const CARD_HEIGHT = Math.round(CARD_WIDTH * CARD_PREVIEW_SIZE.height / CARD_PREVIEW_SIZE.width);
-const CARD_TOP = 530;
-const CARD_LEFTS = [86, 686, 1286];
+const CARD_TOP = 454;
+const CARD_LEFTS = [95, 695, 1295];
 
 function rounded(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -57,10 +56,20 @@ export async function renderThreeCardDropImage({
   const { width: W, height: H } = CARD_DROP_IMAGE_SIZE;
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#FAF6FC";
-  ctx.fillRect(0, 0, W, H);
+  // Leave the canvas transparent: no connecting pastel sheet behind the banner
+  // and cards. Discord will display them as four separate floating objects.
 
-  // Release banner remains separate from the card graphics.
+  // Soft isolated shadow for the egg banner.
+  ctx.save();
+  ctx.shadowColor = "rgba(57, 32, 66, 0.20)";
+  ctx.shadowBlur = 28;
+  ctx.shadowOffsetY = 10;
+  rounded(ctx, BANNER.x, BANNER.y, BANNER.w, BANNER.h, 30);
+  ctx.fillStyle = "#F4E8F6";
+  ctx.fill();
+  ctx.restore();
+
+  // Release banner is clipped to its own rounded rectangle.
   ctx.save();
   rounded(ctx, BANNER.x, BANNER.y, BANNER.w, BANNER.h, 30);
   ctx.clip();
@@ -76,8 +85,7 @@ export async function renderThreeCardDropImage({
     catch (error) { console.warn("[Cards] Egg banner unavailable:", error.message); }
   }
   if (image) {
-    // Fill the shorter banner, cropping only excess upper/lower background.
-    // This keeps both eggs and the centered release lettering prominent.
+    // Trim the empty upper/lower margin, preserving both eggs and title.
     cover(ctx, image, BANNER.x, BANNER.y, BANNER.w, BANNER.h);
   } else {
     // A deliberate text-only banner fallback, not an invented egg illustration.
@@ -101,7 +109,21 @@ export async function renderThreeCardDropImage({
   }))));
   for (let i = 0; i < 3; i++) {
     const x = CARD_LEFTS[i];
+    // Each card casts its own shadow and has its own clipped border; there
+    // is no common panel behind the row.
+    ctx.save();
+    ctx.shadowColor = "rgba(35, 24, 52, 0.26)";
+    ctx.shadowBlur = 25;
+    ctx.shadowOffsetY = 10;
+    rounded(ctx, x, CARD_TOP, CARD_WIDTH, CARD_HEIGHT, 24);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    rounded(ctx, x, CARD_TOP, CARD_WIDTH, CARD_HEIGHT, 24);
+    ctx.clip();
     ctx.drawImage(images[i], x, CARD_TOP, CARD_WIDTH, CARD_HEIGHT);
+    ctx.restore();
     // Position numbers correspond exactly with Grab #1/#2/#3.
     ctx.save();
     ctx.fillStyle = "#FFFFFF";
