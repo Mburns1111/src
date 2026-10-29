@@ -15,7 +15,8 @@ Set `CARD_GAME_OWNER_DISCORD_ID` to the owner's numeric Discord **user ID** in R
 - `/cards-owner inspect release:<id> [page]`: only the owner can inspect global pet lineup, weights, approved/enabled state and hatch odds; response is private.
 - `/cards-owner create-series id:series-1 name:"Series 1"`: owner creates a global series in draft.
 - `/cards-owner create-release series:series-1 id:s1-r1 name:"Release 1" egg:"Release 1 Egg"`: owner creates an **empty draft** release with the standard 26/26/26/14/8 odds. It is shared across all servers, but no cards are automatically seeded or made available.
-- `/cards-owner add-pet release:s1-r1 pet:cow weight:1`: adds one master-catalog pet by its canonical ID as disabled with missing artwork. Unknown-rarity pets are blocked from assignment.
+- `/cards-owner add-pet release:s1-r1 pet:Cow weight:1`: adds one master-catalog pet by canonical ID or exact name as disabled with missing artwork. Unknown-rarity pets are blocked from assignment.
+- `/cards-owner add-pets release:s1-r1 pets:"cow, unicorn, Abyssinian Cat"`: add up to **100 canonical IDs or exact pet names in one operation**. The bot validates every pet and commits the whole batch transactionally; duplicates or unknown rarities reject the entire batch.
 - `/cards-owner remove-pet release:s1-r1 pet:cow`: removes only an unapproved, disabled draft pet.
 - `/cards-owner edit-release release:s1-r1 name:"New Name"`: changes an existing draft release/egg display name.
 - `/cards-owner set-weight release:s1-r1 pet:cow weight:2`: adjusts one draft pet relative hatch weight (0 disables its chance).
@@ -42,6 +43,6 @@ A single CardSeries/CardRelease/CardDefinition catalog belongs to the bot, rathe
 
 1. In Replit Secrets add `CARD_GAME_OWNER_DISCORD_ID` (your own Discord user ID) and retain `ENABLE_CARD_GAME_TEST=1`.
 2. Pull `feature/card-game-foundation`, run `npm test`, and re-register slash commands with `node register-commands.js`.
-3. Restart the **development** bot and test private `/cards-owner releases`, `/cards-owner inspect`, and local `/cards-admin setup-role`. Create a draft series and release, add one pet, inspect it, and use release-check. Confirm that no drop is created and the card is disabled.
+3. Restart the **development** bot and test private `/cards-owner releases`, `/cards-owner inspect`, and local `/cards-admin setup-role`. Create a draft series and release, add one pet, try a short batch of two or three distinct pets, inspect it, and use release-check. Confirm that no drop is created and the card is disabled.
 4. Confirm that a different manager account cannot inspect release rosters, change card art, or trigger the test drops.
 5. Do not merge to main or deploy/restart Wispbyte without separate explicit owner approval.
