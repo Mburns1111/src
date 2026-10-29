@@ -49,7 +49,7 @@ test("server admins only get a local Card role setting", () => {
   const ownerCommand = cardsOwner.toJSON();
   assert.deepEqual(ownerCommand.options.map(x => x.name), [
     "releases", "create-series", "create-release", "edit-release", "add-pet",
-    "remove-pet", "set-weight", "set-odds", "release-check", "inspect",
+    "add-pets", "remove-pet", "set-weight", "set-odds", "release-check", "inspect",
   ]);
 });
 
