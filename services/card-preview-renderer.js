@@ -135,14 +135,21 @@ export async function renderCollectibleCardPreview({
   // A test-placeholder is explicitly described as a placeholder, not as real artist art.
   if (dropMode) {
     ctx.save();
-    ctx.textAlign = "left";
+    // Three cards are reduced heavily by Discord: use a large, high-contrast
+    // two-line artist footer rather than tiny single-line body text.
+    roundRect(ctx, 83, 1092, 734, 117, 19, "#F0F4F1", "#C3D1CA", 2);
+    ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#566760";
-    ctx.font = "bold 26px sans-serif";
-    const credit = artistCredit?.trim()
-      ? `Art: ${artistCredit.trim()}`
-      : "Test placeholder · Artist pending";
-    ctx.fillText(credit, 88, 1158, 724);
+    ctx.fillStyle = "#344C43";
+    const artist = String(artistCredit || "").trim();
+    const credit = artist ? `ART BY ${artist}` : "ARTIST PENDING";
+    fitText(ctx, credit, 684, 49, 27);
+    ctx.fillText(credit, W / 2, 1154, 684);
+    if (!artist) {
+      ctx.font = "bold 29px sans-serif";
+      ctx.fillStyle = "#536B62";
+      ctx.fillText("TEST PLACEHOLDER", W / 2, 1194, 684);
+    }
     ctx.restore();
     return canvas.toBuffer("image/png");
   }
