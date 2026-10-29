@@ -5,7 +5,9 @@ import { loadImageSource } from "./post-renderer.js";
 // The release banner is not part of any individual card. It is a distinct
 // horizontal strip above the three-card composite.
 export const CARD_DROP_IMAGE_SIZE = Object.freeze({ width: 1920, height: 1280 });
-const BANNER = { x: 210, y: 34, w: 1500, h: 355 };
+// Match the 1200×430 artwork proportions so the pink frame remains visible
+// without empty side panels or distorting the eggs.
+const BANNER = { x: 465, y: 34, w: 990, h: 355 };
 const CARD_WIDTH = 530;
 const CARD_HEIGHT = Math.round(CARD_WIDTH * CARD_PREVIEW_SIZE.height / CARD_PREVIEW_SIZE.width);
 const CARD_TOP = 454;
