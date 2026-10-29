@@ -11,13 +11,13 @@ const SESSION_TTL = 15 * 60 * 1000;
 const MAX_SESSIONS = 500;
 const sessions = new Map();
 
-export function openCollectionSession(ownerId) {
-  if (!ownerId) throw new Error("Collection owner required.");
+export function openCollectionSession(ownerId, collectionOwnerId = ownerId, collectionName = "Collection") {
+  if (!ownerId || !collectionOwnerId) throw new Error("Collection user IDs are required.");
   const now = Date.now();
   for (const [id, session] of sessions) if (session.expiresAt <= now) sessions.delete(id);
   if (sessions.size >= MAX_SESSIONS) sessions.delete(sessions.keys().next().value);
   const id = randomBytes(8).toString("hex");
-  sessions.set(id, { ownerId, page: 0, rarity: "all", release: "all", tag: "", sort: "newest", expiresAt: now + SESSION_TTL });
+  sessions.set(id, { ownerId, collectionOwnerId, collectionName: String(collectionName).slice(0, 80), page: 0, rarity: "all", release: "all", tag: "", sort: "newest", expiresAt: now + SESSION_TTL });
   return id;
 }
 export function getCollectionSession(id, ownerId) {
