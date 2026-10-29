@@ -1,6 +1,7 @@
 import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
+import { storeTestEggArtwork } from "../services/card-egg-artwork-upload.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
 import CardCopy from "../models/CardCopy.js";
@@ -35,6 +36,8 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("C
     .addStringOption(o => o.setName("card_ids").setDescription("1–20 five-character card IDs, comma-separated").setRequired(true)))
   .addSubcommand(c => c.setName("delete-tag").setDescription("Remove a named tag from ALL your cards (confirmation required)")
     .addStringOption(o => o.setName("tag").setDescription("Exact tag to delete").setRequired(true)))
+  .addSubcommand(c => c.setName("egg-art-upload").setDescription("MANAGERS: save the Release 1 egg artwork to MongoDB")
+    .addAttachmentOption(o => o.setName("image").setDescription("Release 1 egg image (PNG/JPG/WebP)").setRequired(true)))
   .addSubcommand(c => c.setName("test-drop").setDescription("MANAGERS: reveal a test release egg with three cards")
     .addStringOption(o => o.setName("release").setDescription("Release ID (e.g. series1-release1)").setRequired(true))
 );
@@ -187,6 +190,32 @@ export async function execute(interaction) {
       });
     } catch (error) {
       return interaction.editReply(error.message);
+    }
+  }
+  if (option === "egg-art-upload") {
+    if (!isEnabled()) return interaction.editReply("Egg artwork upload is only available on the development bot.");
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      return interaction.editReply("Only server managers can upload release egg artwork.");
+    }
+    try {
+      const result = await storeTestEggArtwork({
+        releaseId: "test-s1-r1",
+        attachment: interaction.options.getAttachment("image", true),
+        uploadedBy: interaction.user.id,
+      });
+      return interaction.editReply({
+        content: [
+          "**Egg artwork saved in MongoDB.**",
+          `Release: ${result.releaseId} · Artwork: ${result.artworkId}`,
+          `Credit: ${result.creditText}`,
+          "Source/license review remains pending. This upload is for development testing only.",
+          "Run /cards test-drop release:test-s1-r1 to preview it.",
+        ].join("\\n"),
+        allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      console.error("[Cards] Egg artwork upload failed:", error);
+      return interaction.editReply("Egg artwork was not saved: " + error.message);
     }
   }
   if (!isEnabled()) return interaction.editReply("Card test drops are disabled on this bot.");
