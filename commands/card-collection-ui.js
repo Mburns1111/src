@@ -102,7 +102,7 @@ export async function handleCardCollectionInteraction(interaction) {
   await interaction.deferUpdate();
   try {
     const session = getCollectionSession(id, interaction.user.id);
-    if (action === "pick") {
+    if (action === "pick" && ["__prev__", "__next__", "__back__", "__empty__"].includes(interaction.values?.[0])) {
       const selected = interaction.values?.[0];
       if (selected === "__prev__" || selected === "__next__") {
         updateCollectionSession(id, interaction.user.id, {
@@ -113,10 +113,6 @@ export async function handleCardCollectionInteraction(interaction) {
       if (selected === "__back__" || selected === "__empty__") {
         return interaction.editReply(await collectionView(id, interaction.user.id));
       }
-      // Ensure the chosen ID is from the currently displayed page, as well
-      // as owned by the member (ownership is checked again below).
-      const page = await getCollectionPage(interaction.user.id, session);
-      if (!page.cards.some(c => String(c._id) === selected)) throw new Error("That card is not on this page.");
     } else if (action === "rarity") {
 
       if (!session.rarityOptions?.includes(interaction.values?.[0]) && interaction.values?.[0] !== "all") throw new Error("That rarity is not in your collection.");
@@ -130,6 +126,9 @@ export async function handleCardCollectionInteraction(interaction) {
       if (selected !== "all" && !session.tagOptions?.includes(selected)) throw new Error("That tag is no longer available.");
       updateCollectionSession(id, interaction.user.id, { tag: selected === "all" ? "" : selected });
     } else if (action === "pick") {
+      // Check the selected card belongs to the current displayed page.
+      const page = await getCollectionPage(interaction.user.id, session);
+      if (!page.cards.some(c => String(c._id) === interaction.values?.[0])) throw new Error("That card is not on this page.");
       const copy = await findOwnedCollectionCard(interaction.user.id, interaction.values?.[0]);
       if (!copy) throw new Error("You no longer own that card.");
       const def = await CardDefinition.findById(copy.cardDefinitionId).lean();
