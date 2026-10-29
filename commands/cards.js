@@ -15,7 +15,7 @@ import { renderCollectibleCardPreview } from "../services/card-preview-renderer.
 import { renderThreeCardDropImage } from "../services/card-drop-renderer.js";
 import { getCardCollectionSummary, formatCardCollectionSummary, updateOwnedCardTag } from "../services/card-collection-summary.js";
 import { startCardCollection } from "./card-collection-ui.js";
-import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade } from "../services/card-upgrades.js";
+import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade, suggestOwnedCardUpgrades } from "../services/card-upgrades.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { updateMultipleOwnedCardTags, prepareTagDeletion, confirmTagDeletion } from "../services/card-tag-management.js";
 import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js";
@@ -25,7 +25,7 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("C
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
     .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false)))
   .addSubcommand(c => c.setName("upgrade").setDescription("Combine 4 matching cards into Neon or Mega Neon")
-    .addStringOption(o => o.setName("card").setDescription("One card ID or pet name; bot finds four matching copies").setRequired(true)))
+    .addStringOption(o => o.setName("card").setDescription("One card ID or pet name; bot finds four matching copies").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c => c.setName("stats").setDescription("See collector, burn and upgrade statistics for a card")
     .addStringOption(o => o.setName("card_id").setDescription("Optional five-character ID; defaults to your last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("preview").setDescription("View a portrait preview of an owned collectible card")
@@ -579,5 +579,20 @@ export async function handleCardTagDeletion(interaction) {
     });
   } catch (error) {
     await interaction.followUp({ content: error.message, flags: MessageFlags.Ephemeral });
+  }
+}
+
+/** Discord autocomplete must respond directly; it is never deferred. */
+export async function autocompleteCards(interaction) {
+  if (interaction.options.getSubcommand(false) !== "upgrade" || !isEnabled()) {
+    return interaction.respond([]);
+  }
+  try {
+    const input = interaction.options.getFocused();
+    const suggestions = await suggestOwnedCardUpgrades(interaction.user.id, input);
+    return interaction.respond(suggestions);
+  } catch (error) {
+    console.warn("[Cards] Upgrade autocomplete failed:", error.message);
+    return interaction.respond([]);
   }
 }
