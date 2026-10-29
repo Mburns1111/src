@@ -107,6 +107,7 @@ import { startMediaTelemetry } from "./services/media-telemetry.js";
 import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/temporary-dm-notice.js";
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
+import { parseHatchemText, runHatchemText } from "./services/hatchem-text-commands.js";
 import UserProfile from "./models/UserProfile.js";
 import { cleanupPendingForms, handleRemovePendingForm } from "./commands/pending-forms.js";
 import { forgetHouseForm } from "./commands/house.js";
@@ -189,6 +190,19 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
   if (!message.guildId || message.author?.bot || !message.content) return;
+  // Only commands typed in the assigned Hatchem text channel are parsed.
+  // Ordinary chat and every other channel are ignored by this handler.
+  const parsed = process.env.ENABLE_CARD_GAME_TEST === "1"
+    ? parseHatchemText(message.content) : null;
+  if (parsed) {
+    void (async () => {
+      const config = await GuildConfig.findOne({ guildId: message.guildId })
+        .select("hatchemChannelId").lean();
+      if (config?.hatchemChannelId && message.channelId === config.hatchemChannelId) {
+        await runHatchemText(message, parsed);
+      }
+    })().catch(error => console.error("[Hatchem] Text routing failed:", error));
+  }
   awardMessageActivity(message).then(result => {
     if (result.credited) console.log(`[Points] Chat +${result.amount} to ${message.author.id}.`);
   }).catch(error => {
@@ -695,6 +709,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.log("Command received:", interaction.commandName);
     console.log("Available handlers:", [...commandHandlers.keys()]);
 
+    // The card-game slash commands belong to Hatchem, not the ordinary bot command channel.
+    if (interaction.commandName === cardsCommand.name && interaction.guildId) {
+      const hatchemConfig = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("hatchemChannelId").lean();
+      if (hatchemConfig?.hatchemChannelId && interaction.channelId !== hatchemConfig.hatchemChannelId) {
+        await interaction.editReply({
+          content: `Use Hatchem commands in <#${hatchemConfig.hatchemChannelId}>.`,
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+    }
     const handler = commandHandlers.get(interaction.commandName);
     if (!handler) {
       await interaction.editReply({
