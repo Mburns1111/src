@@ -5,6 +5,8 @@ import CardDefinition from "../models/CardDefinition.js";
 import CardRelease from "../models/CardRelease.js";
 import CardCollector from "../models/CardCollector.js";
 import { selectOwnedTagTargets } from "./card-tag-targets.js";
+import { findOwnedCardById } from "./card-owned-selection.js";
+import { parseCardIds } from "./card-tag-management.js";
 import { tagKey } from "./card-tag-catalog.js";
 
 const TIMEOUT_MS = 2 * 60 * 1000;
@@ -16,8 +18,18 @@ function cleanExpired(now) {
   if (pending.size >= MAX_PENDING) pending.delete(pending.keys().next().value);
 }
 
-export async function prepareCardTagConfirmation({ discordUserId, cardId, tag }) {
-  const targets = await selectOwnedTagTargets(discordUserId, cardId);
+export async function prepareCardTagConfirmation({ discordUserId, cardId, cardIds = null, tag }) {
+  let targets;
+  if (cardIds !== null) {
+    const references = parseCardIds(cardIds);
+    const copies = await Promise.all(references.map(reference => findOwnedCardById(discordUserId, reference)));
+    if (copies.some(copy => !copy)) throw new Error("Some card IDs are not currently owned by you.");
+    if (new Set(copies.map(copy => String(copy._id))).size !== copies.length)
+      throw new Error("Each card ID can appear only once.");
+    targets = { cards: copies, name: null, mode: "ids" };
+  } else {
+    targets = await selectOwnedTagTargets(discordUserId, cardId);
+  }
   const nextTag = tag === null ? "" : tagKey(tag);
   const cards = targets.cards.map(card => ({
     id: String(card._id), publicId: card.publicId || "PENDING",
