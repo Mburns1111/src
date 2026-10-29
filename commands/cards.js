@@ -2,6 +2,7 @@ import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, Messag
 import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
 import { storeTestEggArtwork } from "../services/card-egg-artwork-upload.js";
+import { uploadCardArtwork, loadCardArtwork } from "../services/card-artwork-assets.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
 import CardCopy from "../models/CardCopy.js";
@@ -38,6 +39,17 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("C
     .addStringOption(o => o.setName("tag").setDescription("Exact tag to delete").setRequired(true)))
   .addSubcommand(c => c.setName("egg-art-upload").setDescription("MANAGERS: save the Release 1 egg artwork to MongoDB")
     .addAttachmentOption(o => o.setName("image").setDescription("Release 1 egg image (PNG/JPG/WebP)").setRequired(true)))
+  .addSubcommand(c => c.setName("art-upload").setDescription("MANAGERS: upload a test card art asset to MongoDB")
+    .addStringOption(o => o.setName("key").setDescription("Unique artwork ID, e.g. cat-art-01").setRequired(true))
+    .addStringOption(o => o.setName("kind").setDescription("Layer type").setRequired(true)
+      .addChoices({ name: "Pet illustration", value: "pet" }, { name: "Card background", value: "background" }, { name: "Transparent frame", value: "frame" }))
+    .addAttachmentOption(o => o.setName("image").setDescription("PNG, JPG or WebP image").setRequired(true))
+    .addStringOption(o => o.setName("artist").setDescription("Artist to credit (required for pet art)").setRequired(false)))
+  .addSubcommand(c => c.setName("art-assign").setDescription("MANAGERS: assign uploaded artwork to TEST cards or release")
+    .addStringOption(o => o.setName("kind").setDescription("Which layer to assign").setRequired(true)
+      .addChoices({ name: "Pet illustration", value: "pet" }, { name: "Card background", value: "background" }, { name: "Transparent frame", value: "frame" }))
+    .addStringOption(o => o.setName("key").setDescription("Uploaded artwork ID").setRequired(true))
+    .addStringOption(o => o.setName("pet_id").setDescription("Required only for pet illustration, from test release").setRequired(false)))
   .addSubcommand(c => c.setName("test-drop").setDescription("MANAGERS: reveal a test release egg with three cards")
     .addStringOption(o => o.setName("release").setDescription("Release ID (e.g. series1-release1)").setRequired(true))
 );
@@ -119,11 +131,19 @@ export async function execute(interaction) {
       if (!definition) return interaction.editReply("That card's artwork definition is missing.");
       const [pet, release, series, otherCollectorCount] = await Promise.all([
         PetCatalog.findOne({ petId: definition.petId }).select("name").lean(),
-        CardRelease.findOne({ releaseId: definition.releaseId }).select("name").lean(),
+        CardRelease.findOne({ releaseId: definition.releaseId }).select("name cardBackgroundKey cardFrameKey").lean(),
         CardSeries.findOne({ seriesId: definition.seriesId }).select("name").lean(),
         countOtherCardCollectors({ cardDefinitionId: copy.cardDefinitionId, ownerDiscordUserId: interaction.user.id }),
       ]);
+      const [petImage, backgroundImage, frameImage] = await Promise.all([
+        loadCardArtwork(definition.petArtworkKey, "pet"),
+        loadCardArtwork(release?.cardBackgroundKey, "background"),
+        loadCardArtwork(release?.cardFrameKey, "frame"),
+      ]);
       const png = await renderCollectibleCardPreview({
+        petImageSource: petImage?.bytes,
+        backgroundImageSource: backgroundImage?.bytes,
+        frameImageSource: frameImage?.bytes,
         petName: pet?.name || definition.petId,
         rarity: definition.rarity, upgradeLevel: copy.upgradeLevel,
         releaseName: release?.name || definition.releaseId,
@@ -218,6 +238,52 @@ export async function execute(interaction) {
       return interaction.editReply("Egg artwork was not saved: " + error.message);
     }
   }
+  if (option === "art-upload" || option === "art-assign") {
+    if (!isEnabled()) return interaction.editReply("Card artwork tools are enabled only on the development bot.");
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply("Only server managers can manage card artwork.");
+    try {
+      const kind = interaction.options.getString("kind", true);
+      const key = interaction.options.getString("key", true);
+      if (option === "art-upload") {
+        const result = await uploadCardArtwork({
+          kind, key, attachment: interaction.options.getAttachment("image", true),
+          artistCredit: interaction.options.getString("artist") || "", uploadedBy: interaction.user.id,
+        });
+        return interaction.editReply({
+          content: `Saved **${escapeDiscord(result.key)}** (${result.kind}) to MongoDB. Artwork remains under review. Use /cards art-assign to display it in TEST cards.`,
+          allowedMentions: { parse: [] },
+        });
+      }
+      const release = await CardRelease.findOne({ releaseId: "test-s1-r1" });
+      if (!release) return interaction.editReply("TEST Release 1 was not found.");
+      const asset = await loadCardArtwork(key.trim().toLowerCase(), kind);
+      if (!asset) return interaction.editReply("Artwork was not found.");
+      if (kind === "pet") {
+        const petId = interaction.options.getString("pet_id")?.trim();
+        if (!petId) return interaction.editReply("Specify pet_id when assigning pet artwork.");
+        const definition = await CardDefinition.findOne({ releaseId: release.releaseId, petId });
+        if (!definition) return interaction.editReply("That pet ID does not have a TEST card definition.");
+        if (!asset.artwork.artistCredit) return interaction.editReply("Pet artwork must have an artist credit.");
+        definition.petArtworkKey = asset.artwork.key;
+        definition.artistCredit = asset.artwork.artistCredit;
+        // Never silently approve an uploaded artist image; TEST-only preview
+        // can still use the test-placeholder status pending permission review.
+        await definition.save();
+      } else {
+        if (interaction.options.getString("pet_id")) return interaction.editReply("Backgrounds and frames are release-wide; omit pet_id.");
+        if (kind === "background") release.cardBackgroundKey = asset.artwork.key;
+        else release.cardFrameKey = asset.artwork.key;
+        await release.save();
+      }
+      return interaction.editReply({
+        content: `Assigned **${escapeDiscord(asset.artwork.key)}** as ${kind} artwork to TEST Release 1${kind === "pet" ? " pet " + escapeDiscord(interaction.options.getString("pet_id")) : ""}. No production cards were modified.`,
+        allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      console.error("[Cards] Artwork management failed:", error);
+      return interaction.editReply("Card artwork operation failed: " + error.message);
+    }
+  }
   if (!isEnabled()) return interaction.editReply("Card test drops are disabled on this bot.");
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply("Only server managers can start test drops.");
   const releaseId = interaction.options.getString("release", true);
@@ -243,11 +309,19 @@ export async function execute(interaction) {
       "Run `node scripts/find-release-egg-artwork.js test-s1-r1` in Replit to identify its stored filename/bucket. No drop was created."
     );
   }
+  const [backgroundImage, frameImage] = await Promise.all([
+    loadCardArtwork(release.cardBackgroundKey, "background"),
+    loadCardArtwork(release.cardFrameKey, "frame"),
+  ]);
+  const petImages = await Promise.all(revealed.map(({ card }) => loadCardArtwork(card.petArtworkKey, "pet")));
   const dropPng = await renderThreeCardDropImage({
     releaseName: release.name,
     seriesName: series?.name || release.seriesId,
     eggImageSource,
-    cards: revealed.map(({ card, rarity }) => ({
+    cards: revealed.map(({ card, rarity }, i) => ({
+      petImageSource: petImages[i]?.bytes,
+      backgroundImageSource: backgroundImage?.bytes,
+      frameImageSource: frameImage?.bytes,
       petName: petNames[card.petId] || card.petId,
       rarity,
       artStatus: card.artStatus,
