@@ -17,7 +17,11 @@
 - `.drop` — manager-only test egg release `test-s1-r1`; `drop test-other-release` also accepts a test release ID
 - `.collection` or `collection @member` — public, invoker-controlled collection browser
 - `.upgrade 2D Doggy` or `.upgrade KmwP7` — auto-select four matching cards, with confirmation and public upgraded-card artwork
-- `.tag KmwP7 Favorites` or `.tag Favorites` (last grabbed card)
+- `.create-tag cute` saves a reusable tag even when no cards have it; `.tags` lists saved tags.
+- `.tag cute` tags your **newest owned card** (including Neon/Mega upgrades).
+- `.tag abys cute` tags the newest owned Abyssinian Cat using the first four letters of its name; `.untag abys` removes that tag.
+- `.tag KmwP7 Favorites` targets a specific owned card ID. Use quotes for spaces in a tag: `.tag "My Favorite"` or `.tag abys "My Favorite"`.
+- Pet names, tag names, and unambiguous owned card-ID references can be entered in any capitalization. If two owned card IDs differ only in case, use the exact spelling shown in your collection.
 - `.untag KmwP7`, `.tag-multiple Favorites ID1,ID2`, `.untag-multiple ID1,ID2`, `.delete-tag Favorites`
 - `.stats KmwP7`, `.preview KmwP7`
 
@@ -31,5 +35,7 @@ Slash-command autocomplete is confined to Hatchem. Typed messages do not show Di
 
 - A privileged Message Content Intent must be enabled both in the Developer Portal and in Replit; merely assigning a channel does not grant it.
 - The Hatchem channel is configured independently of the ordinary command channel.
-- Card IDs are case-sensitive; pet names are not.
+- Pet names and tag names are case-insensitive; five-character IDs accept case-insensitive input only when one owned card matches. Exact IDs are still permanently case-sensitive internally and never renamed.
+- A four-letter pet prefix must identify one distinct pet you currently own. If several pets match, type more of the name or use a card ID; if you own multiple copies of the same pet, the newest is selected.
+- Multiword tags used without a card selector should be quoted, e.g. `.tag "My Favorites"`.
 - This is the Replit development bot, not Wispbyte production.
