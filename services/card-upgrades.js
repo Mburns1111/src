@@ -45,7 +45,7 @@ export function selectUpgradeSet(cards, preferredId = null) {
   }
   return null;
 }
-const exactName = text => new RegExp(`^${String(text).replace(/[.*+?^$\\{\\}()|[\\]\\\\]/g, "\\\\$&")}$`, "i");
+const exactName = text => new RegExp("^" + String(text).replace(/[^\p{L}\p{N} ]/gu, "\\$&") + "$", "i");
 
 async function findMatchingUpgradeCards(ownerId, reference) {
   const input = String(reference || "").trim();
