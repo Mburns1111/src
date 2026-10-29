@@ -248,6 +248,14 @@ export async function execute(interaction) {
   if (["tag-multiple", "untag-multiple", "delete-tag"].includes(option)) {
     if (!isEnabled()) return interaction.editReply("Card tagging is not enabled on this bot.");
     try {
+      if (option === "untag-multiple") {
+        const request = await prepareCardTagConfirmation({
+          discordUserId: interaction.user.id,
+          cardIds: interaction.options.getString("card_ids", true),
+          tag: null,
+        });
+        return interaction.editReply(cardTagConfirmationPayload(request));
+      }
       if (option === "delete-tag") {
         const pending = await prepareTagDeletion({
           discordUserId: interaction.user.id, tag: interaction.options.getString("tag", true),
