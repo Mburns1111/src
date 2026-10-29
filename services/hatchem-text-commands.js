@@ -1,18 +1,28 @@
 import { execute as executeCards } from "../commands/cards.js";
 
+export function parseHatchemTagArguments(raw) {
+  const args = String(raw || "").trim();
+  // Quotes let a tag or a full pet name contain spaces without ambiguity.
+  const quotedReference = /^"([^"]+)"\s+(.+)$/.exec(args);
+  if (quotedReference) return { card_id: quotedReference[1], tag: quotedReference[2].replace(/^"|"$/g, "").trim() };
+  const quotedTag = /^"([^"]+)"$/.exec(args);
+  if (quotedTag) return { tag: quotedTag[1] };
+  const target = /^(\S+)\s+(.+)$/.exec(args);
+  if (target) return { card_id: target[1], tag: target[2].replace(/^"|"$/g, "").trim() };
+  return { tag: args };
+}
+
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|drop|collection|upgrade|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|preview|trade|burn)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|drop|collection|upgrade|create-tag|tags|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|preview|trade|burn)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "drop") return { action: "test-drop", options: { release: args || "test-s1-r1" } };
   if (action === "collection") return { action, options: { member: args } };
   if (action === "upgrade") return { action, options: { card: args } };
-  if (action === "tag") {
-    const match = /^([0-9A-Za-z_-]{5})\s+(.+)$/.exec(args);
-    return { action, options: match ? { card_id: match[1], tag: match[2].trim() } : { tag: args } };
-  }
+  if (action === "tag") return { action, options: parseHatchemTagArguments(args) };
+  if (action === "create-tag") return { action, options: { tag: args.replace(/^"|"$/g, "") } };
   if (["untag", "stats", "preview"].includes(action)) return { action, options: { card_id: args } };
   if (action === "tag-multiple") {
     const [tag, ...ids] = args.split(/\s+/);
@@ -28,7 +38,8 @@ export const HATCHEM_GUIDE = [
   "Type a command starting with a dot (.) here, or use /cards:",
   ".collection [@member] — public collection",
   ".upgrade [pet name or card ID] — combine four matching cards",
-  ".tag [card ID] [tag] · .untag [card ID]",
+  ".create-tag cute · .tags · .tag cute (newest card)",
+  ".tag abys cute (pet prefix) · .untag abys",
   ".stats [card ID] · .preview [card ID]",
   ".drop — staff-only test egg",
   ".help — list more commands",
@@ -40,11 +51,14 @@ export const HATCHEM_HELP = [
   ".drop — staff test egg (test-s1-r1)",
   ".collection or .collection @member — public collection",
   ".upgrade Pet Name or .upgrade CardID — confirm a four-card upgrade",
-  ".tag CardID Favorites, .tag Favorites (last grab), .untag CardID",
+  ".create-tag cute — save a tag · .tags — list saved tags",
+  ".tag cute — tag your newest owned card (even a Neon upgrade)",
+  ".tag abys cute — newest Abyssinian Cat · .untag abys",
+  ".tag CardID Favorites · .tag \\"My Favorite\\" (spaces)",
   ".tag-multiple Favorites ID1,ID2 · .untag-multiple ID1,ID2",
-  ".delete-tag Favorites · .stats CardID · .preview CardID",
+  ".delete-tag Favorites · .stats abys · .preview abys",
   ".trade and .burn — coming later; not active",
-  "Card IDs are case-sensitive; pet names are not.",
+  "Pet names and tags ignore capitalization. Card IDs accept case-insensitive input only when unambiguous.",
 ].join("\n");
 
 export async function runHatchemText(message, parsed) {
@@ -71,7 +85,7 @@ export async function runHatchemText(message, parsed) {
     return true;
   }
   if (parsed.action === "tag" && !parsed.options.tag) {
-    await message.reply({ content: "Use .tag CardID TagName or .tag TagName for the last grabbed card.", allowedMentions: { parse: [] } });
+    await message.reply({ content: "Use .tag cute for your newest card, or .tag abys cute for a pet.", allowedMentions: { parse: [] } });
     return true;
   }
   let response = null;
