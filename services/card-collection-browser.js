@@ -48,8 +48,8 @@ export function updateCollectionSession(id, ownerId, update) {
     session.page = 0;
   }
   if (update.tag !== undefined) {
-    const tag = String(update.tag).trim().replace(/\\s+/g, " ");
-    if (tag.length > 32 || (tag && !/^[\\p{L}\\p{N} _-]+$/u.test(tag))) throw new Error("Enter a valid tag (up to 32 characters).");
+    const tag = String(update.tag).trim().replace(/\s+/g, " ");
+    if (tag.length > 32 || (tag && !/^[\p{L}\p{N} _-]+$/u.test(tag))) throw new Error("Enter a valid tag (up to 32 characters).");
     session.tag = tag;
     session.page = 0;
   }
