@@ -6,6 +6,7 @@ const schema = new mongoose.Schema({
   name: { type: String, required: true },
   eggName: { type: String, required: true },
   eggImageUrl: { type: String, default: "" },
+  eggArtworkId: { type: String, default: "" },
   eggImageFileId: { type: mongoose.Schema.Types.ObjectId, default: null },
   eggImageBucket: { type: String, default: "" },
   hatchOdds: {
