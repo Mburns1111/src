@@ -9,17 +9,17 @@
 3. Pull the dev branch, run `npm test`, `node register-commands.js`, and `npm start`.
 4. Use `/setup channels hatchem:#your-hatchem-channel` as a server manager. The existing setup command saves the chosen channel and posts a short Hatchem help guide. Run setup again to move the channel.
 
-**Scope:** Only the configured channel processes Hatchem typed commands. Slash `/cards` commands are redirected to Hatchem if a channel is configured. Other existing profile/shop/listing commands retain their own routing. Typing a Hatchem command in another channel does nothing.
+**Scope:** Only messages starting with a dot (`.`) in the configured channel process Hatchem typed commands. Normal chat is ignored without a database command lookup. Slash `/cards` commands are redirected to Hatchem if a channel is configured. Other existing profile/shop/listing commands retain their own routing. Typing a Hatchem command in another channel does nothing. Unprefixed words such as `drop` or `collection` are ordinary chat and will not be treated as commands.
 
 ## Supported typed commands
 
-- `help` — show full list
-- `drop` — manager-only test egg release `test-s1-r1`; `drop test-other-release` also accepts a test release ID
-- `collection` or `collection @member` — public, invoker-controlled collection browser
-- `upgrade 2D Doggy` or `upgrade KmwP7` — auto-select four matching cards, with confirmation and public upgraded-card artwork
-- `tag KmwP7 Favorites` or `tag Favorites` (last grabbed card)
-- `untag KmwP7`, `tag-multiple Favorites ID1,ID2`, `untag-multiple ID1,ID2`, `delete-tag Favorites`
-- `stats KmwP7`, `preview KmwP7`
+- `.help` — show full list
+- `.drop` — manager-only test egg release `test-s1-r1`; `drop test-other-release` also accepts a test release ID
+- `.collection` or `collection @member` — public, invoker-controlled collection browser
+- `.upgrade 2D Doggy` or `.upgrade KmwP7` — auto-select four matching cards, with confirmation and public upgraded-card artwork
+- `.tag KmwP7 Favorites` or `.tag Favorites` (last grabbed card)
+- `.untag KmwP7`, `.tag-multiple Favorites ID1,ID2`, `.untag-multiple ID1,ID2`, `.delete-tag Favorites`
+- `.stats KmwP7`, `.preview KmwP7`
 
 Typed commands reuse the same underlying card business rules, validation, database and existing Discord component handlers as slash commands. Responses to typed commands are visible in the Hatchem channel. Confirmation buttons still validate the requesting member.
 
