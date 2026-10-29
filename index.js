@@ -75,7 +75,7 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
-import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, reconcileCardDropClosures } from "./commands/cards.js";
+import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
 import { data as cardsAdminCommand, execute as executeCardsAdmin } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand, execute as executeCardsOwner, autocompleteCardsOwner } from "./commands/cards-owner.js";
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
@@ -466,6 +466,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("cards:collection:")) {
       await handleCardCollectionInteraction(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("cards:tagchange:")) {
+      await handleCardTagChange(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:tagdelete:")) {
