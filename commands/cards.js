@@ -1,4 +1,5 @@
-import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, MessageFlags, SlashCommandBuilder } from "discord.js";
+import { isCardGameOwner } from "../services/card-owner-access.js";
 import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
 import { storeTestEggArtwork } from "../services/card-egg-artwork-upload.js";
@@ -47,9 +48,9 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c => c.setName("tags").setDescription("List your saved collection tags"))
   .addSubcommand(c => c.setName("delete-tag").setDescription("Remove a named tag from ALL your cards (confirmation required)")
     .addStringOption(o => o.setName("tag").setDescription("Exact tag to delete").setRequired(true)))
-  .addSubcommand(c => c.setName("egg-art-upload").setDescription("MANAGERS: save the Release 1 egg artwork to MongoDB")
+  .addSubcommand(c => c.setName("egg-art-upload").setDescription("OWNER: save the Release 1 egg artwork to MongoDB")
     .addAttachmentOption(o => o.setName("image").setDescription("Release 1 egg image (PNG/JPG/WebP)").setRequired(true)))
-  .addSubcommand(c => c.setName("art-upload").setDescription("MANAGERS: upload a test card art asset to MongoDB")
+  .addSubcommand(c => c.setName("art-upload").setDescription("OWNER: upload a test card art asset to MongoDB")
     .addStringOption(o => o.setName("key").setDescription("Unique artwork ID, e.g. cat-art-01").setRequired(true))
     .addStringOption(o => o.setName("kind").setDescription("Layer type").setRequired(true)
       .addChoices({ name: "Pet illustration", value: "pet" }, { name: "Card background", value: "background" }, { name: "Transparent frame", value: "frame" }))
@@ -57,25 +58,25 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
     .addStringOption(o => o.setName("artist").setDescription("Artist to credit (required for pet art)").setRequired(false))
     .addStringOption(o => o.setName("replaces").setDescription("Older artwork key for a new revision").setRequired(false))
     .addStringOption(o => o.setName("revision_note").setDescription("What changed? Required for revisions").setRequired(false)))
-  .addSubcommand(c => c.setName("art-assign").setDescription("MANAGERS: assign uploaded artwork to TEST cards or release")
+  .addSubcommand(c => c.setName("art-assign").setDescription("OWNER: assign uploaded artwork to TEST cards or release")
     .addStringOption(o => o.setName("kind").setDescription("Which layer to assign").setRequired(true)
       .addChoices({ name: "Pet illustration", value: "pet" }, { name: "Card background", value: "background" }, { name: "Transparent frame", value: "frame" }))
     .addStringOption(o => o.setName("key").setDescription("Uploaded artwork ID").setRequired(true))
     .addStringOption(o => o.setName("pet_id").setDescription("Required only for pet illustration, from test release").setRequired(false)))
-  .addSubcommand(c => c.setName("art-list").setDescription("MANAGERS: browse uploaded card artwork")
+  .addSubcommand(c => c.setName("art-list").setDescription("OWNER: browse uploaded card artwork")
     .addStringOption(o => o.setName("kind").setDescription("Optional layer category")
       .addChoices({ name: "Pet art", value: "pet" }, { name: "Background", value: "background" }, { name: "Frame", value: "frame" }).setRequired(false))
     .addStringOption(o => o.setName("status").setDescription("Optional review status")
       .addChoices({ name: "Needs review", value: "needs-review" }, { name: "Approved", value: "approved" }, { name: "Rejected", value: "rejected" }).setRequired(false))
     .addIntegerOption(o => o.setName("page").setDescription("Page number, 8 items each").setMinValue(1).setMaxValue(1000).setRequired(false)))
-  .addSubcommand(c => c.setName("art-info").setDescription("MANAGERS: inspect artwork, credits and revision history")
+  .addSubcommand(c => c.setName("art-info").setDescription("OWNER: inspect artwork, credits and revision history")
     .addStringOption(o => o.setName("key").setDescription("Artwork key to inspect").setRequired(true)))
-  .addSubcommand(c => c.setName("art-review").setDescription("MANAGERS: record an artwork review decision")
+  .addSubcommand(c => c.setName("art-review").setDescription("OWNER: record an artwork review decision")
     .addStringOption(o => o.setName("key").setDescription("Artwork key").setRequired(true))
     .addStringOption(o => o.setName("decision").setDescription("Review decision").setRequired(true)
       .addChoices({ name: "Approve", value: "approved" }, { name: "Reject", value: "rejected" }, { name: "Return to review", value: "needs-review" }))
     .addStringOption(o => o.setName("note").setDescription("Review reason and permission evidence").setRequired(true).setMinLength(5).setMaxLength(1000)))
-  .addSubcommand(c => c.setName("test-drop").setDescription("MANAGERS: reveal a test release egg with three cards")
+  .addSubcommand(c => c.setName("test-drop").setDescription("OWNER: reveal a test release egg with three cards")
     .addStringOption(o => o.setName("release").setDescription("Release ID (e.g. series1-release1)").setRequired(true))
 );
 
@@ -267,8 +268,8 @@ export async function execute(interaction) {
   }
   if (option === "egg-art-upload") {
     if (!isEnabled()) return interaction.editReply("Egg artwork upload is only available on the development bot.");
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-      return interaction.editReply("Only server managers can upload release egg artwork.");
+    if (!isCardGameOwner(interaction.user.id)) {
+      return interaction.editReply("Only the card-game owner can upload egg artwork. Add CARD_GAME_OWNER_DISCORD_ID to Replit Secrets.");
     }
     try {
       const result = await storeTestEggArtwork({
@@ -293,7 +294,7 @@ export async function execute(interaction) {
   }
   if (option === "art-upload" || option === "art-assign") {
     if (!isEnabled()) return interaction.editReply("Card artwork tools are enabled only on the development bot.");
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply("Only server managers can manage card artwork.");
+    if (!isCardGameOwner(interaction.user.id)) return interaction.editReply("Only the card-game owner can manage card artwork. Add CARD_GAME_OWNER_DISCORD_ID to Replit Secrets.");
     try {
       const kind = interaction.options.getString("kind", true);
       const key = interaction.options.getString("key", true);
@@ -341,7 +342,7 @@ export async function execute(interaction) {
   }
   if (["art-list", "art-info", "art-review"].includes(option)) {
     if (!isEnabled()) return interaction.editReply("Card artwork tools are enabled only on the development bot.");
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply("Only server managers can manage card artwork.");
+    if (!isCardGameOwner(interaction.user.id)) return interaction.editReply("Only the card-game owner can manage card artwork. Add CARD_GAME_OWNER_DISCORD_ID to Replit Secrets.");
     try {
       if (option === "art-list") {
         const result = await browseCardArtwork({
@@ -393,7 +394,7 @@ export async function execute(interaction) {
     }
   }
   if (!isEnabled()) return interaction.editReply("Card test drops are disabled on this bot.");
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply("Only server managers can start test drops.");
+  if (!isCardGameOwner(interaction.user.id)) return interaction.editReply("Only the card-game owner can start test drops. Add CARD_GAME_OWNER_DISCORD_ID to Replit Secrets.");
   const releaseId = interaction.options.getString("release", true);
   if (!releaseId.startsWith("test-")) return interaction.editReply("Test drops require a test-* release ID. Live releases cannot be triggered here.");
   const release = await CardRelease.findOne({ releaseId, status: "active" }).lean();
