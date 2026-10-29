@@ -3,6 +3,7 @@ import CardRelease from "../models/CardRelease.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
 import CardCopy from "../models/CardCopy.js";
+import { countOtherCardCollectors } from "../services/card-ownership-stats.js";
 import CardClaim from "../models/CardClaim.js";
 import CardSeries from "../models/CardSeries.js";
 import { resolveCardId } from "../services/card-identifiers.js";
@@ -74,10 +75,11 @@ export async function execute(interaction) {
       if (!copy.publicId) return interaction.editReply("This card needs its five-character ID assigned. Run the development backfill first.");
       const definition = await CardDefinition.findById(copy.cardDefinitionId).lean();
       if (!definition) return interaction.editReply("That card's artwork definition is missing.");
-      const [pet, release, series] = await Promise.all([
+      const [pet, release, series, otherCollectorCount] = await Promise.all([
         PetCatalog.findOne({ petId: definition.petId }).select("name").lean(),
         CardRelease.findOne({ releaseId: definition.releaseId }).select("name").lean(),
         CardSeries.findOne({ seriesId: definition.seriesId }).select("name").lean(),
+        countOtherCardCollectors({ cardDefinitionId: copy.cardDefinitionId, ownerDiscordUserId: interaction.user.id }),
       ]);
       const png = await renderCollectibleCardPreview({
         petName: pet?.name || definition.petId,
@@ -85,6 +87,7 @@ export async function execute(interaction) {
         releaseName: release?.name || definition.releaseId,
         seriesName: series?.name || definition.seriesId,
         publicId: copy.publicId, artistCredit: definition.artistCredit,
+        otherCollectorCount,
         artStatus: definition.artStatus, artUrl: definition.artUrl,
       });
       return interaction.editReply({
