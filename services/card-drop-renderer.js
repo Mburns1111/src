@@ -4,12 +4,12 @@ import { loadImageSource } from "./post-renderer.js";
 
 // The release banner is not part of any individual card. It is a distinct
 // horizontal strip above the three-card composite.
-export const CARD_DROP_IMAGE_SIZE = Object.freeze({ width: 1920, height: 1510 });
+export const CARD_DROP_IMAGE_SIZE = Object.freeze({ width: 1920, height: 1370 });
 const MARGIN = 46;
-const BANNER = { x: MARGIN, y: 36, w: 1828, h: 600 };
+const BANNER = { x: MARGIN, y: 36, w: 1828, h: 460 };
 const CARD_WIDTH = 548;
 const CARD_HEIGHT = Math.round(CARD_WIDTH * CARD_PREVIEW_SIZE.height / CARD_PREVIEW_SIZE.width);
-const CARD_TOP = 670;
+const CARD_TOP = 530;
 const CARD_LEFTS = [86, 686, 1286];
 
 function rounded(ctx, x, y, w, h, r) {
@@ -76,7 +76,9 @@ export async function renderThreeCardDropImage({
     catch (error) { console.warn("[Cards] Egg banner unavailable:", error.message); }
   }
   if (image) {
-    contain(ctx, image, BANNER.x, BANNER.y, BANNER.w, BANNER.h);
+    // Fill the shorter banner, cropping only excess upper/lower background.
+    // This keeps both eggs and the centered release lettering prominent.
+    cover(ctx, image, BANNER.x, BANNER.y, BANNER.w, BANNER.h);
   } else {
     // A deliberate text-only banner fallback, not an invented egg illustration.
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
