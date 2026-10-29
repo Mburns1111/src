@@ -40,6 +40,13 @@ export async function renderThreeCardDropImage({
   if (!Array.isArray(cards) || cards.length !== 3) {
     throw new Error("A collectible drop must contain exactly three cards.");
   }
+  // Approved artist artwork must always display a credit in the drop.
+  // Placeholder illustrations may display a clearly labeled placeholder credit.
+  for (const card of cards) {
+    if (card.artStatus === "approved" && !String(card.artistCredit || "").trim()) {
+      throw new Error(`Artist credit is required before approved card art can drop: ${card.petName || "unknown pet"}`);
+    }
+  }
   const { width: W, height: H } = CARD_DROP_IMAGE_SIZE;
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext("2d");
