@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import CardSeries from "../models/CardSeries.js";
 import CardRelease from "../models/CardRelease.js";
 import CardDefinition from "../models/CardDefinition.js";
@@ -109,6 +110,52 @@ export async function addReleasePet({ releaseId: requestedId, petId, weight = 1 
   }
   return { releaseId: id, petName: pet.name, petId: pid, rarity: pet.rarity, weight: selectedWeight };
 }
+export function parseReleasePetBatch(value) {
+  const refs = String(value ?? "").split(/[,\n]+/).map(part => part.trim()).filter(Boolean);
+  if (!refs.length || refs.length > 100)
+    throw new Error("Enter 1–100 pet IDs or exact names, separated by commas or new lines.");
+  if (refs.some(ref => ref.length > 120))
+    throw new Error("A pet name or ID is too long.");
+  return refs;
+}
+
+// All-or-nothing bulk assignment: never leave half of a 100-pet roster added.
+export async function addReleasePetsBulk({ releaseId: requestedId, pets }) {
+  const id = releaseId(requestedId);
+  const refs = parseReleasePetBatch(pets);
+  const release = requireDraft(await CardRelease.findOne({ releaseId: id }).lean());
+  const resolved = await Promise.all(refs.map(findCatalogPet));
+  const unique = new Set(resolved.map(pet => pet.petId));
+  if (unique.size !== resolved.length)
+    throw new Error("Some pets are listed more than once; remove duplicates before importing.");
+  const unknown = resolved.find(pet => !CARD_RARITIES.includes(pet.rarity));
+  if (unknown) throw new Error("Unresolved rarity for " + unknown.name + ". No pets were added.");
+  const documents = resolved.map(pet => ({
+    seriesId: release.seriesId, releaseId: id, petId: pet.petId,
+    rarity: pet.rarity, hatchWeight: 1, artStatus: "missing", enabled: false,
+  }));
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const stillDraft = await CardRelease.findOne({ releaseId: id, status: "draft" }).session(session).lean();
+      if (!stillDraft) throw new Error("This release is no longer a draft.");
+      const existing = await CardDefinition.find({
+        releaseId: id, petId: { $in: resolved.map(pet => pet.petId) },
+      }).session(session).lean();
+      if (existing.length)
+        throw new Error("One or more pets are already assigned to this release. No pets were added.");
+      await CardDefinition.insertMany(documents, { session, ordered: true });
+    });
+  } catch (error) {
+    if (error?.code === 11000)
+      throw new Error("Some pets already belong to this release. No pets were added.");
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+  return { releaseId: id, added: documents.length };
+}
+
 export async function removeReleasePet({ releaseId: requestedId, petId }) {
   const id = releaseId(requestedId), pid = releaseId(petId);
   requireDraft(await CardRelease.findOne({ releaseId: id }).lean());
