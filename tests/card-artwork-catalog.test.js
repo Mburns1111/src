@@ -354,7 +354,27 @@ test("Maggie's reported permission is recorded while her art remains unreviewed"
   assert.equal(artist.platformUsername, "some1_named_maggie");
   assert.equal(artist.submittedPostsUrl, "https://www.reddit.com/user/some1_named_maggie/submitted/");
   assert.equal(artist.permission.status, "reported-by-project-owner");
-  assert.equal(artist.artworkReview.status, "not-yet-reviewed");
+  assert.equal(artist.artworkReview.status, "partially-reviewed");
   assert.deepEqual(artist.artworkReview.selectedArtworkIds, []);
-  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 0);
+  assert.equal(catalog.artworks.filter(x => x.artistIds.includes(artist.artistId)).length, 2);
+});
+
+test("Maggie image sources keep pet IDs and character-specific distinctions", () => {
+  const b = catalog.artworks.find(a => a.artworkId === "maggie-boohoo-001");
+  const c = catalog.artworks.find(a => a.artworkId === "maggie-riddle-copycat-oc-001");
+  assert.ok(b && c);
+  assert.equal(b.officialPetReference.petName, "Boohoo");
+  assert.equal(b.officialPetReference.officialRarity, "Rare");
+  assert.equal(c.officialPetReference.petName, "Copycat");
+  assert.equal(c.officialPetReference.officialRarity, "Legendary");
+  assert.equal(c.kind, "character-reference-artwork");
+  assert.equal(b.source.imageId, "1xgje0a");
+  assert.equal(c.source.imageId, "1xbj923");
+  for (const a of [b, c]) {
+    assert.deepEqual(a.artistIds, ["reddit-some1_named_maggie"]);
+    assert.deepEqual(a.series1PetMatches, []);
+    assert.deepEqual(a.releaseIds, []);
+    assert.equal(a.license.reviewStatus, "needs-review");
+    assert.equal(a.uploadReference.storedInRepository, false);
+  }
 });
