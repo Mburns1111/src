@@ -21,7 +21,8 @@ import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js"
 import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../services/card-drop-claims.js";
 
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Collectible card game")
-  .addSubcommand(c => c.setName("collection").setDescription("View your collectible cards"))
+  .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
+    .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false)))
   .addSubcommand(c => c.setName("stats").setDescription("See collector, burn and upgrade statistics for a card")
     .addStringOption(o => o.setName("card_id").setDescription("Optional five-character ID; defaults to your last grabbed card").setRequired(false)))
   .addSubcommand(c => c.setName("preview").setDescription("View a portrait preview of an owned collectible card")
