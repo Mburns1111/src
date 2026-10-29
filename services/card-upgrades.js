@@ -47,6 +47,43 @@ export function selectUpgradeSet(cards, preferredId = null) {
 }
 const exactName = text => new RegExp("^" + String(text).replace(/[^\p{L}\p{N} ]/gu, "\\$&") + "$", "i");
 
+
+/**
+ * Discord autocomplete lists only upgrade-eligible pets the member actually
+ * owns. Each choice resolves to an owned card ID, so duplicate pet names
+ * across releases/stages are unambiguous. Discord accepts at most 25 choices.
+ */
+export async function suggestOwnedCardUpgrades(ownerId, typed = "") {
+  const query = String(typed || "").trim().slice(0, 100);
+  const rows = await CardCopy.aggregate([
+    { $match: { ownerDiscordUserId: ownerId, state: "owned",
+      upgradeLevel: { $in: ["normal", "neon"] }, publicId: { $type: "string" } } },
+    { $sort: { createdAt: 1, _id: 1 } },
+    { $group: {
+      _id: { definition: "$cardDefinitionId", stage: "$upgradeLevel" },
+      count: { $sum: 1 }, sampleId: { $first: "$publicId" },
+    } },
+    { $match: { count: { $gte: CARDS_PER_UPGRADE } } },
+    { $lookup: { from: CardDefinition.collection.name, localField: "_id.definition", foreignField: "_id", as: "definition" } },
+    { $unwind: "$definition" },
+    { $lookup: { from: PetCatalog.collection.name, localField: "definition.petId", foreignField: "petId", as: "pet" } },
+    { $unwind: { path: "$pet", preserveNullAndEmptyArrays: true } },
+    { $project: {
+      sampleId: 1, count: 1, stage: "$_id.stage",
+      release: "$definition.releaseId",
+      petName: { $ifNull: ["$pet.name", "$definition.petId"] },
+    } },
+    { $sort: { petName: 1, release: 1, stage: 1 } },
+  ]);
+  const term = query.toLocaleLowerCase();
+  return rows.filter(row => !term ||
+    String(row.petName).toLocaleLowerCase().includes(term) ||
+    String(row.sampleId).toLocaleLowerCase().startsWith(term)
+  ).slice(0, 25).map(row => ({
+    name: `${row.petName} · ${row.count} ${row.stage === "neon" ? "Neon" : "Normal"} · ${row.release}`.slice(0, 100),
+    value: row.sampleId,
+  }));
+}
 async function findMatchingUpgradeCards(ownerId, reference) {
   const input = String(reference || "").trim();
   if (!input || input.length > 100) throw new Error("Enter a card ID or pet name (up to 100 characters).");
