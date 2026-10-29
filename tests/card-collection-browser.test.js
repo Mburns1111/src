@@ -61,3 +61,25 @@ test("collection tag filter is a dropdown of owned tags, not a text popup", asyn
   assert.ok(source.includes("cards:collection:pick:${id}"));
   assert.doesNotMatch(source, /setLabel\(`Sort:/);
 });
+
+test("public collection has a separate viewer, collection owner and opener-only controls", () => {
+  const id = openCollectionSession("viewer-123", "collector-456", "Collector’s Card Collection");
+  const session = getCollectionSession(id, "viewer-123");
+  assert.equal(session.ownerId, "viewer-123");
+  assert.equal(session.collectionOwnerId, "collector-456");
+  assert.match(session.collectionName, /Collector/);
+  assert.throws(() => getCollectionSession(id, "collector-456"), /another member/);
+  assert.throws(() => updateCollectionSession(id, "collector-456", { page: 2 }), /another member/);
+  closeCollectionSession(id, "viewer-123");
+});
+test("collection slash command targets members and public response is explicitly routed", async () => {
+  const { readFileSync } = await import("node:fs");
+  const command = data.toJSON().options.find(o => o.name === "collection");
+  assert.ok(command.options.some(o => o.name === "member" && o.type === 6 && !o.required));
+  const routing = readFileSync(new URL("../index.js", import.meta.url), "utf8");
+  const ui = readFileSync(new URL("../commands/card-collection-ui.js", import.meta.url), "utf8");
+  assert.match(routing, /publicCollection \? \{\} : \{ flags: MessageFlags\.Ephemeral \}/);
+  assert.match(ui, /getCollectionSession\(id, interaction\.user\.id\)/);
+  assert.match(ui, /getCollectionPage\(session\.collectionOwnerId, session\)/);
+  assert.match(ui, /findOwnedCollectionCard\(session\.collectionOwnerId,/);
+});
