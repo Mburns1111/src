@@ -41,7 +41,7 @@ function cover(ctx, image, x, y, w, h) {
 export async function renderThreeCardDropImage({
   releaseName = "Release 1",
   seriesName = "Series 1",
-  eggImageUrl = "",
+  eggImageUrl = "", eggImageSource = null,
   cards,
 } = {}) {
   if (!Array.isArray(cards) || cards.length !== 3) {
@@ -71,8 +71,8 @@ export async function renderThreeCardDropImage({
   ctx.fillStyle = gradient;
   ctx.fillRect(BANNER.x, BANNER.y, BANNER.w, BANNER.h);
   let image;
-  if (eggImageUrl) {
-    try { image = await loadImageSource(eggImageUrl); }
+  if (eggImageSource || eggImageUrl) {
+    try { image = await loadImageSource(eggImageSource || eggImageUrl); }
     catch (error) { console.warn("[Cards] Egg banner unavailable:", error.message); }
   }
   if (image) {
