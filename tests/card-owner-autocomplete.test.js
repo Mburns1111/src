@@ -30,7 +30,7 @@ test("slash commands advertise owner/collector autocomplete for relevant names",
     if (sub.options.some(o => o.name === "release")) assert.equal(sub.options.find(o => o.name === "release").autocomplete, true);
     if (sub.options.some(o => o.name === "pet")) assert.equal(sub.options.find(o => o.name === "pet").autocomplete, true);
   }
-  for (const cmd of ["tag","untag","stats","preview"]) {
+  for (const cmd of ["tag","untag","stats","view"]) {
     const sub = cards.toJSON().options.find(o => o.name === cmd);
     assert.equal(sub.options.find(o => o.name === "card_id").autocomplete, true);
   }
