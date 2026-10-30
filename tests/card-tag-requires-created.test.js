@@ -8,7 +8,7 @@ import { updateOwnedCardTag } from "../services/card-collection-summary.js";
 test("EVERY tag name must be created first; no hardcoded blocked words", async () => {
   const orig=CardCollector.findOne;
   try {
-    CardCollector.findOne=()=>({select:()=>({lean:async()=>({tagNames:["cute","Very Cute","favorites"]})})});
+    CardCollector.findOne=()=>({select:()=>({lean:async()=>({createdTagNames:["cute","Very Cute","favorites"]})})});
     for (const tag of ["noooo","random","cats","sparkles","Not Created","test","cute extra"]) {
       await assert.rejects(()=>requireSavedCardTag("owner",tag),/Create it first/);
     }
@@ -22,7 +22,7 @@ test("an existing tag on a card does not grant permission to create a new tag im
   const original={collector:CardCollector.findOne,copy:CardCopy.findOne,update:CardCopy.updateMany};
   let changed=0;
   try {
-    CardCollector.findOne=()=>({select:()=>({lean:async()=>({tagNames:["cute"]})})});
+    CardCollector.findOne=()=>({select:()=>({lean:async()=>({createdTagNames:["cute"]})})});
     CardCopy.findOne=()=>({lean:async()=>({
       _id:"id1",publicId:"Abc12",tag:"oldcase",cardDefinitionId:"def1",
       ownerDiscordUserId:"owner",state:"owned",
