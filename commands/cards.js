@@ -26,7 +26,7 @@ import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade, suggestOwned
 import PetCatalog from "../models/PetCatalog.js";
 import { updateMultipleOwnedCardTags, prepareTagDeletion, confirmTagDeletion } from "../services/card-tag-management.js";
 import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js";
-import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../services/card-drop-claims.js";
+import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop, refundLosingCardGrabCooldowns } from "../services/card-drop-claims.js";
 
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Hatchem collectible card game")
   .addSubcommand(c => c.setName("drop").setDescription("Drop an active egg (15-minute cooldown across all servers)"))
@@ -659,8 +659,37 @@ export async function handleCardGrab(interaction) {
   const parts = interaction.customId.split(":");
   const dropId = parts[2], slot = Number(parts[3]);
   if (!interaction.guildId || parts.length !== 4 || !["0", "1", "2"].includes(parts[3])) return interaction.editReply("Invalid card selection.");
+  let playerCooldown = false;
+  let reservationSucceeded = false;
   try {
+    // Historical owner test eggs stay unrestricted; only member drops use the
+    // five-minute per-server grab limit.
+    const drop = await CardDrop.findOne({
+      _id: dropId, guildId: interaction.guildId, status: "open",
+      expiresAt: { $gt: new Date() },
+    }).select("mode messageId").lean();
+    if (!drop || (drop.messageId && String(drop.messageId) !== interaction.message?.id))
+      return interaction.editReply("This card drop has ended or cannot be verified.");
+    if (drop.mode === "player") {
+      const claimed = await claimCardActionCooldown({
+        action: "grab", discordUserId: interaction.user.id, guildId: interaction.guildId,
+        sourceId: String(dropId),
+      });
+      if (!claimed.allowed)
+        return interaction.editReply("Your next grab in this server is available " +
+          formatCardCooldown(claimed.availableAt) + ".");
+      playerCooldown = true;
+    }
     const reserved = await reserveCardFromDrop({ dropId, slot, guildId: interaction.guildId, discordUserId: interaction.user.id });
+    reservationSucceeded = true;
+    if (reserved.displacedUserIds?.length && drop.mode === "player") {
+      for (const userId of reserved.displacedUserIds) {
+        await releaseCardActionCooldown({
+          action: "grab", discordUserId: userId, guildId: interaction.guildId,
+          sourceId: String(dropId),
+        });
+      }
+    }
     await interaction.editReply(reserved.creatorPriority
       ? `You chose **${escapeDiscord(reserved.petId)}** (${reserved.rarity}). Your pick has priority. ${reserved.refundedEntrants ? `${reserved.refundedEntrants} earlier entrant(s) can now try another card.` : ""}`
       : `You entered for **${escapeDiscord(reserved.petId)}** (${reserved.rarity}). The winner is chosen randomly when the drop ends, unless the drop creator chooses this card. If displaced, your grab opportunity is returned.`);
@@ -680,6 +709,16 @@ export async function handleCardGrab(interaction) {
       }
     } catch (error) { console.warn("[Cards] Could not refresh drop display:", error.message); }
   } catch (error) {
+    if (playerCooldown && !reservationSucceeded) {
+      try {
+        await releaseCardActionCooldown({
+          action: "grab", discordUserId: interaction.user.id, guildId: interaction.guildId,
+          sourceId: String(dropId),
+        });
+      } catch (refundError) {
+        console.error("[Cards] Failed to refund rejected grab:", refundError);
+      }
+    }
     if (error instanceof CardClaimError) return interaction.editReply(error.message);
     throw error;
   }
@@ -704,11 +743,13 @@ export async function reconcileCardDropClosures(client) {
       { slots: { $elemMatch: { claimedBy: { $ne: null }, settledAt: null } } },
       { slots: { $elemMatch: { winnerId: { $ne: null }, settledAt: null } } },
       { slots: { $elemMatch: { "entrants.0": { $exists: true }, settledAt: null } } },
+      { mode: "player", grabRefundedAt: null },
     ],
   }).sort({ expiresAt: 1 }).limit(30).lean();
   for (const drop of pending) {
     try {
       await settleClosedCardDrop(drop);
+      await refundLosingCardGrabCooldowns(drop);
     } catch (error) {
       console.error("[Cards] Could not settle reserved cards:", String(drop._id), error);
       continue;
