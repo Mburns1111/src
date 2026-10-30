@@ -39,7 +39,7 @@ function summaryCards(cards,page,limit=1024){
  if(!shown.length) return "*No cards offered.*";
  const text=shown.map((c,j)=>{
   const stage=c.stage==="mega"?"Mega":c.stage==="neon"?"Neon":"Normal";
-  const value=c.reviewedValue===null?"Unrated":String(c.reviewedValue);
+  const value=c.reviewedValue===null?"Not reviewed":String(c.reviewedValue);
   return "**"+(page*TRADE_DISPLAY_PAGE_SIZE+j+1)+". "+safe(c.name)+"** "+tick+c.id+tick+
    "\n"+safe(c.rarity)+" · "+stage+" · Score: "+value+
    (c.tag?" · #"+safe(c.tag):"")+
