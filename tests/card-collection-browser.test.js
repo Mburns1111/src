@@ -6,8 +6,8 @@ import { COLLECTION_PAGE_SIZE, COLLECTION_RARITY_OPTIONS, COLLECTION_SORT_OPTION
   listCollectionRarities, listCollectionTags } from "../services/card-collection-browser.js";
 import { startCardCollection, handleCardCollectionInteraction } from "../commands/card-collection-ui.js";
 
-test("private collection viewer supports 8-card pages and sortable filters", () => {
-  assert.equal(COLLECTION_PAGE_SIZE, 8);
+test("private collection viewer supports 10-card pages and sortable filters", () => {
+  assert.equal(COLLECTION_PAGE_SIZE, 10);
   assert.ok(COLLECTION_RARITY_OPTIONS.includes("Legendary"));
   assert.ok(COLLECTION_SORT_OPTIONS.includes("name"));
   assert.ok(COLLECTION_SORT_OPTIONS.includes("rarity"));
