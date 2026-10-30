@@ -110,6 +110,7 @@ import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/tempo
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
 import { parseHatchemText, runHatchemText } from "./services/hatchem-text-commands.js";
+import { handleCardTradeInteraction } from "./commands/card-trade-ui.js";
 import UserProfile from "./models/UserProfile.js";
 import { cleanupPendingForms, handleRemovePendingForm } from "./commands/pending-forms.js";
 import { forgetHouseForm } from "./commands/house.js";
@@ -462,6 +463,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isModalSubmit() &&
         interaction.customId.startsWith("admin-import:")) {
       await handleAdminImportModal(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isModalSubmit()) &&
+        interaction.customId.startsWith("cards:trade:")) {
+      await handleCardTradeInteraction(interaction);
       return;
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("cards:collection:")) {
