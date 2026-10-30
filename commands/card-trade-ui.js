@@ -75,7 +75,10 @@ export async function startCardTrade(i,{ gift = false } = {}){
  try{
   let trade=await createCardTrade({guildId:i.guildId,channelId:i.channelId,inviterId:i.user.id,inviteeId:member.id,
    gift,participantNames:[i.member?.displayName||i.user.globalName||i.user.username, present.displayName||member.globalName||member.username]});
-  if(gift) trade=await setCardTradeOffer({tradeId:String(trade._id),userId:i.user.id,guildId:i.guildId,rawIds:i.options.getString("cards",true)});
+  if(gift) {
+   try { trade=await setCardTradeOffer({tradeId:String(trade._id),userId:i.user.id,guildId:i.guildId,rawIds:i.options.getString("cards",true)}); }
+   catch(err) { await cancelCardTrade({tradeId:String(trade._id),userId:i.user.id,guildId:i.guildId}).catch(()=>{}); throw err; }
+  }
   let m;
   try{m=await i.channel.send(await tradePanel(trade));await updateCardTradeMessageId(trade._id,m.id);}
   catch(error){await cancelCardTrade({tradeId:String(trade._id),userId:i.user.id,guildId:i.guildId}).catch(()=>{});if(m)await m.delete().catch(()=>{});throw error;}
@@ -90,7 +93,7 @@ async function refresh(i,t){
 }
 export async function handleCardTradeInteraction(i){
  const parts=String(i.customId).split(":"),action=parts[2],id=parts[3];
- if(parts.length!==4||parts[0]!=="cards"||parts[1]!=="trade"||!["add0","add1","offer","review","final","cancel"].includes(action))return;
+ if(parts.length!==4||parts[0]!=="cards"||parts[1]!=="trade"||!["add0","add1","offer","review","final","cancel","prev","next"].includes(action))return;
  const fail=e=>{
   const message="Trade: "+safe(e?.message||"Something went wrong.");
   return i.deferred||i.replied?i.editReply(message):i.reply({content:message,flags:MessageFlags.Ephemeral});
