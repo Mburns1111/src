@@ -267,6 +267,15 @@ async function voiceActivityTick() {
 
 let discordReadyTimeout;
 
+const ownerOnlyCardSubcommands = new Set([
+  "egg-art-upload", "art-upload", "art-assign", "art-list", "art-info", "art-review", "test-drop",
+]);
+async function executePrivateCardCommands(interaction) {
+  if (ownerOnlyCardSubcommands.has(interaction.options.getSubcommand(false)))
+    return executeCards(interaction);
+  return executeCardsOwner(interaction);
+}
+
 const commandHandlers = new Map([
   [profileCommand.name, executeProfile],
   [profileCleanupCommand.name, executeProfileCleanup],
@@ -280,7 +289,7 @@ const commandHandlers = new Map([
   [shopCommand.name, executeShop],
   [cardsCommand.name, executeCards],
   [cardsAdminCommand.name, executeCardsAdmin],
-  [cardsOwnerCommand.name, executeCardsOwner],
+  [cardsOwnerCommand.name, executePrivateCardCommands],
   [testPointsCommand.name, executeTestPoints],
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
@@ -440,7 +449,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await interaction.respond([]);
         }
       } else if (interaction.commandName === cardsOwnerCommand.name) {
-        await autocompleteCardsOwner(interaction);
+        if (ownerOnlyCardSubcommands.has(interaction.options.getSubcommand(false)))
+          await autocompleteCards(interaction);
+        else await autocompleteCardsOwner(interaction);
       } else {
         await interaction.respond([]);
       }
