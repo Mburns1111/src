@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { claimCardActionCooldown, releaseCardActionCooldown, readCardActionCooldown } from "../services/card-action-cooldowns.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
 import { startCardTrade } from "./card-trade-ui.js";
-import { registerCardCollector, isRegisteredCardCollector, REGISTER_FIRST_MESSAGE } from "../services/card-collector-registration.js";
+import { registerCardCollector, isRegisteredCardCollector, cardRegistrationReminder, canPlayCardGame } from "../services/card-collector-registration.js";
 import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
 import { storeTestEggArtwork } from "../services/card-egg-artwork-upload.js";
@@ -90,7 +90,7 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
       .addChoices({ name: "Approve", value: "approved" }, { name: "Reject", value: "rejected" }, { name: "Return to review", value: "needs-review" }))
     .addStringOption(o => o.setName("note").setDescription("Review reason and permission evidence").setRequired(true).setMinLength(5).setMaxLength(1000)))
   .addSubcommand(c => c.setName("test-drop").setDescription("OWNER: reveal a test release egg with three cards")
-    .addStringOption(o => o.setName("release").setDescription("Release ID (e.g. series1-release1)").setRequired(true))
+    .addStringOption(o => o.setName("release").setDescription("Select an active test egg").setRequired(true).setAutocomplete(true))
 );
 
 const isEnabled = () => process.env.ENABLE_CARD_GAME_TEST === "1";
@@ -470,8 +470,8 @@ export async function execute(interaction) {
   }
   if (option === "drop") {
     if (!isEnabled()) return interaction.editReply("Player drops are available only on the development bot for now.");
-    if (!await isRegisteredCardCollector(interaction.user.id, interaction.guildId))
-      return interaction.editReply(REGISTER_FIRST_MESSAGE);
+    if (!await canPlayCardGame(interaction.user.id, interaction.guild))
+      return interaction.editReply(await cardRegistrationReminder(interaction.guildId));
     const releases = await CardRelease.find({ status: "active" })
       .select("releaseId").sort({ createdAt: -1, _id: -1 }).limit(40).lean();
     const selected = releases.find(r => !r.releaseId.startsWith("test-")) ||
@@ -596,9 +596,10 @@ async function publishCardDrop(interaction, { releaseId, testMode }) {
     }
     throw error;
   }
-  return interaction.editReply(testMode
-    ? "Owner test drop posted. It lasts 75 seconds and does not use your cooldown."
-    : "Egg dropped! Your next global drop is available in 15 minutes. Members can enter this egg for 75 seconds.");
+  if (interaction.suppressSuccessDropReply) return interaction.suppressSuccessDropReply();
+  return interaction.deleteReply
+    ? interaction.deleteReply()
+    : interaction.editReply("Egg posted.");
 }
 
 export async function handleCardUpgrade(interaction) {
@@ -703,8 +704,8 @@ export async function handleCardGrab(interaction) {
     if (!drop || (drop.messageId && String(drop.messageId) !== interaction.message?.id))
       return interaction.editReply("This card drop has ended or cannot be verified.");
     if (drop.mode === "player") {
-      if (!await isRegisteredCardCollector(interaction.user.id, interaction.guildId))
-        return interaction.editReply(REGISTER_FIRST_MESSAGE);
+      if (!await canPlayCardGame(interaction.user.id, interaction.guild))
+        return interaction.editReply(await cardRegistrationReminder(interaction.guildId));
       const claimed = await claimCardActionCooldown({
         action: "grab", discordUserId: interaction.user.id, guildId: interaction.guildId,
         sourceId: String(dropId),
@@ -940,6 +941,16 @@ export async function autocompleteCards(interaction) {
   try {
     const option = interaction.options.getSubcommand(false);
     const focused = interaction.options.getFocused();
+    if (option === "test-drop") {
+      if (!isCardGameOwner(interaction.user.id)) return interaction.respond([]);
+      const releases = await CardRelease.find({ releaseId: /^test-/, status: "active" })
+        .select("releaseId name").sort({ createdAt: -1 }).limit(200).lean();
+      const term = String(focused || "").toLocaleLowerCase();
+      return interaction.respond(releases.filter(r =>
+        r.releaseId.toLocaleLowerCase().includes(term) ||
+        String(r.name).toLocaleLowerCase().includes(term)
+      ).slice(0,25).map(r=>({ name:(r.name+" · "+r.releaseId).slice(0,100), value:r.releaseId })));
+    }
     if (option === "upgrade") {
       return interaction.respond(await suggestOwnedCardUpgrades(interaction.user.id, focused));
     }
