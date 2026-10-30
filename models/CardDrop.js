@@ -17,6 +17,8 @@ const schema = new mongoose.Schema({
   slots: { type: [slotSchema], validate: v => v.length === 3 },
   expiresAt: { type: Date, required: true },
   status: { type: String, enum: ["open", "closed"], default: "open" },
+  mode: { type: String, enum: ["test", "player"], default: "test" },
+  grabRefundedAt: { type: Date, default: null },
   displayClosedAt: { type: Date, default: null },
 }, { timestamps: true });
 schema.index({ guildId: 1, status: 1, expiresAt: 1 });
