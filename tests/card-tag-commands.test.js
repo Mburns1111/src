@@ -84,12 +84,13 @@ test("saved tags persist without needing a card assignment", async () => {
     CardCollector.updateOne = async (query, change, options) => {
       assert.equal(query.discordUserId, "owner");
       assert.equal(change.$addToSet.tagNames, "cute");
+      assert.equal(change.$addToSet.createdTagNames, "cute");
       assert.equal(options.upsert, true);
     };
     assert.equal(await createCollectorTag("owner", "CuTe"), "cute");
-    CardCollector.findOne = () => ({ select: () => ({ lean: async () => ({ tagNames: ["cute"] }) }) });
+    CardCollector.findOne = () => ({ select: () => ({ lean: async () => ({ createdTagNames: ["cute"] }) }) });
     CardCopy.distinct = async () => ["CUTE", "Favorites"];
-    assert.deepEqual(await listCollectorTags("owner"), ["cute", "favorites"]);
+    assert.deepEqual(await listCollectorTags("owner"), ["cute"]);
   } finally {
     CardCollector.updateOne = oldUpdate;
     CardCollector.findOne = oldFind;
