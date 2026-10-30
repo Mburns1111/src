@@ -1,5 +1,5 @@
 import { ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,ModalBuilder,TextInputBuilder,TextInputStyle } from "discord.js";
-import { createCardTrade,updateCardTradeMessageId,readCardTrade,cardTradeDetails,setCardTradeOffer,reviewCardTrade,finalizeCardTrade,cancelCardTrade,moveCardTradePage,TRADE_DISPLAY_PAGE_SIZE } from "../services/card-trades.js";
+import { createCardTrade,updateCardTradeMessageId,readCardTrade,cardTradeDetails,setCardTradeOffer,reviewCardTrade,finalizeCardTrade,confirmCardGift,cancelCardTrade,moveCardTradePage,TRADE_DISPLAY_PAGE_SIZE } from "../services/card-trades.js";
 import CardTrade from "../models/CardTrade.js";
 import { canPlayCardGame, cardRegistrationReminder } from "../services/card-collector-registration.js";
 const safe=s=>String(s??"").replace(/[@*_~|<>]/g,"").slice(0,80);
@@ -8,63 +8,78 @@ const closed=t=>t.status!=="open"||new Date(t.expiresAt)<=new Date();
 function traderName(t, side) {
  return safe(t.participantNames?.[side] || "Player " + (side + 1)).slice(0, 28);
 }
-export function tradeButtons(t){
- if(closed(t))return [];
- const id=String(t._id),ready=t.participants.every(u=>t.reviewedBy.includes(u));
- const main=new ActionRowBuilder().addComponents(
-  new ButtonBuilder().setCustomId("cards:trade:add0:"+id).setLabel("Add: "+traderName(t,0)).setStyle(ButtonStyle.Primary),
-  new ButtonBuilder().setCustomId("cards:trade:add1:"+id).setLabel("Add: "+traderName(t,1)).setStyle(ButtonStyle.Primary),
-  new ButtonBuilder().setCustomId("cards:trade:review:"+id).setLabel("Review 1/2").setStyle(ButtonStyle.Secondary).setDisabled(ready),
-  new ButtonBuilder().setCustomId("cards:trade:final:"+id).setLabel("Confirm 2/2").setStyle(ButtonStyle.Success).setDisabled(!ready),
-  new ButtonBuilder().setCustomId("cards:trade:cancel:"+id).setLabel("Cancel").setStyle(ButtonStyle.Danger));
+function pageInfo(t) {
  const pages=Math.max(1,Math.ceil(Math.max(...t.offers.map(x=>x.length))/TRADE_DISPLAY_PAGE_SIZE));
- if(pages===1)return [main];
- const page=Math.min(pages-1,t.viewPage||0);
- const pageRow=new ActionRowBuilder().addComponents(
-  new ButtonBuilder().setCustomId("cards:trade:prev:"+id).setLabel("Previous").setStyle(ButtonStyle.Secondary).setDisabled(page===0),
-  new ButtonBuilder().setCustomId("cards:trade:next:"+id).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(page>=pages-1));
- return [main,pageRow];
+ return {pages,page:Math.max(0,Math.min(pages-1,t.viewPage||0))};
 }
-function offerColumn(cards,allCount,name,page){
+export function tradeButtons(t){
+ if(closed(t)) return [];
+ const id=String(t._id), {pages,page}=pageInfo(t);
+ const actions=t.gift
+ ? [new ButtonBuilder().setCustomId("cards:trade:giftconfirm:"+id)
+       .setLabel("Confirm Gift ("+t.offers[0].length+")").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("cards:trade:giftcancel:"+id)
+       .setLabel("Cancel Gift").setStyle(ButtonStyle.Secondary)]
+ : [new ButtonBuilder().setCustomId("cards:trade:add0:"+id).setLabel("Add: "+traderName(t,0)).setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("cards:trade:add1:"+id).setLabel("Add: "+traderName(t,1)).setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("cards:trade:review:"+id).setLabel("Review 1/2").setStyle(ButtonStyle.Secondary)
+      .setDisabled(t.participants.every(u=>t.reviewedBy.includes(u))),
+    new ButtonBuilder().setCustomId("cards:trade:final:"+id).setLabel("Confirm 2/2").setStyle(ButtonStyle.Success)
+      .setDisabled(!t.participants.every(u=>t.reviewedBy.includes(u))),
+    new ButtonBuilder().setCustomId("cards:trade:cancel:"+id).setLabel("Cancel").setStyle(ButtonStyle.Danger)];
+ const rows=[new ActionRowBuilder().addComponents(actions)];
+ if(pages>1) rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("cards:trade:prev:"+id).setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page===0),
+    new ButtonBuilder().setCustomId("cards:trade:next:"+id).setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page===pages-1)));
+ return rows;
+}
+function summaryCards(cards,page,limit=1024){
  const tick=String.fromCharCode(96);
  const shown=cards.slice(page*TRADE_DISPLAY_PAGE_SIZE,(page+1)*TRADE_DISPLAY_PAGE_SIZE);
- const lines=shown.map((c,i)=>{
-  const stage=c.stage==="mega"?"Mega Neon":c.stage==="neon"?"Neon":"Normal";
-  const score=c.reviewedValue===null?"Not reviewed":String(c.reviewedValue);
-  return "**"+(page*TRADE_DISPLAY_PAGE_SIZE+i+1)+". "+safe(c.name)+"** "+tick+c.id+tick+
-   "\n"+safe(c.rarity)+" · "+stage+" · Value: "+score+
-   "\nRelease: "+safe(c.releaseId)+" · Frame: "+safe(c.frame)+
-   (c.artist?"\nArt: "+safe(c.artist):"")+
-   (c.tag?"\nTag (cleared): "+safe(c.tag):"")+
-   (c.eligible?"":"\n⚠️ No longer owned");
- });
- const total=allCount&&cards.every(c=>c.reviewedValue!==null)?
-  "Base-pet score total: "+Number(cards.reduce((v,c)=>v+c.reviewedValue,0).toFixed(4)):
-  "Base-pet score total: not fully reviewed";
- const txt=(lines.join("\n\n")||"*No cards offered.*")+"\n\n"+total;
- return {name:name+" · "+allCount+" cards",value:txt.slice(0,1024),inline:true};
+ if(!shown.length) return "*No cards offered.*";
+ const text=shown.map((c,j)=>{
+  const stage=c.stage==="mega"?"Mega":c.stage==="neon"?"Neon":"Normal";
+  const value=c.reviewedValue===null?"Unrated":String(c.reviewedValue);
+  return "**"+(page*TRADE_DISPLAY_PAGE_SIZE+j+1)+". "+safe(c.name)+"** "+tick+c.id+tick+
+   "\n"+safe(c.rarity)+" · "+stage+" · Score: "+value+
+   (c.tag?" · #"+safe(c.tag):"")+
+   (c.eligible?"":""); // Ownership is checked during confirmation, not inferred from a completed receipt.
+ }).join("\n\n");
+ return text.slice(0,limit);
 }
 export async function tradePanel(t){
- const d=await cardTradeDetails(t),ready=t.participants.every(u=>t.reviewedBy.includes(u));
+ const d=await cardTradeDetails(t),{pages,page}=pageInfo(t);
  const status=t.status==="completed"?"Completed":t.status==="cancelled"?"Cancelled":closed(t)?"Expired":"Open";
- const steps=t.participants.map((u,i)=>traderName(t,i)+": Review "+(t.reviewedBy.includes(u)?"✅":"⬜")+" · Final "+(t.finalBy.includes(u)?"✅":"⬜"));
- const pages=Math.max(1,Math.ceil(Math.max(...t.offers.map(x=>x.length))/TRADE_DISPLAY_PAGE_SIZE));
- const page=Math.min(pages-1,t.viewPage||0);
- const embed=new EmbedBuilder().setTitle("🥚 Hatchem "+(t.gift?"Gift":"Trade")+" · "+status)
-  .setDescription([
-   "**"+traderName(t,0)+"** ⇄ **"+traderName(t,1)+"**",
-   t.gift?"A gift: the receiver may offer nothing. Both players still approve twice.":"Either player can offer zero cards; the other may gift cards.",
-   "Use your Add button. Offer card IDs or saved tags (one tag:Name per line).",
-   "1. Both Review · 2. Both Final Confirm · **Edits reset approvals.**",
-   ...steps,
+ const ttl=t.gift?"🎁 Hatchem Gift":"🥚 Hatchem Trade";
+ const embed=new EmbedBuilder().setTitle(ttl+" · "+status);
+ if(t.gift){
+  embed.setDescription([
+   "**"+traderName(t,0)+"** → **"+traderName(t,1)+"**",
+   "**"+t.offers[0].length+" card(s)** to give",
+   status==="Open"?"Only "+traderName(t,0)+" can confirm. The receiver does not need to accept.":"",
+   status==="Open"?"Review IDs carefully. This cannot be undone.":"",
    "Page "+(page+1)+"/"+pages,
-   closed(t)?"":"Expires <t:"+Math.ceil(new Date(t.expiresAt).getTime()/1000)+":R>",
-   "Values are reviewed base-pet scores, not real-money prices."
+   status==="Open"?"Expires <t:"+Math.ceil(new Date(t.expiresAt).getTime()/1000)+":R>":"",
+  ].filter(Boolean).join("\n"))
+  .addFields({name:"Cards being gifted",value:summaryCards(d.sides[0],page),inline:false});
+ } else {
+  const steps=t.participants.map((u,i)=>traderName(t,i)+
+   " · "+(t.reviewedBy.includes(u)?"✓":"○")+" Review / "+
+   (t.finalBy.includes(u)?"✓":"○")+" Final");
+  embed.setDescription([
+   "**"+traderName(t,0)+"** ⇄ **"+traderName(t,1)+"**",
+   ...steps,
+   "Add cards → Both Review → Both Confirm",
+   "Edits reset approvals. Either side can be empty.",
+   "Page "+(page+1)+"/"+pages,
+   status==="Open"?"Expires <t:"+Math.ceil(new Date(t.expiresAt).getTime()/1000)+":R>":""
   ].filter(Boolean).join("\n"))
   .addFields(
-   offerColumn(d.sides[0],t.offers[0].length,traderName(t,0),page),
-   offerColumn(d.sides[1],t.offers[1].length,traderName(t,1),page)
-  ).setFooter({text:"Cards retain their IDs/stages. Personal tags clear on transfer."});
+    {name:traderName(t,0)+" · "+t.offers[0].length+" cards",value:summaryCards(d.sides[0],page),inline:true},
+    {name:traderName(t,1)+" · "+t.offers[1].length+" cards",value:summaryCards(d.sides[1],page),inline:true}
+  );
+ }
+ embed.setFooter({text:"Scores are unverified base-pet ratings, not prices. Card IDs and upgrades stay; personal tags clear."});
  return {embeds:[embed],components:tradeButtons(t),allowedMentions:{parse:[]}};
 }
 export async function startCardTrade(i,{ gift = false } = {}){
@@ -88,7 +103,9 @@ export async function startCardTrade(i,{ gift = false } = {}){
   let m;
   try{m=await i.channel.send(await tradePanel(trade));await updateCardTradeMessageId(trade._id,m.id);}
   catch(error){await cancelCardTrade({tradeId:String(trade._id),userId:i.user.id,guildId:i.guildId}).catch(()=>{});if(m)await m.delete().catch(()=>{});throw error;}
-  return i.editReply("Trade opened with "+mention(member.id)+". Use the two Add/Edit buttons, then review and final-confirm twice.");
+  if(gift && i.suppressGiftReply) return i.suppressGiftReply();
+  return i.editReply(gift ? "Gift ready: review the card list and press Confirm Gift. The receiver does not need to click." :
+    "Trade opened with "+mention(member.id)+". Add cards, then both review and confirm.");
  }catch(e){return i.editReply("Trade could not start: "+safe(e.message));}
 }
 async function refresh(i,t){
@@ -99,7 +116,7 @@ async function refresh(i,t){
 }
 export async function handleCardTradeInteraction(i){
  const parts=String(i.customId).split(":"),action=parts[2],id=parts[3];
- if(parts.length!==4||parts[0]!=="cards"||parts[1]!=="trade"||!["add0","add1","offer","review","final","cancel","prev","next"].includes(action))return;
+ if(parts.length!==4||parts[0]!=="cards"||parts[1]!=="trade"||!["add0","add1","offer","review","final","cancel","prev","next","giftconfirm","giftcancel"].includes(action))return;
  const fail=e=>{
   const message="Trade: "+safe(e?.message||"Something went wrong.");
   return i.deferred||i.replied?i.editReply(message):i.reply({content:message,flags:MessageFlags.Ephemeral});
@@ -110,6 +127,12 @@ export async function handleCardTradeInteraction(i){
    throw Error("Wrong server or trade message.");
   if(!trade.participants.includes(i.user.id))throw Error("Only the two traders may use these buttons.");
   if(closed(trade))throw Error("This trade is closed or expired.");
+  if(trade.gift && !["giftconfirm","giftcancel","prev","next"].includes(action))
+   throw Error("A gift only needs the sender's confirmation.");
+  if(trade.gift && i.user.id!==trade.participants[0])
+   throw Error("Only the sender can approve or cancel this gift.");
+  if(!trade.gift && ["giftconfirm","giftcancel"].includes(action))
+   throw Error("This is a two-person trade, not a gift.");
   if(action==="add0"||action==="add1"){
    const side=Number(action.slice(-1));
    if(trade.participants[side]!==i.user.id)throw Error("You may only edit your own offer.");
@@ -129,7 +152,12 @@ export async function handleCardTradeInteraction(i){
    return i.editReply("Offer updated. Both reviews and final confirmations were reset.");
   }
   let updated;
-  if(action==="prev"||action==="next")updated=await moveCardTradePage({tradeId:id,userId:i.user.id,guildId:i.guildId,direction:action==="next"?1:-1});
+  if(action==="giftconfirm"){
+   await confirmCardGift({tradeId:id,userId:i.user.id,guildId:i.guildId});
+   updated=await readCardTrade(id);
+  }
+  else if(action==="giftcancel")updated=await cancelCardTrade({tradeId:id,userId:i.user.id,guildId:i.guildId});
+  else if(action==="prev"||action==="next")updated=await moveCardTradePage({tradeId:id,userId:i.user.id,guildId:i.guildId,direction:action==="next"?1:-1});
   else if(action==="review")updated=await reviewCardTrade({tradeId:id,userId:i.user.id,guildId:i.guildId});
   else if(action==="cancel")updated=await cancelCardTrade({tradeId:id,userId:i.user.id,guildId:i.guildId});
   else{await finalizeCardTrade({tradeId:id,userId:i.user.id,guildId:i.guildId});updated=await readCardTrade(id);}
@@ -143,7 +171,10 @@ export async function handleCardTradeInteraction(i){
        "Trade cancelled with no transfer, but the panel could not refresh.":
        "Your confirmation was saved, but the trade panel could not refresh. Try another button or start a new trade if it remains stuck.");
   }
-  return i.editReply(action==="prev"||action==="next"?"Showing offer page "+((updated.viewPage||0)+1)+".":action==="cancel"?"Trade cancelled; no cards moved.":updated.status==="completed"?
+  return i.editReply(action==="giftconfirm"?"Gift sent! Cards are now in "+traderName(updated,1)+"'s collection.":
+   action==="giftcancel"?"Gift cancelled. No cards moved.":
+   action==="prev"||action==="next"?"Page "+((updated.viewPage||0)+1)+".":
+   action==="cancel"?"Trade cancelled; no cards moved.":updated.status==="completed"?
    "Trade complete! Both collections have been updated.":action==="review"?
    "Review recorded. Both players must review before final confirmation.":
    "Final confirmation recorded. Waiting for the other player.");
