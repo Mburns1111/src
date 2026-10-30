@@ -5,7 +5,7 @@ import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { listCollectorTags } from "./card-tag-catalog.js";
 
-export const COLLECTION_PAGE_SIZE = 8;
+export const COLLECTION_PAGE_SIZE = 10;
 export const COLLECTION_RARITY_OPTIONS = ["all", "Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"];
 export const COLLECTION_SORT_OPTIONS = ["newest", "oldest", "name", "rarity"];
 const SESSION_TTL = 15 * 60 * 1000;
