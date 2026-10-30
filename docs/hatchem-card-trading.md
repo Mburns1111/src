@@ -31,3 +31,10 @@ The full two-account trade cycle must be validated from two actual Discord accou
 ## Explicit tag creation
 
 All new tag assignments and trade/gift tag selectors require a tag saved using `.createtag NAME`. Earlier versions automatically saved tag names when `.tag` was used, so older names must be explicitly saved once again before applying them. Previously tagged cards retain their labels and remain filterable.
+
+## Gift and trade panels — visual polish
+
+- **Gifts:** a compact pastel-pink gift embed displays sender → recipient, card count, and up to four card names plus IDs. More cards appear as "+ N more inside." Controls: **Send Gift**, **Cancel**, and **View Cards**. View Cards opens a private, paginated detail view (eight per page), while the main gift panel remains short.
+- Only the giver can confirm or cancel. Completed gifts show a small **Gift Sent** receipt, and the public announcement remains visible to the channel.
+- **Trades:** two side-by-side columns remain, with labeled player headings and horizontal separators around Review and Final approval progress. Full card information stays behind a private **Card Details** button.
+- These layout changes do not alter the gift transaction or two-person double-confirmation rules.
