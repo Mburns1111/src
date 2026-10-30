@@ -8,6 +8,8 @@ const schema = new mongoose.Schema({
   action: { type: String, enum: ["drop", "grab"], required: true },
   scope: { type: String, required: true },
   availableAt: { type: Date, required: true },
+  // Origin drop ID allows safe refunds for losing or displaced entrants.
+  sourceId: { type: String, default: "" },
 }, { timestamps: true });
 schema.index({ discordUserId: 1, action: 1, scope: 1 }, { unique: true });
 export default mongoose.models.CardActionCooldown || mongoose.model("CardActionCooldown", schema);
