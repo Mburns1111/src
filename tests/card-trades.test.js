@@ -138,3 +138,36 @@ test("trade receipt treats absent scores as not reviewed rather than inventing n
  }finally{CardCopy.find=orig.cards;CardDefinition.find=orig.defs;
    PetCatalog.find=orig.pets;CardRelease.find=orig.releases;}
 });
+
+
+test("no transfer can occur before both FIRST approvals",async()=>{
+ const orig={session:mongoose.startSession,trade:CardTrade.findById,card:CardCopy.updateOne,update:CardTrade.updateOne};
+ try{
+  mongoose.startSession=async()=>({withTransaction:fn=>fn(),endSession:async()=>{}});
+  CardTrade.findById=()=>({session:async()=>({...active(),reviewedBy:[a]})});
+  CardCopy.updateOne=async()=>{throw Error("Must not move cards before both reviews");};
+  CardTrade.updateOne=async()=>{throw Error("Must not mark trade completed");};
+  await assert.rejects(()=>finalizeCardTrade({tradeId:id,userId:a,guildId:g}),/Both traders/);
+ }finally{mongoose.startSession=orig.session;CardTrade.findById=orig.trade;
+  CardCopy.updateOne=orig.card;CardTrade.updateOne=orig.update;}
+});
+test("a conflicting concurrent trade or spent card aborts before status completion",async()=>{
+ const orig={session:mongoose.startSession,trade:CardTrade.findById,card:CardCopy.updateOne,update:CardTrade.updateOne};
+ try{
+  mongoose.startSession=async()=>({withTransaction:fn=>fn(),endSession:async()=>{}});
+  CardTrade.findById=()=>({session:async()=>({...active(),reviewedBy:[a,b],finalBy:[a]})});
+  CardCopy.updateOne=async()=>({modifiedCount:0});
+  CardTrade.updateOne=async()=>{throw Error("Conflict must not complete trade");};
+  await assert.rejects(()=>finalizeCardTrade({tradeId:id,userId:b,guildId:g}),/changed ownership/);
+ }finally{mongoose.startSession=orig.session;CardTrade.findById=orig.trade;
+  CardCopy.updateOne=orig.card;CardTrade.updateOne=orig.update;}
+});
+test("nonparticipant cannot review, edit, or cancel another member's trade",async()=>{
+ const third="789012345678901234";
+ const old=CardTrade.findById;
+ try{
+  CardTrade.findById=()=>({lean:async()=>active()});
+  await assert.rejects(()=>reviewCardTrade({tradeId:id,userId:third,guildId:g}),/Only the two traders/);
+  await assert.rejects(()=>setCardTradeOffer({tradeId:id,userId:third,guildId:g,rawIds:"Abc12"}),/Only the two traders/);
+ }finally{CardTrade.findById=old;}
+});
