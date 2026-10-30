@@ -24,12 +24,12 @@ test("dot trade accepts a mention; slash trade requires a partner; burn remains 
   assert.equal(slash.options[0].name,"member");
   assert.equal(slash.options[0].required,true);
 });
-test("trade ID lists have 0–5 unique five-character IDs",()=>{
+test("trade ID lists have no arbitrary five-card cap",()=>{
   assert.deepEqual(parseTradeCardIds("Abc12, Def34\nGhi56"),["Abc12","Def34","Ghi56"]);
   assert.deepEqual(parseTradeCardIds(""),[]);
   assert.throws(()=>parseTradeCardIds("Abc12 Abc12"),/once/);
   assert.throws(()=>parseTradeCardIds("bad"),/five-character/);
-  assert.throws(()=>parseTradeCardIds("Abc12 Def34 Ghi56 Jkl78 Mno90 Pqr12"),/at most five/);
+  assert.equal(parseTradeCardIds("Abc12 Def34 Ghi56 Jkl78 Mno90 Pqr12").length,6);
 });
 test("trade keeps two separate offers, two reviews, two finals, and public controls",()=>{
   const schema=CardTrade.schema;
@@ -132,9 +132,9 @@ test("trade receipt treats absent scores as not reviewed rather than inventing n
   assert.equal(d.sides[0][0].reviewedValue,2.5);
   assert.equal(d.sides[1][0].reviewedValue,null);
   const panel=await tradePanel(active());
-  assert.match(panel.embeds[0].data.fields[1].value,/2\.5/);
-  assert.match(panel.embeds[0].data.fields[3].value,/not reviewed/i);
-  assert.match(panel.embeds[0].data.fields[1].name,/Neon/);
+  assert.match(panel.embeds[0].data.fields[0].value,/2\.5/);
+  assert.match(panel.embeds[0].data.fields[1].value,/not reviewed/i);
+  assert.match(panel.embeds[0].data.fields[0].value,/Neon/);
  }finally{CardCopy.find=orig.cards;CardDefinition.find=orig.defs;
    PetCatalog.find=orig.pets;CardRelease.find=orig.releases;}
 });
