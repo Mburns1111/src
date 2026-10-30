@@ -114,8 +114,8 @@ export async function resolveTradeOfferInput(ownerId, text, currentIds = []) {
       if (!tag) throw new Error("A tag name is required after tag: or #.");
       const collector = await (await import("../models/CardCollector.js")).default.findOne({
         discordUserId: ownerId,
-      }).select("tagNames").lean();
-      if (!(collector?.tagNames || []).some(t=>t.toLocaleLowerCase()===tag))
+      }).select("createdTagNames").lean();
+      if (!(collector?.createdTagNames || []).some(t=>t.toLocaleLowerCase()===tag))
         throw new Error("Create that tag first using .create-tag " + tag);
       const owned = await CardCopy.find({
         ownerDiscordUserId: ownerId, state: "owned",
