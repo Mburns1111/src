@@ -14,6 +14,7 @@ const schema = new mongoose.Schema({
   status: { type: String, enum: ["open", "completed", "cancelled", "expired"], default: "open", index: true },
   expiresAt: { type: Date, required: true },
   completedAt: { type: Date, default: null },
+  displayClosedAt: { type: Date, default: null },
 }, { timestamps: true });
 schema.index({ participants: 1, status: 1, expiresAt: 1 });
 export default mongoose.models.CardTrade || mongoose.model("CardTrade", schema);
