@@ -13,9 +13,10 @@ test("pet name with spaces targets ALL owned copies across releases and stages",
     distinct: CardCopy.distinct, update: CardCopy.updateMany,
     defFind: CardDefinition.find, defById: CardDefinition.findById,
     petFind: PetCatalog.find, petOne: PetCatalog.findOne,
-    collectorUpdate: CardCollector.updateOne,
+    collectorUpdate: CardCollector.updateOne, collectorFind: CardCollector.findOne,
   };
   try {
+    CardCollector.findOne = () => ({ select:()=>({lean:async()=>({tagNames:["cute"]})}) });
     PetCatalog.find = query => {
       assert.ok(query.name.test("2D Doggy"));
       return { select: () => ({ limit: () => ({ lean: async () => [
@@ -66,13 +67,15 @@ test("pet name with spaces targets ALL owned copies across releases and stages",
     CardDefinition.find = originals.defFind; CardDefinition.findById = originals.defById;
     PetCatalog.find = originals.petFind; PetCatalog.findOne = originals.petOne;
     CardCollector.updateOne = originals.collectorUpdate;
+    CardCollector.findOne = originals.collectorFind;
   }
 });
 
 test("a five-character card ID tags ONLY the exact matching owned card", async () => {
   const original = { one:CardCopy.findOne, update:CardCopy.updateMany,
-    def:CardDefinition.findById, pet:PetCatalog.findOne, collector:CardCollector.updateOne };
+    def:CardDefinition.findById, pet:PetCatalog.findOne, collector:CardCollector.updateOne, collectorFind: CardCollector.findOne };
   try {
+    CardCollector.findOne = () => ({ select:()=>({lean:async()=>({tagNames:["cute"]})}) });
     CardCopy.findOne = query => {
       assert.equal(query.publicId, "KxQOo");
       return { lean: async () => ({ _id:"only-one", publicId:"KxQOo",
@@ -93,5 +96,6 @@ test("a five-character card ID tags ONLY the exact matching owned card", async (
     CardCopy.findOne=original.one; CardCopy.updateMany=original.update;
     CardDefinition.findById=original.def; PetCatalog.findOne=original.pet;
     CardCollector.updateOne=original.collector;
+    CardCollector.findOne=original.collectorFind;
   }
 });
