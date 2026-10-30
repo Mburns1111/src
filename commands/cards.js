@@ -38,7 +38,8 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
     .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false).setAutocomplete(true)))
   .addSubcommand(c => c.setName("tag").setDescription("Tag newest, all matching pet copies, or one card ID")
     .addStringOption(o => o.setName("tag").setDescription("Tag, up to 32 characters").setMinLength(1).setMaxLength(32).setRequired(true))
-    .addStringOption(o => o.setName("card_id").setDescription("Optional ID or pet-name prefix; defaults to newest owned card").setRequired(false).setAutocomplete(true)))
+    .addStringOption(o => o.setName("card_id").setDescription("Optional pet name or one card ID").setRequired(false).setAutocomplete(true))
+    .addStringOption(o => o.setName("card_ids").setDescription("Optional 2–20 card IDs, separated by spaces or commas").setRequired(false)))
   .addSubcommand(c => c.setName("untag").setDescription("Confirm removing tags from one or all matching cards")
     .addStringOption(o => o.setName("card_id").setDescription("Optional ID or pet-name prefix; defaults to newest owned").setRequired(false).setAutocomplete(true)))
   .addSubcommand(c => c.setName("tag-multiple").setDescription("Apply one tag to multiple cards you own")
@@ -225,6 +226,14 @@ export async function execute(interaction) {
     try {
       const cardId = interaction.options.getString("card_id")?.trim() || null;
       const tag = option === "tag" ? interaction.options.getString("tag", true) : null;
+      const cardIds = option === "tag" ? interaction.options.getString("card_ids")?.trim() || null : null;
+      if (cardId && cardIds) throw new Error("Use either one pet/card reference or a list of card IDs, not both.");
+      if (cardIds) {
+        const request = await prepareCardTagConfirmation({
+          discordUserId: interaction.user.id, cardIds, tag,
+        });
+        return interaction.editReply(cardTagConfirmationPayload(request));
+      }
       const targets = await selectOwnedTagTargets(interaction.user.id, cardId, { includeRelatedForId: true });
       // All untagging, and tagging a pet with multiple owned copies, require confirmation.
       if (option === "untag" || targets.cards.length > 1) {
