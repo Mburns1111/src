@@ -71,7 +71,9 @@ export async function tradePanel(t){
     .setTitle(completed?"🎀 Gift Sent!":status==="Open"?"🎁 Hatchem Gift":"🎁 Gift "+status)
     .setDescription(completed?
       "💝 "+names+"\n**"+t.offers[0].length+" card"+(t.offers[0].length===1?"":"s")+"** delivered!":
-      "💌 "+names+"\n**"+t.offers[0].length+" card"+(t.offers[0].length===1?"":"s")+"** wrapped up for you! 🎀")
+      status==="Open"?
+        "💌 "+names+"\n**"+t.offers[0].length+" card"+(t.offers[0].length===1?"":"s")+"** wrapped up for you! 🎀":
+        "🎀 "+names+"\nThis gift was "+status.toLocaleLowerCase()+". No cards were sent.")
     .addFields({name:"🎁 Inside the gift",value:shortGiftList(d.sides[0]),inline:false});
   if(status==="Open") embed.setFooter({text:"Only the sender can send this gift · Cards are transferred immediately"});
  } else {
