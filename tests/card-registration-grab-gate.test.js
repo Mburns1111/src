@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import CardDrop from "../models/CardDrop.js";
 import CardCollector from "../models/CardCollector.js";
+import GuildConfig from "../models/GuildConfig.js";
 import CardActionCooldown from "../models/CardActionCooldown.js";
 import { handleCardGrab } from "../commands/cards.js";
 
@@ -9,7 +10,7 @@ test("unregistered member cannot grab from player egg or spend a 5-minute cooldo
   const before = process.env.ENABLE_CARD_GAME_TEST;
   const original = {
     drop: CardDrop.findOne,
-    registered: CardCollector.exists,
+    registered: CardCollector.exists, config: GuildConfig.findOne,
     cooldown: CardActionCooldown.findOneAndUpdate,
   };
   const user="123456789012345678";
@@ -21,6 +22,7 @@ test("unregistered member cannot grab from player egg or spend a 5-minute cooldo
     CardDrop.findOne = () => ({select:()=>({lean:async()=>({
       _id:dropId, mode:"player",messageId:"999999999999999999",
     })})});
+    GuildConfig.findOne = () => ({ select:()=>({ lean:async()=>({ hatchemChannelId:"456789012345678901" }) }) });
     CardCollector.exists = async query => {
       assert.equal(query.discordUserId,user);
       assert.equal(query.registeredGuildIds,guild);
@@ -42,6 +44,7 @@ test("unregistered member cannot grab from player egg or spend a 5-minute cooldo
     else process.env.ENABLE_CARD_GAME_TEST=before;
     CardDrop.findOne=original.drop;
     CardCollector.exists=original.registered;
+    GuildConfig.findOne=original.config;
     CardActionCooldown.findOneAndUpdate=original.cooldown;
   }
 });
