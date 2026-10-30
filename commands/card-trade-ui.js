@@ -1,6 +1,7 @@
 import { ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,ModalBuilder,TextInputBuilder,TextInputStyle } from "discord.js";
 import { createCardTrade,updateCardTradeMessageId,readCardTrade,cardTradeDetails,setCardTradeOffer,reviewCardTrade,finalizeCardTrade,cancelCardTrade,moveCardTradePage,TRADE_DISPLAY_PAGE_SIZE } from "../services/card-trades.js";
 import CardTrade from "../models/CardTrade.js";
+import { canPlayCardGame, cardRegistrationReminder } from "../services/card-collector-registration.js";
 const safe=s=>String(s??"").replace(/[@*_~|<>]/g,"").slice(0,80);
 const mention=id=>"<@"+id+">";
 const closed=t=>t.status!=="open"||new Date(t.expiresAt)<=new Date();
@@ -72,6 +73,11 @@ export async function startCardTrade(i,{ gift = false } = {}){
  if(!i.guildId||!i.channel?.send)return i.editReply("Trade in the Hatchem channel.");
  const present=await i.guild?.members.fetch(member.id).catch(()=>null);
  if(!present)return i.editReply("The other trader must be a member of this server.");
+ if (!await canPlayCardGame(i.user.id,i.guild))
+  return i.editReply(await cardRegistrationReminder(i.guildId));
+ if (!await canPlayCardGame(member.id,i.guild))
+  return i.editReply("The other player must use .register to restore their Card role before trading.");
+
  try{
   let trade=await createCardTrade({guildId:i.guildId,channelId:i.channelId,inviterId:i.user.id,inviteeId:member.id,
    gift,participantNames:[i.member?.displayName||i.user.globalName||i.user.username, present.displayName||member.globalName||member.username]});
