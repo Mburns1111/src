@@ -132,9 +132,9 @@ test("trade receipt treats absent scores as not reviewed rather than inventing n
   assert.equal(d.sides[0][0].reviewedValue,2.5);
   assert.equal(d.sides[1][0].reviewedValue,null);
   const panel=await tradePanel(active());
-  assert.match(panel.embeds[0].data.fields[0].value,/2\.5/);
-  assert.match(panel.embeds[0].data.fields[1].value,/not reviewed/i);
-  assert.match(panel.embeds[0].data.fields[0].value,/Neon/);
+  assert.match(panel.embeds[0].data.fields[1].value,/2\.5/);
+  assert.match(panel.embeds[0].data.fields[3].value,/not reviewed/i);
+  assert.match(panel.embeds[0].data.fields[1].name,/Neon/);
  }finally{CardCopy.find=orig.cards;CardDefinition.find=orig.defs;
    PetCatalog.find=orig.pets;CardRelease.find=orig.releases;}
 });
