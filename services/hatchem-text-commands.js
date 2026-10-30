@@ -3,25 +3,28 @@ import { execute as executeCards } from "../commands/cards.js";
 export function parseHatchemTagArguments(raw) {
   const args = String(raw || "").trim();
   if (!args) return { tag: "" };
-  const stripQuotes = value => String(value).trim().replace(/^"|"$/g, "");
-  // Double hyphen separates a multiword pet and a multiword tag.
-  const separator = args.indexOf(" -- ");
-  if (separator > 0) {
-    return { card_id: stripQuotes(args.slice(0, separator)), tag: stripQuotes(args.slice(separator + 4)) };
+  // The tag always comes first. Quotes allow tags containing spaces.
+  // Examples:
+  // .tag "cute"                     (newest owned card)
+  // .tag "cute" Abyssinian Cat      (all matching owned pet copies)
+  // .tag "cute" KxQOo               (one ID, or ask when duplicates exist)
+  // .tag "cute" KxQOo Abc12 Def34   (exactly those card IDs)
+  const first = /^"([^"]+)"(?:\s+([\s\S]+))?$/.exec(args)
+    || /^(\S+)(?:\s+([\s\S]+))?$/.exec(args);
+  if (!first) return { tag: "" };
+  const tag = first[1].trim();
+  const target = String(first[2] || "").trim();
+  if (!target) return { tag };
+  const namedTarget = /^"([^"]+)"$/.exec(target);
+  if (namedTarget) return { tag, card_id: namedTarget[1] };
+  const references = target.split(/[\s,;]+/).filter(Boolean);
+  // A batch is recognized only when every token is a five-character ID.
+  // If the user enters commas, let the ID validator explain malformed IDs.
+  if ((references.length > 1 && references.every(value => /^[0-9A-Za-z_-]{5}$/.test(value)))
+      || /[,;]/.test(target)) {
+    return { tag, card_ids: references.join(" ") };
   }
-  const quotedReference = /^"([^"]+)"\s+(.+)$/.exec(args);
-  if (quotedReference) return { card_id: quotedReference[1], tag: stripQuotes(quotedReference[2]) };
-  const quotedTag = /^"([^"]+)"$/.exec(args);
-  if (quotedTag) return { tag: quotedTag[1] };
-  const quotedSuffix = /^(.+?)\s+"([^"]+)"$/.exec(args);
-  if (quotedSuffix) return { card_id: quotedSuffix[1].trim(), tag: quotedSuffix[2] };
-  // An exact five-character card ID always targets ONE copy.
-  const singleId = /^([0-9A-Za-z_-]{5})\s+(.+)$/.exec(args);
-  if (singleId) return { card_id: singleId[1], tag: singleId[2].trim() };
-  const words = args.split(/\s+/);
-  if (words.length === 1) return { tag: args };
-  // All but the final word is the pet name/prefix.
-  return { card_id: words.slice(0, -1).join(" "), tag: words.at(-1) };
+  return { tag, card_id: target };
 }
 
 export function parseHatchemText(content) {
@@ -54,8 +57,8 @@ export const HATCHEM_GUIDE = [
   "Type a command starting with a dot (.) here, or use /cards:",
   ".collection [tag] or .collection @member [tag] — filter collection",
   ".upgrade [pet name or card ID] — combine four matching cards",
-  ".create-tag cute · .tags · .tag cute (newest card)",
-  ".tag 2d do cute (all 2D Doggy copies) · .untag abys",
+  '.create-tag cute · .tags · .tag "cute" (newest card)',
+  '.tag "cute" 2D Doggy (all copies) · .untag abys',
   ".stats [card ID] · .view [card ID]",
   ".drop — staff-only test egg",
   ".help — list more commands",
@@ -68,16 +71,17 @@ export const HATCHEM_HELP = [
   ".collection or .collection cute — optionally filter by tag",
   ".collection @member or .collection @member cute — public collection",
   ".upgrade Pet Name or .upgrade CardID — confirm a four-card upgrade",
-  ".create-tag cute — save a tag · .tags — list saved tags",
-  ".tag cute — tag your newest owned card (even a Neon upgrade)",
-  ".tag 2d do cute — every owned 2D Doggy (case-insensitive)",
-  ".tag abys cute — every Abyssinian Cat · .untag abys — clear all",
-  '.tag CardID Favorites — one card · .tag "My Favorite" — newest',
-  '.tag 2d do "Very Cute" — all matching pets with spaced tag',
+  '.create-tag cute — save a tag · .tags — list saved tags',
+  '.tag "cute" — tag your newest owned card',
+  '.tag "cute" 2D Doggy — select one or all matching pet copies',
+  '.tag "cute" KxQOo — target a card ID (ask one/all if duplicates)',
+  '.tag "cute" KxQOo Abc12 Def34 — tag only these card IDs',
+  '.tag "Very Cute" Abyssinian Cat — a tag containing spaces',
+  '.untag abys — confirm before removing tags',
   ".tag-multiple Favorites ID1,ID2 · .untag-multiple ID1,ID2",
   ".delete-tag Favorites · .stats abys · .view abys",
   ".trade and .burn — coming later; not active",
-  "Pet names and tags ignore capitalization. A 5-character card ID targets only one owned card.",
+  "Tag FIRST, then pet name or IDs. Pet names and tags ignore capitalization.",
 ].join("\n");
 
 export async function runHatchemText(message, parsed) {
@@ -100,7 +104,7 @@ export async function runHatchemText(message, parsed) {
     return true;
   }
   if (parsed.action === "tag" && !parsed.options.tag) {
-    await message.reply({ content: "Use .tag cute for your newest card, or .tag abys cute for a pet.", allowedMentions: { parse: [] } });
+    await message.reply({ content: 'Use .tag "cute" for your newest card, .tag "cute" 2D Doggy for a pet, or .tag "cute" KxQOo Abc12 for multiple IDs.', allowedMentions: { parse: [] } });
     return true;
   }
   let response = null;
