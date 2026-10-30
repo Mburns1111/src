@@ -53,9 +53,9 @@ export function parseHatchemTagArguments(raw, savedTags = []) {
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|create-tag|tags|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|view|trade|give|burn)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|createtag|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|delete-tag|stats|view|trade|give|burn)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
-  const action = found[1].toLowerCase(), args = String(found[2] || "").trim();
+  const action = ({createtag:"create-tag",tagmultiple:"tag-multiple",untagmultiple:"untag-multiple",deletetag:"delete-tag"})[found[1].toLowerCase()] || found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "register") return { action, options: {} };
   if (action === "trade") return { action, options: { member: args } };
   if (action === "give") {
@@ -88,7 +88,7 @@ export const HATCHEM_GUIDE = [
   "Type a command starting with a dot (.) here, or use /cards:",
   ".collection [tag] or .collection @member [tag] — filter collection",
   ".upgrade [pet name or card ID] — combine four matching cards",
-  '.create-tag cute · .tags · .tag cute (newest card)',
+  '.createtag cute · .tags · .tag cute (newest card)',
   '.tag cute 2D Doggy (all copies) · .untag abys',
   ".stats [card ID] · .view [card ID]",
   ".drop — drop an egg (15m global cooldown)",
@@ -108,15 +108,15 @@ export const HATCHEM_HELP = [
   ".collection or .collection cute — optionally filter by tag",
   ".collection @member or .collection @member cute — public collection",
   ".upgrade Pet Name or .upgrade CardID — confirm a four-card upgrade",
-  '.create-tag cute — save a tag · .tags — list saved tags',
+  '.createtag cute — save a tag · .tags — list saved tags',
   '.tag cute — tag your newest owned card',
   '.tag cute 2D Doggy — select one or all matching pet copies',
   '.tag cute KxQOo — target a card ID (ask one/all if duplicates)',
   '.tag cute KxQOo Abc12 Def34 — tag only these card IDs',
-  '.create-tag Very Cute, then .tag Very Cute 2D Doggy — spaces work without quotes',
+  '.createtag Very Cute, then .tag Very Cute 2D Doggy — spaces work without quotes',
   '.untag abys — confirm before removing tags',
-  ".tag-multiple Favorites ID1,ID2 · .untag-multiple ID1,ID2",
-  ".delete-tag Favorites · .stats abys · .view abys",
+  ".tagmultiple Favorites ID1,ID2 · .untagmultiple ID1,ID2",
+  ".deletetag Favorites · .stats abys · .view abys",
   ".trade @member — both add cards and confirm twice",
   ".give @member ID1 ID2 or .give @member tag:cute — both confirm a gift",
   ".burn — coming later; not active",
@@ -170,7 +170,7 @@ export async function runHatchemText(message, parsed) {
     }
     if (!options.tag) {
       await message.reply({
-        content: "Use .tag cute for your newest card, .tag cute 2D Doggy for a pet, or .tag cute KxQOo Abc12 for multiple IDs. Create a tag with spaces first using .create-tag Very Cute.",
+        content: "Use .tag cute for your newest card, .tag cute 2D Doggy for a pet, or .tag cute KxQOo Abc12 for multiple IDs. Create a tag with spaces first using .createtag Very Cute.",
         allowedMentions: { parse: [] },
       });
       return true;
