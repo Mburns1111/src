@@ -6,7 +6,7 @@ import PetCatalog from "../models/PetCatalog.js";
 import CardCollector from "../models/CardCollector.js";
 import { findOwnedCardForCommand, petNameSearchPattern } from "../services/card-owned-selection.js";
 import { createCollectorTag, listCollectorTags, matchingTagRegex, tagKey } from "../services/card-tag-catalog.js";
-import { parseHatchemText } from "../services/hatchem-text-commands.js";
+import { parseHatchemText, parseHatchemTagArguments } from "../services/hatchem-text-commands.js";
 import { data } from "../commands/cards.js";
 
 test("Hatchem accepts tag-FIRST syntax, named pets, exact IDs and multiple IDs", () => {
@@ -14,6 +14,10 @@ test("Hatchem accepts tag-FIRST syntax, named pets, exact IDs and multiple IDs",
   assert.deepEqual(parseHatchemText(".tags"), { action: "tags", options: {} });
   assert.deepEqual(parseHatchemText('.tag "cute"'), { action: "tag", options: { tag: "cute" } });
   assert.deepEqual(parseHatchemText(".tag cute"), { action: "tag", options: { tag: "cute" } });
+  assert.deepEqual(parseHatchemText(".tag cute 2D Doggy"), { action: "tag", options: { tag: "cute", card_id: "2D Doggy" } });
+  assert.deepEqual(parseHatchemText(".tag cute KxQOo"), { action: "tag", options: { tag: "cute", card_id: "KxQOo" } });
+  assert.deepEqual(parseHatchemText(".tag cute KxQOo Abc12 Def34"), { action: "tag", options: { tag: "cute", card_ids: "KxQOo Abc12 Def34" } });
+
   assert.deepEqual(parseHatchemText('.TAG "CuTe" ABYS'), { action: "tag", options: { tag: "CuTe", card_id: "ABYS" } });
   assert.deepEqual(parseHatchemText('.tag "My Cute Pets"'), { action: "tag", options: { tag: "My Cute Pets" } });
   assert.deepEqual(parseHatchemText('.tag "My Cute Pets" Abyssinian Cat'), {
@@ -36,6 +40,32 @@ test("Hatchem accepts tag-FIRST syntax, named pets, exact IDs and multiple IDs",
   assert.ok(commands.some(c => c.name === "tags"));
   assert.ok(commands.find(c => c.name === "tag").options.some(o => o.name === "card_ids"));
   assert.ok(CardCollector.schema.path("tagNames"));
+});
+
+test("saved multiword tags need no quotes, and the longest saved name wins", () => {
+  const tags = ["very", "very cute", "cute"];
+  assert.deepEqual(parseHatchemTagArguments("Very Cute", tags), { tag:"very cute" });
+  assert.deepEqual(parseHatchemTagArguments("Very Cute 2D Doggy", tags), {
+    tag:"very cute", card_id:"2D Doggy",
+  });
+  assert.deepEqual(parseHatchemTagArguments("VERY CUTE abys", tags), {
+    tag:"very cute", card_id:"abys",
+  });
+  assert.deepEqual(parseHatchemTagArguments("Very Cute KxQOo Abc12 Def34", tags), {
+    tag:"very cute", card_ids:"KxQOo Abc12 Def34",
+  });
+  assert.deepEqual(parseHatchemTagArguments("Very Cute KxQOo, Abc12", tags), {
+    tag:"very cute", card_ids:"KxQOo Abc12",
+  });
+  assert.deepEqual(parseHatchemTagArguments("My Favorite Pet", ["My Favorite"]), {
+    tag:"My Favorite", card_id:"Pet",
+  });
+  assert.deepEqual(parseHatchemTagArguments("cute   2D   Doggy", ["cute"]), {
+    tag:"cute", card_id:"2D Doggy",
+  });
+  assert.deepEqual(parseHatchemTagArguments("Very Cute", []), {
+    tag:"Very", card_id:"Cute",
+  }); // Save the multiword name first with .create-tag Very Cute.
 });
 
 test("tag names match without case and existing older tags remain readable", () => {
