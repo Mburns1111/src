@@ -53,9 +53,10 @@ export function parseHatchemTagArguments(raw, savedTags = []) {
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|drop|cooldowns|collection|upgrade|create-tag|tags|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|view|trade|burn)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|create-tag|tags|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|view|trade|burn)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = found[1].toLowerCase(), args = String(found[2] || "").trim();
+  if (action === "register") return { action, options: {} };
   if (action === "drop") return { action: "drop", options: {} };
   if (action === "cooldowns") return { action, options: {} };
   if (action === "collection") {
@@ -78,6 +79,7 @@ export function parseHatchemText(content) {
 
 export const HATCHEM_GUIDE = [
   "**🥚 Hatchem — Hatch, Collect & Upgrade!**",
+  "Type .register to join Hatchem and receive this server\u2019s Card role.",
   "Type a command starting with a dot (.) here, or use /cards:",
   ".collection [tag] or .collection @member [tag] — filter collection",
   ".upgrade [pet name or card ID] — combine four matching cards",
@@ -92,6 +94,8 @@ export const HATCHEM_GUIDE = [
 
 export const HATCHEM_HELP = [
   "**🥚 Hatchem typed commands — start with a dot (.)**",
+  ".register — join Hatchem in this server and receive your Card role",
+  "Registration is required before regular drops or grabs. Join separately in each server.",
   ".drop — player egg every 15 minutes globally",
   ".cooldowns — check drop and grab availability",
   ".collection or .collection cute — optionally filter by tag",
