@@ -14,20 +14,33 @@ export function tradeButtons(t){
   new ButtonBuilder().setCustomId("cards:trade:final:"+id).setLabel("Final Confirm (2/2)").setStyle(ButtonStyle.Success).setDisabled(!ready),
   new ButtonBuilder().setCustomId("cards:trade:cancel:"+id).setLabel("Cancel").setStyle(ButtonStyle.Danger))];
 }
-function offerField(cards,user,validateEligibility=true){
+function offerFields(cards,user,validateEligibility=true){
  const tick=String.fromCharCode(96);
- const lines=cards.map(c=>{
-  const stage=c.stage==="mega"?"Mega Neon":c.stage==="neon"?"Neon":"Normal";
-  const value=c.reviewedValue===null?"Value: not reviewed":"Reviewed value score: "+c.reviewedValue+(c.valueSource?" ("+safe(c.valueSource)+")":"");
-  return "**"+safe(c.name)+"** "+tick+c.id+tick+" · "+safe(c.rarity)+" · "+stage+"\n"+
-   "Series: "+safe(c.seriesId)+" · Release: "+safe(c.releaseId)+" · Frame: "+safe(c.frame)+"\n"+
-   value+(c.tag?" · Tag (cleared): "+safe(c.tag):"")+(!validateEligibility||c.eligible?"":"\n⚠️ Card no longer eligible");
- });
- const sum=cards.length&&cards.every(c=>c.reviewedValue!==null)?
+ const allReviewed=cards.length>0&&cards.every(c=>c.reviewedValue!==null);
+ const total=allReviewed?
    "Total reviewed score: "+Number(cards.reduce((v,c)=>v+c.reviewedValue,0).toFixed(4)):
-   "Total reviewed score: incomplete";
- return {name:mention(user)+" · "+cards.length+"/5 cards",value:((lines.join("\n\n")||"No cards offered yet")+"\n\n"+sum).slice(0,1024),inline:false};
+   "Total reviewed score: incomplete (unrated cards)";
+ const header={name:mention(user)+" · "+cards.length+"/5 offered cards",
+   value:total+(cards.length?"":"\nNo cards offered yet."),inline:false};
+ const details=cards.map((c,i)=>{
+  const stage=c.stage==="mega"?"Mega Neon":c.stage==="neon"?"Neon":"Normal";
+  const value=c.reviewedValue===null?"Not reviewed":
+    String(c.reviewedValue)+(c.valueSource?" ("+safe(c.valueSource)+")":"");
+  const title="#"+(i+1)+" "+safe(c.name)+" "+tick+c.id+tick+" · "+safe(c.rarity)+" · "+stage;
+  const attributes=[
+   "Series: "+safe(c.seriesId)+" · Release: "+safe(c.releaseId),
+   "Frame: "+safe(c.frame)+" · Reviewed value: "+value,
+   c.artist?"Artist: "+safe(c.artist):"Artist: not credited on definition",
+   c.source?"Obtained from: "+safe(c.source):"",
+   c.originGuildId?"Origin server ID: "+safe(c.originGuildId):"",
+   c.tag?"Current tag (cleared on trade): "+safe(c.tag):"",
+   !validateEligibility||c.eligible?"":"⚠️ Card no longer eligible",
+  ].filter(Boolean).join("\n");
+  return {name:title.slice(0,256),value:attributes.slice(0,1024),inline:false};
+ });
+ return [header,...details];
 }
+
 export async function tradePanel(t){
  const d=await cardTradeDetails(t),ready=t.participants.every(u=>t.reviewedBy.includes(u));
  const status=t.status==="completed"?"Completed":t.status==="cancelled"?"Cancelled":closed(t)?"Expired":"Open";
@@ -41,7 +54,7 @@ export async function tradePanel(t){
    closed(t)?"":"Expires <t:"+Math.ceil(new Date(t.expiresAt).getTime()/1000)+":R>",
    "Values are reviewed scores, NOT a real-money price or guarantee. Unrated cards say 'not reviewed'.",
    "Personal card tags are cleared on transfer."].filter(Boolean).join("\n"))
-  .addFields(offerField(d.sides[0],t.participants[0],!closed(t)),offerField(d.sides[1],t.participants[1],!closed(t)))
+  .addFields(...offerFields(d.sides[0],t.participants[0],!closed(t)),...offerFields(d.sides[1],t.participants[1],!closed(t)))
   .setFooter({text:"No cards move until all four approvals are completed."});
  return {embeds:[embed],components:tradeButtons(t),allowedMentions:{parse:[]}};
 }
