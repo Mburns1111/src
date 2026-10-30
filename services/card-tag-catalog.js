@@ -44,3 +44,14 @@ export async function listCollectorTags(discordUserId) {
     .filter(value => typeof value === "string" && value.trim())
     .map(tagKey))].sort((a, b) => a.localeCompare(b));
 }
+
+
+// Applying a tag must NEVER silently create it. .create-tag is the only
+// member command that adds a new reusable tag name.
+export async function requireSavedCardTag(discordUserId, value) {
+  const normalized = tagKey(value);
+  const collector = await CardCollector.findOne({ discordUserId }).select("tagNames").lean();
+  if (!(collector?.tagNames || []).some(t => tagKey(t) === normalized))
+    throw new Error("Tag '" + normalized + "' does not exist. Create it first with .create-tag " + normalized + ".");
+  return normalized;
+}
