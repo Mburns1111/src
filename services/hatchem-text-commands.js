@@ -53,11 +53,15 @@ export function parseHatchemTagArguments(raw, savedTags = []) {
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|create-tag|tags|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|view|trade|burn)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|create-tag|tags|tag|untag|tag-multiple|untag-multiple|delete-tag|stats|view|trade|give|burn)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "register") return { action, options: {} };
   if (action === "trade") return { action, options: { member: args } };
+  if (action === "give") {
+    const match = /^(<@!?\d{17,20}>)(?:\s+([\s\S]+))?$/.exec(args);
+    return { action, options: { member: match?.[1] || "", cards: match?.[2]?.trim() || "" } };
+  }
   if (action === "drop") return { action: "drop", options: {} };
   if (action === "cooldowns") return { action, options: {} };
   if (action === "collection") {
@@ -90,7 +94,8 @@ export const HATCHEM_GUIDE = [
   ".drop — drop an egg (15m global cooldown)",
   ".cooldowns — see your next drop and this server’s grab",
   ".help — list more commands",
-  ".trade @member — start a two-person card trade with double confirmation",
+  ".trade @member — offer cards on both sides, both confirm twice",
+  ".give @member CARDID CARDID or .give @member tag:cute — gift cards after both confirm",
   "Burning is planned, not enabled yet.",
 ].join("\n");
 
@@ -112,7 +117,8 @@ export const HATCHEM_HELP = [
   '.untag abys — confirm before removing tags',
   ".tag-multiple Favorites ID1,ID2 · .untag-multiple ID1,ID2",
   ".delete-tag Favorites · .stats abys · .view abys",
-  ".trade @member — each player adds cards, reviews and confirms twice",
+  ".trade @member — both add cards and confirm twice",
+  ".give @member ID1 ID2 or .give @member tag:cute — both confirm a gift",
   ".burn — coming later; not active",
   "Tag FIRST, then pet name or IDs. No quotes necessary; create multiword tags first.",
 ].join("\n");
@@ -128,15 +134,19 @@ export async function runHatchemText(message, parsed) {
   const match = /^<@!?(\d{17,20})>$/.exec(parsed.options.member || "");
   const target = match ? (message.mentions.users.get(match[1]) ||
     await message.client.users.fetch(match[1]).catch(() => null)) : null;
-  if (parsed.action === "trade" && !match) {
+  if (["trade","give"].includes(parsed.action) && !match) {
     await message.reply({
-      content: "Use .trade @member to start a trade with a registered collector in this server.",
+      content: "Use .trade @member to trade, or .give @member CARDID CARDID (or tag:cute) to gift cards.",
       allowedMentions: { parse: [] },
     });
     return true;
   }
   if (match && !target) {
     await message.reply({ content: "That member could not be found.", allowedMentions: { parse: [] } });
+    return true;
+  }
+  if (parsed.action === "give" && !parsed.options.cards) {
+    await message.reply({content:"Use .give @member CARDID CARDID or .give @member tag:cute.",allowedMentions:{parse:[]}});
     return true;
   }
   if (parsed.action === "upgrade" && !parsed.options.card) {
