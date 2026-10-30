@@ -22,7 +22,9 @@ test("Hatchem parses only leading recognized commands with typed arguments", () 
   assert.equal(parseHatchemText(".DROP").action, "test-drop");
   assert.equal(parseHatchemText(".drop").options.release, "test-s1-r1");
   assert.equal(parseHatchemText(".collection <@123456789012345678>").options.member, "<@123456789012345678>");
-  assert.deepEqual(parseHatchemText(".tag ABCd1 Favorite").options, { card_id: "ABCd1", tag: "Favorite" });
+  assert.deepEqual(parseHatchemText('.tag "Favorite" ABCd1').options, { tag: "Favorite", card_id: "ABCd1" });
+  assert.deepEqual(parseHatchemText('.tag "Favorite" ABCd1 Def45').options,
+    { tag: "Favorite", card_ids: "ABCd1 Def45" });
   assert.equal(parseHatchemText(".tag Favorites").options.tag, "Favorites");
   assert.equal(parseHatchemText(".stats ABCd1").options.card_id, "ABCd1");
   assert.equal(parseHatchemText(".trade").action, "trade");
