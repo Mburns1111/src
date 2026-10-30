@@ -133,7 +133,13 @@ export async function listCollectionRarities(ownerId) {
 }
 
 export async function listCollectionTags(ownerId) {
-  return listCollectorTags(ownerId);
+  // A legacy card may still have a label from before tags required explicit creation.
+  // Keep those labels filterable without allowing them to be applied to other cards.
+  const [created, applied] = await Promise.all([
+    listCollectorTags(ownerId),
+    CardCopy.distinct("tag", {ownerDiscordUserId:ownerId,state:"owned",tag:{$type:"string",$ne:""}}),
+  ]);
+  return [...new Set([...created,...applied].filter(Boolean).map(t=>String(t).toLocaleLowerCase()))].sort();
 }
 
 export async function findOwnedCollectionCard(ownerId, copyId) {
