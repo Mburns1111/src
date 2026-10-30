@@ -16,7 +16,7 @@ test("pet name with spaces targets ALL owned copies across releases and stages",
     collectorUpdate: CardCollector.updateOne, collectorFind: CardCollector.findOne,
   };
   try {
-    CardCollector.findOne = () => ({ select:()=>({lean:async()=>({tagNames:["cute"]})}) });
+    CardCollector.findOne = () => ({ select:()=>({lean:async()=>({createdTagNames:["cute"]})}) });
     PetCatalog.find = query => {
       assert.ok(query.name.test("2D Doggy"));
       return { select: () => ({ limit: () => ({ lean: async () => [
@@ -75,7 +75,7 @@ test("a five-character card ID tags ONLY the exact matching owned card", async (
   const original = { one:CardCopy.findOne, update:CardCopy.updateMany,
     def:CardDefinition.findById, pet:PetCatalog.findOne, collector:CardCollector.updateOne, collectorFind: CardCollector.findOne };
   try {
-    CardCollector.findOne = () => ({ select:()=>({lean:async()=>({tagNames:["cute"]})}) });
+    CardCollector.findOne = () => ({ select:()=>({lean:async()=>({createdTagNames:["cute"]})}) });
     CardCopy.findOne = query => {
       assert.equal(query.publicId, "KxQOo");
       return { lean: async () => ({ _id:"only-one", publicId:"KxQOo",
