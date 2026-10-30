@@ -30,18 +30,18 @@ export function cardCooldownDuration(action) {
  * MongoDB is the source of truth. A compare-and-set protects simultaneous
  * interactions and cross-server attempts even across bot instances.
  */
-export async function claimCardActionCooldown({ action, discordUserId, guildId, now = new Date() }) {
+export async function claimCardActionCooldown({ action, discordUserId, guildId, sourceId = "", now = new Date() }) {
   if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw new Error("Invalid cooldown timestamp.");
   const id = cardCooldownIdentity({ action, discordUserId, guildId });
   const availableAt = new Date(now.getTime() + cardCooldownDuration(action));
   const advanced = await CardActionCooldown.findOneAndUpdate(
     { _id: id._id, availableAt: { $lte: now } },
-    { $set: { availableAt } },
+    { $set: { availableAt, sourceId: String(sourceId) } },
     { returnDocument: "after" },
   ).lean();
   if (advanced) return { allowed: true, availableAt, action, scope: id.scope };
   try {
-    await CardActionCooldown.create({ ...id, availableAt });
+    await CardActionCooldown.create({ ...id, availableAt, sourceId: String(sourceId) });
     return { allowed: true, availableAt, action, scope: id.scope };
   } catch (error) {
     if (error?.code !== 11000) throw error;
@@ -59,4 +59,17 @@ export async function readCardActionCooldown({ action, discordUserId, guildId, n
     availableAt: existing?.availableAt || null,
     action, scope: id.scope,
   };
+}
+
+
+// A refund removes ONLY the cooldown reserved for the specified action.
+// sourceId protects a later successful action from an old failed send,
+// a duplicate worker pass, or a displaced/losing drop entry.
+export async function releaseCardActionCooldown({ action, discordUserId, guildId, sourceId }) {
+  if (!sourceId) throw new Error("A source ID is required to refund a card cooldown.");
+  const id = cardCooldownIdentity({ action, discordUserId, guildId });
+  const result = await CardActionCooldown.deleteOne({
+    _id: id._id, sourceId: String(sourceId),
+  });
+  return result.deletedCount === 1;
 }
