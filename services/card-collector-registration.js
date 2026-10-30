@@ -2,9 +2,22 @@ import { PermissionFlagsBits } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import CardCollector from "../models/CardCollector.js";
 
-export const REGISTER_FIRST_MESSAGE =
-  "Join Hatchem first with .register in this server's Hatchem channel. " +
-  "Your existing cards will be kept, and registration never resets cooldowns.";
+export const REGISTER_FIRST_MESSAGE = "Join Hatchem first with .register in the Hatchem channel.";
+export async function cardRegistrationReminder(guildId) {
+  const config = await GuildConfig.findOne({ guildId }).select("hatchemChannelId").lean();
+  return "Join Hatchem first with .register in " +
+    (config?.hatchemChannelId ? "<#" + config.hatchemChannelId + ">" : "the Hatchem channel") + ".";
+}
+
+// Registration and the locally configured role are both required to play.
+// Re-registering explicitly restores a removed role.
+export async function canPlayCardGame(discordUserId, guild) {
+  if (!guild || !await isRegisteredCardCollector(discordUserId, guild.id)) return false;
+  const config = await GuildConfig.findOne({ guildId:guild.id }).select("cardRoleId").lean();
+  if (!config?.cardRoleId) return false;
+  const member = await guild.members.fetch(discordUserId).catch(() => null);
+  return Boolean(member?.roles?.cache?.has(config.cardRoleId));
+}
 
 export async function isRegisteredCardCollector(discordUserId, guildId) {
   if (!discordUserId || !guildId) return false;
