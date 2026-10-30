@@ -44,10 +44,24 @@ Saved 2026-10-29 on the development branch. **Manual results are not recorded as
 - [ ] Confirm that another user cannot confirm, cancel, or redirect somebody else's pending Neon upgrade.
 - [ ] Two users' global collections remain distinct across participating servers.
 
+## Development player-drop and grab cooldown tests (added October 29)
+
+- [ ] Two accounts in the same guild can use `.drop` independently; each gets a 15-minute personal cooldown.
+- [ ] A member cannot drop again immediately or bypass the 15-minute cooldown by using another guild; another member is unaffected.
+- [ ] `.cooldowns` reports the exact drop availability globally and grab availability for the current server, without consuming either.
+- [ ] A valid grab entry reserves the five-minute cooldown in that server; another grab in that server is blocked while active.
+- [ ] The same member may grab in Server B even with a five-minute grab cooldown active in Server A.
+- [ ] Losing an egg draw refunds the grab cooldown after settlement; winners retain the five-minute cooldown.
+- [ ] Creator choosing a contested slot releases displaced entrants and refunds their grab cooldown immediately so they can choose again.
+- [ ] A failed, expired, duplicated, or invalid grab does not spend a cooldown.
+- [ ] Two simultaneous drop commands in separate servers create at most one member egg.
+- [ ] A bot restart does not reset a live drop or grab cooldown, double-mint a winning copy, or leave a losing entrant's cooldown permanently reserved.
+- [ ] Owner-only `/cards test-drop` does not consume regular player cooldowns and remains inaccessible to other administrators.
+
 ## Deferred — features not yet ready for Discord tests
 
-- [ ] Normal player `.drop`: one global 15-minute cooldown per user across servers (service exists, player flow not yet wired).
-- [ ] Grabs: five-minute per-user cooldown separate for each server (service exists, player flow not yet wired).
+- [x] Normal player `.drop` cooldown code wired on the development branch; **Discord multi-server testing still pending above**.
+- [x] Grab cooldown code wired on the development branch; **Discord multi-server testing still pending above**.
 - [ ] Automatic Card role grant at collector registration (registration is not implemented).
 - [ ] Global release activation/retirement with approved-artwork readiness checks (not yet implemented).
 - [ ] Public trading, burning, dust, and purchases (not yet implemented).
