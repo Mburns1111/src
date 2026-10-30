@@ -31,7 +31,7 @@ test(".give accepts IDs and tag selectors; /cards give requires a member and car
 test("only created tag names can select whole groups for trade/gift",async()=>{
  const prev={collector:CardCollector.findOne,copies:CardCopy.find};
  try{
-  CardCollector.findOne=()=>({select:()=>({lean:async()=>({tagNames:["cute"]})})});
+  CardCollector.findOne=()=>({select:()=>({lean:async()=>({createdTagNames:["cute"]})})});
   CardCopy.find=query=>{
    assert.equal(query.ownerDiscordUserId,a);
    assert.equal(query.tag.$regex,"^cute$");
