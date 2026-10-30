@@ -18,8 +18,8 @@ function offerFields(cards,user,validateEligibility=true){
  const tick=String.fromCharCode(96);
  const allReviewed=cards.length>0&&cards.every(c=>c.reviewedValue!==null);
  const total=allReviewed?
-   "Total reviewed score: "+Number(cards.reduce((v,c)=>v+c.reviewedValue,0).toFixed(4)):
-   "Total reviewed score: incomplete (unrated cards)";
+   "Total base-pet reviewed score: "+Number(cards.reduce((v,c)=>v+c.reviewedValue,0).toFixed(4)):
+   "Total base-pet reviewed score: incomplete (unrated cards)";
  const header={name:mention(user)+" · "+cards.length+"/5 offered cards",
    value:total+(cards.length?"":"\nNo cards offered yet."),inline:false};
  const details=cards.map((c,i)=>{
@@ -29,7 +29,7 @@ function offerFields(cards,user,validateEligibility=true){
   const title="#"+(i+1)+" "+safe(c.name)+" "+tick+c.id+tick+" · "+safe(c.rarity)+" · "+stage;
   const attributes=[
    "Series: "+safe(c.seriesId)+" · Release: "+safe(c.releaseId),
-   "Frame: "+safe(c.frame)+" · Reviewed value: "+value,
+   "Frame: "+safe(c.frame)+" · Base-pet reviewed score: "+value,
    c.artist?"Artist: "+safe(c.artist):"Artist: not credited on definition",
    c.source?"Obtained from: "+safe(c.source):"",
    c.originGuildId?"Origin server ID: "+safe(c.originGuildId):"",
@@ -52,7 +52,7 @@ export async function tradePanel(t){
    ready&&!closed(t)?"Both reviews complete. Check the cards and final-confirm.":"",
    ...steps,
    closed(t)?"":"Expires <t:"+Math.ceil(new Date(t.expiresAt).getTime()/1000)+":R>",
-   "Values are reviewed scores, NOT a real-money price or guarantee. Unrated cards say 'not reviewed'.",
+   "Reviewed scores describe the base pet, not a Neon/Mega-adjusted value, real-money price, or guaranteed fair trade.",
    "Personal card tags are cleared on transfer."].filter(Boolean).join("\n"))
   .addFields(...offerFields(d.sides[0],t.participants[0],!closed(t)),...offerFields(d.sides[1],t.participants[1],!closed(t)))
   .setFooter({text:"No cards move until all four approvals are completed."});
@@ -112,7 +112,16 @@ export async function handleCardTradeInteraction(i){
   if(action==="review")updated=await reviewCardTrade({tradeId:id,userId:i.user.id,guildId:i.guildId});
   else if(action==="cancel")updated=await cancelCardTrade({tradeId:id,userId:i.user.id,guildId:i.guildId});
   else{await finalizeCardTrade({tradeId:id,userId:i.user.id,guildId:i.guildId});updated=await readCardTrade(id);}
-  await refresh(i,updated);
+  try {
+   await refresh(i,updated);
+  } catch(displayError) {
+   console.warn("[Hatchem] Trade state saved but the panel could not refresh:",displayError.message);
+   return i.editReply(updated.status==="completed"?
+     "Trade completed and cards changed owners, but the trade panel could not refresh. Check .collection.":
+     updated.status==="cancelled"?
+       "Trade cancelled with no transfer, but the panel could not refresh.":
+       "Your confirmation was saved, but the trade panel could not refresh. Try another button or start a new trade if it remains stuck.");
+  }
   return i.editReply(action==="cancel"?"Trade cancelled; no cards moved.":updated.status==="completed"?
    "Trade complete! Both collections have been updated.":action==="review"?
    "Review recorded. Both players must review before final confirmation.":
