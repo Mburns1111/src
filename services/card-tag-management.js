@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import CardCopy from "../models/CardCopy.js";
 import PendingCardTagDeletion from "../models/PendingCardTagDeletion.js";
 import CardCollector from "../models/CardCollector.js";
-import { tagKey, createCollectorTag, listCollectorTags, matchingTagRegex } from "./card-tag-catalog.js";
+import { tagKey, requireSavedCardTag, listCollectorTags, matchingTagRegex } from "./card-tag-catalog.js";
 import { normalizeCardReference } from "./card-identifiers.js";
 import { findOwnedCardById } from "./card-owned-selection.js";
 
@@ -32,7 +32,7 @@ export async function updateMultipleOwnedCardTags({ discordUserId, cardIds, tag 
     return card._id;
   }));
   if (new Set(ids.map(String)).size !== ids.length) throw new Error("Each card ID can appear only once.");
-  const normalized = tag === null ? "" : tagKey(tag);
+  const normalized = tag === null ? "" : await requireSavedCardTag(discordUserId, tag);
   const owned = await CardCopy.countDocuments({
     _id: { $in: ids }, ownerDiscordUserId: discordUserId, state: "owned",
   });
@@ -45,7 +45,7 @@ export async function updateMultipleOwnedCardTags({ discordUserId, cardIds, tag 
   if (result.matchedCount !== ids.length) {
     throw new Error("Your collection changed while tagging; check the affected cards.");
   }
-  if (normalized) await createCollectorTag(discordUserId, normalized);
+
   return { selected: ids.length, changed: result.modifiedCount, tag: normalized };
 }
 
