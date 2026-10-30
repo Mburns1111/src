@@ -13,14 +13,14 @@ export function tradeButtons(t){
   new ButtonBuilder().setCustomId("cards:trade:final:"+id).setLabel("Final Confirm (2/2)").setStyle(ButtonStyle.Success).setDisabled(!ready),
   new ButtonBuilder().setCustomId("cards:trade:cancel:"+id).setLabel("Cancel").setStyle(ButtonStyle.Danger))];
 }
-function offerField(cards,user){
+function offerField(cards,user,validateEligibility=true){
  const tick=String.fromCharCode(96);
  const lines=cards.map(c=>{
   const stage=c.stage==="mega"?"Mega Neon":c.stage==="neon"?"Neon":"Normal";
   const value=c.reviewedValue===null?"Value: not reviewed":"Reviewed value score: "+c.reviewedValue+(c.valueSource?" ("+safe(c.valueSource)+")":"");
   return "**"+safe(c.name)+"** "+tick+c.id+tick+" · "+safe(c.rarity)+" · "+stage+"\n"+
    "Series: "+safe(c.seriesId)+" · Release: "+safe(c.releaseId)+" · Frame: "+safe(c.frame)+"\n"+
-   value+(c.tag?" · Tag (cleared): "+safe(c.tag):"")+(c.eligible?"":"\n⚠️ Card no longer eligible");
+   value+(c.tag?" · Tag (cleared): "+safe(c.tag):"")+(!validateEligibility||c.eligible?"":"\n⚠️ Card no longer eligible");
  });
  const sum=cards.length&&cards.every(c=>c.reviewedValue!==null)?
    "Total reviewed score: "+Number(cards.reduce((v,c)=>v+c.reviewedValue,0).toFixed(4)):
@@ -40,7 +40,7 @@ export async function tradePanel(t){
    closed(t)?"":"Expires <t:"+Math.ceil(new Date(t.expiresAt).getTime()/1000)+":R>",
    "Values are reviewed scores, NOT a real-money price or guarantee. Unrated cards say 'not reviewed'.",
    "Personal card tags are cleared on transfer."].filter(Boolean).join("\n"))
-  .addFields(offerField(d.sides[0],t.participants[0]),offerField(d.sides[1],t.participants[1]))
+  .addFields(offerField(d.sides[0],t.participants[0],!closed(t)),offerField(d.sides[1],t.participants[1],!closed(t)))
   .setFooter({text:"No cards move until all four approvals are completed."});
  return {embeds:[embed],components:tradeButtons(t),allowedMentions:{parse:[]}};
 }
