@@ -12,80 +12,118 @@ function pageInfo(t) {
  const pages=Math.max(1,Math.ceil(Math.max(...t.offers.map(x=>x.length))/TRADE_DISPLAY_PAGE_SIZE));
  return {pages,page:Math.max(0,Math.min(pages-1,t.viewPage||0))};
 }
+
+const ornament = "──────────────";
+function shortGiftList(cards, count = 4) {
+ const visible = cards.slice(0,count);
+ const lines = visible.map(c=>"• **"+safe(c.name)+"** · "+String.fromCharCode(96)+c.id+String.fromCharCode(96));
+ if (cards.length > count) lines.push("🎀 *+"+(cards.length-count)+" more inside*");
+ return lines.join("\n") || "*No cards selected.*";
+}
 export function tradeButtons(t){
  if(closed(t)) return [];
- const id=String(t._id), {pages,page}=pageInfo(t);
- const actions=t.gift
- ? [new ButtonBuilder().setCustomId("cards:trade:giftconfirm:"+id)
-       .setLabel("Confirm Gift ("+t.offers[0].length+")").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId("cards:trade:giftcancel:"+id)
-       .setLabel("Cancel Gift").setStyle(ButtonStyle.Secondary)]
- : [new ButtonBuilder().setCustomId("cards:trade:add0:"+id).setLabel("Add: "+traderName(t,0)).setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("cards:trade:add1:"+id).setLabel("Add: "+traderName(t,1)).setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("cards:trade:review:"+id).setLabel("Review 1/2").setStyle(ButtonStyle.Secondary)
-      .setDisabled(t.participants.every(u=>t.reviewedBy.includes(u))),
-    new ButtonBuilder().setCustomId("cards:trade:final:"+id).setLabel("Confirm 2/2").setStyle(ButtonStyle.Success)
-      .setDisabled(!t.participants.every(u=>t.reviewedBy.includes(u))),
-    new ButtonBuilder().setCustomId("cards:trade:cancel:"+id).setLabel("Cancel").setStyle(ButtonStyle.Danger)];
- const rows=[new ActionRowBuilder().addComponents(actions)];
- const extras = [];
- if(!t.gift) extras.push(new ButtonBuilder()
-   .setCustomId("cards:trade:details:"+id).setLabel("Card Details")
-   .setStyle(ButtonStyle.Secondary));
- if(pages>1) extras.push(
-    new ButtonBuilder().setCustomId("cards:trade:prev:"+id).setLabel("Previous").setStyle(ButtonStyle.Secondary).setDisabled(page===0),
-    new ButtonBuilder().setCustomId("cards:trade:next:"+id).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(page===pages-1));
- if(extras.length)rows.push(new ActionRowBuilder().addComponents(extras));
+ const id=String(t._id),{pages,page}=pageInfo(t);
+ if(t.gift) return [new ActionRowBuilder().addComponents(
+   new ButtonBuilder().setCustomId("cards:trade:giftconfirm:"+id).setStyle(ButtonStyle.Success)
+      .setEmoji("💝").setLabel("Send Gift"),
+   new ButtonBuilder().setCustomId("cards:trade:giftcancel:"+id).setStyle(ButtonStyle.Secondary)
+      .setEmoji("✖️").setLabel("Cancel"),
+   new ButtonBuilder().setCustomId("cards:trade:giftdetails:"+id).setStyle(ButtonStyle.Secondary)
+      .setEmoji("📋").setLabel("View Cards"),
+ )];
+ const ready=t.participants.every(u=>t.reviewedBy.includes(u));
+ const rows=[new ActionRowBuilder().addComponents(
+   new ButtonBuilder().setCustomId("cards:trade:add0:"+id).setLabel("Add: "+traderName(t,0)).setStyle(ButtonStyle.Primary),
+   new ButtonBuilder().setCustomId("cards:trade:add1:"+id).setLabel("Add: "+traderName(t,1)).setStyle(ButtonStyle.Primary),
+   new ButtonBuilder().setCustomId("cards:trade:review:"+id).setLabel("Review 1/2").setStyle(ButtonStyle.Secondary).setDisabled(ready),
+   new ButtonBuilder().setCustomId("cards:trade:final:"+id).setLabel("Confirm 2/2").setStyle(ButtonStyle.Success).setDisabled(!ready),
+   new ButtonBuilder().setCustomId("cards:trade:cancel:"+id).setLabel("Cancel").setStyle(ButtonStyle.Danger),
+ )];
+ const extras=[
+   new ButtonBuilder().setCustomId("cards:trade:details:"+id).setLabel("Card Details").setStyle(ButtonStyle.Secondary),
+ ];
+ if(pages>1)extras.push(
+   new ButtonBuilder().setCustomId("cards:trade:prev:"+id).setLabel("Previous").setStyle(ButtonStyle.Secondary).setDisabled(page===0),
+   new ButtonBuilder().setCustomId("cards:trade:next:"+id).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(page===pages-1));
+ rows.push(new ActionRowBuilder().addComponents(extras));
  return rows;
 }
-function summaryCards(cards,page,limit=1024){
+function summaryCards(cards,page){
  const tick=String.fromCharCode(96);
  const shown=cards.slice(page*TRADE_DISPLAY_PAGE_SIZE,(page+1)*TRADE_DISPLAY_PAGE_SIZE);
- if(!shown.length) return "*No cards offered.*";
- const text=shown.map((c,j)=>{
+ if(!shown.length) return "*Nothing offered*";
+ return shown.map((c,j)=>{
   const stage=c.stage==="mega"?"Mega":c.stage==="neon"?"Neon":"Normal";
-  const value=c.reviewedValue===null?"Not reviewed":String(c.reviewedValue);
-  return "**"+(page*TRADE_DISPLAY_PAGE_SIZE+j+1)+". "+safe(c.name)+"** "+tick+c.id+tick+
+  const value=c.reviewedValue===null?"Unreviewed":String(c.reviewedValue);
+  return "**"+(page*TRADE_DISPLAY_PAGE_SIZE+j+1)+". "+safe(c.name)+"** · "+tick+c.id+tick+
    "\n"+safe(c.rarity)+" · "+stage+" · Score: "+value+
-   (c.tag?" · #"+safe(c.tag):"")+
-   (c.eligible?"":""); // Ownership is checked during confirmation, not inferred from a completed receipt.
- }).join("\n\n");
- return text.slice(0,limit);
+   (c.tag?" · #"+safe(c.tag):"");
+ }).join("\n\n").slice(0,1024);
 }
 export async function tradePanel(t){
  const d=await cardTradeDetails(t),{pages,page}=pageInfo(t);
  const status=t.status==="completed"?"Completed":t.status==="cancelled"?"Cancelled":closed(t)?"Expired":"Open";
- const ttl=t.gift?"🎁 Hatchem Gift":"🥚 Hatchem Trade";
- const embed=new EmbedBuilder().setTitle(ttl+" · "+status);
+ const embed=new EmbedBuilder();
  if(t.gift){
-  embed.setDescription([
-   "**"+traderName(t,0)+"** → **"+traderName(t,1)+"**",
-   "**"+t.offers[0].length+" card(s)** to give",
-   status==="Open"?"Only "+traderName(t,0)+" can confirm. The receiver does not need to accept.":"",
-   status==="Open"?"Review IDs carefully. This cannot be undone.":"",
-   "Page "+(page+1)+"/"+pages,
-   status==="Open"?"Expires <t:"+Math.ceil(new Date(t.expiresAt).getTime()/1000)+":R>":"",
-  ].filter(Boolean).join("\n"))
-  .addFields({name:"Cards being gifted",value:summaryCards(d.sides[0],page),inline:false});
+  const names="**"+traderName(t,0)+"** → **"+traderName(t,1)+"**";
+  const completed=t.status==="completed";
+  embed.setColor(completed?0xBC8FBC:0xEDB4CF)
+    .setTitle(completed?"🎀 Gift Sent!":status==="Open"?"🎁 Hatchem Gift":"🎁 Gift "+status)
+    .setDescription(completed?
+      "💝 "+names+"\n**"+t.offers[0].length+" card"+(t.offers[0].length===1?"":"s")+"** delivered!":
+      "💌 "+names+"\n**"+t.offers[0].length+" card"+(t.offers[0].length===1?"":"s")+"** wrapped up for you! 🎀")
+    .addFields({name:"🎁 Inside the gift",value:shortGiftList(d.sides[0]),inline:false});
+  if(status==="Open") embed.setFooter({text:"Only the sender can send this gift · Cards are transferred immediately"});
  } else {
-  const steps=t.participants.map((u,i)=>traderName(t,i)+
-   " · "+(t.reviewedBy.includes(u)?"✓":"○")+" Review / "+
-   (t.finalBy.includes(u)?"✓":"○")+" Final");
-  embed.setDescription([
-   "**"+traderName(t,0)+"** ⇄ **"+traderName(t,1)+"**",
-   ...steps,
-   "Add cards → Both Review → Both Confirm",
-   "Edits reset approvals. Either side can be empty.",
-   "Page "+(page+1)+"/"+pages,
-   status==="Open"?"Expires <t:"+Math.ceil(new Date(t.expiresAt).getTime()/1000)+":R>":""
-  ].filter(Boolean).join("\n"))
-  .addFields(
-    {name:traderName(t,0)+" · "+t.offers[0].length+" cards",value:summaryCards(d.sides[0],page),inline:true},
-    {name:traderName(t,1)+" · "+t.offers[1].length+" cards",value:summaryCards(d.sides[1],page),inline:true}
-  );
+  const steps=t.participants.map((u,i)=>{
+    const review=t.reviewedBy.includes(u)?"✅":"▫️";
+    const final=t.finalBy.includes(u)?"✅":"▫️";
+    return "**"+traderName(t,i)+"**  "+review+" Review  ·  "+final+" Final";
+  });
+  embed.setColor(0x9A8BB9).setTitle("🥚 Hatchem Trade · "+status)
+    .setDescription([
+      "🌸 **"+traderName(t,0)+"** ⇄ **"+traderName(t,1)+"**",
+      ornament,
+      "**Confirmations**",
+      ...steps,
+      ornament,
+      "*Add cards → Both review → Both confirm*",
+      status==="Open"?"*Edits reset approvals*":"",
+      pages>1?"Page "+(page+1)+" of "+pages:"",
+    ].filter(Boolean).join("\n"))
+    .addFields(
+      {name:"🌷 "+traderName(t,0)+" · "+t.offers[0].length+" cards",value:summaryCards(d.sides[0],page),inline:true},
+      {name:"🪻 "+traderName(t,1)+" · "+t.offers[1].length+" cards",value:summaryCards(d.sides[1],page),inline:true}
+    )
+    .setFooter({text:"Reviewed scores are not market prices · Tags clear on transfer"});
  }
- embed.setFooter({text:"Scores are unverified base-pet ratings, not prices. Card IDs and upgrades stay; personal tags clear."});
  return {embeds:[embed],components:tradeButtons(t),allowedMentions:{parse:[]}};
+}
+
+export async function giftCardDetails(t,page=0){
+ const all=(await cardTradeDetails(t)).sides[0];
+ const size=8,total=Math.max(1,Math.ceil(all.length/size));
+ const current=Math.max(0,Math.min(total-1,Number.isFinite(page)?page:0));
+ const cards=all.slice(current*size,(current+1)*size);
+ const lines=cards.map((c,i)=>{
+  const stage=c.stage==="mega"?"Mega Neon":c.stage==="neon"?"Neon":"Normal";
+  const score=c.reviewedValue===null?"Not reviewed":String(c.reviewedValue);
+  return "**"+(current*size+i+1)+". "+safe(c.name)+"** · "+String.fromCharCode(96)+c.id+String.fromCharCode(96)+
+    "\n"+safe(c.rarity)+" · "+stage+" · Score: "+score+
+    "\nRelease: "+safe(c.releaseId)+" · Frame: "+safe(c.frame)+
+    (c.tag?" · Tag clears: "+safe(c.tag):"");
+ });
+ const details=new EmbedBuilder().setColor(0xEDB4CF)
+  .setTitle("🎀 Cards in your gift")
+  .setDescription(lines.join("\n\n").slice(0,3900)||"No cards selected.")
+  .setFooter({text:"Page "+(current+1)+" of "+total+" · Check card IDs before sending"});
+ const components=total<=1?[]:[new ActionRowBuilder().addComponents(
+  new ButtonBuilder().setCustomId("cards:trade:giftpage:"+t._id+":"+(current-1))
+    .setStyle(ButtonStyle.Secondary).setLabel("Previous").setDisabled(current===0),
+  new ButtonBuilder().setCustomId("cards:trade:giftpage:"+t._id+":"+(current+1))
+    .setStyle(ButtonStyle.Secondary).setLabel("Next").setDisabled(current===total-1),
+ )];
+ return {embeds:[details],components,allowedMentions:{parse:[]}};
 }
 export async function startCardTrade(i,{ gift = false } = {}){
  const member=i.options.getUser("member");
@@ -130,20 +168,20 @@ async function refresh(i,t){
 }
 export async function handleCardTradeInteraction(i){
  const parts=String(i.customId).split(":"),action=parts[2],id=parts[3];
- if(parts.length!==4||parts[0]!=="cards"||parts[1]!=="trade"||!["add0","add1","offer","review","final","cancel","prev","next","details","giftconfirm","giftcancel"].includes(action))return;
+ if((parts.length!==4&&!(parts.length===5&&action==="giftpage"))||parts[0]!=="cards"||parts[1]!=="trade"||!["add0","add1","offer","review","final","cancel","prev","next","details","giftdetails","giftpage","giftconfirm","giftcancel"].includes(action))return;
  const fail=e=>{
   const message="Trade: "+safe(e?.message||"Something went wrong.");
   return i.deferred||i.replied?i.editReply(message):i.reply({content:message,flags:MessageFlags.Ephemeral});
  };
  try{
   const trade=await readCardTrade(id);
-  if(trade.guildId!==i.guildId|| (action!=="offer"&&trade.messageId&&i.message?.id!==trade.messageId))
+  if(trade.guildId!==i.guildId|| (action!=="offer"&&action!=="giftpage"&&trade.messageId&&i.message?.id!==trade.messageId))
    throw Error("Wrong server or trade message.");
   if(!trade.participants.includes(i.user.id))throw Error("Only the two traders may use these buttons.");
   if(closed(trade))throw Error("This trade is closed or expired.");
-  if(trade.gift && !["giftconfirm","giftcancel","prev","next"].includes(action))
+  if(trade.gift && !["giftconfirm","giftcancel","giftdetails","giftpage"].includes(action))
    throw Error("A gift only needs the sender's confirmation.");
-  if(trade.gift && i.user.id!==trade.participants[0])
+  if(trade.gift && i.user.id!==trade.participants[0] && !["giftdetails","giftpage"].includes(action))
    throw Error("Only the sender can approve or cancel this gift.");
   if(!trade.gift && ["giftconfirm","giftcancel"].includes(action))
    throw Error("This is a two-person trade, not a gift.");
@@ -158,7 +196,15 @@ export async function handleCardTradeInteraction(i){
    modal.addComponents(new ActionRowBuilder().addComponents(input));
    return i.showModal(modal);
   }
+  if(action==="giftpage"){
+   const page=Number(parts[4]);
+   if(!Number.isInteger(page)||page<0) throw Error("Invalid gift page.");
+   await i.deferUpdate();
+   return i.editReply(await giftCardDetails(trade,page));
+  }
   await i.deferReply({flags:MessageFlags.Ephemeral});
+  if(action==="giftdetails")
+   return i.editReply(await giftCardDetails(trade,0));
   if(action==="details"){
    const d=await cardTradeDetails(trade);
    const page=pageInfo(trade).page,from=page*TRADE_DISPLAY_PAGE_SIZE;
