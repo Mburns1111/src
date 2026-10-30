@@ -7,7 +7,7 @@ import CardCollector from "../models/CardCollector.js";
 import { selectOwnedTagTargets } from "./card-tag-targets.js";
 import { findOwnedCardById } from "./card-owned-selection.js";
 import { parseCardIds } from "./card-tag-management.js";
-import { tagKey } from "./card-tag-catalog.js";
+import { tagKey, requireSavedCardTag } from "./card-tag-catalog.js";
 
 const TIMEOUT_MS = 2 * 60 * 1000;
 const MAX_PENDING = 500;
@@ -30,7 +30,7 @@ export async function prepareCardTagConfirmation({ discordUserId, cardId, cardId
   } else {
     targets = await selectOwnedTagTargets(discordUserId, cardId, { includeRelatedForId: true });
   }
-  const nextTag = tag === null ? "" : tagKey(tag);
+  const nextTag = tag === null ? "" : await requireSavedCardTag(discordUserId, tag);
   const cards = targets.cards.map(card => ({
     id: String(card._id), publicId: card.publicId || "PENDING",
     definitionId: String(card.cardDefinitionId),
@@ -112,11 +112,7 @@ export async function confirmCardTagChange({ token, ownerId, selectedId = null }
       }, { $set: { tag: entry.tag } }, { session, runValidators: true });
       if (updated.matchedCount !== chosen.length) throw new Error("Some selected cards changed. No tags were updated.");
       changedCount = updated.modifiedCount;
-      if (entry.tag) await CardCollector.updateOne(
-        { discordUserId: ownerId },
-        { $setOnInsert: { discordUserId: ownerId }, $addToSet: { tagNames: entry.tag } },
-        { session, upsert: true },
-      );
+
     });
     pending.delete(token);
     return { count: chosen.length, changed: changedCount, tag: entry.tag,
