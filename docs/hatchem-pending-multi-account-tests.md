@@ -77,8 +77,10 @@ Saved 2026-10-29 on the development branch. **Manual results are not recorded as
 - [x] Grab cooldown code wired on the development branch; **Discord multi-server testing still pending above**.
 - [x] Explicit `.register` now assigns the locally configured Card role in the development branch; **Discord tests above still pending**.
 - [ ] Global release activation/retirement with approved-artwork readiness checks (not yet implemented).
-- [ ] Public trading, burning, dust, and purchases (not yet implemented).
+- [x] Player-to-player trading code implemented on development branch (double-confirm, atomic transfers); **two-account Discord tests still pending**. See `docs/hatchem-complete-two-account-test-plan.md`.
+- [ ] Burning, spending dust, and purchases remain unimplemented.
 
 ## Test report format
 
 Record the date, development commit hash, command, testing accounts, expected outcome, actual outcome and Discord/Replit error or screenshot for each failed or passed case. Leave unchecked items pending until tested.
+\n## Consolidated verification plan\n\nThe full pending test checklist, including new trade safety scenarios and the earlier registration/drop/grab/collection/tag/upgrade/owner tests, is maintained in `docs/hatchem-complete-two-account-test-plan.md`.\n
