@@ -7,7 +7,7 @@ import PetCatalog from "../models/PetCatalog.js";
 import { findOwnedCardById } from "./card-owned-selection.js";
 import { isRegisteredCardCollector } from "./card-collector-registration.js";
 
-export const MAX_TRADE_CARDS = 5;
+export const TRADE_DISPLAY_PAGE_SIZE = 4;
 export const TRADE_LIFETIME_MS = 10 * 60 * 1000;
 const ID_PATTERN = /^[0-9A-Za-z_-]{5}$/;
 
@@ -15,7 +15,7 @@ export function parseTradeCardIds(text) {
   const input = String(text || "").trim();
   if (!input) return [];
   const ids = input.split(/[\s,;]+/).filter(Boolean);
-  if (ids.length > MAX_TRADE_CARDS) throw new Error("You can offer at most five cards at once.");
+
   if (!ids.every(id => ID_PATTERN.test(id)))
     throw new Error("Enter only five-character card IDs, separated by spaces or commas.");
   if (new Set(ids).size !== ids.length) throw new Error("A card ID may only appear once in an offer.");
@@ -29,7 +29,7 @@ function assertOpen(trade, userId = null) {
   return trade;
 }
 
-export async function createCardTrade({ guildId, channelId, inviterId, inviteeId }) {
+export async function createCardTrade({ guildId, channelId, inviterId, inviteeId, participantNames = [], gift = false }) {
   if (!guildId || !channelId || !inviterId || !inviteeId ||
       inviterId === inviteeId) throw new Error("Choose another member to trade with.");
   const [inviterReady, inviteeReady] = await Promise.all([
@@ -40,7 +40,7 @@ export async function createCardTrade({ guildId, channelId, inviterId, inviteeId
     throw new Error("Both members must use .register in this server before trading.");
   return CardTrade.create({
     guildId, channelId, participants: [inviterId, inviteeId],
-    offers: [[], []], expiresAt: new Date(Date.now() + TRADE_LIFETIME_MS),
+    offers: [[], []], participantNames, gift, expiresAt: new Date(Date.now() + TRADE_LIFETIME_MS),
   });
 }
 
@@ -98,6 +98,54 @@ export async function cardTradeDetails(trade) {
   };
 }
 
+
+// Saved tags occupy one line: tag:cute, #cute, tag:Very Cute.
+// A leading + appends to the offer to bypass Discord's modal length limit.
+export async function resolveTradeOfferInput(ownerId, text, currentIds = []) {
+  const input = String(text || "").trim();
+  const append = input.startsWith("+");
+  const lines = (append ? input.slice(1) : input).split(/\r?\n/);
+  const ids = append ? [...currentIds] : [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (/^(?:tag:|#)/i.test(trimmed)) {
+      const tag = trimmed.replace(/^(?:tag:|#)/i, "").trim().toLocaleLowerCase();
+      if (!tag) throw new Error("A tag name is required after tag: or #.");
+      const collector = await (await import("../models/CardCollector.js")).default.findOne({
+        discordUserId: ownerId,
+      }).select("tagNames").lean();
+      if (!(collector?.tagNames || []).some(t=>t.toLocaleLowerCase()===tag))
+        throw new Error("Create that tag first using .create-tag " + tag);
+      const owned = await CardCopy.find({
+        ownerDiscordUserId: ownerId, state: "owned",
+        tag: { $regex: "^" + tag + "$", $options:"i" },
+      }).select("publicId").lean();
+      if (!owned.length) throw new Error("No owned cards have tag " + tag + ".");
+      ids.push(...owned.map(c=>c.publicId));
+    } else {
+      ids.push(...parseTradeCardIds(trimmed));
+    }
+  }
+  if (new Set(ids).size !== ids.length) {
+    if (!append) throw new Error("The offer contains duplicate card IDs.");
+    return [...new Set(ids)];
+  }
+  return ids;
+}
+
+export async function moveCardTradePage({tradeId,userId,guildId,direction}) {
+  const trade=assertOpen(await readCardTrade(tradeId),userId);
+  if (trade.guildId!==guildId) throw new Error("Wrong server.");
+  const max=Math.max(0,Math.ceil(Math.max(...trade.offers.map(x=>x.length)) / TRADE_DISPLAY_PAGE_SIZE)-1);
+  const page=Math.max(0,Math.min(max,(trade.viewPage||0)+direction));
+  const changed=await CardTrade.findOneAndUpdate({
+    _id:trade._id, status:"open", revision:trade.revision,
+  },{$set:{viewPage:page}},{new:true}).lean();
+  if(!changed) throw new Error("Offer changed; reopen the trade panel.");
+  return changed;
+}
+
 async function ownedIdsForTrade(ownerId, requested) {
   const selected = await Promise.all(requested.map(id => findOwnedCardById(ownerId, id)));
   if (selected.some(c => !c)) throw new Error("One or more cards are not owned by you.");
@@ -108,8 +156,8 @@ async function ownedIdsForTrade(ownerId, requested) {
 }
 
 export async function setCardTradeOffer({ tradeId, userId, guildId, rawIds }) {
-  const input = parseTradeCardIds(rawIds);
   const trade = assertOpen(await readCardTrade(tradeId), userId);
+  const input = await resolveTradeOfferInput(userId,rawIds,trade.offers[trade.participants.indexOf(userId)]);
   if (trade.guildId !== guildId) throw new Error("Use this trade in its original server.");
   const side = trade.participants.indexOf(userId);
   const ids = await ownedIdsForTrade(userId, input);
@@ -120,7 +168,7 @@ export async function setCardTradeOffer({ tradeId, userId, guildId, rawIds }) {
     _id: trade._id, status: "open", revision: trade.revision,
     expiresAt: { $gt: new Date() },
   }, {
-    $set: { ["offers." + side]: ids, reviewedBy: [], finalBy: [] },
+    $set: { ["offers." + side]: ids, reviewedBy: [], finalBy: [], viewPage:0 },
     $inc: { revision: 1 },
   }, { new: true, runValidators: true }).lean();
   if (!result) throw new Error("The trade changed while you edited. Open Add/Edit again.");
@@ -130,8 +178,8 @@ export async function setCardTradeOffer({ tradeId, userId, guildId, rawIds }) {
 export async function reviewCardTrade({ tradeId, userId, guildId }) {
   const trade = assertOpen(await readCardTrade(tradeId), userId);
   if (trade.guildId !== guildId) throw new Error("Wrong server.");
-  if (trade.offers.some(side => !side?.length))
-    throw new Error("Both traders must offer at least one card before reviewing.");
+  if (trade.offers.every(side => !side?.length))
+    throw new Error("At least one player must offer a card before reviewing.");
   const details = await cardTradeDetails(trade);
   if (details.sides.some(side => side.some(card => !card.eligible)))
     throw new Error("An offered card is no longer owned by its trader. Edit the offers first.");
@@ -174,8 +222,8 @@ export async function finalizeCardTrade({ tradeId, userId, guildId }) {
       if (trade.reviewedBy.length !== 2 ||
           !trade.participants.every(id => trade.reviewedBy.includes(id)))
         throw new Error("Both traders must complete the first review.");
-      if (trade.offers.some(side => !side?.length))
-        throw new Error("Both sides must offer cards.");
+      if (trade.offers.every(side => !side?.length))
+        throw new Error("At least one side must offer cards.");
       if (trade.finalBy.includes(userId))
         throw new Error("You already completed final confirmation.");
       const finalBy = [...trade.finalBy, userId];
