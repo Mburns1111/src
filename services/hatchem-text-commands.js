@@ -57,6 +57,7 @@ export function parseHatchemText(content) {
   if (!found) return null;
   const action = found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "register") return { action, options: {} };
+  if (action === "trade") return { action, options: { member: args } };
   if (action === "drop") return { action: "drop", options: {} };
   if (action === "cooldowns") return { action, options: {} };
   if (action === "collection") {
@@ -89,7 +90,8 @@ export const HATCHEM_GUIDE = [
   ".drop — drop an egg (15m global cooldown)",
   ".cooldowns — see your next drop and this server’s grab",
   ".help — list more commands",
-  "Trade and burn are planned, not enabled yet.",
+  ".trade @member — start a two-person card trade with double confirmation",
+  "Burning is planned, not enabled yet.",
 ].join("\n");
 
 export const HATCHEM_HELP = [
@@ -110,21 +112,29 @@ export const HATCHEM_HELP = [
   '.untag abys — confirm before removing tags',
   ".tag-multiple Favorites ID1,ID2 · .untag-multiple ID1,ID2",
   ".delete-tag Favorites · .stats abys · .view abys",
-  ".trade and .burn — coming later; not active",
+  ".trade @member — each player adds cards, reviews and confirms twice",
+  ".burn — coming later; not active",
   "Tag FIRST, then pet name or IDs. No quotes necessary; create multiword tags first.",
 ].join("\n");
 
 export async function runHatchemText(message, parsed) {
   if (!parsed) return false;
-  if (parsed.action === "help" || ["trade", "burn"].includes(parsed.action)) {
+  if (parsed.action === "help" || parsed.action === "burn") {
     const content = parsed.action === "help" ? HATCHEM_HELP :
-      "That Hatchem feature isn't ready yet. Trade and burn do not change cards or Points.";
+      "Burning is not ready yet. This does not change cards or Points.";
     await message.reply({ content, allowedMentions: { parse: [] } });
     return true;
   }
   const match = /^<@!?(\d{17,20})>$/.exec(parsed.options.member || "");
   const target = match ? (message.mentions.users.get(match[1]) ||
     await message.client.users.fetch(match[1]).catch(() => null)) : null;
+  if (parsed.action === "trade" && !match) {
+    await message.reply({
+      content: "Use .trade @member to start a trade with a registered collector in this server.",
+      allowedMentions: { parse: [] },
+    });
+    return true;
+  }
   if (match && !target) {
     await message.reply({ content: "That member could not be found.", allowedMentions: { parse: [] } });
     return true;
