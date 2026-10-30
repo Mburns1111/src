@@ -1,25 +1,48 @@
 import { execute as executeCards } from "../commands/cards.js";
+import { listCollectorTags } from "./card-tag-catalog.js";
 
-export function parseHatchemTagArguments(raw) {
-  const args = String(raw || "").trim();
+/**
+ * User-facing format is .tag <tag name> [pet name or IDs], without quotes.
+ * The collector's saved tags disambiguate a tag containing spaces from a
+ * pet name containing spaces. Longer tag names take precedence.
+ *
+ * Examples:
+ *   .tag cute
+ *   .tag cute 2D Doggy
+ *   .tag cute KxQOo Abc12
+ *   .tag Very Cute 2D Doggy  (when "Very Cute" is a saved tag)
+ */
+export function parseHatchemTagArguments(raw, savedTags = []) {
+  const args = String(raw || "").trim().replace(/\s+/g, " ");
   if (!args) return { tag: "" };
-  // The tag always comes first. Quotes allow tags containing spaces.
-  // Examples:
-  // .tag "cute"                     (newest owned card)
-  // .tag "cute" Abyssinian Cat      (all matching owned pet copies)
-  // .tag "cute" KxQOo               (one ID, or ask when duplicates exist)
-  // .tag "cute" KxQOo Abc12 Def34   (exactly those card IDs)
-  const first = /^"([^"]+)"(?:\s+([\s\S]+))?$/.exec(args)
-    || /^(\S+)(?:\s+([\s\S]+))?$/.exec(args);
-  if (!first) return { tag: "" };
-  const tag = first[1].trim();
-  const target = String(first[2] || "").trim();
+
+  const sortedTags = [...savedTags]
+    .filter(value => typeof value === "string" && value.trim())
+    .map(value => value.trim().replace(/\s+/g, " "))
+    .sort((a, b) => b.length - a.length);
+
+  const known = sortedTags.find(name =>
+    args.toLocaleLowerCase() === name.toLocaleLowerCase()
+    || args.toLocaleLowerCase().startsWith(name.toLocaleLowerCase() + " ")
+  );
+  let tag;
+  let target;
+  if (known) {
+    tag = known;
+    target = args.slice(known.length).trim();
+  } else {
+    // Preserve compatibility with previously typed quoted tags, but quotes
+    // are never needed or displayed in the user-facing instructions.
+    const first = /^"([^"]+)"(?:\s+([\s\S]+))?$/.exec(args)
+      || /^(\S+)(?:\s+([\s\S]+))?$/.exec(args);
+    if (!first) return { tag: "" };
+    tag = first[1].trim();
+    target = String(first[2] || "").trim();
+  }
   if (!target) return { tag };
   const namedTarget = /^"([^"]+)"$/.exec(target);
   if (namedTarget) return { tag, card_id: namedTarget[1] };
   const references = target.split(/[\s,;]+/).filter(Boolean);
-  // A batch is recognized only when every token is a five-character ID.
-  // If the user enters commas, let the ID validator explain malformed IDs.
   if ((references.length > 1 && references.every(value => /^[0-9A-Za-z_-]{5}$/.test(value)))
       || /[,;]/.test(target)) {
     return { tag, card_ids: references.join(" ") };
@@ -57,8 +80,8 @@ export const HATCHEM_GUIDE = [
   "Type a command starting with a dot (.) here, or use /cards:",
   ".collection [tag] or .collection @member [tag] — filter collection",
   ".upgrade [pet name or card ID] — combine four matching cards",
-  '.create-tag cute · .tags · .tag "cute" (newest card)',
-  '.tag "cute" 2D Doggy (all copies) · .untag abys',
+  '.create-tag cute · .tags · .tag cute (newest card)',
+  '.tag cute 2D Doggy (all copies) · .untag abys',
   ".stats [card ID] · .view [card ID]",
   ".drop — staff-only test egg",
   ".help — list more commands",
@@ -72,16 +95,16 @@ export const HATCHEM_HELP = [
   ".collection @member or .collection @member cute — public collection",
   ".upgrade Pet Name or .upgrade CardID — confirm a four-card upgrade",
   '.create-tag cute — save a tag · .tags — list saved tags',
-  '.tag "cute" — tag your newest owned card',
-  '.tag "cute" 2D Doggy — select one or all matching pet copies',
-  '.tag "cute" KxQOo — target a card ID (ask one/all if duplicates)',
-  '.tag "cute" KxQOo Abc12 Def34 — tag only these card IDs',
-  '.tag "Very Cute" Abyssinian Cat — a tag containing spaces',
+  '.tag cute — tag your newest owned card',
+  '.tag cute 2D Doggy — select one or all matching pet copies',
+  '.tag cute KxQOo — target a card ID (ask one/all if duplicates)',
+  '.tag cute KxQOo Abc12 Def34 — tag only these card IDs',
+  '.create-tag Very Cute, then .tag Very Cute 2D Doggy — spaces work without quotes',
   '.untag abys — confirm before removing tags',
   ".tag-multiple Favorites ID1,ID2 · .untag-multiple ID1,ID2",
   ".delete-tag Favorites · .stats abys · .view abys",
   ".trade and .burn — coming later; not active",
-  "Tag FIRST, then pet name or IDs. Pet names and tags ignore capitalization.",
+  "Tag FIRST, then pet name or IDs. No quotes necessary; create multiword tags first.",
 ].join("\n");
 
 export async function runHatchemText(message, parsed) {
@@ -103,12 +126,30 @@ export async function runHatchemText(message, parsed) {
     await message.reply({ content: "Use .upgrade followed by a pet name or card ID.", allowedMentions: { parse: [] } });
     return true;
   }
-  if (parsed.action === "tag" && !parsed.options.tag) {
-    await message.reply({ content: 'Use .tag "cute" for your newest card, .tag "cute" 2D Doggy for a pet, or .tag "cute" KxQOo Abc12 for multiple IDs.', allowedMentions: { parse: [] } });
-    return true;
+  let options = parsed.options;
+  if (parsed.action === "tag") {
+    // Resolve multiword tag names against saved tags BEFORE splitting the pet
+    // name or ID list. Typed commands have no Discord autocomplete.
+    try {
+      const savedTags = await listCollectorTags(message.author.id);
+      const rawArguments = /^\.tag(?:\s+([\s\S]*))?$/i.exec(String(message.content || "").trim())?.[1] || "";
+      options = parseHatchemTagArguments(rawArguments, savedTags);
+    } catch (error) {
+      await message.reply({
+        content: "Unable to read your saved tags: " + String(error.message || "try again"),
+        allowedMentions: { parse: [] },
+      });
+      return true;
+    }
+    if (!options.tag) {
+      await message.reply({
+        content: "Use .tag cute for your newest card, .tag cute 2D Doggy for a pet, or .tag cute KxQOo Abc12 for multiple IDs. Create a tag with spaces first using .create-tag Very Cute.",
+        allowedMentions: { parse: [] },
+      });
+      return true;
+    }
   }
   let response = null;
-  const options = parsed.options;
   const facade = {
     user: message.author, guild: message.guild, guildId: message.guildId,
     channel: message.channel, channelId: message.channelId,
