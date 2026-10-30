@@ -207,7 +207,7 @@ export async function execute(interaction) {
       if (option === "create-tag") {
         const name = await createCollectorTag(interaction.user.id, interaction.options.getString("tag", true));
         return interaction.editReply({
-          content: `Saved tag **${escapeDiscord(name)}**. Use \`.tag ${name}\` for your newest card, or \`.tag abys ${name}\` to target a pet.`,
+          content: `Saved tag **${escapeDiscord(name)}**. Use \`.tag ${name}\` for your newest card, or \`.tag ${name} abys\` to target a pet.`,
           allowedMentions: { parse: [] },
         });
       }
