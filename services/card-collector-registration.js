@@ -15,7 +15,7 @@ export async function canPlayCardGame(discordUserId, guild) {
   if (!guild || !await isRegisteredCardCollector(discordUserId, guild.id)) return false;
   const config = await GuildConfig.findOne({ guildId:guild.id }).select("cardRoleId").lean();
   if (!config?.cardRoleId) return false;
-  const member = await guild.members.fetch(discordUserId).catch(() => null);
+  const member = await guild.members.fetch({ user:discordUserId, force:true }).catch(() => null);
   return Boolean(member?.roles?.cache?.has(config.cardRoleId));
 }
 
