@@ -7,7 +7,7 @@ import CardTrade from "../models/CardTrade.js";
 import { data as cardCommand } from "../commands/cards.js";
 import { parseHatchemText } from "../services/hatchem-text-commands.js";
 import { parseTradeCardIds, resolveTradeOfferInput, reviewCardTrade, confirmCardGift } from "../services/card-trades.js";
-import { tradeButtons, tradePanel, giftSentAnnouncement } from "../commands/card-trade-ui.js";
+import { tradeButtons, tradePanel, giftCardDetails, giftSentAnnouncement } from "../commands/card-trade-ui.js";
 
 const a="123456789012345678",b="234567890123456789",g="345678901234567890";
 const tid="507f1f77bcf86cd799439011";
@@ -47,22 +47,35 @@ test("only created tag names can select whole groups for trade/gift",async()=>{
 test("gifts have only sender confirmation, while regular trades have named participant buttons",async()=>{
  const gift=t();
  const giftButtons=tradeButtons(gift);
- assert.equal(giftButtons[0].components.length,2);
- assert.match(giftButtons[0].components[0].data.label,/Confirm Gift/);
- assert.match(giftButtons[0].components[1].data.label,/Cancel Gift/);
+ assert.equal(giftButtons.length,1,"no extra paging/navigation buttons on the main gift panel");
+ assert.equal(giftButtons[0].components.length,3);
+ assert.match(giftButtons[0].components[0].data.label,/Send Gift/);
+ assert.match(giftButtons[0].components[1].data.label,/Cancel/);
+ assert.match(giftButtons[0].components[2].data.label,/View Cards/);
  const normal={...gift,gift:false};
  assert.match(tradeButtons(normal)[0].components[0].data.label,/Lilly/);
  assert.match(tradeButtons(normal)[0].components[1].data.label,/Jentho/);
  const long={...gift,offers:[["Abc12","Def34","Ghi56","Jkl78","Mno90","Pqr12"],[]]};
  const pages=tradeButtons(long);
- assert.equal(pages.length,2);
- assert.match(pages[1].components[1].data.label,/Next/);
+ assert.equal(pages.length,1,"long gifts stay compact; View Cards handles pagination");
+ assert.match(pages[0].components[2].data.label,/View Cards/);
  const giftPanel=await tradePanel({...gift,offers:[[],[]]});
  assert.equal(giftPanel.embeds[0].data.fields.length,1);
+ assert.match(giftPanel.embeds[0].data.title,/Hatchem Gift/);
+ assert.match(giftPanel.embeds[0].data.fields[0].name,/Inside the gift/);
+ assert.equal(giftPanel.embeds[0].data.color,0xEDB4CF);
+ assert.doesNotMatch(giftPanel.embeds[0].data.description,/Review|Final|Score|market price|Page \d/i);
+ const details=await giftCardDetails({...gift,offers:[[],[]]},0);
+ assert.match(details.embeds[0].data.title,/Cards in your gift/);
+ assert.equal(details.components.length,0);
  const normalPanel=await tradePanel({...normal,offers:[[],[]]});
  assert.equal(normalPanel.embeds[0].data.fields.length,2);
  assert.equal(normalPanel.embeds[0].data.fields[0].inline,true);
  assert.equal(normalPanel.embeds[0].data.fields[1].inline,true);
+ assert.match(normalPanel.embeds[0].data.description,/Confirmations/);
+ assert.match(normalPanel.embeds[0].data.description,/────/);
+ assert.match(normalPanel.embeds[0].data.fields[0].name,/Lilly/);
+ assert.match(normalPanel.embeds[0].data.fields[1].name,/Jentho/);
 });
 
 test("only the giver can confirm once and all gifted cards transfer atomically",async()=>{
@@ -94,4 +107,14 @@ test("successful gift announcements are ordinary public channel messages, not ep
  assert.match(msg.content,new RegExp(b));
  assert.equal(msg.flags,undefined,"do not mark a channel send as ephemeral");
  assert.deepEqual(msg.allowedMentions,{parse:[]});
+});
+
+
+test("completed gift shows a tidy pastel receipt without approval buttons",async()=>{
+ const completed={...t(),status:"completed",offers:[[],[]]};
+ const payload=await tradePanel(completed);
+ assert.match(payload.embeds[0].data.title,/Gift Sent/);
+ assert.match(payload.embeds[0].data.description,/delivered/);
+ assert.equal(payload.components.length,0);
+ assert.doesNotMatch(payload.embeds[0].data.description,/Review|Final/);
 });
