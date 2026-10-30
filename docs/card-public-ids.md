@@ -1,9 +1,9 @@
 # Public card IDs (development design)
 
 - MongoDB `CardCopy._id` remains the internal, stable primary key and reference for rendering, ownership, transfers, claim history, upgrades and definitions.
-- Each *awarded* card receives exactly one unique player-facing `CardCopy.publicId`, five characters long, using `0-9`, `A-Z`, `a-z`, `-`, `_`. Case is significant.
+- **New** awarded cards receive exactly five letters/digits (`0-9`, `A-Z`, `a-z`). Hyphens and underscores are no longer minted. **Older** five-character IDs may contain `-` or `_`; they are still valid, cannot be changed and are accepted by card commands.
 - Unclaimed revealed cards and pending reservations receive no `CardCopy` and consume no public IDs.
-- The bot allocates public IDs inside the same MongoDB transaction as the award. The allocator is an atomic global counter with a deterministic one-to-one permutation, yielding varied-looking IDs without random collisions. Its total space is ~1.07 billion IDs.
+- The bot allocates public IDs inside the same MongoDB transaction as the award. The allocator is an atomic global counter with a deterministic one-to-one permutation, yielding varied-looking IDs without random collisions. The new base-62 space has ~916 million possible IDs. A distinct v2 counter and check against *all* historical public IDs avoid reusing a legacy code.
 - IDs are globally unique, never reused, and **do not change when cards are traded or tagged**. When a card is burned/consumed, its ID remains in the audit record but is never reassigned.
 - The owner is always determined by `ownerDiscordUserId`; knowing a public ID does not give someone permission to tag, burn, or trade the card.
 - Collection summaries and tag commands show and accept only public IDs, never exposing MongoDB `_id` to users. Rendering resolves public ID to the hidden copy record and then its card definition, pet, series, and artwork.
