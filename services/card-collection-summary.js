@@ -4,21 +4,21 @@ import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { displayCardId, upgradeLabel } from "./card-identifiers.js";
 import { selectOwnedTagTargets } from "./card-tag-targets.js";
-import { normalizeCardTag, tagKey, createCollectorTag } from "./card-tag-catalog.js";
+import { normalizeCardTag, tagKey, requireSavedCardTag } from "./card-tag-catalog.js";
 export { normalizeCardTag } from "./card-tag-catalog.js";
 
 export const COLLECTION_RARITIES = Object.freeze(["Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"]);
 export const COLLECTION_UPGRADES = Object.freeze(["normal", "neon", "mega"]);
 export async function updateOwnedCardTag({ discordUserId, cardId, tag }) {
   const target = await selectOwnedTagTargets(discordUserId, cardId);
-  const normalized = tag === null ? "" : tagKey(tag);
+  const normalized = tag === null ? "" : await requireSavedCardTag(discordUserId, tag);
   const ids = target.cards.map(copy => copy._id);
   const filter = { _id: { $in: ids }, ownerDiscordUserId: discordUserId, state: "owned" };
   const result = await CardCopy.updateMany(filter, { $set: { tag: normalized } },
     { runValidators: true });
   if (result.matchedCount !== ids.length)
     throw new Error("Your collection changed during tagging. Please check the affected cards.");
-  if (normalized) await createCollectorTag(discordUserId, normalized);
+
   const copy = target.cards[0];
   const definition = await CardDefinition.findById(copy.cardDefinitionId).select("petId rarity").lean();
   const pet = definition && await PetCatalog.findOne({ petId: definition.petId }).select("name").lean();
