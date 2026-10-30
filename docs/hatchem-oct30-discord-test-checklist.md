@@ -37,15 +37,15 @@ Development bot and test server **908522799285538817** only. Two accounts: **A =
 - [ ] Restart the bot mid-cooldown and verify neither timer resets or awards duplicate cards.
 - [ ] Owner-only `/cards-owner test-drop` auto-suggests active test releases and does not spend cooldowns.
 
-### C. Give cards (lets B test trading even with zero cards)
+### C. Gifts — **giver confirms once; recipient never confirms**
 
-- [ ] A runs `.give @B CARDID`. Confirm the two-column panel shows one offered card on A's side and **zero** on B's side.
-- [ ] Both press Review (1/2), one at a time. No cards should move yet.
-- [ ] Both press Confirm (2/2), one at a time. Only after the last press does the card move to B.
-- [ ] Verify B's `.collection` now contains that original ID, upgrade level and release. A no longer owns it. Old personal tag is cleared.
-- [ ] Use `.give @B ID1 ID2` to send multiple cards and `.give @B tag:cute` to select **all cards you own with that created tag**.
-- [ ] Try `.give @B tag:uncreated`: must refuse, without taking any cards.
-- [ ] Cancel another gift before final confirmation: both collections remain unchanged.
+- [ ] A runs `.give @B CARDID` and sees a compact single-sided card summary with Confirm Gift / Cancel Gift.
+- [ ] B cannot confirm or cancel A's gift. Only A can press Confirm Gift.
+- [ ] A presses Confirm Gift **once**: card transfers immediately to B and retains its original ID, rarity, upgrade stage and release. Old personal tag clears.
+- [ ] `.give @B ID1 ID2` sends multiple cards with one sender confirmation; Cancel moves nothing.
+- [ ] `.give @B tag:cute` selects all owned cards carrying a **created** tag. Uncreated tag names must be rejected.
+- [ ] Completed gift receipt no longer warns about cards being "no longer owned." Expired gift confirmation cannot move cards.
+- [ ] The recipient does not need to click, approve, or add cards.
 
 ### D. Trade panel
 
@@ -65,9 +65,9 @@ Development bot and test server **908522799285538817** only. Two accounts: **A =
 - [ ] `.collection` shows **10 cards per page**; with 18 cards it should have two pages.
 - [ ] `.collection cute` and `.collection @B cute` filter accurately.
 - [ ] `.view CARDID` displays the correct image.
-- [ ] Try `.tag noooo`, `.tag random`, `.tag bunny`, or **any other uncreated name**: all refuse with an instruction to `.create-tag NAME`. No cards change. Previously auto-created legacy names also require an explicit `.create-tag` once.
-- [ ] Run `.create-tag noooo` then `.tag noooo`: it now works. The rule is **every tag name, not just noooo**. If you want to keep using old `cute` tags, run `.create-tag cute` once; existing labels on cards are preserved.
-- [ ] `.create-tag Very Cute` followed by `.tag Very Cute 2D Doggy` works without quotation marks.
+- [ ] Try `.tag noooo`, `.tag random`, `.tag bunny`, or **any other uncreated name**: all refuse with an instruction to `.createtag NAME`. No cards change. Previously auto-created legacy names also require an explicit `.createtag` once.
+- [ ] Run `.createtag noooo` then `.tag noooo`: it now works. The rule is **every tag name, not just noooo**. If you want to keep using old `cute` tags, run `.createtag cute` once; existing labels on cards are preserved.
+- [ ] `.createtag Very Cute` followed by `.tag Very Cute 2D Doggy` works without quotation marks.
 - [ ] Tag one ID, all owned copies of a pet, and several explicit IDs. Confirm the selection counts.
 - [ ] `.untag` always asks for confirmation and shows the number of affected cards. Cancel leaves tags unchanged.
 - [ ] A cannot tag B's cards, and B cannot approve A's private tag confirmation.
@@ -80,6 +80,12 @@ Development bot and test server **908522799285538817** only. Two accounts: **A =
 - [ ] An ordinary server administrator cannot create/inspect global releases or alter owner-only artwork.
 - [ ] Four matching Normal cards upgrade to Neon; four matching Neon cards upgrade to Mega; warning about losing decorations is displayed.
 - [ ] Cancelled upgrades and double-clicked confirmations never duplicate or partially consume cards.
+
+### G. Five-character card IDs and command names
+
+- [ ] New cards received from drops, upgrades, and gifts have **five letters/digits** with no hyphens or underscores; already-owned historical IDs may retain a hyphen or underscore and must still work.
+- [ ] New `.createtag`, `.tagmultiple`, `.untagmultiple`, and `.deletetag` work without hyphens; older spellings are supported as compatibility aliases.
+- [ ] Try an unknown tag, then run `.createtag random` and `.tag random`: the same newest currently owned card receives it. A failed tag command must not have modified card order or ownership.
 
 ## Not implemented yet
 
