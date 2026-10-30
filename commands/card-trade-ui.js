@@ -1,5 +1,6 @@
 import { ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,ModalBuilder,TextInputBuilder,TextInputStyle } from "discord.js";
 import { createCardTrade,updateCardTradeMessageId,readCardTrade,cardTradeDetails,setCardTradeOffer,reviewCardTrade,finalizeCardTrade,cancelCardTrade } from "../services/card-trades.js";
+import CardTrade from "../models/CardTrade.js";
 const safe=s=>String(s??"").replace(/[@*_~|<>]/g,"").slice(0,80);
 const mention=id=>"<@"+id+">";
 const closed=t=>t.status!=="open"||new Date(t.expiresAt)<=new Date();
@@ -104,4 +105,30 @@ export async function handleCardTradeInteraction(i){
    "Review recorded. Both players must review before final confirmation.":
    "Final confirmation recorded. Waiting for the other player.");
  }catch(e){console.error("[Hatchem trade]",e);return fail(e);}
+}
+
+
+/** Expired trade buttons cannot remain interactive after a restart. */
+export async function reconcileExpiredCardTrades(client) {
+  const now = new Date();
+  await CardTrade.updateMany(
+    { status:"open", expiresAt:{ $lte:now } },
+    { $set:{ status:"expired" } },
+  );
+  const pending = await CardTrade.find({
+    status:"expired", displayClosedAt:null, messageId:{ $ne:"" },
+  }).sort({ expiresAt:1 }).limit(30).lean();
+  for(const trade of pending) {
+    try {
+      const channel=await client.channels.fetch(trade.channelId);
+      if(!channel?.messages?.fetch)throw Error("Trade channel unavailable");
+      const message=await channel.messages.fetch(trade.messageId);
+      await message.edit(await tradePanel(trade));
+      await CardTrade.updateOne({ _id:trade._id },{ $set:{displayClosedAt:new Date()} });
+    }catch(error) {
+      if([10003,10008].includes(Number(error?.code))) {
+        await CardTrade.updateOne({ _id:trade._id },{ $set:{displayClosedAt:new Date()} });
+      } else console.warn("[Hatchem] Could not close expired trade:",String(trade._id),error.message);
+    }
+  }
 }
