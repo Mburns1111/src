@@ -110,7 +110,7 @@ import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/tempo
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
 import { parseHatchemText, runHatchemText } from "./services/hatchem-text-commands.js";
-import { handleCardTradeInteraction } from "./commands/card-trade-ui.js";
+import { handleCardTradeInteraction, reconcileExpiredCardTrades } from "./commands/card-trade-ui.js";
 import UserProfile from "./models/UserProfile.js";
 import { cleanupPendingForms, handleRemovePendingForm } from "./commands/pending-forms.js";
 import { forgetHouseForm } from "./commands/house.js";
@@ -222,7 +222,10 @@ let cardDropCloseRunning = false;
 async function runCardDropCloseSweep() {
   if (cardDropCloseRunning) return;
   cardDropCloseRunning = true;
-  try { await reconcileCardDropClosures(client); }
+  try {
+    await reconcileCardDropClosures(client);
+    await reconcileExpiredCardTrades(client);
+  }
   catch (error) { console.error("[Cards] Drop-close sweep failed:", error); }
   finally { cardDropCloseRunning = false; }
 }
