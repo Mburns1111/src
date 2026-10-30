@@ -8,6 +8,9 @@ const schema = new mongoose.Schema({
   // Offers contain PUBLIC five-character card IDs; actual ownership is
   // verified before changing an offer and again inside the transfer transaction.
   offers: { type: [[String]], default: () => [[], []] },
+  participantNames: { type: [String], default: [] },
+  gift: { type: Boolean, default: false },
+  viewPage: { type: Number, default: 0 },
   reviewedBy: { type: [String], default: [] },
   finalBy: { type: [String], default: [] },
   revision: { type: Number, default: 0 },
