@@ -44,6 +44,19 @@ Saved 2026-10-29 on the development branch. **Manual results are not recorded as
 - [ ] Confirm that another user cannot confirm, cancel, or redirect somebody else's pending Neon upgrade.
 - [ ] Two users' global collections remain distinct across participating servers.
 
+## Explicit collector registration — multi-account testing (added October 29)
+
+- [ ] An unregistered member's `.drop` is denied with `.register` instructions; no cooldown spent.
+- [ ] After admin sets `/cards-admin setup-role`, a member can run `.register` to receive only the local Card role and create a global collector account.
+- [ ] Running `.register` twice does not duplicate anything, reset cooldowns, or overwrite cards/tags/dust.
+- [ ] An old test collector with existing cards has to run `.register` once to participate; all old cards remain.
+- [ ] When a member registers in Server A, they cannot use player drops/grabs in Server B until they explicitly run `.register` in Server B. Each server grants its own Card role.
+- [ ] A normal role manually granted by a manager does not count as explicit collector registration.
+- [ ] Failed role assignment (missing Manage Roles/bot hierarchy) does not register the user.
+- [ ] Attempting registration for someone else is impossible: `.register` does not accept a target account.
+- [ ] A manager cannot configure a Card role with Administrator permission.
+- [ ] Membership joins must never automatically assign Card roles; a player must register themselves.
+
 ## Development player-drop and grab cooldown tests (added October 29)
 
 - [ ] Two accounts in the same guild can use `.drop` independently; each gets a 15-minute personal cooldown.
@@ -62,7 +75,7 @@ Saved 2026-10-29 on the development branch. **Manual results are not recorded as
 
 - [x] Normal player `.drop` cooldown code wired on the development branch; **Discord multi-server testing still pending above**.
 - [x] Grab cooldown code wired on the development branch; **Discord multi-server testing still pending above**.
-- [ ] Automatic Card role grant at collector registration (registration is not implemented).
+- [x] Explicit `.register` now assigns the locally configured Card role in the development branch; **Discord tests above still pending**.
 - [ ] Global release activation/retirement with approved-artwork readiness checks (not yet implemented).
 - [ ] Public trading, burning, dust, and purchases (not yet implemented).
 
