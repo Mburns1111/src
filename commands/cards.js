@@ -2,6 +2,7 @@ import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, Messag
 import mongoose from "mongoose";
 import { claimCardActionCooldown, releaseCardActionCooldown, readCardActionCooldown } from "../services/card-action-cooldowns.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
+import { registerCardCollector, isRegisteredCardCollector, REGISTER_FIRST_MESSAGE } from "../services/card-collector-registration.js";
 import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
 import { storeTestEggArtwork } from "../services/card-egg-artwork-upload.js";
@@ -29,6 +30,7 @@ import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js"
 import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop, refundLosingCardGrabCooldowns } from "../services/card-drop-claims.js";
 
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Hatchem collectible card game")
+  .addSubcommand(c => c.setName("register").setDescription("Manually join Hatchem and receive this server\u2019s configured Card role"))
   .addSubcommand(c => c.setName("drop").setDescription("Drop an active egg (15-minute cooldown across all servers)"))
   .addSubcommand(c => c.setName("cooldowns").setDescription("Check when your next drop and grab are ready"))
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
@@ -103,6 +105,27 @@ export function dropText(drop, releaseName) {
 export async function execute(interaction) {
   if (!interaction.guildId) return interaction.editReply("Use card commands inside a server.");
   const option = interaction.options.getSubcommand();
+  if (option === "register") {
+    if (!isEnabled()) return interaction.editReply("Hatchem registration is currently available on the development bot only.");
+    try {
+      const result = await registerCardCollector(interaction);
+      const role = "<@&" + result.roleId + ">";
+      const introduction = result.firstRegistration
+        ? "Welcome to Hatchem! Your global collector account is ready."
+        : result.newServer
+          ? "Welcome to Hatchem in this server! Your existing collection is available here."
+          : "You're already registered for Hatchem in this server.";
+      return interaction.editReply({
+        content: introduction + "\nCard role: " + role +
+          "\nUse .drop to hatch an egg, .cooldowns to check your timers, and .collection to view cards.",
+        allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      console.warn("[Cards] Registration failed:", error.message);
+      return interaction.editReply({ content: error.message, allowedMentions: { parse: [] } });
+    }
+  }
+
   if (option === "collection") {
     if (isEnabled()) return startCardCollection(interaction);
     const summary = await getCardCollectionSummary(interaction.user.id);
@@ -440,6 +463,8 @@ export async function execute(interaction) {
   }
   if (option === "drop") {
     if (!isEnabled()) return interaction.editReply("Player drops are available only on the development bot for now.");
+    if (!await isRegisteredCardCollector(interaction.user.id, interaction.guildId))
+      return interaction.editReply(REGISTER_FIRST_MESSAGE);
     const releases = await CardRelease.find({ status: "active" })
       .select("releaseId").sort({ createdAt: -1, _id: -1 }).limit(40).lean();
     const selected = releases.find(r => !r.releaseId.startsWith("test-")) ||
@@ -671,6 +696,8 @@ export async function handleCardGrab(interaction) {
     if (!drop || (drop.messageId && String(drop.messageId) !== interaction.message?.id))
       return interaction.editReply("This card drop has ended or cannot be verified.");
     if (drop.mode === "player") {
+      if (!await isRegisteredCardCollector(interaction.user.id, interaction.guildId))
+        return interaction.editReply(REGISTER_FIRST_MESSAGE);
       const claimed = await claimCardActionCooldown({
         action: "grab", discordUserId: interaction.user.id, guildId: interaction.guildId,
         sourceId: String(dropId),
