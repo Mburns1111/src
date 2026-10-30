@@ -6,7 +6,7 @@ Saved 2026-10-29 on the development branch. **Manual results are not recorded as
 
 - `/cards-owner create-release` with `series:series-test-1` returned 'Create the series first'. The parent series must be created with `/cards-owner create-series id:series-test-1` before creating the release; no release was created by that failed command.
 - `.collection` displayed an owned collection and card IDs, and the `cute` tag was visible on one Abyssinian Cat.
-- `.tag 2d do cute` previously returned 'No pet matches that name'. Parser fixes are committed but require fresh Discord testing.
+- `.tag "cute" 2d do` previously returned 'No pet matches that name'. Parser fixes are committed but require fresh Discord testing.
 - Owner reports most other single-account commands work; specific checked boxes from the in-chat checklist are not accessible in this file, so unverified cases remain pending.
 
 ## Pending after update — primary account
@@ -14,9 +14,12 @@ Saved 2026-10-29 on the development branch. **Manual results are not recorded as
 - [ ] Re-register slash commands on the development bot and confirm `/cards view` replaces `/cards preview`.
 - [ ] `.view KxQOo` and `/cards view` open the intended card image.
 - [ ] `.collection cute` opens a filtered collection and displays only copies tagged `cute`; `.collection @member cute` works as intended.
-- [ ] `.tag 2d do cute` shows copy count, ID/stage/release/frame details, and 'all' or 'one' selection when multiple 2D Doggys are owned.
+- [ ] `.tag "cute" 2d do` shows copy count, ID/stage/release/frame details, and 'all' or 'one' selection when multiple 2D Doggys are owned.
 - [ ] Choosing a single card ID affects only that copy; choosing All applies to every currently owned copy of the named pet. Other pets must remain unchanged.
-- [ ] `.tag KxQOo cute`: if the owner has other copies of the same pet, the bot asks **Only KxQOo** versus **All copies**; select only KxQOo and verify no other IDs change. If only one copy exists, the ID is tagged directly.
+- [ ] `.tag "cute" KxQOo`: if the owner has other copies of the same pet, the bot asks **Only KxQOo** versus **All copies**; select only KxQOo and verify no other IDs change. If only one copy exists, the ID is tagged directly.
+- [ ] `.tag "cute" KxQOo Abc12 Def34` asks for confirmation with the number of owned IDs that would change; confirmation tags only those IDs.
+- [ ] `.tag "Very Cute" 2D Doggy` accepts tag names and pet names containing spaces.
+- [ ] Entering an unknown or someone else's ID in a multi-ID batch changes none of the cards.
 - [ ] `.untag 2D Doggy` requires confirmation with number of affected cards before changing tags; selecting Cancel leaves all existing tags in place.
 - [ ] `.untag KxQOo` requires confirmation; if multiple matching pet copies exist, compare **Only this ID** and **All copies**. Verify displayed affected-card count matches cards that actually have tags.
 - [ ] `/cards untag-multiple` also shows the affected-card count and requires confirmation; Cancel must not change any tags.
