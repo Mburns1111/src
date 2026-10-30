@@ -28,9 +28,14 @@ export function tradeButtons(t){
       .setDisabled(!t.participants.every(u=>t.reviewedBy.includes(u))),
     new ButtonBuilder().setCustomId("cards:trade:cancel:"+id).setLabel("Cancel").setStyle(ButtonStyle.Danger)];
  const rows=[new ActionRowBuilder().addComponents(actions)];
- if(pages>1) rows.push(new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("cards:trade:prev:"+id).setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page===0),
-    new ButtonBuilder().setCustomId("cards:trade:next:"+id).setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page===pages-1)));
+ const extras = [];
+ if(!t.gift) extras.push(new ButtonBuilder()
+   .setCustomId("cards:trade:details:"+id).setLabel("Card Details")
+   .setStyle(ButtonStyle.Secondary));
+ if(pages>1) extras.push(
+    new ButtonBuilder().setCustomId("cards:trade:prev:"+id).setLabel("Previous").setStyle(ButtonStyle.Secondary).setDisabled(page===0),
+    new ButtonBuilder().setCustomId("cards:trade:next:"+id).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(page===pages-1));
+ if(extras.length)rows.push(new ActionRowBuilder().addComponents(extras));
  return rows;
 }
 function summaryCards(cards,page,limit=1024){
@@ -116,7 +121,7 @@ async function refresh(i,t){
 }
 export async function handleCardTradeInteraction(i){
  const parts=String(i.customId).split(":"),action=parts[2],id=parts[3];
- if(parts.length!==4||parts[0]!=="cards"||parts[1]!=="trade"||!["add0","add1","offer","review","final","cancel","prev","next","giftconfirm","giftcancel"].includes(action))return;
+ if(parts.length!==4||parts[0]!=="cards"||parts[1]!=="trade"||!["add0","add1","offer","review","final","cancel","prev","next","details","giftconfirm","giftcancel"].includes(action))return;
  const fail=e=>{
   const message="Trade: "+safe(e?.message||"Something went wrong.");
   return i.deferred||i.replied?i.editReply(message):i.reply({content:message,flags:MessageFlags.Ephemeral});
@@ -145,6 +150,22 @@ export async function handleCardTradeInteraction(i){
    return i.showModal(modal);
   }
   await i.deferReply({flags:MessageFlags.Ephemeral});
+  if(action==="details"){
+   const d=await cardTradeDetails(trade);
+   const page=pageInfo(trade).page,from=page*TRADE_DISPLAY_PAGE_SIZE;
+   const values=[0,1].flatMap(side=>{
+    const label=traderName(trade,side);
+    return d.sides[side].slice(from,from+TRADE_DISPLAY_PAGE_SIZE).map(c=>
+      "**"+label+": "+safe(c.name)+"** ["+c.id+"]"+
+      "\n"+safe(c.rarity)+" · "+safe(c.stage)+" · Reviewed score: "+
+      (c.reviewedValue===null?"Not reviewed":c.reviewedValue)+
+      "\nSeries: "+safe(c.seriesId)+" | Release: "+safe(c.releaseId)+
+      "\nFrame: "+safe(c.frame)+(c.artist?" | Artist: "+safe(c.artist):"")+
+      (c.tag?" | Tag (cleared): "+safe(c.tag):""));
+   });
+   return i.editReply({content:("**Trade card details — page "+(page+1)+"**\n\n"+
+     (values.join("\n\n")||"No cards offered on this page.")).slice(0,1950)});
+  }
   if(action==="offer"){
    if(!i.isModalSubmit())throw Error("Use your Add/Edit button.");
    const updated=await setCardTradeOffer({tradeId:id,userId:i.user.id,guildId:i.guildId,rawIds:i.fields.getTextInputValue("ids")});
