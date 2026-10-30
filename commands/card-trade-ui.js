@@ -113,6 +113,15 @@ export async function startCardTrade(i,{ gift = false } = {}){
     "Trade opened with "+mention(member.id)+". Add cards, then both review and confirm.");
  }catch(e){return i.editReply("Trade could not start: "+safe(e.message));}
 }
+// Post a normal channel message; the button interaction was deferred privately.
+// Discord cannot reliably turn an ephemeral deferred reply public afterward.
+export function giftSentAnnouncement(t) {
+ return {
+  content:"🎁 **Gift sent!** <@"+t.participants[0]+"> gave **"+t.offers[0].length+
+   " card(s)** to <@"+t.participants[1]+">.",
+  allowedMentions:{parse:[]},
+ };
+}
 async function refresh(i,t){
  const channel=i.channel?.messages?.fetch?i.channel:await i.client.channels.fetch(t.channelId);
  if(!channel?.messages?.fetch)throw Error("Trade channel unavailable");
@@ -173,9 +182,19 @@ export async function handleCardTradeInteraction(i){
    return i.editReply("Offer updated. Both reviews and final confirmations were reset.");
   }
   let updated;
+  let giftAnnouncementPosted=false;
   if(action==="giftconfirm"){
    await confirmCardGift({tradeId:id,userId:i.user.id,guildId:i.guildId});
    updated=await readCardTrade(id);
+   try {
+    if (!i.channel?.send) throw new Error("Channel is unavailable");
+    await i.channel.send(giftSentAnnouncement(updated));
+    giftAnnouncementPosted=true;
+   } catch (publishError) {
+    // Ownership already transferred atomically. Never retry the transfer
+    // just because Discord could not send the public notification.
+    console.warn("[Hatchem] Gift sent but public notice failed:",publishError.message);
+   }
   }
   else if(action==="giftcancel")updated=await cancelCardTrade({tradeId:id,userId:i.user.id,guildId:i.guildId});
   else if(action==="prev"||action==="next")updated=await moveCardTradePage({tradeId:id,userId:i.user.id,guildId:i.guildId,direction:action==="next"?1:-1});
@@ -186,13 +205,18 @@ export async function handleCardTradeInteraction(i){
    await refresh(i,updated);
   } catch(displayError) {
    console.warn("[Hatchem] Trade state saved but the panel could not refresh:",displayError.message);
+   if (action==="giftconfirm" && giftAnnouncementPosted && i.deleteReply)
+    return i.deleteReply();
    return i.editReply(updated.status==="completed"?
      "Trade completed and cards changed owners, but the trade panel could not refresh. Check .collection.":
      updated.status==="cancelled"?
        "Trade cancelled with no transfer, but the panel could not refresh.":
        "Your confirmation was saved, but the trade panel could not refresh. Try another button or start a new trade if it remains stuck.");
   }
-  return i.editReply(action==="giftconfirm"?"Gift sent! Cards are now in "+traderName(updated,1)+"'s collection.":
+  if (action==="giftconfirm" && giftAnnouncementPosted && i.deleteReply)
+   return i.deleteReply();
+  return i.editReply(action==="giftconfirm"?
+   "Gift sent! Cards were transferred, but I couldn't post the public notice.":
    action==="giftcancel"?"Gift cancelled. No cards moved.":
    action==="prev"||action==="next"?"Page "+((updated.viewPage||0)+1)+".":
    action==="cancel"?"Trade cancelled; no cards moved.":updated.status==="completed"?
