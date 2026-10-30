@@ -17,8 +17,9 @@ export async function execute(interaction) {
   }
   if (interaction.options.getSubcommand() !== "setup-role") return interaction.editReply("Unknown Card setup action.");
   const role = interaction.options.getRole("role", true);
-  if (role.id === interaction.guildId || role.managed) {
-    return interaction.editReply("Choose a normal server role, not @everyone or an integration-managed role.");
+  if (role.id === interaction.guildId || role.managed ||
+      role.permissions.has(PermissionFlagsBits.Administrator)) {
+    return interaction.editReply("Choose a normal server role, not @everyone, an integration-managed role, or a role with Administrator permissions.");
   }
   const botMember = interaction.guild.members.me ||
     await interaction.guild.members.fetchMe().catch(() => null);
