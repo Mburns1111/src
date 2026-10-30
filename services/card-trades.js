@@ -178,6 +178,7 @@ export async function setCardTradeOffer({ tradeId, userId, guildId, rawIds }) {
 export async function reviewCardTrade({ tradeId, userId, guildId }) {
   const trade = assertOpen(await readCardTrade(tradeId), userId);
   if (trade.guildId !== guildId) throw new Error("Wrong server.");
+  if (trade.gift) throw new Error("Gifts are confirmed by the sender only.");
   if (trade.offers.every(side => !side?.length))
     throw new Error("At least one player must offer a card before reviewing.");
   const details = await cardTradeDetails(trade);
@@ -212,6 +213,50 @@ export async function cancelCardTrade({ tradeId, userId, guildId }) {
  * The version check plus per-card owner/state predicates protect against
  * edits, burn/upgrade, and trades for the same card across other servers.
  */
+/**
+ * A gift is a unilateral, giver-initiated action. Only the giver confirms,
+ * once. The recipient never receives an actionable confirmation control.
+ * The same MongoDB transaction/ownership checks as ordinary trading apply.
+ */
+export async function confirmCardGift({ tradeId, userId, guildId }) {
+  const session = await mongoose.startSession();
+  try {
+    return await session.withTransaction(async () => {
+      const gift = await CardTrade.findById(tradeId).session(session);
+      assertOpen(gift, userId);
+      if (!gift.gift || gift.guildId !== guildId ||
+          gift.participants[0] !== userId)
+        throw new Error("Only the sender can confirm this gift.");
+      if (!gift.offers?.[0]?.length || gift.offers?.[1]?.length)
+        throw new Error("A gift must contain cards from only the sender.");
+      // Check ownership and move each unique card ID inside a single transaction.
+      const ids = gift.offers[0];
+      if (new Set(ids).size !== ids.length)
+        throw new Error("The gift contains a duplicated card ID.");
+      for (const publicId of ids) {
+        const updated = await CardCopy.updateOne({
+          publicId, ownerDiscordUserId:userId, state:"owned",
+        }, { $set:{
+          ownerDiscordUserId:gift.participants[1], tag:"",
+        } }, { session });
+        if (updated.modifiedCount !== 1)
+          throw new Error("One or more gift cards are no longer yours. No cards were sent.");
+      }
+      const done = await CardTrade.updateOne({
+        _id:gift._id, status:"open", revision:gift.revision,
+        expiresAt:{ $gt:new Date() },
+      }, { $set:{
+        status:"completed", reviewedBy:[userId], finalBy:[userId], completedAt:new Date(),
+      }, $inc:{ revision:1 } }, {session});
+      if (done.modifiedCount !== 1)
+        throw new Error("The gift changed before it could complete. No cards were sent.");
+      return { completed:true, count:ids.length, recipientId:gift.participants[1] };
+    });
+  } finally {
+    await session.endSession();
+  }
+}
+
 export async function finalizeCardTrade({ tradeId, userId, guildId }) {
   const session = await mongoose.startSession();
   try {
@@ -219,6 +264,7 @@ export async function finalizeCardTrade({ tradeId, userId, guildId }) {
       const trade = await CardTrade.findById(tradeId).session(session);
       assertOpen(trade, userId);
       if (trade.guildId !== guildId) throw new Error("Wrong server.");
+      if (trade.gift) throw new Error("A gift needs only the sender confirmation.");
       if (trade.reviewedBy.length !== 2 ||
           !trade.participants.every(id => trade.reviewedBy.includes(id)))
         throw new Error("Both traders must complete the first review.");
