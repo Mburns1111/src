@@ -7,7 +7,7 @@ import CardTrade from "../models/CardTrade.js";
 import { data as cardCommand } from "../commands/cards.js";
 import { parseHatchemText } from "../services/hatchem-text-commands.js";
 import { parseTradeCardIds, resolveTradeOfferInput, reviewCardTrade, confirmCardGift } from "../services/card-trades.js";
-import { tradeButtons, tradePanel } from "../commands/card-trade-ui.js";
+import { tradeButtons, tradePanel, giftSentAnnouncement } from "../commands/card-trade-ui.js";
 
 const a="123456789012345678",b="234567890123456789",g="345678901234567890";
 const tid="507f1f77bcf86cd799439011";
@@ -83,4 +83,15 @@ test("only the giver can confirm once and all gifted cards transfer atomically",
   assert.deepEqual(changes,[{from:a,to:b,id:"Abc12"}]);
  }finally{mongoose.startSession=prev.session;CardTrade.findById=prev.trade;
    CardCopy.updateOne=prev.copy;CardTrade.updateOne=prev.update;}
+});
+
+
+test("successful gift announcements are ordinary public channel messages, not ephemeral replies",()=>{
+ const msg=giftSentAnnouncement({...t(),status:"completed",offers:[["Abc12","Def34"],[]]});
+ assert.match(msg.content,/Gift sent!/);
+ assert.match(msg.content,/2 card\(s\)/);
+ assert.match(msg.content,new RegExp(a));
+ assert.match(msg.content,new RegExp(b));
+ assert.equal(msg.flags,undefined,"do not mark a channel send as ephemeral");
+ assert.deepEqual(msg.allowedMentions,{parse:[]});
 });
