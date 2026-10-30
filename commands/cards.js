@@ -1,4 +1,6 @@
 import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, MessageFlags, SlashCommandBuilder, StringSelectMenuBuilder } from "discord.js";
+import mongoose from "mongoose";
+import { claimCardActionCooldown, releaseCardActionCooldown, readCardActionCooldown } from "../services/card-action-cooldowns.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
 import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
@@ -27,6 +29,8 @@ import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js"
 import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop } from "../services/card-drop-claims.js";
 
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Hatchem collectible card game")
+  .addSubcommand(c => c.setName("drop").setDescription("Drop an active egg (15-minute cooldown across all servers)"))
+  .addSubcommand(c => c.setName("cooldowns").setDescription("Check when your next drop and grab are ready"))
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
     .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false))
     .addStringOption(o => o.setName("tag").setDescription("Optional saved tag filter, e.g. cute").setRequired(false)))
@@ -422,17 +426,57 @@ export async function execute(interaction) {
       return interaction.editReply("Artwork management failed: " + error.message);
     }
   }
+  if (option === "cooldowns") {
+    if (!isEnabled()) return interaction.editReply("Hatchem player cooldowns are disabled on this bot.");
+    const [drop, grab] = await Promise.all([
+      readCardActionCooldown({ action: "drop", discordUserId: interaction.user.id }),
+      readCardActionCooldown({ action: "grab", discordUserId: interaction.user.id, guildId: interaction.guildId }),
+    ]);
+    return interaction.editReply([
+      "**Your Hatchem cooldowns**",
+      "Drop (all servers): " + (drop.allowed ? "Ready now" : formatCardCooldown(drop.availableAt)),
+      "Grab (this server): " + (grab.allowed ? "Ready now" : formatCardCooldown(grab.availableAt)),
+    ].join("\n"));
+  }
+  if (option === "drop") {
+    if (!isEnabled()) return interaction.editReply("Player drops are available only on the development bot for now.");
+    const releases = await CardRelease.find({ status: "active" })
+      .select("releaseId").sort({ createdAt: -1, _id: -1 }).limit(40).lean();
+    const selected = releases.find(r => !r.releaseId.startsWith("test-")) ||
+      releases.find(r => r.releaseId === "test-s1-r1");
+    if (!selected) return interaction.editReply(
+      "There is no active egg release yet. The owner must activate one before players can drop."
+    );
+    return publishCardDrop(interaction, { releaseId: selected.releaseId, testMode: false });
+  }
   if (!isEnabled()) return interaction.editReply("Card test drops are disabled on this bot.");
-  if (!isCardGameOwner(interaction.user.id)) return interaction.editReply("Only the card-game owner can start test drops. Add CARD_GAME_OWNER_DISCORD_ID to Replit Secrets.");
+  if (!isCardGameOwner(interaction.user.id))
+    return interaction.editReply("Only the card-game owner can start test drops. Add CARD_GAME_OWNER_DISCORD_ID to Replit Secrets.");
   const releaseId = interaction.options.getString("release", true);
-  if (!releaseId.startsWith("test-")) return interaction.editReply("Test drops require a test-* release ID. Live releases cannot be triggered here.");
+  if (!releaseId.startsWith("test-")) return interaction.editReply(
+    "Test drops require a test-* release ID. Live releases cannot be triggered here."
+  );
+  return publishCardDrop(interaction, { releaseId, testMode: true });
+}
+
+function formatCardCooldown(date) {
+  const unix = Math.ceil(new Date(date).getTime() / 1000);
+  return "<t:" + unix + ":R> (<t:" + unix + ":t>)";
+}
+
+async function publishCardDrop(interaction, { releaseId, testMode }) {
   const release = await CardRelease.findOne({ releaseId, status: "active" }).lean();
   if (!release) return interaction.editReply("No active release has that ID. Configure and approve a release first.");
   const odds = Object.fromEntries(["Common","Uncommon","Rare","Ultra-Rare","Legendary"].map(k => [k, release.hatchOdds[k]]));
   validateHatchOdds(odds);
-  const definitions = await CardDefinition.find({ releaseId, seriesId: release.seriesId, enabled: true, artStatus: { $in: ["approved", "test-placeholder"] }, hatchWeight: { $gt: 0 } }).lean();
+  const allowedArtStatuses = testMode || releaseId.startsWith("test-") && isEnabled()
+    ? ["approved", "test-placeholder"] : ["approved"];
+  const definitions = await CardDefinition.find({
+    releaseId, seriesId: release.seriesId, enabled: true,
+    artStatus: { $in: allowedArtStatuses }, hatchWeight: { $gt: 0 },
+  }).lean();
   if (!definitions.length) return interaction.editReply("This release has no approved, enabled card artwork.");
-  const revealed = revealDrop({ cards: definitions, odds, allowTestPlaceholders: true });
+  const revealed = revealDrop({ cards: definitions, odds, allowTestPlaceholders: allowedArtStatuses.includes("test-placeholder") });
   const ids = [...new Set(revealed.map(x => x.card.petId))];
   const pets = await PetCatalog.find({ petId: { $in: ids } }).select("petId name").lean();
   const petNames = Object.fromEntries(pets.map(p => [p.petId, p.name]));
@@ -467,25 +511,64 @@ export async function execute(interaction) {
       artistCredit: card.artistCredit,
     })),
   });
-  const drop = await CardDrop.create({
-    guildId: interaction.guildId, channelId: interaction.channelId,
-    releaseId, createdBy: interaction.user.id, expiresAt: new Date(Date.now() + 75_000),
-    slots: revealed.map(x => ({ cardDefinitionId: x.card._id, petId: x.card.petId, rarity: x.rarity })),
-  });
+  // Generate the ID before the cooldown claim so a failed send can safely
+  // refund only this attempt, without erasing a newer cooldown.
+  const dropId = new mongoose.Types.ObjectId();
+  let claimedCooldown = false;
+  if (!testMode) {
+    const claimed = await claimCardActionCooldown({
+      action: "drop", discordUserId: interaction.user.id, guildId: interaction.guildId,
+      sourceId: String(dropId),
+    });
+    if (!claimed.allowed) return interaction.editReply(
+      "Your next global drop is available " +
+      formatCardCooldown(claimed.availableAt) + ". It is shared across all servers."
+    );
+    claimedCooldown = true;
+  }
+  let drop;
+  let posted = null;
   try {
-    const message = await interaction.channel.send({
+    drop = await CardDrop.create({
+      _id: dropId, guildId: interaction.guildId, channelId: interaction.channelId,
+      releaseId, createdBy: interaction.user.id,
+      mode: testMode ? "test" : "player",
+      expiresAt: new Date(Date.now() + 75_000),
+      slots: revealed.map(x => ({
+        cardDefinitionId: x.card._id, petId: x.card.petId, rarity: x.rarity,
+      })),
+    });
+    posted = await interaction.channel.send({
       content: dropText(drop, release.name, petNames),
       files: [new AttachmentBuilder(dropPng, { name: "card-drop.png" })],
       components: [rowButtons(drop)],
       allowedMentions: { parse: [] },
     });
-    await CardDrop.updateOne({ _id: drop._id }, { $set: { messageId: message.id } });
+    await CardDrop.updateOne({ _id: drop._id }, { $set: { messageId: posted.id } });
   } catch (error) {
-    await CardDrop.updateOne({ _id: drop._id }, { $set: { status: "closed" } });
+    // If sending succeeded but saving the message ID failed, delete the
+    // claimable message before refunding; otherwise preserve the cooldown.
+    let safeToRefund = !posted;
+    if (posted) {
+      try { await posted.delete(); safeToRefund = true; }
+      catch (deleteError) {
+        console.error("[Cards] Could not remove orphaned drop message:", deleteError);
+      }
+    }
+    if (safeToRefund) {
+      if (drop) await CardDrop.updateOne({ _id: drop._id }, { $set: { status: "closed" } });
+      if (claimedCooldown) await releaseCardActionCooldown({
+        action: "drop", discordUserId: interaction.user.id, guildId: interaction.guildId,
+        sourceId: String(dropId),
+      });
+    }
     throw error;
   }
-  return interaction.editReply("Test release egg hatched in this channel. Cards are open for entries for 75 seconds; winners are drawn at expiry.");
+  return interaction.editReply(testMode
+    ? "Owner test drop posted. It lasts 75 seconds and does not use your cooldown."
+    : "Egg dropped! Your next global drop is available in 15 minutes. Members can enter this egg for 75 seconds.");
 }
+
 export async function handleCardUpgrade(interaction) {
   const [, , action, token] = interaction.customId.split(":");
   if (!["yes", "no"].includes(action) || !/^[0-9a-f]{24}$/.test(token || "")) {
