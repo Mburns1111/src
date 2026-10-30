@@ -147,9 +147,10 @@ test("when a selected ID has other owned pet variants, prompt for only ID or all
   const original = {
     one:CardCopy.findOne, many:CardCopy.find,
     def:CardDefinition.find, byId:CardDefinition.findById,
-    pet:PetCatalog.findOne, releases:CardRelease.find,
+    pet:PetCatalog.findOne, releases:CardRelease.find, collector:CardCollector.findOne,
   };
   try {
+    CardCollector.findOne = () => ({select:()=>({lean:async()=>({tagNames:["cute"]})})});
     CardCopy.findOne = () => ({ lean:async()=>({
       _id:primary, publicId:"KxQOo", cardDefinitionId:definitionId, upgradeLevel:"neon", tag:"",
     }) });
@@ -178,6 +179,7 @@ test("when a selected ID has other owned pet variants, prompt for only ID or all
     CardCopy.findOne=original.one;CardCopy.find=original.many;
     CardDefinition.find=original.def;CardDefinition.findById=original.byId;
     PetCatalog.findOne=original.pet;CardRelease.find=original.releases;
+    CardCollector.findOne=original.collector;
   }
 });
 
