@@ -34,6 +34,9 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c => c.setName("register").setDescription("Manually join Hatchem and receive this server\u2019s configured Card role"))
   .addSubcommand(c => c.setName("trade").setDescription("Offer cards to another registered collector; both confirm twice")
     .addUserOption(o => o.setName("member").setDescription("The member to trade with").setRequired(true)))
+  .addSubcommand(c => c.setName("give").setDescription("Gift multiple owned card IDs or a saved tag (two approvals each)")
+    .addUserOption(o=>o.setName("member").setDescription("Recipient").setRequired(true))
+    .addStringOption(o=>o.setName("cards").setDescription("Card IDs or tag:Name (newline-separated)").setRequired(true)))
   .addSubcommand(c => c.setName("drop").setDescription("Drop an active egg (15-minute cooldown across all servers)"))
   .addSubcommand(c => c.setName("cooldowns").setDescription("Check when your next drop and grab are ready"))
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
@@ -129,9 +132,9 @@ export async function execute(interaction) {
     }
   }
 
-  if (option === "trade") {
+  if (option === "trade" || option === "give") {
     if (!isEnabled()) return interaction.editReply("Trading is available on the development bot only.");
-    return startCardTrade(interaction);
+    return startCardTrade(interaction,{gift:option==="give"});
   }
   if (option === "collection") {
     if (isEnabled()) return startCardCollection(interaction);
