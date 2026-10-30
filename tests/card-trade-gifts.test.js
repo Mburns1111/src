@@ -6,7 +6,7 @@ import CardCopy from "../models/CardCopy.js";
 import CardTrade from "../models/CardTrade.js";
 import { data as cardCommand } from "../commands/cards.js";
 import { parseHatchemText } from "../services/hatchem-text-commands.js";
-import { parseTradeCardIds, resolveTradeOfferInput, reviewCardTrade, finalizeCardTrade } from "../services/card-trades.js";
+import { parseTradeCardIds, resolveTradeOfferInput, reviewCardTrade, confirmCardGift } from "../services/card-trades.js";
 import { tradeButtons, tradePanel } from "../commands/card-trade-ui.js";
 
 const a="123456789012345678",b="234567890123456789",g="345678901234567890";
@@ -44,21 +44,28 @@ test("only created tag names can select whole groups for trade/gift",async()=>{
  }finally{CardCollector.findOne=prev.collector;CardCopy.find=prev.copies;}
 });
 
-test("both trade buttons use players' names and longer offers have pages",async()=>{
- const buttons=tradeButtons(t());
- assert.match(buttons[0].components[0].data.label,/Lilly/);
- assert.match(buttons[0].components[1].data.label,/Jentho/);
- const long={...t(),offers:[["Abc12","Def34","Ghi56","Jkl78","Mno90","Pqr12"],[]]};
+test("gifts have only sender confirmation, while regular trades have named participant buttons",async()=>{
+ const gift=t();
+ const giftButtons=tradeButtons(gift);
+ assert.equal(giftButtons[0].components.length,2);
+ assert.match(giftButtons[0].components[0].data.label,/Confirm Gift/);
+ assert.match(giftButtons[0].components[1].data.label,/Cancel Gift/);
+ const normal={...gift,gift:false};
+ assert.match(tradeButtons(normal)[0].components[0].data.label,/Lilly/);
+ assert.match(tradeButtons(normal)[0].components[1].data.label,/Jentho/);
+ const long={...gift,offers:[["Abc12","Def34","Ghi56","Jkl78","Mno90","Pqr12"],[]]};
  const pages=tradeButtons(long);
  assert.equal(pages.length,2);
  assert.match(pages[1].components[1].data.label,/Next/);
- const panel=await tradePanel({...t(),offers:[[],[]]});
- assert.equal(panel.embeds[0].data.fields.length,2);
- assert.equal(panel.embeds[0].data.fields[0].inline,true);
- assert.equal(panel.embeds[0].data.fields[1].inline,true);
+ const giftPanel=await tradePanel({...gift,offers:[[],[]]});
+ assert.equal(giftPanel.embeds[0].data.fields.length,1);
+ const normalPanel=await tradePanel({...normal,offers:[[],[]]});
+ assert.equal(normalPanel.embeds[0].data.fields.length,2);
+ assert.equal(normalPanel.embeds[0].data.fields[0].inline,true);
+ assert.equal(normalPanel.embeds[0].data.fields[1].inline,true);
 });
 
-test("a one-sided gift can finish with both final approvals and no unoffered card transfer",async()=>{
+test("only the giver can confirm once and all gifted cards transfer atomically",async()=>{
  const prev={session:mongoose.startSession,trade:CardTrade.findById,copy:CardCopy.updateOne,update:CardTrade.updateOne};
  try{
   mongoose.startSession=async()=>({withTransaction:fn=>fn(),endSession:async()=>{}});
@@ -71,7 +78,8 @@ test("a one-sided gift can finish with both final approvals and no unoffered car
   CardTrade.updateOne=async (_q,change)=>{
     assert.equal(change.$set.status,"completed");return {modifiedCount:1};
   };
-  assert.deepEqual(await finalizeCardTrade({tradeId:tid,userId:b,guildId:g}),{completed:true});
+  await assert.rejects(()=>confirmCardGift({tradeId:tid,userId:b,guildId:g}),/Only the sender/);
+  assert.deepEqual(await confirmCardGift({tradeId:tid,userId:a,guildId:g}),{completed:true,count:1,recipientId:b});
   assert.deepEqual(changes,[{from:a,to:b,id:"Abc12"}]);
  }finally{mongoose.startSession=prev.session;CardTrade.findById=prev.trade;
    CardCopy.updateOne=prev.copy;CardTrade.updateOne=prev.update;}
