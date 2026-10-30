@@ -39,17 +39,20 @@ Development bot and test server **908522799285538817** only. Two accounts: **A =
 
 ### C. Gifts — **giver confirms once; recipient never confirms**
 
-- [ ] A runs `.give @B CARDID` and sees a compact single-sided card summary with Confirm Gift / Cancel Gift.
-- [ ] B cannot confirm or cancel A's gift. Only A can press Confirm Gift.
-- [ ] A presses Confirm Gift **once**: card transfers immediately to B and retains its original ID, rarity, upgrade stage and release. Old personal tag clears.
+- [ ] A runs `.give @B CARDID` and sees a compact single-sided card summary with Send Gift / Cancel / View Cards.
+- [ ] B cannot confirm or cancel A's gift. Only A can press Send Gift.
+- [ ] A presses Send Gift **once**: card transfers immediately to B and retains its original ID, rarity, upgrade stage and release. Old personal tag clears.
 - [ ] `.give @B ID1 ID2` sends multiple cards with one sender confirmation; Cancel moves nothing.
 - [ ] `.give @B tag:cute` selects all owned cards carrying a **created** tag. Uncreated tag names must be rejected.
 - [ ] Completed gift receipt no longer warns about cards being "no longer owned." Expired gift confirmation cannot move cards.
 - [ ] The recipient does not need to click, approve, or add cards.
 
+- [ ] View Cards displays a private list of complete gift details, with working pagination when sending many cards. Public gift panel stays short and cute.
+- [ ] After completing the gift, the old panel shows a compact Gift Sent receipt and the public Gift sent announcement remains visible.
+
 ### D. Trade panel
 
-- [ ] A types `.trade @B` after B has cards. Panel has **A and B displayed side by side**, with Add buttons labelled by their Discord display names.
+- [ ] A types `.trade @B` after B has cards. Panel has **A and B displayed side by side**, clear separator lines around confirmation progress, and Add buttons labelled by their Discord display names.
 - [ ] Both players can add cards only on their own side.
 - [ ] Add 6+ IDs to a single offer: no five-card limit; use Next/Previous to view additional cards.
 - [ ] In Add/Edit enter `tag:cute` on its own line to select every owned card carrying that created tag.
