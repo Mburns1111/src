@@ -5,6 +5,7 @@ import CardClaim from "../models/CardClaim.js";
 import CardCopy from "../models/CardCopy.js";
 import CardCollector from "../models/CardCollector.js";
 import { allocateCardId } from "./card-identifiers.js";
+import { releaseCardActionCooldown } from "./card-action-cooldowns.js";
 
 export class CardClaimError extends Error {}
 
@@ -66,6 +67,7 @@ export async function reserveCardFromDrop({ dropId, slot, guildId, discordUserId
         return {
           petId: updated.slots[slot].petId, rarity: updated.slots[slot].rarity,
           creatorPriority: true, refundedEntrants: previous.length,
+          displacedUserIds: previous.filter(id => id !== discordUserId),
         };
       }
     }
@@ -149,4 +151,32 @@ export async function settleClosedCardDrop(drop) {
       if (!drop.slots[slot].settledAt) await settleReservedCard({ dropId: drop._id, slot });
     }
   }
+}
+
+
+// Keep a draw fair: the cooldown becomes permanent only for winners.
+// Losing entrants receive their five-minute grab opportunity back. The
+// sourceDropId check prevents a retry from erasing a newer entry's cooldown.
+export async function refundLosingCardGrabCooldowns(drop) {
+  if (drop.mode !== "player" || drop.grabRefundedAt) return;
+  const fresh = await CardDrop.findById(drop._id).lean();
+  if (!fresh || fresh.status !== "closed" || fresh.grabRefundedAt) return;
+  if (fresh.slots.some(slot =>
+    (slot.entrants?.length || slot.winnerId || slot.claimedBy) && !slot.settledAt
+  )) return;
+  const losers = new Set();
+  for (const slot of fresh.slots) {
+    const winner = slot.winnerId || slot.claimedBy;
+    for (const id of slot.entrants || []) if (id !== winner) losers.add(id);
+  }
+  for (const id of losers) {
+    await releaseCardActionCooldown({
+      action: "grab", discordUserId: id, guildId: fresh.guildId,
+      sourceId: String(fresh._id),
+    });
+  }
+  await CardDrop.updateOne(
+    { _id: fresh._id, status: "closed", grabRefundedAt: null },
+    { $set: { grabRefundedAt: new Date() } },
+  );
 }
