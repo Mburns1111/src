@@ -2,6 +2,7 @@ import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, Messag
 import mongoose from "mongoose";
 import { claimCardActionCooldown, releaseCardActionCooldown, readCardActionCooldown } from "../services/card-action-cooldowns.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
+import { startCardTrade } from "./card-trade-ui.js";
 import { registerCardCollector, isRegisteredCardCollector, REGISTER_FIRST_MESSAGE } from "../services/card-collector-registration.js";
 import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
@@ -31,6 +32,8 @@ import { CardClaimError, reserveCardFromDrop, settleClosedCardDrop, refundLosing
 
 export const data = new SlashCommandBuilder().setName("cards").setDescription("Hatchem collectible card game")
   .addSubcommand(c => c.setName("register").setDescription("Manually join Hatchem and receive this server\u2019s configured Card role"))
+  .addSubcommand(c => c.setName("trade").setDescription("Offer cards to another registered collector; both confirm twice")
+    .addUserOption(o => o.setName("member").setDescription("The member to trade with").setRequired(true)))
   .addSubcommand(c => c.setName("drop").setDescription("Drop an active egg (15-minute cooldown across all servers)"))
   .addSubcommand(c => c.setName("cooldowns").setDescription("Check when your next drop and grab are ready"))
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
@@ -126,6 +129,10 @@ export async function execute(interaction) {
     }
   }
 
+  if (option === "trade") {
+    if (!isEnabled()) return interaction.editReply("Trading is available on the development bot only.");
+    return startCardTrade(interaction);
+  }
   if (option === "collection") {
     if (isEnabled()) return startCardCollection(interaction);
     const summary = await getCardCollectionSummary(interaction.user.id);
