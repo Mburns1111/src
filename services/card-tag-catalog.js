@@ -26,32 +26,26 @@ export async function createCollectorTag(discordUserId, value) {
   const name = tagKey(value);
   await CardCollector.updateOne(
     { discordUserId },
-    { $setOnInsert: { discordUserId }, $addToSet: { tagNames: name } },
+    { $setOnInsert: { discordUserId }, $addToSet: { tagNames: name, createdTagNames: name } },
     { upsert: true },
   );
   return name;
 }
 
 export async function listCollectorTags(discordUserId) {
-  const [collector, assigned] = await Promise.all([
-    CardCollector.findOne({ discordUserId }).select("tagNames").lean(),
-    CardCopy.distinct("tag", {
-      ownerDiscordUserId: discordUserId, state: "owned",
-      tag: { $type: "string", $ne: "" },
-    }),
-  ]);
-  return [...new Set([...(collector?.tagNames || []), ...assigned]
+  const collector = await CardCollector.findOne({ discordUserId })
+    .select("createdTagNames").lean();
+  return [...new Set((collector?.createdTagNames || [])
     .filter(value => typeof value === "string" && value.trim())
     .map(tagKey))].sort((a, b) => a.localeCompare(b));
 }
-
 
 // Applying a tag must NEVER silently create it. .create-tag is the only
 // member command that adds a new reusable tag name.
 export async function requireSavedCardTag(discordUserId, value) {
   const normalized = tagKey(value);
-  const collector = await CardCollector.findOne({ discordUserId }).select("tagNames").lean();
-  if (!(collector?.tagNames || []).some(t => tagKey(t) === normalized))
+  const collector = await CardCollector.findOne({ discordUserId }).select("createdTagNames").lean();
+  if (!(collector?.createdTagNames || []).some(t => tagKey(t) === normalized))
     throw new Error("Tag '" + normalized + "' does not exist. Create it first with .create-tag " + normalized + ".");
   return normalized;
 }
