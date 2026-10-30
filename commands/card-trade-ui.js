@@ -54,7 +54,7 @@ function summaryCards(cards,page){
  if(!shown.length) return "*Nothing offered*";
  return shown.map((c,j)=>{
   const stage=c.stage==="mega"?"Mega":c.stage==="neon"?"Neon":"Normal";
-  const value=c.reviewedValue===null?"Unreviewed":String(c.reviewedValue);
+  const value=c.reviewedValue===null?"Not reviewed":String(c.reviewedValue);
   return "**"+(page*TRADE_DISPLAY_PAGE_SIZE+j+1)+". "+safe(c.name)+"** · "+tick+c.id+tick+
    "\n"+safe(c.rarity)+" · "+stage+" · Score: "+value+
    (c.tag?" · #"+safe(c.tag):"");
