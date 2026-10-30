@@ -52,7 +52,8 @@ export async function updateMultipleOwnedCardTags({ discordUserId, cardIds, tag 
 export async function prepareTagDeletion({ discordUserId, tag, now = new Date() }) {
   const normalized = tagKey(tag);
   const saved = await listCollectorTags(discordUserId);
-  if (!saved.includes(normalized)) throw new Error("You have no saved tag with that name.");
+  const legacyCount = await CardCopy.countDocuments({ownerDiscordUserId:discordUserId,state:"owned",tag:matchingTagRegex(normalized)});
+  if (!saved.includes(normalized) && legacyCount === 0) throw new Error("You have no saved or assigned tag with that name.");
   const expectedCount = await CardCopy.countDocuments({
     ownerDiscordUserId: discordUserId, state: "owned", tag: matchingTagRegex(normalized),
   });
@@ -100,7 +101,7 @@ export async function confirmTagDeletion({ discordUserId, requestId, confirm, no
         throw new Error("Cards changed during confirmation. No tags were removed; try again.");
       }
       await CardCollector.updateOne({ discordUserId },
-        { $pull: { tagNames: tagKey(request.tag) } }, { session });
+        { $pull: { tagNames: tagKey(request.tag), createdTagNames: tagKey(request.tag) } }, { session });
       outcome = { cancelled: false, tag: request.tag, count: result.modifiedCount };
     });
     return outcome;
