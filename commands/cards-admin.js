@@ -30,7 +30,7 @@ export async function execute(interaction) {
     { $set: { cardRoleId: role.id } },
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
   return interaction.editReply({
-    content: `Saved ${role} as this server's Card role. Registration and automatic assignment will be added in the player registration phase. This does not change global egg releases.`,
+    content: `Saved ${role} as this server's Card role. Members receive this role only when they explicitly use .register in this server. This does not change global egg releases.`,
     allowedMentions: { parse: [] },
   });
 }
