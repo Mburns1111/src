@@ -27,22 +27,19 @@ Development player drops choose the newest active non-test global release, or fa
 
 As before, the system is gated by `ENABLE_CARD_GAME_TEST=1` and is currently registered only for the development guild. This feature does not authorize or publish incomplete art or deploy to Wispbyte.
 
-## Collector registration — still a separate feature
+## Collector registration — explicit opt-in implemented
 
-`/cards-admin setup-role role:@Card` already saves the **local server's role**. The pending member `.register` command should:
-1. Upsert one global `CardCollector` record keyed on Discord user ID without changing existing dust, owned cards or tags.
-2. Read the **current server's** `GuildConfig.cardRoleId`; grant that local role if configured, the bot has `Manage Roles`, and role hierarchy permits it. Never grant Administrator or an unrelated role.
-3. Work idempotently on repeated calls and for a player joining a second server. The global collection remains shared; roles are per guild.
-4. Show friendly setup errors (role not configured/bot role too low), avoid granting roles on failed authorization, and require a separate test for simultaneous registration attempts.
-5. Optionally have the drop/grab entrypoint auto-register a player later; right now those test-phase member commands can create the collector record upon their first successful card award.
+The local Card role is configured by a manager through `/cards-admin setup-role role:@Card`. The member then **must** type `.register` (or `/cards register`) in each participating server's Hatchem channel. This alone creates/reuses the global collector and assigns that server's local Card role. There is no role auto-assignment on join or from collecting cards.
 
-Registration is **not implemented** by the cooldown work. Until then, the development player commands are accessible without requiring the Card role; do not describe them as registration-gated.
+Regular player drops and player-egg grabs are gated on explicit registration in the **current** server. The bot checks the global `CardCollector.registeredAt` plus the current guild in `registeredGuildIds`; having pre-existing cards, or being manually assigned a Card role, doesn't bypass registration. Test drops and their test entries stay separate for development.
+
+Refer to `docs/hatchem-registration.md` for behavior and test cases.
 
 ## Replit test checklist
 
 1. Stop older development processes; pull `feature/card-game-foundation`, run `npm test`, then `node register-commands.js` and `npm start`. Keep `ENABLE_CARD_GAME_TEST=1`, `DISCORD_GUILD_ID`, and the separate development bot token set.
 2. Verify the seeded development release `test-s1-r1` is active and has eligible card art, and the Hatchem channel is configured.
-3. Player types `.cooldowns`: both should say Ready now before use.
+3. Player runs `.register` and receives the configured local Card role, then types `.cooldowns`: both should say Ready now before use.
 4. Player types `.drop`: exactly one 3-card egg appears, and `.cooldowns` shows next global drop in 15 minutes.
 5. Player immediately tries another `.drop`: no second egg appears; it shows the remaining global time.
 6. A different member enters with Grab: `.cooldowns` in that server now shows five minutes. Repeated entry should be refused.
