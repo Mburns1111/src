@@ -150,7 +150,7 @@ test("when a selected ID has other owned pet variants, prompt for only ID or all
     pet:PetCatalog.findOne, releases:CardRelease.find, collector:CardCollector.findOne,
   };
   try {
-    CardCollector.findOne = () => ({select:()=>({lean:async()=>({tagNames:["cute"]})})});
+    CardCollector.findOne = () => ({select:()=>({lean:async()=>({createdTagNames:["cute"]})})});
     CardCopy.findOne = () => ({ lean:async()=>({
       _id:primary, publicId:"KxQOo", cardDefinitionId:definitionId, upgradeLevel:"neon", tag:"",
     }) });
