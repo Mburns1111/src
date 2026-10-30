@@ -1,5 +1,7 @@
 # Hatchem — Full Two-Account Discord Testing Checklist
 
+**UPDATE (October 30):** Use the shorter, current `docs/hatchem-oct30-discord-test-checklist.md` for the latest commands and screenshot-based results. This older plan reflects the original five-card trade limit and two-sided mandatory offers; both requirements have changed.
+
 **Saved:** 2026-10-29. **Branch:** `feature/card-game-foundation` (development only). **Test guild:** 908522799285538817. Do not merge or deploy to Wispbyte until separately approved.
 
 ## Preparation / Replit (Account A = owner, Account B = test member)
