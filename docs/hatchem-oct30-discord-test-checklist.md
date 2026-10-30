@@ -65,8 +65,8 @@ Development bot and test server **908522799285538817** only. Two accounts: **A =
 - [ ] `.collection` shows **10 cards per page**; with 18 cards it should have two pages.
 - [ ] `.collection cute` and `.collection @B cute` filter accurately.
 - [ ] `.view CARDID` displays the correct image.
-- [ ] Try `.tag noooo`, `.tag random`, `.tag bunny`, or **any other uncreated name**: all refuse with an instruction to `.create-tag NAME`. No cards change.
-- [ ] Run `.create-tag noooo` then `.tag noooo`: it now works. The rule is **any tag, not just noooo**.
+- [ ] Try `.tag noooo`, `.tag random`, `.tag bunny`, or **any other uncreated name**: all refuse with an instruction to `.create-tag NAME`. No cards change. Previously auto-created legacy names also require an explicit `.create-tag` once.
+- [ ] Run `.create-tag noooo` then `.tag noooo`: it now works. The rule is **every tag name, not just noooo**. If you want to keep using old `cute` tags, run `.create-tag cute` once; existing labels on cards are preserved.
 - [ ] `.create-tag Very Cute` followed by `.tag Very Cute 2D Doggy` works without quotation marks.
 - [ ] Tag one ID, all owned copies of a pet, and several explicit IDs. Confirm the selection counts.
 - [ ] `.untag` always asks for confirmation and shows the number of affected cards. Cancel leaves tags unchanged.
