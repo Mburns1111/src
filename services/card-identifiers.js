@@ -1,19 +1,20 @@
 import CardCopy from "../models/CardCopy.js";
 import CardNumberSequence from "../models/CardNumberSequence.js";
 
-// Five characters: numbers, upper/lower-case letters and Discord-safe symbols.
-// 64^5 = 1,073,741,824 possible codes. IDs are case-sensitive and never reused.
+// Newly minted IDs are five letters/digits ONLY. Existing five-character
+// IDs containing - or _ remain valid forever; do not migrate or rename them.
+// 62^5 = 916,132,832 possible new IDs.
 // MongoDB _id stays the canonical hidden reference for ownership and art rendering.
-export const CARD_ID_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
+export const CARD_ID_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 export const CARD_ID_LENGTH = 5;
 export const CARD_ID_CAPACITY = CARD_ID_ALPHABET.length ** CARD_ID_LENGTH;
-export const CARD_NUMBER_SEQUENCE_KEY = "global-card-copy-v1";
+export const CARD_NUMBER_SEQUENCE_KEY = "global-card-copy-v2-alphanumeric";
 
 export function encodeCardNumber(number) {
   if (!Number.isSafeInteger(number) || number < 1 || number >= CARD_ID_CAPACITY) {
     throw new Error("The five-character card ID space is exhausted.");
   }
-  // Reversible permutation across the ID space (odd multiplier, modulus 2^30).
+  // Reversible permutation across this base-62 ID space. 131071 is coprime to 62.
   // Keeps numbers unique while making adjacent awards look different.
   let n = (number * 131071 + 347842123) % CARD_ID_CAPACITY;
   let output = "";
@@ -38,12 +39,19 @@ export function displayCardId(card) {
 }
 
 export async function allocateCardId(session) {
-  const counter = await CardNumberSequence.findOneAndUpdate(
-    { _id: CARD_NUMBER_SEQUENCE_KEY },
-    { $inc: { value: 1 } },
-    { upsert: true, new: true, session, setDefaultsOnInsert: true },
-  );
-  return encodeCardNumber(counter.value);
+  // V2 uses a separate counter. Check ALL historical copies because legacy
+  // base-64 IDs may overlap with new alphanumeric outputs. IDs are never reused.
+  for (let attempt = 0; attempt < 64; attempt++) {
+    const counter = await CardNumberSequence.findOneAndUpdate(
+      { _id: CARD_NUMBER_SEQUENCE_KEY },
+      { $inc: { value: 1 } },
+      { upsert: true, new: true, session, setDefaultsOnInsert: true },
+    );
+    const candidate = encodeCardNumber(counter.value);
+    const existing = await CardCopy.exists({ publicId: candidate }).session(session);
+    if (!existing) return candidate;
+  }
+  throw new Error("Could not generate a new unique five-character card ID. Retry.");
 }
 
 // Never infer a card ID from ObjectId bits, and never show ObjectIds in chat.
