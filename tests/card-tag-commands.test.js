@@ -9,25 +9,32 @@ import { createCollectorTag, listCollectorTags, matchingTagRegex, tagKey } from 
 import { parseHatchemText } from "../services/hatchem-text-commands.js";
 import { data } from "../commands/cards.js";
 
-test("Hatchem accepts saved tags, newest cards, case-insensitive prefixes and quoted multiword tags", () => {
+test("Hatchem accepts tag-FIRST syntax, named pets, exact IDs and multiple IDs", () => {
   assert.deepEqual(parseHatchemText(".create-tag CuTe"), { action: "create-tag", options: { tag: "CuTe" } });
   assert.deepEqual(parseHatchemText(".tags"), { action: "tags", options: {} });
+  assert.deepEqual(parseHatchemText('.tag "cute"'), { action: "tag", options: { tag: "cute" } });
   assert.deepEqual(parseHatchemText(".tag cute"), { action: "tag", options: { tag: "cute" } });
-  assert.deepEqual(parseHatchemText(".TAG ABYS CuTe"), { action: "tag", options: { card_id: "ABYS", tag: "CuTe" } });
+  assert.deepEqual(parseHatchemText('.TAG "CuTe" ABYS'), { action: "tag", options: { tag: "CuTe", card_id: "ABYS" } });
   assert.deepEqual(parseHatchemText('.tag "My Cute Pets"'), { action: "tag", options: { tag: "My Cute Pets" } });
-  assert.deepEqual(parseHatchemText('.tag "Abyssinian Cat" "My Cute Pets"'), {
-    action: "tag", options: { card_id: "Abyssinian Cat", tag: "My Cute Pets" },
+  assert.deepEqual(parseHatchemText('.tag "My Cute Pets" Abyssinian Cat'), {
+    action: "tag", options: { tag: "My Cute Pets", card_id: "Abyssinian Cat" },
   });
-  assert.deepEqual(parseHatchemText(".tag 2d do cute"), { action: "tag", options: { card_id: "2d do", tag: "cute" } });
-  assert.deepEqual(parseHatchemText('.tag 2D Doggy "Very Cute"'), { action: "tag", options: { card_id: "2D Doggy", tag: "Very Cute" } });
-  assert.deepEqual(parseHatchemText(".tag 2d do -- Very Cute"), { action: "tag", options: { card_id: "2d do", tag: "Very Cute" } });
-  assert.deepEqual(parseHatchemText(".tag KxQOo very cute"), { action: "tag", options: { card_id: "KxQOo", tag: "very cute" } });
+  assert.deepEqual(parseHatchemText('.tag "cute" 2d do'), { action: "tag", options: { tag: "cute", card_id: "2d do" } });
+  assert.deepEqual(parseHatchemText('.tag "Very Cute" "2D Doggy"'), { action: "tag", options: { tag: "Very Cute", card_id: "2D Doggy" } });
+  assert.deepEqual(parseHatchemText('.tag "cute" KxQOo'), { action: "tag", options: { tag: "cute", card_id: "KxQOo" } });
+  assert.deepEqual(parseHatchemText('.tag "cute" KxQOo Abc12 Def34'), {
+    action: "tag", options: { tag: "cute", card_ids: "KxQOo Abc12 Def34" },
+  });
+  assert.deepEqual(parseHatchemText('.tag "my favorites" KxQOo,Abc12'), {
+    action: "tag", options: { tag: "my favorites", card_ids: "KxQOo Abc12" },
+  });
   assert.deepEqual(parseHatchemText(".untag 2D Doggy"), { action: "untag", options: { card_id: "2D Doggy" } });
   assert.deepEqual(parseHatchemText(".untag abys"), { action: "untag", options: { card_id: "abys" } });
   assert.equal(parseHatchemText("tag cute"), null);
   const commands = data.toJSON().options;
   assert.ok(commands.some(c => c.name === "create-tag"));
   assert.ok(commands.some(c => c.name === "tags"));
+  assert.ok(commands.find(c => c.name === "tag").options.some(o => o.name === "card_ids"));
   assert.ok(CardCollector.schema.path("tagNames"));
 });
 
