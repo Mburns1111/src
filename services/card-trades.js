@@ -61,11 +61,11 @@ export async function cardTradeDetails(trade) {
   const ids = [...new Set((trade.offers || []).flat())];
   if (!ids.length) return { sides: [[], []] };
   const cards = await CardCopy.find({ publicId: { $in: ids } })
-    .select("publicId ownerDiscordUserId state cardDefinitionId upgradeLevel tag").lean();
+    .select("publicId ownerDiscordUserId state cardDefinitionId upgradeLevel tag source originGuildId").lean();
   const byId = new Map(cards.map(c => [c.publicId, c]));
   const defs = await CardDefinition.find({
     _id: { $in: cards.map(c => c.cardDefinitionId) },
-  }).select("_id petId releaseId seriesId rarity valueReview").lean();
+  }).select("_id petId releaseId seriesId rarity valueReview artistCredit").lean();
   const defById = new Map(defs.map(d => [String(d._id), d]));
   const pets = await PetCatalog.find({ petId: { $in: defs.map(d => d.petId) } })
     .select("petId name").lean();
@@ -88,6 +88,9 @@ export async function cardTradeDetails(trade) {
         valueSource: def?.valueReview?.sourceName || "",
         frame: (def && frames.get(def.releaseId)) || "default",
         tag: card?.tag || "",
+        artist: def?.artistCredit || "",
+        originGuildId: card?.originGuildId || "",
+        source: card?.source || "",
         eligible: Boolean(card && card.state === "owned" &&
           card.ownerDiscordUserId === trade.participants[side] && def),
       };
