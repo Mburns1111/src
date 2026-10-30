@@ -30,6 +30,21 @@ validateRuntimeConfiguration({ mode: "register" });
 if (process.env.ENABLE_CARD_GAME_TEST === "1" && !guildId) throw new Error("Card testing requires DISCORD_GUILD_ID for test-guild-only registration.");
 const rest = new REST({ version: "10" }).setToken(token);
 
+// Keep private card-artwork/testing subcommands out of the public /cards menu.
+const ownerOnlyCardSubcommands = new Set([
+  "egg-art-upload", "art-upload", "art-assign", "art-list", "art-info", "art-review", "test-drop",
+]);
+const allCards = cardsCommand.toJSON();
+const playerCards = { ...allCards, options: allCards.options.filter(o=>!ownerOnlyCardSubcommands.has(o.name)) };
+const privateOwnerCards = {
+  ...cardsOwnerCommand.toJSON(),
+  // Default-hidden for normal members. Administrators may still see this
+  // command in Discord; all execution is checked against the owner's ID.
+  default_member_permissions: "0",
+  options: [...cardsOwnerCommand.toJSON().options,
+    ...allCards.options.filter(o=>ownerOnlyCardSubcommands.has(o.name))],
+};
+
 const commands = [
   profileCommand,
   profileCleanupCommand,
@@ -56,7 +71,7 @@ console.log(
 if (guildId) {
   await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
     body: process.env.ENABLE_CARD_GAME_TEST === "1"
-      ? [...commands, cardsCommand.toJSON(), cardsAdminCommand.toJSON(), cardsOwnerCommand.toJSON()]
+      ? [...commands, playerCards, cardsAdminCommand.toJSON(), privateOwnerCards]
       : commands,
   });
 
