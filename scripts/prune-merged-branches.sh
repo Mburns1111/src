@@ -2,7 +2,7 @@
 # Dry-run by default; pass --apply to prune verified remote branches.
 # Does not merge code or deploy production.
 set -euo pipefail
-mode="\${1:---dry-run}"
+mode="${1:---dry-run}"
 if [[ "$mode" != "--dry-run" && "$mode" != "--apply" ]]; then
   echo "Usage: bash scripts/prune-merged-branches.sh [--dry-run|--apply]" >&2
   exit 2
@@ -12,7 +12,7 @@ case "$remote" in
   *github.com/Mburns1111/src|*github.com/Mburns1111/src.git|*github.com:Mburns1111/src|*github.com:Mburns1111/src.git) ;;
   *) echo "Refusing to prune: origin is not Mburns1111/src ($remote)." >&2; exit 1 ;;
 esac
-git fetch --prune origin main
+git fetch origin refs/heads/main:refs/remotes/origin/main
 obsolete=(
   feature/admin-import-member-listings
   feature/listing-appearance
@@ -35,8 +35,8 @@ obsolete=(
   perf/phase-4-responsiveness
 )
 removed=0; skipped=0
-for branch in "\${obsolete[@]}"; do
-  if ! git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+for branch in "${obsolete[@]}"; do
+  if ! git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
     echo "SKIP $branch: branch already absent"; ((skipped += 1)); continue
   fi
   git fetch origin "$branch:refs/remotes/origin/$branch"
