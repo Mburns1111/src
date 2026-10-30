@@ -178,6 +178,7 @@ export async function runHatchemText(message, parsed) {
       getInteger: () => null,
       getAttachment: () => null,
     },
+    suppressSuccessDropReply: async () => null,
     editReply: async payload => {
       const body = typeof payload === "string" ? { content: payload } : payload;
       const data = { ...body, allowedMentions: body.allowedMentions || { parse: [] } };
