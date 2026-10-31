@@ -123,7 +123,8 @@ export async function confirmCardBurn(token,ownerId,guildId) {
       const byId=new Map(rows.map(c=>[String(c._id),c]));
       for(const item of request.cards) {
         const card=byId.get(item._id);
-        if(!card||card.publicId!==item.publicId||String(card.cardDefinitionId)!==item.definitionId||
+        if(!card||card.ownerDiscordUserId!==ownerId||card.state!=="owned"||
+            card.publicId!==item.publicId||String(card.cardDefinitionId)!==item.definitionId||
             card.upgradeLevel!==item.upgradeLevel||card.tag?.trim())
           throw new Error("A selected card changed or is now tagged. Nothing was burned.");
       }
