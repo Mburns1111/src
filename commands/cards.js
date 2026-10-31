@@ -27,6 +27,11 @@ import { selectOwnedTagTargets } from "../services/card-tag-targets.js";
 import { prepareCardTagConfirmation, getCardTagConfirmation, cancelCardTagConfirmation, confirmCardTagChange } from "../services/card-tag-confirmations.js";
 import { startCardCollection } from "./card-collection-ui.js";
 import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade, suggestOwnedCardUpgrades } from "../services/card-upgrades.js";
+import { prepareDustUpgrade,confirmDustUpgrade,cancelDustUpgrade } from "../services/card-dust-upgrades.js";
+import { setCardLock } from "../services/card-locks.js";
+import { getCardTradeHistory,formatTradeHistory } from "../services/card-trade-history.js";
+import { listCardAchievements,formatCardAchievements } from "../services/card-achievements.js";
+import { suggestShowCards,renderShownCard } from "../services/card-show.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { updateMultipleOwnedCardTags, prepareTagDeletion, confirmTagDeletion } from "../services/card-tag-management.js";
 import { revealDrop, validateHatchOdds } from "../services/card-hatch-engine.js";
@@ -44,11 +49,22 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
     .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false))
     .addStringOption(o => o.setName("tag").setDescription("Optional saved tag filter, e.g. cute").setRequired(false)))
+  .addSubcommand(c=>c.setName("lock").setDescription("Protect an owned card from burning, trading, gifting or upgrading")
+    .addStringOption(o=>o.setName("card_id").setDescription("Owned five-character card ID").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(c=>c.setName("unlock").setDescription("Allow your card to be transferred, burned or upgraded again")
+    .addStringOption(o=>o.setName("card_id").setDescription("Owned five-character card ID").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(c=>c.setName("history").setDescription("See the last 12 gifts and trades you completed"))
+  .addSubcommand(c=>c.setName("achievements").setDescription("View collection and activity milestones"))
+  .addSubcommand(c=>c.setName("dustupgrade").setDescription("Use rarity dust to replace missing upgrade copies")
+    .addStringOption(o=>o.setName("card").setDescription("An owned Normal/Neon card ID").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(c=>c.setName("show").setDescription("Search for and publicly display a release card by pet name")
+    .addStringOption(o=>o.setName("pet").setDescription("Pet name or autocomplete choice").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c => c.setName("burn").setDescription("Burn untagged cards or cards tagged burn for rarity dust")
     .addStringOption(o => o.setName("card_ids").setDescription("Card IDs or tag:burn for all burn-tagged cards").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c => c.setName("dust").setDescription("Show your rarity dust wallet"))
-  .addSubcommand(c => c.setName("upgrade").setDescription("Combine 4 matching cards into Neon or Mega Neon")
-    .addStringOption(o => o.setName("card").setDescription("One card ID or pet name; bot finds four matching copies").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(c => c.setName("upgrade").setDescription("Upgrade four matching cards, or use dust with 1–3 copies")
+    .addStringOption(o => o.setName("card").setDescription("Owned card ID or pet name").setRequired(true).setAutocomplete(true))
+    .addBooleanOption(o=>o.setName("use_dust").setDescription("Replace missing copies by spending matching rarity dust")))
   .addSubcommand(c => c.setName("stats").setDescription("See collector, burn and upgrade statistics for a card")
     .addStringOption(o => o.setName("card_id").setDescription("Optional card ID or pet-name prefix; defaults to newest").setRequired(false).setAutocomplete(true)))
   .addSubcommand(c => c.setName("view").setDescription("View a card you own")
@@ -159,27 +175,65 @@ export async function execute(interaction) {
     const balance=await getCardDustBalance(interaction.user.id);
     return interaction.editReply({content:dustBalanceText(balance),allowedMentions:{parse:[]}});
   }
-  if (option === "upgrade") {
+  if (option === "lock" || option === "unlock") {
+    if (!isEnabled()) return interaction.editReply("Card locking is only enabled on the development bot.");
+    if (!await canPlayCardGame(interaction.user.id,interaction.guild))
+      return interaction.editReply(await cardRegistrationReminder(interaction.guildId));
+    try {
+      const res=await setCardLock({ownerId:interaction.user.id,
+        cardId:interaction.options.getString("card_id",true),locked:option==="lock"});
+      return interaction.editReply((res.locked?"🔒 Locked":"🔓 Unlocked")+" card `"+res.publicId+"`."+
+        (res.unchanged?" It was already in that state.":""));
+    }catch(error){return interaction.editReply(error.message);}
+  }
+  if(option==="history"){
+    return interaction.editReply({content:formatTradeHistory(await getCardTradeHistory(interaction.user.id)),
+      allowedMentions:{parse:[]}});
+  }
+  if(option==="achievements"){
+    try{return interaction.editReply(formatCardAchievements(await listCardAchievements(interaction.user.id)));}
+    catch(error){console.warn("[Cards] Achievements:",error);return interaction.editReply("Unable to load achievements.");}
+  }
+  if(option==="show"){
+    try {
+      const shown=await renderShownCard(interaction.options.getString("pet",true));
+      if(!interaction.channel?.send)throw Error("This server channel cannot display cards.");
+      await interaction.channel.send({
+        content:"🃏 **"+escapeDiscord(shown.name)+"** · "+escapeDiscord(shown.rarity)+
+          " · "+escapeDiscord(shown.release),
+        files:[new AttachmentBuilder(shown.png,{name:"hatchem-show.png"})],
+        allowedMentions:{parse:[]},
+      });
+      if(interaction.suppressShowReply)return interaction.suppressShowReply();
+      return interaction.editReply("Card shown in the Hatchem channel.");
+    }catch(error){return interaction.editReply("Could not show that card: "+error.message);}
+  }
+  if (option === "upgrade" || option === "dustupgrade") {
     if (!isEnabled()) return interaction.editReply("Card upgrades are enabled only on the development bot.");
     try {
-      const request = await prepareCardUpgrade({
-        ownerId: interaction.user.id, guildId: interaction.guildId,
-        cardReference: interaction.options.getString("card", true),
+      const dustMode=option==="dustupgrade"||Boolean(interaction.options.getBoolean?.("use_dust"));
+      const request = await (dustMode?prepareDustUpgrade:prepareCardUpgrade)({
+        ownerId:interaction.user.id,guildId:interaction.guildId,
+        cardReference:interaction.options.getString("card",true),
       });
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`cards:upgrade:yes:${request.token}`)
+        new ButtonBuilder().setCustomId(`cards:${dustMode?"dustupgrade":"upgrade"}:yes:${request.token}`)
           .setStyle(ButtonStyle.Danger).setLabel("Confirm Upgrade"),
-        new ButtonBuilder().setCustomId(`cards:upgrade:no:${request.token}`)
+        new ButtonBuilder().setCustomId(`cards:${dustMode?"dustupgrade":"upgrade"}:no:${request.token}`)
           .setStyle(ButtonStyle.Secondary).setLabel("Cancel"),
       );
       return interaction.editReply({
         content: [
           `**Upgrade ${escapeDiscord(request.petName)} → ${request.target === "neon" ? "Neon" : "Mega Neon"}?**`,
           `Release: ${escapeDiscord(request.releaseId)}`,
-          `Consume exactly four cards: ${request.ids.join(", ")}`,
-          "**These four original card IDs will be permanently consumed**, and one NEW unique five-character card ID will be created.",
+          dustMode
+            ? `Use ${request.cards.length} card(s): ${request.cards.map(c=>c.publicId).join(", ")}`
+            : `Consume exactly four cards: ${request.ids.join(", ")}`,
+          ...(dustMode?[`Replace ${request.missing} missing card(s) for **${request.cost} ${request.rarity} Dust**.`,
+            `Current dust balance: ${request.available}. Remaining after upgrade: ${request.available-request.cost}.`]:[]),
+          "**All listed original cards will be permanently consumed**, and one NEW five-character card ID will be created.",
           "**All decorative frames will be removed from the consumed cards if any are applied. Frames and decorations do not transfer to the upgraded card.**",
-          "Tagged cards are eligible; check the four listed IDs before confirming. You have 90 seconds.",
+          "Locked cards cannot be consumed. Check the listed IDs and dust before confirming. You have 90 seconds.",
         ].join("\n"),
         components: [row], allowedMentions: { parse: [] },
       });
@@ -987,10 +1041,14 @@ export async function autocompleteCards(interaction) {
         value:(prefix+r.value).slice(0,100),
       })).filter(r=>r.value.length<=100)].slice(0,25));
     }
+    if(option==="show")return interaction.respond(await suggestShowCards(focused));
+    if(option==="dustupgrade")return interaction.respond(await suggestOwnedCardReferences(interaction.user.id,focused,{includePets:false}));
     if (option === "upgrade") {
+      if(interaction.options.getBoolean?.("use_dust"))
+        return interaction.respond(await suggestOwnedCardReferences(interaction.user.id,focused,{includePets:false}));
       return interaction.respond(await suggestOwnedCardUpgrades(interaction.user.id, focused));
     }
-    if (["tag", "untag", "stats", "view"].includes(option)) {
+    if (["tag", "untag", "stats", "view","lock","unlock"].includes(option)) {
       return interaction.respond(await suggestOwnedCardReferences(interaction.user.id, focused,
         { includePets: option === "tag" || option === "untag" }));
     }
