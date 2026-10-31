@@ -502,6 +502,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleCardBurnInteraction(interaction);
       return;
     }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:dustupgrade:")) {
+      await handleCardUpgrade(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId.startsWith("cards:upgrade:")) {
       await handleCardUpgrade(interaction);
       return;
