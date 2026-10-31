@@ -9,6 +9,7 @@ const schema = new mongoose.Schema({
   eventType: { type: String, enum: ["burn", "upgrade"], required: true },
   targetUpgradeLevel: { type: String, enum: ["neon", "mega", null], default: null },
   consumedCardCopyIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  dustSpent: {rarity:{type:String,default:""},amount:{type:Number,default:0}},
   resultCardCopyId: { type: mongoose.Schema.Types.ObjectId, ref: "CardCopy", default: null },
 }, { timestamps: true });
 schema.index({ cardDefinitionId: 1, eventType: 1, createdAt: -1 });
