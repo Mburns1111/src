@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import { claimCardActionCooldown, releaseCardActionCooldown, readCardActionCooldown } from "../services/card-action-cooldowns.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
 import { startCardTrade } from "./card-trade-ui.js";
+import { startCardBurn,dustBalanceText } from "./card-burn-ui.js";
+import { getCardDustBalance } from "../services/card-burns.js";
 import { registerCardCollector, isRegisteredCardCollector, cardRegistrationReminder, canPlayCardGame } from "../services/card-collector-registration.js";
 import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
@@ -42,6 +44,9 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
     .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false))
     .addStringOption(o => o.setName("tag").setDescription("Optional saved tag filter, e.g. cute").setRequired(false)))
+  .addSubcommand(c => c.setName("burn").setDescription("Permanently burn owned untagged cards for rarity dust")
+    .addStringOption(o => o.setName("card_ids").setDescription("One or more five-character card IDs (spaces or commas)").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(c => c.setName("dust").setDescription("Show your rarity dust wallet"))
   .addSubcommand(c => c.setName("upgrade").setDescription("Combine 4 matching cards into Neon or Mega Neon")
     .addStringOption(o => o.setName("card").setDescription("One card ID or pet name; bot finds four matching copies").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c => c.setName("stats").setDescription("See collector, burn and upgrade statistics for a card")
@@ -141,6 +146,15 @@ export async function execute(interaction) {
     const summary = await getCardCollectionSummary(interaction.user.id);
     return interaction.editReply(formatCardCollectionSummary(summary));
   }
+  if (option === "burn") {
+    if (!isEnabled()) return interaction.editReply("Card burning is only available on the development bot.");
+    return startCardBurn(interaction);
+  }
+  if (option === "dust") {
+    if (!isEnabled()) return interaction.editReply("Dust balances are only available on the development bot.");
+    const balance=await getCardDustBalance(interaction.user.id);
+    return interaction.editReply({content:dustBalanceText(balance),allowedMentions:{parse:[]}});
+  }
   if (option === "upgrade") {
     if (!isEnabled()) return interaction.editReply("Card upgrades are enabled only on the development bot.");
     try {
@@ -189,7 +203,7 @@ export async function execute(interaction) {
           `**Recorded cards burned:** ${lifecycle.burned}`,
           `**Recorded Neon upgrades:** ${lifecycle.upgradedToNeon}`,
           `**Recorded Mega Neon upgrades:** ${lifecycle.upgradedToMega}`,
-          "*Burn/upgrade tracking is prepared for future actions; none are implemented yet.*",
+          "*Burns and upgrades count completed, recorded card actions.*",
         ].join("\n"), allowedMentions: { parse: [] },
       });
     } catch (error) {
@@ -953,6 +967,16 @@ export async function autocompleteCards(interaction) {
         r.releaseId.toLocaleLowerCase().includes(term) ||
         String(r.name).toLocaleLowerCase().includes(term)
       ).slice(0,25).map(r=>({ name:(r.name+" · "+r.releaseId).slice(0,100), value:r.releaseId })));
+    }
+    if (option === "burn") {
+      const input=String(focused||"");
+      const prefix=input.replace(/[^\s,;]*$/,"");
+      const last=input.slice(prefix.length);
+      const references=await suggestOwnedCardReferences(interaction.user.id,last,{includePets:false});
+      return interaction.respond(references.map(r=>({
+        name:r.name,
+        value:(prefix+r.value).slice(0,100),
+      })).filter(r=>r.value.length<=100).slice(0,25));
     }
     if (option === "upgrade") {
       return interaction.respond(await suggestOwnedCardUpgrades(interaction.user.id, focused));
