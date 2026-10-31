@@ -10,7 +10,7 @@ export function dustBalanceText(balance) {
   return [
     "✨ **Your Hatchem Dust**",
     ...BURN_RARITIES.map(r=>"• **"+r+":** "+Number(balance[r]||0)),
-    "Dust is rarity-specific. Spending dust on upgrades is not available yet.",
+    "Dust is rarity-specific. Use .dustupgrade CARDID to replace missing matching cards.",
   ].join("\n");
 }
 
