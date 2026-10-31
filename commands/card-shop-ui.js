@@ -40,7 +40,7 @@ export async function cardShopPayload(guildId, userId, notice = "") {
       `**Extra Grabs:** ${grabs}  ·  **Extra Drops:** ${drops}`,
       "",
       `**Extra Grab — ${CARD_EXTRA_ITEMS.grab.price} Points each**`,
-      "Use another grab during your 5-minute cooldown. An extra may also allow another card from the same drop.",
+      "Use a grab during your 5-minute cooldown.",
       `**Extra Drop — ${CARD_EXTRA_ITEMS.drop.price} Points each**`,
       "Hatch another egg during your 15-minute drop cooldown.",
       "",
