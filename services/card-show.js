@@ -1,4 +1,5 @@
 import CardDefinition from "../models/CardDefinition.js";
+import CardCopy from "../models/CardCopy.js";
 import CardRelease from "../models/CardRelease.js";
 import CardSeries from "../models/CardSeries.js";
 import PetCatalog from "../models/PetCatalog.js";
@@ -53,11 +54,12 @@ export async function resolveShowCard(reference){
 
 export async function renderShownCard(reference){
   const definition=await resolveShowCard(reference);
-  const [pet,release,series]=await Promise.all([
+  const [pet,release,series,collectors]=await Promise.all([
     PetCatalog.findOne({petId:definition.petId}).select("name").lean(),
     CardRelease.findOne({releaseId:definition.releaseId})
       .select("name cardBackgroundKey cardFrameKey status").lean(),
     CardSeries.findOne({seriesId:definition.seriesId}).select("name").lean(),
+    CardCopy.distinct("ownerDiscordUserId",{cardDefinitionId:definition._id,state:"owned"}),
   ]);
   const [petImage,backgroundImage,frameImage]=await Promise.all([
     loadCardArtwork(definition.petArtworkKey,"pet"),
@@ -71,7 +73,7 @@ export async function renderShownCard(reference){
     releaseName:release?.name||definition.releaseId,
     seriesName:series?.name||definition.seriesId,
     publicId:"PREVIEW",artStatus:definition.artStatus,artUrl:definition.artUrl,
-    artistCredit:definition.artistCredit,
+    artistCredit:definition.artistCredit,otherCollectorCount:collectors.length,
   });
   return {png,name,rarity:definition.rarity,release:release?.name||definition.releaseId};
 }
