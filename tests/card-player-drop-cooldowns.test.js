@@ -8,7 +8,7 @@ import {
 } from "../services/card-action-cooldowns.js";
 import { refundLosingCardGrabCooldowns } from "../services/card-drop-claims.js";
 import { parseHatchemText } from "../services/hatchem-text-commands.js";
-import { data as cardCommand } from "../commands/cards.js";
+import { data as cardCommand,ownerCardOptions } from "../commands/cards.js";
 
 const user = "123456789012345678";
 const guildA = "234567890123456789";
@@ -18,7 +18,8 @@ test("member commands grant a normal drop and cooldown status, while owner test-
   const commands = cardCommand.toJSON().options.map(option => option.name);
   assert.ok(commands.includes("drop"));
   assert.ok(commands.includes("cooldowns"));
-  assert.ok(commands.includes("test-drop"));
+  assert.ok(!commands.includes("test-drop"),"owner tools stay out of public /cards");
+  assert.ok(ownerCardOptions.toJSON().options.some(o=>o.name==="test-drop"));
   assert.deepEqual(parseHatchemText(".drop"), { action: "drop", options: {} });
   assert.deepEqual(parseHatchemText(".cooldowns"), { action: "cooldowns", options: {} });
   assert.equal(CardDrop.schema.path("mode").defaultValue, "test");
