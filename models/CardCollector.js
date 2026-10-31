@@ -11,6 +11,8 @@ const schema = new mongoose.Schema({
   // Old test collectors with cards are not silently registered.
   registeredAt: { type: Date, default: null },
   registeredGuildIds: { type: [String], default: [] },
+  bonusGrabs: {type:Number,default:0,min:0},
+  bonusDrops: {type:Number,default:0,min:0},
   dust: {
     Common: { type: Number, default: 0, min: 0 },
     Uncommon: { type: Number, default: 0, min: 0 },

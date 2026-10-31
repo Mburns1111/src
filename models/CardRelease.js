@@ -18,6 +18,14 @@ const schema = new mongoose.Schema({
     "Ultra-Rare": { type: Number, default: 14, min: 0, max: 100 },
     Legendary: { type: Number, default: 8, min: 0, max: 100 },
   },
+  // Frozen owner-authored achievement roster and private release secrets.
+  achievementRoster: {type:[String],default:[]},
+  achievementSecrets: {type:[new mongoose.Schema({
+    key:{type:String,required:true},name:{type:String,required:true},
+    description:{type:String,required:true},tier:{type:String,enum:["basic","medium","advanced"],required:true},
+    metric:{type:String,enum:["acquiredDesigns","ownedDesigns","neonDesigns","megaDesigns"],required:true},
+    definitionIds:{type:[String],required:true},activeOnly:{type:Boolean,default:true},
+  },{_id:false})],default:[]},
   status: { type: String, enum: ["draft", "active", "retired"], default: "draft" },
 }, { timestamps: true });
 

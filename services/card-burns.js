@@ -1,3 +1,4 @@
+import { recordAchievementEvent } from "./card-achievement-engine.js";
 import { randomBytes } from "node:crypto";
 import mongoose from "mongoose";
 import CardCopy from "../models/CardCopy.js";
@@ -177,6 +178,7 @@ export async function confirmCardBurn(token,ownerId,guildId) {
         actorDiscordUserId:ownerId,eventType:"burn",
         consumedCardCopyIds:[new mongoose.Types.ObjectId(c._id)],
       })),{session,ordered:true});
+      await recordAchievementEvent({id:request.operationKey,userId:ownerId,kind:"burns",cards:rows,guildId:request.guildId},session);
     });
     pendingBurns.delete(token);
     return {count:request.cards.length,dust:request.dust,cards:request.cards};

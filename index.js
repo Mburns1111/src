@@ -1,3 +1,5 @@
+import {initializeAchievements} from "./services/card-achievement-engine.js";
+import {deliverAchievementNotices} from "./services/card-achievements.js";
 
 import "dotenv/config";
 import { validateRuntimeConfiguration } from "./services/runtime-configuration.js";
@@ -226,6 +228,7 @@ async function runCardDropCloseSweep() {
   try {
     await reconcileCardDropClosures(client);
     await reconcileExpiredCardTrades(client);
+    await deliverAchievementNotices(client);
   }
   catch (error) { console.error("[Cards] Drop-close sweep failed:", error); }
   finally { cardDropCloseRunning = false; }
@@ -357,12 +360,13 @@ async function sendProfileReminder(interaction) {
   });
 }
 
-client.once(Events.ClientReady, (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
   clearTimeout(discordReadyTimeout);
   startMediaTelemetry();
   voiceActivityTimer = setInterval(() => void voiceActivityTick(), 60_000);
   voiceActivityTimer.unref?.();
   if (process.env.ENABLE_CARD_GAME_TEST === "1") {
+    await initializeAchievements();
     cardDropCloseTimer = setInterval(() => void runCardDropCloseSweep(), 5000);
     cardDropCloseTimer.unref?.();
     void runCardDropCloseSweep();

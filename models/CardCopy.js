@@ -10,6 +10,7 @@ const schema = new mongoose.Schema({
   source: { type: String, enum: ["drop", "upgrade", "admin"], default: "drop" },
   consumedAt: { type: Date, default: null },
   tag: { type: String, default: "", maxlength: 32, trim: true },
+  achievementEligible: { type: Boolean, default: false },
   locked: { type: Boolean, default: false },
   createdFrom: { type: [mongoose.Schema.Types.ObjectId], default: [] },
 }, { timestamps: true });

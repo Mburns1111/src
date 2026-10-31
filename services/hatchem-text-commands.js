@@ -53,7 +53,7 @@ export function parseHatchemTagArguments(raw, savedTags = []) {
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|history|show)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|halloffame|hof|history|show)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = ({createtag:"create-tag",tagcreate:"create-tag",tagdelete:"delete-tag",tagmultiple:"tag-multiple",untagmultiple:"untag-multiple",deletetag:"delete-tag"})[found[1].toLowerCase()] || found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "register") return { action, options: {} };
@@ -64,7 +64,8 @@ export function parseHatchemText(content) {
   }
   if (action === "drop") return { action: "drop", options: {} };
   if (action === "dust") return { action, options: {} };
-  if (["achievements","history"].includes(action)) return {action,options:{}};
+  if (["achievements","halloffame","hof"].includes(action)) return {action:"achievements",options:{page:Math.max(1,parseInt(args)||1),view:action==="achievements"?"mine":"hall"}};
+  if(action==="history")return {action,options:{}};
   if (["lock","unlock"].includes(action)) return {action,options:{card_id:args}};
   if (action==="show") return {action,options:{pet:args}};
   if (action==="dustupgrade")return {action,options:{card:args}};
@@ -140,7 +141,8 @@ export const HATCHEM_HELP = [
   ".dustupgrade CARDID (or .upgrade CARDID dust) — upgrade with 1–3 matching cards plus dust",
   ".lock CARDID / .unlock CARDID — prevent or allow burns, gifts, trades and upgrades",
   ".history — view completed gifts and trades",
-  ".achievements — view your milestones",
+  ".achievements [page] — privately view milestones and earned rewards",
+  ".hof [page] — anonymous Secret Hall of Fame",
   ".show Pet Name — display a card in this channel; /cards show has search suggestions",
   "Tag FIRST, then pet name or IDs. No quotes necessary; create multiword tags first.",
 ].join("\n");
@@ -221,7 +223,7 @@ export async function runHatchemText(message, parsed) {
       getSubcommand: () => parsed.action,
       getString: key => options[key] || null,
       getUser: key => key === "member" ? target : null,
-      getInteger: () => null,
+      getInteger: key => options[key] || null,
       getBoolean: key => Boolean(options[key]),
       getAttachment: () => null,
     },
@@ -231,7 +233,11 @@ export async function runHatchemText(message, parsed) {
     editReply: async payload => {
       const body = typeof payload === "string" ? { content: payload } : payload;
       const data = { ...body, allowedMentions: body.allowedMentions || { parse: [] } };
-      response = response ? await response.edit(data) : await message.reply(data);
+      if(parsed.action==="achievements"&&options.view!=="hall"){
+        try {response=response?await response.edit(data):await message.author.send(data);}
+        catch {await message.reply({content:"I couldn't send your private achievements. Use /cards achievements for a private view.",allowedMentions:{parse:[]}});return null;}
+        if(!facade.achievementNoticeSent){facade.achievementNoticeSent=true;await message.reply({content:"Your achievements were sent privately.",allowedMentions:{parse:[]}});}
+      }else response = response ? await response.edit(data) : await message.reply(data);
       return response;
     },
   };

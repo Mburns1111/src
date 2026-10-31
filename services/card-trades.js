@@ -1,3 +1,4 @@
+import { recordAchievementEvent, achievementStart } from "./card-achievement-engine.js";
 import mongoose from "mongoose";
 import CardTrade from "../models/CardTrade.js";
 import CardCopy from "../models/CardCopy.js";
@@ -251,6 +252,11 @@ export async function confirmCardGift({ tradeId, userId, guildId }) {
       }, $inc:{ revision:1 } }, {session});
       if (done.modifiedCount !== 1)
         throw new Error("The gift changed before it could complete. No cards were sent.");
+      if(achievementStart()){
+      const giftCards=await CardCopy.find({publicId:{$in:ids}}).session(session).lean();
+      await recordAchievementEvent({id:"gift:"+gift._id,userId,kind:"gifts",cards:giftCards,partner:gift.participants[1],guildId,channelId:gift.channelId},session);
+      await recordAchievementEvent({id:"gift:"+gift._id,userId:gift.participants[1],kind:"receipts",cards:giftCards,acquire:true,guildId,channelId:gift.channelId},session);
+      }
       return { completed:true, count:ids.length, recipientId:gift.participants[1] };
     });
   } finally {
@@ -301,6 +307,14 @@ export async function finalizeCardTrade({ tradeId, userId, guildId }) {
       }, $inc: { revision: 1 } }, { session });
       if (result.modifiedCount !== 1)
         throw new Error("The trade changed before completion. No cards moved.");
+      if(achievementStart())for(let side=0;side<2;side++){
+        const received=await CardCopy.find({publicId:{$in:trade.offers[1-side]}}).session(session).lean();
+        // A one-sided transfer through the trade UI is not a two-sided trade achievement.
+        if(trade.offers.every(ids=>ids.length))await recordAchievementEvent({id:"trade:"+trade._id,userId:trade.participants[side],kind:"trades",
+          cards:received,acquire:true,guildId,channelId:trade.channelId},session);
+        else if(received.length)await recordAchievementEvent({id:"trade:"+trade._id,userId:trade.participants[side],kind:"receipts",
+          cards:received,acquire:true,guildId,channelId:trade.channelId},session);
+      }
       return { completed: true };
     });
   } finally {

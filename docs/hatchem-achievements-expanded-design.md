@@ -1,6 +1,13 @@
-# Hatchem — Expanded Achievements & Bonus Actions (design; NOT activated)
+# Hatchem — Expanded Achievements & Bonus Actions
 
-**Status:** This is the agreed direction and proposed expanded achievement catalog, **not an implementation or a promise that rewards are currently credited**. Current `services/card-achievements.js` still contains ten badges and no bonus-cooldown token awards. Before members test rewards, implement this spec and test one-time award/refund behavior on the development branch. Do not merge into `main` or deploy to Wispbyte without approval.
+**Status:** Core expanded progression, rewards, discovery ranks, private secrets,
+Hall of Fame and bonus spending are implemented on the development branch.
+Official rewards require an explicit start date. Discord verification is deferred.
+Per-release themed secrets require owner-authored conditions; competitive titles
+remain a separate feature. See the implementation update below for configuration
+and the exact supported release-secret triggers. The following design sections
+record the agreed specification, including future themed-secret concepts.
+
 
 ## Reward tiers
 
@@ -223,3 +230,51 @@ Two independent progress tracks, using **all-time successful CardClaim winners**
 **Discovery numbers & release-first rewards:** Every achievement keeps its immutable lifetime #N sequence. The **first new eligible Medium/Advanced unlock per `(releaseId, achievementKey)`** wins **+1 bonus grab** in addition to its tier reward. This bonus resets with every release, but the original #1–#3 Hall of Fame standings never reset or change. Public secret names and conditions remain hidden.
 
 **Total proposed catalog:** 10 basic + 12 medium + 12 advanced + **12 permanent secrets** + 4 visible reviewed-value = 50 named achievement definitions, **plus six new secret achievements by default per release**, unbounded grab/drop milestones, and one per release completion. The existing ten implemented badges are unchanged; secret detection/UI, Hall of Fame rankings, and bonus awards are not yet activated.
+
+## Implementation update — October 31
+
+The expanded achievement engine is now coded on `feature/card-game-foundation`.
+Discord verification is deferred. Competitive titles are a separate future feature.
+
+- Set `CARD_ACHIEVEMENTS_START_AT` to one explicit ISO timestamp before enabling
+  official progression. It is persisted and must remain identical on restart.
+  With it absent, new rewards/events and bonus spending are disabled. Test eggs
+  (`mode:test` or `test-` releases) never count, even after this boundary.
+- No development history is backfilled. Old unnumbered badges are preserved as
+  legacy records when a new post-launch qualification occurs; they do not reserve
+  discovery positions or create retroactive bonuses.
+- Successful grabs, publication of player drops, two-sided trades, gifts, burns,
+  upgrades and locks append progression in the gameplay transaction. Opening the
+  menu is read-only. Per-owner/per-copy acquisitions survive transfers and burns.
+- Discovery numbers, release-first claims, badges and wallet credits commit
+  together. A global transaction coordinator serializes discovery allocation;
+  this favors correctness for the community server over high-throughput scaling.
+- Bonus grabs/drops are stored globally and automatically consumed only while
+  the corresponding ordinary cooldown is active. Duplicate source attempts are
+  rejected. Failed actions, displaced entries and losing entries refund once.
+  Extra Drop purchases are still a separate outstanding feature.
+- `.achievements [page]` sends a DM; `/cards achievements` is ephemeral. Earned
+  secret details never fall back to the channel. `.hof [page]` / `.halloffame`
+  show anonymous rankings; slash users select the Hall of Fame view under
+  `/cards achievements`. Numbered receipts are sent privately after unlock.
+  Notice delivery is at-most-once; failed/blocked DMs remain readable in the
+  private menu. A crash during external delivery may omit a notice, never a reward.
+- Set `CARD_REWARD_SEASON_RELEASE` to one active release for general activity
+  spanning releases. Single-release actions use that release only while active.
+  Retired-card actions do not silently receive another season's first bonus.
+- Before activating a real release, author its six (or more) private secrets in
+  a local JSON object `{releaseId,secrets:[...]}`. Each secret has `key`, `name`,
+  `description`, `tier`, `metric`, `definitionIds`, `activeOnly`. Supported metrics
+  are acquiredDesigns, ownedDesigns, neonDesigns and megaDesigns. The listed IDs
+  are all required. At least two secrets of each tier are required by the script.
+  Run `node scripts/configure-card-achievements.js config.json` to validate,
+  then add `--apply` to freeze secrets and the approved enabled completion roster.
+  This does not activate an egg. More elaborate time/artwork-specific triggers
+  need an explicit future implementation; the provisional Series 1 concepts
+  above have not been turned into invented requirements.
+- Reviewed-value awards require 20 reviewed release definitions, source names,
+  review dates and numeric values; rarity never substitutes for reviewed value.
+
+Manual checks can wait: concurrent discovery/release-first awards, bonus
+consumption/refunds, private secret visibility, locks, and persistence across a
+restart/release change remain in the Discord verification queue.

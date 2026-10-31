@@ -1,3 +1,4 @@
+import { recordAchievementEvent } from "./card-achievement-engine.js";
 import { randomBytes } from "node:crypto";
 import mongoose from "mongoose";
 import CardCopy from "../models/CardCopy.js";
@@ -197,13 +198,15 @@ export async function confirmCardUpgrade(token, ownerId, guildId) {
         publicId, cardDefinitionId: cards[0].cardDefinitionId,
         ownerDiscordUserId: ownerId, originGuildId: guildId,
         upgradeLevel: target, state: "owned", source: "upgrade",
-        createdFrom: cards.map(c => c._id),
+        createdFrom: cards.map(c => c._id), achievementEligible: cards.every(c=>c.achievementEligible),
       }], { session });
       await CardLifecycleEvent.create([{
         operationKey: entry.operationKey, cardDefinitionId: cards[0].cardDefinitionId,
         actorDiscordUserId: ownerId, eventType: "upgrade", targetUpgradeLevel: target,
         consumedCardCopyIds: cards.map(c => c._id), resultCardCopyId: created._id,
       }], { session });
+      await recordAchievementEvent({id:entry.operationKey,userId:ownerId,kind:target==="neon"?"neons":"megas",
+        cards:[created],acquire:true,guildId},session);
       result = { publicId, target, petName: entry.petName, consumedIds: entry.ids };
     });
     pending.delete(token);

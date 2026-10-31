@@ -1,3 +1,4 @@
+import {recordPublishedDrop, achievementStart} from "../services/card-achievement-engine.js";
 import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, MessageFlags, SlashCommandBuilder, StringSelectMenuBuilder } from "discord.js";
 import mongoose from "mongoose";
 import { claimCardActionCooldown, releaseCardActionCooldown, readCardActionCooldown } from "../services/card-action-cooldowns.js";
@@ -30,7 +31,7 @@ import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade, suggestOwned
 import { prepareDustUpgrade,confirmDustUpgrade,cancelDustUpgrade } from "../services/card-dust-upgrades.js";
 import { setCardLock } from "../services/card-locks.js";
 import { getCardTradeHistory,formatTradeHistory } from "../services/card-trade-history.js";
-import { listCardAchievements,formatCardAchievements } from "../services/card-achievements.js";
+import { listCardAchievements,formatCardAchievements,secretHallOfFame } from "../services/card-achievements.js";
 import { suggestShowCards,renderShownCard } from "../services/card-show.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { updateMultipleOwnedCardTags, prepareTagDeletion, confirmTagDeletion } from "../services/card-tag-management.js";
@@ -54,7 +55,9 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c=>c.setName("unlock").setDescription("Allow your card to be transferred, burned or upgraded again")
     .addStringOption(o=>o.setName("card_id").setDescription("Owned five-character card ID").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c=>c.setName("history").setDescription("See the last 12 gifts and trades you completed"))
-  .addSubcommand(c=>c.setName("achievements").setDescription("View collection and activity milestones"))
+  .addSubcommand(c=>c.setName("achievements").setDescription("View your private milestones or anonymous Secret Hall of Fame")
+    .addIntegerOption(o=>o.setName("page").setDescription("Page number").setMinValue(1))
+    .addStringOption(o=>o.setName("view").setDescription("Which screen").addChoices({name:"My achievements",value:"mine"},{name:"Secret Hall of Fame",value:"hall"})))
   .addSubcommand(c=>c.setName("dustupgrade").setDescription("Use rarity dust to replace missing upgrade copies")
     .addStringOption(o=>o.setName("card").setDescription("An owned Normal/Neon card ID").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c=>c.setName("show").setDescription("Search for and publicly display a release card by pet name")
@@ -192,7 +195,11 @@ export async function execute(interaction) {
       allowedMentions:{parse:[]}});
   }
   if(option==="achievements"){
-    try{return interaction.editReply(formatCardAchievements(await listCardAchievements(interaction.user.id)));}
+    try{
+      const page=interaction.options.getInteger("page")||1;
+      const content=interaction.options.getString("view")==="hall"?await secretHallOfFame(page):formatCardAchievements(await listCardAchievements(interaction.user.id),page);
+      return interaction.editReply({content,allowedMentions:{parse:[]}});
+    }
     catch(error){console.warn("[Cards] Achievements:",error);return interaction.editReply("Unable to load achievements.");}
   }
   if(option==="show"){
@@ -654,7 +661,13 @@ async function publishCardDrop(interaction, { releaseId, testMode }) {
       components: [rowButtons(drop)],
       allowedMentions: { parse: [] },
     });
-    await CardDrop.updateOne({ _id: drop._id }, { $set: { messageId: posted.id } });
+    if(achievementStart()){
+      const session=await mongoose.startSession();
+      try {await session.withTransaction(async()=>{
+        await CardDrop.updateOne({_id:drop._id},{$set:{messageId:posted.id}},{session});
+        await recordPublishedDrop(drop,session);
+      });}finally{await session.endSession();}
+    }else await CardDrop.updateOne({ _id: drop._id }, { $set: { messageId: posted.id } });
   } catch (error) {
     // If sending succeeded but saving the message ID failed, delete the
     // claimable message before refunding; otherwise preserve the cooldown.

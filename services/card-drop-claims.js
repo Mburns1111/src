@@ -1,3 +1,4 @@
+import { recordAchievementEvent, eligiblePlayerDrop } from "./card-achievement-engine.js";
 import { randomInt } from "node:crypto";
 import mongoose from "mongoose";
 import CardDrop from "../models/CardDrop.js";
@@ -121,6 +122,7 @@ export async function settleReservedCard({ dropId, slot, now = new Date() }) {
         const publicId = await allocateCardId(session);
         const copy = new CardCopy({
           publicId, cardDefinitionId: entry.cardDefinitionId,
+          achievementEligible: eligiblePlayerDrop(drop),
           ownerDiscordUserId: winner, originGuildId: drop.guildId,
           upgradeLevel: "normal", state: "owned", source: "drop",
         });
@@ -128,6 +130,12 @@ export async function settleReservedCard({ dropId, slot, now = new Date() }) {
         await CardClaim.create([{
           dropId: drop._id, slot, discordUserId: winner, cardCopyId: copy._id,
         }], { session, ordered: true });
+      }
+      if (!oldClaim && eligiblePlayerDrop(drop)) {
+        const claim = await CardClaim.findOne({dropId:drop._id,slot}).session(session);
+        const awarded = await CardCopy.findById(claim.cardCopyId).session(session);
+        await recordAchievementEvent({id:"grab:"+drop._id+":"+slot,userId:winner,kind:"grabs",cards:[awarded],acquire:true,
+          releaseId:drop.releaseId,guildId:drop.guildId,channelId:drop.channelId},session);
       }
       const updated = await CardDrop.updateOne({
         _id: drop._id, [`slots.${slot}.settledAt`]: null,

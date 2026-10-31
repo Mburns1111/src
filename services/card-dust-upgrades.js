@@ -1,3 +1,4 @@
+import { recordAchievementEvent } from "./card-achievement-engine.js";
 import { randomBytes } from "node:crypto";
 import mongoose from "mongoose";
 import CardCopy from "../models/CardCopy.js";
@@ -102,7 +103,7 @@ export async function confirmDustUpgrade(token,ownerId,guildId) {
       const [created]=await CardCopy.create([{
         publicId,cardDefinitionId:new mongoose.Types.ObjectId(entry.definitionId),
         ownerDiscordUserId:ownerId,originGuildId:guildId,upgradeLevel:entry.target,
-        state:"owned",source:"upgrade",createdFrom:cards.map(c=>c._id),
+        state:"owned",source:"upgrade",achievementEligible:cards.every(c=>c.achievementEligible),createdFrom:cards.map(c=>c._id),
       }],{session});
       await CardLifecycleEvent.create([{
         operationKey:entry.operationKey,
@@ -111,6 +112,8 @@ export async function confirmDustUpgrade(token,ownerId,guildId) {
         consumedCardCopyIds:cards.map(c=>c._id),resultCardCopyId:created._id,
         dustSpent:{rarity:entry.rarity,amount:entry.cost},
       }],{session});
+      await recordAchievementEvent({id:entry.operationKey,userId:ownerId,kind:entry.target==="neon"?"neons":"megas",
+        cards:[created],acquire:true,guildId,flags:entry.target==="mega"?["dustMega"]:[]},session);
       output={publicId,target:entry.target,petName:entry.petName,
         consumedIds:entry.cards.map(c=>c.publicId),dustSpent:entry.cost,rarity:entry.rarity};
     });
