@@ -98,7 +98,7 @@ export const HATCHEM_GUIDE = [
   ".help — list more commands",
   ".trade @member — offer cards on both sides, both confirm twice",
   ".give @member CARDID CARDID or .give @member tag:cute — gift cards after sender confirmation",
-  ".burn CARDID or .burn ID1 ID2 — burn untagged cards for rarity dust after confirmation",
+  ".burn CARDID, .burn ID1 ID2, or .burn tag:burn — burn selected cards for rarity dust after confirmation",
   ".dust — check your dust by rarity",
 ].join("\n");
 
@@ -122,7 +122,8 @@ export const HATCHEM_HELP = [
   ".deletetag Favorites · .stats abys · .view abys",
   ".trade @member — both add cards and confirm twice",
   ".give @member ID1 ID2 or .give @member tag:cute — the giver confirms once",
-  ".burn CARDID or .burn ID1 ID2 — review and confirm destroying untagged cards for dust",
+  ".burn CARDID, .burn ID1 ID2, or .burn tag:burn — confirm before destroying cards for dust",
+  ".createtag burn then .tag burn CARDID — select cards to burn; other tags protect cards",
   ".dust — view your five rarity dust balances",
   "Tag FIRST, then pet name or IDs. No quotes necessary; create multiword tags first.",
 ].join("\n");
@@ -134,7 +135,7 @@ export async function runHatchemText(message, parsed) {
     return true;
   }
   if (parsed.action === "burn" && !parsed.options.card_ids) {
-    await message.reply({content:"Use .burn CARDID or .burn ID1 ID2. Tagged cards are protected; use .untag first. You must confirm before any card is destroyed.",allowedMentions:{parse:[]}});
+    await message.reply({content:"Use .burn CARDID, .burn ID1 ID2, or .burn tag:burn. Only the burn tag can be used for burn selection; other tags protect cards. Confirm before destroying anything.",allowedMentions:{parse:[]}});
     return true;
   }
   const match = /^<@!?(\d{17,20})>$/.exec(parsed.options.member || "");
