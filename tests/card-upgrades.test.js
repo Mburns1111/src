@@ -71,7 +71,7 @@ test("completed upgrades announce the newly rendered card publicly while confirm
   const { readFileSync } = await import("node:fs");
   const source = readFileSync(new URL("../commands/cards.js", import.meta.url), "utf8");
   const handler = source.slice(source.indexOf("export async function handleCardUpgrade"), source.indexOf("export async function handleCardGrab"));
-  assert.match(handler, /await confirmCardUpgrade\(token, interaction\.user\.id, interaction\.guildId\)/);
+  assert.match(handler, /dustMode\?confirmDustUpgrade:confirmCardUpgrade/);
   assert.match(handler, /renderCollectibleCardPreview\(/);
   assert.match(handler, /interaction\.channel\.send\(/);
   assert.match(handler, /new AttachmentBuilder\(image, \{ name: "upgraded-card\.png" \}\)/);
