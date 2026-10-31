@@ -69,6 +69,10 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c => c.setName("tags").setDescription("List your saved collection tags"))
   .addSubcommand(c => c.setName("delete-tag").setDescription("Remove a named tag from ALL your cards (confirmation required)")
     .addStringOption(o => o.setName("tag").setDescription("Exact tag to delete").setRequired(true)))
+;
+
+// Registered under /cards-owner in the dev guild, not in the player /cards list.
+export const ownerCardOptions = new SlashCommandBuilder().setName("cards-owner-tools").setDescription("Owner artwork and test tools")
   .addSubcommand(c => c.setName("egg-art-upload").setDescription("OWNER: save the Release 1 egg artwork to MongoDB")
     .addAttachmentOption(o => o.setName("image").setDescription("Release 1 egg image (PNG/JPG/WebP)").setRequired(true)))
   .addSubcommand(c => c.setName("art-upload").setDescription("OWNER: upload a test card art asset to MongoDB")
