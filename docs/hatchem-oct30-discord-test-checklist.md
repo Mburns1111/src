@@ -98,12 +98,15 @@ Development bot and test server **908522799285538817** only. Two accounts: **A =
 - [ ] Click Keep Cards. Verify the card remains owned and no dust was credited.
 - [ ] Repeat and click Burn 1 Card. The card leaves the active collection and the matching rarity dust balance increases.
 - [ ] Burn two or more untagged IDs in one confirmation. The reward total must correctly combine their rarities.
-- [ ] Tag a card. Burning it must be refused until it is untagged using the existing untag confirmation.
+- [ ] Tag a card **favorites** or **cute**. Burning it must be refused until it is untagged using the existing confirmation.
+- [ ] Create `.createtag burn`, apply it to several owned cards, then run `.burn tag:burn`. The preview must list exactly the burn-tagged cards, with no untagged or other-tag cards selected.
+- [ ] `.burn tag:cute`, `.burn tag:burned`, and `.burn tag:burn ID1` must all be refused; only the exact `tag:burn` selector is accepted.
+- [ ] Run `.burn CARDID` on a card tagged `burn`; it should be eligible without untagging. Cancel once to ensure nothing changes.
 - [ ] Try burning an ID belonging to another user, a duplicated ID, or a malformed ID. All must be rejected.
 - [ ] Account B attempts to confirm Account A's burn. It must not change any cards or balances.
 - [ ] Try the same confirmation twice or restart the bot and reuse the old button. No double reward.
 - [ ] Offer a card in a trade, then burn it before confirming the trade. The trade must fail without partially transferring cards.
-- [ ] Burn a Normal, Neon and Mega of the same rarity when available: temporary rates are 1, 4 and 16 dust respectively.
+- [ ] Burn a Normal, Neon and Mega of the same rarity when available: rewards are **1, 5 and 19** rarity dust respectively.
 - [ ] Confirm .stats on another copy of the same pet/release shows completed burns in its lifecycle count.
 
 ## Not implemented yet
