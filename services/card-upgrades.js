@@ -17,6 +17,7 @@ export function inspectUpgradeCards(cards, ownerId) {
   if (cards.some(c => !c || c.ownerDiscordUserId !== ownerId || c.state !== "owned")) {
     throw new Error("All four cards must still belong to you.");
   }
+  if(cards.some(c=>c.locked===true))throw new Error("Locked cards cannot be upgraded. Use .unlock CARDID first.");
   const first = cards[0];
   if (cards.some(c => String(c.cardDefinitionId) !== String(first.cardDefinitionId))) {
     throw new Error("All four cards must be the same pet from the same release.");
@@ -29,7 +30,7 @@ export function inspectUpgradeCards(cards, ownerId) {
 export function selectUpgradeSet(cards, preferredId = null) {
   // Prefer untagged copies for automatic selection when available, but never
   // prohibit a tagged card: tags only protect against burning.
-  const available = cards.filter(c => c?.state === "owned" && c.publicId);
+  const available = cards.filter(c => c?.state === "owned" && c.publicId && c.locked!==true);
   const sorted = [...available].sort((a, b) =>
     Number(Boolean(a.tag)) - Number(Boolean(b.tag)) ||
     String(a.createdAt || "").localeCompare(String(b.createdAt || "")) ||
@@ -63,7 +64,7 @@ export async function suggestOwnedCardUpgrades(ownerId, typed = "") {
   const query = String(typed || "").trim().slice(0, 100);
   const rows = await CardCopy.aggregate([
     { $match: { ownerDiscordUserId: ownerId, state: "owned",
-      upgradeLevel: { $in: ["normal", "neon"] }, publicId: { $type: "string" } } },
+      upgradeLevel: { $in: ["normal", "neon"] }, locked:{$ne:true}, publicId: { $type: "string" } } },
     { $sort: { createdAt: 1, _id: 1 } },
     { $group: {
       _id: { definition: "$cardDefinitionId", stage: "$upgradeLevel" },
@@ -115,7 +116,7 @@ async function findMatchingUpgradeCards(ownerId, reference) {
   const eligible = [];
   for (const def of defs) {
     const copies = await CardCopy.find({
-      ownerDiscordUserId: ownerId, state: "owned", cardDefinitionId: def._id,
+      ownerDiscordUserId: ownerId, state: "owned", locked:{$ne:true},cardDefinitionId: def._id,
       upgradeLevel: { $in: ["normal", "neon"] },
     }).sort({ createdAt: 1, _id: 1 }).limit(250).lean();
     const selected = selectUpgradeSet(copies);
@@ -187,8 +188,8 @@ export async function confirmCardUpgrade(token, ownerId, guildId) {
       const now = new Date();
       const consumed = await CardCopy.updateMany({
         _id: { $in: cards.map(c => c._id) },
-        ownerDiscordUserId: ownerId, state: "owned",
-        upgradeLevel: cards[0].upgradeLevel, cardDefinitionId: cards[0].cardDefinitionId,
+        ownerDiscordUserId: ownerId, state: "owned",locked:{$ne:true},
+        upgradeLevel: cards[0].upgradeLevel, cardDefinitionId: cards[0].cardDefinitionId,locked:{$ne:true},
       }, { $set: { state: "consumed", consumedAt: now } }, { session });
       if (consumed.modifiedCount !== CARDS_PER_UPGRADE) throw new Error("Upgrade cancelled: one or more cards changed.");
       const publicId = await allocateCardId(session);
