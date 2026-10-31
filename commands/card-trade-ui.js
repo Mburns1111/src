@@ -213,7 +213,7 @@ export async function handleCardTradeInteraction(i){
    const values=[0,1].flatMap(side=>{
     const label=traderName(trade,side);
     return d.sides[side].slice(from,from+TRADE_DISPLAY_PAGE_SIZE).map(c=>
-      "**"+label+": "+safe(c.name)+"** ["+c.id+"]"+
+      "**"+label+": "+safe(c.name)+"** `"+c.id+"`"+
       "\n"+safe(c.rarity)+" · "+safe(c.stage)+" · Reviewed score: "+
       (c.reviewedValue===null?"Not reviewed":c.reviewedValue)+
       "\nSeries: "+safe(c.seriesId)+" | Release: "+safe(c.releaseId)+
