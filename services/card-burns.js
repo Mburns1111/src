@@ -175,7 +175,7 @@ export async function confirmCardBurn(token,ownerId,guildId) {
         cardDefinitionId:new mongoose.Types.ObjectId(c.definitionId),
         actorDiscordUserId:ownerId,eventType:"burn",
         consumedCardCopyIds:[new mongoose.Types.ObjectId(c._id)],
-      })),{session});
+      })),{session,ordered:true});
     });
     pendingBurns.delete(token);
     return {count:request.cards.length,dust:request.dust,cards:request.cards};
