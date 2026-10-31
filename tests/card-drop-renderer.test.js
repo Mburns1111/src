@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CARD_DROP_IMAGE_SIZE, renderThreeCardDropImage } from "../services/card-drop-renderer.js";
-import { data } from "../commands/cards.js";
+import { data,ownerCardOptions } from "../commands/cards.js";
 
 test("three-card drop renders egg banner and 3 unissued cards as PNG", async () => {
   const png = await renderThreeCardDropImage({
