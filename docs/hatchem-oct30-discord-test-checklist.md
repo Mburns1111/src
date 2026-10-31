@@ -106,7 +106,7 @@ Development bot and test server **908522799285538817** only. Two accounts: **A =
 - [ ] Account B attempts to confirm Account A's burn. It must not change any cards or balances.
 - [ ] Try the same confirmation twice or restart the bot and reuse the old button. No double reward.
 - [ ] Offer a card in a trade, then burn it before confirming the trade. The trade must fail without partially transferring cards.
-- [ ] Burn a Normal, Neon and Mega of the same rarity when available: rewards are **1, 5 and 19** rarity dust respectively.
+- [ ] Burn a Normal, Neon and Mega of the same rarity when available: rewards are **1, 5 and 23** rarity dust respectively.
 - [ ] Confirm .stats on another copy of the same pet/release shows completed burns in its lifecycle count.
 
 ## Not implemented yet
