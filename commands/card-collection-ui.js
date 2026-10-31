@@ -55,7 +55,7 @@ async function collectionView(id, ownerId) {
     safe(c.petName),
     safe(c.rarityName),
     labelStage(c.upgradeLevel),
-    `ID:${safe(c.publicId || "PENDING")}`,
+    `ID:\`${c.publicId || "PENDING"}\``,
     safe(c.releaseName),
     ...(c.tag ? [`#${safe(c.tag)}`] : []),
     ...(c.locked ? ["🔒"] : []),
@@ -172,7 +172,7 @@ export async function handleCardCollectionInteraction(interaction) {
         frameImageSource: frame?.bytes,
       });
       return interaction.editReply({
-        content: `**${safe(pet?.name || def.petId)}** · ${safe(def.rarity)} · ${labelStage(copy.upgradeLevel)}\nCard ID: \`${safe(copy.publicId || "PENDING")}\`${copy.tag ? ` · Tag: ${safe(copy.tag)}` : ""}`,
+        content: `**${safe(pet?.name || def.petId)}** · ${safe(def.rarity)} · ${labelStage(copy.upgradeLevel)}\nCard ID: \`${copy.publicId || "PENDING"}\`${copy.tag ? ` · Tag: ${safe(copy.tag)}` : ""}`,
         embeds: [],
         files: [new AttachmentBuilder(png, { name: "collection-card.png" })],
         attachments: [],
