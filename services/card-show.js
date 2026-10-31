@@ -65,7 +65,7 @@ export async function renderShownCard(reference){
     frameImageSource:frameImage?.bytes,petName:name,rarity:definition.rarity,
     releaseName:release?.name||definition.releaseId,
     seriesName:series?.name||definition.seriesId,
-    publicId:"SHOW",artStatus:definition.artStatus,artUrl:definition.artUrl,
+    publicId:"PREVIEW",artStatus:definition.artStatus,artUrl:definition.artUrl,
     artistCredit:definition.artistCredit,
   });
   return {png,name,rarity:definition.rarity,release:release?.name||definition.releaseId};
