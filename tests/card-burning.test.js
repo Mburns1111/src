@@ -54,7 +54,9 @@ test("reward amounts are provisional, proportional to rarity and upgrade stage",
   {rarity:"Rare",upgradeLevel:"mega"},
   {rarity:"Legendary",upgradeLevel:"normal"},
  ];
- assert.deepEqual(calculateBurnDust(cards),{"Common":6,"Rare":19,"Legendary":1});
+ assert.deepEqual(calculateBurnDust(cards),{"Common":6,"Rare":23,"Legendary":1});
+ assert.equal(calculateBurnDust([{rarity:"Rare",upgradeLevel:"mega"}]).Rare,23);
+ assert.ok(23>4*5,"Mega burn bonus exceeds burning four Neon cards separately");
  assert.throws(()=>calculateBurnDust([{rarity:"Mythic",upgradeLevel:"normal"}]),/Cannot determine/);
  assert.equal(formatDustRewards({Rare:4,Common:1}),"4 Rare Dust · 1 Common Dust");
 });
@@ -281,7 +283,7 @@ test("burning a burn-tagged card succeeds transactionally without requiring an u
   }]})});
   PetCatalog.find=()=>({select:()=>({lean:async()=>[{petId:"cat",name:"Cat"}]})});
   const pending=await prepareCardBurn({ownerId:user,guildId:guild,cardReferences:"Abc12"});
-  assert.deepEqual(pending.dust,{Legendary:19});
+  assert.deepEqual(pending.dust,{Legendary:23});
   const sess={withTransaction:fn=>fn(),endSession:async()=>{}};
   mongoose.startSession=async()=>sess;
   CardCopy.find=()=>({session:()=>({lean:async()=>[copy]})});
@@ -293,7 +295,7 @@ test("burning a burn-tagged card succeeds transactionally without requiring an u
     modified++;return {modifiedCount:1};
   };
   CardCollector.updateOne=async(_query,update)=> {
-    assert.deepEqual(update.$inc,{"dust.Legendary":19});
+    assert.deepEqual(update.$inc,{"dust.Legendary":23});
     return {matchedCount:1};
   };
   CardLifecycleEvent.create=async(entries,options)=>{
