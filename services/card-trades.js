@@ -61,7 +61,7 @@ export async function cardTradeDetails(trade) {
   const ids = [...new Set((trade.offers || []).flat())];
   if (!ids.length) return { sides: [[], []] };
   const cards = await CardCopy.find({ publicId: { $in: ids } })
-    .select("publicId ownerDiscordUserId state cardDefinitionId upgradeLevel tag source originGuildId").lean();
+    .select("publicId ownerDiscordUserId state cardDefinitionId upgradeLevel tag locked source originGuildId").lean();
   const byId = new Map(cards.map(c => [c.publicId, c]));
   const defs = await CardDefinition.find({
     _id: { $in: cards.map(c => c.cardDefinitionId) },
@@ -91,7 +91,7 @@ export async function cardTradeDetails(trade) {
         artist: def?.artistCredit || "",
         originGuildId: card?.originGuildId || "",
         source: card?.source || "",
-        eligible: Boolean(card && card.state === "owned" &&
+        eligible: Boolean(card && card.locked !== true && card.state === "owned" &&
           card.ownerDiscordUserId === trade.participants[side] && def),
       };
     })),
@@ -149,6 +149,7 @@ export async function moveCardTradePage({tradeId,userId,guildId,direction}) {
 async function ownedIdsForTrade(ownerId, requested) {
   const selected = await Promise.all(requested.map(id => findOwnedCardById(ownerId, id)));
   if (selected.some(c => !c)) throw new Error("One or more cards are not owned by you.");
+  if (selected.some(c=>c.locked)) throw new Error("A selected card is locked. Use .unlock CARDID first.");
   const actualIds = selected.map(c => c.publicId);
   if (new Set(actualIds).size !== actualIds.length)
     throw new Error("Your offer contains a duplicate card ID.");
@@ -235,7 +236,7 @@ export async function confirmCardGift({ tradeId, userId, guildId }) {
         throw new Error("The gift contains a duplicated card ID.");
       for (const publicId of ids) {
         const updated = await CardCopy.updateOne({
-          publicId, ownerDiscordUserId:userId, state:"owned",
+          publicId, ownerDiscordUserId:userId, state:"owned", locked:{$ne:true},
         }, { $set:{
           ownerDiscordUserId:gift.participants[1], tag:"",
         } }, { session });
@@ -284,7 +285,7 @@ export async function finalizeCardTrade({ tradeId, userId, guildId }) {
       for (let side = 0; side < 2; side++) {
         for (const publicId of trade.offers[side]) {
           const result = await CardCopy.updateOne({
-            publicId, ownerDiscordUserId: trade.participants[side], state: "owned",
+            publicId, ownerDiscordUserId: trade.participants[side], state: "owned", locked:{$ne:true},
           }, {
             $set: { ownerDiscordUserId: trade.participants[1-side], tag: "" },
           }, { session });
