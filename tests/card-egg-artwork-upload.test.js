@@ -7,7 +7,7 @@ import { CARD_EGG_BUCKET, TEST_EGG_SOURCE } from "../services/card-egg-artwork-u
 import { EGG_ART_BUCKETS } from "../services/card-egg-artwork.js";
 
 test("staff egg-art-upload command asks for a Discord attachment", () => {
-  const sub = data.toJSON().options.find(o => o.name === "egg-art-upload");
+  const sub = ownerCardOptions.toJSON().options.find(o => o.name === "egg-art-upload");
   assert.ok(sub);
   assert.equal(sub.options.length, 1);
   assert.equal(sub.options[0].name, "image");
