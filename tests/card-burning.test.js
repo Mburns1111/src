@@ -32,7 +32,7 @@ test("members have .burn and .dust commands, slash burn ID autocomplete and safe
  assert.equal(burn.options[0].name,"card_ids");
  assert.equal(burn.options[0].autocomplete,true);
  assert.ok(cardsCommand.toJSON().options.some(o=>o.name==="dust"));
- const {readFileSync}=await import("node:fs");
+
 });
 
 test("burn reference parser only accepts unique five-character card IDs",()=>{
