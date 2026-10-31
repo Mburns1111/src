@@ -30,7 +30,7 @@ Dust has five separate rarity balances in the global `CardCollector` model. **Th
 
 Example: burning two Rare Normals and one Rare Neon awards **7 Rare Dust**. Burning a Legendary Normal awards **1 Legendary Dust**.
 
-The foundation separately proposes rarity dust *substitution* costs for upgrades; **those are not enabled** by burning. Dust cannot be spent yet. Do not present the provisional rewards as finalized market values or live game prices.
+Dust can now be spent through `.dustupgrade CARDID` for one to three matching physical cards. Substitution costs are Common 5, Uncommon 6, Rare 7, Ultra-Rare 8, Legendary 10 per missing Normal, or five times those prices per missing Neon. See `docs/hatchem-progression-protection-history-show.md`. Do not present these trial values as finalized live game prices.
 
 ## Suggested two-account Discord tests
 
