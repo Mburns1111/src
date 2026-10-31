@@ -27,7 +27,7 @@ export function giveawayAnnouncement(record) {
     record.prize.slice(0, 1800),
     "",
     `**Hosted by:** <@${record.creatorId}>`,
-    `**Entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}`,
+    ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
     ended
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
@@ -49,6 +49,7 @@ export function giveawayAnnouncement(record) {
     ? [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`giveaway:enter:${record._id}`).setLabel("Enter Giveaway").setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`giveaway:leave:${record._id}`).setLabel("Leave").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`giveaway:count:${record._id}`).setLabel("Entry Count").setStyle(ButtonStyle.Secondary),
       )]
     : [];
   return { embeds: [embed], components, allowedMentions: { parse: [] } };
