@@ -6,20 +6,32 @@ import CardDefinition from "../models/CardDefinition.js";
 import CardLifecycleEvent from "../models/CardLifecycleEvent.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { findOwnedCardById } from "./card-owned-selection.js";
+import { matchingTagRegex } from "./card-tag-catalog.js";
 
-// Provisional economy: one dust per underlying Normal card.
+// Reward Normal = 1, Neon = 5, Mega Neon = 19 dust of the card rarity.
 // No exchange/upgrade dust spending is unlocked by this feature.
-export const BURN_STAGE_MULTIPLIERS = Object.freeze({ normal: 1, neon: 4, mega: 16 });
+export const BURN_STAGE_MULTIPLIERS = Object.freeze({ normal: 1, neon: 5, mega: 19 });
 export const BURN_RARITIES = Object.freeze(["Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"]);
 export const MAX_BURN_CARDS = 50;
 const MAX_PENDING = 500;
 const BURN_TTL_MS = 120_000;
 const pendingBurns = new Map();
 const ID = /^[0-9A-Za-z_-]{5}$/;
+export const BURN_TAG_NAME = "burn";
+export const isBurnableCardTag = tag => !String(tag ?? "").trim() || String(tag).trim().toLocaleLowerCase() === BURN_TAG_NAME;
 
 export function parseBurnCardReferences(raw) {
-  const values = String(raw || "").trim().split(/[\s,;]+/).filter(Boolean);
-  if (!values.length) throw new Error("Use .burn CARDID or .burn ID1 ID2 to choose cards.");
+  const input = String(raw || "").trim();
+  // The ONLY accepted tag selector is tag:burn, and it must stand alone.
+  if (/^tag:/i.test(input)) {
+    if (!/^tag:burn$/i.test(input))
+      throw new Error("Only tag:burn is permitted for burning. Other tags protect cards.");
+    return ["tag:burn"];
+  }
+  if (/tag:/i.test(input))
+    throw new Error("Use .burn tag:burn on its own, or enter card IDs separately.");
+  const values = input.split(/[\s,;]+/).filter(Boolean);
+  if (!values.length) throw new Error("Use .burn CARDID, .burn ID1 ID2, or .burn tag:burn.");
   if (values.length > MAX_BURN_CARDS)
     throw new Error("Burn up to " + MAX_BURN_CARDS + " cards in one confirmation. Repeat for more.");
   if (!values.every(id => ID.test(id)))
@@ -48,8 +60,8 @@ async function ownedBurnCopies(ownerId, ids) {
   if (resolved.some(c=>!c)) throw new Error("One or more card IDs do not belong to you.");
   if (new Set(resolved.map(c=>String(c._id))).size!==ids.length)
     throw new Error("The same card was selected more than once.");
-  if (resolved.some(c=>c.tag?.trim()))
-    throw new Error("Tagged cards are protected. Use .untag CARDID before burning them.");
+  if (resolved.some(c=>!isBurnableCardTag(c.tag)))
+    throw new Error("Tagged cards are protected unless their tag is burn. Use .untag CARDID first.");
   const definitions=await CardDefinition.find({
     _id:{$in:resolved.map(c=>c.cardDefinitionId)},
   }).select("_id petId rarity releaseId").lean();
@@ -64,7 +76,7 @@ async function ownedBurnCopies(ownerId, ids) {
       _id:String(c._id), publicId:c.publicId,
       definitionId:String(c.cardDefinitionId), name:names.get(def.petId)||def.petId,
       releaseId:def.releaseId, rarity:def.rarity,
-      upgradeLevel:c.upgradeLevel||"normal",
+      upgradeLevel:c.upgradeLevel||"normal", tag:String(c.tag || "").trim().toLocaleLowerCase(),
     };
   });
 }
@@ -77,7 +89,23 @@ function prunePending(now=Date.now()) {
 }
 
 export async function prepareCardBurn({ownerId,guildId,cardReferences}) {
-  const ids=parseBurnCardReferences(cardReferences);
+  const refs=parseBurnCardReferences(cardReferences);
+  let ids=refs;
+  if (refs.length===1 && refs[0]==="tag:burn") {
+    const collector=await CardCollector.findOne({discordUserId:ownerId})
+      .select("createdTagNames").lean();
+    if (!(collector?.createdTagNames || []).some(t=>String(t).trim().toLocaleLowerCase()===BURN_TAG_NAME))
+      throw new Error("Create the burn tag first with .createtag burn, then tag cards with .tag burn CARDID.");
+    const copies=await CardCopy.find({
+      ownerDiscordUserId:ownerId, state:"owned", tag:matchingTagRegex(BURN_TAG_NAME),
+    }).select("publicId").lean();
+    if (!copies.length) throw new Error("No owned cards have the burn tag.");
+    if (copies.length>MAX_BURN_CARDS)
+      throw new Error("You have "+copies.length+" burn-tagged cards. Burn at most "+MAX_BURN_CARDS+" at once using card IDs; no cards were selected.");
+    if (copies.some(c=>!c.publicId || !ID.test(c.publicId)))
+      throw new Error("A burn-tagged card has no valid five-character ID. Nothing was selected.");
+    ids=copies.map(c=>c.publicId);
+  }
   const cards=await ownedBurnCopies(ownerId,ids);
   const dust=calculateBurnDust(cards);
   prunePending();
@@ -125,12 +153,14 @@ export async function confirmCardBurn(token,ownerId,guildId) {
         const card=byId.get(item._id);
         if(!card||card.ownerDiscordUserId!==ownerId||card.state!=="owned"||
             card.publicId!==item.publicId||String(card.cardDefinitionId)!==item.definitionId||
-            card.upgradeLevel!==item.upgradeLevel||card.tag?.trim())
+            card.upgradeLevel!==item.upgradeLevel||
+            String(card.tag||"").trim().toLocaleLowerCase()!==item.tag||
+            !isBurnableCardTag(card.tag))
           throw new Error("A selected card changed or is now tagged. Nothing was burned.");
       }
       const changes=await CardCopy.updateMany({
         _id:{$in:rows.map(c=>c._id)},ownerDiscordUserId:ownerId,state:"owned",
-        tag:{$in:["",null]},
+        tag:{$in:["",null,matchingTagRegex(BURN_TAG_NAME)]},
       },{$set:{state:"burned",consumedAt:new Date()}},{session});
       if(changes.modifiedCount!==rows.length)
         throw new Error("One or more cards changed before confirmation. Nothing was burned.");
