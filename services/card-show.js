@@ -13,8 +13,11 @@ export async function suggestShowCards(search="") {
     name:new RegExp(escapePetNameSearch(term),"i"),
   }).select("petId name").limit(80).lean();
   if(!pets.length)return [];
-  const defs=await CardDefinition.find({petId:{$in:pets.map(p=>p.petId)}})
-    .select("_id petId releaseId rarity").limit(150).lean();
+  const active=await CardRelease.find({status:"active"}).select("releaseId").lean();
+  const defs=await CardDefinition.find({
+    petId:{$in:pets.map(p=>p.petId)},
+    releaseId:{$in:active.map(r=>r.releaseId)},enabled:true,
+  }).select("_id petId releaseId rarity").limit(150).lean();
   const names=new Map(pets.map(p=>[p.petId,p.name]));
   return defs.slice(0,25).map(d=>({
     name:(names.get(d.petId)+" · "+d.rarity+" · "+d.releaseId).slice(0,100),
@@ -28,7 +31,9 @@ export async function resolveShowCard(reference){
   const mongoose=(await import("mongoose")).default;
   if(mongoose.isValidObjectId(input)){
     const def=await CardDefinition.findById(input).lean();
-    if(!def)throw Error("That card is not in any release.");
+    if(!def||!def.enabled)throw Error("That card is not available in an active release.");
+    const release=await CardRelease.findOne({releaseId:def.releaseId,status:"active"}).lean();
+    if(!release)throw Error("That card is not available in an active release.");
     return def;
   }
   const choices=await suggestShowCards(input);
