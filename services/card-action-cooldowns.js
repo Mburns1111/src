@@ -35,7 +35,8 @@ export function cardCooldownDuration(action) {
 export async function claimCardActionCooldown({ action, discordUserId, guildId, sourceId = "", now = new Date() }) {
   if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw new Error("Invalid cooldown timestamp.");
   const id = cardCooldownIdentity({ action, discordUserId, guildId });
-  if(achievementStart())return claimWithBonus({identity:id,sourceId:String(sourceId),now,duration:cardCooldownDuration(action)});
+  if(achievementStart() || process.env.ENABLE_CARD_GAME_TEST === "1")
+    return claimWithBonus({identity:id,sourceId:String(sourceId),now,duration:cardCooldownDuration(action)});
   const availableAt = new Date(now.getTime() + cardCooldownDuration(action));
   const advanced = await CardActionCooldown.findOneAndUpdate(
     { _id: id._id, availableAt: { $lte: now } },
@@ -71,7 +72,8 @@ export async function readCardActionCooldown({ action, discordUserId, guildId, n
 export async function releaseCardActionCooldown({ action, discordUserId, guildId, sourceId }) {
   if (!sourceId) throw new Error("A source ID is required to refund a card cooldown.");
   const id = cardCooldownIdentity({ action, discordUserId, guildId });
-  if(achievementStart())return refundWithBonus(id,String(sourceId));
+  if(achievementStart() || process.env.ENABLE_CARD_GAME_TEST === "1")
+    return refundWithBonus(id,String(sourceId));
   const result = await CardActionCooldown.deleteOne({
     _id: id._id, sourceId: String(sourceId),
   });
