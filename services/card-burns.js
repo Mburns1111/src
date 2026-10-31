@@ -60,6 +60,7 @@ async function ownedBurnCopies(ownerId, ids) {
   if (resolved.some(c=>!c)) throw new Error("One or more card IDs do not belong to you.");
   if (new Set(resolved.map(c=>String(c._id))).size!==ids.length)
     throw new Error("The same card was selected more than once.");
+  if (resolved.some(c=>c.locked)) throw new Error("A selected card is locked. Use .unlock CARDID before burning.");
   if (resolved.some(c=>!isBurnableCardTag(c.tag)))
     throw new Error("Tagged cards are protected unless their tag is burn. Use .untag CARDID first.");
   const definitions=await CardDefinition.find({
@@ -97,7 +98,7 @@ export async function prepareCardBurn({ownerId,guildId,cardReferences}) {
     if (!(collector?.createdTagNames || []).some(t=>String(t).trim().toLocaleLowerCase()===BURN_TAG_NAME))
       throw new Error("Create the burn tag first with .createtag burn, then tag cards with .tag burn CARDID.");
     const copies=await CardCopy.find({
-      ownerDiscordUserId:ownerId, state:"owned", tag:matchingTagRegex(BURN_TAG_NAME),
+      ownerDiscordUserId:ownerId, state:"owned", locked:{$ne:true},tag:matchingTagRegex(BURN_TAG_NAME),
     }).select("publicId").lean();
     if (!copies.length) throw new Error("No owned cards have the burn tag.");
     if (copies.length>MAX_BURN_CARDS)
@@ -153,14 +154,14 @@ export async function confirmCardBurn(token,ownerId,guildId) {
         const card=byId.get(item._id);
         if(!card||card.ownerDiscordUserId!==ownerId||card.state!=="owned"||
             card.publicId!==item.publicId||String(card.cardDefinitionId)!==item.definitionId||
-            card.upgradeLevel!==item.upgradeLevel||
+            card.upgradeLevel!==item.upgradeLevel||card.locked===true||
             String(card.tag||"").trim().toLocaleLowerCase()!==item.tag||
             !isBurnableCardTag(card.tag))
           throw new Error("A selected card changed or is now tagged. Nothing was burned.");
       }
       const changes=await CardCopy.updateMany({
         _id:{$in:rows.map(c=>c._id)},ownerDiscordUserId:ownerId,state:"owned",
-        tag:{$in:["",null,matchingTagRegex(BURN_TAG_NAME)]},
+        tag:{$in:["",null,matchingTagRegex(BURN_TAG_NAME)]},locked:{$ne:true},
       },{$set:{state:"burned",consumedAt:new Date()}},{session});
       if(changes.modifiedCount!==rows.length)
         throw new Error("One or more cards changed before confirmation. Nothing was burned.");
