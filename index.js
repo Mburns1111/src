@@ -1,3 +1,5 @@
+import {initializeAchievements} from "./services/card-achievement-engine.js";
+import {deliverAchievementNotices} from "./services/card-achievements.js";
 
 import "dotenv/config";
 import { validateRuntimeConfiguration } from "./services/runtime-configuration.js";
@@ -75,6 +77,11 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
+import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
+import { data as cardsAdminCommand, execute as executeCardsAdmin } from "./commands/cards-admin.js";
+import { data as cardsOwnerCommand, execute as executeCardsOwner, autocompleteCardsOwner } from "./commands/cards-owner.js";
+import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
+import { handleCardShopInteraction } from "./commands/card-shop-ui.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -105,6 +112,9 @@ import { startMediaTelemetry } from "./services/media-telemetry.js";
 import { handleTemporaryDmNotice, sendTemporaryDmNotice } from "./services/temporary-dm-notice.js";
 import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
+import { parseHatchemText, runHatchemText } from "./services/hatchem-text-commands.js";
+import { handleCardTradeInteraction, reconcileExpiredCardTrades } from "./commands/card-trade-ui.js";
+import { handleCardBurnInteraction } from "./commands/card-burn-ui.js";
 import UserProfile from "./models/UserProfile.js";
 import { cleanupPendingForms, handleRemovePendingForm } from "./commands/pending-forms.js";
 import { forgetHouseForm } from "./commands/house.js";
@@ -187,6 +197,20 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
   if (!message.guildId || message.author?.bot || !message.content) return;
+  // Only commands typed in the assigned Hatchem text channel are parsed.
+  // Ordinary chat and every other channel are ignored by this handler.
+  const parsed = process.env.ENABLE_CARD_GAME_TEST === "1" &&
+    message.content.startsWith(".")
+    ? parseHatchemText(message.content) : null;
+  if (parsed) {
+    void (async () => {
+      const config = await GuildConfig.findOne({ guildId: message.guildId })
+        .select("hatchemChannelId").lean();
+      if (config?.hatchemChannelId && message.channelId === config.hatchemChannelId) {
+        await runHatchemText(message, parsed);
+      }
+    })().catch(error => console.error("[Hatchem] Text routing failed:", error));
+  }
   awardMessageActivity(message).then(result => {
     if (result.credited) console.log(`[Points] Chat +${result.amount} to ${message.author.id}.`);
   }).catch(error => {
@@ -197,6 +221,19 @@ client.on(Events.MessageCreate, message => {
 // Process each calendar minute only once while the bot is online. Cached voice
 // states require GuildVoiceStates intent; no recorded audio or speech analysis.
 let voiceActivityTimer;
+let cardDropCloseTimer;
+let cardDropCloseRunning = false;
+async function runCardDropCloseSweep() {
+  if (cardDropCloseRunning) return;
+  cardDropCloseRunning = true;
+  try {
+    await reconcileCardDropClosures(client);
+    await reconcileExpiredCardTrades(client);
+    await deliverAchievementNotices(client);
+  }
+  catch (error) { console.error("[Cards] Drop-close sweep failed:", error); }
+  finally { cardDropCloseRunning = false; }
+}
 let voiceTickRunning = false;
 async function voiceActivityTick() {
   if (voiceTickRunning || !client.isReady()) return;
@@ -235,6 +272,15 @@ async function voiceActivityTick() {
 
 let discordReadyTimeout;
 
+const ownerOnlyCardSubcommands = new Set([
+  "egg-art-upload", "art-upload", "art-assign", "art-list", "art-info", "art-review", "test-drop",
+]);
+async function executePrivateCardCommands(interaction) {
+  if (ownerOnlyCardSubcommands.has(interaction.options.getSubcommand(false)))
+    return executeCards(interaction);
+  return executeCardsOwner(interaction);
+}
+
 const commandHandlers = new Map([
   [profileCommand.name, executeProfile],
   [profileCleanupCommand.name, executeProfileCleanup],
@@ -246,6 +292,9 @@ const commandHandlers = new Map([
   [setupCommand.name, executeSetup],
   [adminImportCommand.name, executeAdminImport],
   [shopCommand.name, executeShop],
+  [cardsCommand.name, executeCards],
+  [cardsAdminCommand.name, executeCardsAdmin],
+  [cardsOwnerCommand.name, executePrivateCardCommands],
   [testPointsCommand.name, executeTestPoints],
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
@@ -312,11 +361,17 @@ async function sendProfileReminder(interaction) {
   });
 }
 
-client.once(Events.ClientReady, (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
   clearTimeout(discordReadyTimeout);
   startMediaTelemetry();
   voiceActivityTimer = setInterval(() => void voiceActivityTick(), 60_000);
   voiceActivityTimer.unref?.();
+  if (process.env.ENABLE_CARD_GAME_TEST === "1") {
+    await initializeAchievements();
+    cardDropCloseTimer = setInterval(() => void runCardDropCloseSweep(), 5000);
+    cardDropCloseTimer.unref?.();
+    void runCardDropCloseSweep();
+  }
   console.log(`Bot is online as ${readyClient.user.tag}.`);
   void (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
@@ -389,6 +444,25 @@ client.once(Events.ClientReady, (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    if (interaction.isAutocomplete()) {
+      if (interaction.commandName === cardsCommand.name) {
+        const config = interaction.guildId
+          ? await GuildConfig.findOne({ guildId: interaction.guildId }).select("hatchemChannelId").lean()
+          : null;
+        if (config?.hatchemChannelId && interaction.channelId === config.hatchemChannelId) {
+          await autocompleteCards(interaction);
+        } else {
+          await interaction.respond([]);
+        }
+      } else if (interaction.commandName === cardsOwnerCommand.name) {
+        if (ownerOnlyCardSubcommands.has(interaction.options.getSubcommand(false)))
+          await autocompleteCards(interaction);
+        else await autocompleteCardsOwner(interaction);
+      } else {
+        await interaction.respond([]);
+      }
+      return;
+    }
     // Startup reconciliation may archive media or render many cards.
     // Acknowledge slash commands immediately and execute against current
     // MongoDB state; never await the unrelated maintenance pass here.
@@ -398,12 +472,55 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // acknowledgement. All other slash commands keep their fast defer.
     if (interaction.isChatInputCommand() &&
         interaction.commandName !== adminImportCommand.name) {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      // Collections are intentionally public so other members can browse them.
+      // All other slash commands retain their existing private replies.
+      const publicCollection = interaction.commandName === cardsCommand.name &&
+        interaction.options.getSubcommand(false) === "collection" &&
+        process.env.ENABLE_CARD_GAME_TEST === "1";
+      await interaction.deferReply(publicCollection ? {} : { flags: MessageFlags.Ephemeral });
     }
 
     if (interaction.isModalSubmit() &&
         interaction.customId.startsWith("admin-import:")) {
       await handleAdminImportModal(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isModalSubmit()) &&
+        interaction.customId.startsWith("cards:trade:")) {
+      await handleCardTradeInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:shop:")) {
+      await handleCardShopInteraction(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("cards:collection:")) {
+      await handleCardCollectionInteraction(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("cards:tagchange:")) {
+      await handleCardTagChange(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:tagdelete:")) {
+      await handleCardTagDeletion(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:burn:")) {
+      await handleCardBurnInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:dustupgrade:")) {
+      await handleCardUpgrade(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:upgrade:")) {
+      await handleCardUpgrade(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:grab:")) {
+      await handleCardGrab(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("dm:notice:")) {
@@ -649,6 +766,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.log("Command received:", interaction.commandName);
     console.log("Available handlers:", [...commandHandlers.keys()]);
 
+    // The card-game slash commands belong to Hatchem, not the ordinary bot command channel.
+    if (interaction.commandName === cardsCommand.name && interaction.guildId) {
+      const hatchemConfig = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("hatchemChannelId").lean();
+      if (hatchemConfig?.hatchemChannelId && interaction.channelId !== hatchemConfig.hatchemChannelId) {
+        await interaction.editReply({
+          content: `Use Hatchem commands in <#${hatchemConfig.hatchemChannelId}>.`,
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+    }
     const handler = commandHandlers.get(interaction.commandName);
     if (!handler) {
       await interaction.editReply({
@@ -663,6 +792,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         setupCommand.name,
         adminImportCommand.name,
         shopCommand.name,
+        cardsCommand.name,
+        cardsAdminCommand.name,
+        cardsOwnerCommand.name,
         testPointsCommand.name,
         pointsAdminCommand.name,
         pointsObserveCommand.name,
@@ -672,7 +804,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     ) {
       await ensureProfileCard(interaction.guild, interaction.user);
     }
-    if (![setupCommand.name, adminImportCommand.name].includes(interaction.commandName) && interaction.guildId) {
+    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name].includes(interaction.commandName) && interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
       if (
         config?.commandChannelId &&
@@ -776,6 +908,7 @@ async function start() {
 async function shutdown(signal) {
   console.log(`Received ${signal}; shutting down.`);
   if (voiceActivityTimer) clearInterval(voiceActivityTimer);
+  if (cardDropCloseTimer) clearInterval(cardDropCloseTimer);
   await client.destroy();
   await mongoose.disconnect();
   process.exit(0);
