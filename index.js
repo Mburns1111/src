@@ -111,6 +111,7 @@ import { discordMessageUrl } from "./commands/shared.js";
 import GuildConfig from "./models/GuildConfig.js";
 import { parseHatchemText, runHatchemText } from "./services/hatchem-text-commands.js";
 import { handleCardTradeInteraction, reconcileExpiredCardTrades } from "./commands/card-trade-ui.js";
+import { handleCardBurnInteraction } from "./commands/card-burn-ui.js";
 import UserProfile from "./models/UserProfile.js";
 import { cleanupPendingForms, handleRemovePendingForm } from "./commands/pending-forms.js";
 import { forgetHouseForm } from "./commands/house.js";
@@ -495,6 +496,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:tagdelete:")) {
       await handleCardTagDeletion(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:burn:")) {
+      await handleCardBurnInteraction(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:upgrade:")) {
