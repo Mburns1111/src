@@ -19,7 +19,7 @@ test("three-card drop renders egg banner and 3 unissued cards as PNG", async () 
   assert.equal(png.readUInt32BE(20), CARD_DROP_IMAGE_SIZE.height);
 });
 test("test-drop command retains release ID and button flow", () => {
-  const testDrop = data.toJSON().options.find(o => o.name === "test-drop");
+  const testDrop = ownerCardOptions.toJSON().options.find(o => o.name === "test-drop");
   assert.equal(testDrop.options.find(o => o.name === "release").required, true);
 });
 test("requires exactly three cards and never invents issued IDs", async () => {
