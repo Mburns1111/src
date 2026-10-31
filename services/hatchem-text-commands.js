@@ -53,7 +53,7 @@ export function parseHatchemTagArguments(raw, savedTags = []) {
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|halloffame|hof|history|show)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|halloffame|hof|history|show|shop)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = ({createtag:"create-tag",tagcreate:"create-tag",tagdelete:"delete-tag",tagmultiple:"tag-multiple",untagmultiple:"untag-multiple",deletetag:"delete-tag"})[found[1].toLowerCase()] || found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "register") return { action, options: {} };
@@ -63,6 +63,7 @@ export function parseHatchemText(content) {
     return { action, options: { member: match?.[1] || "", cards: match?.[2]?.trim() || "" } };
   }
   if (action === "drop") return { action: "drop", options: {} };
+  if (action === "shop") return { action, options: {} };
   if (action === "dust") return { action, options: {} };
   if (["achievements","halloffame","hof"].includes(action)) return {action:"achievements",options:{page:Math.max(1,parseInt(args)||1),view:action==="achievements"?"mine":"hall"}};
   if(action==="history")return {action,options:{}};
@@ -103,6 +104,7 @@ export const HATCHEM_GUIDE = [
   ".stats [card ID] · .view [card ID]",
   ".drop — drop an egg (15m global cooldown)",
   ".cooldowns — see your next drop and this server’s grab",
+  ".shop — buy Extra Grabs (10 Points) and Extra Drops (20 Points)",
   ".help — list more commands",
   ".trade @member — offer cards on both sides, both confirm twice",
   ".give @member CARDID CARDID or .give @member tag:cute — gift cards after sender confirmation",
@@ -121,6 +123,7 @@ export const HATCHEM_HELP = [
   "Registration is required before regular drops or grabs. Join separately in each server.",
   ".drop — player egg every 15 minutes globally",
   ".cooldowns — check drop and grab availability",
+  ".shop — private Points shop for Extra Grabs and Extra Drops",
   ".collection or .collection cute — optionally filter by tag",
   ".collection @member or .collection @member cute — public collection",
   ".upgrade Pet Name or .upgrade CardID — confirm a four-card upgrade",
@@ -233,10 +236,10 @@ export async function runHatchemText(message, parsed) {
     editReply: async payload => {
       const body = typeof payload === "string" ? { content: payload } : payload;
       const data = { ...body, allowedMentions: body.allowedMentions || { parse: [] } };
-      if(parsed.action==="achievements"&&options.view!=="hall"){
+      if(parsed.action==="shop" || parsed.action==="achievements"&&options.view!=="hall"){
         try {response=response?await response.edit(data):await message.author.send(data);}
-        catch {await message.reply({content:"I couldn't send your private achievements. Use /cards achievements for a private view.",allowedMentions:{parse:[]}});return null;}
-        if(!facade.achievementNoticeSent){facade.achievementNoticeSent=true;await message.reply({content:"Your achievements were sent privately.",allowedMentions:{parse:[]}});}
+        catch {await message.reply({content:parsed.action==="shop"?"I couldn't DM your shop. Enable DMs or use /cards shop for a private view.":"I couldn't send your private achievements. Use /cards achievements for a private view.",allowedMentions:{parse:[]}});return null;}
+        if(!facade.achievementNoticeSent){facade.achievementNoticeSent=true;await message.reply({content:parsed.action==="shop"?"I sent your Hatchem shop by DM.":"Your achievements were sent privately.",allowedMentions:{parse:[]}});}
       }else response = response ? await response.edit(data) : await message.reply(data);
       return response;
     },
