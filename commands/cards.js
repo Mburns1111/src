@@ -122,6 +122,7 @@ export const ownerCardOptions = new SlashCommandBuilder().setName("cards-owner-t
 );
 
 const isEnabled = () => process.env.ENABLE_CARD_GAME_TEST === "1";
+const formatCardId = value => "`" + String(value ?? "PENDING").replace(/`/g, "") + "`";
 const escapeDiscord = text => String(text ?? "").replace(/[@`*_~|<>]/g, "");
 const rowButtons = drop => new ActionRowBuilder().addComponents(drop.slots.map((slot, i) =>
   new ButtonBuilder().setCustomId(`cards:grab:${drop._id}:${i}`)
@@ -229,7 +230,7 @@ export async function execute(interaction) {
           `**Upgrade ${escapeDiscord(request.petName)} → ${request.target === "neon" ? "Neon" : "Mega Neon"}?**`,
           `Release: ${escapeDiscord(request.releaseId)}`,
           dustMode
-            ? `Use ${request.cards.length} card(s): ${request.cards.map(c=>c.publicId).join(", ")}`
+            ? `Use ${request.cards.length} card(s): ${request.cards.map(c=>formatCardId(c.publicId)).join(", ")}`
             : `Consume exactly four cards: ${request.ids.join(", ")}`,
           ...(dustMode?[`Replace ${request.missing} missing card(s) for **${request.cost} ${request.rarity} Dust**.`,
             `Current dust balance: ${request.available}. Remaining after upgrade: ${request.available-request.cost}.`]:[]),
@@ -736,7 +737,7 @@ export async function handleCardUpgrade(interaction) {
         otherCollectorCount,
       });
       publicPost = await interaction.channel.send({
-        content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(pet?.name || definition.petId)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: ${result.publicId}${dustMode?" · Used "+result.dustSpent+" "+result.rarity+" Dust":""}`,
+        content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(pet?.name || definition.petId)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: ${formatCardId(result.publicId)}${dustMode?" · Used "+result.dustSpent+" "+result.rarity+" Dust":""}`,
         files: [new AttachmentBuilder(image, { name: "upgraded-card.png" })],
         allowedMentions: { users: [interaction.user.id], parse: [] },
       });
@@ -745,7 +746,7 @@ export async function handleCardUpgrade(interaction) {
       // Preserve the public announcement even if an image asset is corrupt.
       try {
         publicPost = await interaction.channel.send({
-          content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(result.petName)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: ${result.publicId} (card image unavailable)`,
+          content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(result.petName)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: ${formatCardId(result.publicId)} (card image unavailable)`,
           allowedMentions: { users: [interaction.user.id], parse: [] },
         });
       } catch (sendError) {
@@ -754,8 +755,8 @@ export async function handleCardUpgrade(interaction) {
     }
     return interaction.editReply({
       content: publicPost
-        ? `**Upgrade complete!** Your new ${result.target === "neon" ? "Neon" : "Mega Neon"} card ${result.publicId} has been posted in this channel.${dustMode?" Spent "+result.dustSpent+" "+result.rarity+" Dust.":""}`
-        : `**Upgrade complete!** Your new card ID is ${result.publicId}. I couldn't post it publicly; check /cards collection. Nothing was lost.`,
+        ? `**Upgrade complete!** Your new ${result.target === "neon" ? "Neon" : "Mega Neon"} card ${formatCardId(result.publicId)} has been posted in this channel.${dustMode?" Spent "+result.dustSpent+" "+result.rarity+" Dust.":""}`
+        : `**Upgrade complete!** Your new card ID is ${formatCardId(result.publicId)}. I couldn't post it publicly; check /cards collection. Nothing was lost.`,
       components: [], allowedMentions: { parse: [] },
     });
   } catch (error) {
@@ -899,7 +900,7 @@ function cardTagConfirmationPayload(request) {
   const rows = request.cards.slice(0, 15).map(card => {
     const stage = card.upgradeLevel === "mega" ? "Mega Neon" :
       card.upgradeLevel === "neon" ? "Neon" : "Normal";
-    return "• " + escapeDiscord(card.publicId) + " · " + stage +
+    return "• " + formatCardId(card.publicId) + " · " + stage +
       " · " + escapeDiscord(card.releaseId) + " · Frame: " + escapeDiscord(card.frame);
   });
   const allButton = new ButtonBuilder()
