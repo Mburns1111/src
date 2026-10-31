@@ -31,7 +31,7 @@ export function cardBurnPreview(request) {
       "**You will receive:** "+formatDustRewards(request.dust),
       "",
       "⚠️ **This cannot be undone.** Any decorative frames or attachments on burned cards are lost.",
-      "Tagged cards are protected; untag them first.",
+      "Only the burn tag is eligible for burning. Other tags protect their cards.",
       "Your dust is saved globally. Expires in 2 minutes.",
     ].join("\n"));
   // The preview abbreviates long pet names, but NEVER hides an ID that
