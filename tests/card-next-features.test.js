@@ -141,5 +141,5 @@ test("show-card autocomplete suggests released pet definitions by partial pet na
   assert.equal(choices.length,1);
   assert.match(choices[0].name,/Abyssinian Cat/);
   assert.equal(choices[0].value,"507f1f77bcf86cd799439011");
- }finally{PetCatalog.find=original.pet;CardDefinition.find=original.definition;}
+ }finally{PetCatalog.find=original.pet;CardDefinition.find=original.definition;CardRelease.find=original.release;}
 });
