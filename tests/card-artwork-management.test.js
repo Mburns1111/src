@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { data } from "../commands/cards.js";
+import { ownerCardOptions } from "../commands/cards.js";
 import CardArtwork from "../models/CardArtwork.js";
 import CardArtworkReview from "../models/CardArtworkReview.js";
 import { validateCardArtworkKey, CARD_ARTWORK_KINDS } from "../services/card-artwork-assets.js";
 
 test("Discord artwork library commands have required typed options", () => {
-  const options = data.toJSON().options;
+  const options = ownerCardOptions.toJSON().options;
   for (const name of ["art-list", "art-info", "art-review", "art-assign", "art-upload"]) {
     assert.ok(options.find(o => o.name === name), name);
   }
