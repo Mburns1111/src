@@ -8,9 +8,9 @@ import PetCatalog from "../models/PetCatalog.js";
 import { findOwnedCardById } from "./card-owned-selection.js";
 import { matchingTagRegex } from "./card-tag-catalog.js";
 
-// Reward Normal = 1, Neon = 5, Mega Neon = 19 dust of the card rarity.
+// Reward Normal = 1, Neon = 5, Mega Neon = 23 dust of the card rarity.
 // No exchange/upgrade dust spending is unlocked by this feature.
-export const BURN_STAGE_MULTIPLIERS = Object.freeze({ normal: 1, neon: 5, mega: 19 });
+export const BURN_STAGE_MULTIPLIERS = Object.freeze({ normal: 1, neon: 5, mega: 23 });
 export const BURN_RARITIES = Object.freeze(["Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"]);
 export const MAX_BURN_CARDS = 50;
 const MAX_PENDING = 500;
