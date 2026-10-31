@@ -44,8 +44,8 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
     .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false))
     .addStringOption(o => o.setName("tag").setDescription("Optional saved tag filter, e.g. cute").setRequired(false)))
-  .addSubcommand(c => c.setName("burn").setDescription("Permanently burn owned untagged cards for rarity dust")
-    .addStringOption(o => o.setName("card_ids").setDescription("One or more five-character card IDs (spaces or commas)").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(c => c.setName("burn").setDescription("Burn untagged cards or cards tagged burn for rarity dust")
+    .addStringOption(o => o.setName("card_ids").setDescription("Card IDs or tag:burn for all burn-tagged cards").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c => c.setName("dust").setDescription("Show your rarity dust wallet"))
   .addSubcommand(c => c.setName("upgrade").setDescription("Combine 4 matching cards into Neon or Mega Neon")
     .addStringOption(o => o.setName("card").setDescription("One card ID or pet name; bot finds four matching copies").setRequired(true).setAutocomplete(true)))
@@ -972,11 +972,16 @@ export async function autocompleteCards(interaction) {
       const input=String(focused||"");
       const prefix=input.replace(/[^\s,;]*$/,"");
       const last=input.slice(prefix.length);
+      const tagSearch=input.trim().toLocaleLowerCase();
+      const burnTagChoice = !prefix && "tag:burn".startsWith(tagSearch)
+        ? [{name:"All my cards tagged burn (tag:burn)",value:"tag:burn"}] : [];
+      if (input.toLocaleLowerCase().includes("tag:"))
+        return interaction.respond(burnTagChoice);
       const references=await suggestOwnedCardReferences(interaction.user.id,last,{includePets:false});
-      return interaction.respond(references.map(r=>({
+      return interaction.respond([...burnTagChoice,...references.map(r=>({
         name:r.name,
         value:(prefix+r.value).slice(0,100),
-      })).filter(r=>r.value.length<=100).slice(0,25));
+      })).filter(r=>r.value.length<=100)].slice(0,25));
     }
     if (option === "upgrade") {
       return interaction.respond(await suggestOwnedCardUpgrades(interaction.user.id, focused));
