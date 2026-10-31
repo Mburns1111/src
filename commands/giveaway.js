@@ -119,7 +119,7 @@ export async function execute(interaction) {
 export async function handleGiveawayButton(interaction) {
   if (!interaction.guildId || !interaction.guild || interaction.user.bot)
     return interaction.reply({ content: "Giveaway entries are only available to server members.", flags: MessageFlags.Ephemeral });
-  const match = /^giveaway:(enter|leave):([0-9a-f]{24})$/.exec(interaction.customId);
+  const match = /^giveaway:(enter|leave|count):([0-9a-f]{24})$/.exec(interaction.customId);
   if (!match) return interaction.reply({ content: "Invalid giveaway button.", flags: MessageFlags.Ephemeral });
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const [, action, id] = match;
@@ -127,6 +127,10 @@ export async function handleGiveawayButton(interaction) {
     const record = await Giveaway.findOne({ _id: id, guildId: interaction.guildId }).lean();
     if (!record || record.messageId !== interaction.message?.id || record.channelId !== interaction.channelId)
       return interaction.editReply("This giveaway announcement could not be verified.");
+    if (action === "count") return interaction.editReply({
+      content: `🥀 Current entries: **${record.entrantIds?.length || 0}** · Winners: **${record.winnerCount}**.`,
+      allowedMentions: { parse: [] },
+    });
     if (record.status !== "open" || new Date(record.endsAt) <= new Date())
       return interaction.editReply("This giveaway has ended; its results will stay on the original post.");
     if (action === "enter" && record.requiredRoleId) {
