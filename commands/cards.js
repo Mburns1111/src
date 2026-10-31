@@ -210,6 +210,8 @@ export async function execute(interaction) {
   }
   if (option === "upgrade" || option === "dustupgrade") {
     if (!isEnabled()) return interaction.editReply("Card upgrades are enabled only on the development bot.");
+    if (!await canPlayCardGame(interaction.user.id,interaction.guild))
+      return interaction.editReply(await cardRegistrationReminder(interaction.guildId));
     try {
       const dustMode=option==="dustupgrade"||Boolean(interaction.options.getBoolean?.("use_dust"));
       const request = await (dustMode?prepareDustUpgrade:prepareCardUpgrade)({
