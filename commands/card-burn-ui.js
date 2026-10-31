@@ -30,7 +30,8 @@ export function cardBurnPreview(request) {
       "",
       "**You will receive:** "+formatDustRewards(request.dust),
       "",
-      "⚠️ **This cannot be undone.** Tagged cards are protected; untag first.",
+      "⚠️ **This cannot be undone.** Any decorative frames or attachments on burned cards are lost.",
+      "Tagged cards are protected; untag them first.",
       "Your dust is saved globally. Expires in 2 minutes.",
     ].join("\n"));
   const buttons=new ActionRowBuilder().addComponents(
