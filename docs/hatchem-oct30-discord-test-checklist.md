@@ -90,10 +90,26 @@ Development bot and test server **908522799285538817** only. Two accounts: **A =
 - [ ] New `.createtag`, `.tagmultiple`, `.untagmultiple`, and `.deletetag` work without hyphens; older spellings are supported as compatibility aliases.
 - [ ] Try an unknown tag, then run `.createtag random` and `.tag random`: the same newest currently owned card receives it. A failed tag command must not have modified card order or ownership.
 
+## G. Burning cards for rarity dust — new feature, all Discord tests pending
+
+- [ ] Run .burn without any ID. It should show safe usage, not burn the newest card.
+- [ ] Check .dust first. All five rarity balances should display accurately.
+- [ ] Run .burn CARDID. Confirm the preview shows that exact pet, rarity, upgrade stage, ID, and potential dust.
+- [ ] Click Keep Cards. Verify the card remains owned and no dust was credited.
+- [ ] Repeat and click Burn 1 Card. The card leaves the active collection and the matching rarity dust balance increases.
+- [ ] Burn two or more untagged IDs in one confirmation. The reward total must correctly combine their rarities.
+- [ ] Tag a card. Burning it must be refused until it is untagged using the existing untag confirmation.
+- [ ] Try burning an ID belonging to another user, a duplicated ID, or a malformed ID. All must be rejected.
+- [ ] Account B attempts to confirm Account A's burn. It must not change any cards or balances.
+- [ ] Try the same confirmation twice or restart the bot and reuse the old button. No double reward.
+- [ ] Offer a card in a trade, then burn it before confirming the trade. The trade must fail without partially transferring cards.
+- [ ] Burn a Normal, Neon and Mega of the same rarity when available: temporary rates are 1, 4 and 16 dust respectively.
+- [ ] Confirm .stats on another copy of the same pet/release shows completed burns in its lifecycle count.
+
 ## Not implemented yet
 
 - Final owner activation/retirement of real global releases.
 - Actual per-copy decorative frame equipment or adjusted Neon/Mega market values.
-- Burning, spending dust and Points-based boosts.
+- Spending dust for upgraded-card substitutions and Points-based boosts. Burning for dust is implemented in development, with Discord testing still pending.
 
 Keep unchecked items pending until observed in Discord. Automated CI tests validate code but do not substitute for these two-account tests.
