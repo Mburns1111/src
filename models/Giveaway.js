@@ -24,6 +24,7 @@ const giveawaySchema = new mongoose.Schema({
   pendingRerollSlot: { type: Number, default: null },
   pendingRerollStaffId: { type: String, default: "" },
   renderedAt: { type: Date, default: null },
+  renderVersion: { type: Number, default: 0 },
 }, { timestamps: true });
 
 giveawaySchema.index({ guildId: 1, status: 1, endsAt: 1 });
