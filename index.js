@@ -75,6 +75,8 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
+import { data as giveawayCommand, execute as executeGiveaway, handleGiveawayButton } from "./commands/giveaway.js";
+import { reconcileGiveaways } from "./services/giveaways.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -246,6 +248,7 @@ const commandHandlers = new Map([
   [setupCommand.name, executeSetup],
   [adminImportCommand.name, executeAdminImport],
   [shopCommand.name, executeShop],
+  [giveawayCommand.name, executeGiveaway],
   [testPointsCommand.name, executeTestPoints],
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
@@ -318,6 +321,17 @@ client.once(Events.ClientReady, (readyClient) => {
   voiceActivityTimer = setInterval(() => void voiceActivityTick(), 60_000);
   voiceActivityTimer.unref?.();
   console.log(`Bot is online as ${readyClient.user.tag}.`);
+  let giveawaySweepActive = false;
+  const sweepGiveaways = async () => {
+    if (giveawaySweepActive) return;
+    giveawaySweepActive = true;
+    try { await reconcileGiveaways(readyClient); }
+    catch (error) { console.error("[Giveaways] Cleanup sweep failed:", error); }
+    finally { giveawaySweepActive = false; }
+  };
+  void sweepGiveaways();
+  const giveawayTimer = setInterval(() => void sweepGiveaways(), 30_000);
+  giveawayTimer.unref?.();
   void (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
       try {
@@ -404,6 +418,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isModalSubmit() &&
         interaction.customId.startsWith("admin-import:")) {
       await handleAdminImportModal(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("giveaway:")) {
+      await handleGiveawayButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("dm:notice:")) {
