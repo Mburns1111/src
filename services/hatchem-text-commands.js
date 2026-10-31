@@ -53,7 +53,7 @@ export function parseHatchemTagArguments(raw, savedTags = []) {
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|history|show)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = ({createtag:"create-tag",tagcreate:"create-tag",tagdelete:"delete-tag",tagmultiple:"tag-multiple",untagmultiple:"untag-multiple",deletetag:"delete-tag"})[found[1].toLowerCase()] || found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "register") return { action, options: {} };
@@ -64,6 +64,10 @@ export function parseHatchemText(content) {
   }
   if (action === "drop") return { action: "drop", options: {} };
   if (action === "dust") return { action, options: {} };
+  if (["achievements","history"].includes(action)) return {action,options:{}};
+  if (["lock","unlock"].includes(action)) return {action,options:{card_id:args}};
+  if (action==="show") return {action,options:{pet:args}};
+  if (action==="dustupgrade")return {action,options:{card:args}};
   if (action === "burn") return { action, options: { card_ids: args } };
   if (action === "cooldowns") return { action, options: {} };
   if (action === "collection") {
@@ -71,7 +75,10 @@ export function parseHatchemText(content) {
     const member = /^<@!?\d{17,20}>$/.test(tokens[0] || "") ? tokens.shift() : "";
     return { action, options: { member, tag: tokens.join(" ").replace(/^"|"$/g, "") } };
   }
-  if (action === "upgrade") return { action, options: { card: args } };
+  if (action === "upgrade") {
+    const useDust=/\s+dust$/i.test(args);
+    return {action,options:{card:useDust?args.replace(/\s+dust$/i,"").trim():args,use_dust:useDust}};
+  }
   if (action === "tag") return { action, options: parseHatchemTagArguments(args) };
   if (action === "create-tag") return { action, options: { tag: args.replace(/^"|"$/g, "") } };
   if (["untag", "stats", "view"].includes(action)) return { action, options: { card_id: args } };
@@ -100,6 +107,11 @@ export const HATCHEM_GUIDE = [
   ".give @member CARDID CARDID or .give @member tag:cute — gift cards after sender confirmation",
   ".burn CARDID, .burn ID1 ID2, or .burn tag:burn — burn selected cards for rarity dust after confirmation",
   ".dust — check your dust by rarity",
+  ".dustupgrade CARDID — spend matching rarity dust to replace missing upgrade cards",
+  ".lock CARDID / .unlock CARDID — protect a favorite card from transfers and consumption",
+  ".history — your recent completed gifts and trades",
+  ".achievements — track and unlock milestone badges",
+  ".show Pet Name — publicly display a pet card; /cards show offers autocomplete",
 ].join("\n");
 
 export const HATCHEM_HELP = [
@@ -125,6 +137,11 @@ export const HATCHEM_HELP = [
   ".burn CARDID, .burn ID1 ID2, or .burn tag:burn — confirm before destroying cards for dust",
   ".createtag burn then .tag burn CARDID — select cards to burn; other tags protect cards",
   ".dust — view your five rarity dust balances",
+  ".dustupgrade CARDID (or .upgrade CARDID dust) — upgrade with 1–3 matching cards plus dust",
+  ".lock CARDID / .unlock CARDID — prevent or allow burns, gifts, trades and upgrades",
+  ".history — view completed gifts and trades",
+  ".achievements — view your milestones",
+  ".show Pet Name — display a card in this channel; /cards show has search suggestions",
   "Tag FIRST, then pet name or IDs. No quotes necessary; create multiword tags first.",
 ].join("\n");
 
@@ -154,6 +171,18 @@ export async function runHatchemText(message, parsed) {
   }
   if (parsed.action === "give" && !parsed.options.cards) {
     await message.reply({content:"Use .give @member CARDID CARDID or .give @member tag:cute.",allowedMentions:{parse:[]}});
+    return true;
+  }
+  if(parsed.action==="show"&&!parsed.options.pet){
+    await message.reply({content:"Use .show Pet Name to display a card, or /cards show to choose from autocomplete.",allowedMentions:{parse:[]}});
+    return true;
+  }
+  if(["lock","unlock"].includes(parsed.action)&&!parsed.options.card_id){
+    await message.reply({content:"Use ."+parsed.action+" CARDID (a five-character ID from .collection).",allowedMentions:{parse:[]}});
+    return true;
+  }
+  if(parsed.action==="dustupgrade"&&!parsed.options.card){
+    await message.reply({content:"Use .dustupgrade CARDID. You need 1–3 unlocked matching cards plus enough matching rarity dust.",allowedMentions:{parse:[]}});
     return true;
   }
   if (parsed.action === "upgrade" && !parsed.options.card) {
@@ -193,10 +222,12 @@ export async function runHatchemText(message, parsed) {
       getString: key => options[key] || null,
       getUser: key => key === "member" ? target : null,
       getInteger: () => null,
+      getBoolean: key => Boolean(options[key]),
       getAttachment: () => null,
     },
     suppressSuccessDropReply: async () => null,
     suppressGiftReply: async () => null,
+    suppressShowReply: async()=>null,
     editReply: async payload => {
       const body = typeof payload === "string" ? { content: payload } : payload;
       const data = { ...body, allowedMentions: body.allowedMentions || { parse: [] } };
