@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { data } from "../commands/cards.js";
+import { data,ownerCardOptions } from "../commands/cards.js";
 import CardEggArtwork from "../models/CardEggArtwork.js";
 import CardRelease from "../models/CardRelease.js";
 import { CARD_EGG_BUCKET, TEST_EGG_SOURCE } from "../services/card-egg-artwork-upload.js";
