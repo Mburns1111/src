@@ -12,7 +12,7 @@ import { data as tradeCommand } from "./commands/trade.js";
 import { data as setupCommand } from "./commands/setup.js";
 import { data as adminImportCommand } from "./commands/admin-import-listing.js";
 import { data as shopCommand } from "./commands/shop.js";
-import { data as cardsCommand } from "./commands/cards.js";
+import { data as cardsCommand,ownerCardOptions } from "./commands/cards.js";
 import { data as cardsAdminCommand } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand } from "./commands/cards-owner.js";
 import { data as testPointsCommand } from "./commands/test-points.js";
@@ -31,19 +31,14 @@ if (process.env.ENABLE_CARD_GAME_TEST === "1" && !guildId) throw new Error("Card
 const rest = new REST({ version: "10" }).setToken(token);
 
 // Keep private card-artwork/testing subcommands out of the public /cards menu.
-const ownerOnlyCardSubcommands = new Set([
-  "egg-art-upload", "art-upload", "art-assign", "art-list", "art-info", "art-review", "test-drop",
-]);
-const allCards = cardsCommand.toJSON();
-const playerCards = { ...allCards, options: allCards.options.filter(o=>!ownerOnlyCardSubcommands.has(o.name)) };
+const playerCards = cardsCommand.toJSON();
 const privateOwnerCards = {
   ...cardsOwnerCommand.toJSON(),
-  // Default-hidden for normal members. Administrators may still see this
-  // command in Discord; all execution is checked against the owner's ID.
   default_member_permissions: "0",
-  options: [...cardsOwnerCommand.toJSON().options,
-    ...allCards.options.filter(o=>ownerOnlyCardSubcommands.has(o.name))],
+  options: [...cardsOwnerCommand.toJSON().options,...ownerCardOptions.toJSON().options],
 };
+if(playerCards.options.length>25 || privateOwnerCards.options.length>25)
+  throw new Error("Discord command subcommand limit exceeded.");
 
 const commands = [
   profileCommand,
