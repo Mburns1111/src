@@ -82,15 +82,74 @@ Each milestone unlocks **once per Discord collector**, not once per server. Bonu
 
 ### Secret achievement discovery and presentation rules
 
-- While locked, the player's `.achievements` interface shows **🔒 Secret Achievements: 0/12 discovered** (or the real discovered count) and a single **❔ Undiscovered secrets** summary. It must **not** show twelve repeated `???` rows, individual clues, progress bars, titles, emojis, goals, rarity/value criteria, tier labels, or reward previews. Keep the main list compact.
+- While locked, the player's `.achievements` interface shows **🔒 Permanent Secrets: 0/12 discovered** alongside compact per-release counts (or the actual discovered counts) and a single **❔ Undiscovered secrets** summary. It must **not** show twelve repeated `???` rows, individual clues, progress bars, titles, emojis, goals, rarity/value criteria, tier labels, or reward previews. Keep the main list compact.
 - Once a secret is earned, reveal its **name, emoji, description, tier, and the bonus grab/drop award** in that collector's achievements list. Move it into the discovered-secret section. Keep other secrets hidden.
 - On unlock, send the collector a short message such as: **✨ Secret achievement discovered! 🧩 Matchy Matchy — +1 bonus drop.** Respect channel permissions and avoid @everyone / role pings. If the notification fails, preserve the earned badge and reward, and reveal it the next time the member opens `.achievements`.
 - Secret status is **per collector**, not per server. Discovering the badge once reveals it across all participating guilds, with a one-time reward. One person revealing a secret must not reveal its requirements or progress in another collector's `.achievements` UI.
-- Server-wide announcement is optional later; for initial launch, default to a **private/ephemeral unlocked notification** so secrets stay discoverable by other players. Players may share their achievement screenshots themselves.
+- Ordinary unlock details remain **private/ephemeral**, but a new **First/Second/Third Discoverer Hall of Fame placement** may receive a public name-and-badge announcement without revealing the actual unlock criteria. Players can share screenshots themselves.
 - Treat secret status as **presentation metadata** (e.g. `hiddenUntilEarned: true`), not a different reward calculation. Detection, durable granting, and audit still run normally, including automatically on eligible events; do not require opening the achievements menu.
 - Do not expose secret goals via command autocomplete, public help, preview panels, completion percentages for specific hidden achievements, or a JSON dump of the public achievements list. Server-side developer configuration may keep the full definitions.
 - Rewards follow the existing internal tier for each secret. **Only earned secrets contribute bonus grabs/drops**. No hint or progress notifications before discovery. Secret unlocks never revoke.
 - Manual test with two users: A unlocks a secret and sees its details/reward, B still sees only a secret count, duplicate events do not duplicate the reward, and a bot restart preserves each player's independent reveal state.
+
+## 🏛️ Secret Achievement Hall of Fame (proposed; not implemented)
+
+Each secret has a **global first-discoverer record** across all participating Hatchem servers. Celebrate the first **three distinct collectors**, with permanent placements: 🥇 **First Discoverer**, 🥈 **Second Discoverer**, and 🥉 **Third Discoverer**. Later players can earn the same badge and tier reward but do not displace those three. A separate Hall of Fame applies to **every secret**, including secrets added for future releases.
+
+- **Before anyone discovers it:** do not reveal its name, emoji, criteria, reward, or individual Hall of Fame slot. Show only an aggregate count of undiscovered secrets.
+- **After the first discovery:** reveal its **title and emoji** on the public Hall of Fame, alongside the discoverer’s name and date. Keep the *actual unlock condition* secret for anyone who has not earned it. Additional second/third discoverers appear as they earn it.
+- Proposed commands: **\`.halloffame\`** or **\`.hof\`**, with a release selector or browsable release categories. The current live code does **not** have these commands yet.
+- A player who unlocks a secret sees its full description and normal tier reward privately. First/second/third status can be announced publicly (without @mention pings); the Hall of Fame shows Discord display names, using durable Discord user IDs internally so changing names or leaving a guild does not erase history.
+- Use the **actual achievement-completion event time**, not the time the member first opens \`.achievements\`, to establish order. Atomically claim rank slots with a unique database constraint per \`(achievementKey, rank)\`, and prohibit duplicate placements for \`(achievementKey, discordUserId)\`. Handle simultaneous events deterministically and prevent retries/restarts from awarding rank or bonus rewards twice.
+- The achievement's **full identity** should be namespaced by release where applicable: e.g. \`secret:global:matchy-matchy\` versus \`secret:test-s1-r1:midnight-visitor\`. Distinct release-specific achievements cannot overwrite or reuse older Hall of Fame ranks.
+- Early test achievements are not automatically eligible for retroactive world-first rankings. Begin official ranking only when durable event logging and achievement rewards are activated; clearly distinguish test data from official records.
+- Rankings are **permanent and archival**. Old releases and their first discoverers remain visible long after an egg is retired.
+
+Example public panel, only **after** the secret has been discovered:
+
+> 🏛️ **Hatchem · Secret Hall of Fame**
+>
+> 🧩 **Matchy Matchy**
+>
+> 🥇 First Discoverer: Lilly · Oct 31, 2026
+>
+> 🥈 Second Discoverer: Jentho · Nov 1, 2026
+>
+> 🥉 Third Discoverer: Not yet discovered
+>
+> ❔ 11 permanent secrets remain undiscovered
+
+*Names and dates above are illustrative only, not live achievements.*
+
+## 🥚 New Secret Achievements With Every Egg Release (proposed)
+
+**Add new secret achievements for EVERY release** while retaining the **12 permanent global secrets**. Start with a default of **six additional themed secrets per release** (two Basic, two Medium, two Advanced); larger special/holiday releases may have more. These are **new, distinct achievements**—not resets of previous release goals. Each uses the same bonus-grab/drop rewards associated with its tier and gets its own independent first/second/third Hall of Fame rankings.
+
+**Creation and lifetime rules:**
+
+1. Author, review, and freeze the release-specific secret list *before* activating that release. Each has a unique key tied to its immutable \`releaseId\`, a tier, a private trigger definition, and an explicit availability policy.
+2. Design conditions tied to the egg's **pets, artwork, season, rarity, card combinations, or unusual player behavior**—not just six ordinary high-count milestones. Keep conditions realistically achievable given that egg's card roster and drop rules. Avoid rewards requiring unapproved artwork or unpublished card values.
+3. Include a mix of **during-release discoveries** (must happen while the egg is active) and **legacy discoveries** (still achievable using that release's cards after retirement). Make this distinction explicit in the private definition. Do not invalidate already earned badges when a release retires.
+4. Each release's Hall of Fame starts with empty slots. An older release's first discoverers never lose rank. The public Hall of Fame can be filtered by **Current Release**, **Past Releases**, and **Permanent Secrets**, with only discovered secret titles visible.
+5. Players' \`.achievements\` menus should show one compact aggregate, e.g. **🔒 Permanent Secrets: 2/12 · Series 1 Secrets: 1/6**, without listing individual undiscovered challenges, hints, tier rewards, or progress. When a release is retired, keep earned and archived release achievements accessible.
+6. If a secret's trigger is no longer possible, show it as **archived**, not still earnable. Do not delete earned badges or ranks.
+7. Preserve first-discovery competition across all guilds. Prevent gaming via multi-accounts and repeated trades to the extent practical using exact card IDs and server-side event history. No manually granted rank from player commands.
+8. Before official launch, test simultaneous achievements on two users, rewards exactly once, old ranks persisting across a release change, secret descriptions not leaking through command results, and whether retired-release achievements remain visible.
+
+### Example themes for six Series 1 secrets (owner-only ideas, not finalized)
+
+These are **concepts**, not currently enabled achievements. The final titles, pets, requirements, and availability windows should be chosen after the Series 1 roster and approved artwork are locked.
+
+| Hidden concept | Secret triggering idea | Tier |
+| --- | --- | --- |
+| 🐣 Early Bird | Be among the first collectors to grab a Series 1 card during the official launch window | Basic |
+| 🧩 Strange Neighbors | Acquire an unusual combination of two specific Series 1 pet designs | Basic |
+| 🎨 Hidden Detail | Collect a specific artist-approved art/variant combination from Series 1 | Medium |
+| 🌗 Day and Night | Complete two complementary Series 1 collection actions at different times | Medium |
+| 💠 Rarity Ritual | Upgrade a themed group of Series 1 pets across stages | Advanced |
+| 👑 Egg's Secret | Achieve a rare, roster-specific Series 1 card combination | Advanced |
+
+*These examples are developer-only and must not leak into player-facing \`.achievements\` or the public Hall of Fame before their first unlock.*
 
 ## Reviewed high-value card achievements (4; DO NOT substitute rarity)
 
@@ -124,4 +183,4 @@ Two independent progress tracks, using **all-time successful CardClaim winners**
 7. High-value thresholds can shift as reviews are updated; **once earned, badges remain earned**. A current collection badge can display its current progress without revoking already unlocked badge/reward.
 8. All user-facing event/achievement bonuses are tracked in MongoDB, across all guilds. Must be validated with two accounts, duplicate interactions, rollback/restart, refunds, and concurrent actions before production.
 
-**Total proposed catalog:** 10 basic + 12 medium + 12 advanced + **12 secret** + 4 visible reviewed-value = 50 named achievement definitions, plus unbounded grab/drop milestones, plus one per release completion. The existing ten implemented badges are unchanged; secret achievement detection/UI and bonus awards are not yet activated.
+**Total proposed catalog:** 10 basic + 12 medium + 12 advanced + **12 permanent secrets** + 4 visible reviewed-value = 50 named achievement definitions, **plus six new secret achievements by default per release**, unbounded grab/drop milestones, and one per release completion. The existing ten implemented badges are unchanged; secret detection/UI, Hall of Fame rankings, and bonus awards are not yet activated.
