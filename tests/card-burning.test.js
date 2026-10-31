@@ -78,6 +78,17 @@ test("burn preview displays IDs and dust amounts and always requires confirmatio
  assert.match(view.components[0].components[1].data.label,/Keep Cards/);
 });
 
+test("a large burn preview lists every selected ID, not just the first 12 pet names",()=>{
+  const cards=Array.from({length:20},(_,i)=>({
+    name:"Cat",publicId:"A"+String(i).padStart(4,"0"),
+    rarity:"Common",upgradeLevel:"normal",
+  }));
+  const preview=cardBurnPreview({token:"long",cards,dust:{Common:20}});
+  const ids=preview.embeds[0].data.fields.find(f=>f.name==="All selected card IDs");
+  assert.ok(ids);
+  for(const card of cards)assert.ok(ids.value.includes(card.publicId));
+});
+
 test("tagged cards cannot enter a burn confirmation; their ID is still owned",async()=>{
  const original=CardCopy.findOne;
  try {
