@@ -34,6 +34,13 @@ export function cardBurnPreview(request) {
       "Tagged cards are protected; untag them first.",
       "Your dust is saved globally. Expires in 2 minutes.",
     ].join("\n"));
+  // The preview abbreviates long pet names, but NEVER hides an ID that
+  // will be permanently destroyed. Every selected card ID remains visible.
+  if (request.cards.length>12) embed.addFields({
+    name:"All selected card IDs",
+    value:request.cards.map(c=>tick+c.publicId+tick).join(" ").slice(0,1024),
+    inline:false,
+  });
   const buttons=new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("cards:burn:yes:"+request.token)
       .setStyle(ButtonStyle.Danger).setLabel("Burn "+request.cards.length+" Card"+(request.cards.length===1?"":"s")),
