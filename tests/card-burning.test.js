@@ -163,3 +163,41 @@ test("burn transaction moves cards to burned, credits dust once, and records one
   CardCollector.updateOne=originals.collectorUpdate;
  }
 });
+
+
+test("trading a card or adding a tag after preview blocks the whole burn before dust credit",async()=>{
+ const orig={
+   start:mongoose.startSession, findOne:CardCopy.findOne,defs:CardDefinition.find,
+   pets:PetCatalog.find,find:CardCopy.find,update:CardCopy.updateMany,
+   wallet:CardCollector.updateOne,event:CardLifecycleEvent.exists,
+ };
+ try {
+   CardCopy.findOne=query=>({lean:async()=>makeCopy("Abc12",1)});
+   CardDefinition.find=()=>({select:()=>({lean:async()=>[
+     {_id:defId,petId:"cat",rarity:"Rare",releaseId:"r1"},
+   ]})});
+   PetCatalog.find=()=>({select:()=>({lean:async()=>[{petId:"cat",name:"Cat"}]})});
+   const pending=await prepareCardBurn({ownerId:user,guildId:guild,cardReferences:"Abc12"});
+   mongoose.startSession=async()=>({withTransaction:fn=>fn(),endSession:async()=>{}});
+   CardLifecycleEvent.exists=()=>({session:async()=>null});
+   let spent=0;
+   CardCopy.updateMany=async()=>{spent++;throw Error("Card state must be checked first");};
+   CardCollector.updateOne=async()=>{spent++;throw Error("Must not grant dust");};
+   CardCopy.find=()=>({session:()=>({lean:async()=>[
+     {...makeCopy("Abc12",1),ownerDiscordUserId:"another-user"},
+   ]})});
+   await assert.rejects(()=>confirmCardBurn(pending.token,user,guild),/no longer owned|Nothing was burned/);
+   assert.equal(spent,0);
+   CardCopy.find=()=>({session:()=>({lean:async()=>[
+     {...makeCopy("Abc12",1),tag:"favorites"},
+   ]})});
+   await assert.rejects(()=>confirmCardBurn(pending.token,user,guild),/now tagged/);
+   assert.equal(spent,0);
+   cancelCardBurn(pending.token,user,guild);
+ } finally {
+   mongoose.startSession=orig.start;CardCopy.findOne=orig.findOne;
+   CardDefinition.find=orig.defs;PetCatalog.find=orig.pets;
+   CardCopy.find=orig.find;CardCopy.updateMany=orig.update;
+   CardCollector.updateOne=orig.wallet;CardLifecycleEvent.exists=orig.event;
+ }
+});
