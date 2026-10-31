@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCanvas } from "@napi-rs/canvas";
-import { data } from "../commands/cards.js";
+import { ownerCardOptions } from "../commands/cards.js";
 import CardArtwork from "../models/CardArtwork.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardRelease from "../models/CardRelease.js";
@@ -10,7 +10,7 @@ import { renderCollectibleCardPreview, CARD_PREVIEW_SIZE } from "../services/car
 import { renderThreeCardDropImage, CARD_DROP_IMAGE_SIZE } from "../services/card-drop-renderer.js";
 
 test("artwork upload and assignment are manager-facing Discord subcommands", () => {
-  const commands = data.toJSON().options;
+  const commands = ownerCardOptions.toJSON().options;
   assert.ok(commands.find(c => c.name === "art-upload")?.options.find(o => o.name === "image" && o.type === 11));
   assert.ok(commands.find(c => c.name === "art-assign")?.options.find(o => o.name === "key"));
 });
