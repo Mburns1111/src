@@ -81,6 +81,7 @@ import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCa
 import { data as cardsAdminCommand, execute as executeCardsAdmin } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand, execute as executeCardsOwner, autocompleteCardsOwner } from "./commands/cards-owner.js";
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
+import { handleCardShopInteraction } from "./commands/card-shop-ui.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -487,6 +488,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if ((interaction.isButton() || interaction.isModalSubmit()) &&
         interaction.customId.startsWith("cards:trade:")) {
       await handleCardTradeInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:shop:")) {
+      await handleCardShopInteraction(interaction);
       return;
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("cards:collection:")) {
