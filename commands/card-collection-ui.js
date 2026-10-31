@@ -51,13 +51,14 @@ async function collectionView(id, ownerId) {
     session.tagOptions = [...tags.slice(0, 23), session.tag];
   }
   const rows = page.cards.map((c, i) => [
-    `${page.page * 8 + i + 1}.`,
+    `${page.page * 10 + i + 1}.`,
     safe(c.petName),
     safe(c.rarityName),
     labelStage(c.upgradeLevel),
     `ID:${safe(c.publicId || "PENDING")}`,
     safe(c.releaseName),
     ...(c.tag ? [`#${safe(c.tag)}`] : []),
+    ...(c.locked ? ["🔒"] : []),
   ].join(" · ").replace(/^([0-9]+\\.) · /, "$1 "));
   const embed = new EmbedBuilder()
     .setColor(0xB9A4D7)
