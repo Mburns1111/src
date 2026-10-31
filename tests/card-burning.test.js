@@ -9,7 +9,7 @@ import PetCatalog from "../models/PetCatalog.js";
 import { data as cardsCommand } from "../commands/cards.js";
 import { parseHatchemText, HATCHEM_HELP } from "../services/hatchem-text-commands.js";
 import {
-  parseBurnCardReferences, calculateBurnDust, getCardDustBalance,
+  parseBurnCardReferences, calculateBurnDust, getCardDustBalance, isBurnableCardTag,
   prepareCardBurn, confirmCardBurn, cancelCardBurn, getPendingCardBurn,
 } from "../services/card-burns.js";
 import { cardBurnPreview, formatDustRewards, dustBalanceText } from "../commands/card-burn-ui.js";
@@ -40,6 +40,10 @@ test("burn reference parser only accepts unique five-character card IDs",()=>{
  assert.throws(()=>parseBurnCardReferences(""),/Use .burn/);
  assert.throws(()=>parseBurnCardReferences("KxQOo KxQOo"),/twice/);
  assert.throws(()=>parseBurnCardReferences("Abyssinian Cat"),/five-character/);
+ assert.deepEqual(parseBurnCardReferences("tag:burn"),["tag:burn"]);
+ assert.deepEqual(parseBurnCardReferences("TAG:BURN"),["tag:burn"]);
+ for(const other of ["tag:cute","tag:favorites","tag:Burn Later","tag:burned","tag:burn Abc12","Abc12 tag:burn"])
+  assert.throws(()=>parseBurnCardReferences(other),/Only tag:burn|on its own/);
  assert.throws(()=>parseBurnCardReferences(Array(51).fill("AAAA1").join(" ")),/up to 50/);
 });
 
@@ -50,7 +54,7 @@ test("reward amounts are provisional, proportional to rarity and upgrade stage",
   {rarity:"Rare",upgradeLevel:"mega"},
   {rarity:"Legendary",upgradeLevel:"normal"},
  ];
- assert.deepEqual(calculateBurnDust(cards),{"Common":5,"Rare":16,"Legendary":1});
+ assert.deepEqual(calculateBurnDust(cards),{"Common":6,"Rare":19,"Legendary":1});
  assert.throws(()=>calculateBurnDust([{rarity:"Mythic",upgradeLevel:"normal"}]),/Cannot determine/);
  assert.equal(formatDustRewards({Rare:4,Common:1}),"4 Rare Dust · 1 Common Dust");
 });
@@ -72,7 +76,7 @@ test("burn preview displays IDs and dust amounts and always requires confirmatio
  const view=cardBurnPreview(req);
  assert.match(view.embeds[0].data.title,/Burn Cards/);
  assert.match(view.embeds[0].data.description,/permanently destroyed/);
- assert.match(view.embeds[0].data.description,/Tagged cards are protected/);
+ assert.match(view.embeds[0].data.description,/Only the burn tag/);
  assert.equal(view.components[0].components.length,2);
  assert.match(view.components[0].components[0].data.label,/Burn 1 Card/);
  assert.match(view.components[0].components[1].data.label,/Keep Cards/);
@@ -143,7 +147,9 @@ test("burn transaction moves cards to burned, credits dust once, and records one
     assert.equal(opts.session,session);
     assert.equal(change.$set.state,"burned");
     assert.equal(query.ownerDiscordUserId,user);
-    assert.deepEqual(query.tag.$in,["",null]);
+    assert.deepEqual(query.tag.$in.slice(0,2),["",null]);
+    assert.match("BURN",query.tag.$in[2]);
+    assert.doesNotMatch("cute",query.tag.$in[2]);
     updates++;return {modifiedCount:2};
   };
   CardCollector.updateOne=async(query,change,opts)=>{
@@ -210,5 +216,93 @@ test("trading a card or adding a tag after preview blocks the whole burn before 
    CardDefinition.find=orig.defs;PetCatalog.find=orig.pets;
    CardCopy.find=orig.find;CardCopy.updateMany=orig.update;
    CardCollector.updateOne=orig.wallet;CardLifecycleEvent.exists=orig.event;
+ }
+});
+
+
+test("only the exact burn tag is burnable; other tags remain protective",()=>{
+ for(const tag of ["","  ","burn","BURN","Burn",null,undefined])assert.equal(isBurnableCardTag(tag),true);
+ for(const tag of ["favorites","cute","burned","burn later","unburn"])assert.equal(isBurnableCardTag(tag),false);
+});
+
+test(".burn tag:burn selects exactly the owner's created-tagged cards, including old ID symbols",async()=>{
+ const originals={collector:CardCollector.findOne,find:CardCopy.find,findOne:CardCopy.findOne,defs:CardDefinition.find,pets:PetCatalog.find};
+ try{
+  CardCollector.findOne=()=>({select:()=>({lean:async()=>({createdTagNames:["Burn"]})})});
+  CardCopy.find=query=>{
+    assert.equal(query.ownerDiscordUserId,user);
+    assert.equal(query.state,"owned");
+    assert.match("BURN",query.tag);
+    assert.doesNotMatch("favorites",query.tag);
+    return {select:()=>({lean:async()=>[{publicId:"Abc12"},{publicId:"K-Q0i"}]})};
+  };
+  CardCopy.findOne=query=>({lean:async()=>{
+    if(query.publicId==="Abc12")return makeCopy("Abc12",1,"Rare","normal","burn");
+    if(query.publicId==="K-Q0i")return makeCopy("K-Q0i",2,"Rare","neon","BURN");
+    return null;
+  }});
+  CardDefinition.find=()=>({select:()=>({lean:async()=>[{
+   _id:defId,petId:"cat",rarity:"Rare",releaseId:"r1",
+  }]})});
+  PetCatalog.find=()=>({select:()=>({lean:async()=>[{petId:"cat",name:"Cat"}]})});
+  const pending=await prepareCardBurn({ownerId:user,guildId:guild,cardReferences:"TAG:BURN"});
+  assert.deepEqual(pending.cards.map(c=>c.publicId),["Abc12","K-Q0i"]);
+  assert.deepEqual(pending.dust,{Rare:6});
+  assert.equal(pending.cards[1].tag,"burn");
+  cancelCardBurn(pending.token,user,guild);
+ }finally{
+  CardCollector.findOne=originals.collector;CardCopy.find=originals.find;CardCopy.findOne=originals.findOne;
+  CardDefinition.find=originals.defs;PetCatalog.find=originals.pets;
+ }
+});
+
+test("burn tag group selection refuses uncreated or empty selections",async()=>{
+ const originals={collector:CardCollector.findOne,find:CardCopy.find};
+ try{
+  CardCollector.findOne=()=>({select:()=>({lean:async()=>({createdTagNames:["favorites"]})})});
+  CardCopy.find=()=>{throw Error("Must not read cards for an uncreated tag");};
+  await assert.rejects(()=>prepareCardBurn({ownerId:user,guildId:guild,cardReferences:"tag:burn"}),/createtag burn/);
+  CardCollector.findOne=()=>({select:()=>({lean:async()=>({createdTagNames:["burn"]})})});
+  CardCopy.find=()=>({select:()=>({lean:async()=>[]})});
+  await assert.rejects(()=>prepareCardBurn({ownerId:user,guildId:guild,cardReferences:"tag:burn"}),/No owned cards/);
+ }finally{CardCollector.findOne=originals.collector;CardCopy.find=originals.find;}
+});
+
+test("burning a burn-tagged card succeeds transactionally without requiring an untag",async()=>{
+ const originals={start:mongoose.startSession,copy:CardCopy.findOne,defs:CardDefinition.find,pets:PetCatalog.find,
+  find:CardCopy.find,update:CardCopy.updateMany,collector:CardCollector.updateOne,
+  eventFind:CardLifecycleEvent.exists,eventCreate:CardLifecycleEvent.create};
+ try{
+  const copy=makeCopy("Abc12",1,"Legendary","mega","burn");
+  CardCopy.findOne=()=>({lean:async()=>copy});
+  CardDefinition.find=()=>({select:()=>({lean:async()=>[{
+   _id:defId,petId:"cat",rarity:"Legendary",releaseId:"r1",
+  }]})});
+  PetCatalog.find=()=>({select:()=>({lean:async()=>[{petId:"cat",name:"Cat"}]})});
+  const pending=await prepareCardBurn({ownerId:user,guildId:guild,cardReferences:"Abc12"});
+  assert.deepEqual(pending.dust,{Legendary:19});
+  const sess={withTransaction:fn=>fn(),endSession:async()=>{}};
+  mongoose.startSession=async()=>sess;
+  CardCopy.find=()=>({session:()=>({lean:async()=>[copy]})});
+  CardLifecycleEvent.exists=()=>({session:async()=>null});
+  let modified=0;
+  CardCopy.updateMany=async(query)=> {
+    assert.match("Burn",query.tag.$in[2]);
+    assert.doesNotMatch("cute",query.tag.$in[2]);
+    modified++;return {modifiedCount:1};
+  };
+  CardCollector.updateOne=async(_query,update)=> {
+    assert.deepEqual(update.$inc,{"dust.Legendary":19});
+    return {matchedCount:1};
+  };
+  CardLifecycleEvent.create=async(entries)=>{assert.equal(entries.length,1);};
+  const result=await confirmCardBurn(pending.token,user,guild);
+  assert.equal(result.count,1);
+  assert.equal(modified,1);
+ }finally{
+  mongoose.startSession=originals.start;CardCopy.findOne=originals.copy;CardDefinition.find=originals.defs;
+  PetCatalog.find=originals.pets;CardCopy.find=originals.find;CardCopy.updateMany=originals.update;
+  CardCollector.updateOne=originals.collector;CardLifecycleEvent.exists=originals.eventFind;
+  CardLifecycleEvent.create=originals.eventCreate;
  }
 });
