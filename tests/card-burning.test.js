@@ -160,6 +160,7 @@ test("burn transaction moves cards to burned, credits dust once, and records one
   };
   CardLifecycleEvent.create=async(entries,opts)=>{
     assert.equal(opts.session,session);
+    assert.equal(opts.ordered,true,"Mongoose requires ordered:true when create() receives multiple documents and a session");
     assert.equal(entries.length,2);
     assert.equal(entries[0].eventType,"burn");
     assert.equal(entries[1].eventType,"burn");
@@ -295,7 +296,11 @@ test("burning a burn-tagged card succeeds transactionally without requiring an u
     assert.deepEqual(update.$inc,{"dust.Legendary":19});
     return {matchedCount:1};
   };
-  CardLifecycleEvent.create=async(entries)=>{assert.equal(entries.length,1);};
+  CardLifecycleEvent.create=async(entries,options)=>{
+    assert.equal(entries.length,1);
+    assert.equal(options.session,sess);
+    assert.equal(options.ordered,true);
+  };
   const result=await confirmCardBurn(pending.token,user,guild);
   assert.equal(result.count,1);
   assert.equal(modified,1);
