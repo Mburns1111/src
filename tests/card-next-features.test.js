@@ -8,6 +8,7 @@ import CardLifecycleEvent from "../models/CardLifecycleEvent.js";
 import CardAchievement from "../models/CardAchievement.js";
 import PetCatalog from "../models/PetCatalog.js";
 import CardDefinition from "../models/CardDefinition.js";
+import CardRelease from "../models/CardRelease.js";
 import { data,ownerCardOptions } from "../commands/cards.js";
 import { parseHatchemText } from "../services/hatchem-text-commands.js";
 import { calculateDustUpgrade,DUST_UPGRADE_COSTS } from "../services/card-dust-upgrades.js";
@@ -122,15 +123,20 @@ test("achievements derive progress from actual completed records without grantin
 });
 
 test("show-card autocomplete suggests released pet definitions by partial pet name",async()=>{
- const original={pet:PetCatalog.find,definition:CardDefinition.find};
+ const original={pet:PetCatalog.find,definition:CardDefinition.find,release:CardRelease.find};
  try{
   PetCatalog.find=query=>{
     assert.ok(query.name instanceof RegExp);
     return {select:()=>({limit:()=>({lean:async()=>[{petId:"cat",name:"Abyssinian Cat"}]})})};
   };
-  CardDefinition.find=()=>({select:()=>({limit:()=>({lean:async()=>[{
+  CardRelease.find=()=>({select:()=>({lean:async()=>[{releaseId:"test-s1-r1"}]})});
+  CardDefinition.find=query=>{
+    assert.equal(query.enabled,true);
+    assert.deepEqual(query.releaseId.$in,["test-s1-r1"]);
+    return {select:()=>({limit:()=>({lean:async()=>[{
     _id:"507f1f77bcf86cd799439011",petId:"cat",rarity:"Rare",releaseId:"test-s1-r1",
-  }]})})});
+  }]})})};
+  };
   const choices=await suggestShowCards("aby");
   assert.equal(choices.length,1);
   assert.match(choices[0].name,/Abyssinian Cat/);
