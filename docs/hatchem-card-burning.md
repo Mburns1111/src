@@ -26,7 +26,7 @@ Dust has five separate rarity balances in the global `CardCollector` model. **Th
 | --- | ---: |
 | Normal | 1 |
 | Neon | 5 |
-| Mega Neon | 19 |
+| Mega Neon | 23 |
 
 Example: burning two Rare Normals and one Rare Neon awards **7 Rare Dust**. Burning a Legendary Normal awards **1 Legendary Dust**.
 
@@ -45,7 +45,7 @@ The foundation separately proposes rarity dust *substitution* costs for upgrades
 9. [ ] `.burn tag:favorites`, `.burn tag:burned`, and mixed `tag:burn ID` must be rejected. Burning a card already tagged `burn` by its ID should also work.
 10. [ ] Try selecting a card belonging to the other account, a malformed ID, or the same ID twice. All must be refused without changing anything.
 11. [ ] With two different untagged cards, run `.burn ID1 ID2`. Confirm the preview lists both and sums their dust by rarity.
-12. [ ] Burn a Neon (5 dust) and a Mega Neon (19 dust) when available; confirm the correct rarity.
+12. [ ] Burn a Neon (5 dust) and a Mega Neon (23 dust) when available; confirm the correct rarity.
 13. [ ] Have Account B click Account A's burn button. Only A must be able to burn A's cards.
 14. [ ] Remove the Card role before confirming a burn; confirmation must be refused.
 15. [ ] Start a burn preview, transfer one offered card to another user in a separate trade/gift, then try to burn. The whole burn must fail and award **no** dust.
