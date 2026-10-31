@@ -678,18 +678,20 @@ async function publishCardDrop(interaction, { releaseId, testMode }) {
 }
 
 export async function handleCardUpgrade(interaction) {
-  const [, , action, token] = interaction.customId.split(":");
+  const [, kind, action, token] = interaction.customId.split(":");
+  const dustMode=kind==="dustupgrade";
   if (!["yes", "no"].includes(action) || !/^[0-9a-f]{24}$/.test(token || "")) {
     return interaction.reply({ content: "Invalid upgrade confirmation.", flags: MessageFlags.Ephemeral });
   }
   // This message is private and bound to the requesting member.
   try {
     if (action === "no") {
-      cancelCardUpgrade(token, interaction.user.id);
+      if(dustMode)cancelDustUpgrade(token,interaction.user.id,interaction.guildId);
+      else cancelCardUpgrade(token, interaction.user.id);
       return interaction.update({ content: "Card upgrade cancelled. Your cards are unchanged.", components: [] });
     }
     await interaction.deferUpdate();
-    const result = await confirmCardUpgrade(token, interaction.user.id, interaction.guildId);
+    const result = await (dustMode?confirmDustUpgrade:confirmCardUpgrade)(token,interaction.user.id,interaction.guildId);
     // The upgrade is committed before publishing. Never tell the member it
     // failed (or consume their cards again) if Discord or rendering fails.
     let publicPost;
@@ -732,7 +734,7 @@ export async function handleCardUpgrade(interaction) {
         otherCollectorCount,
       });
       publicPost = await interaction.channel.send({
-        content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(pet?.name || definition.petId)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: ${result.publicId}`,
+        content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(pet?.name || definition.petId)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: ${result.publicId}${dustMode?" · Used "+result.dustSpent+" "+result.rarity+" Dust":""}`,
         files: [new AttachmentBuilder(image, { name: "upgraded-card.png" })],
         allowedMentions: { users: [interaction.user.id], parse: [] },
       });
@@ -750,7 +752,7 @@ export async function handleCardUpgrade(interaction) {
     }
     return interaction.editReply({
       content: publicPost
-        ? `**Upgrade complete!** Your new ${result.target === "neon" ? "Neon" : "Mega Neon"} card ${result.publicId} has been posted in this channel.`
+        ? `**Upgrade complete!** Your new ${result.target === "neon" ? "Neon" : "Mega Neon"} card ${result.publicId} has been posted in this channel.${dustMode?" Spent "+result.dustSpent+" "+result.rarity+" Dust.":""}`
         : `**Upgrade complete!** Your new card ID is ${result.publicId}. I couldn't post it publicly; check /cards collection. Nothing was lost.`,
       components: [], allowedMentions: { parse: [] },
     });
