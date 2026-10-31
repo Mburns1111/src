@@ -99,7 +99,7 @@ export async function handleCardBurnInteraction(interaction) {
   }catch(error){
     console.warn("[Hatchem] Burn failed:",error.message);
     return interaction.editReply({
-      embeds:[],components:[],content:"Burn cancelled: "+clean(error.message),
+      embeds:[],components:[],content:"⚠️ Burn failed. Check .collection and .dust before retrying. Details: "+clean(error.message),
       allowedMentions:{parse:[]},
     });
   }
