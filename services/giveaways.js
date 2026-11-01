@@ -168,6 +168,7 @@ export async function reconcileGiveaways(client, { now = new Date(), limit = 30 
       { status: "rerolling" },
       { status: "ended", renderedAt: null },
       { status: "cancelled", mode: "survival", renderedAt: null },
+      { status: "running", mode: "survival", renderedAt: null },
     ],
   }).sort({ endsAt: 1 }).limit(limit).lean();
   for (const candidate of pending) {
@@ -176,7 +177,7 @@ export async function reconcileGiveaways(client, { now = new Date(), limit = 30 
       if (candidate.status === "rerolling") latest = await finishPendingReroll(candidate);
       if (candidate.status === "open" || candidate.status === "closing")
         latest = await closeGiveaway({ id: candidate._id, guildId: candidate.guildId, now });
-      if (["ended", "cancelled"].includes(latest?.status) && !latest.renderedAt)
+      if (["ended", "cancelled", "running"].includes(latest?.status) && !latest.renderedAt)
         await publishGiveawayResult(client, latest);
     } catch (error) {
       console.error("[Giveaways] Reconciliation failed for", String(candidate._id), error);
