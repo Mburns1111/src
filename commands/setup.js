@@ -82,6 +82,22 @@ export const data = new SlashCommandBuilder()
           .setName("survival_trials")
           .setDescription("Separate channel for Court's Trial signups and eliminations")
           .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+      )
+      .addRoleOption((option) =>
+        option.setName("giveaway_ping")
+          .setDescription("Role to notify when a regular giveaway is first posted"),
+      )
+      .addRoleOption((option) =>
+        option.setName("trial_ping")
+          .setDescription("Role to notify when a Court's Trial signup is first posted"),
+      )
+      .addBooleanOption((option) =>
+        option.setName("clear_giveaway_ping")
+          .setDescription("Disable the regular giveaway notification role"),
+      )
+      .addBooleanOption((option) =>
+        option.setName("clear_trial_ping")
+          .setDescription("Disable the Court's Trial notification role"),
       ),
   );
 
@@ -97,6 +113,13 @@ export async function execute(interaction) {
   const shopChannel = interaction.options.getChannel("shop");
   const giveawayChannel = interaction.options.getChannel("giveaways");
   const survivalTrialChannel = interaction.options.getChannel("survival_trials");
+  const giveawayPingRole = interaction.options.getRole("giveaway_ping");
+  const trialPingRole = interaction.options.getRole("trial_ping");
+  const clearGiveawayPing = interaction.options.getBoolean("clear_giveaway_ping") === true;
+  const clearTrialPing = interaction.options.getBoolean("clear_trial_ping") === true;
+  if ((giveawayPingRole && clearGiveawayPing) || (trialPingRole && clearTrialPing)) {
+    throw new UserFacingError("Choose a ping role or clear it, not both for the same event type.");
+  }
 
   if (
     !commandsChannel &&
@@ -108,7 +131,11 @@ export async function execute(interaction) {
     !tradingPostChannel &&
     !shopChannel &&
     !giveawayChannel &&
-    !survivalTrialChannel
+    !survivalTrialChannel &&
+    !giveawayPingRole &&
+    !trialPingRole &&
+    !clearGiveawayPing &&
+    !clearTrialPing
   ) {
     throw new UserFacingError("Choose at least one channel to configure.");
   }
@@ -137,6 +164,8 @@ export async function execute(interaction) {
   if (tradingPostChannel) updates.tradingPostChannelId = tradingPostChannel.id;
   if (giveawayChannel) updates.giveawayChannelId = giveawayChannel.id;
   if (survivalTrialChannel) updates.survivalTrialChannelId = survivalTrialChannel.id;
+  if (giveawayPingRole || clearGiveawayPing) updates.giveawayPingRoleId = clearGiveawayPing ? "" : giveawayPingRole.id;
+  if (trialPingRole || clearTrialPing) updates.survivalTrialPingRoleId = clearTrialPing ? "" : trialPingRole.id;
 
   // Ensure the shop before updating channel settings so its existing message IDs
   // are checked against the previous channel when a shop is moved.
@@ -183,6 +212,10 @@ export async function execute(interaction) {
   if (survivalTrialChannel) {
     configured.push(`Court's Trial survival giveaways: ${survivalTrialChannel}`);
   }
+  if (giveawayPingRole) configured.push(`Regular giveaway notifications: <@&${giveawayPingRole.id}>`);
+  if (trialPingRole) configured.push(`Court's Trial notifications: <@&${trialPingRole.id}>`);
+  if (clearGiveawayPing) configured.push("Regular giveaway notifications: disabled");
+  if (clearTrialPing) configured.push("Court's Trial notifications: disabled");
 
   await interaction.editReply({
     content: `Channel settings saved.\n${configured.join("\n")}`,
