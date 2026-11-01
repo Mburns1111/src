@@ -153,6 +153,37 @@ test("starts always publish to their own assigned channels", async () => {
   } finally { restore(changes); }
 });
 
+test("trial start saves claim minutes, while regular start saves claim hours", async () => {
+  const changes = [];
+  const created = [];
+  try {
+    stub(changes, GuildConfig, "findOne", async () => ({
+      giveawayChannelId: normalId,
+      survivalTrialChannelId: trialId,
+    }));
+    stub(changes, Giveaway, "create", async values => {
+      created.push(values);
+      return { ...values, _id: giveawayId, toObject: () => ({ ...values, _id: giveawayId }) };
+    });
+    stub(changes, Giveaway, "updateOne", async () => ({ modifiedCount: 1 }));
+    const guild = { id: guildId, channels: { fetch: async id => ({
+      id, guildId, isTextBased: () => true,
+      send: async () => ({ id: "678901234567890123", url: "https://discord.com/channels/example" }),
+    }) } };
+    const giveaway = postingInteraction("start", guild);
+    giveaway.options.getInteger = name => name === "claim_hours" ? 24 : name === "minutes" ? 60 : null;
+    const trial = postingInteraction("start", guild, "trial");
+    trial.options.getInteger = name => name === "claim_minutes" ? 15 : name === "signup_minutes" ? 30 : null;
+    await postGiveaway(giveaway);
+    await postGiveaway(trial);
+    assert.equal(created.length, 2);
+    assert.equal(created[0].claimWindowHours, 24);
+    assert.equal(created[0].claimWindowMinutes, null);
+    assert.equal(created[1].claimWindowMinutes, 15);
+    assert.equal(created[1].claimWindowHours, null);
+  } finally { restore(changes); }
+});
+
 test("an unconfigured dedicated channel never falls back to the command channel", async () => {
   const changes = [];
   try {
