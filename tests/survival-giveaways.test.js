@@ -628,5 +628,5 @@ test("Court's Trial signup and royal verdict show claim hours, deadline and tick
   assert.match(body, /Open a support ticket/);
   assert.match(body, /Roblox username/);
   assert.deepEqual(finale.allowedMentions, { parse: [] });
-  assert.equal(finale.embeds[0].data.footer.text, \`♛ Trial \${id} · Finale\`);
+  assert.equal(finale.embeds[0].data.footer.text, "♛ Trial " + id + " · Finale");
 });
