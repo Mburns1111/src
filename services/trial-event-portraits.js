@@ -419,8 +419,6 @@ export function renderTrialEventPortrait(event, participants = {}, meta = {}) {
   border(ctx);
   if (event.actorId) duelScene(ctx, participants);
   else soloScene(ctx, participants);
-  label(ctx, "ELIMINATION " + (Number(meta.index ?? 0) + 1) + " OF " +
-    (Number(meta.total) || 1), 500, 140, 235, 21, GOLD);
   courtStoryPlaque(ctx, event, participants, meta);
   return canvas.toBuffer("image/png");
 }
