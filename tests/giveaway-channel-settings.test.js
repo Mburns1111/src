@@ -4,7 +4,7 @@ import { PermissionFlagsBits } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import { data as setupCommand, execute as setupChannels } from "../commands/setup.js";
-import { data as giveawayCommand, execute as postGiveaway } from "../commands/giveaway.js";
+import { data as giveawayCommand, trialData as trialCommand, execute as postGiveaway } from "../commands/giveaway.js";
 
 const guildId = "123456789012345678";
 const normalId = "234567890123456789";
@@ -42,11 +42,10 @@ test("setup exposes two distinct optional giveaway channel selectors", () => {
   assert.ok(GuildConfig.schema.path("giveawayChannelId"));
   assert.ok(GuildConfig.schema.path("survivalTrialChannelId"));
   assert.equal(config.options.length, 10);
-  const giveaway = giveawayCommand.toJSON();
-  for (const name of ["start", "speed"]) {
-    const operation = giveaway.options.find(o => o.name === name);
+  for (const command of [giveawayCommand, trialCommand]) {
+    const operation = command.toJSON().options.find(o => o.name === "start");
     assert.ok(!operation.options.some(o => o.name === "channel"),
-      name + " cannot override its assigned channel");
+      command.toJSON().name + " cannot override its assigned channel");
   }
 });
 
@@ -95,10 +94,10 @@ test("setup refuses using one channel for both giveaway types, including a previ
   } finally { restore(changes); }
 });
 
-function postingInteraction(mode, guild) {
+function postingInteraction(mode, guild, commandName = "giveaway") {
   let reply;
   return {
-    guild, guildId,
+    guild, guildId, commandName,
     channel: { id: otherId, send: async () => { assert.fail("Do not post in the invoking channel"); } },
     user: { id: ownerId },
     memberPermissions: { has: bit => bit === PermissionFlagsBits.ManageGuild },
@@ -136,7 +135,7 @@ test("start and speed always publish to their own assigned channels", async () =
       fetch: async id => channels.get(id) || null,
     } };
     const normal = postingInteraction("start", guild);
-    const trial = postingInteraction("speed", guild);
+    const trial = postingInteraction("start", guild, "trial");
     await postGiveaway(normal);
     await postGiveaway(trial);
     assert.deepEqual(sent.map(x => x.id), [normalId, trialId]);
