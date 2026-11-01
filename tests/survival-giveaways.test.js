@@ -109,15 +109,26 @@ test("sequential event posts carry a stable marker and suppress automatic ping s
   assert.match(event.embeds[0].data.description, /3 contestants remain/);
 });
 
-test("starting the trial claims the open status once, saves the planned order and rejects second launch", async () => {
+test("starting freezes entry state atomically, plans all contestants once and rejects a second launch", async () => {
   const original = [];
   let stored = record();
+  const checkpoints = [];
   try {
     patch(original, Giveaway, "findOne", () => ({ lean: async () => ({ ...stored }) }));
     patch(original, Giveaway, "findOneAndUpdate", (filter, update) => ({
       lean: async () => {
         assert.equal(filter.mode, "survival");
         if (stored.status !== filter.status) return null;
+        if (filter.status === "open") {
+          assert.deepEqual(filter["entrantIds.1"], { $exists: true });
+          checkpoints.push("entrants-locked");
+          assert.equal(update.$set.status, "preparing");
+        }
+        if (filter.status === "preparing") {
+          assert.deepEqual(checkpoints, ["entrants-locked"]);
+          assert.equal(update.$set.gameEvents.length, 3);
+          checkpoints.push("game-planned");
+        }
         stored = { ...stored, ...update.$set };
         return { ...stored };
       },
@@ -126,6 +137,7 @@ test("starting the trial claims the open status once, saves the planned order an
     assert.equal(first.status, "running");
     assert.equal(first.gameEvents.length, 3);
     assert.ok(contestants.includes(first.originalChampionId));
+    assert.deepEqual(checkpoints, ["entrants-locked", "game-planned"]);
     await assert.rejects(() => beginSurvivalTrial({ id, guildId }), /not open/i);
   } finally { restore(original); }
 });
