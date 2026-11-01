@@ -43,8 +43,9 @@ const restore = records => {
 test("speed giveaways are staff-managed, configurable and distinct from timed giveaways", () => {
   const spec = trialCommand.toJSON();
   const commands = spec.options.map(option => option.name);
-  for (const name of ["start", "launch", "cancel", "reroll", "list", "entrants"])
+  for (const name of ["start", "cancel", "reroll", "list", "entrants"])
     assert.ok(commands.includes(name));
+  assert.ok(!commands.includes("launch"), "staff start button replaces slash launch");
   const speed = spec.options.find(option => option.name === "start");
   assert.deepEqual(
     speed.options.find(option => option.name === "pace").choices.map(item => item.value),
