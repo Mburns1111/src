@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import { prizeClaimLines } from "./giveaway-claims.js";
 import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
 export const GIVEAWAY_MAX_MINUTES = 60 * 24 * 14;
@@ -43,10 +44,13 @@ export function giveawayAnnouncement(record) {
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
     ...(record.requiredRoleId ? [`**Required role:** <@&${record.requiredRoleId}>`] : []),
+    ...(!ended ? prizeClaimLines(record) : []),
     ...(record.rules ? ["", "**Rules / Requirements:**", record.rules.slice(0, 1300)] : []),
   ];
   if (ended) {
     lines.push("", "**Winners**", ...(winners.length ? winners : ["No eligible entries — no winner was selected."]));
+    const claims = prizeClaimLines(record, { finished: true });
+    if (claims.length) lines.push("", ...claims);
     if (changed.length) lines.push("", "**Reroll history**", ...changed);
     lines.push("", "*Prize delivery is handled by the giveaway host.*");
   }
@@ -104,7 +108,7 @@ export async function closeGiveaway({ id, guildId, now = new Date() }) {
   const winnerIds = chooseGiveawayWinners(item.entrantIds || [], item.winnerCount);
   const changed = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "closing" },
-    { $set: { status: "ended", winnerIds, renderedAt: null }, $inc: { renderVersion: 1 } },
+    { $set: { status: "ended", winnerIds, claimStartedAt: now, renderedAt: null }, $inc: { renderVersion: 1 } },
     { returnDocument: "after" },
   ).lean();
   return changed || Giveaway.findOne({ _id: id, guildId }).lean();
