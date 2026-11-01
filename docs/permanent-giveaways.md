@@ -11,7 +11,7 @@ Use `/setup channels giveaways:#giveaways survival_trials:#court-trials` to save
 
 Both fields are optional when updating other server settings, but you must configure the corresponding channel before starting that kind of event. The other channel's assignment remains unchanged if you change only one. The bot refuses to assign the same channel to both types. Running an event command in another channel does not change the destination; no per-event channel override is offered. Changing an assignment affects **new events only**; existing giveaways and their history remain in the channels where they were created.
 
-Give the development bot **View Channel, Send Messages, Embed Links, Read Message History** in each assigned channel. Announcement channels are supported alongside ordinary text channels. Re-register slash commands after pulling this change.
+Give the development bot **View Channel, Send Messages, Embed Links, Attach Files, Read Message History** in each assigned channel. Announcement channels are supported alongside ordinary text channels. Re-register slash commands after pulling this change.
 
 ## Commands
 
@@ -54,14 +54,13 @@ First assign the two channels with `/setup channels`. Run `/giveaway start` from
 Use `/trial start` for a **full, one-contestant-at-a-time** elimination event. It has its own command group, separate from `/giveaway`. The original signup panel remains visible and a **second permanent Royal Verdict** is sent after the last elimination. Rerolling edits that verdict rather than sending a new one. The verdict also shows the original champion's **Trials Entered** and **Trials Won** totals for this Discord server. Entry totals come from saved trial registrations (including cancelled trials). A win counts only the **original last survivor** of a completed trial; prize-place rerolls do not add a championship win. The completed trial is included in the totals.
 
 - `/trial start title:<title> prize:<prize> pace:<2|3|5> signup_minutes:<1–1440> winners:<1–10> rules:<optional> role:<optional>`
-- `/trial launch id:<giveaway-ID-or-message-link>` — manually freeze the list and start the game
-- Or use **Start Trial (Staff)** on the original giveaway post
+- Click **Start Trial (Staff)** on the original trial signup post to lock entrants and begin the event; there is no `/trial launch` slash command.
 - `/trial cancel id:<giveaway-ID-or-message-link>` — stop and archive a trial (no prize winners)
 - `/trial reroll` — after the final survivor is announced, reroll a prize place from entrants who have not already received a prize; the original champion and reroll history remain visible
 
-**Signup window** defaults to 15 minutes, which is separate from the game duration. Players can join, leave and see the live contestant count before entries close; staff can launch early or after signups close. Two entrants are required to launch; at most 120 unique entrants are allowed per trial. Staff can stop a trial during the event.
+**Signup window** defaults to 15 minutes, which is separate from the game duration. Players can join, leave and see the live contestant count before entries close; staff can launch early or after signups close. Two entrants are required to launch; at most 120 unique entrants are allowed per trial. Staff can stop a trial during the event. Only staff with Manage Server can click **Start Trial (Staff)**.
 
-**Presentation:** Each individual elimination is a Discord embed with a Cryptic Court header, its original event story, eliminated contestant, survivor count, and an event identifier in the footer. The signup post and final results are also embeds, with ornate royal headers and footers. A dedicated **Trial Complete** message posts after the final elimination, with the original champion, ranked prize winners, prize, and staff delivery reminder. There are **120 unique event texts** (60 solo and 60 duel), dealt without replacement within each trial: no repeated scenario in one 120-person game.
+**Presentation:** Each individual elimination is a Discord embed with a Cryptic Court header, its original event story, eliminated contestant, survivor count, and an event identifier in the footer. **Every elimination gets a matching original PNG portrait attachment:** two contestants with Discord avatars on a dark-pink gothic **VS** card for duels, or one **Fallen** portrait for solo eliminations. Both use pink roses, thorns and royal borders. Discord usernames or royal avatar silhouettes are used when Discord portraits are unavailable. If rendering fails, the event still posts as a text-only embed, preserving the match and restart marker. The signup post and final results are also embeds, with ornate royal headers and footers. A dedicated **Trial Complete** message posts after the final elimination, with the original champion, ranked prize winners, prize, and staff delivery reminder. There are **120 unique event texts** (60 solo and 60 duel), dealt without replacement within each trial: no repeated scenario in one 120-person game.
 
 **Game flow:** The bot freezes the contestant list with an atomic database update, randomizes the eliminations once, and posts an original gothic-court solo event or duel for each elimination. Each victim is unique; duel opponents are still alive when the event occurs. Each post says how many contestants remain. Eliminations are published individually at **5 seconds (default), or optionally 2 or 3 seconds** apart. The final survivor is 1st place; for multiple prizes, the last eliminated is 2nd, the next is 3rd, etc. Elimination posts remain in the channel, and the original announcement is edited with full prize details, original champion, ranked winners, final entry count, and reroll history.
 
@@ -71,7 +70,7 @@ Use `/trial start` for a **full, one-contestant-at-a-time** elimination event. I
 
 1. Start `/trial start` with 2-second pace and 2–5 entrants. Confirm the staff-only **Start Trial** button, one entry per user, Leave and Contestants buttons.
 2. Have two moderators press Start at once. Exactly one game should begin; no entries accepted once startup begins.
-3. Watch every elimination. Verify each is a separate bot message with a unique victim, valid duel opponent, and decreasing survivor count. No contestant should be eliminated twice.
+3. Watch every elimination. Verify each is a separate bot message with a unique victim, valid duel opponent, and decreasing survivor count. **Check each contains the pink/gothic PNG image:** two Discord user portraits with VS on duels, a single fallen portrait on solo events. Confirm Discord displays the embedded image correctly and the uploaded file survives restarts. No contestant should be eliminated twice.
 4. Verify the winner is the final survivor; with `winners:3`, the runner-up and third place are the final two eliminated players.
 5. Restart the bot midway through a trial. Verify it keeps the same plan, picks up at the correct elimination, and eventually edits the **original** post with the archived results.
 6. Test Cancel while signup is open and during a running game. The original announcement should remain visible and record no winners.
@@ -83,4 +82,4 @@ Use `/trial start` for a **full, one-contestant-at-a-time** elimination event. I
    - Check that the same winner's Trials Entered and Trials Won totals increase across separate completed trials, remain unchanged on re-render, and **do not increase** for a rerolled prize recipient.
 12. Check the private `/giveaway entrants` and `/trial entrants` command outputs, empty rosters, and pagination at more than 25 entrants.
 
-**Development:** This mode is on `feature/permanent-giveaways` in draft PR #24, not merged or deployed. When testing from Replit, use the correct development-bot token and database, then run `node register-commands.js` to refresh `/giveaway` options.
+**Development:** This mode is on `feature/permanent-giveaways` in draft PR #24, not merged or deployed. When testing from Replit, use the correct development-bot token and database, then run `node register-commands.js` to refresh `/giveaway` and `/trial` options (including removal of the old slash launch command).
