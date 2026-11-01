@@ -32,11 +32,15 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.ok(!start.includes("channel"), "standard events use the configured channel");
  const speed=trialCommand.toJSON().options.find(option=>option.name==="start").options.map(x=>x.name);
  assert.ok(!speed.includes("channel"), "survival trials use their own configured channel");
- assert.ok(speed.includes("claim_hours"));
+ assert.ok(speed.includes("claim_minutes"), "trials accept minute-based claim windows");
+ assert.ok(!speed.includes("claim_hours"), "legacy hour input is no longer offered for new trials");
  assert.ok(speed.includes("claim_instructions"));
  assert.ok(Giveaway.schema.path("claimWindowHours"));
+ assert.ok(Giveaway.schema.path("claimWindowMinutes"));
  assert.ok(Giveaway.schema.path("claimInstructions"));
  assert.ok(Giveaway.schema.path("claimStartedAt"));
+ assert.ok(start.includes("claim_hours"), "regular giveaways still use hours");
+ assert.ok(!start.includes("claim_minutes"));
  assert.equal(GIVEAWAY_MAX_MINUTES,20160);
 });
 
