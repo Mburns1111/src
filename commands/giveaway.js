@@ -43,8 +43,6 @@ export const trialData = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("winners").setDescription("Number of ranked prize winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
     .addRoleOption(o => o.setName("role").setDescription("Optional role required to enter")))
-  .addSubcommand(c => c.setName("launch").setDescription("Start the elimination trial after contestants join")
-    .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
   .addSubcommand(c => c.setName("cancel").setDescription("Cancel a trial without awarding winners; retain its record")
     .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
@@ -175,11 +173,9 @@ export async function execute(interaction) {
       throw Error("This event is a Court's Trial. Use /trial instead.");
     }
     let updated;
-    if (operation === "launch" || operation === "cancel") {
-      if (!survivalCommand) throw Error("Use /trial launch or /trial cancel for elimination trials.");
-      updated = operation === "launch"
-        ? await beginSurvivalTrial({ id: record._id, guildId: interaction.guildId })
-        : await cancelSurvivalTrial({ id: record._id, guildId: interaction.guildId });
+    if (operation === "cancel") {
+      if (!survivalCommand) throw Error("Use /trial cancel for an elimination trial.");
+      updated = await cancelSurvivalTrial({ id: record._id, guildId: interaction.guildId });
       try {
         await publishSurvivalAnnouncement(interaction.client, updated);
       } catch (error) {
@@ -187,12 +183,12 @@ export async function execute(interaction) {
         return interaction.editReply("The trial state was saved, but the announcement could not be updated. Check the bot permissions; the bot will retry the final result.");
       }
       return interaction.editReply({
-        content: `${operation === "launch" ? "⚔️ Trial started! Elimination messages will appear in " : "🥀 Trial cancelled and archived in "}${linkTo(updated)}`,
+        content: `🥀 Trial cancelled and archived in ${linkTo(updated)}`,
         allowedMentions: { parse: [] },
       });
     }
     if (operation === "end") {
-      if (record.mode === "survival") throw Error("Use /trial launch or /trial cancel for an elimination trial.");
+      if (record.mode === "survival") throw Error("Use the Start Trial (Staff) button to begin a trial, or /trial cancel to stop it.");
       if (record.status === "publishing" || record.status === "failed") throw Error("This giveaway was never published.");
       updated = await closeGiveaway({ id: record._id, guildId: interaction.guildId });
       if (updated?.status === "rerolling") throw Error("Wait for the current reroll to finish.");
