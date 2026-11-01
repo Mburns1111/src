@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "../services/survival-event-texts.js";
-import { trialData as trialCommand } from "../commands/giveaway.js";
+import { trialData as trialCommand, handleGiveawayButton } from "../commands/giveaway.js";
 import {
   MAX_TRIAL_ENTRANTS, TRIAL_SPEED_CHOICES, DEFAULT_TRIAL_SPEED_SECONDS,
   planSurvivalTrial, survivalAnnouncement, survivalEventPayload,
@@ -212,6 +212,7 @@ test("the game posts one elimination at a time, saves progress, and archives ran
       const m = {
         id: String(sent.length + 1), author: { id: "999999999999999999" },
         embeds: payload.embeds.map(embed => embed.data),
+        files: payload.files || [],
         edit: async next => { m.embeds = next.embeds.map(embed => embed.data); },
       };
       sent.push(m);
@@ -253,6 +254,12 @@ test("the game posts one elimination at a time, saves progress, and archives ran
       assert.equal(await runSurvivalTrialStep(client, { ...stored }, { now }), true);
       assert.equal(sent.filter(message => message.embeds.some(embed => embed.footer?.text?.includes(" · Event "))).length, i + 1);
       assert.equal(stored.nextEventIndex, i + 1);
+    }
+    for (const imagePost of sent.filter(message => message.embeds.some(embed => embed.footer?.text?.includes(" · Event ")))) {
+      assert.equal(imagePost.files.length, 1, "all eliminations attach artwork");
+      const image = imagePost.embeds[0].image?.url;
+      assert.match(image || "", /^attachment:\/\/trial-/);
+      assert.equal(imagePost.files[0].name, image.slice("attachment://".length));
     }
     assert.equal(sent.length, plan.events.length + 1, "a final royal verdict is separately posted");
     assert.equal(sent.at(-1).embeds[0].footer.text, `♛ Trial ${id} · Finale`);
@@ -479,4 +486,53 @@ test("Royal Verdict shows entered and won totals for the original champion even 
   );
   assert.doesNotMatch(withoutChampion.embeds[0].data.description, /Trials Entered/,
     "do not attribute historical stats to an unknown original champion");
+});
+
+test("Start Trial (Staff) button starts a real saved trial and rejects non-staff", async () => {
+  const changes = [];
+  let saved = record({ status: "open", entrantIds: contestants.slice(0, 3) });
+  const messages = [];
+  let applied = 0;
+  const makeButton = (canManage = true) => {
+    let output;
+    return {
+      customId: "giveaway:launch:" + id,
+      guildId, guild: { id: guildId }, channelId: saved.channelId,
+      message: { id: saved.messageId }, user: { id: contestants[0], bot: false },
+      memberPermissions: { has: () => canManage },
+      deferReply: async () => {},
+      editReply: async value => { output = value; },
+      replyOutput: () => output,
+      client: { user: { id: "777777777777777777" }, channels: {
+        fetch: async () => ({ messages: {
+          fetch: async () => ({ author: { id: "777777777777777777" },
+            edit: async data => { messages.push(data); } }),
+        } }),
+      } },
+    };
+  };
+  try {
+    patch(changes, Giveaway, "findOne", query => ({ lean: async () => {
+      assert.equal(query.guildId, guildId);
+      return { ...saved };
+    } }));
+    patch(changes, Giveaway, "findOneAndUpdate", (query, update) => ({ lean: async () => {
+      if (saved.status !== query.status) return null;
+      saved = { ...saved, ...update.$set };
+      applied++;
+      return { ...saved };
+    } }));
+    patch(changes, Giveaway, "updateOne", async () => ({ modifiedCount: 1 }));
+    const ordinary = makeButton(false);
+    await handleGiveawayButton(ordinary);
+    assert.match(ordinary.replyOutput(), /Only staff/);
+    assert.equal(applied, 0);
+    const staff = makeButton(true);
+    await handleGiveawayButton(staff);
+    assert.equal(saved.status, "running");
+    assert.equal(applied, 2, "button froze entrants then planned trial");
+    assert.match(staff.replyOutput(), /Trial has begun/i);
+    assert.equal(messages.length, 1, "original signup is edited");
+    assert.equal(messages[0].embeds[0].data.title.includes("Trial"), true);
+  } finally { restore(changes); }
 });
