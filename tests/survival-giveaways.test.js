@@ -139,7 +139,7 @@ test("sequential event posts carry a stable marker and suppress automatic ping s
   assert.equal(event.embeds[0].data.fields[0].name, "⚰️ Eliminated");
   assert.equal(event.embeds[0].data.fields[0].value, `<@${contestants[0]}>`);
   assert.equal(event.embeds[0].data.fields[1].name, "🕯️ Still Standing");
-  assert.match(event.embeds[0].data.fields[1].value, /3 \\/ 4/);
+  assert.equal(event.embeds[0].data.fields[1].value, "**3 / 4**");
 });
 
 test("starting freezes entry state atomically, plans all contestants once and rejects a second launch", async () => {
