@@ -75,7 +75,7 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
-import { data as giveawayCommand, execute as executeGiveaway, handleGiveawayButton } from "./commands/giveaway.js";
+import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton } from "./commands/giveaway.js";
 import { reconcileGiveaways } from "./services/giveaways.js";
 import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
@@ -250,6 +250,7 @@ const commandHandlers = new Map([
   [adminImportCommand.name, executeAdminImport],
   [shopCommand.name, executeShop],
   [giveawayCommand.name, executeGiveaway],
+  [trialCommand.name, executeGiveaway],
   [testPointsCommand.name, executeTestPoints],
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
