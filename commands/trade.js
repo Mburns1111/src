@@ -79,7 +79,7 @@ function makeCreateTradeButton(userId, expiresAt) {
   ), "trade", userId);
 }
 
-function makeCreateTradeModal(userId, message, expiresAt) {
+export function makeCreateTradeModal(userId, message, expiresAt) {
   return new ModalBuilder()
     .setCustomId(
       `trade:create:${userId}:${message.channelId}:${message.id}:${expiresAt}`,
@@ -96,12 +96,24 @@ function makeCreateTradeModal(userId, message, expiresAt) {
             .setRequired(true),
         ),
       new LabelBuilder()
-        .setLabel("Add one picture (required)")
+        .setLabel("Upload picture (optional)")
+        .setDescription("Upload a picture OR paste a direct image URL below.")
         .setFileUploadComponent(
           new FileUploadBuilder()
             .setCustomId("picture")
-            .setMinValues(1)
+            .setRequired(false)
+            .setMinValues(0)
             .setMaxValues(1),
+        ),
+      new LabelBuilder()
+        .setLabel("Picture link (optional)")
+        .setDescription("Paste an image URL if you did not upload a picture.")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("picture_url")
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(500)
+            .setRequired(false),
         ),
       new LabelBuilder()
         .setLabel("Video link (optional)")
@@ -123,6 +135,23 @@ function makeCreateTradeModal(userId, message, expiresAt) {
             .setRequired(false),
         ),
     );
+}
+
+/**
+ * A trade vote must show one picture. Members can upload a file or paste a
+ * direct image link (including a Discord attachment link), but not both.
+ * Clipboard images pasted into a Discord message can be shared via Copy Link.
+ */
+export function resolveTradePictureInput({ picture, pictureUrl = "" }) {
+  const url = validateWebUrl(String(pictureUrl ?? "").trim(), "Trade picture");
+  if (picture && url) {
+    throw new UserFacingError("Choose either an uploaded picture or a picture link, not both.");
+  }
+  if (!picture && !url) {
+    throw new UserFacingError("Add one picture by uploading an image or pasting a direct image link.");
+  }
+  if (picture) validateAttachments([picture], { imagesOnly: true });
+  return { picture, pictureUrl: url };
 }
 
 function getMapEntries(map) {
@@ -159,7 +188,7 @@ export function getVoteCounts(listing) {
   };
 }
 
-function makeTradeEmbed(listing) {
+export function makeTradeEmbed(listing) {
   const counts = getVoteCounts(listing);
   const embed = new EmbedBuilder()
     .setColor(0xe6a23c)
@@ -186,6 +215,7 @@ function makeTradeEmbed(listing) {
   if (listing.videoUrl) {
     embed.addFields({ name: "Trade video", value: `[Watch video](${listing.videoUrl})` });
   }
+  if (listing.imageUrl) embed.setImage(listing.imageUrl);
   return embed;
 }
 
@@ -459,7 +489,10 @@ export async function handleTradeCreateModal(interaction) {
     claimed = true;
 
     const title = interaction.fields.getTextInputValue("title").trim();
-    const picture = interaction.fields.getUploadedFiles("picture", true).first();
+    const { picture, pictureUrl } = resolveTradePictureInput({
+      picture: interaction.fields.getUploadedFiles("picture")?.first(),
+      pictureUrl: interaction.fields.getTextInputValue("picture_url"),
+    });
     const video = interaction.fields.getUploadedFiles("video")?.first();
     const videoUrl = validateWebUrl(
       interaction.fields.getTextInputValue("video_url").trim(),
@@ -470,10 +503,9 @@ export async function handleTradeCreateModal(interaction) {
         "Choose either an uploaded video or a video link, not both.",
       );
     }
-    validateAttachments([picture], { imagesOnly: true });
     if (video) validateVideoAttachment(video);
 
-    await publishTradeListing(interaction, { title, picture, video, videoUrl }, post);
+    await publishTradeListing(interaction, { title, picture, pictureUrl, video, videoUrl }, post);
     published = true;
     pendingTradeForms.delete(formKey);
     openedTradeForms.delete(submissionKey);
@@ -511,7 +543,7 @@ export async function handleTradeCreateModal(interaction) {
   });
 }
 
-async function publishTradeListing(interaction, { title, picture, video, videoUrl }, post) {
+async function publishTradeListing(interaction, { title, picture, pictureUrl, video, videoUrl }, post) {
   const [profile, member] = await Promise.all([
     UserProfile.findOne({
       guildId: interaction.guildId,
@@ -527,6 +559,7 @@ async function publishTradeListing(interaction, { title, picture, video, videoUr
     ownerRobloxUsername: profile?.adoptMeUsername ?? "",
     title,
     videoUrl,
+    imageUrl: pictureUrl,
     // The original bot-authored form is the final public post. Persist its
     // coordinates before publishing so a later metadata error cannot leave
     // a visible post with no corresponding database record.
@@ -537,7 +570,7 @@ async function publishTradeListing(interaction, { title, picture, video, videoUr
   let published = false;
   try {
     const prepared = await prepareMediaFiles(
-      video ? [picture, video] : [picture],
+      [...(picture ? [picture] : []), ...(video ? [video] : [])],
       `trade-${String(listing._id).slice(-8)}`,
     );
     cleanup = prepared.cleanup;
