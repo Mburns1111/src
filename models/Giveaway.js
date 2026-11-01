@@ -25,6 +25,10 @@ const giveawaySchema = new mongoose.Schema({
   leaseKey: { type: String, default: "" },
   eliminationMessages: [{ index: Number, messageId: String, sentAt: Date }],
   originalChampionId: { type: String, default: "" },
+  // The separate royal verdict is retained and edited on rerolls.
+  finaleMessageId: { type: String, default: "" },
+  finaleLeaseKey: { type: String, default: "" },
+  finaleLeaseUntil: { type: Date, default: null },
   status: { type: String, enum: ["publishing", "open", "preparing", "running", "closing", "ended", "rerolling", "cancelled", "failed"], default: "publishing" },
   entrantIds: { type: [String], default: [] },
   winnerIds: { type: [String], default: [] },
