@@ -5,7 +5,7 @@ import {
   closeGiveaway, rerollGiveaway, publishGiveawayResult,
 } from "../services/giveaways.js";
 import {
-  TRIAL_SPEED_CHOICES, MAX_TRIAL_SIGNUP_MINUTES,
+  TRIAL_SPEED_CHOICES, DEFAULT_TRIAL_SPEED_SECONDS, MAX_TRIAL_SIGNUP_MINUTES,
   beginSurvivalTrial, cancelSurvivalTrial, publishSurvivalAnnouncement,
 } from "../services/survival-giveaways.js";
 
@@ -23,7 +23,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(c => c.setName("speed").setDescription("Open a live, one-by-one elimination giveaway in the Court")
     .addStringOption(o => o.setName("title").setDescription("Trial title").setRequired(true).setMinLength(2).setMaxLength(100))
     .addStringOption(o => o.setName("prize").setDescription("Prize details (include ranked prizes if needed)").setRequired(true).setMinLength(2).setMaxLength(1500))
-    .addIntegerOption(o => o.setName("pace").setDescription("Seconds between elimination posts (default 3)")
+    .addIntegerOption(o => o.setName("pace").setDescription("Seconds between elimination posts (default 5)")
       .addChoices(...TRIAL_SPEED_CHOICES.map(value => ({ name: `${value} seconds`, value }))))
     .addIntegerOption(o => o.setName("signup_minutes").setDescription("Minutes to accept entries (default 15, max 1440)").setMinValue(1).setMaxValue(MAX_TRIAL_SIGNUP_MINUTES))
     .addIntegerOption(o => o.setName("winners").setDescription("Number of ranked prize winners (default 1)").setMinValue(1).setMaxValue(10))
@@ -80,7 +80,7 @@ export async function execute(interaction) {
         requiredRoleId: interaction.options.getRole("role")?.id || "",
         winnerCount, endsAt: new Date(Date.now() + minutes * 60_000),
         mode: survival ? "survival" : "standard",
-        speedSeconds: survival ? (interaction.options.getInteger("pace") || 3) : 3,
+        speedSeconds: survival ? (interaction.options.getInteger("pace") || DEFAULT_TRIAL_SPEED_SECONDS) : DEFAULT_TRIAL_SPEED_SECONDS,
         status: "publishing",
       });
       let message;
