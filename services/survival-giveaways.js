@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from "node:crypto";
-import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "./survival-event-texts.js";
 import { buildTrialEventPortrait } from "./trial-event-portraits.js";
@@ -321,12 +321,17 @@ async function findOrSendEvent(client, record, event, index) {
 
   const fileName = `trial-${record._id}-event-${index + 1}.png`;
   let portrait = null;
-  try {
-    portrait = await buildTrialEventPortrait(client, event);
-  } catch (error) {
-    // A canvas or media error must never prevent an elimination from being
-    // recorded. Post the original text-only embed if image rendering fails.
-    console.error("[Trials] Portrait rendering failed; posting event without image:", error);
+  // Discord channels may disallow file uploads independently of embed links.
+  // In that case keep the elimination running using its text-only embed.
+  const canAttach = channel.permissionsFor?.(client.user)?.has(PermissionFlagsBits.AttachFiles) ?? true;
+  if (canAttach) {
+    try {
+      portrait = await buildTrialEventPortrait(client, event);
+    } catch (error) {
+      // A canvas or media error must never prevent an elimination from being
+      // recorded. Post the original text-only embed if image rendering fails.
+      console.error("[Trials] Portrait rendering failed; posting event without image:", error);
+    }
   }
   const payload = survivalEventPayload(record, event, index, portrait ? fileName : null);
   if (portrait) payload.files = [new AttachmentBuilder(portrait, { name: fileName })];
