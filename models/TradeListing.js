@@ -9,6 +9,7 @@ const tradeListingSchema = new mongoose.Schema(
     ownerRobloxUsername: { type: String, default: "" },
     title: { type: String, required: true, maxlength: 100 },
     videoUrl: { type: String, default: "" },
+    imageUrl: { type: String, default: "" },
     coverImageName: { type: String, default: "" },
     mediaAttachments: { type: [mediaAssetSchema], default: [] },
     votes: {
