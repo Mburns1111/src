@@ -172,7 +172,7 @@ export async function publishSurvivalAnnouncement(client, record) {
   const message = await channel.messages.fetch(record.messageId);
   if (message.author?.id !== client.user?.id) throw Error("Cannot edit an announcement from another bot.");
   await message.edit(survivalAnnouncement(record));
-  if (["ended", "cancelled"].includes(record.status)) {
+  if (["running", "ended", "cancelled"].includes(record.status)) {
     await Giveaway.updateOne(
       { _id: record._id, status: record.status, renderVersion: record.renderVersion },
       { $set: { renderedAt: new Date() } },
