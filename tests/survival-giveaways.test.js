@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Collection } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import { data as giveawayCommand } from "../commands/giveaway.js";
 import {
@@ -65,8 +66,8 @@ test("every participant except one receives a distinct sequential elimination wi
     assert.match(event.description, new RegExp(event.victimId));
     assert.ok(!event.description.includes("{victim}"));
     if (event.actorId) {
-      assert.ok(!events.slice(i + 1).some(x => x.victimId === event.actorId),
-        "the duel winner must survive all earlier eliminations");
+      assert.ok(!events.slice(0, i + 1).some(x => x.victimId === event.actorId),
+        "the duel winner must still be alive at the time of the duel");
       assert.notEqual(event.actorId, event.victimId);
     }
   });
@@ -157,7 +158,7 @@ test("the game posts one elimination at a time, saves progress, and archives ran
   let edits = 0;
   const channel = {
     messages: { fetch: async arg => arg && typeof arg === "object"
-      ? new Map(sent.map(x => [x.id, x]))
+      ? new Collection(sent.map(x => [x.id, x]))
       : { id: stored.messageId, author: { id: "999999999999999999" }, edit: async () => { edits += 1; } } },
     send: async payload => {
       const m = {
@@ -218,7 +219,7 @@ test("after a restart, replay recognizes an already-posted event and advances wi
   let sends = 0;
   const channel = {
     messages: { fetch: async arg => arg && typeof arg === "object"
-      ? new Map([[existing.id, existing]])
+      ? new Collection([[existing.id, existing]])
       : { author: { id: "999999999999999999" }, edit: async () => {} } },
     send: async () => { sends++; throw Error("Would have duplicated a post"); },
   };
