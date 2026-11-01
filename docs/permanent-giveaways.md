@@ -33,3 +33,34 @@ Staff must have Manage Server. The bot needs permission to View Channel, Send Me
 - The public active post does not update on every click. Entrants can use **Entry Count** to see the live count privately. The final public post contains the exact total.
 - Automatic endings run on a 30-second sweep, with restart recovery. An offline bot cannot close giveaways while offline; it reconciles them after reconnecting.
 - No production deployment or merge until the user explicitly approves.
+
+## Live elimination mode: The Court's Trial
+
+Use `/giveaway speed` for a **full, one-contestant-at-a-time** elimination event rather than an ordinary random-draw giveaway.
+
+- `/giveaway speed title:<title> prize:<prize> pace:<2|3|5> signup_minutes:<1–1440> winners:<1–10> rules:<optional> channel:<optional> role:<optional>`
+- `/giveaway launch id:<giveaway-ID-or-message-link>` — manually freeze the list and start the game
+- Or use **Start Trial (Staff)** on the original giveaway post
+- `/giveaway cancel id:<giveaway-ID-or-message-link>` — stop and archive a trial (no prize winners)
+- `/giveaway reroll` — after the final survivor is announced, reroll a prize place from entrants who have not already received a prize; the original champion and reroll history remain visible
+
+**Signup window** defaults to 15 minutes, which is separate from the game duration. Players can join, leave and see the live contestant count before entries close; staff can launch early or after signups close. Two entrants are required to launch; at most 120 unique entrants are allowed per trial. Staff can stop a trial during the event.
+
+**Game flow:** The bot freezes the contestant list with an atomic database update, randomizes the eliminations once, and posts an original gothic-court solo event or duel for each elimination. Each victim is unique; duel opponents are still alive when the event occurs. Each post says how many contestants remain. Eliminations are published individually at **2, 3 (default), or 5 seconds** apart. The final survivor is 1st place; for multiple prizes, the last eliminated is 2nd, the next is 3rd, etc. Elimination posts remain in the channel, and the original announcement is edited with full prize details, original champion, ranked winners, final entry count, and reroll history.
+
+**Crash recovery:** The game stores every planned event, current step, and stable message markers in MongoDB. After a restart it resumes from the next unsent elimination, normally reusing previously posted event messages if they were sent just before a crash. The bot checks every second and leases each step to prevent overlapping workers. Live counts are in the individual elimination posts; the original giveaway message is updated at launch and at completion. The last 100 messages are checked when recovering an uncommitted send, so recovery after unusually heavy channel traffic cannot absolutely guarantee no duplicate event posts. Results are never intentionally deleted. No TikTok verification or Roblox prize fulfillment occurs.
+
+### Additional Discord tests
+
+1. Start `/giveaway speed` with 2-second pace and 2–5 entrants. Confirm the staff-only **Start Trial** button, one entry per user, Leave and Contestants buttons.
+2. Have two moderators press Start at once. Exactly one game should begin; no entries accepted once startup begins.
+3. Watch every elimination. Verify each is a separate bot message with a unique victim, valid duel opponent, and decreasing survivor count. No contestant should be eliminated twice.
+4. Verify the winner is the final survivor; with `winners:3`, the runner-up and third place are the final two eliminated players.
+5. Restart the bot midway through a trial. Verify it keeps the same plan, picks up at the correct elimination, and eventually edits the **original** post with the archived results.
+6. Test Cancel while signup is open and during a running game. The original announcement should remain visible and record no winners.
+7. Test signup deadline without launching: no new entries after the deadline, but staff can still start the trial.
+8. Test optional required roles and role-free entry. Confirm non-staff can't start/cancel.
+9. Test a prize reroll after completion. The archived message must retain the original champion and prior winner history, while the prize list updates.
+10. Verify ordinary `/giveaway start` giveaways still end automatically by timer and are not treated as survival trials.
+
+**Development:** This mode is on `feature/permanent-giveaways` in draft PR #24, not merged or deployed. When testing from Replit, use the correct development-bot token and database, then run `node register-commands.js` to refresh `/giveaway` options.
