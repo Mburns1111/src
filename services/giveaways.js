@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
 export const GIVEAWAY_MAX_MINUTES = 60 * 24 * 14;
 export const GIVEAWAY_MAX_WINNERS = 10;
@@ -17,6 +18,7 @@ export function chooseGiveawayWinners(entrantIds, count, excluded = []) {
 }
 
 export function giveawayAnnouncement(record) {
+  if (record.mode === "survival") return survivalAnnouncement(record);
   const ended = record.status === "ended" || record.status === "rerolling";
   const finishing = record.status === "closing";
   const endUnix = Math.floor(new Date(record.endsAt).getTime() / 1000);
@@ -55,15 +57,18 @@ export function giveawayAnnouncement(record) {
   return { embeds: [embed], components, allowedMentions: { parse: [] } };
 }
 
-export async function joinGiveaway({ id, guildId, userId, now = new Date() }) {
+export async function joinGiveaway({ id, guildId, userId, mode = "standard", now = new Date() }) {
   const updated = await Giveaway.updateOne({
     _id: id, guildId, status: "open", endsAt: { $gt: now },
+    ...(mode === "survival" ? { mode: "survival", [`entrantIds.${MAX_TRIAL_ENTRANTS - 1}`]: { $exists: false } } : { mode: { $ne: "survival" } }),
   }, { $addToSet: { entrantIds: userId } });
   if (updated.modifiedCount) return "joined";
   const current = await Giveaway.findOne({ _id: id, guildId })
     .select("status endsAt entrantIds").lean();
   if (!current || current.status !== "open" || new Date(current.endsAt) <= now) return "ended";
-  return current.entrantIds?.includes(userId) ? "already" : "unavailable";
+  if (current.entrantIds?.includes(userId)) return "already";
+  if (mode === "survival" && current.entrantIds?.length >= MAX_TRIAL_ENTRANTS) return "full";
+  return "unavailable";
 }
 
 export async function leaveGiveaway({ id, guildId, userId, now = new Date() }) {
@@ -80,12 +85,12 @@ export async function leaveGiveaway({ id, guildId, userId, now = new Date() }) {
 
 export async function closeGiveaway({ id, guildId, now = new Date() }) {
   let item = await Giveaway.findOneAndUpdate(
-    { _id: id, guildId, status: "open" },
+    { _id: id, guildId, mode: { $ne: "survival" }, status: "open" },
     { $set: { status: "closing" } },
     { returnDocument: "after" },
   ).lean();
   if (!item) item = await Giveaway.findOne({ _id: id, guildId }).lean();
-  if (!item || !["closing", "ended"].includes(item.status)) return item;
+  if (!item || item.mode === "survival" || !["closing", "ended"].includes(item.status)) return item;
   if (item.status === "ended") return item;
   const winnerIds = chooseGiveawayWinners(item.entrantIds || [], item.winnerCount);
   const changed = await Giveaway.findOneAndUpdate(
@@ -135,6 +140,11 @@ export async function finishPendingReroll(item) {
 }
 
 export async function publishGiveawayResult(client, item) {
+  if (item?.mode === "survival") {
+    if (!item?.messageId || !["ended", "cancelled", "running"].includes(item.status)) return false;
+    await publishSurvivalAnnouncement(client, item);
+    return true;
+  }
   if (!item?.messageId || !["ended", "open"].includes(item.status)) return false;
   const channel = await client.channels.fetch(item.channelId);
   if (!channel?.messages?.fetch) throw Error("Giveaway channel is inaccessible.");
@@ -153,10 +163,11 @@ export async function publishGiveawayResult(client, item) {
 export async function reconcileGiveaways(client, { now = new Date(), limit = 30 } = {}) {
   const pending = await Giveaway.find({
     $or: [
-      { status: "open", endsAt: { $lte: now } },
+      { status: "open", mode: { $ne: "survival" }, endsAt: { $lte: now } },
       { status: "closing" },
       { status: "rerolling" },
       { status: "ended", renderedAt: null },
+      { status: "cancelled", mode: "survival", renderedAt: null },
     ],
   }).sort({ endsAt: 1 }).limit(limit).lean();
   for (const candidate of pending) {
@@ -165,7 +176,7 @@ export async function reconcileGiveaways(client, { now = new Date(), limit = 30 
       if (candidate.status === "rerolling") latest = await finishPendingReroll(candidate);
       if (candidate.status === "open" || candidate.status === "closing")
         latest = await closeGiveaway({ id: candidate._id, guildId: candidate.guildId, now });
-      if (latest?.status === "ended" && !latest.renderedAt)
+      if (["ended", "cancelled"].includes(latest?.status) && !latest.renderedAt)
         await publishGiveawayResult(client, latest);
     } catch (error) {
       console.error("[Giveaways] Reconciliation failed for", String(candidate._id), error);
