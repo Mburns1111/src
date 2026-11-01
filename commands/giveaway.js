@@ -19,7 +19,9 @@ export const data = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("minutes").setDescription("How many minutes it stays open (up to 14 days)").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
     .addIntegerOption(o => o.setName("winners").setDescription("Number of winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
-    .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering")))
+    .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering"))
+    .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (max 720)").setMinValue(1).setMaxValue(720))
+    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400)))
   .addSubcommand(c => c.setName("end").setDescription("End a normal giveaway early and retain its results")
     .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true)))
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
@@ -42,7 +44,9 @@ export const trialData = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("signup_minutes").setDescription("Minutes to accept entries (default 15, max 1440)").setMinValue(1).setMaxValue(MAX_TRIAL_SIGNUP_MINUTES))
     .addIntegerOption(o => o.setName("winners").setDescription("Number of ranked prize winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
-    .addRoleOption(o => o.setName("role").setDescription("Optional role required to enter")))
+    .addRoleOption(o => o.setName("role").setDescription("Optional role required to enter"))
+    .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (max 720)").setMinValue(1).setMaxValue(720))
+    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400)))
   .addSubcommand(c => c.setName("cancel").setDescription("Cancel a trial without awarding winners; retain its record")
     .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
@@ -121,6 +125,8 @@ export async function execute(interaction) {
         title: interaction.options.getString("title", true).trim(),
         prize: interaction.options.getString("prize", true).trim(),
         rules: interaction.options.getString("rules")?.trim() || "",
+        claimWindowHours: interaction.options.getInteger("claim_hours") || null,
+        claimInstructions: interaction.options.getString("claim_instructions")?.trim() || "",
         requiredRoleId: interaction.options.getRole("role")?.id || "",
         announcementPingRoleId: pingRoleId || "",
         winnerCount, endsAt: new Date(Date.now() + minutes * 60_000),
