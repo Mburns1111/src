@@ -60,7 +60,10 @@ export function survivalAnnouncement(record) {
   const events = record.gameEvents || [];
   const completed = Math.min(record.nextEventIndex || 0, events.length);
   const lines = [
-    record.prize.slice(0, 1400),
+    "━━━━━━━━ ✦ ♛ ✦ ━━━━━━━━",
+    "**THE ROYAL SUMMONS**",
+    "",
+    `**The Prize:** ${record.prize.slice(0, 1300)}`,
     "",
     `**Hosted by:** <@${record.creatorId}>`,
     `**Contestants:** ${record.entrantIds?.length || 0} · **Prize places:** ${record.winnerCount}`,
@@ -75,22 +78,22 @@ export function survivalAnnouncement(record) {
     ...(record.rules ? ["", "**Entry requirements**", record.rules.slice(0, 1000)] : []),
   ];
   if (ended) {
-    lines.push("", `**Original last survivor:** <@${record.originalChampionId || record.winnerIds?.[0] || record.creatorId}>`);
+    lines.push("", "━━━━━━━━ ✦ ♛ ✦ ━━━━━━━━", `**Original last survivor:** <@${record.originalChampionId || record.winnerIds?.[0] || record.creatorId}>`);
     lines.push("**Prize winners**");
     for (const [i, winnerId] of (record.winnerIds || []).entries()) lines.push(`${i + 1}. <@${winnerId}>`);
     if (!record.winnerIds?.length) lines.push("No winners were selected.");
     const recent = (record.rerollHistory || []).slice(-5);
     if (recent.length) lines.push("", "**Reroll history**", ...recent.map(x =>
       `#${x.slot + 1}: <@${x.previousId}> → <@${x.replacementId}>`));
-    lines.push("", `**Recorded eliminations:** ${completed}`, "*All elimination announcements remain in this channel. Prize delivery is handled by staff.*");
+    lines.push("", `**Recorded eliminations:** ${completed}`, "*The royal verdict is also announced below. Prizes are delivered by staff.*");
   }
-  if (cancelled) lines.push("", `**Eliminations completed:** ${completed}`, "*No giveaway prize winners were selected.*");
+  if (cancelled) lines.push("", `**Eliminations completed:** ${completed}`, "*No prize winners were selected.*");
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x71537c : cancelled ? 0x777777 : running ? 0x8a456e : 0xb47796)
-    .setAuthor({ name: "THE CRYPTIC COURT · GIVEAWAYS" })
+    .setAuthor({ name: "♛ THE CRYPTIC COURT · ROYAL CHAMBERS ♛" })
     .setTitle((ended ? "👑 Trial Complete · " : cancelled ? "🥀 Trial Cancelled · " : running ? "⚔️ The Court's Trial · " : "🥀 Join the Court's Trial · ") + record.title.slice(0, 160))
     .setDescription(lines.join("\n").slice(0, 4000))
-    .setFooter({ text: `Trial ID: ${record._id} · Permanent giveaway record` });
+    .setFooter({ text: `♛ The Cryptic Court · Trial ID: ${record._id} · Royal Archive` });
   const components = open ? [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`giveaway:enter:${record._id}`).setLabel("Join Trial").setStyle(ButtonStyle.Success),
@@ -108,11 +111,11 @@ export function survivalEventPayload(record, event, index) {
   const duel = Boolean(event.actorId);
   const embed = new EmbedBuilder()
     .setColor(duel ? 0x835276 : 0xa66b8b)
-    .setAuthor({ name: "THE CRYPTIC COURT · LIVE TRIAL" })
+    .setAuthor({ name: "♛ THE CRYPTIC COURT · LIVE ROYAL TRIAL ♛" })
     .setTitle(`${duel ? "⚔️" : "🥀"} Elimination ${index + 1} of ${total}`)
-    .setDescription(`${event.description}\n\n${event.remaining === 1
+    .setDescription(`━━━━━━━━ ✦ ⚔️ ✦ ━━━━━━━━\n${event.description}\n\n${event.remaining === 1
       ? "👑 **Only one survivor remains!**"
-      : "*The Court awaits its next elimination…*"}`)
+      : "*The Court awaits its next elimination…*"}\n━━━━━━━━ ✦ ♛ ✦ ━━━━━━━━`)
     .addFields(
       { name: "⚰️ Eliminated", value: `<@${event.victimId}>`, inline: true },
       { name: "🕯️ Still Standing", value: `**${event.remaining} / ${contestants}**`, inline: true },
@@ -169,12 +172,99 @@ export async function cancelSurvivalTrial({ id, guildId, now = new Date() }) {
   return updated;
 }
 
+/**
+ * The distinct final message appears after the final elimination, and is
+ * edited (not reposted) when staff reroll one prize place. The embedded
+ * marker supports crash recovery when Discord accepts a post before its
+ * message ID is committed to MongoDB.
+ */
+export function survivalFinalePayload(record) {
+  const championId = record.originalChampionId || record.winnerIds?.[0];
+  const ranked = (record.winnerIds || []).slice(0, 10)
+    .map((id, index) => (index + 1) + ". <@" + id + ">");
+  const changes = (record.rerollHistory || []).slice(-8)
+    .map(item => "#" + (item.slot + 1) + " · <@" + item.previousId + "> → <@" + item.replacementId + ">");
+  const lines = [
+    "━━━━━━━━━━ ✦ ♛ ✦ ━━━━━━━━━━",
+    "🏰 **THE COURT HAS SPOKEN**",
+    "",
+    championId ? "👑 **The Last Survivor:** <@" + championId + ">" : "**No survivor was recorded.**",
+    "",
+    "**Royal Prize:**",
+    record.prize.slice(0, 1300),
+    "",
+    "**The Roll of Honour**",
+    ...(ranked.length ? ranked : ["No prize winners recorded."]),
+    ...(changes.length ? ["", "**Royal Reroll Record**", ...changes] : []),
+    "",
+    "**Contestants:** " + (record.entrantIds?.length || 0)
+      + " · **Eliminations:** " + (record.nextEventIndex || 0),
+    "",
+    "🥀 *The final decree is recorded. Prizes are delivered by staff, not automatically.*",
+    "━━━━━━━━━━ ✦ ♛ ✦ ━━━━━━━━━━",
+  ];
+  const embed = new EmbedBuilder()
+    .setColor(0x71537c)
+    .setAuthor({ name: "♛ THE CRYPTIC COURT · ROYAL VERDICT ♛" })
+    .setTitle("👑 TRIAL COMPLETE · " + String(record.title).slice(0, 160))
+    .setDescription(lines.join("\n").slice(0, 4000))
+    .setFooter({ text: "♛ Trial " + record._id + " · Finale" });
+  return { embeds: [embed], allowedMentions: { parse: [] } };
+}
+
+export async function publishSurvivalFinale(client, record, { now = new Date() } = {}) {
+  if (record.status !== "ended") return false;
+  // Acquire a separate lease. Eliminations have their own lock; this one
+  // prevents simultaneous recovery workers from posting two royal verdicts.
+  const key = randomUUID();
+  const current = await Giveaway.findOneAndUpdate({
+    _id: record._id, guildId: record.guildId, mode: "survival", status: "ended",
+    $or: [{ finaleLeaseUntil: { $lte: now } }, { finaleLeaseUntil: null }],
+  }, {
+    $set: { finaleLeaseKey: key, finaleLeaseUntil: new Date(now.getTime() + 45000) },
+  }, { returnDocument: "after" }).lean();
+  if (!current) throw Error("Final trial verdict is being posted by another worker; retry later.");
+
+  try {
+    const channel = await client.channels.fetch(record.channelId);
+    if (!channel?.messages?.fetch || !channel?.send) throw Error("Cannot publish the Court's final verdict in this channel.");
+    const marker = "♛ Trial " + record._id + " · Finale";
+    let message;
+    if (current.finaleMessageId) {
+      message = await channel.messages.fetch(current.finaleMessageId).catch(() => null);
+    }
+    if (!message) {
+      // Search the latest bot messages for a previously published verdict
+      // before sending. This reconciles a crash between Discord send and DB save.
+      const recent = await channel.messages.fetch({ limit: 100 });
+      message = recent.find(item => item.author?.id === client.user?.id
+        && item.embeds?.some(embed => embed.footer?.text === marker));
+    }
+    const payload = survivalFinalePayload(record);
+    if (message) await message.edit(payload);
+    else message = await channel.send(payload);
+
+    // Saving the ID guarantees a stable message for rerolls and restarts.
+    await Giveaway.updateOne(
+      { _id: record._id, guildId: record.guildId, finaleLeaseKey: key },
+      { $set: { finaleMessageId: message.id } },
+    );
+    return true;
+  } finally {
+    await Giveaway.updateOne(
+      { _id: record._id, finaleLeaseKey: key },
+      { $set: { finaleLeaseKey: "", finaleLeaseUntil: null } },
+    ).catch(error => console.error("[Trials] Could not release verdict lock:", error));
+  }
+}
+
 export async function publishSurvivalAnnouncement(client, record) {
   const channel = await client.channels.fetch(record.channelId);
   if (!channel?.messages?.fetch) throw Error("Cannot read the giveaway channel.");
   const message = await channel.messages.fetch(record.messageId);
   if (message.author?.id !== client.user?.id) throw Error("Cannot edit an announcement from another bot.");
   await message.edit(survivalAnnouncement(record));
+  if (record.status === "ended") await publishSurvivalFinale(client, record);
   if (["running", "ended", "cancelled"].includes(record.status)) {
     await Giveaway.updateOne(
       { _id: record._id, status: record.status, renderVersion: record.renderVersion },
