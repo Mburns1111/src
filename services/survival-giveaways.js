@@ -1,44 +1,12 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "./survival-event-texts.js";
 
 export const MAX_TRIAL_ENTRANTS = 120;
 export const TRIAL_SPEED_CHOICES = [2, 3, 5];
+export const DEFAULT_TRIAL_SPEED_SECONDS = 5;
 export const MAX_TRIAL_SIGNUP_MINUTES = 1440;
-
-const soloEvents = [
-  "🥀 {victim} stepped into the thorn garden. The roses decided to keep them.",
-  "🦇 {victim} followed a whisper down the west corridor and was never seen again.",
-  "🕯️ {victim} blew out the last candle. Something in the dark whispered, *thank you.*",
-  "🐈‍⬛ {victim} crossed a black cat's path, then vanished through a trapdoor.",
-  "🏰 {victim} entered a room that was not on the manor's floor plan.",
-  "🪞 {victim} looked into the cursed mirror. Their reflection walked away without them.",
-  "🗝️ {victim} found a golden key. The door it opened led straight out of the competition.",
-  "🕸️ {victim} tried to sneak through the crypt and woke the ancient spiders.",
-  "🌙 {victim} accepted an invitation to midnight tea from a suspicious ghost.",
-  "🧛 {victim} challenged the manor's vampire to a staring contest. Bad idea.",
-  "🐉 {victim} mistook a sleeping dragon for a very warm sofa.",
-  "🎭 {victim} put on the forbidden mask. The mask got a new owner.",
-  "⚰️ {victim} opened the wrong coffin and received a very stern eviction notice.",
-  "👑 {victim} tried on the cursed crown. The Court had other plans.",
-  "🔮 {victim} asked the crystal ball for the winner. The answer was *not you.*",
-  "🌫️ {victim} wandered into the rose-colored fog and forgot the way back.",
-];
-
-const duelEvents = [
-  "⚔️ {actor} challenged {victim} to a duel beneath the chandeliers. {actor} prevailed.",
-  "🥀 {actor} lured {victim} into the thorn maze. Only {actor} found the exit.",
-  "🦇 {actor} released the manor bats. {victim} fled the competition entirely.",
-  "🗝️ {actor} locked the crypt door behind {victim}. One less contestant.",
-  "♟️ {actor} defeated {victim} in the Court's enchanted chess match.",
-  "🕯️ {actor} solved the candlelit riddle. {victim} chose the wrong answer.",
-  "🪞 {actor} tricked {victim} into challenging their own reflection. The reflection won.",
-  "🐉 {actor} escaped the dragon's chamber. {victim} was not so fortunate.",
-  "🌹 {actor} offered {victim} a rose. It turned out to be a very sneaky trap.",
-  "🔮 {actor} read the prophecy first and dodged the curse meant for {victim}.",
-  "🎭 {actor} swapped places with {victim} at the masked ball just before the trap sprang.",
-  "🏰 {actor} claimed the last safe seat at the royal banquet. {victim} was dismissed.",
-];
 
 function pick(items) { return items[randomInt(items.length)]; }
 function shuffledUnique(ids) {
@@ -58,13 +26,21 @@ export function planSurvivalTrial(entrantIds, winnerCount = 1) {
   if (shuffled.length > MAX_TRIAL_ENTRANTS)
     throw Error(`A trial supports up to ${MAX_TRIAL_ENTRANTS} entrants.`);
   const championId = shuffled[shuffled.length - 1];
+  // Deal the 120 unique scenarios from a shuffled deck: no repeated text
+  // during the same trial (the max is 119 eliminations for 120 entrants).
+  const templateDeck = shuffledUnique([
+    ...SOLO_TRIAL_EVENTS.map((text, i) => ({ templateId: `solo-${i + 1}`, text, duel: false })),
+    ...DUEL_TRIAL_EVENTS.map((text, i) => ({ templateId: `duel-${i + 1}`, text, duel: true })),
+  ]);
+  if (shuffled.length - 1 > templateDeck.length)
+    throw Error("There are not enough unique trial event templates.");
   const events = shuffled.slice(0, -1).map((victimId, index) => {
     const alive = shuffled.slice(index + 1);
-    const actorId = randomInt(2) === 0 ? pick(alive) : "";
-    const template = actorId ? pick(duelEvents) : pick(soloEvents);
+    const template = templateDeck[index];
+    const actorId = template.duel ? pick(alive) : "";
     return {
-      victimId, actorId,
-      description: template.replaceAll("{victim}", `<@${victimId}>`)
+      victimId, actorId, templateId: template.templateId,
+      description: template.text.replaceAll("{victim}", `<@${victimId}>`)
         .replaceAll("{actor}", `<@${actorId}>`),
       remaining: alive.length,
     };
@@ -88,7 +64,7 @@ export function survivalAnnouncement(record) {
     "",
     `**Hosted by:** <@${record.creatorId}>`,
     `**Contestants:** ${record.entrantIds?.length || 0} · **Prize places:** ${record.winnerCount}`,
-    `**Elimination pace:** every ${record.speedSeconds || 3} seconds`,
+    `**Elimination pace:** every ${record.speedSeconds || DEFAULT_TRIAL_SPEED_SECONDS} seconds`,
     open
       ? `**Signup closes:** <t:${endUnix}:R> · Host clicks **Start Trial** when ready`
       : state === "preparing" ? "**Preparing the trial — contestant entries are locked.**"
@@ -111,6 +87,7 @@ export function survivalAnnouncement(record) {
   if (cancelled) lines.push("", `**Eliminations completed:** ${completed}`, "*No giveaway prize winners were selected.*");
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x71537c : cancelled ? 0x777777 : running ? 0x8a456e : 0xb47796)
+    .setAuthor({ name: "THE CRYPTIC COURT · GIVEAWAYS" })
     .setTitle((ended ? "👑 Trial Complete · " : cancelled ? "🥀 Trial Cancelled · " : running ? "⚔️ The Court's Trial · " : "🥀 Join the Court's Trial · ") + record.title.slice(0, 160))
     .setDescription(lines.join("\n").slice(0, 4000))
     .setFooter({ text: `Trial ID: ${record._id} · Permanent giveaway record` });
@@ -126,14 +103,23 @@ export function survivalAnnouncement(record) {
 }
 
 export function survivalEventPayload(record, event, index) {
-  return {
-    embeds: [new EmbedBuilder()
-      .setColor(0x956488)
-      .setTitle(`⚔️ Elimination ${index + 1} / ${record.gameEvents.length}`)
-      .setDescription(`${event.description}\n\n**${event.remaining} contestant${event.remaining === 1 ? "" : "s"} remain.**`)
-      .setFooter({ text: `Trial ${record._id} · Event ${index + 1}` })],
-    allowedMentions: { parse: [] },
-  };
+  const total = record.gameEvents.length;
+  const contestants = record.entrantIds?.length || total + 1;
+  const duel = Boolean(event.actorId);
+  const embed = new EmbedBuilder()
+    .setColor(duel ? 0x835276 : 0xa66b8b)
+    .setAuthor({ name: "THE CRYPTIC COURT · LIVE TRIAL" })
+    .setTitle(`${duel ? "⚔️" : "🥀"} Elimination ${index + 1} of ${total}`)
+    .setDescription(`${event.description}\n\n${event.remaining === 1
+      ? "👑 **Only one survivor remains!**"
+      : "*The Court awaits its next elimination…*"}`)
+    .addFields(
+      { name: "⚰️ Eliminated", value: `<@${event.victimId}>`, inline: true },
+      { name: "🕯️ Still Standing", value: `**${event.remaining} / ${contestants}**`, inline: true },
+    )
+    // Stable footer lets a restarted bot recognize already-posted events.
+    .setFooter({ text: `Trial ${record._id} · Event ${index + 1}` });
+  return { embeds: [embed], allowedMentions: { parse: [] } };
 }
 
 // Freeze entries with a single Mongo update BEFORE drawing the elimination
@@ -236,7 +222,7 @@ export async function runSurvivalTrialStep(client, item, { now = new Date() } = 
     const update = {
       $set: {
         nextEventIndex: index + 1,
-        nextEventAt: new Date(Date.now() + record.speedSeconds * 1000),
+        nextEventAt: new Date(Date.now() + (record.speedSeconds || DEFAULT_TRIAL_SPEED_SECONDS) * 1000),
         leaseUntil: new Date(0), leaseKey: "",
         ...(finishing ? { status: "ended", winnerIds, gameEndedAt: new Date(), renderedAt: null } : {}),
       },
