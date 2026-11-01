@@ -25,7 +25,7 @@ const giveawaySchema = new mongoose.Schema({
   leaseKey: { type: String, default: "" },
   eliminationMessages: [{ index: Number, messageId: String, sentAt: Date }],
   originalChampionId: { type: String, default: "" },
-  status: { type: String, enum: ["publishing", "open", "running", "closing", "ended", "rerolling", "cancelled", "failed"], default: "publishing" },
+  status: { type: String, enum: ["publishing", "open", "preparing", "running", "closing", "ended", "rerolling", "cancelled", "failed"], default: "publishing" },
   entrantIds: { type: [String], default: [] },
   winnerIds: { type: [String], default: [] },
   rerollHistory: [{
