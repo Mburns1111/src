@@ -1,5 +1,5 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
-import { getConfiguredTextChannel } from "./shared.js";
+import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
@@ -105,11 +105,12 @@ export async function execute(interaction) {
   try {
     if (operation === "start") {
       const survival = survivalCommand;
-      const channel = await getConfiguredTextChannel(
+      const { channel, config } = await getConfiguredTextChannelAndConfig(
         interaction,
         survival ? "survivalTrialChannelId" : "giveawayChannelId",
         survival ? "Court's Trial survival giveaway" : "standard giveaway",
       );
+      const pingRoleId = survival ? config?.survivalTrialPingRoleId : config?.giveawayPingRoleId;
       const minutes = survival
         ? (interaction.options.getInteger("signup_minutes") || 15)
         : interaction.options.getInteger("minutes", true);
@@ -121,6 +122,7 @@ export async function execute(interaction) {
         prize: interaction.options.getString("prize", true).trim(),
         rules: interaction.options.getString("rules")?.trim() || "",
         requiredRoleId: interaction.options.getRole("role")?.id || "",
+        announcementPingRoleId: pingRoleId || "",
         winnerCount, endsAt: new Date(Date.now() + minutes * 60_000),
         mode: survival ? "survival" : "standard",
         speedSeconds: survival ? (interaction.options.getInteger("pace") || DEFAULT_TRIAL_SPEED_SECONDS) : DEFAULT_TRIAL_SPEED_SECONDS,
@@ -128,7 +130,14 @@ export async function execute(interaction) {
       });
       let message;
       try {
-        message = await channel.send(giveawayAnnouncement({ ...record.toObject(), status: "open" }));
+        const announcement = giveawayAnnouncement({ ...record.toObject(), status: "open" });
+        // Only the creation message may ping the assigned notification role.
+        // All later edits/results use no allowed mentions and never ping again.
+        if (pingRoleId) {
+          announcement.content = `<@&${pingRoleId}>`;
+          announcement.allowedMentions = { parse: [], roles: [pingRoleId] };
+        }
+        message = await channel.send(announcement);
         await Giveaway.updateOne(
           { _id: record._id, status: "publishing" },
           { $set: { status: "open", messageId: message.id } },
@@ -230,8 +239,31 @@ export async function handleGiveawayButton(interaction) {
       if (record.mode !== "survival") return interaction.editReply("This is not an elimination trial.");
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
         return interaction.editReply("Only staff with Manage Server permission can start a trial.");
-      const started = await beginSurvivalTrial({ id, guildId: interaction.guildId });
-      await publishSurvivalAnnouncement(interaction.client, started);
+      // Show actionable errors on the actual button rather than a generic
+      // "couldn't update your entry" message intended for regular entrants.
+      if (record.status !== "open") {
+        const statusText = record.status === "preparing" || record.status === "running"
+          ? "This trial is already starting or running. Watch for elimination posts."
+          : "This trial is already finished, cancelled, or unavailable. Start a new trial with /trial start.";
+        return interaction.editReply(statusText);
+      }
+      if ((record.entrantIds?.length || 0) < 2)
+        return interaction.editReply("At least two members must join before you can start the trial.");
+      let started;
+      try {
+        started = await beginSurvivalTrial({ id, guildId: interaction.guildId });
+      } catch (error) {
+        console.error("[Trials] Start button could not begin trial:", error);
+        return interaction.editReply("The trial could not start: " + (error.message || "Please retry."));
+      }
+      try {
+        await publishSurvivalAnnouncement(interaction.client, started);
+      } catch (error) {
+        // State is already running in Mongo; don't tell staff that the entire
+        // trial failed just because the signup message could not be edited.
+        console.error("[Trials] Trial started, but announcement update failed:", error);
+        return interaction.editReply("⚔️ The trial **started and was saved**, but I couldn't refresh its signup post. Eliminations will continue here. Check my channel permissions.");
+      }
       return interaction.editReply("⚔️ The Court’s Trial has begun! Watch this channel for each elimination.");
     }
     if (action === "count") return interaction.editReply({
@@ -259,7 +291,9 @@ export async function handleGiveawayButton(interaction) {
     })[result] || "Please try again.";
     return interaction.editReply({ content: message, allowedMentions: { parse: [] } });
   } catch (error) {
-    console.error("[Giveaways] Entry button failed:", error);
-    return interaction.editReply("I couldn't update your entry. Please try again.");
+    console.error("[Giveaways] Button action failed:", error);
+    return interaction.editReply(action === "launch"
+      ? "I couldn't start the trial. Check the Replit console for [Trials] or [Giveaways] errors."
+      : "I couldn't update your entry. Please try again.");
   }
 }
