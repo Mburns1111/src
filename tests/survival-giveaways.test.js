@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "../services/survival-event-texts.js";
-import { data as giveawayCommand } from "../commands/giveaway.js";
+import { trialData as trialCommand } from "../commands/giveaway.js";
 import {
   MAX_TRIAL_ENTRANTS, TRIAL_SPEED_CHOICES, DEFAULT_TRIAL_SPEED_SECONDS,
   planSurvivalTrial, survivalAnnouncement, survivalEventPayload,
@@ -40,11 +40,11 @@ const restore = records => {
 };
 
 test("speed giveaways are staff-managed, configurable and distinct from timed giveaways", () => {
-  const spec = giveawayCommand.toJSON();
+  const spec = trialCommand.toJSON();
   const commands = spec.options.map(option => option.name);
-  for (const name of ["start", "speed", "launch", "cancel", "end", "reroll", "list"])
+  for (const name of ["start", "launch", "cancel", "reroll", "list", "entrants"])
     assert.ok(commands.includes(name));
-  const speed = spec.options.find(option => option.name === "speed");
+  const speed = spec.options.find(option => option.name === "start");
   assert.deepEqual(
     speed.options.find(option => option.name === "pace").choices.map(item => item.value),
     TRIAL_SPEED_CHOICES,
