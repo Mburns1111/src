@@ -76,7 +76,7 @@ test("120 contestants get 119 distinct event templates with no repeated scenario
   assert.equal(events.at(-1).remaining, 1);
   const duels = events.filter(event => event.actorId);
   assert.ok(duels.length >= 59 && duels.length <= 60);
-  assert.ok(events.every(event => /^solo-\\d+$|^duel-\\d+$/.test(event.templateId)));
+  assert.ok(events.every(event => /^(?:solo|duel)-[0-9]+$/.test(event.templateId)));
 });
 
 test("every participant except one receives a distinct sequential elimination with original themed text", () => {
