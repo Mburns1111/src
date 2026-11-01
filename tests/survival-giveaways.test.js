@@ -607,3 +607,26 @@ test("Start Trial button acknowledges a saved game even if the original post can
     restore(original);
   }
 });
+
+test("Court's Trial signup and royal verdict show claim hours, deadline and ticket availability instructions", () => {
+  const details = {
+    claimWindowHours: 24,
+    claimInstructions: "List your Roblox username and Discord time slots.",
+  };
+  const signup = survivalAnnouncement(record(details));
+  assert.match(signup.embeds[0].data.description, /Claim window:.*24 hours/);
+  const finished = record({
+    ...details, status: "ended", winnerIds: [contestants[0]],
+    originalChampionId: contestants[0],
+    claimStartedAt: new Date("2026-11-01T20:00:00Z"),
+  });
+  const finale = survivalFinalePayload(finished);
+  const body = finale.embeds[0].data.description;
+  assert.match(body, /Claim deadline:/);
+  assert.match(body, /<t:1793649600:F>/, "Discord timestamp should be generated for the actual close");
+  assert.match(body, /hammertime\.cyou/);
+  assert.match(body, /Open a support ticket/);
+  assert.match(body, /Roblox username/);
+  assert.deepEqual(finale.allowedMentions, { parse: [] });
+  assert.equal(finale.embeds[0].data.footer.text, \`♛ Trial \${id} · Finale\`);
+});
