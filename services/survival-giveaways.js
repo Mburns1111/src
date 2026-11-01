@@ -3,6 +3,7 @@ import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedB
 import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "./survival-event-texts.js";
 import { buildTrialEventPortrait } from "./trial-event-portraits.js";
+import { prizeClaimLines } from "./giveaway-claims.js";
 
 export const MAX_TRIAL_ENTRANTS = 120;
 export const TRIAL_SPEED_CHOICES = [2, 3, 5];
@@ -76,6 +77,7 @@ export function survivalAnnouncement(record) {
         ? `**Trial in progress:** ${completed}/${events.length} eliminations · ${Math.max(0, events.length + 1 - completed)} remain`
         : cancelled ? "**Trial cancelled by staff.**" : "**Trial complete.**",
     ...(record.requiredRoleId ? [`**Required role:** <@&${record.requiredRoleId}>`] : []),
+    ...(!ended && !cancelled ? prizeClaimLines(record) : []),
     ...(record.rules ? ["", "**Entry requirements**", record.rules.slice(0, 1000)] : []),
   ];
   if (ended) {
@@ -233,6 +235,9 @@ export function survivalFinalePayload(record, championRecord = null) {
     "",
     "**Royal Prize:**",
     record.prize.slice(0, 1300),
+    ...(prizeClaimLines(record, { finished: true }).length
+      ? ["", ...prizeClaimLines(record, { finished: true })]
+      : []),
     "",
     "**The Roll of Honour**",
     ...(ranked.length ? ranked : ["No prize winners recorded."]),
@@ -379,7 +384,7 @@ export async function runSurvivalTrialStep(client, item, { now = new Date() } = 
         nextEventIndex: index + 1,
         nextEventAt: new Date(Date.now() + (record.speedSeconds || DEFAULT_TRIAL_SPEED_SECONDS) * 1000),
         leaseUntil: new Date(0), leaseKey: "",
-        ...(finishing ? { status: "ended", winnerIds, gameEndedAt: new Date(), renderedAt: null } : {}),
+        ...(finishing ? { status: "ended", winnerIds, gameEndedAt: new Date(), claimStartedAt: new Date(), renderedAt: null } : {}),
       },
       $push: { eliminationMessages: { index, messageId: message.id, sentAt: new Date() } },
       ...(finishing ? { $inc: { renderVersion: 1 } } : {}),
