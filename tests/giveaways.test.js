@@ -27,8 +27,11 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  const opts=spec.options;
  assert.deepEqual(opts.map(x=>x.name),["start","speed","launch","cancel","end","reroll","list"]);
  const start=opts[0].options.map(x=>x.name);
- for(const name of ["title","prize","minutes","winners","rules","channel","role"])
+ for(const name of ["title","prize","minutes","winners","rules","role"])
    assert.ok(start.includes(name));
+ assert.ok(!start.includes("channel"), "standard events use the configured channel");
+ const speed=opts[1].options.map(x=>x.name);
+ assert.ok(!speed.includes("channel"), "survival trials use their own configured channel");
  assert.equal(GIVEAWAY_MAX_MINUTES,20160);
 });
 
