@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "../services/survival-event-texts.js";
+import { HARVEST_SOLO_TRIAL_EVENTS, HARVEST_DUEL_TRIAL_EVENTS } from "../services/survival-harvest-event-texts.js";
 import { trialData as trialCommand, handleGiveawayButton } from "../commands/giveaway.js";
 import {
   MAX_TRIAL_ENTRANTS, TRIAL_SPEED_CHOICES, DEFAULT_TRIAL_SPEED_SECONDS,
@@ -68,6 +69,26 @@ test("120 unique original scenarios are available with correct contestant placeh
   assert.ok(SOLO_TRIAL_EVENTS.every(text => !text.includes("{actor}")));
 });
 
+test("100 new gentle harvest scenarios preserve the original 120 and the solo/duel balance", () => {
+  assert.equal(HARVEST_SOLO_TRIAL_EVENTS.length, 50);
+  assert.equal(HARVEST_DUEL_TRIAL_EVENTS.length, 50);
+  const original = [...SOLO_TRIAL_EVENTS, ...DUEL_TRIAL_EVENTS];
+  const harvest = [...HARVEST_SOLO_TRIAL_EVENTS, ...HARVEST_DUEL_TRIAL_EVENTS];
+  const combined = [...original, ...harvest];
+  assert.equal(original.length, 120);
+  assert.equal(harvest.length, 100);
+  assert.equal(combined.length, 220);
+  assert.equal(new Set(combined).size, 220, "no new scenario may repeat an old or new one");
+  assert.ok(harvest.every(text => text.includes("{victim}")));
+  assert.ok(HARVEST_DUEL_TRIAL_EVENTS.every(text => text.includes("{actor}")));
+  assert.ok(HARVEST_SOLO_TRIAL_EVENTS.every(text => !text.includes("{actor}")));
+  assert.ok(harvest.every(text => text.length <= 190), "stories should fit the compact Canvas plaque");
+  assert.ok(harvest.some(text => /scarecrow/i.test(text)));
+  assert.ok(harvest.some(text => /orchard/i.test(text)));
+  assert.ok(harvest.some(text => /autumn/i.test(text)));
+  assert.ok(harvest.some(text => /pumpkin/i.test(text)));
+});
+
 test("120 contestants get 119 distinct event templates with no repeated scenarios", () => {
   const ids = Array.from({ length: 120 }, (_, i) => String(300000000000000000n + BigInt(i)));
   const { events, championId } = planSurvivalTrial(ids, 10);
@@ -77,8 +98,16 @@ test("120 contestants get 119 distinct event templates with no repeated scenario
   assert.ok(!events.some(event => event.victimId === championId));
   assert.equal(events.at(-1).remaining, 1);
   const duels = events.filter(event => event.actorId);
-  assert.ok(duels.length >= 59 && duels.length <= 60);
+  // Events are now drawn from 110 solo + 110 duel options, not from
+  // the former fixed deck of 60 each; a 119-person draw need not be 59/60.
+  assert.ok(duels.length > 0 && duels.length < events.length);
   assert.ok(events.every(event => /^(?:solo|duel)-[0-9]+$/.test(event.templateId)));
+  assert.ok(events.every(event => {
+    const match = /^(solo|duel)-([0-9]+)$/.exec(event.templateId);
+    return match && Number(match[2]) >= 1 && Number(match[2]) <= 110;
+  }), "each template ID must come from the original or new harvest catalog");
+  const sampledHarvest = events.filter(event => Number(event.templateId.split("-")[1]) > 60);
+  assert.ok(sampledHarvest.length > 0, "harvest stories are reachable during trials");
 });
 
 test("every participant except one receives a distinct sequential elimination with original themed text", () => {
