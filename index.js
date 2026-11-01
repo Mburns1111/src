@@ -77,6 +77,7 @@ import {
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as giveawayCommand, execute as executeGiveaway, handleGiveawayButton } from "./commands/giveaway.js";
 import { reconcileGiveaways } from "./services/giveaways.js";
+import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -332,6 +333,17 @@ client.once(Events.ClientReady, (readyClient) => {
   void sweepGiveaways();
   const giveawayTimer = setInterval(() => void sweepGiveaways(), 30_000);
   giveawayTimer.unref?.();
+  let trialSweepActive = false;
+  const sweepSurvivalTrials = async () => {
+    if (trialSweepActive) return;
+    trialSweepActive = true;
+    try { await reconcileSurvivalTrials(readyClient); }
+    catch (error) { console.error("[Trials] Sweep failed:", error); }
+    finally { trialSweepActive = false; }
+  };
+  void sweepSurvivalTrials();
+  const trialTimer = setInterval(() => void sweepSurvivalTrials(), 1000);
+  trialTimer.unref?.();
   void (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
       try {
