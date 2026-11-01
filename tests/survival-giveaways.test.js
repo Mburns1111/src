@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "../services/survival-event-texts.js";
 import { data as giveawayCommand } from "../commands/giveaway.js";
 import {
-  MAX_TRIAL_ENTRANTS, TRIAL_SPEED_CHOICES,
+  MAX_TRIAL_ENTRANTS, TRIAL_SPEED_CHOICES, DEFAULT_TRIAL_SPEED_SECONDS,
   planSurvivalTrial, survivalAnnouncement, survivalEventPayload,
   beginSurvivalTrial, cancelSurvivalTrial, runSurvivalTrialStep,
 } from "../services/survival-giveaways.js";
@@ -49,7 +50,33 @@ test("speed giveaways are staff-managed, configurable and distinct from timed gi
     TRIAL_SPEED_CHOICES,
   );
   assert.equal(MAX_TRIAL_ENTRANTS, 120);
+  assert.equal(DEFAULT_TRIAL_SPEED_SECONDS, 5);
+  assert.equal(Giveaway.schema.path("speedSeconds").defaultValue, 5);
+  assert.match(speed.options.find(option => option.name === "pace").description, /default 5/i);
   assert.equal(spec.default_member_permissions, "32");
+});
+
+test("120 unique original scenarios are available with correct contestant placeholders", () => {
+  assert.equal(SOLO_TRIAL_EVENTS.length, 60);
+  assert.equal(DUEL_TRIAL_EVENTS.length, 60);
+  const templates = [...SOLO_TRIAL_EVENTS, ...DUEL_TRIAL_EVENTS];
+  assert.equal(new Set(templates).size, 120);
+  assert.ok(templates.every(text => text.includes("{victim}")));
+  assert.ok(DUEL_TRIAL_EVENTS.every(text => text.includes("{actor}")));
+  assert.ok(SOLO_TRIAL_EVENTS.every(text => !text.includes("{actor}")));
+});
+
+test("120 contestants get 119 distinct event templates with no repeated scenarios", () => {
+  const ids = Array.from({ length: 120 }, (_, i) => String(300000000000000000n + BigInt(i)));
+  const { events, championId } = planSurvivalTrial(ids, 10);
+  assert.equal(events.length, 119);
+  assert.equal(new Set(events.map(event => event.templateId)).size, 119);
+  assert.equal(new Set(events.map(event => event.victimId)).size, 119);
+  assert.ok(!events.some(event => event.victimId === championId));
+  assert.equal(events.at(-1).remaining, 1);
+  const duels = events.filter(event => event.actorId);
+  assert.ok(duels.length >= 59 && duels.length <= 60);
+  assert.ok(events.every(event => /^solo-\\d+$|^duel-\\d+$/.test(event.templateId)));
 });
 
 test("every participant except one receives a distinct sequential elimination with original themed text", () => {
@@ -106,7 +133,13 @@ test("sequential event posts carry a stable marker and suppress automatic ping s
   const event = survivalEventPayload(trial, trial.gameEvents[0], 0);
   assert.equal(event.allowedMentions.parse.length, 0);
   assert.equal(event.embeds[0].data.footer.text, `Trial ${id} · Event 1`);
-  assert.match(event.embeds[0].data.description, /3 contestants remain/);
+  assert.equal(event.embeds[0].data.author.name, "THE CRYPTIC COURT · LIVE TRIAL");
+  assert.match(event.embeds[0].data.title, /Elimination 1 of 1/);
+  assert.match(event.embeds[0].data.description, /Eliminated/);
+  assert.equal(event.embeds[0].data.fields[0].name, "⚰️ Eliminated");
+  assert.equal(event.embeds[0].data.fields[0].value, `<@${contestants[0]}>`);
+  assert.equal(event.embeds[0].data.fields[1].name, "🕯️ Still Standing");
+  assert.match(event.embeds[0].data.fields[1].value, /3 \\/ 4/);
 });
 
 test("starting freezes entry state atomically, plans all contestants once and rejects a second launch", async () => {
