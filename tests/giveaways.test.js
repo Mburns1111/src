@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
-import { data as giveawayCommand } from "../commands/giveaway.js";
+import { data as giveawayCommand, trialData as trialCommand } from "../commands/giveaway.js";
 import {
   GIVEAWAY_MAX_MINUTES, chooseGiveawayWinners, giveawayAnnouncement,
   joinGiveaway, leaveGiveaway, closeGiveaway, rerollGiveaway,
@@ -25,12 +25,12 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.equal(spec.name,"giveaway");
  assert.equal(spec.default_member_permissions, String(32)); // ManageGuild
  const opts=spec.options;
- assert.deepEqual(opts.map(x=>x.name),["start","speed","launch","cancel","end","reroll","list"]);
+ assert.deepEqual(opts.map(x=>x.name),["start","end","reroll","list","entrants"]);
  const start=opts[0].options.map(x=>x.name);
  for(const name of ["title","prize","minutes","winners","rules","role"])
    assert.ok(start.includes(name));
  assert.ok(!start.includes("channel"), "standard events use the configured channel");
- const speed=opts[1].options.map(x=>x.name);
+ const speed=trialCommand.toJSON().options.find(option=>option.name==="start").options.map(x=>x.name);
  assert.ok(!speed.includes("channel"), "survival trials use their own configured channel");
  assert.equal(GIVEAWAY_MAX_MINUTES,20160);
 });
@@ -52,6 +52,17 @@ test("announcement remains on completion with details, winners and audit trail",
  assert.match(description,/Reroll history/);
  assert.match(description,/<@444444444444444444>/);
  assert.match(description,/<@234567890123456789>/);
+ assert.match(open.embeds[0].data.description,/fox whispers/i);
+ assert.match(open.embeds[0].data.description,/pocket/i);
+ assert.match(description,/fox cackles/i);
+ assert.match(description,/pocket heist/i);
+ assert.match(description,/Prize delivery is handled by the giveaway host/i);
+ const oneWinner = giveawayAnnouncement(snapshot({status:"ended",winnerIds:[userId]}));
+ assert.match(oneWinner.embeds[0].data.description,new RegExp(userId));
+ assert.match(oneWinner.embeds[0].data.description,/sneaky helper/i);
+ const nobody = giveawayAnnouncement(snapshot({status:"ended",winnerIds:[]}));
+ assert.match(nobody.embeds[0].data.description,/no accomplice/i);
+ assert.match(nobody.embeds[0].data.description,/no eligible entries/i);
 });
 
 test("random selection chooses distinct entrants, excludes past winners, and never overdraws",()=>{
