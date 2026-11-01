@@ -1,7 +1,8 @@
 import { randomInt, randomUUID } from "node:crypto";
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "./survival-event-texts.js";
+import { buildTrialEventPortrait } from "./trial-event-portraits.js";
 
 export const MAX_TRIAL_ENTRANTS = 120;
 export const TRIAL_SPEED_CHOICES = [2, 3, 5];
@@ -105,7 +106,7 @@ export function survivalAnnouncement(record) {
   return { embeds: [embed], components, allowedMentions: { parse: [] } };
 }
 
-export function survivalEventPayload(record, event, index) {
+export function survivalEventPayload(record, event, index, imageName = null) {
   const total = record.gameEvents.length;
   const contestants = record.entrantIds?.length || total + 1;
   const duel = Boolean(event.actorId);
@@ -122,6 +123,7 @@ export function survivalEventPayload(record, event, index) {
     )
     // Stable footer lets a restarted bot recognize already-posted events.
     .setFooter({ text: `Trial ${record._id} · Event ${index + 1}` });
+  if (imageName) embed.setImage("attachment://" + imageName);
   return { embeds: [embed], allowedMentions: { parse: [] } };
 }
 
@@ -316,7 +318,19 @@ async function findOrSendEvent(client, record, event, index) {
   const prior = recent.find(message => message.author?.id === client.user?.id
     && message.embeds?.some(embed => embed.footer?.text === marker));
   if (prior) return prior;
-  return channel.send(survivalEventPayload(record, event, index));
+
+  const fileName = `trial-${record._id}-event-${index + 1}.png`;
+  let portrait = null;
+  try {
+    portrait = await buildTrialEventPortrait(client, event);
+  } catch (error) {
+    // A canvas or media error must never prevent an elimination from being
+    // recorded. Post the original text-only embed if image rendering fails.
+    console.error("[Trials] Portrait rendering failed; posting event without image:", error);
+  }
+  const payload = survivalEventPayload(record, event, index, portrait ? fileName : null);
+  if (portrait) payload.files = [new AttachmentBuilder(portrait, { name: fileName })];
+  return channel.send(payload);
 }
 
 export async function runSurvivalTrialStep(client, item, { now = new Date() } = {}) {
