@@ -4,6 +4,10 @@ import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
   closeGiveaway, rerollGiveaway, publishGiveawayResult,
 } from "../services/giveaways.js";
+import {
+  TRIAL_SPEED_CHOICES, MAX_TRIAL_SIGNUP_MINUTES,
+  beginSurvivalTrial, cancelSurvivalTrial, publishSurvivalAnnouncement,
+} from "../services/survival-giveaways.js";
 
 export const data = new SlashCommandBuilder()
   .setName("giveaway").setDescription("Host giveaways that retain their winners and prize details")
@@ -16,7 +20,21 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
     .addChannelOption(o => o.setName("channel").setDescription("Where to post (default: this channel)").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
     .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering")))
-  .addSubcommand(c => c.setName("end").setDescription("End a giveaway early and retain its results")
+  .addSubcommand(c => c.setName("speed").setDescription("Open a live, one-by-one elimination giveaway in the Court")
+    .addStringOption(o => o.setName("title").setDescription("Trial title").setRequired(true).setMinLength(2).setMaxLength(100))
+    .addStringOption(o => o.setName("prize").setDescription("Prize details (include ranked prizes if needed)").setRequired(true).setMinLength(2).setMaxLength(1500))
+    .addIntegerOption(o => o.setName("pace").setDescription("Seconds between elimination posts (default 3)")
+      .addChoices(...TRIAL_SPEED_CHOICES.map(value => ({ name: `${value} seconds`, value }))))
+    .addIntegerOption(o => o.setName("signup_minutes").setDescription("Minutes to accept entries (default 15, max 1440)").setMinValue(1).setMaxValue(MAX_TRIAL_SIGNUP_MINUTES))
+    .addIntegerOption(o => o.setName("winners").setDescription("Number of ranked prize winners (default 1)").setMinValue(1).setMaxValue(10))
+    .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
+    .addChannelOption(o => o.setName("channel").setDescription("Where to run the trial").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+    .addRoleOption(o => o.setName("role").setDescription("Optional role required to enter")))
+  .addSubcommand(c => c.setName("launch").setDescription("Start the elimination trial after contestants join")
+    .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
+  .addSubcommand(c => c.setName("cancel").setDescription("Cancel a trial without awarding winners; retain its record")
+    .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
+  .addSubcommand(c => c.setName("end").setDescription("End a normal giveaway early and retain its results")
     .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true)))
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
     .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true))
@@ -44,11 +62,14 @@ export async function execute(interaction) {
     return interaction.editReply("Only members with Manage Server can manage giveaways.");
   const operation = interaction.options.getSubcommand();
   try {
-    if (operation === "start") {
+    if (operation === "start" || operation === "speed") {
+      const survival = operation === "speed";
       const channel = interaction.options.getChannel("channel") || interaction.channel;
       if (!channel || typeof channel.send !== "function" || channel.guildId !== interaction.guildId)
         throw Error("Choose a writable server text channel to publish the giveaway.");
-      const minutes = interaction.options.getInteger("minutes", true);
+      const minutes = survival
+        ? (interaction.options.getInteger("signup_minutes") || 15)
+        : interaction.options.getInteger("minutes", true);
       const winnerCount = interaction.options.getInteger("winners") || 1;
       const record = await Giveaway.create({
         guildId: interaction.guildId, channelId: channel.id,
@@ -58,6 +79,8 @@ export async function execute(interaction) {
         rules: interaction.options.getString("rules")?.trim() || "",
         requiredRoleId: interaction.options.getRole("role")?.id || "",
         winnerCount, endsAt: new Date(Date.now() + minutes * 60_000),
+        mode: survival ? "survival" : "standard",
+        speedSeconds: survival ? (interaction.options.getInteger("pace") || 3) : 3,
         status: "publishing",
       });
       let message;
@@ -72,7 +95,7 @@ export async function execute(interaction) {
         if (message) await message.delete().catch(() => {});
         throw error;
       }
-      return interaction.editReply(`🥀 Giveaway posted: ${message.url}\nSaved giveaway ID: \`${record._id}\`\nThe announcement and results will stay visible after it ends.`);
+      return interaction.editReply(`🥀 ${survival ? "Survival trial" : "Giveaway"} posted: ${message.url}\nSaved giveaway ID: \`${record._id}\`\n${survival ? "Members join using the buttons; staff click Start Trial when ready." : "The announcement and results will stay visible after it ends."}`);
     }
 
     if (operation === "list") {
@@ -81,7 +104,7 @@ export async function execute(interaction) {
       return interaction.editReply({
         content: records.length
           ? "**Recent Giveaways**\n" + records.map(record =>
-              `• **${record.title.replace(/[@*_`~|<>]/g, "")}** · ${record.status} · \`${record._id}\` ${record.messageId ? linkTo(record) : "(pending)"}`).join("\n")
+              `• **${record.title.replace(/[@*_`~|<>]/g, "")}** · ${record.mode === "survival" ? "trial" : "standard"} · ${record.status} · \`${record._id}\` ${record.messageId ? linkTo(record) : "(pending)"}`).join("\n")
           : "No giveaways have been created yet.",
         allowedMentions: { parse: [] },
       });
@@ -89,7 +112,24 @@ export async function execute(interaction) {
     const record = await findGiveaway(interaction.options.getString("id", true), interaction.guildId);
     if (!record) throw Error("Giveaway not found in this server.");
     let updated;
+    if (operation === "launch" || operation === "cancel") {
+      if (record.mode !== "survival") throw Error("This command is only for elimination trials.");
+      updated = operation === "launch"
+        ? await beginSurvivalTrial({ id: record._id, guildId: interaction.guildId })
+        : await cancelSurvivalTrial({ id: record._id, guildId: interaction.guildId });
+      try {
+        await publishSurvivalAnnouncement(interaction.client, updated);
+      } catch (error) {
+        console.error("[Trials] State saved but could not update announcement:", error);
+        return interaction.editReply("The trial state was saved, but the announcement could not be updated. Check the bot permissions; the bot will retry the final result.");
+      }
+      return interaction.editReply({
+        content: `${operation === "launch" ? "⚔️ Trial started! Elimination messages will appear in " : "🥀 Trial cancelled and archived in "}${linkTo(updated)}`,
+        allowedMentions: { parse: [] },
+      });
+    }
     if (operation === "end") {
+      if (record.mode === "survival") throw Error("Use /giveaway launch or /giveaway cancel for an elimination trial.");
       if (record.status === "publishing" || record.status === "failed") throw Error("This giveaway was never published.");
       updated = await closeGiveaway({ id: record._id, guildId: interaction.guildId });
       if (updated?.status === "rerolling") throw Error("Wait for the current reroll to finish.");
@@ -119,7 +159,7 @@ export async function execute(interaction) {
 export async function handleGiveawayButton(interaction) {
   if (!interaction.guildId || !interaction.guild || interaction.user.bot)
     return interaction.reply({ content: "Giveaway entries are only available to server members.", flags: MessageFlags.Ephemeral });
-  const match = /^giveaway:(enter|leave|count):([0-9a-f]{24})$/.exec(interaction.customId);
+  const match = /^giveaway:(enter|leave|count|launch):([0-9a-f]{24})$/.exec(interaction.customId);
   if (!match) return interaction.reply({ content: "Invalid giveaway button.", flags: MessageFlags.Ephemeral });
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const [, action, id] = match;
@@ -127,6 +167,14 @@ export async function handleGiveawayButton(interaction) {
     const record = await Giveaway.findOne({ _id: id, guildId: interaction.guildId }).lean();
     if (!record || record.messageId !== interaction.message?.id || record.channelId !== interaction.channelId)
       return interaction.editReply("This giveaway announcement could not be verified.");
+    if (action === "launch") {
+      if (record.mode !== "survival") return interaction.editReply("This is not an elimination trial.");
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
+        return interaction.editReply("Only staff with Manage Server permission can start a trial.");
+      const started = await beginSurvivalTrial({ id, guildId: interaction.guildId });
+      await publishSurvivalAnnouncement(interaction.client, started);
+      return interaction.editReply("⚔️ The Court’s Trial has begun! Watch this channel for each elimination.");
+    }
     if (action === "count") return interaction.editReply({
       content: `🥀 Current entries: **${record.entrantIds?.length || 0}** · Winners: **${record.winnerCount}**.`,
       allowedMentions: { parse: [] },
@@ -139,11 +187,12 @@ export async function handleGiveawayButton(interaction) {
         return interaction.editReply(`You need the <@&${record.requiredRoleId}> role to join this giveaway.`);
     }
     const result = action === "enter"
-      ? await joinGiveaway({ id, guildId: interaction.guildId, userId: interaction.user.id })
+      ? await joinGiveaway({ id, guildId: interaction.guildId, userId: interaction.user.id, mode: record.mode })
       : await leaveGiveaway({ id, guildId: interaction.guildId, userId: interaction.user.id });
     const message = ({
       joined: "🥀 You're entered! Good luck. You can leave before the deadline.",
       already: "You're already entered. Each member gets one entry.",
+      full: "This trial has reached its 120-contestant limit.",
       left: "Your giveaway entry has been removed.",
       "not-entered": "You weren't entered in this giveaway.",
       ended: "This giveaway has ended. Check the original post for results.",
