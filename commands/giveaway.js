@@ -20,7 +20,21 @@ export const data = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("winners").setDescription("Number of winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
     .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering")))
-  .addSubcommand(c => c.setName("speed").setDescription("Open a live, one-by-one elimination giveaway in the Court")
+  .addSubcommand(c => c.setName("end").setDescription("End a normal giveaway early and retain its results")
+    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true)))
+  .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
+    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true))
+    .addIntegerOption(o => o.setName("winner").setDescription("Winner number to replace, starting with 1").setRequired(true).setMinValue(1).setMaxValue(10)))
+  .addSubcommand(c => c.setName("list").setDescription("Show recent regular giveaways and saved IDs"))
+  .addSubcommand(c => c.setName("entrants").setDescription("Privately list entrants of any giveaway or trial")
+    .addStringOption(o => o.setName("id").setDescription("Giveaway or trial ID or message link").setRequired(true))
+    .addIntegerOption(o => o.setName("page").setDescription("Page (25 entrants at a time)").setMinValue(1)));
+
+
+export const trialData = new SlashCommandBuilder()
+  .setName("trial").setDescription("The Court's Trials: elimination competitions")
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+  .addSubcommand(c => c.setName("start").setDescription("Open a live Court's Trial with one-by-one eliminations")
     .addStringOption(o => o.setName("title").setDescription("Trial title").setRequired(true).setMinLength(2).setMaxLength(100))
     .addStringOption(o => o.setName("prize").setDescription("Prize details (include ranked prizes if needed)").setRequired(true).setMinLength(2).setMaxLength(1500))
     .addIntegerOption(o => o.setName("pace").setDescription("Seconds between elimination posts (default 5)")
@@ -33,14 +47,43 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
   .addSubcommand(c => c.setName("cancel").setDescription("Cancel a trial without awarding winners; retain its record")
     .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
-  .addSubcommand(c => c.setName("end").setDescription("End a normal giveaway early and retain its results")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true)))
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
     .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true))
     .addIntegerOption(o => o.setName("winner").setDescription("Winner number to replace, starting with 1").setRequired(true).setMinValue(1).setMaxValue(10)))
-  .addSubcommand(c => c.setName("list").setDescription("Show recent giveaways and their saved IDs"));
+  .addSubcommand(c => c.setName("list").setDescription("Show recent Court's Trials and saved IDs"))
+  .addSubcommand(c => c.setName("entrants").setDescription("Privately list registered Court's Trial contestants")
+    .addStringOption(o => o.setName("id").setDescription("Trial ID or message link").setRequired(true))
+    .addIntegerOption(o => o.setName("page").setDescription("Page (25 contestants at a time)").setMinValue(1)));
 
 const linkTo = record => `https://discord.com/channels/${record.guildId}/${record.channelId}/${record.messageId}`;
+
+export const ENTRANTS_PER_PAGE = 25;
+
+// Staff-only command output. Mention formatting makes accounts easy to recognize
+// without actually pinging the entrants. 25 rows fit safely within Discord's
+// 2,000-character message limit, including ID codes.
+export function formatGiveawayEntrants(record, requestedPage = 1) {
+  const entrants = [...new Set(record.entrantIds || [])];
+  const pages = Math.max(1, Math.ceil(entrants.length / ENTRANTS_PER_PAGE));
+  const page = Number(requestedPage);
+  if (!Number.isSafeInteger(page) || page < 1 || page > pages) {
+    throw Error("Invalid entrant page. Use a page from 1 to " + pages + ".");
+  }
+  const title = String(record.title || "Untitled").replace(/[@\`*_~|<>]/g, "").slice(0, 100);
+  const heading = record.mode === "survival" ? "Court's Trial contestants" : "Giveaway entrants";
+  const beginning = (page - 1) * ENTRANTS_PER_PAGE;
+  const names = entrants.slice(beginning, beginning + ENTRANTS_PER_PAGE)
+    .map((id, i) => (beginning + i + 1) + ". <@" + id + "> (" + "\`" + id + "\`" + ")");
+  return [
+    "**" + heading + " — " + title + "**",
+    "**Status:** " + record.status + " · **Total entered:** " + entrants.length + " · **Page:** " + page + "/" + pages,
+    record.messageId ? "Original post: " + linkTo(record) : "",
+    "",
+    ...(names.length ? names : ["No members have entered."]),
+    ...(pages > 1 ? ["", "Use the same command with \`page:" + Math.min(pages, page + 1) + "\` to see another page."] : []),
+  ].filter((line, i) => line !== "" || i > 0).join("\n");
+}
+
 
 async function findGiveaway(reference, guildId) {
   const ref = String(reference || "").trim();
@@ -60,9 +103,10 @@ export async function execute(interaction) {
       !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
     return interaction.editReply("Only members with Manage Server can manage giveaways.");
   const operation = interaction.options.getSubcommand();
+  const survivalCommand = interaction.commandName === "trial";
   try {
-    if (operation === "start" || operation === "speed") {
-      const survival = operation === "speed";
+    if (operation === "start") {
+      const survival = survivalCommand;
       const channel = await getConfiguredTextChannel(
         interaction,
         survival ? "survivalTrialChannelId" : "giveawayChannelId",
@@ -100,21 +144,39 @@ export async function execute(interaction) {
     }
 
     if (operation === "list") {
-      const records = await Giveaway.find({ guildId: interaction.guildId, status: { $ne: "failed" } })
+      const records = await Giveaway.find({
+        guildId: interaction.guildId, status: { $ne: "failed" },
+        mode: survivalCommand ? "survival" : { $ne: "survival" },
+      })
         .sort({ createdAt: -1 }).limit(10).lean();
       return interaction.editReply({
         content: records.length
-          ? "**Recent Giveaways**\n" + records.map(record =>
+          ? (survivalCommand ? "**Recent Court's Trials**\n" : "**Recent Giveaways**\n") + records.map(record =>
               `• **${record.title.replace(/[@*_`~|<>]/g, "")}** · ${record.mode === "survival" ? "trial" : "standard"} · ${record.status} · \`${record._id}\` ${record.messageId ? linkTo(record) : "(pending)"}`).join("\n")
-          : "No giveaways have been created yet.",
+          : (survivalCommand ? "No Court's Trials have been created yet." : "No giveaways have been created yet."),
         allowedMentions: { parse: [] },
       });
     }
     const record = await findGiveaway(interaction.options.getString("id", true), interaction.guildId);
-    if (!record) throw Error("Giveaway not found in this server.");
+    if (!record) throw Error("Event not found in this server.");
+    if (operation === "entrants") {
+      if (survivalCommand && record.mode !== "survival") {
+        throw Error("Use /giveaway entrants for regular giveaways.");
+      }
+      return interaction.editReply({
+        content: formatGiveawayEntrants(record, interaction.options.getInteger("page") || 1),
+        allowedMentions: { parse: [] },
+      });
+    }
+    if (survivalCommand && record.mode !== "survival") {
+      throw Error("This event is a regular giveaway. Use /giveaway instead.");
+    }
+    if (!survivalCommand && record.mode === "survival") {
+      throw Error("This event is a Court's Trial. Use /trial instead.");
+    }
     let updated;
     if (operation === "launch" || operation === "cancel") {
-      if (record.mode !== "survival") throw Error("This command is only for elimination trials.");
+      if (!survivalCommand) throw Error("Use /trial launch or /trial cancel for elimination trials.");
       updated = operation === "launch"
         ? await beginSurvivalTrial({ id: record._id, guildId: interaction.guildId })
         : await cancelSurvivalTrial({ id: record._id, guildId: interaction.guildId });
@@ -130,7 +192,7 @@ export async function execute(interaction) {
       });
     }
     if (operation === "end") {
-      if (record.mode === "survival") throw Error("Use /giveaway launch or /giveaway cancel for an elimination trial.");
+      if (record.mode === "survival") throw Error("Use /trial launch or /trial cancel for an elimination trial.");
       if (record.status === "publishing" || record.status === "failed") throw Error("This giveaway was never published.");
       updated = await closeGiveaway({ id: record._id, guildId: interaction.guildId });
       if (updated?.status === "rerolling") throw Error("Wait for the current reroll to finish.");
