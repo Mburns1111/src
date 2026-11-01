@@ -20,12 +20,16 @@ const restore = changes => {
   for (const [obj, key, previous] of changes.reverse()) obj[key] = previous;
 };
 
-function setupInteraction(channels) {
+function setupInteraction(channels, roles = {}, clears = {}) {
   const posts = [];
   return {
     inGuild: () => true,
     guildId, guild: { id: guildId },
-    options: { getChannel: name => channels[name] || null },
+    options: {
+      getChannel: name => channels[name] || null,
+      getRole: name => roles[name] || null,
+      getBoolean: name => clears[name] || null,
+    },
     deferred: false, replied: false,
     deferReply: async () => {},
     editReply: async reply => { posts.push(reply); },
@@ -41,7 +45,12 @@ test("setup exposes two distinct optional giveaway channel selectors", () => {
   assert.notEqual(names.indexOf("giveaways"), names.indexOf("survival_trials"));
   assert.ok(GuildConfig.schema.path("giveawayChannelId"));
   assert.ok(GuildConfig.schema.path("survivalTrialChannelId"));
-  assert.equal(config.options.length, 10);
+  for (const field of ["giveaway_ping", "trial_ping", "clear_giveaway_ping", "clear_trial_ping"]) {
+    assert.ok(names.includes(field), "server setup exposes " + field);
+  }
+  assert.ok(GuildConfig.schema.path("giveawayPingRoleId"));
+  assert.ok(GuildConfig.schema.path("survivalTrialPingRoleId"));
+  assert.equal(config.options.length, 14);
   for (const command of [giveawayCommand, trialCommand]) {
     const operation = command.toJSON().options.find(o => o.name === "start");
     assert.ok(!operation.options.some(o => o.name === "channel"),
@@ -113,7 +122,7 @@ function postingInteraction(mode, guild, commandName = "giveaway") {
   };
 }
 
-test("start and speed always publish to their own assigned channels", async () => {
+test("starts always publish to their own assigned channels", async () => {
   const changes = [];
   const sent = [];
   const channels = new Map([normalId, trialId].map(id => [id, {
@@ -157,4 +166,94 @@ test("an unconfigured dedicated channel never falls back to the command channel"
     assert.match(interaction.getReply().content, /configure the standard giveaway channel/i);
     assert.match(interaction.getReply().content, /setup channels/i);
   } finally { restore(changes); }
+});
+
+test("admins can assign and clear each event ping role without changing saved channels", async () => {
+  const patches = [];
+  const updates = [];
+  try {
+    stub(patches, GuildConfig, "findOneAndUpdate", async (query, update) => {
+      updates.push(update.$set);
+    });
+    const first = setupInteraction({}, {
+      giveaway_ping: { id: "135791357913579135" },
+      trial_ping: { id: "246802468024680246" },
+    });
+    await setupChannels(first);
+    assert.deepEqual(updates[0], {
+      giveawayPingRoleId: "135791357913579135",
+      survivalTrialPingRoleId: "246802468024680246",
+    });
+    assert.match(first.replies.at(-1).content, /Giveaway notifications|giveaway notifications/i);
+    const second = setupInteraction({}, {}, { clear_trial_ping: true });
+    await setupChannels(second);
+    assert.deepEqual(updates[1], { survivalTrialPingRoleId: "" });
+    const third = setupInteraction({}, {}, { clear_giveaway_ping: true });
+    await setupChannels(third);
+    assert.deepEqual(updates[2], { giveawayPingRoleId: "" });
+    assert.equal(updates.some(update => Object.hasOwn(update, "giveawayChannelId")), false);
+    await assert.rejects(
+      () => setupChannels(setupInteraction({}, { giveaway_ping: { id: "123" } }, { clear_giveaway_ping: true })),
+      /role or clear/i,
+    );
+  } finally { restore(patches); }
+});
+
+test("new event posts ping their configured role only at creation, not a required-entry role", async () => {
+  const patches = [];
+  const notifications = [];
+  const ids = { normal: "135791357913579135", trial: "246802468024680246" };
+  const channel = id => ({
+    id, guildId, isTextBased: () => true,
+    send: async payload => {
+      notifications.push({ channel: id, payload });
+      return { id: "678901234567890123", url: "https://discord.com/channels/example" };
+    },
+  });
+  try {
+    stub(patches, GuildConfig, "findOne", async () => ({
+      giveawayChannelId: normalId, survivalTrialChannelId: trialId,
+      giveawayPingRoleId: ids.normal, survivalTrialPingRoleId: ids.trial,
+    }));
+    const saved = [];
+    stub(patches, Giveaway, "create", async values => {
+      saved.push(values);
+      return { ...values, _id: giveawayId, toObject: () => ({ ...values, _id: giveawayId }) };
+    });
+    stub(patches, Giveaway, "updateOne", async () => ({ modifiedCount: 1 }));
+    const guild = { id: guildId, channels: { fetch: async id => channel(id) } };
+    await postGiveaway(postingInteraction("start", guild));
+    await postGiveaway(postingInteraction("start", guild, "trial"));
+    assert.deepEqual(saved.map(item => item.announcementPingRoleId), [ids.normal, ids.trial]);
+    assert.deepEqual(notifications.map(item => item.channel), [normalId, trialId]);
+    for (const [index, role] of [ids.normal, ids.trial].entries()) {
+      assert.equal(notifications[index].payload.content, "<@&" + role + ">");
+      assert.deepEqual(notifications[index].payload.allowedMentions, { parse: [], roles: [role] });
+      assert.equal(notifications[index].payload.components.length, 1);
+    }
+  } finally { restore(patches); }
+});
+
+test("no configured ping role produces no mention and no role ping allowed", async () => {
+  const patches = [];
+  let payload;
+  try {
+    stub(patches, GuildConfig, "findOne", async () => ({
+      giveawayChannelId: normalId, giveawayPingRoleId: "",
+    }));
+    stub(patches, Giveaway, "create", async values => ({
+      ...values, _id: giveawayId, toObject: () => ({ ...values, _id: giveawayId }),
+    }));
+    stub(patches, Giveaway, "updateOne", async () => ({ modifiedCount: 1 }));
+    const guild = { id: guildId, channels: { fetch: async () => ({
+      id: normalId, isTextBased: () => true,
+      send: async data => {
+        payload = data;
+        return { id: "678901234567890123", url: "https://discord.com/channels/example" };
+      },
+    }) } };
+    await postGiveaway(postingInteraction("start", guild));
+    assert.equal(payload.content, undefined);
+    assert.deepEqual(payload.allowedMentions, { parse: [] });
+  } finally { restore(patches); }
 });
