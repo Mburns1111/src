@@ -11,6 +11,9 @@ const giveawaySchema = new mongoose.Schema({
   title: { type: String, required: true },
   prize: { type: String, required: true },
   rules: { type: String, default: "" },
+  claimWindowHours: { type: Number, default: null, min: 1, max: 720 },
+  claimInstructions: { type: String, default: "", maxlength: 400 },
+  claimStartedAt: { type: Date, default: null },
   requiredRoleId: { type: String, default: "" },
   // Saved for audit: role notified once when this event was originally posted.
   announcementPingRoleId: { type: String, default: "" },
