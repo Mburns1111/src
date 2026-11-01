@@ -109,21 +109,30 @@ export function survivalAnnouncement(record) {
 export function survivalEventPayload(record, event, index, imageName = null) {
   const total = record.gameEvents.length;
   const contestants = record.entrantIds?.length || total + 1;
+  const marker = `Trial ${record._id} · Event ${index + 1}`;
   const duel = Boolean(event.actorId);
-  const embed = new EmbedBuilder()
-    .setColor(duel ? 0x835276 : 0xa66b8b)
-    .setAuthor({ name: "♛ THE CRYPTIC COURT · LIVE ROYAL TRIAL ♛" })
-    .setTitle(`${duel ? "⚔️" : "🥀"} Elimination ${index + 1} of ${total}`)
-    .setDescription(`━━━━━━━━ ✦ ⚔️ ✦ ━━━━━━━━\n${event.description}\n\n${event.remaining === 1
-      ? "👑 **Only one survivor remains!**"
-      : "*The Court awaits its next elimination…*"}\n━━━━━━━━ ✦ ♛ ✦ ━━━━━━━━`)
-    .addFields(
-      { name: "⚰️ Eliminated", value: `<@${event.victimId}>`, inline: true },
-      { name: "🕯️ Still Standing", value: `**${event.remaining} / ${contestants}**`, inline: true },
-    )
-    // Stable footer lets a restarted bot recognize already-posted events.
-    .setFooter({ text: `Trial ${record._id} · Event ${index + 1}` });
-  if (imageName) embed.setImage("attachment://" + imageName);
+
+  // When Canvas succeeds, the entire scene, event story and remaining count
+  // are already inside one image. Do not repeat them above the picture.
+  const embed = new EmbedBuilder().setColor(duel ? 0x835276 : 0xa66b8b);
+  if (imageName) {
+    embed.setImage("attachment://" + imageName);
+  } else {
+    // Preserve a fully readable, informative fallback when Attach Files is
+    // unavailable or rendering fails. Do not lose event text on failure.
+    embed
+      .setAuthor({ name: "♛ THE CRYPTIC COURT · LIVE ROYAL TRIAL ♛" })
+      .setTitle(`${duel ? "⚔️" : "🥀"} Elimination ${index + 1} of ${total}`)
+      .setDescription(`${event.description}\n\n${event.remaining === 1
+        ? "👑 **Only one survivor remains!**"
+        : `🕯️ **${event.remaining} / ${contestants} still standing.**`}`)
+      .addFields(
+        { name: "⚰️ Eliminated", value: `<@${event.victimId}>`, inline: true },
+        { name: "🕯️ Still Standing", value: `**${event.remaining} / ${contestants}**`, inline: true },
+      );
+  }
+  // Keep the exact marker: restart recovery checks this footer.
+  embed.setFooter({ text: marker });
   return { embeds: [embed], allowedMentions: { parse: [] } };
 }
 
@@ -326,7 +335,11 @@ async function findOrSendEvent(client, record, event, index) {
   const canAttach = channel.permissionsFor?.(client.user)?.has(PermissionFlagsBits.AttachFiles) ?? true;
   if (canAttach) {
     try {
-      portrait = await buildTrialEventPortrait(client, event);
+      portrait = await buildTrialEventPortrait(client, event, {
+        contestants: record.entrantIds?.length || (record.gameEvents?.length || 0) + 1,
+        index,
+        total: record.gameEvents?.length || 1,
+      });
     } catch (error) {
       // A canvas or media error must never prevent an elimination from being
       // recorded. Post the original text-only embed if image rendering fails.
