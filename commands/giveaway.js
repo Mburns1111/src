@@ -45,7 +45,7 @@ export const trialData = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("winners").setDescription("Number of ranked prize winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
     .addRoleOption(o => o.setName("role").setDescription("Optional role required to enter"))
-    .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (max 720)").setMinValue(1).setMaxValue(720))
+    .addIntegerOption(o => o.setName("claim_minutes").setDescription("Minutes winners have to claim after trial ends (max 43200)").setMinValue(1).setMaxValue(43200))
     .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400)))
   .addSubcommand(c => c.setName("cancel").setDescription("Cancel a trial without awarding winners; retain its record")
     .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
@@ -125,7 +125,8 @@ export async function execute(interaction) {
         title: interaction.options.getString("title", true).trim(),
         prize: interaction.options.getString("prize", true).trim(),
         rules: interaction.options.getString("rules")?.trim() || "",
-        claimWindowHours: interaction.options.getInteger("claim_hours") || null,
+        claimWindowHours: survival ? null : (interaction.options.getInteger("claim_hours") || null),
+        claimWindowMinutes: survival ? (interaction.options.getInteger("claim_minutes") || null) : null,
         claimInstructions: interaction.options.getString("claim_instructions")?.trim() || "",
         requiredRoleId: interaction.options.getRole("role")?.id || "",
         announcementPingRoleId: pingRoleId || "",
