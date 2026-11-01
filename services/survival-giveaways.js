@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "./survival-event-texts.js";
+import { HARVEST_SOLO_TRIAL_EVENTS, HARVEST_DUEL_TRIAL_EVENTS } from "./survival-harvest-event-texts.js";
 import { buildTrialEventPortrait } from "./trial-event-portraits.js";
 import { prizeClaimLines } from "./giveaway-claims.js";
 
@@ -28,11 +29,14 @@ export function planSurvivalTrial(entrantIds, winnerCount = 1) {
   if (shuffled.length > MAX_TRIAL_ENTRANTS)
     throw Error(`A trial supports up to ${MAX_TRIAL_ENTRANTS} entrants.`);
   const championId = shuffled[shuffled.length - 1];
-  // Deal the 120 unique scenarios from a shuffled deck: no repeated text
-  // during the same trial (the max is 119 eliminations for 120 entrants).
+  // Deal all 220 unique scenarios from a shuffled deck without repeating
+  // a template in one trial. Append harvest entries after the original 60
+  // solo/duel entries so earlier template IDs remain stable.
+  const soloTemplates = [...SOLO_TRIAL_EVENTS, ...HARVEST_SOLO_TRIAL_EVENTS];
+  const duelTemplates = [...DUEL_TRIAL_EVENTS, ...HARVEST_DUEL_TRIAL_EVENTS];
   const templateDeck = shuffledUnique([
-    ...SOLO_TRIAL_EVENTS.map((text, i) => ({ templateId: `solo-${i + 1}`, text, duel: false })),
-    ...DUEL_TRIAL_EVENTS.map((text, i) => ({ templateId: `duel-${i + 1}`, text, duel: true })),
+    ...soloTemplates.map((text, i) => ({ templateId: `solo-${i + 1}`, text, duel: false })),
+    ...duelTemplates.map((text, i) => ({ templateId: `duel-${i + 1}`, text, duel: true })),
   ]);
   if (shuffled.length - 1 > templateDeck.length)
     throw Error("There are not enough unique trial event templates.");
