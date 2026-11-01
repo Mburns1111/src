@@ -1,254 +1,324 @@
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 
-// Original in-bot artwork: dark gothic velvet, rose-pink filigree and thorns.
-// These images are generated for every elimination; no external art assets.
+// The Cryptic Court: original vector artwork drawn at render time.
+// Blackened castle stone, lancet windows, iron thorns and antique rose-gold.
+// No clip-art flowers, external illustrations, or image generation API needed.
 export const TRIAL_IMAGE_WIDTH = 1000;
 export const TRIAL_IMAGE_HEIGHT = 520;
 
-function roundedRect(ctx, x, y, w, h, radius) {
-  const r = Math.min(radius, w / 2, h / 2);
+const INK = "#0e0c12";
+const IVORY = "#eee1d5";
+const GOLD = "#b29a79";
+const ROSE = "#ac647e";
+const ASH = "#bdb0aa";
+
+function line(ctx, fromX, fromY, toX, toY, color = GOLD, width = 2) {
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.lineWidth = width;
+  ctx.strokeStyle = color;
+  ctx.stroke();
+}
+
+function label(ctx, value, x, y, maxWidth, maxSize, color = IVORY, family = "Georgia, serif") {
+  const str = String(value || "UNKNOWN COURTIER").replace(/[\r\n\t]/g, " ").slice(0, 75);
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  let size = maxSize;
+  while (size > 16) {
+    ctx.font = "bold " + size + "px " + family;
+    if (ctx.measureText(str).width <= maxWidth) break;
+    size -= 1;
+  }
+  ctx.fillStyle = color;
+  ctx.shadowColor = INK;
+  ctx.shadowBlur = 5;
+  ctx.fillText(str, x, y, maxWidth);
+  ctx.restore();
+}
+
+function diamond(ctx, x, y, radius = 7, color = GOLD) {
+  ctx.beginPath();
+  ctx.moveTo(x, y - radius);
+  ctx.lineTo(x + radius * 0.6, y);
+  ctx.lineTo(x, y + radius);
+  ctx.lineTo(x - radius * 0.6, y);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function crown(ctx, x, y, scale = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 3;
+  ctx.fillStyle = "#241a22";
+  ctx.beginPath();
+  ctx.moveTo(-27, 16);
+  ctx.lineTo(-34, -12);
+  ctx.lineTo(-13, 0);
+  ctx.lineTo(0, -22);
+  ctx.lineTo(13, 0);
+  ctx.lineTo(34, -12);
+  ctx.lineTo(27, 16);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  line(ctx, -27, 20, 27, 20, GOLD, 3);
+  for (const [px,py] of [[-34,-12],[0,-22],[34,-12]]) diamond(ctx, px, py, 5, ROSE);
+  ctx.restore();
+}
+
+function pathArch(ctx, x, y, width, height) {
+  // Tall pointed Gothic doorway. The two curves meet at one sharp crown.
+  const shoulder = y + width * 0.38;
+  ctx.beginPath();
+  ctx.moveTo(x, y + height);
+  ctx.lineTo(x, shoulder);
+  ctx.bezierCurveTo(x + 2, y + width * 0.20, x + width * 0.25, y + width * 0.09,
+    x + width / 2, y);
+  ctx.bezierCurveTo(x + width * 0.75, y + width * 0.09, x + width - 2, y + width * 0.20,
+    x + width, shoulder);
+  ctx.lineTo(x + width, y + height);
   ctx.closePath();
 }
 
-function framedText(ctx, text, x, y, maxWidth, maxSize = 28) {
-  const clean = String(text || "Unknown Courtier").replace(/[\r\n\t]/g, " ").slice(0, 65);
-  let size = maxSize;
-  do {
-    ctx.font = "bold " + size + "px sans-serif";
-    if (ctx.measureText(clean).width <= maxWidth || size <= 15) break;
-    size -= 1;
-  } while (size > 15);
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#fff0f6";
-  ctx.shadowBlur = 7;
-  ctx.shadowColor = "#170812";
-  ctx.fillText(clean, x, y, maxWidth);
-  ctx.shadowBlur = 0;
+function darkStone(ctx) {
+  const w = TRIAL_IMAGE_WIDTH, h = TRIAL_IMAGE_HEIGHT;
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, "#111016");
+  grad.addColorStop(0.5, "#2a1b29");
+  grad.addColorStop(1, "#100e17");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Very subdued stone coursing and a dark architectural arcade.
+  ctx.strokeStyle = "rgba(193,164,153,.065)";
+  ctx.lineWidth = 1;
+  for (let y = 52; y < h; y += 57) {
+    line(ctx, 0, y, w, y, "rgba(194,163,158,.06)", 1);
+    for (let x = ((Math.floor(y / 57) % 2) ? 47 : 0); x < w; x += 136)
+      line(ctx, x, y, x, y + 57, "rgba(194,163,158,.05)", 1);
+  }
+  for (const [x, width] of [[-120, 310], [810, 310]]) {
+    pathArch(ctx, x, 55, width, 480);
+    ctx.fillStyle = "rgba(5,5,11,.22)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(165,115,130,.13)";
+    ctx.lineWidth = 7;
+    ctx.stroke();
+  }
+  const shade = ctx.createRadialGradient(w / 2, 230, 0, w / 2, 260, 720);
+  shade.addColorStop(0, "rgba(101,48,73,.24)");
+  shade.addColorStop(.6, "rgba(29,19,32,.05)");
+  shade.addColorStop(1, "rgba(0,0,0,.55)");
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, w, h);
 }
 
-function thorn(ctx, x, y, a, size = 13) {
+// Thorn branches are sharp, tapered and botanical rather than five-petal
+// icon flowers; they stay faint enough to be background details at 400px.
+function ironThorns(ctx, startX, startY, direction = 1) {
   ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(a);
+  ctx.translate(startX, startY);
+  ctx.scale(direction, 1);
+  ctx.strokeStyle = "rgba(161,103,120,.75)";
+  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.quadraticCurveTo(size / 2, -size * 0.35, size, -size * 0.95);
-  ctx.quadraticCurveTo(size * 0.22, -size * 0.4, 0, 0);
-  ctx.fillStyle = "#d896b7";
-  ctx.fill();
-  ctx.restore();
-}
-
-function rose(ctx, x, y, radius = 20) {
-  ctx.save();
-  ctx.translate(x, y);
-  for (let p = 0; p < 5; p++) {
+  ctx.bezierCurveTo(55, -44, 102, -57, 177, -54);
+  ctx.stroke();
+  for (const [px,py,rot] of [[29,-22,-.65],[62,-39,.85],[103,-51,-.95],[143,-57,.7]]) {
     ctx.save();
-    ctx.rotate(p * Math.PI * 2 / 5);
-    const petal = ctx.createLinearGradient(0, -radius, 0, radius);
-    petal.addColorStop(0, "#f2b8ce");
-    petal.addColorStop(1, "#934367");
-    ctx.fillStyle = petal;
+    ctx.translate(px, py);
+    ctx.rotate(rot);
     ctx.beginPath();
-    ctx.ellipse(0, -radius * 0.46, radius * 0.53, radius * 0.72, 0, 0, Math.PI * 2);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(9, -23);
+    ctx.lineTo(8, 1);
+    ctx.closePath();
+    ctx.fillStyle = "#8c4e66";
     ctx.fill();
     ctx.restore();
   }
-  ctx.fillStyle = "#6e284e";
+  // A narrow leaf, never a round flower.
+  ctx.fillStyle = "rgba(114,86,97,.8)";
   ctx.beginPath();
-  ctx.arc(0, 0, radius * 0.38, 0, Math.PI * 2);
+  ctx.moveTo(86, -46);
+  ctx.quadraticCurveTo(92, -81, 115, -75);
+  ctx.quadraticCurveTo(113, -49, 86, -46);
   ctx.fill();
-  ctx.strokeStyle = "#f8cadd";
-  ctx.lineWidth = 1.7;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * 0.2, -Math.PI * .4, Math.PI * 1.5);
-  ctx.stroke();
   ctx.restore();
 }
 
-function floweringVine(ctx, left, y, direction = 1) {
-  ctx.save();
-  ctx.translate(left, y);
-  ctx.scale(direction, 1);
-  ctx.strokeStyle = "#b67a9a";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.bezierCurveTo(56, -36, 142, -25, 228, -3);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(64, -22);
-  ctx.quadraticCurveTo(75, -70, 110, -56);
-  ctx.moveTo(145, -19);
-  ctx.quadraticCurveTo(157, 22, 185, 24);
-  ctx.stroke();
-  for (const [x, by, angle] of [[35,-12,-1.3],[91,-28,1.7],[150,-13,-1.2],[194,-3,1.2]]) {
-    thorn(ctx, x, by, angle, 16);
+function border(ctx) {
+  const w = TRIAL_IMAGE_WIDTH, h = TRIAL_IMAGE_HEIGHT;
+  ctx.fillStyle = "rgba(4,4,8,.5)";
+  ctx.fillRect(0, 0, w, 110);
+  ctx.fillRect(0, 484, w, h - 484);
+  ctx.strokeStyle = "#65515b";
+  ctx.lineWidth = 9;
+  ctx.strokeRect(15, 15, w - 30, h - 30);
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(24, 24, w - 48, h - 48);
+  ctx.strokeStyle = "#653d50";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(32, 32, w - 64, h - 64);
+
+  // Ironwork corners: simple engraved lines, not stickers.
+  for (const sx of [1, -1]) for (const sy of [1, -1]) {
+    ctx.save();
+    ctx.translate(sx === 1 ? 44 : w - 44, sy === 1 ? 44 : h - 44);
+    ctx.scale(sx, sy);
+    line(ctx, 0, 0, 77, 0, ROSE, 3);
+    line(ctx, 0, 0, 0, 72, ROSE, 3);
+    diamond(ctx, 84, 0, 5);
+    diamond(ctx, 0, 80, 5);
+    ctx.restore();
   }
-  rose(ctx, 103, -53, 13);
-  rose(ctx, 187, 24, 10);
-  ctx.restore();
+  ironThorns(ctx, 50, 445, 1);
+  ironThorns(ctx, w - 50, 445, -1);
+
+  crown(ctx, 500, 62, 0.65);
+  line(ctx, 310, 70, 463, 70, "#66515b", 2);
+  line(ctx, 537, 70, 690, 70, "#66515b", 2);
+  label(ctx, "THE CRYPTIC COURT", 500, 105, 610, 35, IVORY);
 }
 
-function gothicBackdrop(ctx, w, h) {
-  const fill = ctx.createLinearGradient(0, 0, w, h);
-  fill.addColorStop(0, "#1e1021");
-  fill.addColorStop(0.47, "#432039");
-  fill.addColorStop(1, "#170b1b");
-  ctx.fillStyle = fill;
-  ctx.fillRect(0, 0, w, h);
-  const glow = ctx.createRadialGradient(w/2, h/2, 20, w/2, h/2, 530);
-  glow.addColorStop(0, "rgba(213,116,166,0.26)");
-  glow.addColorStop(1, "rgba(20,5,21,0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, w, h);
+function coverImage(ctx, image, x, y, w, h) {
+  const scale = Math.max(w / image.width, h / image.height);
+  const imgW = image.width * scale, imgH = image.height * scale;
+  ctx.drawImage(image, x + (w - imgW)/2, y + (h - imgH)/2, imgW, imgH);
+}
 
-  // Fine inner/outer pink borders, pointed gothic arch and corner roses.
-  ctx.strokeStyle = "#c38aa5";
+function portraitArch(ctx, image, x, y, width, height, { fallen = false } = {}) {
+  // Cast-iron and antique-gold doorway, with a photo clipped to the same arch.
+  ctx.save();
+  ctx.shadowBlur = 22;
+  ctx.shadowColor = "#000000";
+  pathArch(ctx, x - 12, y - 12, width + 24, height + 24);
+  ctx.fillStyle = "#080911";
+  ctx.fill();
+  ctx.restore();
+
+  pathArch(ctx, x - 10, y - 10, width + 20, height + 20);
+  ctx.strokeStyle = GOLD;
   ctx.lineWidth = 6;
-  roundedRect(ctx, 14, 14, w - 28, h - 28, 22);
   ctx.stroke();
-  ctx.strokeStyle = "#efc6d7";
-  ctx.lineWidth = 1.5;
-  roundedRect(ctx, 28, 28, w - 56, h - 56, 16);
-  ctx.stroke();
-
-  ctx.strokeStyle = "rgba(238,166,199,0.19)";
+  pathArch(ctx, x - 5, y - 5, width + 10, height + 10);
+  ctx.strokeStyle = fallen ? "#86445b" : "#9b7882";
   ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(355, 470);
-  ctx.lineTo(355, 165);
-  ctx.quadraticCurveTo(355, 104, w / 2, 70);
-  ctx.quadraticCurveTo(645, 104, 645, 165);
-  ctx.lineTo(645, 470);
   ctx.stroke();
-  floweringVine(ctx, 43, 478, 1);
-  floweringVine(ctx, w - 43, 478, -1);
-  rose(ctx, 53, 53, 16);
-  rose(ctx, w - 53, 53, 16);
-  thorn(ctx, 45, 220, 0.25, 19);
-  thorn(ctx, w - 45, 220, 2.8, 19);
-}
-
-function avatarMedallion(ctx, image, x, y, size, label, name) {
-  const centerX = x + size / 2, centerY = y + size / 2;
-  // Medallion shadow, outer gold/pink ring and inset image or fallback.
-  ctx.save();
-  ctx.shadowBlur = 24;
-  ctx.shadowColor = "rgba(3, 0, 8, 0.75)";
-  ctx.fillStyle = "#110b19";
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, size / 2 + 13, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  ctx.fillStyle = "#e5b8ca";
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, size / 2 + 10, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#763b5e";
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, size / 2 + 5, 0, Math.PI * 2);
-  ctx.fill();
 
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2);
+  pathArch(ctx, x, y, width, height);
   ctx.clip();
-  if (image) {
-    const scale = Math.max(size / image.width, size / image.height);
-    const sw = image.width * scale, sh = image.height * scale;
-    ctx.drawImage(image, centerX - sw / 2, centerY - sh / 2, sw, sh);
-  } else {
-    const grad = ctx.createLinearGradient(x, y, x+size, y+size);
-    grad.addColorStop(0, "#9e577a");
-    grad.addColorStop(1, "#48213f");
-    ctx.fillStyle = grad;
-    ctx.fillRect(x, y, size, size);
-    ctx.fillStyle = "#f7d4e2";
-    ctx.font = "bold 100px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("♛", centerX, centerY + 36);
+  if (image) coverImage(ctx, image, x, y, width, height);
+  else {
+    const fill = ctx.createLinearGradient(x, y, x + width, y + height);
+    fill.addColorStop(0, "#65505b");
+    fill.addColorStop(1, "#1c1a25");
+    ctx.fillStyle = fill;
+    ctx.fillRect(x, y, width, height);
+    // Gothic placeholder silhouette: head + shoulders, not an emoji.
+    ctx.fillStyle = "rgba(9,10,19,.75)";
+    ctx.beginPath();
+    ctx.arc(x + width/2, y + height*.43, width*.16, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(x + width/2, y + height*.95, width*.36, height*.34, 0, 0, Math.PI*2);
+    ctx.fill();
   }
+  const shadow = ctx.createLinearGradient(x, y + height*.54, x, y + height);
+  shadow.addColorStop(0, "rgba(9,7,13,0)");
+  shadow.addColorStop(1, "rgba(6,5,10,.65)");
+  ctx.fillStyle = shadow;
+  ctx.fillRect(x, y, width, height);
   ctx.restore();
 
-  // The medallion name plate and status banner are readable in small Discord embeds.
-  ctx.fillStyle = "rgba(23, 10, 25, 0.87)";
-  roundedRect(ctx, centerX - 166, y + size + 24, 332, 54, 12);
-  ctx.fill();
-  ctx.strokeStyle = "#d6a0bd";
-  ctx.lineWidth = 1.5;
-  roundedRect(ctx, centerX - 166, y + size + 24, 332, 54, 12);
+  pathArch(ctx, x, y, width, height);
+  ctx.strokeStyle = "#2a1a25";
+  ctx.lineWidth = 5;
   ctx.stroke();
-  framedText(ctx, name, centerX, y + size + 60, 310, 27);
-  ctx.font = "bold 19px sans-serif";
-  ctx.fillStyle = "#f2b8d4";
-  ctx.textAlign = "center";
-  ctx.fillText(label, centerX, y - 32);
+  // Vertical iron mullions flanking the portrait.
+  line(ctx, x - 17, y + 102, x - 17, y + height + 7, "#563f4d", 3);
+  line(ctx, x + width + 17, y + 102, x + width + 17, y + height + 7, "#563f4d", 3);
+  diamond(ctx, x + width/2, y - 18, 7, ROSE);
 }
 
-function centerEmblem(ctx, duel) {
-  ctx.save();
-  ctx.translate(500, 252);
-  ctx.rotate(Math.PI / 4);
-  ctx.fillStyle = "rgba(29, 8, 29, 0.96)";
-  ctx.strokeStyle = "#ddaac3";
-  ctx.lineWidth = 4;
-  ctx.fillRect(-62, -62, 124, 124);
-  ctx.strokeRect(-62, -62, 124, 124);
-  ctx.restore();
-  ctx.font = duel ? "bold 67px sans-serif" : "bold 59px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#fff0f7";
-  ctx.shadowColor = "#170816";
-  ctx.shadowBlur = 12;
-  ctx.fillText(duel ? "VS" : "✦", 500, 273);
-  ctx.shadowBlur = 0;
+function namePlate(ctx, name, centerX, topY, width, { fallen = false } = {}) {
+  ctx.fillStyle = "rgba(8,8,14,.94)";
+  ctx.fillRect(centerX - width/2, topY, width, 53);
+  line(ctx, centerX - width/2, topY + 3, centerX + width/2, topY + 3, GOLD, 2);
+  line(ctx, centerX - width/2, topY + 50, centerX + width/2, topY + 50, "#735361", 1);
+  diamond(ctx, centerX - width/2 + 14, topY + 27, 6, ROSE);
+  diamond(ctx, centerX + width/2 - 14, topY + 27, 6, ROSE);
+  label(ctx, name, centerX, topY + 38, width - 55, 33, fallen ? "#eed5d9" : IVORY);
+}
+
+function soloScene(ctx, participants) {
+  // Oversize portrait (more than 1/3 of the image) and a bold, readable decree.
+  portraitArch(ctx, participants.victim?.image, 80, 145, 365, 288, { fallen: true });
+  namePlate(ctx, participants.victim?.name || "Unknown Courtier", 262, 436, 380, { fallen: true });
+
+  const textX = 718;
+  diamond(ctx, textX, 182, 9, ROSE);
+  label(ctx, "THE ROYAL VERDICT", textX, 224, 485, 27, ASH);
+  line(ctx, 535, 244, 900, 244, "#9e7984", 2);
+  label(ctx, "FALLEN", textX, 331, 475, 79, "#ead0d6");
+  label(ctx, "ONE CANDLE EXTINGUISHED", textX, 388, 460, 22, GOLD);
+  line(ctx, 535, 407, 900, 407, "#9e7984", 2);
+  diamond(ctx, textX, 426, 7, ROSE);
+}
+
+function duelScene(ctx, participants) {
+  const left = 80, right = 647, y = 150, archW = 273, archH = 269;
+  portraitArch(ctx, participants.actor?.image, left, y, archW, archH);
+  portraitArch(ctx, participants.victim?.image, right, y, archW, archH, { fallen: true });
+
+  label(ctx, "SURVIVED", left + archW/2, 144, 310, 24, GOLD);
+  label(ctx, "ELIMINATED", right + archW/2, 144, 310, 24, "#d797a9");
+
+  // A narrow wrought-iron blade is the centre divider, not a playful VS badge.
+  const blade = ctx.createLinearGradient(470, 0, 530, 0);
+  blade.addColorStop(0, "#4c4149");
+  blade.addColorStop(.5, "#c7b5a0");
+  blade.addColorStop(1, "#4c4149");
+  ctx.fillStyle = blade;
+  ctx.beginPath();
+  ctx.moveTo(500, 153);
+  ctx.lineTo(508, 186);
+  ctx.lineTo(508, 369);
+  ctx.lineTo(500, 399);
+  ctx.lineTo(492, 369);
+  ctx.lineTo(492, 186);
+  ctx.closePath();
+  ctx.fill();
+  line(ctx, 480, 187, 520, 187, GOLD, 7);
+  diamond(ctx, 500, 166, 11, ROSE);
+  ctx.fillStyle = "#170f1a";
+  ctx.fillRect(451, 242, 98, 75);
+  ctx.strokeStyle = "#af8b8d";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(453, 244, 94, 71);
+  label(ctx, "VS", 500, 298, 87, 56, IVORY);
+
+  namePlate(ctx, participants.actor?.name || "Court Challenger", left + archW/2, 436, 316);
+  namePlate(ctx, participants.victim?.name || "Fallen Courtier", right + archW/2, 436, 316, { fallen: true });
 }
 
 export function renderTrialEventPortrait(event, participants = {}) {
-  const w = TRIAL_IMAGE_WIDTH, h = TRIAL_IMAGE_HEIGHT;
-  const canvas = createCanvas(w, h);
+  const canvas = createCanvas(TRIAL_IMAGE_WIDTH, TRIAL_IMAGE_HEIGHT);
   const ctx = canvas.getContext("2d");
-  gothicBackdrop(ctx, w, h);
-  const duel = Boolean(event.actorId);
-
-  ctx.font = "bold 27px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#f0bfd1";
-  ctx.fillText(duel ? "♛  A DUEL BEFORE THE COURT  ♛" : "♛  THE COURT HAS CLAIMED ANOTHER  ♛", w/2, 71);
-
-  if (duel) {
-    avatarMedallion(ctx, participants.actor?.image, 120, 151, 214,
-      "THE CHALLENGER", participants.actor?.name || "Court Challenger");
-    avatarMedallion(ctx, participants.victim?.image, 666, 151, 214,
-      "THE FALLEN", participants.victim?.name || "Court Contestant");
-    centerEmblem(ctx, true);
-    ctx.textAlign = "center";
-    ctx.font = "italic 19px sans-serif";
-    ctx.fillStyle = "#e9b8cc";
-    ctx.fillText("BLOOD • ROSES • THE ROYAL VERDICT", 500, 473);
-  } else {
-    // Solo demise deliberately has one larger portrait, keeping the same
-    // visual rhythm and ornate border as the duel card.
-    avatarMedallion(ctx, participants.victim?.image, 389, 142, 222,
-      "BANISHED FROM THE COURT", participants.victim?.name || "Fallen Courtier");
-    rose(ctx, 290, 245, 29);
-    rose(ctx, 710, 245, 29);
-    ctx.font = "italic 21px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#e9b8cc";
-    ctx.fillText("ONE MORE CANDLE EXTINGUISHED", 500, 471);
-  }
+  darkStone(ctx);
+  border(ctx);
+  if (event.actorId) duelScene(ctx, participants);
+  else soloScene(ctx, participants);
   return canvas.toBuffer("image/png");
 }
 
@@ -265,8 +335,7 @@ async function discordParticipant(client, id) {
     if (array.byteLength > 2_000_000) throw Error("Avatar exceeds size limit");
     image = await loadImage(Buffer.from(array));
   } catch {
-    // Keep the event visual with a royal silhouette when a Discord avatar is
-    // missing, rate-limited or inaccessible. The match still proceeds.
+    // Use a silhouette if an avatar is missing or inaccessible.
   }
   return { name, image };
 }
