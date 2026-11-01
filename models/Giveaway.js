@@ -43,6 +43,8 @@ const giveawaySchema = new mongoose.Schema({
 }, { timestamps: true });
 
 giveawaySchema.index({ guildId: 1, status: 1, endsAt: 1 });
+giveawaySchema.index({ guildId: 1, mode: 1, entrantIds: 1 });
+giveawaySchema.index({ guildId: 1, mode: 1, originalChampionId: 1, status: 1 });
 giveawaySchema.index({ mode: 1, status: 1, nextEventAt: 1 });
 giveawaySchema.index({ guildId: 1, messageId: 1 }, {
   unique: true, partialFilterExpression: { messageId: { $type: "string" } },
