@@ -9,7 +9,7 @@ Use `/setup channels giveaways:#giveaways survival_trials:#court-trials` to save
 - **giveaways**: all standard `/giveaway start` announcements, entry buttons, winner results and rerolls.
 - **survival_trials**: `/trial start` signups, every live elimination post, final winners and rerolls.
 
-Both fields are optional when updating other server settings, but you must configure the corresponding channel before starting that kind of event. The other channel's assignment remains unchanged if you change only one. The bot refuses to assign the same channel to both types. Running an event command in another channel does not change the destination; no per-event channel override is offered. Changing an assignment affects **new events only**; existing giveaways and their history remain in the channels where they were created.
+Both fields are optional when updating other server settings, but you must configure the corresponding channel before starting that kind of event. Use `/setup channels giveaway_ping:@YourGiveawayRole trial_ping:@YourTrialRole` to assign **two persistent notification roles** (you can use different roles for each). You can set both roles without changing the saved channels. `clear_giveaway_ping:true` or `clear_trial_ping:true` disables only that role notification. The default role is separate from any entry eligibility requirement. The other channel's assignment remains unchanged if you change only one. The bot refuses to assign the same channel to both types. Running an event command in another channel does not change the destination; no per-event channel override is offered. Changing an assignment affects **new events only**; existing giveaways and their history remain in the channels where they were created.
 
 Give the development bot **View Channel, Send Messages, Embed Links, Attach Files, Read Message History** in each assigned channel. Announcement channels are supported alongside ordinary text channels. Re-register slash commands after pulling this change.
 
@@ -22,13 +22,13 @@ Give the development bot **View Channel, Send Messages, Embed Links, Attach File
 - `/giveaway end id:<giveaway-ID-or-message-link>` — finish now
 - `/giveaway reroll id:<giveaway-ID-or-message-link> winner:<1-based-position>` — replace one winner
 
-Staff must have Manage Server. The bot needs permission to View Channel, Send Messages, Embed Links, Read Message History, and edit its own announcements. Entrants need no commands or special permissions, unless a required role is configured.
+**Notifications:** The bot pings **only** the saved role for the event type, **once** in the original signup/announcement message. Results, rerolls, button clicks and each individual elimination do not ping the role again. For a real ping, the role must be mentionable or the bot must have **Mention @everyone, @here, and All Roles** permission; otherwise Discord can show the tag without sending notifications. Never use `@everyone` or `@here` as event roles. Staff must have Manage Server. The bot needs permission to View Channel, Send Messages, Embed Links, Read Message History, and edit its own announcements. Entrants need no commands or special permissions, unless a required role is configured.
 
 ## Expected behavior
 
 First assign the two channels with `/setup channels`. Run `/giveaway start` from a **different** command channel and verify the post appears in the saved standard-giveaway channel, not the command channel. Then run `/trial start` and verify the signup and elimination messages go to the separate trial channel. Confirm an unset channel produces a clear setup error rather than posting elsewhere.
 
-1. Start a giveaway in the assigned regular-giveaway channel. The bot posts one announcement with title, prize, rules, host, ending time and an **Enter**, **Leave**, **Entry Count** control.
+1. Start a giveaway in the assigned regular-giveaway channel. The bot posts one announcement with title, prize, rules, host, ending time and an **Enter**, **Leave**, **Entry Count** control. If a regular-giveaway ping role is configured, only that role is mentioned in the **initial** message.
 2. Try entering twice. Both attempts must produce a private response, but only one entry must be saved. Joining costs no Points.
 3. Test leaving/re-entering, the live Entry Count, optional required-role rejection and the fact that staff commands are not available to regular members.
 4. Stop the development bot during a running giveaway, restart after the deadline, and verify that the same message changes to **Ended** with winners and final entrant count. The bot must not delete the giveaway message.
@@ -68,8 +68,8 @@ Use `/trial start` for a **full, one-contestant-at-a-time** elimination event. I
 
 ### Additional Discord tests
 
-1. Start `/trial start` with 2-second pace and 2–5 entrants. Confirm the staff-only **Start Trial** button, one entry per user, Leave and Contestants buttons.
-2. Have two moderators press Start at once. Exactly one game should begin; no entries accepted once startup begins.
+1. Start `/trial start` with 2-second pace and 2–5 entrants. Confirm the staff-only **Start Trial** button, one entry per user, Leave and Contestants buttons. The trial-only configured role is pinged once on initial signup but not on any elimination or final verdict.
+2. Test **Start Trial (Staff)** with fewer than two entrants (a clear private error), then with two members (saved trial must enter running status, and the button disappears). Have two moderators press Start at once; only one game should begin. If the signup embed cannot be edited after the database starts the trial, the bot must say that the game **started and was saved**, not report a failed entry.
 3. Watch every elimination. Verify each is a separate bot message with a unique victim, valid duel opponent, and decreasing survivor count. **Check each contains the pink/gothic PNG image:** two Discord user portraits with VS on duels, a single fallen portrait on solo events. Confirm Discord displays the embedded image correctly and the uploaded file survives restarts. No contestant should be eliminated twice.
 4. Verify the winner is the final survivor; with `winners:3`, the runner-up and third place are the final two eliminated players.
 5. Restart the bot midway through a trial. Verify it keeps the same plan, picks up at the correct elimination, and eventually edits the **original** post with the archived results.
