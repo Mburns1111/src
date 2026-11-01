@@ -8,6 +8,7 @@ import {
   MAX_TRIAL_ENTRANTS, TRIAL_SPEED_CHOICES, DEFAULT_TRIAL_SPEED_SECONDS,
   planSurvivalTrial, survivalAnnouncement, survivalEventPayload,
   beginSurvivalTrial, cancelSurvivalTrial, runSurvivalTrialStep,
+  survivalFinalePayload, publishSurvivalFinale,
 } from "../services/survival-giveaways.js";
 
 const id = "507f1f77bcf86cd799439011";
@@ -125,7 +126,7 @@ test("survival post changes from join panel to battle panel to permanent result 
   assert.match(body, /Neon Pet/);
   assert.equal(ended.components.length, 0);
   const cancelled = survivalAnnouncement(record({ status: "cancelled" }));
-  assert.match(cancelled.embeds[0].data.description, /No giveaway prize winners/);
+  assert.match(cancelled.embeds[0].data.description, /No prize winners/);
 });
 
 test("sequential event posts carry a stable marker and suppress automatic ping spam", () => {
@@ -133,7 +134,8 @@ test("sequential event posts carry a stable marker and suppress automatic ping s
   const event = survivalEventPayload(trial, trial.gameEvents[0], 0);
   assert.equal(event.allowedMentions.parse.length, 0);
   assert.equal(event.embeds[0].data.footer.text, `Trial ${id} · Event 1`);
-  assert.equal(event.embeds[0].data.author.name, "THE CRYPTIC COURT · LIVE TRIAL");
+  assert.equal(event.embeds[0].data.author.name, "♛ THE CRYPTIC COURT · LIVE ROYAL TRIAL ♛");
+  assert.match(event.embeds[0].data.description, /━━━━━━━━/);
   assert.match(event.embeds[0].data.title, /Elimination 1 of 1/);
   assert.match(event.embeds[0].data.description, /Eliminated/);
   assert.equal(event.embeds[0].data.fields[0].name, "⚰️ Eliminated");
@@ -286,4 +288,117 @@ test("after a restart, replay recognizes an already-posted event and advances wi
     assert.equal(state.status, "ended");
     assert.equal(state.eliminationMessages[0].messageId, existing.id);
   } finally { restore(original); }
+});
+
+test("Court's Trial has decorative royal framing and a distinct final verdict with every ranked prize", () => {
+  const finished = record({
+    status: "ended", originalChampionId: contestants[0],
+    winnerIds: [contestants[0], contestants[1]], nextEventIndex: 3,
+    rerollHistory: [{ slot: 1, previousId: contestants[2], replacementId: contestants[1] }],
+  });
+  const announcement = survivalAnnouncement(finished).embeds[0].data;
+  assert.match(announcement.author.name, /ROYAL CHAMBERS/);
+  assert.match(announcement.description, /THE ROYAL SUMMONS/);
+  assert.match(announcement.footer.text, /Royal Archive/);
+  const finale = survivalFinalePayload(finished);
+  assert.equal(finale.allowedMentions.parse.length, 0);
+  assert.match(finale.embeds[0].data.title, /TRIAL COMPLETE/);
+  assert.match(finale.embeds[0].data.author.name, /ROYAL VERDICT/);
+  assert.equal(finale.embeds[0].data.footer.text, `♛ Trial ${id} · Finale`);
+  assert.match(finale.embeds[0].data.description, /THE COURT HAS SPOKEN/);
+  assert.match(finale.embeds[0].data.description, /The Last Survivor/);
+  assert.match(finale.embeds[0].data.description, /Royal Reroll Record/);
+  assert.match(finale.embeds[0].data.description, /Prizes are delivered by staff/);
+  for (const winner of finished.winnerIds)
+    assert.ok(finale.embeds[0].data.description.includes(winner));
+});
+
+test("completed trial sends one separate finale and edits that same message after rerolls", async () => {
+  const changes = [];
+  let stored = record({
+    status: "ended", originalChampionId: contestants[0],
+    winnerIds: [contestants[0], contestants[1]], nextEventIndex: 3,
+    finaleMessageId: "", finaleLeaseUntil: null, finaleLeaseKey: "",
+  });
+  const messages = new Collection();
+  let sends = 0, edits = 0;
+  const client = {
+    user: { id: "999999999999999999" },
+    channels: { fetch: async () => ({
+      messages: { fetch: async arg => typeof arg === "object"
+        ? messages : messages.get(String(arg)) || null },
+      send: async payload => {
+        sends++;
+        const msg = {
+          id: "777777777777777777", author: { id: "999999999999999999" },
+          embeds: payload.embeds.map(embed => embed.data),
+          edit: async next => { edits++; msg.embeds = next.embeds.map(embed => embed.data); },
+        };
+        messages.set(msg.id, msg);
+        return msg;
+      },
+    }) },
+  };
+  try {
+    patch(changes, Giveaway, "findOneAndUpdate", (filter, update) => ({
+      lean: async () => {
+        if (stored.status !== filter.status || stored.finaleLeaseUntil) return null;
+        stored = { ...stored, ...update.$set };
+        return { ...stored };
+      },
+    }));
+    patch(changes, Giveaway, "updateOne", async (filter, update) => {
+      if (filter.finaleLeaseKey && stored.finaleLeaseKey !== filter.finaleLeaseKey)
+        return { modifiedCount: 0 };
+      stored = { ...stored, ...update.$set };
+      return { modifiedCount: 1 };
+    });
+    assert.equal(await publishSurvivalFinale(client, stored), true);
+    assert.equal(sends, 1);
+    assert.equal(stored.finaleMessageId, "777777777777777777");
+    assert.equal(await publishSurvivalFinale(client, stored), true);
+    assert.equal(sends, 1);
+    assert.equal(edits, 1);
+    stored.winnerIds = [contestants[0], contestants[3]];
+    stored.rerollHistory = [{ slot: 1, previousId: contestants[1], replacementId: contestants[3] }];
+    assert.equal(await publishSurvivalFinale(client, stored), true);
+    assert.equal(sends, 1);
+    assert.equal(edits, 2);
+    assert.match(messages.get(stored.finaleMessageId).embeds[0].description,
+      new RegExp(contestants[3]));
+  } finally { restore(changes); }
+});
+
+test("crash recovery recognizes a previously sent verdict even with no saved finale ID", async () => {
+  const changes = [];
+  let stored = record({
+    status: "ended", originalChampionId: contestants[0], winnerIds: [contestants[0]],
+    finaleMessageId: "", finaleLeaseUntil: null,
+  });
+  let sends = 0, edits = 0;
+  const previous = {
+    id: "888888888888888888", author: { id: "999999999999999999" },
+    embeds: [{ footer: { text: `♛ Trial ${id} · Finale` } }],
+    edit: async () => { edits++; },
+  };
+  const client = {
+    user: { id: "999999999999999999" },
+    channels: { fetch: async () => ({
+      messages: { fetch: async () => new Collection([[previous.id, previous]]) },
+      send: async () => { sends++; throw Error("A second finale must never be sent"); },
+    }) },
+  };
+  try {
+    patch(changes, Giveaway, "findOneAndUpdate", () => ({
+      lean: async () => ({ ...stored, finaleLeaseKey: "lease", finaleLeaseUntil: new Date(Date.now() + 45000) }),
+    }));
+    patch(changes, Giveaway, "updateOne", async (filter, update) => {
+      if (update.$set.finaleMessageId) stored.finaleMessageId = update.$set.finaleMessageId;
+      return { modifiedCount: 1 };
+    });
+    assert.equal(await publishSurvivalFinale(client, stored), true);
+    assert.equal(sends, 0);
+    assert.equal(edits, 1);
+    assert.equal(stored.finaleMessageId, previous.id);
+  } finally { restore(changes); }
 });
