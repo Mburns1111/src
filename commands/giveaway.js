@@ -1,4 +1,5 @@
-import { ChannelType, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { getConfiguredTextChannel } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
@@ -18,7 +19,6 @@ export const data = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("minutes").setDescription("How many minutes it stays open (up to 14 days)").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
     .addIntegerOption(o => o.setName("winners").setDescription("Number of winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
-    .addChannelOption(o => o.setName("channel").setDescription("Where to post (default: this channel)").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
     .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering")))
   .addSubcommand(c => c.setName("speed").setDescription("Open a live, one-by-one elimination giveaway in the Court")
     .addStringOption(o => o.setName("title").setDescription("Trial title").setRequired(true).setMinLength(2).setMaxLength(100))
@@ -28,7 +28,6 @@ export const data = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("signup_minutes").setDescription("Minutes to accept entries (default 15, max 1440)").setMinValue(1).setMaxValue(MAX_TRIAL_SIGNUP_MINUTES))
     .addIntegerOption(o => o.setName("winners").setDescription("Number of ranked prize winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
-    .addChannelOption(o => o.setName("channel").setDescription("Where to run the trial").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
     .addRoleOption(o => o.setName("role").setDescription("Optional role required to enter")))
   .addSubcommand(c => c.setName("launch").setDescription("Start the elimination trial after contestants join")
     .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
@@ -64,9 +63,11 @@ export async function execute(interaction) {
   try {
     if (operation === "start" || operation === "speed") {
       const survival = operation === "speed";
-      const channel = interaction.options.getChannel("channel") || interaction.channel;
-      if (!channel || typeof channel.send !== "function" || channel.guildId !== interaction.guildId)
-        throw Error("Choose a writable server text channel to publish the giveaway.");
+      const channel = await getConfiguredTextChannel(
+        interaction,
+        survival ? "survivalTrialChannelId" : "giveawayChannelId",
+        survival ? "Court's Trial survival giveaway" : "standard giveaway",
+      );
       const minutes = survival
         ? (interaction.options.getInteger("signup_minutes") || 15)
         : interaction.options.getInteger("minutes", true);
