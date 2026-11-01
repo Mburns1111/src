@@ -536,3 +536,69 @@ test("Start Trial (Staff) button starts a real saved trial and rejects non-staff
     assert.equal(messages[0].embeds[0].data.title.includes("Trial"), true);
   } finally { restore(changes); }
 });
+
+test("Start Trial button reports too few entrants and an already-running game clearly", async () => {
+  const original = [];
+  let stored = record({ status: "open", entrantIds: [contestants[0]] });
+  const makeButton = () => {
+    let response;
+    return {
+      customId: "giveaway:launch:" + id,
+      guildId, guild: { id: guildId }, channelId: stored.channelId,
+      message: { id: stored.messageId }, user: { id: contestants[0], bot: false },
+      memberPermissions: { has: () => true },
+      deferReply: async () => {},
+      editReply: async text => { response = text; },
+      getResponse: () => response,
+    };
+  };
+  try {
+    patch(original, Giveaway, "findOne", () => ({ lean: async () => ({ ...stored }) }));
+    patch(original, Giveaway, "findOneAndUpdate", () => ({
+      lean: async () => { assert.fail("Blocked start should not touch the saved trial"); },
+    }));
+    const few = makeButton();
+    await handleGiveawayButton(few);
+    assert.match(few.getResponse(), /at least two members/i);
+    stored = { ...stored, status: "running", entrantIds: contestants.slice(0, 2) };
+    const running = makeButton();
+    await handleGiveawayButton(running);
+    assert.match(running.getResponse(), /already starting or running/i);
+  } finally { restore(original); }
+});
+
+test("Start Trial button acknowledges a saved game even if the original post cannot be edited", async () => {
+  const original = [];
+  let stored = record({ status: "open", entrantIds: contestants.slice(0, 2) });
+  let response;
+  const interaction = {
+    customId: "giveaway:launch:" + id,
+    guildId, guild: { id: guildId }, channelId: stored.channelId,
+    message: { id: stored.messageId }, user: { id: contestants[0], bot: false },
+    memberPermissions: { has: () => true },
+    deferReply: async () => {},
+    editReply: async text => { response = text; },
+    client: { channels: { fetch: async () => ({
+      messages: { fetch: async () => { throw Error("Missing Messages permission"); } },
+    }) } },
+  };
+  const previousError = console.error;
+  try {
+    patch(original, Giveaway, "findOne", () => ({ lean: async () => ({ ...stored }) }));
+    patch(original, Giveaway, "findOneAndUpdate", (query, update) => ({
+      lean: async () => {
+        if (query.status !== stored.status) return null;
+        stored = { ...stored, ...update.$set };
+        return { ...stored };
+      },
+    }));
+    console.error = () => {};
+    await handleGiveawayButton(interaction);
+    assert.equal(stored.status, "running");
+    assert.match(response, /started and was saved/i);
+    assert.match(response, /channel permissions/i);
+  } finally {
+    console.error = previousError;
+    restore(original);
+  }
+});
