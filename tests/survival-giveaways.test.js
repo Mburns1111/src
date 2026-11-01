@@ -211,6 +211,7 @@ test("the game posts one elimination at a time, saves progress, and archives ran
       const m = {
         id: String(sent.length + 1), author: { id: "999999999999999999" },
         embeds: payload.embeds.map(embed => embed.data),
+        edit: async next => { m.embeds = next.embeds.map(embed => embed.data); },
       };
       sent.push(m);
       return m;
@@ -220,6 +221,11 @@ test("the game posts one elimination at a time, saves progress, and archives ran
   try {
     patch(original, Giveaway, "findOneAndUpdate", (filter, update) => ({
       lean: async () => {
+        if (filter.$or?.some(part => Object.hasOwn(part, "finaleLeaseUntil"))) {
+          if (stored.status !== filter.status || stored.finaleLeaseUntil) return null;
+          stored = { ...stored, ...update.$set };
+          return { ...stored };
+        }
         if (stored.status !== filter.status || stored.nextEventIndex !== filter.nextEventIndex)
           return null;
         if (filter.leaseKey && stored.leaseKey !== filter.leaseKey) return null;
@@ -243,9 +249,12 @@ test("the game posts one elimination at a time, saves progress, and archives ran
     for (let i = 0; i < plan.events.length; i++) {
       const now = new Date(Date.now() + 60_000);
       assert.equal(await runSurvivalTrialStep(client, { ...stored }, { now }), true);
-      assert.equal(sent.length, i + 1);
+      assert.equal(sent.filter(message => message.embeds.some(embed => embed.footer?.text?.includes(" · Event "))).length, i + 1);
       assert.equal(stored.nextEventIndex, i + 1);
     }
+    assert.equal(sent.length, plan.events.length + 1, "a final royal verdict is separately posted");
+    assert.equal(sent.at(-1).embeds[0].footer.text, `♛ Trial ${id} · Finale`);
+    assert.equal(stored.finaleMessageId, sent.at(-1).id);
     assert.equal(stored.status, "ended");
     assert.deepEqual(stored.winnerIds, plan.prizeWinnerIds);
     assert.equal(stored.eliminationMessages.length, plan.events.length);
@@ -268,12 +277,23 @@ test("after a restart, replay recognizes an already-posted event and advances wi
     messages: { fetch: async arg => arg && typeof arg === "object"
       ? new Collection([[existing.id, existing]])
       : { author: { id: "999999999999999999" }, edit: async () => {} } },
-    send: async () => { sends++; throw Error("Would have duplicated a post"); },
+    send: async payload => {
+      if (payload.embeds[0].data.footer.text.includes(" · Finale")) {
+        return { id: "456456456456456456", author: { id: "999999999999999999" },
+          embeds: payload.embeds.map(embed => embed.data) };
+      }
+      sends++; throw Error("Would have duplicated an elimination post");
+    },
   };
   const client = { user: { id: "999999999999999999" }, channels: { fetch: async () => channel } };
   try {
     patch(original, Giveaway, "findOneAndUpdate", (query, update) => ({
       lean: async () => {
+        if (query.$or?.some(part => Object.hasOwn(part, "finaleLeaseUntil"))) {
+          if (state.status !== query.status) return null;
+          state = { ...state, ...update.$set };
+          return { ...state };
+        }
         if (state.status !== query.status || state.nextEventIndex !== query.nextEventIndex)
           return null;
         state = { ...state, ...update.$set };
@@ -282,9 +302,13 @@ test("after a restart, replay recognizes an already-posted event and advances wi
         return { ...state };
       },
     }));
-    patch(original, Giveaway, "updateOne", async () => ({ modifiedCount: 1 }));
+    patch(original, Giveaway, "updateOne", async (filter, update) => {
+      if (update.$set) state = { ...state, ...update.$set };
+      return { modifiedCount: 1 };
+    });
     assert.equal(await runSurvivalTrialStep(client, { ...state }, { now: new Date(Date.now() + 60_000) }), true);
     assert.equal(sends, 0);
+    assert.equal(state.finaleMessageId, "456456456456456456");
     assert.equal(state.status, "ended");
     assert.equal(state.eliminationMessages[0].messageId, existing.id);
   } finally { restore(original); }
