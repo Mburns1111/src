@@ -672,9 +672,9 @@ export async function handleVote(interaction) {
   const currentImage = message.attachments.find(isImageAttachment);
   const savedImage = updated.mediaAttachments.find(isImageAttachment);
   const restoreImage = !currentImage && savedImage?.url;
-  if (!currentImage && !restoreImage) {
+  if (!currentImage && !restoreImage && !updated.imageUrl) {
     console.error(
-      `Trade ${id} has no image attachment on its post or usable saved image metadata.`,
+      `Trade ${id} has no uploaded image or saved picture link.`,
     );
   }
   const editedMessage = await message.edit({
