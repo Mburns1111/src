@@ -1,10 +1,11 @@
 import { createCanvas, loadImage } from "@napi-rs/canvas";
+import { registerAppearanceFonts } from "./font-library.js";
 
 // The Cryptic Court: original vector artwork drawn at render time.
 // Blackened castle stone, lancet windows, iron thorns and antique rose-gold.
 // No clip-art flowers, external illustrations, or image generation API needed.
 export const TRIAL_IMAGE_WIDTH = 1000;
-export const TRIAL_IMAGE_HEIGHT = 520;
+export const TRIAL_IMAGE_HEIGHT = 720;
 
 const INK = "#0e0c12";
 const IVORY = "#eee1d5";
@@ -312,13 +313,115 @@ function duelScene(ctx, participants) {
   namePlate(ctx, participants.victim?.name || "Fallen Courtier", right + archW/2, 436, 316, { fallen: true });
 }
 
-export function renderTrialEventPortrait(event, participants = {}) {
+/**
+ * Keep each existing trial scenario intact but replace Discord mention codes
+ * with the contestants' names. An image cannot resolve <@...> mentions.
+ * Markdown emphasis and a leading decorative emoji are presentation syntax,
+ * not part of the sentence displayed on the card.
+ */
+export function courtStoryText(event, participants = {}) {
+  const names = new Map([
+    [String(event.actorId || ""), participants.actor?.name || "Court Challenger"],
+    [String(event.victimId || ""), participants.victim?.name || "Fallen Courtier"],
+  ]);
+  return String(event.description || "A contestant has fallen before the Court.")
+    .replace(/<@!?([0-9]{17,20})>/g, (mention, id) => names.get(id) || "Courtier")
+    .replace(/^\s*[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F\u200D]+\s*/u, "")
+    .replace(/[*_~\u0060]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Split at measured word boundaries; also break extremely long names. */
+export function wrapCourtStory(ctx, text, maxWidth) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = "";
+  for (const word of words) {
+    if (ctx.measureText(word).width > maxWidth) {
+      if (current) {
+        lines.push(current);
+        current = "";
+      }
+      let part = "";
+      for (const ch of Array.from(word)) {
+        if (part && ctx.measureText(part + ch).width > maxWidth) {
+          lines.push(part);
+          part = "";
+        }
+        part += ch;
+      }
+      current = part;
+    } else if (!current || ctx.measureText(current + " " + word).width <= maxWidth) {
+      current = current ? current + " " + word : word;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function courtStoryPlaque(ctx, event, participants, meta) {
+  const x = 51, y = 504, width = 898, height = 184;
+  const left = x + 28;
+  const maxWidth = width - 56;
+  ctx.fillStyle = "rgba(7,7,12,.96)";
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, width, height);
+  line(ctx, x + 18, y + height - 40, x + width - 18, y + height - 40, "#5f4653", 1);
+
+  const story = courtStoryText(event, participants);
+  ctx.save();
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  let fontSize = 30, lines = [];
+  // Four complete lines fit above the status. Scale down for long names.
+  for (; fontSize >= 19; fontSize--) {
+    ctx.font = fontSize + 'px "AM Nunito", sans-serif';
+    lines = wrapCourtStory(ctx, story, maxWidth);
+    if (lines.length <= 4) break;
+  }
+  ctx.fillStyle = IVORY;
+  ctx.font = fontSize + 'px "AM Nunito", sans-serif';
+  // In the rare case that a particularly long display name still overflows,
+  // preserve all scenario text by fitting it within the allotted plaque.
+  if (lines.length > 4) {
+    fontSize = 18;
+    ctx.font = '18px "AM Nunito", sans-serif';
+    lines = wrapCourtStory(ctx, story, maxWidth);
+  }
+  const lineHeight = Math.min(34, fontSize + 5);
+  for (const [i, text] of lines.entries()) {
+    if (i >= 5) break; // protect the status strip if Discord names are extreme
+    ctx.fillText(text, left, y + 16 + i * lineHeight, maxWidth);
+  }
+  ctx.restore();
+
+  const contestants = Math.max(1, Number(meta.contestants) || Number(event.remaining) + 1 || 2);
+  const remaining = Math.max(0, Number(event.remaining) || 0);
+  label(ctx, remaining === 1 ? "ONE SURVIVOR REMAINS" : "STILL STANDING", x + 241,
+    y + 172, 380, 25, GOLD, '"AM Cinzel", Georgia, serif');
+  label(ctx, remaining + " / " + contestants, x + width - 146,
+    y + 172, 185, 30, IVORY, '"AM Nunito", sans-serif');
+}
+
+export function renderTrialEventPortrait(event, participants = {}, meta = {}) {
   const canvas = createCanvas(TRIAL_IMAGE_WIDTH, TRIAL_IMAGE_HEIGHT);
   const ctx = canvas.getContext("2d");
   darkStone(ctx);
+  // Use the existing shop-card font library so names and story render
+  // consistently between local, Replit, and Wispbyte hosts.
+  registerAppearanceFonts();
   border(ctx);
   if (event.actorId) duelScene(ctx, participants);
   else soloScene(ctx, participants);
+  label(ctx, "ELIMINATION " + (Number(meta.index ?? 0) + 1) + " OF " +
+    (Number(meta.total) || 1), 500, 140, 235, 21, GOLD);
+  courtStoryPlaque(ctx, event, participants, meta);
   return canvas.toBuffer("image/png");
 }
 
@@ -340,10 +443,10 @@ async function discordParticipant(client, id) {
   return { name, image };
 }
 
-export async function buildTrialEventPortrait(client, event) {
+export async function buildTrialEventPortrait(client, event, meta = {}) {
   const [victim, actor] = await Promise.all([
     discordParticipant(client, event.victimId),
     event.actorId ? discordParticipant(client, event.actorId) : Promise.resolve(null),
   ]);
-  return renderTrialEventPortrait(event, { victim, actor });
+  return renderTrialEventPortrait(event, { victim, actor }, meta);
 }
