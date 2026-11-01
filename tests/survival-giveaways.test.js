@@ -136,13 +136,18 @@ test("sequential event posts carry a stable marker and suppress automatic ping s
   assert.equal(event.allowedMentions.parse.length, 0);
   assert.equal(event.embeds[0].data.footer.text, `Trial ${id} · Event 1`);
   assert.equal(event.embeds[0].data.author.name, "♛ THE CRYPTIC COURT · LIVE ROYAL TRIAL ♛");
-  assert.match(event.embeds[0].data.description, /━━━━━━━━/);
   assert.match(event.embeds[0].data.title, /Elimination 1 of 1/);
   assert.match(event.embeds[0].data.description, /Eliminated/);
   assert.equal(event.embeds[0].data.fields[0].name, "⚰️ Eliminated");
   assert.equal(event.embeds[0].data.fields[0].value, `<@${contestants[0]}>`);
   assert.equal(event.embeds[0].data.fields[1].name, "🕯️ Still Standing");
   assert.equal(event.embeds[0].data.fields[1].value, "**3 / 4**");
+  const imageEvent = survivalEventPayload(trial, trial.gameEvents[0], 0, "event.png");
+  assert.equal(imageEvent.embeds[0].data.image.url, "attachment://event.png");
+  assert.equal(imageEvent.embeds[0].data.description, undefined);
+  assert.equal(imageEvent.embeds[0].data.fields, undefined);
+  assert.equal(imageEvent.embeds[0].data.title, undefined);
+  assert.equal(imageEvent.embeds[0].data.footer.text, `Trial ${id} · Event 1`);
 });
 
 test("starting freezes entry state atomically, plans all contestants once and rejects a second launch", async () => {
