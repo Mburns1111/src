@@ -70,6 +70,18 @@ export const data = new SlashCommandBuilder()
           .setName("shop")
           .setDescription("Channel for the permanent shop catalog")
           .addChannelTypes(ChannelType.GuildText),
+      )
+      .addChannelOption((option) =>
+        option
+          .setName("giveaways")
+          .setDescription("Permanent channel for standard giveaways and winners")
+          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+      )
+      .addChannelOption((option) =>
+        option
+          .setName("survival_trials")
+          .setDescription("Separate channel for Court's Trial signups and eliminations")
+          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
       ),
   );
 
@@ -83,6 +95,8 @@ export async function execute(interaction) {
   const profilesChannel = interaction.options.getChannel("profiles");
   const tradingPostChannel = interaction.options.getChannel("trading_post");
   const shopChannel = interaction.options.getChannel("shop");
+  const giveawayChannel = interaction.options.getChannel("giveaways");
+  const survivalTrialChannel = interaction.options.getChannel("survival_trials");
 
   if (
     !commandsChannel &&
@@ -92,13 +106,26 @@ export async function execute(interaction) {
     !tradeVoting &&
     !profilesChannel &&
     !tradingPostChannel &&
-    !shopChannel
+    !shopChannel &&
+    !giveawayChannel &&
+    !survivalTrialChannel
   ) {
     throw new UserFacingError("Choose at least one channel to configure.");
   }
 
   if (!interaction.deferred && !interaction.replied) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
+  // The two event modes must never share an assigned channel. When only one
+  // setting changes, compare it with the currently saved other channel.
+  if (giveawayChannel || survivalTrialChannel) {
+    const prior = await GuildConfig.findOne({ guildId: interaction.guildId })
+      .select("giveawayChannelId survivalTrialChannelId").lean();
+    const nextGiveaways = giveawayChannel?.id || prior?.giveawayChannelId || "";
+    const nextTrials = survivalTrialChannel?.id || prior?.survivalTrialChannelId || "";
+    if (nextGiveaways && nextGiveaways === nextTrials) {
+      throw new UserFacingError("Standard giveaways and Court's Trials need two different channels.");
+    }
   }
   const updates = {};
   if (commandsChannel) updates.commandChannelId = commandsChannel.id;
@@ -108,6 +135,8 @@ export async function execute(interaction) {
   if (tradeVoting) updates.tradeVoteChannelId = tradeVoting.id;
   if (profilesChannel) updates.profileChannelId = profilesChannel.id;
   if (tradingPostChannel) updates.tradingPostChannelId = tradingPostChannel.id;
+  if (giveawayChannel) updates.giveawayChannelId = giveawayChannel.id;
+  if (survivalTrialChannel) updates.survivalTrialChannelId = survivalTrialChannel.id;
 
   // Ensure the shop before updating channel settings so its existing message IDs
   // are checked against the previous channel when a shop is moved.
@@ -147,6 +176,12 @@ export async function execute(interaction) {
   }
   if (shopChannel) {
     configured.push(`Shop catalog and Points button: ${shopChannel}`);
+  }
+  if (giveawayChannel) {
+    configured.push(`Standard giveaways: ${giveawayChannel}`);
+  }
+  if (survivalTrialChannel) {
+    configured.push(`Court's Trial survival giveaways: ${survivalTrialChannel}`);
   }
 
   await interaction.editReply({
