@@ -2,9 +2,20 @@
 
 Development branch: `feature/permanent-giveaways`. This is a separate, general AM Isa Bot feature; it does not depend on the unmerged Hatchem card-game branch.
 
+## Assigned channels (set once per server)
+
+Use `/setup channels giveaways:#giveaways survival_trials:#court-trials` to save **two different** Discord channels:
+
+- **giveaways**: all standard `/giveaway start` announcements, entry buttons, winner results and rerolls.
+- **survival_trials**: `/giveaway speed` signups, every live elimination post, final winners and rerolls.
+
+Both fields are optional when updating other server settings, but you must configure the corresponding channel before starting that kind of event. The other channel's assignment remains unchanged if you change only one. The bot refuses to assign the same channel to both types. Running an event command in another channel does not change the destination; no per-event channel override is offered. Changing an assignment affects **new events only**; existing giveaways and their history remain in the channels where they were created.
+
+Give the development bot **View Channel, Send Messages, Embed Links, Read Message History** in each assigned channel. Announcement channels are supported alongside ordinary text channels. Re-register slash commands after pulling this change.
+
 ## Commands
 
-- `/giveaway start title:<title> prize:<prize> minutes:<1–20160> winners:<1–10> rules:<optional> channel:<optional> role:<optional>`
+- `/giveaway start title:<title> prize:<prize> minutes:<1–20160> winners:<1–10> rules:<optional> role:<optional>`
 - `/giveaway list` — recent giveaway IDs, status, and direct message links
 - `/giveaway end id:<giveaway-ID-or-message-link>` — finish now
 - `/giveaway reroll id:<giveaway-ID-or-message-link> winner:<1-based-position>` — replace one winner
@@ -13,7 +24,9 @@ Staff must have Manage Server. The bot needs permission to View Channel, Send Me
 
 ## Expected behavior
 
-1. Start a giveaway in a test channel. The bot posts one announcement with title, prize, rules, host, ending time and an **Enter**, **Leave**, **Entry Count** control.
+First assign the two channels with `/setup channels`. Run `/giveaway start` from a **different** command channel and verify the post appears in the saved standard-giveaway channel, not the command channel. Then run `/giveaway speed` and verify the signup and elimination messages go to the separate trial channel. Confirm an unset channel produces a clear setup error rather than posting elsewhere.
+
+1. Start a giveaway in the assigned regular-giveaway channel. The bot posts one announcement with title, prize, rules, host, ending time and an **Enter**, **Leave**, **Entry Count** control.
 2. Try entering twice. Both attempts must produce a private response, but only one entry must be saved. Joining costs no Points.
 3. Test leaving/re-entering, the live Entry Count, optional required-role rejection and the fact that staff commands are not available to regular members.
 4. Stop the development bot during a running giveaway, restart after the deadline, and verify that the same message changes to **Ended** with winners and final entrant count. The bot must not delete the giveaway message.
@@ -38,7 +51,7 @@ Staff must have Manage Server. The bot needs permission to View Channel, Send Me
 
 Use `/giveaway speed` for a **full, one-contestant-at-a-time** elimination event rather than an ordinary random-draw giveaway.
 
-- `/giveaway speed title:<title> prize:<prize> pace:<2|3|5> signup_minutes:<1–1440> winners:<1–10> rules:<optional> channel:<optional> role:<optional>`
+- `/giveaway speed title:<title> prize:<prize> pace:<2|3|5> signup_minutes:<1–1440> winners:<1–10> rules:<optional> role:<optional>`
 - `/giveaway launch id:<giveaway-ID-or-message-link>` — manually freeze the list and start the game
 - Or use **Start Trial (Staff)** on the original giveaway post
 - `/giveaway cancel id:<giveaway-ID-or-message-link>` — stop and archive a trial (no prize winners)
