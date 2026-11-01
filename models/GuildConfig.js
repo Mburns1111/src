@@ -14,6 +14,8 @@ const guildConfigSchema = new mongoose.Schema(
     inventoryChannelId: { type: String, default: "" },
     inventoryEntryChannelId: { type: String, default: "" },
     inventoryEntryMessageId: { type: String, default: "" },
+    giveawayChannelId: { type: String, default: "" },
+    survivalTrialChannelId: { type: String, default: "" },
     tradeVoteChannelId: { type: String, default: "" },
     tradeVoteEntryChannelId: { type: String, default: "" },
     tradeVoteEntryMessageId: { type: String, default: "" },
