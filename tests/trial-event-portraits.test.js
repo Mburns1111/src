@@ -4,7 +4,7 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { AttachmentBuilder } from "discord.js";
 import {
   TRIAL_IMAGE_WIDTH, TRIAL_IMAGE_HEIGHT,
-  renderTrialEventPortrait, buildTrialEventPortrait,
+  renderTrialEventPortrait, buildTrialEventPortrait, courtStoryText, wrapCourtStory,
 } from "../services/trial-event-portraits.js";
 import { survivalEventPayload } from "../services/survival-giveaways.js";
 
@@ -67,14 +67,44 @@ test("event payload links attached PNG without losing restart marker, count or s
     const embed = survivalEventPayload(record, event, 0, fileName);
     assert.equal(embed.embeds[0].data.image.url, "attachment://" + fileName);
     assert.equal(embed.embeds[0].data.footer.text, "Trial " + record._id + " · Event 1");
-    assert.ok(embed.embeds[0].data.description.includes(event.description));
+    assert.equal(embed.embeds[0].data.description, undefined,
+      "image contains the story; Discord must not repeat it above");
     assert.equal(embed.allowedMentions.parse.length, 0);
   }
   const withoutAttachment = survivalEventPayload(record, solo, 0);
   assert.equal(withoutAttachment.embeds[0].data.image, undefined,
     "text-only fallback remains safe if canvas fails");
+  assert.match(withoutAttachment.embeds[0].data.description, /The rose withers/);
   const png = renderTrialEventPortrait(duel);
   const file = new AttachmentBuilder(png, { name: "trial-event-test.png" });
   assert.equal(file.name, "trial-event-test.png");
   assert.ok(Buffer.isBuffer(file.attachment));
+});
+
+test("Court story image text resolves mentions to names and keeps every original scenario word", () => {
+  const event = {
+    actorId, victimId,
+    description: "📖 <@" + actorId + "> found *the final page* of the spellbook. <@" + victimId + "> kept reading the index.",
+    remaining: 1,
+  };
+  assert.equal(courtStoryText(event, {
+    actor: { name: "❀ LILLY ❀" },
+    victim: { name: "Jentho" },
+  }), "❀ LILLY ❀ found the final page of the spellbook. Jentho kept reading the index.");
+  const ctx = createCanvas(1000, 720).getContext("2d");
+  ctx.font = "26px sans-serif";
+  const input = "A very long court story with survivors and missing spells. ".repeat(8);
+  const lines = wrapCourtStory(ctx, input, 600);
+  assert.equal(lines.join(" "), input.trim(), "story wrapping must not discard words");
+  assert.ok(lines.every(line => ctx.measureText(line).width <= 600));
+});
+
+test("image artwork changes when its event description changes", () => {
+  const source = { victimId, description: "The Court chose the dark staircase.", remaining: 3 };
+  const changed = { ...source, description: "The Court chose the bright staircase." };
+  assert.notDeepEqual(
+    renderTrialEventPortrait(source),
+    renderTrialEventPortrait(changed),
+    "story must be drawn into the image, not remain only in a Discord description",
+  );
 });
