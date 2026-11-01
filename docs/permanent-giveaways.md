@@ -51,7 +51,7 @@ First assign the two channels with `/setup channels`. Run `/giveaway start` from
 
 ## Live elimination mode: The Court's Trial
 
-Use `/trial start` for a **full, one-contestant-at-a-time** elimination event. It has its own command group, separate from `/giveaway`. The original signup panel remains visible and a **second permanent Royal Verdict** is sent after the last elimination. Rerolling edits that verdict rather than sending a new one.
+Use `/trial start` for a **full, one-contestant-at-a-time** elimination event. It has its own command group, separate from `/giveaway`. The original signup panel remains visible and a **second permanent Royal Verdict** is sent after the last elimination. Rerolling edits that verdict rather than sending a new one. The verdict also shows the original champion's **Trials Entered** and **Trials Won** totals for this Discord server. Entry totals come from saved trial registrations (including cancelled trials). A win counts only the **original last survivor** of a completed trial; prize-place rerolls do not add a championship win. The completed trial is included in the totals.
 
 - `/trial start title:<title> prize:<prize> pace:<2|3|5> signup_minutes:<1–1440> winners:<1–10> rules:<optional> role:<optional>`
 - `/trial launch id:<giveaway-ID-or-message-link>` — manually freeze the list and start the game
@@ -80,6 +80,7 @@ Use `/trial start` for a **full, one-contestant-at-a-time** elimination event. I
 9. Test a prize reroll after completion. The archived message must retain the original champion and prior winner history, while the prize list updates.
 10. Verify ordinary `/giveaway start` giveaways still end automatically by timer and are not treated as survival trials.
 11. Verify the regal **Royal Verdict** appears as a new post after the last elimination, while the original signup post updates to archived results. Only one verdict should appear, including after restarting the bot or rerolling a prize place.
+   - Check that the same winner's Trials Entered and Trials Won totals increase across separate completed trials, remain unchanged on re-render, and **do not increase** for a rerolled prize recipient.
 12. Check the private `/giveaway entrants` and `/trial entrants` command outputs, empty rosters, and pagination at more than 25 entrants.
 
 **Development:** This mode is on `feature/permanent-giveaways` in draft PR #24, not merged or deployed. When testing from Replit, use the correct development-bot token and database, then run `node register-commands.js` to refresh `/giveaway` options.
