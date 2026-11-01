@@ -1,5 +1,6 @@
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { registerAppearanceFonts } from "./font-library.js";
+import { drawUnicodeText, measureUnicodeText } from "./unicode-text.js";
 
 // The Cryptic Court: original vector artwork drawn at render time.
 // Blackened castle stone, lancet windows, iron thorns and antique rose-gold.
@@ -30,13 +31,13 @@ function label(ctx, value, x, y, maxWidth, maxSize, color = IVORY, family = "Geo
   let size = maxSize;
   while (size > 16) {
     ctx.font = "bold " + size + "px " + family;
-    if (ctx.measureText(str).width <= maxWidth) break;
+    if (measureUnicodeText(ctx, str, { family, size, weight: "bold" }) <= maxWidth) break;
     size -= 1;
   }
   ctx.fillStyle = color;
   ctx.shadowColor = INK;
   ctx.shadowBlur = 5;
-  ctx.fillText(str, x, y, maxWidth);
+  drawUnicodeText(ctx, str, x, y, { family, size, weight: "bold", maxWidth });
   ctx.restore();
 }
 
@@ -397,7 +398,9 @@ function courtStoryPlaque(ctx, event, participants, meta) {
   const lineHeight = Math.min(34, fontSize + 5);
   for (const [i, text] of lines.entries()) {
     if (i >= 5) break; // protect the status strip if Discord names are extreme
-    ctx.fillText(text, left, y + 16 + i * lineHeight, maxWidth);
+    drawUnicodeText(ctx, text, left, y + 16 + i * lineHeight, {
+      size: fontSize, weight: "normal", family: '"AM Nunito", sans-serif', maxWidth,
+    });
   }
   ctx.restore();
 
