@@ -8,7 +8,7 @@ import {
   MAX_TRIAL_ENTRANTS, TRIAL_SPEED_CHOICES, DEFAULT_TRIAL_SPEED_SECONDS,
   planSurvivalTrial, survivalAnnouncement, survivalEventPayload,
   beginSurvivalTrial, cancelSurvivalTrial, runSurvivalTrialStep,
-  survivalFinalePayload, publishSurvivalFinale,
+  survivalFinalePayload, publishSurvivalFinale, getTrialChampionRecord,
 } from "../services/survival-giveaways.js";
 
 const id = "507f1f77bcf86cd799439011";
@@ -219,6 +219,7 @@ test("the game posts one elimination at a time, saves progress, and archives ran
   };
   const client = { user: { id: "999999999999999999" }, channels: { fetch: async () => channel } };
   try {
+    patch(original, Giveaway, "countDocuments", async () => 1);
     patch(original, Giveaway, "findOneAndUpdate", (filter, update) => ({
       lean: async () => {
         if (filter.$or?.some(part => Object.hasOwn(part, "finaleLeaseUntil"))) {
@@ -287,6 +288,7 @@ test("after a restart, replay recognizes an already-posted event and advances wi
   };
   const client = { user: { id: "999999999999999999" }, channels: { fetch: async () => channel } };
   try {
+    patch(original, Giveaway, "countDocuments", async () => 1);
     patch(original, Giveaway, "findOneAndUpdate", (query, update) => ({
       lean: async () => {
         if (query.$or?.some(part => Object.hasOwn(part, "finaleLeaseUntil"))) {
@@ -364,6 +366,7 @@ test("completed trial sends one separate finale and edits that same message afte
     }) },
   };
   try {
+    patch(changes, Giveaway, "countDocuments", async () => 1);
     patch(changes, Giveaway, "findOneAndUpdate", (filter, update) => ({
       lean: async () => {
         if (stored.status !== filter.status || stored.finaleLeaseUntil) return null;
@@ -413,6 +416,7 @@ test("crash recovery recognizes a previously sent verdict even with no saved fin
     }) },
   };
   try {
+    patch(changes, Giveaway, "countDocuments", async () => 1);
     patch(changes, Giveaway, "findOneAndUpdate", () => ({
       lean: async () => ({ ...stored, finaleLeaseKey: "lease", finaleLeaseUntil: new Date(Date.now() + 45000) }),
     }));
@@ -425,4 +429,53 @@ test("crash recovery recognizes a previously sent verdict even with no saved fin
     assert.equal(edits, 1);
     assert.equal(stored.finaleMessageId, previous.id);
   } finally { restore(changes); }
+});
+
+test("champion's Court record counts actual entries and original first-place wins only within this server", async () => {
+  const original = [];
+  const champion = contestants[0];
+  const calls = [];
+  try {
+    patch(original, Giveaway, "countDocuments", async query => {
+      calls.push(query);
+      return calls.length === 1 ? 9 : 3;
+    });
+    assert.deepEqual(await getTrialChampionRecord(guildId, champion),
+      { entered: 9, won: 3 });
+    assert.deepEqual(calls, [
+      {
+        guildId, mode: "survival", entrantIds: champion,
+        status: { $nin: ["publishing", "failed"] },
+      },
+      {
+        guildId, mode: "survival", originalChampionId: champion,
+        status: { $in: ["ended", "rerolling"] },
+      },
+    ]);
+    assert.equal(await getTrialChampionRecord(guildId, ""), null);
+    assert.equal(calls.length, 2, "no query should run for an unknown champion");
+  } finally { restore(original); }
+});
+
+test("Royal Verdict shows entered and won totals for the original champion even after a prize reroll", () => {
+  const champion = contestants[0];
+  const rerollRecipient = contestants[2];
+  const data = record({
+    status: "ended", originalChampionId: champion,
+    winnerIds: [rerollRecipient], // even if prize #1 was rerolled
+    rerollHistory: [{ slot: 0, previousId: champion, replacementId: rerollRecipient }],
+  });
+  const embed = survivalFinalePayload(data, { entered: 12, won: 4 }).embeds[0].data;
+  assert.match(embed.description, /Champion's Court Record/);
+  assert.match(embed.description, /Trials Entered:\*\* 12/);
+  assert.match(embed.description, /Trials Won:\*\* 4/);
+  assert.match(embed.description, new RegExp(champion));
+  assert.match(embed.description, /Wins count original last survivors/);
+  assert.equal(embed.footer.text, `♛ Trial ${id} · Finale`,
+    "save and replay marker must not change");
+  const withoutChampion = survivalFinalePayload(
+    record({ originalChampionId: "", winnerIds: [] }), { entered: 12, won: 4 },
+  );
+  assert.doesNotMatch(withoutChampion.embeds[0].data.description, /Trials Entered/,
+    "do not attribute historical stats to an unknown original champion");
 });
