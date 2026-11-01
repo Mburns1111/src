@@ -173,12 +173,34 @@ export async function cancelSurvivalTrial({ id, guildId, now = new Date() }) {
 }
 
 /**
+ * Court records are derived from the saved trials rather than incrementing a
+ * counter on each result edit. This keeps them accurate after restarts/rerolls.
+ * "Entered" includes all genuine registrations, even cancelled trials; "Won"
+ * means the original last survivor of a finished trial, never a prize reroll.
+ * Both figures are scoped to this Discord server.
+ */
+export async function getTrialChampionRecord(guildId, championId) {
+  if (!guildId || !championId) return null;
+  const [entered, won] = await Promise.all([
+    Giveaway.countDocuments({
+      guildId, mode: "survival", entrantIds: championId,
+      status: { $nin: ["publishing", "failed"] },
+    }),
+    Giveaway.countDocuments({
+      guildId, mode: "survival", originalChampionId: championId,
+      status: { $in: ["ended", "rerolling"] },
+    }),
+  ]);
+  return { entered, won };
+}
+
+/**
  * The distinct final message appears after the final elimination, and is
  * edited (not reposted) when staff reroll one prize place. The embedded
  * marker supports crash recovery when Discord accepts a post before its
  * message ID is committed to MongoDB.
  */
-export function survivalFinalePayload(record) {
+export function survivalFinalePayload(record, championRecord = null) {
   const championId = record.originalChampionId || record.winnerIds?.[0];
   const ranked = (record.winnerIds || []).slice(0, 10)
     .map((id, index) => (index + 1) + ". <@" + id + ">");
@@ -189,6 +211,14 @@ export function survivalFinalePayload(record) {
     "🏰 **THE COURT HAS SPOKEN**",
     "",
     championId ? "👑 **The Last Survivor:** <@" + championId + ">" : "**No survivor was recorded.**",
+    ...(championRecord && record.originalChampionId
+      ? [
+          "",
+          "🏆 **Champion's Court Record**",
+          "**Trials Entered:** " + championRecord.entered + " · **Trials Won:** " + championRecord.won,
+          "*This server's Court history · Wins count original last survivors, not prize rerolls.*",
+        ]
+      : []),
     "",
     "**Royal Prize:**",
     record.prize.slice(0, 1300),
@@ -240,7 +270,10 @@ export async function publishSurvivalFinale(client, record, { now = new Date() }
       message = recent.find(item => item.author?.id === client.user?.id
         && item.embeds?.some(embed => embed.footer?.text === marker));
     }
-    const payload = survivalFinalePayload(record);
+    // Use the immutable original champion, not the current prize list:
+    // rerolled prizes never turn a different member into a trial champion.
+    const championRecord = await getTrialChampionRecord(record.guildId, record.originalChampionId);
+    const payload = survivalFinalePayload(record, championRecord);
     if (message) await message.edit(payload);
     else message = await channel.send(payload);
 
