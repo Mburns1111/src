@@ -27,11 +27,16 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  const opts=spec.options;
  assert.deepEqual(opts.map(x=>x.name),["start","end","reroll","list","entrants"]);
  const start=opts[0].options.map(x=>x.name);
- for(const name of ["title","prize","minutes","winners","rules","role"])
+ for(const name of ["title","prize","minutes","winners","rules","role","claim_hours","claim_instructions"])
    assert.ok(start.includes(name));
  assert.ok(!start.includes("channel"), "standard events use the configured channel");
  const speed=trialCommand.toJSON().options.find(option=>option.name==="start").options.map(x=>x.name);
  assert.ok(!speed.includes("channel"), "survival trials use their own configured channel");
+ assert.ok(speed.includes("claim_hours"));
+ assert.ok(speed.includes("claim_instructions"));
+ assert.ok(Giveaway.schema.path("claimWindowHours"));
+ assert.ok(Giveaway.schema.path("claimInstructions"));
+ assert.ok(Giveaway.schema.path("claimStartedAt"));
  assert.equal(GIVEAWAY_MAX_MINUTES,20160);
 });
 
@@ -141,4 +146,25 @@ test("reroll selects a new entrant without erasing earlier winner or reroll hist
   assert.deepEqual([result.rerollHistory[0].previousId,result.rerollHistory[0].replacementId],[prior,replacement]);
   await assert.rejects(()=>rerollGiveaway({id,guildId,staffId:prior,slot:0}),/no unused entrants/i);
  }finally{restore(old);}
+});
+
+test("giveaway claim instructions announce a real Discord-local deadline and how to schedule ticket pickup", () => {
+  const ended = giveawayAnnouncement(snapshot({
+    status: "ended", winnerIds: [userId],
+    claimWindowHours: 48, claimStartedAt: new Date("2026-11-01T12:00:00Z"),
+    claimInstructions: "Please include your Roblox username.",
+  }));
+  const body = ended.embeds[0].data.description;
+  assert.match(body, /Claim deadline:/);
+  assert.match(body, /<t:1793707200:F>/); // 48h after 2026-11-01 12:00 UTC
+  assert.match(body, /https:\/\/hammertime\.cyou/);
+  assert.match(body, /Open a support ticket/i);
+  assert.match(body, /2–3 dates\/times/);
+  assert.match(body, /Roblox username/);
+  assert.deepEqual(ended.allowedMentions, { parse: [] });
+  const signup = giveawayAnnouncement(snapshot({ claimWindowHours: 48, claimInstructions: "Include Roblox name" }));
+  assert.match(signup.embeds[0].data.description, /Claim window:.*48 hours/);
+  assert.doesNotMatch(signup.embeds[0].data.description, /Claim deadline/);
+  const none = giveawayAnnouncement(snapshot({ status: "ended", winnerIds: [] }));
+  assert.doesNotMatch(none.embeds[0].data.description, /Open a support ticket/i);
 });
