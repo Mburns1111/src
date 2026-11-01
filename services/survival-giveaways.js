@@ -91,6 +91,7 @@ export function survivalAnnouncement(record) {
     `**Elimination pace:** every ${record.speedSeconds || 3} seconds`,
     open
       ? `**Signup closes:** <t:${endUnix}:R> · Host clicks **Start Trial** when ready`
+      : state === "preparing" ? "**Preparing the trial — contestant entries are locked.**"
       : running
         ? `**Trial in progress:** ${completed}/${events.length} eliminations · ${Math.max(0, events.length + 1 - completed)} remain`
         : cancelled ? "**Trial cancelled by staff.**" : "**Trial complete.**",
@@ -135,27 +136,43 @@ export function survivalEventPayload(record, event, index) {
   };
 }
 
+// Freeze entries with a single Mongo update BEFORE drawing the elimination
+// order. A concurrent, accepted Enter click is included in this snapshot.
 export async function beginSurvivalTrial({ id, guildId, now = new Date() }) {
-  const candidate = await Giveaway.findOne({ _id: id, guildId, mode: "survival" }).lean();
-  if (!candidate || candidate.status !== "open")
+  const prepared = await Giveaway.findOneAndUpdate(
+    { _id: id, guildId, mode: "survival", status: "open", "entrantIds.1": { $exists: true } },
+    { $set: { status: "preparing", gameStartedAt: now, renderedAt: null } },
+    { returnDocument: "after" },
+  ).lean();
+  if (!prepared) {
+    const candidate = await Giveaway.findOne({ _id: id, guildId, mode: "survival" }).lean();
+    if (candidate?.status === "open") throw Error("At least two members must join before starting a trial.");
     throw Error("That trial is not open for a new start.");
-  const plan = planSurvivalTrial(candidate.entrantIds || [], candidate.winnerCount);
+  }
+  return finishPreparingTrial(prepared, { now });
+}
+
+export async function finishPreparingTrial(prepared, { now = new Date() } = {}) {
+  if (prepared.status !== "preparing" || prepared.mode !== "survival") return prepared;
+  const plan = planSurvivalTrial(prepared.entrantIds || [], prepared.winnerCount);
   const updated = await Giveaway.findOneAndUpdate(
-    { _id: id, guildId, mode: "survival", status: "open" },
+    { _id: prepared._id, guildId: prepared.guildId, mode: "survival", status: "preparing" },
     { $set: {
-      status: "running", gameStartedAt: now, gameEvents: plan.events,
-      originalChampionId: plan.championId,
-      nextEventIndex: 0, nextEventAt: now,
+      status: "running", gameEvents: plan.events,
+      originalChampionId: plan.championId, nextEventIndex: 0, nextEventAt: now,
       leaseUntil: new Date(0), leaseKey: "", renderedAt: null,
     } }, { returnDocument: "after" },
   ).lean();
-  if (!updated) throw Error("Another staff member already started this trial.");
-  return updated;
+  if (updated) return updated;
+  // Another worker may have resumed the same frozen game.
+  const current = await Giveaway.findOne({ _id: prepared._id, guildId: prepared.guildId }).lean();
+  if (current?.status === "running") return current;
+  throw Error("This trial is being updated by another staff member.");
 }
 
 export async function cancelSurvivalTrial({ id, guildId, now = new Date() }) {
   const updated = await Giveaway.findOneAndUpdate(
-    { _id: id, guildId, mode: "survival", status: { $in: ["open", "running"] } },
+    { _id: id, guildId, mode: "survival", status: { $in: ["open", "preparing", "running"] } },
     { $set: {
       status: "cancelled", gameEndedAt: now,
       winnerIds: [], renderedAt: null,
@@ -245,6 +262,12 @@ export async function runSurvivalTrialStep(client, item, { now = new Date() } = 
 }
 
 export async function reconcileSurvivalTrials(client, { now = new Date(), limit = 8 } = {}) {
+  const preparing = await Giveaway.find({ mode: "survival", status: "preparing" })
+    .limit(limit).lean();
+  for (const item of preparing) {
+    try { await finishPreparingTrial(item, { now }); }
+    catch (error) { console.error("[Trials] Could not resume a frozen signup:", String(item._id), error); }
+  }
   const due = await Giveaway.find({
     mode: "survival", status: "running", nextEventAt: { $lte: now },
     $or: [{ leaseUntil: { $lte: now } }, { leaseUntil: null }],
