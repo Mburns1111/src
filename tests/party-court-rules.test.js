@@ -65,3 +65,16 @@ test("user-supplied text is constrained and cannot ping everyone", () => {
   assert.ok(text.includes("\\*"));
   assert.ok(text.length < 160);
 });
+
+test("final-round score then matchup wins break ties; exact ties share placement", () => {
+  const players = [
+    { userId:"a",score:2500,finalRound:1000,wins:2 },
+    { userId:"b",score:2500,finalRound:1200,wins:1 },
+    { userId:"c",score:2500,finalRound:1000,wins:2 },
+    { userId:"d",score:2000,finalRound:900,wins:1 },
+  ];
+  const plan = courtRewardPlan(players, { a:3,b:3,c:3,d:3 }, 3);
+  assert.deepEqual(plan.map(p=>[p.userId,p.placement]), [
+    ["b",10],["a",6],["c",6],["d",0],
+  ]);
+});
