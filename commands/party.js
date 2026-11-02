@@ -49,8 +49,8 @@ function updateGameVersion(game, update, guard = {}) {
     { $set: update, $inc: { renderVersion: 1 } });
 }
 
-// All entry points use the same checks, so neither the slash command nor a
-// button can let another admin start somebody else's lobby.
+// The lobby's Start Party button alone launches Round 1. The /party start
+// slash command only creates a joinable lobby; it never starts the timer.
 async function startHostedLobby(interaction, game, requestedType = "court") {
   if (!staff(interaction) || interaction.user.id !== game.hostId)
     return { started: false, message: "Only the admin who hosted this party can start it." };
@@ -84,6 +84,7 @@ export async function execute(interaction) {
       game = await PartyGame.create({
         guildId: interaction.guildId, channelId: channel.id,
         hostId: interaction.user.id, gameType: selectedGame,
+        phase: "lobby", round: 0, players: [], phaseEndsAt: null,
         category: op === "host" ? interaction.options.getString("category") || "mixed" : "mixed",
         rewardsEnabled: op === "host" ? interaction.options.getBoolean("rewards") !== false : true,
       });
