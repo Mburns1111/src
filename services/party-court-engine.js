@@ -194,7 +194,10 @@ async function publishStage(game, channel, cache, key, variant, payload, { curre
     const recent = await channel.messages.fetch({ limit: 100 });
     const existing = [...recent.values()].find(message =>
       message.author?.id === channel.client?.user?.id &&
-      (message.embeds?.some(embed => embed.footer?.text === stageMarker(game, key)) ||
+      (message.embeds?.some(embed =>
+        (embed.footer?.text || embed.data?.footer?.text ||
+          (typeof embed.toJSON === "function" ? embed.toJSON().footer?.text : null)) ===
+            stageMarker(game, key)) ||
         message.content?.split("\n").includes(stageMarker(game, key))));
     const message = existing || await channel.send(display);
     const openedAt = message.createdAt || (
