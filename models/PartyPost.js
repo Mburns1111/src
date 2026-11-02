@@ -8,6 +8,7 @@ const partyPostSchema = new mongoose.Schema({
   channelId: { type: String, required: true },
   key: { type: String, required: true },
   messageId: { type: String, default: "" },
+  openedAt: { type: Date, default: null }, // First visible post time for a full vote window.
   renderedVariant: { type: String, default: "" },
   renderedVersion: { type: Number, default: 0 },
 }, { timestamps: true });
