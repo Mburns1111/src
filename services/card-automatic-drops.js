@@ -23,22 +23,27 @@ export function nextTimedDrop(now = new Date(), randint = randomInt) {
   return new Date(now.getTime() + minutes * 60_000);
 }
 
-export async function configureAutomaticDrops({ guildId, enabled, now = new Date() }) {
-  if (!guildId || typeof enabled !== "boolean")
-    throw Error("Specify a server and whether automatic drops are enabled.");
-  const config = await GuildConfig.findOne({ guildId }).lean();
-  if (!config?.hatchemChannelId)
-    throw Error("Set up the Hatchem channel before enabling automatic drops.");
-  const next = enabled ? nextTimedDrop(now) : null;
-  await GuildConfig.updateOne({ guildId }, { $set: {
-    hatchemAutoDropsEnabled: enabled,
-    hatchemNextAutoDropAt: next,
-    hatchemNextActivityDropAt: enabled ? now : null,
-  } });
-  // Do not reuse conversation activity accumulated before an on/off change.
-  activity.delete(guildId);
-  return { enabled, minMinutes: AUTO_DROP_MIN_MINUTES,
-    maxMinutes: AUTO_DROP_MAX_MINUTES, nextAt: next };
+// Every server that has both a Hatchem channel and Card role uses the same
+// fixed game rules automatically. Server managers cannot alter drop frequency
+// or disable the system. A conditional update initializes only missing due
+// times, so restarts and parallel workers never reset the current schedule.
+export async function initializeAutomaticDropSchedules(now = new Date()) {
+  const configs = await GuildConfig.find({
+    hatchemChannelId: { $type: "string", $ne: "" },
+    cardRoleId: { $type: "string", $ne: "" },
+    hatchemNextAutoDropAt: null,
+  }).select("guildId").limit(100).lean();
+  let initialized = 0;
+  for (const config of configs) {
+    const result = await GuildConfig.updateOne({
+      guildId: config.guildId,
+      hatchemChannelId: { $type: "string", $ne: "" },
+      cardRoleId: { $type: "string", $ne: "" },
+      hatchemNextAutoDropAt: null,
+    }, { $set: { hatchemNextAutoDropAt: nextTimedDrop(now) } });
+    initialized += result.modifiedCount || 0;
+  }
+  return initialized;
 }
 
 export function chooseAutomaticDropRelease(releases, allowTest = false) {
@@ -79,7 +84,7 @@ async function sendAutomaticEgg(client, config, releaseId) {
       throw Error(typeof message === "string" ? message : "Automatic drop was rejected.");
     },
     suppressSuccessDropReply: async () => null,
-  }, { releaseId, testMode: false, automated: true });
+  }, { releaseId, testMode: false, automated: true, roleId: config.cardRoleId });
 }
 
 // The timed schedule remains independent of bonuses. If another auto egg is
@@ -87,11 +92,12 @@ async function sendAutomaticEgg(client, config, releaseId) {
 // can safely post. A failed send never creates an endless immediate retry.
 export async function reconcileAutomaticCardDrops(client, now = new Date()) {
   if (process.env.ENABLE_CARD_GAME_TEST !== "1") return 0;
+  await initializeAutomaticDropSchedules(now);
   const configs = await GuildConfig.find({
-    hatchemAutoDropsEnabled: true,
     hatchemNextAutoDropAt: { $lte: now },
-    hatchemChannelId: { $ne: "" },
-  }).select("guildId hatchemChannelId").lean();
+    hatchemChannelId: { $type: "string", $ne: "" },
+    cardRoleId: { $type: "string", $ne: "" },
+  }).select("guildId hatchemChannelId cardRoleId").lean();
   if (!configs.length) return 0;
   const release = await chooseCurrentRelease();
   if (!release) return 0;
@@ -102,7 +108,8 @@ export async function reconcileAutomaticCardDrops(client, now = new Date()) {
       if (await hasOpenCardEgg(config.guildId, now)) continue;
       const claimed = await GuildConfig.findOneAndUpdate({
         guildId: config.guildId,
-        hatchemAutoDropsEnabled: true,
+        hatchemChannelId: { $type: "string", $ne: "" },
+        cardRoleId: { $type: "string", $ne: "" },
         hatchemNextAutoDropAt: { $lte: now },
         hatchemLastAutoDropAt: lastEggIsOldEnough(now),
       }, { $set: {
@@ -170,14 +177,14 @@ export async function maybePublishActivityEgg(client, message, {
   if (process.env.ENABLE_CARD_GAME_TEST !== "1") return false;
   if (!observeAutomaticDropActivity(message, now)) return false;
   if (random() >= ACTIVITY_CHANCE) return false;
-  if (await hasOpenAutomaticEgg(message.guildId, now)) return false;
+  if (await hasOpenCardEgg(message.guildId, now)) return false;
   const release = await chooseCurrentRelease();
   if (!release) return false;
 
   const claimed = await GuildConfig.findOneAndUpdate({
     guildId: message.guildId,
-    hatchemAutoDropsEnabled: true,
-    hatchemChannelId: { $ne: "" },
+    hatchemChannelId: { $type: "string", $ne: "" },
+    cardRoleId: { $type: "string", $ne: "" },
     hatchemLastAutoDropAt: lastEggIsOldEnough(now),
     hatchemNextActivityDropAt: { $not: { $gt: now } },
   }, { $set: {
