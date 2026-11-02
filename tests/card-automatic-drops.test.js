@@ -46,7 +46,7 @@ test("activity-only wild eggs never start from a timer, even with legacy Mongo d
   assert.ok(!scheduler.includes("hatchemNextAutoDropAt"));
 });
 
-test("activity eggs ping the Card role once and keep it visible after grab and closure", () => {
+test("activity eggs ping the Card role once and keep it visible after grab and closure", async () => {
   const roleId = "123456789012345678";
   const announcement = dropMessageContent({ mode: "automatic", status: "open",
     expiresAt: new Date(Date.now() + 75_000) }, "Test", { roleId });
