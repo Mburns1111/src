@@ -10,7 +10,7 @@ const a="234567890123456789",b="345678901234567890";
 const guildId="123456789012345678";
 const game=()=>({
   _id:gameId,guildId,messageId:"456789012345678901",
-  phase:"lobby",players:[a],hostId:a,category:"mixed",
+  phase:"lobby",players:[a],hostId:a,category:"mixed",rewardsEnabled:true,
   round:1,batch:0,paused:false,phaseEndsAt:new Date(Date.now()+90_000),
   scores:{[a]:500,[b]:500},roundScores:{},matchupWins:{},
   matchups:[{playerIds:[a,b],promptId:1,prompt:"Why did the wizard lose his job?"}],
@@ -33,7 +33,7 @@ test("all public Court phases are fully embeds, with no plain post body",async()
       assert.equal(value.content,"",phase+" should have no standalone plaintext body");
       assert.equal(value.embeds.length,1,phase+" should contain exactly one embed");
       const embed=value.embeds[0].toJSON();
-      assert.match(embed.title,/Court of Chaos/);
+      assert.match(embed.title,["voting","reveal"].includes(phase) ? /Why did the wizard/ : /Court of Chaos/);
       assert.ok(embed.color>0);
       assert.ok(embed.description);
       assert.ok(embed.description.length<=4096);
