@@ -245,7 +245,7 @@ export async function execute(interaction) {
           `Release: ${escapeDiscord(request.releaseId)}`,
           dustMode
             ? `Use ${request.cards.length} card(s): ${request.cards.map(c=>formatCardId(c.publicId)).join(", ")}`
-            : `Consume exactly four cards: ${request.ids.join(", ")}`,
+            : `Consume exactly four cards: ${request.ids.map(formatCardId).join(", ")}`,
           ...(dustMode?[`Replace ${request.missing} missing card(s) for **${request.cost} ${request.rarity} Dust**.`,
             `Current dust balance: ${request.available}. Remaining after upgrade: ${request.available-request.cost}.`]:[]),
           "**All listed original cards will be permanently consumed**, and one NEW five-character card ID will be created.",
