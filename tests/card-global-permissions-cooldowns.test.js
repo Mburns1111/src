@@ -5,8 +5,8 @@ import { CARD_DROP_COOLDOWN_MS, CARD_GRAB_COOLDOWN_MS, cardCooldownIdentity, car
 import CardActionCooldown from "../models/CardActionCooldown.js";
 import GuildConfig from "../models/GuildConfig.js";
 import { data as cardsAdmin, execute as executeCardsAdmin } from "../commands/cards-admin.js";
-import { data as cardsOwner, execute as executeCardsOwner } from "../commands/cards-owner.js";
-import { execute as executeCards } from "../commands/cards.js";
+import { data as cardsOwner, cardsReleaseCommand, RELEASE_LIFECYCLE_SUBCOMMANDS, execute as executeCardsOwner } from "../commands/cards-owner.js";
+import { execute as executeCards, data as cardsPlayer, ownerCardOptions } from "../commands/cards.js";
 
 const owner = "123456789012345678";
 const other = "234567890123456789";
@@ -103,4 +103,32 @@ test("card-admin role setup rejects users without Manage Server", async () => {
     editReply: message => { response = message; },
   });
   assert.match(response, /Only server managers/);
+});
+
+
+test("card slash command groups stay within 25 subcommands without losing owner tools", () => {
+  const releaseNames = new Set(RELEASE_LIFECYCLE_SUBCOMMANDS);
+  const ownerLegacy = cardsOwner.toJSON().options.filter(option => !releaseNames.has(option.name));
+  const legacyArtwork = ownerCardOptions.toJSON().options;
+  const releaseOptions = cardsReleaseCommand.options;
+  const commands = [
+    { name: "cards", options: cardsPlayer.toJSON().options },
+    { name: "cards-owner", options: [...ownerLegacy, ...legacyArtwork] },
+    cardsReleaseCommand,
+  ];
+  for (const command of commands) {
+    assert.ok(command.options.length <= 25, command.name + " exceeds Discord's 25-subcommand limit");
+    const names = command.options.map(option => option.name);
+    assert.equal(new Set(names).size, names.length, command.name + " has duplicate subcommands");
+  }
+  assert.equal(cardsReleaseCommand.name, "cards-release");
+  assert.deepEqual(releaseOptions.map(option => option.name), RELEASE_LIFECYCLE_SUBCOMMANDS);
+  for (const name of ["test-drop", "egg-art-upload", "art-upload", "art-review"]) {
+    assert.ok(commands[1].options.some(option => option.name === name),
+      name + " must stay under /cards-owner");
+  }
+  for (const name of ["activate", "retire", "egg-upload", "egg-review"]) {
+    assert.ok(releaseOptions.some(option => option.name === name),
+      name + " must be accessible under /cards-release");
+  }
 });
