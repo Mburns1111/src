@@ -14,7 +14,7 @@ import {
 
 // Standard pace uses the full answer window, then votes on each question.
 export const COURT_TIMINGS = Object.freeze({
-  answerMs: 60_000,
+  answerMs: 90_000,
   voteMs: 30_000,
   revealMs: 8_000,
   intermissionMs: 10_000,
@@ -71,7 +71,7 @@ export async function courtGameDisplay(game) {
       button(partyButton(game, "leave"), "Leave", ButtonStyle.Secondary),
       button(partyButton(game, "start"), "Start Party", ButtonStyle.Primary)));
   } else if (game.phase === "answering") {
-    lines.push("**Round " + game.round + "/3** — answer both private prompts within 60 seconds.");
+    lines.push("**Round " + game.round + "/3** — answer both private prompts within 90 seconds.");
     lines.push("Answering closes " + seconds(game.phaseEndsAt) + (game.paused ? " (PAUSED)" : "") + ".");
     lines.push("Both prompts are private. Voting begins when the full timer ends.");
     lines.push("Use the button to check or edit either saved answer.");
