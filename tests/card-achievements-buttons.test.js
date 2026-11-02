@@ -60,7 +60,7 @@ test("compact and detailed views are toggles on the same page, not extra command
   assert.equal(detailed.content.includes(rows[0].description), true);
   const controls = buttonData(detailed);
   assert.equal(controls[3].label, "Compact");
-  assert.equal(controls[3].custom_id, "cards:achievements:previous:compact:1:" + owner);
+  assert.equal(controls[3].custom_id, "cards:achievements:toggle:compact:1:" + owner);
   assert.equal(controls[2].custom_id, "cards:achievements:next:details:2:" + owner);
   assert.deepEqual(detailed.content, achievementPages(rows, {detailed: true})[0]);
   assert.throws(() => achievementMessage(rows, "invalid"), /Invalid achievement owner/);
