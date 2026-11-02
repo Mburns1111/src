@@ -10,19 +10,18 @@ import {
   scoreCourtMatchup, COURT_MIN_PLAYERS, COURT_MAX_PLAYERS,
 } from "./party-court-rules.js";
 
-// Standard pace: 45s maximum to answer, or finish after everyone submits.
+// Standard pace uses the full answer window, then votes on each question.
 export const COURT_TIMINGS = Object.freeze({
-  answerMs: 45_000,
-  voteMs: 15_000,
+  answerMs: 60_000,
+  voteMs: 30_000,
   revealMs: 8_000,
   intermissionMs: 10_000,
-  allAnsweredGraceMs: 5_000,
 });
 const ANSWER_MS = COURT_TIMINGS.answerMs;
 const VOTE_MS = COURT_TIMINGS.voteMs;
 const REVEAL_MS = COURT_TIMINGS.revealMs;
 const INTERMISSION_MS = COURT_TIMINGS.intermissionMs;
-const BATCH_SIZE = 2;
+const BATCH_SIZE = 1;
 const phaseLabel = { lobby:"Lobby", answering:"Answering", voting:"Voting", reveal:"Verdict", intermission:"Between rounds", ended:"Finished", cancelled:"Cancelled" };
 
 export function partyButton(game, action, rest = "") {
@@ -68,16 +67,16 @@ export async function courtGameDisplay(game) {
       button(partyButton(game, "join"), "Join", ButtonStyle.Success),
       button(partyButton(game, "leave"), "Leave", ButtonStyle.Secondary)));
   } else if (game.phase === "answering") {
-    lines.push("**Round " + game.round + "/3** — privately submit one funny answer.");
+    lines.push("**Round " + game.round + "/3** — answer both private prompts within 60 seconds.");
     lines.push("Answering closes " + seconds(game.phaseEndsAt) + (game.paused ? " (PAUSED)" : "") + ".");
-    lines.push("Your prompt is private. Check your saved answer using the same button.");
-    lines.push("If everyone answers, voting begins after a brief 5-second grace period.");
+    lines.push("Both prompts are private. Voting begins when the full timer ends.");
+    lines.push("Use the button to check or edit either saved answer.");
     rows.push(new ActionRowBuilder().addComponents(
-      button(partyButton(game, "prompt"), "My Prompt & Answer", ButtonStyle.Primary)));
+      button(partyButton(game, "prompt"), "My Prompts & Answers", ButtonStyle.Primary)));
   } else if (game.phase === "voting" || game.phase === "reveal") {
     const results = await courtBatchResults(game);
     lines.push("**Round " + game.round + "/3** · Matchups " +
-      (game.batch * BATCH_SIZE + 1) + "–" + (game.batch * BATCH_SIZE + results.length));
+      (game.batch * BATCH_SIZE + 1) + " of " + game.matchups.length);
     if (game.phase === "voting") lines.push("Vote for your favorite answer! Closes " + seconds(game.phaseEndsAt) + (game.paused ? " (PAUSED)" : "") + ".");
     if (game.players.length === 1) lines.push("Solo showcase — no opponent or audience vote; enjoy your answer reveal!");
     for (const { match, matchupIndex, answers, scores } of results) {
@@ -99,7 +98,14 @@ export async function courtGameDisplay(game) {
     }
     if (game.phase === "reveal") lines.push("", "Next stage " + seconds(game.phaseEndsAt) + ".");
   } else if (game.phase === "intermission" || game.phase === "ended") {
-    lines.push(game.phase === "ended" ? "**The final verdict!**" : "Round " + game.round + " complete. Next round " + seconds(game.phaseEndsAt) + ".");
+    lines.push(game.phase === "ended" ? "**The final verdict!**" :
+      "Round " + game.round + " complete. The next round **will not start automatically**." );
+    if (game.phase === "intermission") {
+      lines.push("Staff: use **Start Next Round** after the 10-second break" +
+        (game.phaseEndsAt && game.phaseEndsAt > new Date() ? " (ready " + seconds(game.phaseEndsAt) + ")." : "."));
+      rows.push(new ActionRowBuilder().addComponents(
+        button(partyButton(game, "next", String(game.round)), "Start Next Round", ButtonStyle.Success)));
+    }
     const standings = topScores(game);
     lines.push(...standings.map(p => {
       const place = standings.findIndex(other => other.score === p.score &&
@@ -112,26 +118,6 @@ export async function courtGameDisplay(game) {
   }
   if (game.paused) lines.push("⏸️ Staff paused the game.");
   return { content: lines.join("\n").slice(0, 1950), components: rows, allowedMentions: { parse: [] } };
-}
-
-// Reduce idle time only when every player has a verified answer in the correct
-// round AND matchup. This works for solo sessions and large matchups alike.
-export async function shortenCourtAnswerWindow(game, now = Date.now()) {
-  if (game.phase !== "answering" || game.paused || !game.phaseEndsAt ||
-      game.phaseEndsAt.getTime() <= now + COURT_TIMINGS.allAnsweredGraceMs) return false;
-  const expected = game.matchups.flatMap((match, index) =>
-    match.playerIds.map(userId => userId + ":" + index));
-  if (!expected.length) return false;
-  const answers = await PartyResponse.find({
-    gameId: game._id, round: game.round, kind: "answer", text: { $nin: ["", null] },
-  }).select("userId matchupIndex").lean();
-  const saved = new Set(answers.map(a => a.userId + ":" + a.matchupIndex));
-  if (!expected.every(id => saved.has(id))) return false;
-  const shortenedEnd = new Date(now + COURT_TIMINGS.allAnsweredGraceMs);
-  const updated = await PartyGame.updateOne({
-    _id: game._id, phase: "answering", paused: false, phaseEndsAt: game.phaseEndsAt,
-  }, { $set: { phaseEndsAt: shortenedEnd }, $inc: { renderVersion: 1 } });
-  return updated.modifiedCount > 0;
 }
 
 // Publish is safe to retry after a restart. Version checks avoid sending a
@@ -165,7 +151,8 @@ export async function beginCourtGame(game) {
 }
 
 export async function advanceCourtGame(game, { force = false } = {}) {
-  if (!["answering", "voting", "reveal", "intermission"].includes(game.phase) || game.paused) return false;
+  // Intermissions are staff-controlled and must never advance via the sweeper.
+  if (!["answering", "voting", "reveal"].includes(game.phase) || game.paused) return false;
   const now = Date.now();
   if (!force && (game.phaseEndsAt == null || new Date(game.phaseEndsAt).getTime() > now)) return false;
   const next = { phaseEndsAt: null };
@@ -200,15 +187,18 @@ export async function advanceCourtGame(game, { force = false } = {}) {
   } else if (game.phase === "reveal") {
     const nextBatch = game.batch + 1;
     if (nextBatch * BATCH_SIZE < game.matchups.length) {
-      next.phase = "voting";
+      next.phase = game.players.length === 1 ? "reveal" : "voting";
       next.batch = nextBatch;
-      next.phaseEndsAt = new Date(now + VOTE_MS);
+      next.phaseEndsAt = new Date(now + (game.players.length === 1 ? REVEAL_MS : VOTE_MS));
     } else {
       const answers = await PartyResponse.find({
         gameId: game._id, round: game.round, kind: "answer", text: { $ne: "" },
       }).select("userId").lean();
       const answeredCounts = { ...game.answeredCounts };
-      for (const answer of answers) answeredCounts[answer.userId] = Number(answeredCounts[answer.userId] || 0) + 1;
+      // Eligibility is counted by distinct completed rounds, not number
+      // of prompts, so two answers in one round cannot satisfy two rounds.
+      for (const userId of new Set(answers.map(a => a.userId)))
+        answeredCounts[userId] = Number(answeredCounts[userId] || 0) + 1;
       next.answeredCounts = answeredCounts;
       next.completedRounds = game.round;
       if (game.round === 3) {
@@ -221,20 +211,32 @@ export async function advanceCourtGame(game, { force = false } = {}) {
         next.phaseEndsAt = new Date(now + INTERMISSION_MS);
       }
     }
-  } else {
-    const round = game.round + 1;
-    const matchups = assignCourtMatchups(game.players, round, game.category, game.usedPromptIds);
-    next.phase = "answering";
-    next.round = round;
-    next.batch = 0;
-    next.matchups = matchups;
-    next.usedPromptIds = [...game.usedPromptIds, ...matchups.map(m => m.promptId)];
-    next.phaseEndsAt = new Date(now + ANSWER_MS);
   }
   const changed = await PartyGame.updateOne({
     _id: game._id, phase: game.phase, round: game.round, batch: game.batch,
     phaseEndsAt: game.phaseEndsAt, paused: false,
   }, { $set: next, $inc: { renderVersion: 1 } });
+  return changed.modifiedCount === 1;
+}
+
+// Staff alone starts a new round. Even a long downtime or bot restart cannot
+// bypass the click; phaseEndsAt is a minimum readiness time, not a deadline.
+export async function startNextCourtRound(game, now = Date.now()) {
+  if (game.phase !== "intermission" || game.paused || game.round >= 3 ||
+      !game.phaseEndsAt || game.phaseEndsAt.getTime() > now) return false;
+  const round = game.round + 1;
+  const matchups = assignCourtMatchups(game.players, round, game.category, game.usedPromptIds);
+  const changed = await PartyGame.updateOne({
+    _id: game._id, active: true, phase: "intermission", round: game.round,
+    phaseEndsAt: game.phaseEndsAt, paused: false,
+  }, {
+    $set: {
+      phase: "answering", round, batch: 0, matchups,
+      usedPromptIds: [...game.usedPromptIds, ...matchups.map(m => m.promptId)],
+      phaseEndsAt: new Date(now + ANSWER_MS),
+    },
+    $inc: { renderVersion: 1 },
+  });
   return changed.modifiedCount === 1;
 }
 
@@ -283,11 +285,9 @@ export async function reconcileCourtGames(client) {
     const active = await PartyGame.find({ active: true }).limit(80);
     for (const game of active) {
       try {
-        if (game.phase === "answering" && !game.paused)
-          await shortenCourtAnswerWindow(game);
-        // Re-read after any shortening so the sweep never acts on stale deadlines.
         const current = await PartyGame.findById(game._id);
-        if (current?.phaseEndsAt && !current.paused && current.phaseEndsAt.getTime() <= Date.now())
+        if (current && !current.paused && ["answering", "voting", "reveal"].includes(current.phase) &&
+            current.phaseEndsAt && current.phaseEndsAt.getTime() <= Date.now())
           await advanceCourtGame(current);
         await publishCourtGame(client, current || game);
       } catch (error) { console.error("[Party] Game reconciliation failed", String(game._id), error); }
