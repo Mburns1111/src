@@ -256,6 +256,12 @@ async function publishCourtTimeline(game, channel) {
   await archiveCourtLobby(game, channel);
   const posts = await PartyPost.find({ gameId: game._id });
   const cache = new Map(posts.map(p => [p.key, p]));
+  // A Mongoose document's fields live in _doc, not in enumerable own
+  // properties. Spreading the document directly loses players, scores and
+  // matchups, and makes historical reveal rendering crash on players.length.
+  // Keep the persisted document for writes, but build historical snapshots
+  // from its plain-object representation.
+  const gameSnapshot = typeof game.toObject === "function" ? game.toObject() : game;
 
   // Old round breaks lose their button when a staff member starts the next
   // round. Their standings remain visible in the original post.
@@ -264,7 +270,7 @@ async function publishCourtTimeline(game, channel) {
     if (cache.has(previousKey)) {
       const old = cache.get(previousKey);
       if (old.renderedVariant !== "completed") {
-        const previous = { ...game, round: game.round - 1, phase: "intermission", phaseEndsAt: null };
+        const previous = { ...gameSnapshot, round: game.round - 1, phase: "intermission", phaseEndsAt: null };
         const display = await courtGameDisplay(previous);
         display.content = display.content.replace(
           "The next round **will not start automatically**.",
@@ -295,7 +301,7 @@ async function publishCourtTimeline(game, channel) {
       game.phase === "voting" ? game.batch : 0;
     for (let idx = 0; idx < countCompleted; idx++) {
       const previous = {
-        ...game, round, batch: idx, matchups, phase: "reveal", phaseEndsAt: null,
+        ...gameSnapshot, round, batch: idx, matchups, phase: "reveal", phaseEndsAt: null,
       };
       const key = stageKey(round, "question", idx);
       if (cache.get(key)?.renderedVariant === "result") continue;
