@@ -33,9 +33,9 @@ test("a short, optional tutorial explains every player mechanic in correct order
     "4 matching Normal","4 matching Neons","10 Points","20 Points","Card role"]){
     assert.ok(whole.includes(detail),detail+" should be taught");
   }
-  assert.match(whole,/creator.*priority/i);
+  assert.match(whole,/gets priority/i);
   assert.match(whole,/refunded/i);
-  assert.ok(!/test-s1|test-drop|CARD_GAME_OWNER|/cards-owner/.test(whole));
+  assert.doesNotMatch(whole,/test-s1|test-drop|CARD_GAME_OWNER|cards-owner/);
   assert.match(HATCHEM_GUIDE,/Learn to Play/);
   assert.match(HATCHEM_HELP,/\.tutorial/);
 });
