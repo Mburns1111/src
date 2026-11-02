@@ -1,6 +1,6 @@
 import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
-  ModalBuilder, PermissionFlagsBits, SlashCommandBuilder,
+  ModalBuilder, PermissionFlagsBits, SlashCommandBuilder, StringSelectMenuBuilder,
   TextInputBuilder, TextInputStyle,
 } from "discord.js";
 import PartyGame from "../models/PartyGame.js";
@@ -15,15 +15,17 @@ import { COURT_MIN_PLAYERS, safeCourtText } from "../services/party-court-rules.
 export const data = new SlashCommandBuilder()
   .setName("party").setDescription("Staff-hosted, text-based Party Games")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-  .addSubcommand(c => c.setName("host").setDescription("Create a Court of Chaos signup lobby in the Party Games channel")
+  .addSubcommand(c => c.setName("host").setDescription("Choose a Party Game and create its signup lobby")
+    .addStringOption(o => o.setName("game").setDescription("Game to host (or choose in the private game menu)")
+      .addChoices({ name: "Court of Chaos", value: "court" }))
     .addStringOption(o => o.setName("category").setDescription("Prompt category")
       .addChoices(
         { name: "Mixed", value: "mixed" }, { name: "Silly & Random", value: "silly" },
         { name: "Roblox & Adopt Me", value: "roblox" }, { name: "Fantasy & Chaos", value: "fantasy" }))
     .addBooleanOption(o => o.setName("rewards").setDescription("Award AM Isa Points to eligible players (default: yes)")))
-  .addSubcommand(c => c.setName("start").setDescription("Open party signup; choose a game for the lobby")
-    .addStringOption(o => o.setName("game").setDescription("Which party game will members join?")
-      .setRequired(true).addChoices({ name: "Court of Chaos", value: "court" })))
+  .addSubcommand(c => c.setName("start").setDescription("Choose a Party Game, then open player signup")
+    .addStringOption(o => o.setName("game").setDescription("Game to play (or choose in the private game menu)")
+      .addChoices({ name: "Court of Chaos", value: "court" })))
   .addSubcommand(c => c.setName("next").setDescription("Start the next round after the 10-second break"))
   .addSubcommand(c => c.setName("status").setDescription("Show the active game's private staff status"))
   .addSubcommand(c => c.setName("pause").setDescription("Pause the game's timer"))
@@ -65,47 +67,68 @@ async function startHostedLobby(interaction, game, requestedType = "court") {
     "This lobby was already started or changed. Check /party status." };
 }
 
+async function createPartySignup(interaction, selectedGame, category = "mixed", rewardsEnabled = true) {
+  if (selectedGame !== "court")
+    return interaction.editReply(errorText("That party game is not available yet."));
+  const { channel } = await getConfiguredTextChannelAndConfig(
+    interaction, "partyGamesChannelId", "Party Games",
+  );
+  let game;
+  try {
+    game = await PartyGame.create({
+      guildId: interaction.guildId, channelId: channel.id,
+      hostId: interaction.user.id, gameType: selectedGame,
+      phase: "lobby", round: 0, players: [], phaseEndsAt: null,
+      category, rewardsEnabled,
+    });
+  } catch (error) {
+    if (Number(error?.code) === 11000)
+      return interaction.editReply(errorText(
+        "This server already has an active party lobby or game. Use /party status."));
+    throw error;
+  }
+  try {
+    const message = await channel.send(await courtGameDisplay(game));
+    await PartyGame.updateOne({ _id: game._id },
+      { $set: { messageId: message.id, renderedVersion: 1 } });
+    return interaction.editReply({
+      ...errorText("**Game selected: Court of Chaos**\nSignup lobby created: " + message.url +
+        "\nMembers can Join or Leave. When everyone is ready, the host presses Start Party."),
+      components: [],
+    });
+  } catch (error) {
+    await PartyGame.updateOne({ _id: game._id },
+      { $set: { active: false, phase: "cancelled", finishedAt: new Date() } });
+    throw error;
+  }
+}
+
+function partyGamePicker(interaction, category, rewardsEnabled) {
+  return {
+    ...errorText("**Choose your Party Game**\nSelect the game below to open its signup lobby. " +
+      "The game will NOT start until you press **Start Party** after players join."),
+    components: [new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(["party", "pick", interaction.user.id, category, rewardsEnabled ? "1" : "0"].join(":"))
+        .setPlaceholder("Select a game to host")
+        .addOptions({ label: "Court of Chaos", value: "court",
+          description: "Two funny prompts per player, then vote on each matchup" }),
+    )],
+  };
+}
+
 export async function execute(interaction) {
   if (!staff(interaction)) return interaction.editReply(errorText("Only staff with Manage Server can host Party Games."));
   const op = interaction.options.getSubcommand();
   if (op === "host" || op === "start") {
-    // /party start SELECTS a game and creates its signup lobby; it does not
-    // begin answering. Only the lobby host's Start Party button does that.
-    const selectedGame = op === "start" ? interaction.options.getString("game", true) : "court";
-    if (selectedGame !== "court")
-      return interaction.editReply(errorText("That party game is not available yet."));
-    // The destination is saved by /setup channels, never inferred from the
-    // command's current channel. Never post the lobby into general chat.
-    const { channel } = await getConfiguredTextChannelAndConfig(
-      interaction, "partyGamesChannelId", "Party Games",
-    );
-    let game;
-    try {
-      game = await PartyGame.create({
-        guildId: interaction.guildId, channelId: channel.id,
-        hostId: interaction.user.id, gameType: selectedGame,
-        phase: "lobby", round: 0, players: [], phaseEndsAt: null,
-        category: op === "host" ? interaction.options.getString("category") || "mixed" : "mixed",
-        rewardsEnabled: op === "host" ? interaction.options.getBoolean("rewards") !== false : true,
-      });
-    } catch (error) {
-      if (Number(error?.code) === 11000)
-        return interaction.editReply(errorText("This server already has an active party lobby or game. Use /party status."));
-      throw error;
-    }
-    try {
-      const message = await channel.send(await courtGameDisplay(game));
-      await PartyGame.updateOne({ _id: game._id }, { $set: { messageId: message.id, renderedVersion: 1 } });
-      return interaction.editReply(errorText(
-        "Court of Chaos signup lobby created: " + message.url +
-        ". Members can Join or Leave. When everyone is ready, press Start Party in the lobby."
-      ));
-    } catch (error) {
-      await PartyGame.updateOne({ _id: game._id }, {
-        $set: { active: false, phase: "cancelled", finishedAt: new Date() },
-      });
-      throw error;
-    }
+    // A game must be chosen, either via the slash option or the explicit
+    // private dropdown. /party host no longer silently assumes Court.
+    const selectedGame = interaction.options.getString("game");
+    const category = op === "host" ? interaction.options.getString("category") || "mixed" : "mixed";
+    const rewardsEnabled = op === "host" ? interaction.options.getBoolean("rewards") !== false : true;
+    if (!selectedGame)
+      return interaction.editReply(partyGamePicker(interaction, category, rewardsEnabled));
+    return createPartySignup(interaction, selectedGame, category, rewardsEnabled);
   }
   const game = await activeGame(interaction.guildId);
   if (!game) return interaction.editReply(errorText("There is no active Party Game in this server."));
@@ -186,10 +209,21 @@ function privateReply(interaction, msg) {
 }
 
 export async function handlePartyInteraction(interaction) {
-  if (!interaction.isButton() && !interaction.isModalSubmit())
-    return;
+  if (!interaction.isButton() && !interaction.isModalSubmit() &&
+      !interaction.isStringSelectMenu()) return;
   const [prefix, action, gameId, roundText, matchupText, candidateId] = interaction.customId.split(":");
   if (prefix !== "party") return;
+  if (action === "pick") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    if (!interaction.isStringSelectMenu() || !staff(interaction) ||
+        interaction.user.id !== gameId)
+      return interaction.editReply(errorText("Only the staff member who opened this game picker can select the game."));
+    const selected = interaction.values?.[0];
+    if (selected !== "court")
+      return interaction.editReply(errorText("That party game is not available yet."));
+    const category = ["mixed", "silly", "roblox", "fantasy"].includes(roundText) ? roundText : "mixed";
+    return createPartySignup(interaction, selected, category, matchupText !== "0");
+  }
   // Show modals without a database round-trip. All eligibility, round and
   // deadline checks are performed again on the actual modal submission.
   if (action === "answer") {
