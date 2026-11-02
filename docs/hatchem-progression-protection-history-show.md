@@ -8,7 +8,7 @@
 - Use `.dustupgrade CARDID` or `.upgrade CARDID dust` when you own **one, two, or three unlocked physical copies** of the same pet, release, and stage. The bot selects the matching copies and previews exactly what would be consumed.
 - `/cards upgrade card:CARDID use_dust:true` or `/cards dustupgrade card:CARDID` offers the same operation via slash commands.
 - The minimum is **one real card**. Dust cannot conjure a pet you never acquired. Four physical copies must use the ordinary upgrade, without dust.
-- Each missing **Normal** card costs matching-rarity dust: Common **5**, Uncommon **6**, Rare **7**, Ultra-Rare **8**, Legendary **10**. Each missing **Neon** card costs 5× that rarity's Normal substitution cost (25/30/35/40/50), because a Neon is a much larger asset. These are **initial upgrade-spending prices**; the previously chosen burn rewards **1 / 5 / 23** by stage remain unchanged.
+- Each missing **Normal** card costs matching-rarity dust: Common **2**, Uncommon **2**, Rare **3**, Ultra-Rare **3**, Legendary **4**. Each missing **Neon** costs five times that: **10 / 10 / 15 / 15 / 20** dust per missing Neon, respectively. Burn rewards are unchanged: **1 / 5 / 23** dust for Normal / Neon / Mega Neon.
 - The owner must confirm within 90 seconds. Within one MongoDB transaction: recheck all physical copy IDs are still owned, unlocked, and matching; conditionally subtract the exact rarity dust; consume the real copies; mint the new Neon/Mega with a new public ID; and write a lifecycle audit entry including dust spent. If any step fails, **none** of the cards or dust changes.
 - Cancel has no effect. Re-clicking an old confirmation cannot debit dust twice.
 - Locked cards cannot be selected or consumed by either upgrade type.
