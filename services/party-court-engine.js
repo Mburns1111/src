@@ -6,7 +6,6 @@ import PartyResponse from "../models/PartyResponse.js";
 import PartyPost from "../models/PartyPost.js";
 import { randomUUID, createHash } from "node:crypto";
 import { closeCourtAnswerPanels } from "./party-private-panels.js";
-import PointsLedger from "../models/PointsLedger.js";
 import { grantPoints } from "./points-rewards.js";
 import {
   assignCourtMatchups, courtRewardPlan, safeCourtText,
@@ -145,8 +144,9 @@ export async function courtGameDisplay(game) {
         value: game.rewardsEnabled
           ? "**+5 Points** for completing at least 2 rounds.\n" +
             "**Placement bonus:** 1st **+10**, 2nd **+6**, 3rd **+3** Points.\n" +
-            "Maximum **2 rewarded games per UTC day**; players must qualify. " +
-            "These are bot currency Points, separate from the game scores above."
+            "**No daily limit** on rewarded games or first-place wins. " +
+            "Each completed game awards its own eligible Points; these are " +
+            "bot currency, separate from the game scores above."
           : "Points rewards were disabled for this game." });
       if (game.prizeMessage) {
         const best = standings[0];
@@ -574,19 +574,12 @@ export async function settleCourtRewards(game) {
     return;
   }
   const rankings = topScores(game);
-  const todayUTC = new Date();
-  todayUTC.setUTCHours(0, 0, 0, 0);
+  // Every separately hosted and completed game can reward the same winner.
+  // Unique event keys still prevent credits from being paid twice for the
+  // SAME game if the bot restarts or reconciliation retries.
   for (const user of rankings) {
     if (Number(game.answeredCounts?.[user.userId] || 0) < 2) continue;
     const eventKey = "party:" + game._id + ":complete";
-    const alreadyAwarded = await PointsLedger.exists({ guildId: game.guildId, discordUserId: user.userId, eventKey });
-    if (!alreadyAwarded) {
-      const prior = await PointsLedger.countDocuments({
-        guildId: game.guildId, discordUserId: user.userId,
-        sourceType: "party-complete", createdAt: { $gte: todayUTC },
-      });
-      if (prior >= 2) continue;
-    }
     const rewards = courtRewardPlan(rankings, game.answeredCounts, game.completedRounds);
     const bonus = rewards.find(r => r.userId === user.userId)?.placement || 0;
     await grantPoints({
