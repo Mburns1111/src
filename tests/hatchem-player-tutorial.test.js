@@ -85,7 +85,7 @@ test("guide button opens private page, Next edits privately, Finish ends cleanly
     assert.deepEqual(updated.embeds,[]);
     assert.deepEqual(updated.components,[]);
     assert.equal(await handleHatchemTutorialButton({...base,customId:"cards:tutorial:page:99"}),true);
-    assert.match(replied.content,/not available/);
+    assert.match(replied.content,/isn\u0027t available/);
   });
 });
 
