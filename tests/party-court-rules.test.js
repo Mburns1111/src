@@ -12,7 +12,7 @@ test("Court prompt bank uses original, distinct questions across every category"
     assert.ok(COURT_PROMPTS.some(p => p.category === name));
 });
 
-for (const count of [4,5,6,19,20]) {
+for (const count of [1,2,3,4,5,6,19,20]) {
   test("court matchups assign exactly one opponent group per player, count " + count, () => {
     const players = Array.from({ length: count }, (_, i) => String(100000000000000001n + BigInt(i)));
     const rounds = assignCourtMatchups(players, 1, "mixed", [], () => 0.37);
@@ -20,13 +20,14 @@ for (const count of [4,5,6,19,20]) {
     assert.equal(assigned.length, count);
     assert.equal(new Set(assigned).size, count);
     assert.deepEqual(new Set(assigned), new Set(players));
-    assert.equal(rounds.filter(m => m.playerIds.length === 3).length, count % 2);
+    assert.equal(rounds.filter(m => m.playerIds.length === 3).length, count >= 3 ? count % 2 : 0);
+    assert.equal(rounds.filter(m => m.playerIds.length === 1).length, count === 1 ? 1 : 0);
     assert.equal(new Set(rounds.map(m => m.promptId)).size, rounds.length);
   });
 }
 test("rejects duplicate participants and invalid player limits", () => {
   assert.throws(() => assignCourtMatchups(["a","b","c","d","d"], 1), /distinct/);
-  assert.throws(() => assignCourtMatchups(["a","b","c"], 1), /4/);
+  assert.throws(() => assignCourtMatchups([], 1), /1/);
   assert.throws(() => assignCourtMatchups(Array.from({length:21}, (_,i)=>String(i)), 1), /20/);
 });
 test("prior prompts are excluded while enough choices remain", () => {
@@ -51,7 +52,7 @@ test("three-way matchups split equally on no votes", () => {
   const answers=p.map(userId=>({userId,text:"answer"}));
   assert.deepEqual(scoreCourtMatchup(p,answers,[],1),{a:333,b:333,c:333});
 });
-test("completion rewards require two answered rounds and four players", () => {
+test("completion rewards require two answered rounds, regardless of lobby size", () => {
   const players=["a","b","c","d"].map((userId,i)=>({userId,score:100-i}));
   const answers={a:3,b:2,c:1,d:2};
   assert.deepEqual(courtRewardPlan(players,answers,3).map(p=>[p.userId,p.completion,p.placement]),
@@ -77,4 +78,28 @@ test("final-round score then matchup wins break ties; exact ties share placement
   assert.deepEqual(plan.map(p=>[p.userId,p.placement]), [
     ["b",10],["a",6],["c",6],["d",0],
   ]);
+});
+
+test("solo Court game can reveal answers without a comparison or placement bonus", () => {
+  const matchups = assignCourtMatchups(["solo"], 1, "silly", [], () => 0.2);
+  assert.equal(matchups.length, 1);
+  assert.deepEqual(matchups[0].playerIds, ["solo"]);
+  assert.deepEqual(scoreCourtMatchup(["solo"], [{ userId: "solo", text: "A funny answer" }], [], 1), {solo:0});
+  assert.deepEqual(courtRewardPlan([{userId:"solo",score:0}], {solo:3}, 3), [
+    {userId:"solo",completion:5,placement:0},
+  ]);
+  assert.deepEqual(courtRewardPlan([{userId:"solo",score:0}], {solo:1}, 3), []);
+});
+test("a two-player game forms one head-to-head matchup", () => {
+  const matchups=assignCourtMatchups(["a","b"], 1);
+  assert.equal(matchups.length, 1);
+  assert.equal(matchups[0].playerIds.length, 2);
+  assert.deepEqual(scoreCourtMatchup(["a","b"],[
+    {userId:"a",text:"One"}, {userId:"b",text:"Two"},
+  ],[],1),{a:500,b:500});
+});
+test("a three-player game forms one three-way matchup", () => {
+  const matchups=assignCourtMatchups(["a","b","c"], 1);
+  assert.equal(matchups.length, 1);
+  assert.equal(matchups[0].playerIds.length, 3);
 });
