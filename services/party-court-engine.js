@@ -142,11 +142,8 @@ export async function courtGameDisplay(game) {
     if (game.phase === "ended") {
       embed.addFields({ name: "🎟️ AM Isa Points rewards",
         value: game.rewardsEnabled
-          ? "**+5 Points** for completing at least 2 rounds.\n" +
-            "**Placement bonus:** 1st **+10**, 2nd **+6**, 3rd **+3** Points.\n" +
-            "**No daily limit** on rewarded games or first-place wins. " +
-            "Each completed game awards its own eligible Points; these are " +
-            "bot currency, separate from the game scores above."
+          ? "**Answer in 2+ rounds:** +5 Points\n" +
+            "**Placement:** 1st +10 · 2nd +6 · 3rd +3 Points"
           : "Points rewards were disabled for this game." });
       if (game.prizeMessage) {
         const best = standings[0];
