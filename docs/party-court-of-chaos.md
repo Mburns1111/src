@@ -16,7 +16,7 @@ Use a development bot token, development MongoDB database and test Discord serve
 4. Restart the test bot.
 5. Create a Discord text channel for games, then run /setup channels party_games:#your-channel. As staff with Manage Server, use /party host (category and rewards optional). The lobby always posts in the configured channel, regardless of where the command was used.
 6. Have 1–20 accounts use Join; Leave and rejoin; try the 21st account. Test separate 1-, 2- and 3-player games.
-7. Staff runs /party start. Every player gets **two different prompts per round** through My Prompts & Answers and submits each answer with its own button/modal. The modal reply must say **Saved for Round 1** and show exactly what was stored. Clicking My Prompt & Answer again must display **Your saved answer**. Staff can use /party status to see the number of saved submissions without viewing private answers.
+7. The **staff member who hosted** starts the lobby using the **Start Party** button beside Join and Leave, or `/party start game:Court of Chaos`. Other admins and members cannot start someone else's lobby; at least one player must have joined. Every player then gets **two different prompts per round** through My Prompts & Answers and submits each answer with its own button/modal. The modal reply must say **Saved for Round 1** and show exactly what was stored. Clicking My Prompt & Answer again must display **Your saved answer**. Staff can use /party status to see the number of saved submissions without viewing private answers.
 8. After the **full 60-second answer period**, with 2+ players, each question is shown individually with **30 seconds to read and vote**. With one player, both prompts are revealed without voting. The timer does NOT end early when all answers have been submitted.
 9. Each question creates a **new Discord voting message**, left in the channel as a permanent record. When voting ends, the bot edits **that question's own post** to show the answers, voters' result/points, and removes its buttons. After the 8-second reveal the bot **sends a new message** for the following question rather than overwriting the previous one. At the end of rounds 1 and 2 the bot posts a **new standings / Start Next Round message**; staff can click after the minimum 10-second break or run `/party next`. Round 3 ends with a separate final standings message.
 10. Review the leaderboard. If rewards were enabled, check /points-admin history and audit. Verify each eligible member earns +5 completion (including solo participants with two submitted answers); placement bonuses are +10/+6/+3 only for games with multiple competitors. No more than two rewarded games per UTC date.
@@ -24,6 +24,7 @@ Use a development bot token, development MongoDB database and test Discord serve
 ## Staff controls
 
 - /setup channels party_games:#your-channel: save the dedicated Party Games channel, without changing the other channels
+- /party start game:Court of Chaos: begin the hosted lobby; only its original host may do so. The required game selector lists Court of Chaos now and is ready for additional game types later
 - /party status: phase, players and remaining time
 - /party next: staff starts the next round after the 10-second break; also available as a staff-only button in the Party Games message
 - /party pause: stop automatic phase advances
@@ -37,7 +38,7 @@ Only members with Manage Server can use /party commands. Regular members and spe
 
 ## Regression checks
 
-- A non-staff member cannot host, start, pause or cancel.
+- A non-staff member cannot host, start, pause or cancel. **Only the original lobby host can start the first round**, even when another member has Manage Server permissions. Other staff controls retain their existing permissions.
 - Only lobby members can answer; all server members except matchup contestants can vote.
 - Answers are hidden until voting. Votes are hidden until the reveal.
 - A vote can be changed until the deadline without increasing the ballot count.
@@ -78,7 +79,7 @@ Use Replit's Stop button first. In Replit Shell run `ps -eo pid,ppid,args | grep
 
 The game no longer edits the original lobby message through all phases. Instead:
 
-1. On `/party host`, one lobby post appears. Players join/leave on that lobby. When staff starts, its buttons are removed and it is marked closed.
+1. On `/party host`, one lobby post appears with **Join, Leave, Start Party** buttons. Only the staff user who created the lobby can press Start Party (or issue `/party start game:Court of Chaos`). After the host starts, all lobby buttons are removed and the lobby is marked closed.
 2. A **new round-answering post** provides a private prompt button and 60-second entry countdown. When the entry period closes, that post is marked closed; it stays visible.
 3. Every question is **its own new public voting message** with 30 seconds of voting. When the timer closes, **the same question message** is edited to display its answer results, names and points, and the vote controls are removed.
 4. After the 8-second reveal, another question begins in **a new message**. Nothing in the previous question is replaced or erased.
@@ -86,3 +87,10 @@ The game no longer edits the original lobby message through all phases. Instead:
 6. Round 3 ends with a new permanent final-standings post. Cancellation also gets its own record.
 
 The bot records the Discord message ID for each stage in MongoDB, so normal restart/reconciliation will edit the correct historical question rather than overwriting a different one. If a send is interrupted before its ID is saved, the bot searches recent channel messages for the session/stage marker before attempting a replacement. Keep the Party Games channel writable/readable to the bot. Previous games using the old single-message format are not retroactively reconstructed if their matchups were never recorded.
+
+## Initial lobby start permissions and game selection
+
+- A lobby shows the host's mention plus three buttons: **Join**, **Leave**, and **Start Party**. The Start Party button is visible to everyone, but only the user who created that lobby **and still has Manage Server permission** may use it. Everyone else gets a private denial without starting the game.
+- The slash alternative is **`/party start game:Court of Chaos`**, using a required Discord game selector. Court of Chaos is the only implemented game, so no other game is advertised as playable.
+- The slash command and Start Party button share the same permission, game-type and player-count checks. Both require at least one person in the lobby and prevent starting a game that is already underway. Staff in the server may still use their existing round-management commands.
+- This change adds a slash-command option, so run **`node register-commands.js`** on the **development bot** after pulling the branch. Do not run the development registration against the live application's credentials.
