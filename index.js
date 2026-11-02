@@ -578,7 +578,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleCardGrab(interaction);
       return;
     }
-    if ((interaction.isButton() || interaction.isModalSubmit()) && interaction.customId.startsWith("party:")) {
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("party:")) {
       await handlePartyInteraction(interaction);
       return;
     }
