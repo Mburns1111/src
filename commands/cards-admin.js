@@ -11,9 +11,8 @@ export const data = new SlashCommandBuilder()
     .addRoleOption(option => option.setName("role")
       .setDescription("Role registered collectors will receive").setRequired(true)))
   .addSubcommand(command => command.setName("auto-drops")
-    .setDescription("Enable or disable scheduled eggs in this server")
-    .addBooleanOption(option => option.setName("enabled").setDescription("Post eggs automatically").setRequired(true))
-    .addIntegerOption(option => option.setName("minutes").setDescription("Minutes between eggs (15–1440, default 60)").setMinValue(15).setMaxValue(1440)));
+    .setDescription("Enable or disable random and activity-triggered eggs")
+    .addBooleanOption(option => option.setName("enabled").setDescription("Post automatic eggs").setRequired(true)));
 
 export async function execute(interaction) {
   if (!interaction.guildId || !interaction.guild) return interaction.editReply("Use this command inside a server.");
@@ -25,10 +24,10 @@ export async function execute(interaction) {
       const result = await configureAutomaticDrops({
         guildId: interaction.guildId,
         enabled: interaction.options.getBoolean("enabled", true),
-        minutes: interaction.options.getInteger("minutes"),
+
       });
       return interaction.editReply(result.enabled
-        ? "Automatic Hatchem eggs enabled every **" + result.minutes + " minutes** in the configured Hatchem channel. Next egg: <t:" + Math.ceil(result.nextAt.getTime()/1000) + ":R>. This does not affect player drop cooldowns."
+        ? "Automatic Hatchem eggs enabled: **randomly every 45–75 minutes**, plus a chance of bonus eggs during active conversations. Next timed egg: <t:" + Math.ceil(result.nextAt.getTime()/1000) + ":R>. Player drop cooldowns are unaffected."
         : "Automatic Hatchem eggs disabled for this server. Player-created drops are unaffected.");
     } catch(error) { return interaction.editReply(error.message); }
   }
