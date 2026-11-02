@@ -14,7 +14,7 @@ import { data as adminImportCommand } from "./commands/admin-import-listing.js";
 import { data as shopCommand } from "./commands/shop.js";
 import { data as cardsCommand,ownerCardOptions } from "./commands/cards.js";
 import { data as cardsAdminCommand } from "./commands/cards-admin.js";
-import { data as cardsOwnerCommand } from "./commands/cards-owner.js";
+import { data as cardsOwnerCommand, cardsReleaseCommand, RELEASE_LIFECYCLE_SUBCOMMANDS } from "./commands/cards-owner.js";
 import { data as testPointsCommand } from "./commands/test-points.js";
 import { data as pointsAdminCommand } from "./commands/points-admin.js";
 import { data as pointsObserveCommand } from "./commands/points-observe.js";
@@ -35,9 +35,13 @@ const playerCards = cardsCommand.toJSON();
 const privateOwnerCards = {
   ...cardsOwnerCommand.toJSON(),
   default_member_permissions: "0",
-  options: [...cardsOwnerCommand.toJSON().options,...ownerCardOptions.toJSON().options],
+  options: [
+    ...cardsOwnerCommand.toJSON().options.filter(option => !RELEASE_LIFECYCLE_SUBCOMMANDS.includes(option.name)),
+    ...ownerCardOptions.toJSON().options,
+  ],
 };
-if(playerCards.options.length>25 || privateOwnerCards.options.length>25)
+const privateReleaseCards = { ...cardsReleaseCommand, default_member_permissions: "0" };
+if ([playerCards, privateOwnerCards, privateReleaseCards].some(command => command.options.length > 25))
   throw new Error("Discord command subcommand limit exceeded.");
 
 const commands = [
@@ -66,7 +70,7 @@ console.log(
 if (guildId) {
   await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
     body: process.env.ENABLE_CARD_GAME_TEST === "1"
-      ? [...commands, playerCards, cardsAdminCommand.toJSON(), privateOwnerCards]
+      ? [...commands, playerCards, cardsAdminCommand.toJSON(), privateOwnerCards, privateReleaseCards]
       : commands,
   });
 
