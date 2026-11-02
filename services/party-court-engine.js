@@ -4,7 +4,8 @@ import {
 import PartyGame from "../models/PartyGame.js";
 import PartyResponse from "../models/PartyResponse.js";
 import PartyPost from "../models/PartyPost.js";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
+import { closeCourtAnswerPanels } from "./party-private-panels.js";
 import PointsLedger from "../models/PointsLedger.js";
 import { grantPoints } from "./points-rewards.js";
 import {
@@ -88,16 +89,18 @@ export async function courtGameDisplay(game) {
       button(partyButton(game, "prompt"), "My Prompts & Answers", ButtonStyle.Primary)));
   } else if (game.phase === "voting" || game.phase === "reveal") {
     const results = await courtBatchResults(game);
-    embed.setDescription("**Round " + game.round + " of 3** · Question " +
-      (game.batch * BATCH_SIZE + 1) + " of " + game.matchups.length + "\n" +
-      (game.phase === "voting"
-        ? "**Vote for your favorite answer!** Closes " + seconds(game.phaseEndsAt) +
-          (game.paused ? " · **PAUSED**" : "") + "."
-        : (game.players.length === 1 ? "Solo showcase · no audience voting." :
-          "**Voting complete — here are the results.**")) +
-      (game.phase === "reveal" && game.phaseEndsAt ? "\nNext question " + seconds(game.phaseEndsAt) + "." : ""));
+    const questionNumber = game.batch * BATCH_SIZE + 1;
+    const totalQuestions = game.matchups.length;
+    // The prompt is the visual headline. Keep round / matchup labels in
+    // the footer instead of putting administrative details above the answers.
     for (const { match, matchupIndex, answers, votes, scores } of results) {
-      embed.addFields({ name: "Question", value: safeCourtText(match.prompt) || "(No prompt)" });
+      embed.setTitle((game.phase === "voting" ? "🗳️ " : "🏆 ") +
+        (safeCourtText(match.prompt) || "Court of Chaos Question"));
+      embed.setDescription(game.phase === "voting"
+        ? "**Vote for your favorite answer!**\nVoting closes " +
+          seconds(game.phaseEndsAt) + (game.paused ? " · **PAUSED**" : "") + "."
+        : (game.players.length === 1 ? "**Solo showcase**" :
+          "**Voting complete — the verdict is in!**"));
       const participants = match.playerIds.map((id, i) => ({
         id, label: String.fromCharCode(65 + i), answer: answers.find(a => a.userId === id)?.text || "",
       }));
@@ -107,9 +110,9 @@ export async function courtGameDisplay(game) {
           !match.playerIds.includes(v.userId || v.voterId)).length;
         embed.addFields({
           name: "Answer " + participant.label,
-          value: answer + (game.phase === "reveal"
-            ? "\n<@" + participant.id + "> · **" + count + " vote" +
-              (count === 1 ? "" : "s") + "** · **" + (scores[participant.id] || 0) + " pts**"
+          value: "**" + answer + "**" + (game.phase === "reveal"
+            ? "\n<@" + participant.id + "> · " + count + " vote" +
+              (count === 1 ? "" : "s") + " · **" + (scores[participant.id] || 0) + " game pts**"
             : ""),
         });
       }
@@ -117,9 +120,11 @@ export async function courtGameDisplay(game) {
         const candidates = participants.filter(p => p.answer);
         if (candidates.length) rows.push(new ActionRowBuilder().addComponents(...candidates.map(p =>
           button(partyButton(game, "vote", game.round + ":" + matchupIndex + ":" + p.id),
-            "Match " + (matchupIndex + 1) + " · " + p.label, ButtonStyle.Primary))));
+            "Vote " + p.label, ButtonStyle.Primary))));
       }
     }
+    embed.setFooter({ text: "Round " + game.round + "/3 · Question " +
+      questionNumber + "/" + totalQuestions });
   } else if (game.phase === "intermission" || game.phase === "ended") {
     embed.setDescription(game.phase === "ended" ? "**Final standings**" :
       "**Round " + game.round + " complete.** The next round **will not start automatically**.\n" +
@@ -135,8 +140,25 @@ export async function courtGameDisplay(game) {
       return "**" + place + ".** <@" + p.userId + "> — **" + p.score + " pts**";
     }).join("\n");
     embed.addFields({ name: "Standings", value: ranks || "No scores yet" });
-    if (game.phase === "ended") embed.addFields({ name: "AM Isa Points",
-      value: game.rewardsEnabled ? "Rewards enabled (eligibility rules apply)." : "Rewards disabled." });
+    if (game.phase === "ended") {
+      embed.addFields({ name: "🎟️ AM Isa Points rewards",
+        value: game.rewardsEnabled
+          ? "**+5 Points** for completing at least 2 rounds.\n" +
+            "**Placement bonus:** 1st **+10**, 2nd **+6**, 3rd **+3** Points.\n" +
+            "Maximum **2 rewarded games per UTC day**; players must qualify. " +
+            "These are bot currency Points, separate from the game scores above."
+          : "Points rewards were disabled for this game." });
+      if (game.prizeMessage) {
+        const best = standings[0];
+        const winners = standings.filter(p => best && p.score === best.score &&
+          p.finalRound === best.finalRound && p.wins === best.wins);
+        embed.addFields({ name: "🏆 Host-provided first-place prize",
+          value: String(game.prizeMessage).replace(/@/g, "@\u200b").slice(0, 300) +
+            "\n**Winner" + (winners.length === 1 ? "" : "s") + ":** " +
+            (winners.map(p => "<@" + p.userId + ">").join(", ") || "Not determined") +
+            "\n*Arrange delivery with staff; in-game pets and eggs are not sent automatically.*" });
+      }
+    }
   } else {
     embed.setDescription("The game was ended by staff. No rewards will be issued.");
   }
@@ -149,7 +171,11 @@ export async function courtGameDisplay(game) {
 // A Mongo lease serializes concurrent publish attempts across bot processes.
 // A visible deterministic marker lets retry recover a message sent just before
 // a crash, even if its message ID had not yet been saved to MongoDB.
+// Short, stable marker: keeps game history recoverable after a crash while
+// showing only a compact reference in the embed footer.
 const stageMarker = (game, key) =>
+  "#" + createHash("sha256").update(String(game._id)).digest("hex").slice(0, 10) + ":" + key;
+const legacyStageMarker = (game, key) =>
   "-# Court " + String(game._id) + " | " + key;
 const stageKey = (round, kind, index) =>
   "r" + round + "-" + kind + (index === undefined ? "" : "-" + index);
@@ -159,8 +185,11 @@ const stagePayload = (game, key, payload) => {
   // Keep the recovery key in the small embed footer, rather than a visible
   // raw game ID line beneath every question. Existing plaintext posts can
   // still be discovered using their legacy content marker.
-  const embeds = (payload.embeds || []).map(value =>
-    EmbedBuilder.from(value).setFooter({ text: stageMarker(game, key) }));
+  const embeds = (payload.embeds || []).map(value => {
+    const embed = EmbedBuilder.from(value);
+    const existing = embed.toJSON().footer?.text || "";
+    return embed.setFooter({ text: (existing ? existing + " · " : "") + stageMarker(game, key) });
+  });
   return {
     ...payload, content: "", embeds,
     allowedMentions: { parse: [] },
@@ -194,11 +223,13 @@ async function publishStage(game, channel, cache, key, variant, payload, { curre
     const recent = await channel.messages.fetch({ limit: 100 });
     const existing = [...recent.values()].find(message =>
       message.author?.id === channel.client?.user?.id &&
-      (message.embeds?.some(embed =>
-        (embed.footer?.text || embed.data?.footer?.text ||
-          (typeof embed.toJSON === "function" ? embed.toJSON().footer?.text : null)) ===
-            stageMarker(game, key)) ||
-        message.content?.split("\n").includes(stageMarker(game, key))));
+      (message.embeds?.some(embed => {
+        const footer = embed.footer?.text || embed.data?.footer?.text ||
+          (typeof embed.toJSON === "function" ? embed.toJSON().footer?.text : "") || "";
+        return footer.includes(stageMarker(game, key)) ||
+          footer.includes(legacyStageMarker(game, key));
+      }) || message.content?.split("\n").some(line =>
+        line === stageMarker(game, key) || line === legacyStageMarker(game, key))));
     const message = existing || await channel.send(display);
     const openedAt = message.createdAt || (
       message.createdTimestamp ? new Date(message.createdTimestamp) : new Date());
@@ -509,6 +540,8 @@ export async function advanceCourtGame(game, { force = false } = {}) {
     _id: game._id, phase: game.phase, round: game.round, batch: game.batch,
     phaseEndsAt: game.phaseEndsAt, paused: false,
   }, { $set: next, $inc: { renderVersion: 1 } });
+  if (changed.modifiedCount === 1 && game.phase === "answering")
+    await closeCourtAnswerPanels(game._id, game.round);
   return changed.modifiedCount === 1;
 }
 
