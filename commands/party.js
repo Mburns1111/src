@@ -11,7 +11,7 @@ import {
   publishCourtGame, partyButton,
 } from "../services/party-court-engine.js";
 import { COURT_MIN_PLAYERS, safeCourtText } from "../services/party-court-rules.js";
-import { trackCourtAnswerPanel } from "../services/party-private-panels.js";
+import { trackCourtAnswerPanel, closeCourtAnswerPanels } from "../services/party-private-panels.js";
 
 export const data = new SlashCommandBuilder()
   .setName("party").setDescription("Staff-hosted, text-based Party Games")
@@ -214,6 +214,7 @@ export async function execute(interaction) {
       $inc: { renderVersion: 1 },
     })).modifiedCount > 0;
   }
+  if (changed && op === "end") await closeCourtAnswerPanels(game._id, game.round);
   // The command was already deferred in index.js. Confirm the action before
   // waiting on Discord message edits; the persistent sweeper retries failures.
   const reply = await interaction.editReply(errorText(changed ? "Party Game updated." : "The game changed while processing. Check /party status."));
