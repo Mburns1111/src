@@ -5,8 +5,10 @@ const validOwner = value => /^\d{17,20}$/.test(String(value || ""));
 const PAGE_LIMIT = 9999;
 
 /** A destination-oriented ID means navigation never needs in-memory sessions. */
-function buttonId(view, page, ownerId) {
-  return `cards:achievements:${view}:${page}:${ownerId}`;
+function buttonId(action, view, page, ownerId) {
+  // Discord rejects duplicate custom IDs even on disabled controls.
+  // Include control identity to cover first, last and single-page lists.
+  return `cards:achievements:${action}:${view}:${page}:${ownerId}`;
 }
 
 /**
@@ -20,17 +22,17 @@ export function achievementMessage(rows, ownerId, { view = "compact", page = 1 }
   const pages = achievementPages(rows, { detailed: view === "details" });
   const current = Number.isSafeInteger(Number(page)) ? Math.max(1, Math.min(pages.length, Number(page))) : 1;
   const count = pages.length;
-  const button = (label, mode, destination, style, disabled = false) =>
+  const button = (label, action, mode, destination, style, disabled = false) =>
     new ButtonBuilder()
-      .setCustomId(buttonId(mode, destination, ownerId))
+      .setCustomId(buttonId(action, mode, destination, ownerId))
       .setLabel(label)
       .setStyle(style)
       .setDisabled(disabled);
   const row = new ActionRowBuilder().addComponents(
-    button("◀ Previous", view, Math.max(1, current - 1), ButtonStyle.Secondary, current === 1),
-    button("Page " + current + "/" + count, view, current, ButtonStyle.Secondary, true),
-    button("Next ▶", view, Math.min(count, current + 1), ButtonStyle.Secondary, current === count),
-    button(view === "details" ? "Compact" : "Show Details",
+    button("◀ Previous", "previous", view, Math.max(1, current - 1), ButtonStyle.Secondary, current === 1),
+    button("Page " + current + "/" + count, "indicator", view, current, ButtonStyle.Secondary, true),
+    button("Next ▶", "next", view, Math.min(count, current + 1), ButtonStyle.Secondary, current === count),
+    button(view === "details" ? "Compact" : "Show Details", "toggle",
       view === "details" ? "compact" : "details", current, ButtonStyle.Primary),
   );
   return { content: pages[current - 1], components: [row], allowedMentions: { parse: [] } };
@@ -50,13 +52,14 @@ const deny = (interaction, content) => interaction.reply({
 /** Page buttons are usable on slash ephemeral replies and DM messages. */
 export async function handleCardAchievementButton(interaction) {
   const parts = String(interaction.customId || "").split(":");
-  if (!interaction.isButton() || parts.length !== 5 ||
+  if (!interaction.isButton() || parts.length !== 6 ||
       parts[0] !== "cards" || parts[1] !== "achievements" ||
-      !["compact", "details"].includes(parts[2]) ||
-      !/^[1-9]\d{0,3}$/.test(parts[3]) || !validOwner(parts[4])) {
+      !["previous", "next", "toggle"].includes(parts[2]) ||
+      !["compact", "details"].includes(parts[3]) ||
+      !/^[1-9]\\d{0,3}$/.test(parts[4]) || !validOwner(parts[5])) {
     return deny(interaction, "That achievement page button is invalid.");
   }
-  const [, , view, pageText, ownerId] = parts;
+  const [, , , view, pageText, ownerId] = parts;
   if (interaction.user.id !== ownerId) {
     return deny(interaction, "These are another collector's private achievements. Open your own with `.achievements`.");
   }
