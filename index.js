@@ -83,6 +83,7 @@ import { data as cardsOwnerCommand, execute as executeCardsOwner, autocompleteCa
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
 import { handleCardShopInteraction } from "./commands/card-shop-ui.js";
 import { handleCardInventoryInteraction } from "./commands/card-inventory-ui.js";
+import { handleCardAchievementButton } from "./commands/card-achievements-ui.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -497,6 +498,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:inventory:")) {
       await handleCardInventoryInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:achievements:")) {
+      await handleCardAchievementButton(interaction);
       return;
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("cards:collection:")) {
