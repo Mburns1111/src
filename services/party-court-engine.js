@@ -25,8 +25,11 @@ const button = (id, label, style = ButtonStyle.Secondary) =>
 const seconds = date => date ? "<t:" + Math.ceil(new Date(date).getTime() / 1000) + ":R>" : "";
 const mentions = ids => ids.map(id => "<@" + id + ">").join(", ") || "Nobody yet";
 const gameMatchups = game => game.matchups.slice(game.batch * BATCH_SIZE, (game.batch + 1) * BATCH_SIZE);
-const topScores = game => game.players.map(userId => ({ userId, score: Number(game.scores?.[userId] || 0) }))
-  .sort((a,b) => b.score - a.score || a.userId.localeCompare(b.userId));
+const topScores = game => game.players.map(userId => ({
+  userId, score: Number(game.scores?.[userId] || 0),
+  finalRound: Number(game.roundScores?.["3"]?.[userId] || 0),
+  wins: Number(game.matchupWins?.[userId] || 0),
+})).sort((a,b) => b.score - a.score || b.finalRound - a.finalRound || b.wins - a.wins || a.userId.localeCompare(b.userId));
 const resultTitle = (game, index) => "**Matchup " + (index + 1) + "**";
 
 export async function courtBatchResults(game) {
@@ -119,6 +122,7 @@ export async function beginCourtGame(game) {
     phase: "answering", round: 1, batch: 0, matchups,
     usedPromptIds: matchups.map(m => m.promptId),
     scores: Object.fromEntries(game.players.map(id => [id, 0])),
+    roundScores: {}, matchupWins: Object.fromEntries(game.players.map(id => [id, 0])),
     answeredCounts: Object.fromEntries(game.players.map(id => [id, 0])),
     phaseEndsAt: new Date(Date.now() + ANSWER_MS), paused: false,
   }, $inc: { renderVersion: 1 } });
@@ -137,9 +141,23 @@ export async function advanceCourtGame(game, { force = false } = {}) {
   } else if (game.phase === "voting") {
     const results = await courtBatchResults(game);
     const scores = { ...game.scores };
-    for (const result of results) for (const [id, amount] of Object.entries(result.scores))
-      scores[id] = Number(scores[id] || 0) + amount;
+    const roundScores = { ...game.roundScores };
+    const perRound = { ...(roundScores[String(game.round)] || {}) };
+    const wins = { ...game.matchupWins };
+    for (const result of results) {
+      for (const [id, amount] of Object.entries(result.scores)) {
+        scores[id] = Number(scores[id] || 0) + amount;
+        perRound[id] = Number(perRound[id] || 0) + amount;
+      }
+      const amounts = Object.entries(result.scores).filter(([,value]) => value > 0);
+      const highest = Math.max(0, ...amounts.map(([,value]) => value));
+      const winners = amounts.filter(([,value]) => value === highest);
+      if (winners.length === 1) wins[winners[0][0]] = Number(wins[winners[0][0]] || 0) + 1;
+    }
+    roundScores[String(game.round)] = perRound;
     next.scores = scores;
+    next.roundScores = roundScores;
+    next.matchupWins = wins;
     next.phase = "reveal";
     next.phaseEndsAt = new Date(now + REVEAL_MS);
   } else if (game.phase === "reveal") {
