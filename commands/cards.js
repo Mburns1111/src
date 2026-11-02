@@ -137,7 +137,7 @@ export function dropText(drop, releaseName) {
   const closed = drop.status === "closed" || new Date(drop.expiresAt) <= new Date();
   return closed
     ? `🥚 **${escapeDiscord(releaseName)} Egg — Drop Ended**`
-    : `🥚 **${escapeDiscord(releaseName)} Egg — Hatched!**`;
+    : `🥚 **${escapeDiscord(releaseName)} Egg — ${drop.mode === "automatic" ? "Wild Hatch!" : "Hatched!"}**`;
 }
 export async function execute(interaction) {
   if (!interaction.guildId) return interaction.editReply("Use card commands inside a server.");
@@ -588,7 +588,7 @@ function formatCardCooldown(date) {
   return "<t:" + unix + ":R> (<t:" + unix + ":t>)";
 }
 
-async function publishCardDrop(interaction, { releaseId, testMode }) {
+async function publishCardDrop(interaction, { releaseId, testMode, automated = false }) {
   const release = await CardRelease.findOne({ releaseId, status: "active" }).lean();
   if (!release) return interaction.editReply("No active release has that ID. Configure and approve a release first.");
   const odds = Object.fromEntries(["Common","Uncommon","Rare","Ultra-Rare","Legendary"].map(k => [k, release.hatchOdds[k]]));
@@ -639,7 +639,7 @@ async function publishCardDrop(interaction, { releaseId, testMode }) {
   // refund only this attempt, without erasing a newer cooldown.
   const dropId = new mongoose.Types.ObjectId();
   let claimedCooldown = false;
-  if (!testMode) {
+  if (!testMode && !automated) {
     const claimed = await claimCardActionCooldown({
       action: "drop", discordUserId: interaction.user.id, guildId: interaction.guildId,
       sourceId: String(dropId),
@@ -656,7 +656,7 @@ async function publishCardDrop(interaction, { releaseId, testMode }) {
     drop = await CardDrop.create({
       _id: dropId, guildId: interaction.guildId, channelId: interaction.channelId,
       releaseId, createdBy: interaction.user.id,
-      mode: testMode ? "test" : "player",
+      mode: automated ? "automatic" : testMode ? "test" : "player",
       expiresAt: new Date(Date.now() + 75_000),
       slots: revealed.map(x => ({
         cardDefinitionId: x.card._id, petId: x.card.petId, rarity: x.rarity,
@@ -668,7 +668,7 @@ async function publishCardDrop(interaction, { releaseId, testMode }) {
       components: [rowButtons(drop)],
       allowedMentions: { parse: [] },
     });
-    if(achievementStart()){
+    if(achievementStart() && !automated){
       const session=await mongoose.startSession();
       try {await session.withTransaction(async()=>{
         await CardDrop.updateOne({_id:drop._id},{$set:{messageId:posted.id}},{session});
@@ -803,7 +803,7 @@ export async function handleCardGrab(interaction) {
     }).select("mode messageId").lean();
     if (!drop || (drop.messageId && String(drop.messageId) !== interaction.message?.id))
       return interaction.editReply("This card drop has ended or cannot be verified.");
-    if (drop.mode === "player") {
+    if (drop.mode !== "test") {
       if (!await canPlayCardGame(interaction.user.id, interaction.guild))
         return interaction.editReply(await cardRegistrationReminder(interaction.guildId));
       const claimed = await claimCardActionCooldown({
@@ -817,7 +817,7 @@ export async function handleCardGrab(interaction) {
     }
     const reserved = await reserveCardFromDrop({ dropId, slot, guildId: interaction.guildId, discordUserId: interaction.user.id });
     reservationSucceeded = true;
-    if (reserved.displacedUserIds?.length && drop.mode === "player") {
+    if (reserved.displacedUserIds?.length && drop.mode !== "test") {
       for (const userId of reserved.displacedUserIds) {
         await releaseCardActionCooldown({
           action: "grab", discordUserId: userId, guildId: interaction.guildId,
@@ -827,7 +827,7 @@ export async function handleCardGrab(interaction) {
     }
     await interaction.editReply(reserved.creatorPriority
       ? `You chose **${escapeDiscord(reserved.petId)}** (${reserved.rarity}). Your pick has priority. ${reserved.refundedEntrants ? `${reserved.refundedEntrants} earlier entrant(s) can now try another card.` : ""}`
-      : `You entered for **${escapeDiscord(reserved.petId)}** (${reserved.rarity}). The winner is chosen randomly when the drop ends, unless the drop creator chooses this card. If displaced, your grab opportunity is returned.`);
+      : `You entered for **${escapeDiscord(reserved.petId)}** (${reserved.rarity}). The winner is chosen randomly when the drop ends${drop.mode === "automatic" ? "." : ", unless the drop creator chooses this card. If displaced, your grab opportunity is returned."}`);
     // Updating buttons is cosmetic; the MongoDB transaction is authoritative.
     try {
       const drop = await CardDrop.findById(dropId).lean();
@@ -878,7 +878,7 @@ export async function reconcileCardDropClosures(client) {
       { slots: { $elemMatch: { claimedBy: { $ne: null }, settledAt: null } } },
       { slots: { $elemMatch: { winnerId: { $ne: null }, settledAt: null } } },
       { slots: { $elemMatch: { "entrants.0": { $exists: true }, settledAt: null } } },
-      { mode: "player", grabRefundedAt: null },
+      { mode: { $in: ["player", "automatic"] }, grabRefundedAt: null },
     ],
   }).sort({ expiresAt: 1 }).limit(30).lean();
   for (const drop of pending) {
