@@ -221,7 +221,7 @@ test("/party host without game cannot silently pick Court of Chaos", async () =>
     };
     await execute(interaction);
     assert.match(interaction.replies[0].content, /Choose your Party Game/);
-    assert.equal(interaction.replies[0].components[0].components[0].data.options[0].value, "court");
+    assert.equal(interaction.replies[0].components[0].components[0].toJSON().options[0].value, "court");
   } finally {
     PartyGame.create = originalCreate;
   }
