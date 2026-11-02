@@ -142,7 +142,7 @@ export function scoreCourtMatchup(playerIds, answers, votes, round) {
   const maxPoints = COURT_ROUND_POINTS[round - 1] || 0;
   const totals = Object.fromEntries(playerIds.map(id => [id, 0]));
   if (present.length < 2 || !maxPoints) return totals;
-  const eligibleVotes = votes.filter(v => present.includes(v.targetId) && !playerIds.includes(v.voterId));
+  const eligibleVotes = votes.filter(v => present.includes(v.targetId) && !playerIds.includes(v.userId || v.voterId));
   if (!eligibleVotes.length) {
     const split = Math.floor(maxPoints / present.length);
     for (const id of present) totals[id] = split;
