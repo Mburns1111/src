@@ -4,6 +4,7 @@ import CardSeries from "../models/CardSeries.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
+import { storeOfficialEggArtwork, reviewOfficialEggArtwork } from "../services/card-egg-artwork-upload.js";
 import { createSeries, createRelease, editRelease, addReleasePet, addReleasePetsBulk, removeReleasePet, setReleasePetWeight, setReleaseOdds, checkOfficialReleaseReadiness, assignReleaseArtwork, setReleasePetEnabled, activateRelease, transitionRelease } from "../services/card-global-releases.js";
 
 const PAGE_SIZE = 15;
@@ -60,6 +61,18 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(command => command.setName("release-check")
     .setDescription("OWNER: privately inspect readiness without activating an egg")
     .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(command => command.setName("egg-upload")
+    .setDescription("OWNER: upload credited artwork for an official draft egg")
+    .addStringOption(o => o.setName("release").setDescription("Draft release").setRequired(true).setAutocomplete(true))
+    .addAttachmentOption(o => o.setName("image").setDescription("Egg PNG, JPG or WebP").setRequired(true))
+    .addStringOption(o => o.setName("artist").setDescription("Artist name").setRequired(true))
+    .addStringOption(o => o.setName("platform").setDescription("Artwork source or platform").setRequired(true))
+    .addStringOption(o => o.setName("source_id").setDescription("Original artwork/source identifier").setRequired(true))
+    .addStringOption(o => o.setName("credit").setDescription("Credit line displayed with the asset").setRequired(true)))
+  .addSubcommand(command => command.setName("egg-review")
+    .setDescription("OWNER: approve source/license evidence for a draft egg image")
+    .addStringOption(o => o.setName("release").setDescription("Draft release").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("note").setDescription("Permission/source evidence").setRequired(true).setMinLength(10).setMaxLength(1000)))
   .addSubcommand(command => command.setName("assign-art")
     .setDescription("OWNER: attach license-approved artwork to a draft release")
     .addStringOption(o => o.setName("release").setDescription("Draft release").setRequired(true).setAutocomplete(true))
@@ -103,7 +116,8 @@ export async function execute(interaction) {
   const option = interaction.options.getSubcommand();
   if (["create-series", "create-release", "edit-release", "add-pet",
       "add-pets", "remove-pet", "set-weight", "set-odds", "release-check",
-      "assign-art", "set-enabled", "activate", "pause", "resume", "retire"].includes(option)) {
+      "assign-art", "set-enabled", "activate", "pause", "resume", "retire",
+      "egg-upload", "egg-review"].includes(option)) {
     const string = key => interaction.options.getString(key);
     const number = key => interaction.options.getNumber(key);
     try {
@@ -156,6 +170,22 @@ export async function execute(interaction) {
           "Ultra-Rare": number("ultra_rare"), Legendary: number("legendary"),
         } });
         return interaction.editReply("Saved rarity percentages for draft " + clean(result.releaseId) + ". All five add to 100%.");
+      }
+      if (option === "egg-upload") {
+        const result = await storeOfficialEggArtwork({
+          releaseId: string("release"), attachment: interaction.options.getAttachment("image", true),
+          uploadedBy: interaction.user.id, artist: string("artist"), platform: string("platform"),
+          sourceId: string("source_id"), creditText: string("credit"),
+        });
+        return interaction.editReply("Official egg image saved for \`" + clean(result.releaseId) +
+          "\`. **Permission review pending.** Use /cards-owner egg-review after verifying the rights.");
+      }
+      if (option === "egg-review") {
+        const result = await reviewOfficialEggArtwork({
+          releaseId: string("release"), reviewerId: interaction.user.id, note: string("note"),
+        });
+        return interaction.editReply("Egg artwork source/permission review approved for \`" +
+          clean(result.releaseId) + "\`. No release was activated.");
       }
       if (option === "assign-art") {
         const changed = await assignReleaseArtwork({releaseId:string("release"),kind:string("kind"),
