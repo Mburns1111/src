@@ -18,7 +18,7 @@ Use a development bot token, development MongoDB database and test Discord serve
 6. Have 1–20 accounts use Join; Leave and rejoin; try the 21st account. Test separate 1-, 2- and 3-player games.
 7. Staff runs /party start. Every player gets **two different prompts per round** through My Prompts & Answers and submits each answer with its own button/modal. The modal reply must say **Saved for Round 1** and show exactly what was stored. Clicking My Prompt & Answer again must display **Your saved answer**. Staff can use /party status to see the number of saved submissions without viewing private answers.
 8. After the **full 60-second answer period**, with 2+ players, each question is shown individually with **30 seconds to read and vote**. With one player, both prompts are revealed without voting. The timer does NOT end early when all answers have been submitted.
-9. Observe each reveal (8 seconds). After rounds 1 and 2 there is a **minimum 10-second break**, then staff must click **Start Next Round** on the game post (or use `/party next`). The next round **never starts automatically**. Round 3 ends with the final standings.
+9. Each question creates a **new Discord voting message**, left in the channel as a permanent record. When voting ends, the bot edits **that question's own post** to show the answers, voters' result/points, and removes its buttons. After the 8-second reveal the bot **sends a new message** for the following question rather than overwriting the previous one. At the end of rounds 1 and 2 the bot posts a **new standings / Start Next Round message**; staff can click after the minimum 10-second break or run `/party next`. Round 3 ends with a separate final standings message.
 10. Review the leaderboard. If rewards were enabled, check /points-admin history and audit. Verify each eligible member earns +5 completion (including solo participants with two submitted answers); placement bonuses are +10/+6/+3 only for games with multiple competitors. No more than two rewarded games per UTC date.
 
 ## Staff controls
@@ -33,7 +33,7 @@ Use a development bot token, development MongoDB database and test Discord serve
 - /party remove-answer player:@Member: remove answer before its matchup scores
 - /party end: cancel the active session; no Points rewards
 
-Only members with Manage Server can use /party commands. Regular members and spectators use the buttons. The bot displays all public results in one edited lobby message and uses private Discord responses/modal forms to avoid spamming the channel.
+Only members with Manage Server can use /party commands. Regular members and spectators use buttons. The original lobby message stays as the lobby's record and is archived without buttons on game start. Each round's answer period has its own post; every question gets a new voting post, updated in place to its final result. The bot creates separate round-break and final-standing posts; previous rounds are never overwritten by later rounds. The private answer forms remain ephemeral. Public game history will create significantly more messages in the designated Party Games channel.
 
 ## Regression checks
 
@@ -47,7 +47,7 @@ Only members with Manage Server can use /party commands. Regular members and spe
 - Larger odd lobbies produce one three-contestant matchup **in each of the two rotations**, allowing everyone two appearances per round.
 - Two simultaneous joins/answers/votes don't duplicate membership or ballots.
 - A staff-removed answer disappears from vote options before its result is scored.
-- Bot restart during answering, voting, and reveal resumes safely.
+- Bot restart during answering, voting, and reveal resumes safely. Every permanent post is tracked by a unique game/stage key in MongoDB. Interrupted sends can be rediscovered via a stage marker in recent channel history. Verify that repeated sweeps do **not** create extra voting posts.
 - Cancelled games do not pay rewards.
 - Reward settlement is idempotent across startup retries. Missing eligible reward ledger entries are retried.
 - A completed session allows a new lobby in the same guild; other guilds remain independent.
@@ -55,7 +55,7 @@ Only members with Manage Server can use /party commands. Regular members and spe
 
 ## Timing notes
 
-Each game is three rounds. Each participant writes **two answers per round**, one for each distinct prompt and matchup rotation. Answers remain open for the full **60 seconds**; voting begins automatically when that period ends. With 2+ players, **one question is shown at a time, for 30 seconds of voting each**; the reveal lasts 8 seconds. Solo players receive two 8-second reveals without voting. Following rounds 1 and 2, a **minimum 10-second intermission** is followed by an indefinite staff-controlled wait: only an admin pressing **Start Next Round** (or `/party next`) begins the next timed round. With 20 players, there are 20 voting questions per round, so a full three-round game will take considerably longer than with small rosters. A 5-second sweeper means timer transitions may be a few seconds late. Discord relative timestamps are used.
+Each game is three rounds. Each participant writes **two answers per round**, one for each distinct prompt and matchup rotation. The lobby, entry window, individual questions/results, round breaks and final standings create an ordered record of new Discord messages. Answers remain open for the full **60 seconds**; voting begins automatically when that period ends. With 2+ players, **one question is shown at a time, for 30 seconds of voting each**; the reveal lasts 8 seconds. Solo players receive two 8-second reveals without voting. Following rounds 1 and 2, a **minimum 10-second intermission** is followed by an indefinite staff-controlled wait: only an admin pressing **Start Next Round** (or `/party next`) begins the next timed round. With 20 players, there are 20 voting questions per round, so a full three-round game will take considerably longer than with small rosters. A 5-second sweeper means timer transitions may be a few seconds late. Discord relative timestamps are used.
 
 ## Player counts and rewards
 
@@ -73,3 +73,16 @@ Use Replit's Stop button first. In Replit Shell run `ps -eo pid,ppid,args | grep
 - Player answer moderation is basic: link/mass-mention rejection plus staff removal. Continue using Discord AutoMod and human staff oversight.
 - Points rewards may be delayed until the reconciliation sweep completes. Any payout failures are retried.
 - Session state has automated unit tests, but a full end-to-end multi-user Discord test must be completed before production approval.
+
+## Permanent public game history
+
+The game no longer edits the original lobby message through all phases. Instead:
+
+1. On `/party host`, one lobby post appears. Players join/leave on that lobby. When staff starts, its buttons are removed and it is marked closed.
+2. A **new round-answering post** provides a private prompt button and 60-second entry countdown. When the entry period closes, that post is marked closed; it stays visible.
+3. Every question is **its own new public voting message** with 30 seconds of voting. When the timer closes, **the same question message** is edited to display its answer results, names and points, and the vote controls are removed.
+4. After the 8-second reveal, another question begins in **a new message**. Nothing in the previous question is replaced or erased.
+5. A new round-standings post contains the staff-only **Start Next Round** button. When staff begins the next round, the completed round post remains, but the obsolete button is removed.
+6. Round 3 ends with a new permanent final-standings post. Cancellation also gets its own record.
+
+The bot records the Discord message ID for each stage in MongoDB, so normal restart/reconciliation will edit the correct historical question rather than overwriting a different one. If a send is interrupted before its ID is saved, the bot searches recent channel messages for the session/stage marker before attempting a replacement. Keep the Party Games channel writable/readable to the bot. Previous games using the old single-message format are not retroactively reconstructed if their matchups were never recorded.
