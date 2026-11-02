@@ -78,6 +78,7 @@ import {
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
+import { reconcileAutomaticCardDrops } from "./services/card-automatic-drops.js";
 import { data as cardsAdminCommand, execute as executeCardsAdmin } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand, execute as executeCardsOwner, autocompleteCardsOwner } from "./commands/cards-owner.js";
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
@@ -224,7 +225,16 @@ client.on(Events.MessageCreate, message => {
 // states require GuildVoiceStates intent; no recorded audio or speech analysis.
 let voiceActivityTimer;
 let cardDropCloseTimer;
+let cardAutoDropTimer;
 let cardDropCloseRunning = false;
+let cardAutoDropRunning = false;
+async function runCardAutoDropSweep() {
+  if (cardAutoDropRunning) return;
+  cardAutoDropRunning = true;
+  try { await reconcileAutomaticCardDrops(client); }
+  catch(error) { console.error("[Hatchem] Auto-drop scheduler error:", error); }
+  finally { cardAutoDropRunning = false; }
+}
 async function runCardDropCloseSweep() {
   if (cardDropCloseRunning) return;
   cardDropCloseRunning = true;
@@ -373,6 +383,9 @@ client.once(Events.ClientReady, async (readyClient) => {
     cardDropCloseTimer = setInterval(() => void runCardDropCloseSweep(), 5000);
     cardDropCloseTimer.unref?.();
     void runCardDropCloseSweep();
+    cardAutoDropTimer = setInterval(() => void runCardAutoDropSweep(), 30_000);
+    cardAutoDropTimer.unref?.();
+    void runCardAutoDropSweep();
   }
   console.log(`Bot is online as ${readyClient.user.tag}.`);
   void (async () => {
@@ -919,6 +932,7 @@ async function shutdown(signal) {
   console.log(`Received ${signal}; shutting down.`);
   if (voiceActivityTimer) clearInterval(voiceActivityTimer);
   if (cardDropCloseTimer) clearInterval(cardDropCloseTimer);
+  if (cardAutoDropTimer) clearInterval(cardAutoDropTimer);
   await client.destroy();
   await mongoose.disconnect();
   process.exit(0);
