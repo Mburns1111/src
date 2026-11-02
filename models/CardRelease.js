@@ -26,7 +26,7 @@ const schema = new mongoose.Schema({
     metric:{type:String,enum:["acquiredDesigns","ownedDesigns","neonDesigns","megaDesigns"],required:true},
     definitionIds:{type:[String],required:true},activeOnly:{type:Boolean,default:true},
   },{_id:false})],default:[]},
-  status: { type: String, enum: ["draft", "active", "retired"], default: "draft" },
+  status: { type: String, enum: ["draft", "active", "paused", "retired"], default: "draft" },
 }, { timestamps: true });
 
 export default mongoose.models.CardRelease || mongoose.model("CardRelease", schema);
