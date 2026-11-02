@@ -235,7 +235,7 @@ export async function handlePartyInteraction(interaction) {
     for (const [number, { match, idx }] of matches.entries()) {
       const answer = saved.find(a => a.matchupIndex === idx)?.text;
       lines.push("", "**Question " + (number + 1) + ":** " + match.prompt,
-        answer ? "✅ Saved: " + safeCourtText(answer) : "⚠️ No answer saved yet.");
+        answer ? "✅ Your saved answer: " + safeCourtText(answer) : "⚠️ No answer saved yet.");
       buttons.push(new ButtonBuilder()
         .setCustomId(partyButton(game, "answer", game.round + ":" + idx))
         .setLabel((answer ? "Edit" : "Answer") + " Question " + (number + 1))
