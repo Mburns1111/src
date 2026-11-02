@@ -7,7 +7,7 @@
 | Environment | Gameplay | Commands | Egg releases |
 | --- | --- | --- | --- |
 | Neither flag set | Off | No Hatchem slash commands | No scheduled eggs |
-| `ENABLE_CARD_GAME_TEST=1` | Dev/test enabled | Guild-only Hatchem commands in `DISCORD_GUILD_ID`; includes test-art tools | Test fixtures allowed; scheduled and chat-triggered eggs restricted to the test guild |
+| `ENABLE_CARD_GAME_TEST=1` | Dev/test enabled | Guild-only Hatchem commands in `DISCORD_GUILD_ID`; includes test-art tools | Test fixtures allowed; activity-triggered eggs restricted to the test guild |
 | `ENABLE_CARD_GAME=1` | Real game enabled | Global `/cards`, `/cards-admin`, `/cards-owner`, `/cards-release` | Only approved, active official releases; no test fallback |
 
 Never set both flags to `1`; startup/registration rejects conflicting modes. The live switch does not set any release to active, publish an egg, configure achievements, merge branches or deploy code by itself.
@@ -29,7 +29,7 @@ Never set both flags to `1`; startup/registration rejects conflicting modes. The
 2. `ENABLE_MESSAGE_CONTENT_INTENT=1` and the matching privileged Message Content intent in the Discord Developer Portal, so dot commands work.
 3. The ordinary runtime secrets `DISCORD_TOKEN`, `MONGODB_URI` and (for command registration) `DISCORD_CLIENT_ID`.
 4. Valid official releases. A release remains **draft** until art and secret-achievement readiness checks pass and the owner explicitly activates it. No official egg is configured by the production-mode switch.
-5. Correct per-server Hatchem channel and local Card role. Once a release is active, the bot posts regular randomized eggs and activity bonus eggs with the universal schedule; no local on/off or frequency control.
+5. Correct per-server Hatchem channel and local Card role. Once a release is active, only meaningful server chat can trigger a 20% chance for a wild egg after 12 qualifying messages from 3 members in 10 minutes. There are no clock-scheduled eggs or local on/off settings.
 6. Set and verify `CARD_ACHIEVEMENTS_START_AT` before the official launch after artwork is finalized. This immutable launch boundary is **not automatically set** by enabling production mode. Test releases and prelaunch actions do not count for achievement ranking.
 7. Confirm the intended MongoDB database, separate development and production bot tokens, and deployment branch before performing live actions.
 

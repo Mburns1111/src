@@ -1,4 +1,3 @@
-import { randomInt } from "node:crypto";
 import {isCardGameEnabled,isCardGameTestMode} from "./card-game-mode.js";
 import GuildConfig from "../models/GuildConfig.js";
 import CardRelease from "../models/CardRelease.js";
@@ -6,10 +5,6 @@ import CardDrop from "../models/CardDrop.js";
 import { qualifyingMessageText } from "./activity-rewards.js";
 import { publishCardDrop } from "../commands/cards.js";
 
-// The two systems are independent: every server gets a timed egg every
-// 45-75 minutes, plus an occasional extra egg for genuine conversation.
-export const AUTO_DROP_MIN_MINUTES = 45;
-export const AUTO_DROP_MAX_MINUTES = 75;
 export const ACTIVITY_WINDOW_MS = 10 * 60_000;
 export const ACTIVITY_MESSAGES_REQUIRED = 12;
 export const ACTIVITY_MEMBERS_REQUIRED = 3;
@@ -19,45 +14,11 @@ export const ACTIVITY_CHANCE = 0.20;
 export const ACTIVITY_BONUS_COOLDOWN_MS = 30 * 60_000;
 export const AUTOMATIC_EGG_SPACING_MS = 15 * 60_000;
 
-export function nextTimedDrop(now = new Date(), randint = randomInt) {
-  const minutes = randint(AUTO_DROP_MIN_MINUTES, AUTO_DROP_MAX_MINUTES + 1);
-  return new Date(now.getTime() + minutes * 60_000);
-}
-
-// Every server that has both a Hatchem channel and Card role uses the same
-// fixed game rules automatically. Server managers cannot alter drop frequency
-// or disable the system. A conditional update initializes only missing due
-// times, so restarts and parallel workers never reset the current schedule.
-export async function initializeAutomaticDropSchedules(now = new Date()) {
-  const testGuild = isCardGameTestMode() ? process.env.DISCORD_GUILD_ID : null;
-  if (isCardGameTestMode() && !testGuild) return 0;
-  const configs = await GuildConfig.find({
-    ...(testGuild ? { guildId: testGuild } : {}),
-    hatchemChannelId: { $type: "string", $ne: "" },
-    cardRoleId: { $type: "string", $ne: "" },
-    hatchemNextAutoDropAt: null,
-  }).select("guildId").limit(100).lean();
-  let initialized = 0;
-  for (const config of configs) {
-    const result = await GuildConfig.updateOne({
-      guildId: config.guildId,
-      hatchemChannelId: { $type: "string", $ne: "" },
-      cardRoleId: { $type: "string", $ne: "" },
-      hatchemNextAutoDropAt: null,
-    }, { $set: { hatchemNextAutoDropAt: nextTimedDrop(now) } });
-    initialized += result.modifiedCount || 0;
-  }
-  return initialized;
-}
-
 export function chooseAutomaticDropRelease(releases, allowTest = false) {
   return releases.find(r => !r.releaseId.startsWith("test-")) ||
     (allowTest ? releases.find(r => r.releaseId === "test-s1-r1") : null) || null;
 }
 
-// Shared, conditional MongoDB writes ensure that parallel bot processes and
-// reconnects cannot claim the same timed slot or activity reward window.
-// The last-post check spaces timed and activity eggs at least 15 minutes apart.
 function lastEggIsOldEnough(now) {
   return { $not: { $gt: new Date(now.getTime() - AUTOMATIC_EGG_SPACING_MS) } };
 }
@@ -79,6 +40,12 @@ async function sendAutomaticEgg(client, config, releaseId) {
   const channel = await client.channels.fetch(config.hatchemChannelId);
   if (!channel || channel.guildId !== config.guildId || typeof channel.send !== "function")
     throw Error("Configured Hatchem channel is missing or cannot receive messages.");
+  // Do not post an unannounced activity egg if the saved role was deleted
+  // or no longer belongs to this server. Discord receives an explicit
+  // allowedMentions.roles whitelist on the initial notification only.
+  const role = await channel.guild?.roles?.fetch(config.cardRoleId).catch(() => null);
+  if (!role || role.guild.id !== config.guildId)
+    throw Error("Configured Hatchem Card role is missing; run /cards-admin setup-role.");
   await publishCardDrop({
     user: { id: client.user.id },
     guildId: config.guildId,
@@ -89,48 +56,6 @@ async function sendAutomaticEgg(client, config, releaseId) {
     },
     suppressSuccessDropReply: async () => null,
   }, { releaseId, testMode: false, automated: true, roleId: config.cardRoleId });
-}
-
-// The timed schedule remains independent of bonuses. If another auto egg is
-// open or was posted in the last 15 minutes, the due slot stays due until it
-// can safely post. A failed send never creates an endless immediate retry.
-export async function reconcileAutomaticCardDrops(client, now = new Date()) {
-  if (!isCardGameEnabled()) return 0;
-  await initializeAutomaticDropSchedules(now);
-  const testGuild = isCardGameTestMode() ? process.env.DISCORD_GUILD_ID : null;
-  if (isCardGameTestMode() && !testGuild) return 0;
-  const configs = await GuildConfig.find({
-    ...(testGuild ? { guildId: testGuild } : {}),
-    hatchemNextAutoDropAt: { $lte: now },
-    hatchemChannelId: { $type: "string", $ne: "" },
-    cardRoleId: { $type: "string", $ne: "" },
-  }).select("guildId hatchemChannelId cardRoleId").lean();
-  if (!configs.length) return 0;
-  const release = await chooseCurrentRelease();
-  if (!release) return 0;
-
-  let published = 0;
-  for (const config of configs) {
-    try {
-      if (await hasOpenCardEgg(config.guildId, now)) continue;
-      const claimed = await GuildConfig.findOneAndUpdate({
-        guildId: config.guildId,
-        hatchemChannelId: { $type: "string", $ne: "" },
-        cardRoleId: { $type: "string", $ne: "" },
-        hatchemNextAutoDropAt: { $lte: now },
-        hatchemLastAutoDropAt: lastEggIsOldEnough(now),
-      }, { $set: {
-        hatchemNextAutoDropAt: nextTimedDrop(now),
-        hatchemLastAutoDropAt: now,
-      } }, { returnDocument: "after" }).lean();
-      if (!claimed) continue;
-      await sendAutomaticEgg(client, claimed, release.releaseId);
-      published++;
-    } catch (error) {
-      console.error("[Hatchem] Timed egg failed in server " + config.guildId + ":", error);
-    }
-  }
-  return published;
 }
 
 // Activity is observed in memory only. Message content is neither retained
@@ -176,8 +101,8 @@ export function observeAutomaticDropActivity(message, now = new Date()) {
   return true; // One chance roll, not one guaranteed egg.
 }
 
-// A successful qualifying burst produces one 20% chance. At most one
-// activity bonus every 30m per server; and no two auto eggs within 15m.
+// Each qualifying burst gets one 20% chance. At most one successful activity
+// egg every 30m in a server. Player-created drops remain independent.
 export async function maybePublishActivityEgg(client, message, {
   now = new Date(), random = Math.random,
 } = {}) {

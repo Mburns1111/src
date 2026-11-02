@@ -26,7 +26,8 @@ const guildConfigSchema = new mongoose.Schema(
     shopCategoryMessageIds: { type: Map, of: String, default: () => ({}) },
     commandChannelId: { type: String, default: "" },
     hatchemChannelId: { type: String, default: "" },
-    // Automatic egg timing uses global fixed rules in every configured server.
+    // Legacy timed-drop due date; retained for existing MongoDB documents but
+    // deliberately ignored. Wild eggs now come only from server activity.
     hatchemNextAutoDropAt: { type: Date, default: null },
     hatchemLastAutoDropAt: { type: Date, default: null },
     hatchemNextActivityDropAt: { type: Date, default: null },
