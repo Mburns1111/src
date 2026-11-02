@@ -17,6 +17,7 @@ const partyGameSchema = new mongoose.Schema({
   gameType: { type: String, default: "court" },
   category: { type: String, enum: ["mixed", "silly", "roblox", "fantasy"], default: "mixed" },
   rewardsEnabled: { type: Boolean, default: true },
+  prizeMessage: { type: String, default: "", maxlength: 300 }, // Host-provided manual first-place reward.
   phase: { type: String, enum: ["lobby", "answering", "voting", "reveal", "intermission", "ended", "cancelled"], default: "lobby" },
   active: { type: Boolean, default: true },
   players: { type: [String], default: [] },
