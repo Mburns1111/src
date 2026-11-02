@@ -150,7 +150,10 @@ test("/party start game:Court of Chaos opens signup without starting Round 1", a
     assert.equal(created[0].gameType, "court");
     assert.equal(created[0].hostId, hostId);
     assert.equal(created[0].channelId, channelId);
-    assert.equal(created[0].players, undefined, "Members join after the signup post is created.");
+    assert.deepEqual(created[0].players, [], "Signup begins with an empty player list.");
+    assert.equal(created[0].phase, "lobby", "Slash start must NOT launch Round 1.");
+    assert.equal(created[0].round, 0);
+    assert.equal(created[0].phaseEndsAt, null, "Signup has no countdown or automatic expiry.");
     assert.equal(posts.length, 1);
     assert.match(posts[0].content, /Lobby/);
     assert.deepEqual(posts[0].components[0].components.map(x => x.data.label),
