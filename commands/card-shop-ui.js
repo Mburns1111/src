@@ -1,10 +1,11 @@
+import {isCardGameEnabled} from "../services/card-game-mode.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
 import CardCollector from "../models/CardCollector.js";
 import PointsWallet from "../models/PointsWallet.js";
 import { canPlayCardGame, cardRegistrationReminder } from "../services/card-collector-registration.js";
 import { CARD_EXTRA_ITEMS, CARD_EXTRA_QUANTITIES, cardExtraPrice, purchaseCardExtras } from "../services/card-shop-purchases.js";
 
-const enabled = () => process.env.ENABLE_CARD_GAME_TEST === "1";
+const enabled = () => isCardGameEnabled();
 const validId = value => /^\d{17,20}$/.test(String(value || ""));
 
 export function cardShopButtons(guildId, userId, balance) {
