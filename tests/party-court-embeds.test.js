@@ -43,9 +43,13 @@ test("all public Court phases are fully embeds, with no plain post body",async()
     assert.match(text(vote),/Why did the wizard lose his job/);
     assert.match(text(vote),/Turned into a pumpkin/);
     assert.doesNotMatch(text(vote),/<@234567890123456789>/);
-    const reveal=await courtGameDisplay({...game(),phase:"reveal"});
+    assert.equal(vote.embeds[0].toJSON().title, "🗳️ Why did the wizard lose his job?");
+    assert.equal(vote.embeds[0].toJSON().fields.length, 2,
+      "Only two answer fields; no duplicate Question field");
+    assert.match(vote.embeds[0].toJSON().footer.text, /Round 1\/3 · Question 1\/1/);
+        const reveal=await courtGameDisplay({...game(),phase:"reveal"});
     assert.match(text(reveal),/1 vote/);
-    assert.match(text(reveal),/1000 pts/);
+    assert.match(text(reveal),/1000 game pts/);
     assert.match(text(reveal),new RegExp(a));
     assert.equal(reveal.components.length,0);
     const breakView=await courtGameDisplay({...game(),phase:"intermission"});
@@ -92,4 +96,21 @@ test("failed join still explains errors privately",async()=>{
     assert.match(replies[0].content,/already in the lobby/);
     assert.ok(replies[0].flags);
   } finally {PartyGame.findOne=origFind;PartyGame.updateOne=origUpdate;}
+});
+
+test("final embed explains actual Points amounts and optional manually fulfilled prize",async()=>{
+  const g={...game(),phase:"ended",players:[a,b],
+    scores:{[a]:1500,[b]:500},prizeMessage:"Winner receives a Mystery Egg!"};
+  const view=(await courtGameDisplay(g)).embeds[0].toJSON();
+  const fields=Object.fromEntries(view.fields.map(f=>[f.name,f.value]));
+  assert.match(fields["🎟️ AM Isa Points rewards"],/\+5 Points/);
+  assert.match(fields["🎟️ AM Isa Points rewards"],/\+10/);
+  assert.match(fields["🎟️ AM Isa Points rewards"],/\+6/);
+  assert.match(fields["🎟️ AM Isa Points rewards"],/\+3/);
+  assert.match(fields["🎟️ AM Isa Points rewards"],/2 rewarded games/);
+  assert.match(fields["🏆 Host-provided first-place prize"],/Winner receives a Mystery Egg/);
+  assert.match(fields["🏆 Host-provided first-place prize"],new RegExp(a));
+  assert.match(fields["🏆 Host-provided first-place prize"],/not sent automatically/);
+  const noPrize=await courtGameDisplay({...game(),phase:"ended",prizeMessage:""});
+  assert.equal(noPrize.embeds[0].toJSON().fields.length,2);
 });
