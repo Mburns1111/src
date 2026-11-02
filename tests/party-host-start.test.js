@@ -6,6 +6,12 @@ import GuildConfig from "../models/GuildConfig.js";
 import { data, execute, handlePartyInteraction } from "../commands/party.js";
 import { courtGameDisplay } from "../services/party-court-engine.js";
 
+function embedText(view) {
+  return (view.embeds || []).map(embed=>{
+    const e=typeof embed.toJSON === "function" ? embed.toJSON() : embed;
+    return [e.title,e.description,...(e.fields || []).flatMap(f=>[f.name,f.value])].join("\n");
+  }).join("\n");
+}
 const gameId = "507f1f77bcf86cd799439011";
 const guildId = "123456789012345678";
 const hostId = "234567890123456789";
@@ -77,8 +83,8 @@ test("lobby displays Join, Leave and Start Party for the original host", async (
   assert.deepEqual(view.components[0].components.map(x => x.data.label),
     ["Join", "Leave", "Start Party"]);
   assert.ok(view.components[0].components[2].data.custom_id === "party:start:" + gameId);
-  assert.match(view.content, new RegExp(hostId));
-  assert.match(view.content, /Only the host can start/);
+  assert.match(embedText(view), new RegExp(hostId));
+  assert.match(embedText(view), /Join before the host starts/);
 });
 
 test("lobby button refuses another admin and regular members without changing game", async () => {
@@ -155,7 +161,7 @@ test("/party start game:Court of Chaos opens signup without starting Round 1", a
     assert.equal(created[0].round, 0);
     assert.equal(created[0].phaseEndsAt, null, "Signup has no countdown or automatic expiry.");
     assert.equal(posts.length, 1);
-    assert.match(posts[0].content, /Lobby/);
+    assert.match(embedText(posts[0]), /Lobby/);
     assert.deepEqual(posts[0].components[0].components.map(x => x.data.label),
       ["Join", "Leave", "Start Party"]);
     assert.equal(updates.length, 1);
