@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits } from "discord.js";
 import PartyGame from "../models/PartyGame.js";
+import GuildConfig from "../models/GuildConfig.js";
 import { data, execute, handlePartyInteraction } from "../commands/party.js";
 import { courtGameDisplay } from "../services/party-court-engine.js";
 
@@ -117,22 +118,66 @@ test("host button rejects an empty lobby and an already-started lobby", async ()
   }
 });
 
-test("slash start also limits starting to the lobby creator", async () => {
-  const game = lobby();
-  await withLobby(game, async writes => {
-    const other = fakeSlash(otherAdminId);
-    await execute(other);
-    assert.match(other.replies[0].content, /Only the admin who hosted/);
-    assert.equal(writes.length, 0);
+test("/party start game:Court of Chaos opens signup without starting Round 1", async () => {
+  const originalFind = GuildConfig.findOne;
+  const originalCreate = PartyGame.create;
+  const originalUpdate = PartyGame.updateOne;
+  const created = [], updates = [], posts = [];
+  const channelId = "567890123456789012";
+  try {
+    GuildConfig.findOne = async () => ({ partyGamesChannelId: channelId });
+    PartyGame.create = async doc => {
+      created.push(doc);
+      return { ...lobby([]), ...doc, phase: "lobby", players: [] };
+    };
+    PartyGame.updateOne = async (filter, update) => {
+      updates.push({ filter, update });
+      return { modifiedCount: 1 };
+    };
+    const interaction = fakeSlash(hostId);
+    interaction.guild = { channels: { fetch: async id => {
+      assert.equal(id, channelId);
+      return {
+        id, isTextBased: () => true,
+        send: async payload => {
+          posts.push(payload);
+          return { id: "999999999999999999", url: "https://discord.com/channels/example/lobby" };
+        },
+      };
+    } } };
+    await execute(interaction);
+    assert.equal(created.length, 1);
+    assert.equal(created[0].gameType, "court");
+    assert.equal(created[0].hostId, hostId);
+    assert.equal(created[0].channelId, channelId);
+    assert.equal(created[0].players, undefined, "Members join after the signup post is created.");
+    assert.equal(posts.length, 1);
+    assert.match(posts[0].content, /Lobby/);
+    assert.deepEqual(posts[0].components[0].components.map(x => x.data.label),
+      ["Join", "Leave", "Start Party"]);
+    assert.equal(updates.length, 1);
+    assert.deepEqual(Object.keys(updates[0].update.$set).sort(), ["messageId", "renderedVersion"]);
+    assert.match(interaction.replies[0].content, /signup lobby created/);
+    assert.match(interaction.replies[0].content, /Members can Join or Leave/);
+    assert.doesNotMatch(interaction.replies[0].content, /Round 1 is open/);
+  } finally {
+    GuildConfig.findOne = originalFind;
+    PartyGame.create = originalCreate;
+    PartyGame.updateOne = originalUpdate;
+  }
+});
 
-    const wrongGame = fakeSlash(hostId, "another-game");
-    await execute(wrongGame);
-    assert.match(wrongGame.replies[0].content, /Select Court of Chaos/);
-    assert.equal(writes.length, 0);
-
-    const host = fakeSlash(hostId);
-    await execute(host);
-    assert.match(host.replies[0].content, /Court of Chaos started/);
-    assert.equal(writes.length, 1);
-  });
+test("/party start with unsupported game does not create or launch a lobby", async () => {
+  const originalCreate = PartyGame.create;
+  const originalFind = GuildConfig.findOne;
+  try {
+    PartyGame.create = async () => assert.fail("No lobby should be created");
+    GuildConfig.findOne = async () => assert.fail("No lookup should be needed");
+    const interaction = fakeSlash(hostId, "unavailable");
+    await execute(interaction);
+    assert.match(interaction.replies[0].content, /not available yet/);
+  } finally {
+    PartyGame.create = originalCreate;
+    GuildConfig.findOne = originalFind;
+  }
 });
