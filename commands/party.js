@@ -15,14 +15,14 @@ import { COURT_MIN_PLAYERS, safeCourtText } from "../services/party-court-rules.
 export const data = new SlashCommandBuilder()
   .setName("party").setDescription("Staff-hosted, text-based Party Games")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-  .addSubcommand(c => c.setName("host").setDescription("Open a Court of Chaos lobby in the configured Party Games channel")
+  .addSubcommand(c => c.setName("host").setDescription("Create a Court of Chaos signup lobby in the Party Games channel")
     .addStringOption(o => o.setName("category").setDescription("Prompt category")
       .addChoices(
         { name: "Mixed", value: "mixed" }, { name: "Silly & Random", value: "silly" },
         { name: "Roblox & Adopt Me", value: "roblox" }, { name: "Fantasy & Chaos", value: "fantasy" }))
     .addBooleanOption(o => o.setName("rewards").setDescription("Award AM Isa Points to eligible players (default: yes)")))
-  .addSubcommand(c => c.setName("start").setDescription("Start the hosted party lobby")
-    .addStringOption(o => o.setName("game").setDescription("Which party game to start?")
+  .addSubcommand(c => c.setName("start").setDescription("Open party signup; choose a game for the lobby")
+    .addStringOption(o => o.setName("game").setDescription("Which party game will members join?")
       .setRequired(true).addChoices({ name: "Court of Chaos", value: "court" })))
   .addSubcommand(c => c.setName("next").setDescription("Start the next round after the 10-second break"))
   .addSubcommand(c => c.setName("status").setDescription("Show the active game's private staff status"))
@@ -68,9 +68,14 @@ async function startHostedLobby(interaction, game, requestedType = "court") {
 export async function execute(interaction) {
   if (!staff(interaction)) return interaction.editReply(errorText("Only staff with Manage Server can host Party Games."));
   const op = interaction.options.getSubcommand();
-  if (op === "host") {
+  if (op === "host" || op === "start") {
+    // /party start SELECTS a game and creates its signup lobby; it does not
+    // begin answering. Only the lobby host's Start Party button does that.
+    const selectedGame = op === "start" ? interaction.options.getString("game", true) : "court";
+    if (selectedGame !== "court")
+      return interaction.editReply(errorText("That party game is not available yet."));
     // The destination is saved by /setup channels, never inferred from the
-    // command's current channel. In particular, never post into general chat.
+    // command's current channel. Never post the lobby into general chat.
     const { channel } = await getConfiguredTextChannelAndConfig(
       interaction, "partyGamesChannelId", "Party Games",
     );
@@ -78,9 +83,9 @@ export async function execute(interaction) {
     try {
       game = await PartyGame.create({
         guildId: interaction.guildId, channelId: channel.id,
-        hostId: interaction.user.id,
-        category: interaction.options.getString("category") || "mixed",
-        rewardsEnabled: interaction.options.getBoolean("rewards") !== false,
+        hostId: interaction.user.id, gameType: selectedGame,
+        category: op === "host" ? interaction.options.getString("category") || "mixed" : "mixed",
+        rewardsEnabled: op === "host" ? interaction.options.getBoolean("rewards") !== false : true,
       });
     } catch (error) {
       if (Number(error?.code) === 11000)
@@ -90,7 +95,10 @@ export async function execute(interaction) {
     try {
       const message = await channel.send(await courtGameDisplay(game));
       await PartyGame.updateOne({ _id: game._id }, { $set: { messageId: message.id, renderedVersion: 1 } });
-      return interaction.editReply(errorText("Court of Chaos lobby created: " + message.url + ". Members can now join!"));
+      return interaction.editReply(errorText(
+        "Court of Chaos signup lobby created: " + message.url +
+        ". Members can Join or Leave. When everyone is ready, press Start Party in the lobby."
+      ));
     } catch (error) {
       await PartyGame.updateOne({ _id: game._id }, {
         $set: { active: false, phase: "cancelled", finishedAt: new Date() },
@@ -113,14 +121,7 @@ export async function execute(interaction) {
       "\nMessage: https://discord.com/channels/" + game.guildId + "/" + game.channelId + "/" + game.messageId));
   }
   let changed = false;
-  if (op === "start") {
-    const selected = interaction.options.getString("game", true);
-    const result = await startHostedLobby(interaction, game, selected);
-    const reply = await interaction.editReply(errorText(result.message));
-    if (result.started) void publishCourtGame(interaction.client, game)
-      .catch(error => console.error("[Party] Hosted lobby publish will retry:", error));
-    return reply;
-  } else if (op === "next") {
+  if (op === "next") {
     if (game.phase !== "intermission")
       return interaction.editReply(errorText("The next round can only start after the current round finishes."));
     if (game.phaseEndsAt && game.phaseEndsAt.getTime() > Date.now())
