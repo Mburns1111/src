@@ -40,7 +40,7 @@ test("a short, optional tutorial explains every player mechanic in correct order
   assert.match(HATCHEM_HELP,/\.tutorial/);
 });
 
-test("tutorial can be opened by anyone without registering or consuming actions",()=>{
+test("tutorial can be opened by anyone without registering or consuming actions",async()=>{
   assert.deepEqual(parseHatchemText(".tutorial"),{action:"tutorial",options:{}});
   assert.equal(parseHatchemText(".TUTORIAL")?.action,"tutorial");
   assert.equal(parseHatchemText("tutorial"),null);
