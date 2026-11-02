@@ -26,11 +26,11 @@ function restore(changes) {
   for (const [obj,name,fn] of changes.reverse()) obj[name] = fn;
 }
 
-test("fast standard pace caps answers at 45s, votes at 15s and transitions at 5s/3s", () => {
+test("fast standard pace caps answers at 45s, votes at 15s and reveals at 8s and intermissions at 10s", () => {
   assert.equal(COURT_TIMINGS.answerMs, 45_000);
   assert.equal(COURT_TIMINGS.voteMs, 15_000);
-  assert.equal(COURT_TIMINGS.revealMs, 5_000);
-  assert.equal(COURT_TIMINGS.intermissionMs, 3_000);
+  assert.equal(COURT_TIMINGS.revealMs, 8_000);
+  assert.equal(COURT_TIMINGS.intermissionMs, 10_000);
 });
 
 test("modal submission writes correct round/matchup then confirms stored answer", async () => {
