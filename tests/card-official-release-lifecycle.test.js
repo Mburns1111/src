@@ -18,7 +18,7 @@ test("official readiness blocks draft releases with missing reviewed artwork and
     const check = await checkOfficialReleaseReadiness({releaseId:"s1-r1"});
     assert.equal(check.usable,0);
     assert.ok(check.problems.some(x=>/No enabled cards/.test(x)));
-    assert.ok(check.problems.some(x=>/Egg artwork/.test(x)));
+    assert.ok(check.problems.some(x=>/egg artwork/i.test(x)));
     assert.ok(check.problems.some(x=>/six private egg achievements/.test(x)));
     await assert.rejects(()=>activateRelease({releaseId:"s1-r1"}),/Release not ready/);
   } finally { CardRelease.findOne=old.release; CardDefinition.find=old.definitions; }
