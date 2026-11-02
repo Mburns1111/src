@@ -64,10 +64,12 @@ export async function courtGameDisplay(game) {
   if (game.phase === "lobby") {
     lines.push("**Players:** " + game.players.length + "/" + COURT_MAX_PLAYERS + " · Start with any number of players.");
     lines.push(mentions(game.players));
-    lines.push("Staff can start with /party start whenever anyone joins. One-player games are solo showcases without voting.");
+    lines.push("**Game:** Court of Chaos · **Host:** <@" + game.hostId + ">");
+    lines.push("Only the host can start once someone joins. One-player games are solo showcases without voting.");
     rows.push(new ActionRowBuilder().addComponents(
       button(partyButton(game, "join"), "Join", ButtonStyle.Success),
-      button(partyButton(game, "leave"), "Leave", ButtonStyle.Secondary)));
+      button(partyButton(game, "leave"), "Leave", ButtonStyle.Secondary),
+      button(partyButton(game, "start"), "Start Party", ButtonStyle.Primary)));
   } else if (game.phase === "answering") {
     lines.push("**Round " + game.round + "/3** — answer both private prompts within 60 seconds.");
     lines.push("Answering closes " + seconds(game.phaseEndsAt) + (game.paused ? " (PAUSED)" : "") + ".");
