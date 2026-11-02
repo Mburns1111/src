@@ -40,11 +40,13 @@ test("all servers share one drop cooldown, but each server has its own grab cool
   assert.ok(CardActionCooldown.schema.path("availableAt"));
 });
 
-test("server admins only get a local Card role setting", () => {
+test("server admins can only manage local Card roles and automatic drops", () => {
   assert.ok(GuildConfig.schema.path("cardRoleId"));
   const setup = cardsAdmin.toJSON();
   assert.equal(setup.name, "cards-admin");
-  assert.deepEqual(setup.options.map(x => x.name), ["setup-role"]);
+  assert.deepEqual(setup.options.map(x => x.name), ["setup-role", "auto-drops"]);
+  assert.ok(GuildConfig.schema.path("hatchemAutoDropsEnabled"));
+  assert.ok(GuildConfig.schema.path("hatchemNextAutoDropAt"));
   assert.equal(setup.options[0].options[0].name, "role");
   const ownerCommand = cardsOwner.toJSON();
   assert.deepEqual(ownerCommand.options.map(x => x.name), [
