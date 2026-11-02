@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {CARD_ACHIEVEMENTS,SECRET_ACHIEVEMENTS,recurringAchievements,rewardFor,reviewedSets} from "../services/card-achievement-catalog.js";
 import {buildAchievementProgress,achievementDefinitions,eligiblePlayerDrop,grantAchievement} from "../services/card-achievement-engine.js";
-import {achievementPages,privateAchievementReceipt,publicSecretReceipt} from "../services/card-achievements.js";
+import {ACHIEVEMENTS_PER_PAGE,achievementPages,formatCardAchievements,privateAchievementReceipt,publicSecretReceipt} from "../services/card-achievements.js";
 import CardAchievement from "../models/CardAchievement.js";
 import CardCollector from "../models/CardCollector.js";
 import {AchievementDiscovery,AchievementReleaseFirst} from "../models/CardAchievementState.js";
@@ -71,6 +71,42 @@ test("secret UI never reveals undiscovered names/conditions and stays within mes
  assert.match(text,/0\/12 discovered/);assert.ok(achievementPages(rows).every(p=>p.length<=2000));
  rows.find(a=>a.secret).earned=true;
  assert.ok(achievementPages(rows).join("\n").includes(SECRET_ACHIEVEMENTS[0].name));
+});
+test("compact achievements use single-line milestones and phone-sized pages; full descriptions remain optional",()=>{
+ const rows=[...CARD_ACHIEVEMENTS,...SECRET_ACHIEVEMENTS].map(a=>({...a,earned:false,current:0}));
+ rows.wallet={bonusGrabs:1,bonusDrops:1};
+ const compact=achievementPages(rows);
+ assert.equal(ACHIEVEMENTS_PER_PAGE,12);
+ assert.ok(compact.length>=3);
+ assert.ok(compact.every(p=>p.length<=2000));
+ assert.ok(compact.every(p=>(p.match(/^▫️ |^✅ /gm)||[]).length<=12));
+ assert.ok(compact[0].includes("Extra Grabs:** 1"));
+ assert.ok(compact[0].includes("Extra Drops:** 1"));
+ assert.ok(compact[0].includes("Descriptions: `.achievements full`"));
+ assert.ok(compact.every(p=>!p.includes(CARD_ACHIEVEMENTS[0].description)));
+ const details=achievementPages(rows,{detailed:true});
+ assert.ok(details.join("\n").includes(CARD_ACHIEVEMENTS[0].description));
+ assert.ok(details.every(p=>p.length<=2000));
+ assert.equal(formatCardAchievements(rows,1),compact[0]);
+ assert.equal(formatCardAchievements(rows,1,true),details[0]);
+ assert.match(formatCardAchievements(rows,2),/Page 2/);
+ assert.deepEqual(parseHatchemText(".achievements full 2"),{action:"achievements",options:{page:2,view:"details"}});
+ assert.deepEqual(parseHatchemText(".achievements 2"),{action:"achievements",options:{page:2,view:"mine"}});
+});
+test("earned badges retain ranks, rewards and dates; discovered secrets preserve private explanations",()=>{
+ const earnedSecret={...SECRET_ACHIEVEMENTS[0],earned:true,discoveryNumber:9,
+  unlockedAt:new Date("2026-10-31T12:00:00Z"),rewardGrantedAt:new Date("2026-10-31T12:00:00Z"),
+  rewardGrabs:1,rewardDrops:1};
+ const earnedRegular={...CARD_ACHIEVEMENTS[0],earned:true,discoveryNumber:2,
+  unlockedAt:new Date("2026-10-31T12:00:00Z"),rewardGrantedAt:new Date("2026-10-31T12:00:00Z"),
+  rewardGrabs:1,rewardDrops:0};
+ const text=achievementPages([earnedRegular,earnedSecret]).join("\n");
+ assert.match(text,/#2/);
+ assert.match(text,/#9/);
+ assert.match(text,/\+1 grabs \/ \+0 drops/);
+ assert.ok(text.includes(earnedSecret.name));
+ assert.ok(text.includes(earnedSecret.description));
+ assert.match(text,/<t:\d+:d>/);
 });
 test("public receipts reveal only anonymous rank; private receipts include precise award",()=>{
  const a={name:"Hidden Solution",description:"Secret condition",discordUserId:"123",anonymousId:"Permanent · Secret 01",discoveryNumber:18,rewardGrabs:1,rewardDrops:1,releaseFirst:true,releaseId:"r2"};
