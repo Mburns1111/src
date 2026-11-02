@@ -111,3 +111,12 @@ The bot records the Discord message ID for each stage in MongoDB, so normal rest
 - A modal opened from the private prompt panel acknowledges with a message update rather than posting a second private confirmation. This avoids contradictory stale ephemeral messages. Older client modal behavior with no originating message still uses a private fallback reply.
 - When time expires, the public entry post is closed and each separate public vote question appears normally (30 seconds to read/vote). The private message is only a submission interface, not the public answer record.
 - Regression test the two-modal sequence on desktop Discord and mobile Discord, including editing a previously saved answer and clicking the panel again to read the stored values.
+
+## Public Discord embeds and quiet signup
+
+- All public Court posts now use **Discord embeds**, including the open signup lobby, closed lobby, each timed 90-second entry post, each 30-second voting question, the in-place revealed answer/vote/points result, the between-round standings, final standings and cancellation record.
+- Embed colors distinguish lobby/round entry/voting/result/standings. The public message body is empty; the game/stage recovery identifier lives in the **embed footer**, keeping the Discord channel more readable. The publisher can still find messages created by older code, where the marker was in the message body.
+- The **Join** button silently acknowledges a successful signup: the member appears in the updated lobby embed instead of receiving a redundant private `You joined` notice. If signup is closed, full, or they have already joined, the bot still gives a private explanation.
+- The **Leave** button retains its existing acknowledgement for clarity; the public lobby embed updates the player list as before.
+- Saved-answer panels and modals remain private; only public game-history posts are changed to embeds. Do not remove permanent question/result messages when changing the visual layout.
+- Regression tests cover all public phases as embeds, silent join, private error replies, multi-question voting, recovery markers, and restored history after a restart. Run a two-player Discord playtest before merging.
