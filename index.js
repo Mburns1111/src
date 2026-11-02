@@ -79,6 +79,7 @@ import {
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
 import { reconcileAutomaticCardDrops, maybePublishActivityEgg } from "./services/card-automatic-drops.js";
+import {isCardGameEnabled,isCardGameTestMode} from "./services/card-game-mode.js";
 import { data as cardsAdminCommand, execute as executeCardsAdmin } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand, cardsReleaseCommand, execute as executeCardsOwner, autocompleteCardsOwner } from "./commands/cards-owner.js";
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
@@ -202,7 +203,8 @@ client.on(Events.MessageCreate, message => {
   if (!message.guildId || message.author?.bot || !message.content) return;
   // Only commands typed in the assigned Hatchem text channel are parsed.
   // Ordinary chat and every other channel are ignored by this handler.
-  const parsed = process.env.ENABLE_CARD_GAME_TEST === "1" &&
+  const parsed = isCardGameEnabled() &&
+    (!isCardGameTestMode() || message.guildId === process.env.DISCORD_GUILD_ID) &&
     message.content.startsWith(".")
     ? parseHatchemText(message.content) : null;
   if (parsed) {
@@ -214,7 +216,8 @@ client.on(Events.MessageCreate, message => {
       }
     })().catch(error => console.error("[Hatchem] Text routing failed:", error));
   }
-  if (process.env.ENABLE_CARD_GAME_TEST === "1") {
+  if (isCardGameEnabled() &&
+      (!isCardGameTestMode() || message.guildId === process.env.DISCORD_GUILD_ID)) {
     void maybePublishActivityEgg(client, message).catch(error =>
       console.error("[Hatchem] Activity chance check failed:", error));
   }
@@ -292,8 +295,11 @@ const ownerOnlyCardSubcommands = new Set([
   "egg-art-upload", "art-upload", "art-assign", "art-list", "art-info", "art-review", "test-drop",
 ]);
 async function executePrivateCardCommands(interaction) {
-  if (ownerOnlyCardSubcommands.has(interaction.options.getSubcommand(false)))
+  if (ownerOnlyCardSubcommands.has(interaction.options.getSubcommand(false))) {
+    if (!isCardGameTestMode() && ["egg-art-upload","art-assign","test-drop"].includes(interaction.options.getSubcommand(false)))
+      return interaction.editReply("This owner tool is available only on the development bot.");
     return executeCards(interaction);
+  }
   return executeCardsOwner(interaction);
 }
 
@@ -383,7 +389,7 @@ client.once(Events.ClientReady, async (readyClient) => {
   startMediaTelemetry();
   voiceActivityTimer = setInterval(() => void voiceActivityTick(), 60_000);
   voiceActivityTimer.unref?.();
-  if (process.env.ENABLE_CARD_GAME_TEST === "1") {
+  if (isCardGameEnabled()) {
     await initializeAchievements();
     cardDropCloseTimer = setInterval(() => void runCardDropCloseSweep(), 5000);
     cardDropCloseTimer.unref?.();
@@ -496,7 +502,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Shop, achievements and other card commands still open privately.
       const publicCardView = interaction.commandName === cardsCommand.name &&
         ["collection", "inventory"].includes(interaction.options.getSubcommand(false)) &&
-        process.env.ENABLE_CARD_GAME_TEST === "1";
+        isCardGameEnabled();
       await interaction.deferReply(publicCardView ? {} : { flags: MessageFlags.Ephemeral });
     }
 
