@@ -3,23 +3,36 @@ import assert from "node:assert/strict";
 import GuildConfig from "../models/GuildConfig.js";
 import CardDrop from "../models/CardDrop.js";
 import { data as adminCommands } from "../commands/cards-admin.js";
+import { automaticEggPing } from "../commands/cards.js";
 import {
-  chooseAutomaticDropRelease, configureAutomaticDrops, nextTimedDrop,
+  chooseAutomaticDropRelease, initializeAutomaticDropSchedules, nextTimedDrop,
   observeAutomaticDropActivity, clearAutomaticDropActivityForTests,
   AUTO_DROP_MIN_MINUTES, AUTO_DROP_MAX_MINUTES,
   ACTIVITY_CHANCE, ACTIVITY_MESSAGES_REQUIRED, ACTIVITY_MEMBERS_REQUIRED,
 } from "../services/card-automatic-drops.js";
 import { eligiblePlayerDrop } from "../services/card-achievement-engine.js";
 
-test("automatic eggs are distinct from player and test eggs and off by default", () => {
+test("every server uses global automatic egg settings and local managers cannot change them", () => {
   assert.ok(CardDrop.schema.path("mode").enumValues.includes("automatic"));
-  assert.equal(GuildConfig.schema.path("hatchemAutoDropsEnabled").defaultValue, false);
+  assert.ok(GuildConfig.schema.path("hatchemNextAutoDropAt"));
   assert.ok(GuildConfig.schema.path("hatchemLastAutoDropAt"));
   assert.ok(GuildConfig.schema.path("hatchemNextActivityDropAt"));
-  const auto = adminCommands.toJSON().options.find(x=>x.name==="auto-drops");
-  assert.ok(auto);
-  assert.deepEqual(auto.options.map(x=>x.name),["enabled"]);
-  assert.equal(auto.options[0].required,true);
+  const options = adminCommands.toJSON().options.map(x => x.name);
+  assert.deepEqual(options, ["setup-role"]);
+  assert.ok(!options.includes("auto-drops"));
+});
+
+test("automatic egg pings only the registered server Card role", () => {
+  const role = "123456789012345678";
+  assert.deepEqual(automaticEggPing(role), {
+    mention: "<@&" + role + ">",
+    allowedMentions: { parse: [], roles: [role] },
+  });
+  for (const unsafe of ["", "@everyone", "<@&123456789012345678>", "invalid", "123"]) {
+    assert.deepEqual(automaticEggPing(unsafe), {
+      mention: "", allowedMentions: { parse: [], roles: [] },
+    });
+  }
 });
 
 test("timed eggs use an independent uniform 45–75 minute random window", () => {
@@ -36,27 +49,38 @@ test("timed eggs use an independent uniform 45–75 minute random window", () =>
   }
 });
 
-test("opt-in stores a random due time, disable clears both schedules", async () => {
-  const old={find:GuildConfig.findOne,update:GuildConfig.updateOne};
-  const calls=[];
-  try{
-    GuildConfig.findOne=()=>({lean:async()=>({
-      guildId:"111111111111111111",hatchemChannelId:"222222222222222222",
-    })});
-    GuildConfig.updateOne=async(filter,update)=>{calls.push({filter,update});return {modifiedCount:1}};
-    const now=new Date("2026-11-02T12:00:00Z");
-    const enabled=await configureAutomaticDrops({guildId:"111111111111111111",enabled:true,now});
-    assert.equal(enabled.enabled,true);
-    assert.ok(+enabled.nextAt>=+now+45*60_000);
-    assert.ok(+enabled.nextAt<=+now+75*60_000);
-    assert.equal(calls[0].update.$set.hatchemAutoDropsEnabled,true);
-    assert.equal(+calls[0].update.$set.hatchemNextActivityDropAt,+now);
-    const disabled=await configureAutomaticDrops({guildId:"111111111111111111",enabled:false,now});
-    assert.equal(disabled.nextAt,null);
-    assert.equal(calls[1].update.$set.hatchemAutoDropsEnabled,false);
-    assert.equal(calls[1].update.$set.hatchemNextAutoDropAt,null);
-    assert.equal(calls[1].update.$set.hatchemNextActivityDropAt,null);
-  }finally{GuildConfig.findOne=old.find;GuildConfig.updateOne=old.update;}
+test("configured servers get automatic schedules without opt-in, preserving existing dates", async () => {
+  const original = { find: GuildConfig.find, update: GuildConfig.updateOne };
+  const calls = [];
+  try {
+    GuildConfig.find = query => {
+      assert.equal(query.hatchemNextAutoDropAt, null);
+      assert.equal(query.hatchemChannelId.$ne, "");
+      assert.equal(query.cardRoleId.$ne, "");
+      assert.equal("hatchemAutoDropsEnabled" in query, false);
+      return { select: () => ({ limit: () => ({ lean: async () => [
+        { guildId: "111111111111111111" },
+        { guildId: "222222222222222222" },
+      ] }) }) };
+    };
+    GuildConfig.updateOne = async (filter, update) => {
+      assert.equal(filter.hatchemNextAutoDropAt, null);
+      assert.equal(filter.hatchemChannelId.$ne, "");
+      assert.equal(filter.cardRoleId.$ne, "");
+      calls.push({ filter, update });
+      return { modifiedCount: 1 };
+    };
+    const now = new Date("2026-11-02T12:00:00Z");
+    assert.equal(await initializeAutomaticDropSchedules(now), 2);
+    assert.equal(calls.length, 2);
+    for (const call of calls) {
+      const due = call.update.$set.hatchemNextAutoDropAt;
+      assert.ok(+due >= +now + 45 * 60_000);
+      assert.ok(+due <= +now + 75 * 60_000);
+    }
+  } finally {
+    GuildConfig.find = original.find; GuildConfig.updateOne = original.update;
+  }
 });
 
 test("activity chance requires real chat from three people; bots, spam and commands do not qualify", () => {
