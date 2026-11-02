@@ -29,7 +29,10 @@ export function nextTimedDrop(now = new Date(), randint = randomInt) {
 // or disable the system. A conditional update initializes only missing due
 // times, so restarts and parallel workers never reset the current schedule.
 export async function initializeAutomaticDropSchedules(now = new Date()) {
+  const testGuild = isCardGameTestMode() ? process.env.DISCORD_GUILD_ID : null;
+  if (isCardGameTestMode() && !testGuild) return 0;
   const configs = await GuildConfig.find({
+    ...(testGuild ? { guildId: testGuild } : {}),
     hatchemChannelId: { $type: "string", $ne: "" },
     cardRoleId: { $type: "string", $ne: "" },
     hatchemNextAutoDropAt: null,
@@ -94,7 +97,10 @@ async function sendAutomaticEgg(client, config, releaseId) {
 export async function reconcileAutomaticCardDrops(client, now = new Date()) {
   if (!isCardGameEnabled()) return 0;
   await initializeAutomaticDropSchedules(now);
+  const testGuild = isCardGameTestMode() ? process.env.DISCORD_GUILD_ID : null;
+  if (isCardGameTestMode() && !testGuild) return 0;
   const configs = await GuildConfig.find({
+    ...(testGuild ? { guildId: testGuild } : {}),
     hatchemNextAutoDropAt: { $lte: now },
     hatchemChannelId: { $type: "string", $ne: "" },
     cardRoleId: { $type: "string", $ne: "" },
@@ -176,6 +182,7 @@ export async function maybePublishActivityEgg(client, message, {
   now = new Date(), random = Math.random,
 } = {}) {
   if (!isCardGameEnabled()) return false;
+  if (isCardGameTestMode() && message.guildId !== process.env.DISCORD_GUILD_ID) return false;
   if (!observeAutomaticDropActivity(message, now)) return false;
   if (random() >= ACTIVITY_CHANCE) return false;
   if (await hasOpenCardEgg(message.guildId, now)) return false;
