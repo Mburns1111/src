@@ -103,6 +103,8 @@ test("each question has its own permanent voting message; result edits only that
     await x.publish();
     const first=x.posts.get("r1-question-0");
     assert.ok(first?.messageId);
+    assert.ok(first.openedAt instanceof Date);
+    assert.ok(x.snapshot.phaseEndsAt.getTime() >= first.openedAt.getTime() + 30_000);
     assert.notEqual(first.messageId,answer.messageId);
     assert.match(x.messages.get(first.messageId).content,/Vote for your favorite/);
     assert.match(x.messages.get(answer.messageId).content,/Entries closed/);
