@@ -155,11 +155,17 @@ const stageKey = (round, kind, index) =>
   "r" + round + "-" + kind + (index === undefined ? "" : "-" + index);
 const snapshot = (game, round) =>
   (game.roundMatchups?.[String(round)] || (game.round === round ? game.matchups : null));
-const stagePayload = (game, key, payload) => ({
-  ...payload,
-  content: String(payload.content || "").slice(0, 1800) + "\n" + stageMarker(game, key),
-  allowedMentions: { parse: [] },
-});
+const stagePayload = (game, key, payload) => {
+  // Keep the recovery key in the small embed footer, rather than a visible
+  // raw game ID line beneath every question. Existing plaintext posts can
+  // still be discovered using their legacy content marker.
+  const embeds = (payload.embeds || []).map(value =>
+    EmbedBuilder.from(value).setFooter({ text: stageMarker(game, key) }));
+  return {
+    ...payload, content: "", embeds,
+    allowedMentions: { parse: [] },
+  };
+};
 
 async function publishStage(game, channel, cache, key, variant, payload, { current = false } = {}) {
   let post = cache.get(key);
@@ -188,7 +194,8 @@ async function publishStage(game, channel, cache, key, variant, payload, { curre
     const recent = await channel.messages.fetch({ limit: 100 });
     const existing = [...recent.values()].find(message =>
       message.author?.id === channel.client?.user?.id &&
-      message.content?.split("\n").includes(stageMarker(game, key)));
+      (message.embeds?.some(embed => embed.footer?.text === stageMarker(game, key)) ||
+        message.content?.split("\n").includes(stageMarker(game, key))));
     const message = existing || await channel.send(display);
     const openedAt = message.createdAt || (
       message.createdTimestamp ? new Date(message.createdTimestamp) : new Date());
@@ -244,10 +251,13 @@ async function archiveCourtLobby(game, channel) {
   try {
     const lobby = await channel.messages.fetch(game.messageId);
     await lobby.edit({
-      content: "**🎭 COURT OF CHAOS — Lobby " +
-        (game.phase === "cancelled" ? "cancelled" : "closed") +
-        "**\n" + game.players.length + " players joined: " + mentions(game.players) +
-        "\nRound updates and voting questions are preserved in the messages below.",
+      content: "",
+      embeds: [new EmbedBuilder().setColor(0xA76EAF)
+        .setTitle("🎭 Court of Chaos · Lobby " +
+          (game.phase === "cancelled" ? "cancelled" : "closed"))
+        .setDescription("**" + game.players.length + " players joined**\n" +
+          mentions(game.players).slice(0, 2000) +
+          "\n\nRound updates and results are kept below.")],
       components: [], allowedMentions: { parse: [] },
     });
     await PartyGame.updateOne({ _id: game._id, lobbyArchived: { $ne: true } },
@@ -289,9 +299,8 @@ async function publishCourtTimeline(game, channel) {
       if (old.renderedVariant !== "completed") {
         const previous = { ...gameSnapshot, round: game.round - 1, phase: "intermission", phaseEndsAt: null };
         const display = await courtGameDisplay(previous);
-        display.content = display.content.replace(
-          "The next round **will not start automatically**.",
-          "Staff started Round " + game.round + ". This round is complete.");
+        display.embeds[0].setDescription(
+          "**Round " + (game.round - 1) + " complete.** Staff started Round " + game.round + ".");
         display.components = [];
         await editHistoricalCourtPost(game, channel, cache, previousKey, "completed", display);
       }
@@ -307,8 +316,10 @@ async function publishCourtTimeline(game, channel) {
     const answerKey = stageKey(round, "answer");
     if (entered && cache.has(answerKey) && cache.get(answerKey).renderedVariant !== "closed") {
       await editHistoricalCourtPost(game, channel, cache, answerKey, "closed", {
-        content: "**🎭 Round " + round + " — Entries closed**\n" +
-          "The full answer window ended. Questions and voting results follow below.",
+        content: "",
+        embeds: [new EmbedBuilder().setColor(0x7776C7)
+          .setTitle("🎭 Court of Chaos · Round " + round + " entries closed")
+          .setDescription("The answer window ended. Questions and voting results follow below.")],
         components: [],
       });
     }
@@ -351,7 +362,13 @@ async function publishCourtTimeline(game, channel) {
         ["answering", "voting", "intermission"].includes(p.renderedVariant)).at(-1);
       if (last) {
         const message = await channel.messages.fetch(last.messageId);
-        await message.edit({ content: message.content + "\n**Game cancelled by staff.**",
+        const prior = message.embeds?.[0];
+        const cancelled = prior
+          ? EmbedBuilder.from(prior).setColor(0x9B6673).setDescription(
+              (prior.description || "") + "\n\n**Game cancelled by staff.**")
+          : new EmbedBuilder().setColor(0x9B6673).setTitle("🎭 Court of Chaos · Cancelled")
+            .setDescription("Game cancelled by staff.");
+        await message.edit({ content: "", embeds: [cancelled],
           components: [], allowedMentions: { parse: [] } });
         await PartyPost.updateOne({ _id: last._id }, { $set: { renderedVariant: "cancelled" } });
       }
