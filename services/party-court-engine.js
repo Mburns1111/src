@@ -81,15 +81,18 @@ export async function courtGameDisplay(game) {
       (game.batch * BATCH_SIZE + 1) + " of " + game.matchups.length);
     if (game.phase === "voting") lines.push("Vote for your favorite answer! Closes " + seconds(game.phaseEndsAt) + (game.paused ? " (PAUSED)" : "") + ".");
     if (game.players.length === 1) lines.push("Solo showcase — no opponent or audience vote; enjoy your answer reveal!");
-    for (const { match, matchupIndex, answers, scores } of results) {
+    for (const { match, matchupIndex, answers, votes, scores } of results) {
       lines.push("", resultTitle(game, matchupIndex), safeCourtText(match.prompt));
       const participants = match.playerIds.map((id, i) => ({
         id, label: String.fromCharCode(65 + i), answer: answers.find(a => a.userId === id)?.text || "",
       }));
       for (const participant of participants) {
         const answer = participant.answer ? safeCourtText(participant.answer) : "(No answer submitted)";
+        const count = votes.filter(v => v.targetId === participant.id &&
+          !match.playerIds.includes(v.userId || v.voterId)).length;
         lines.push("**" + participant.label + ":** " + answer +
-          (game.phase === "reveal" ? " — <@" + participant.id + "> (" + (scores[participant.id] || 0) + " pts)" : ""));
+          (game.phase === "reveal" ? " — <@" + participant.id + "> (" + count +
+          " vote" + (count === 1 ? "" : "s") + ", " + (scores[participant.id] || 0) + " pts)" : ""));
       }
       if (game.phase === "voting" && match.playerIds.length > 1) {
         const candidates = participants.filter(p => p.answer);
