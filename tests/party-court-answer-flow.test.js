@@ -223,7 +223,7 @@ test("ordinary members cannot start the next round from the public button", asyn
       isButton:()=>true, isModalSubmit:()=>false,
       customId:"party:next:"+gameId+":1",
       guildId,user:{id:a},memberPermissions:{has:()=>false},
-      deferReply:async()=>{},editReply:async msg=>replies.push(msg),
+      deferUpdate:async()=>{},followUp:async msg=>replies.push(msg),
     });
     assert.match(replies[0].content,/Only staff/);
   } finally {restore(changes);}
