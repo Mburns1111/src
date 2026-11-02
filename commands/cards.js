@@ -588,7 +588,14 @@ function formatCardCooldown(date) {
   return "<t:" + unix + ":R> (<t:" + unix + ":t>)";
 }
 
-export async function publishCardDrop(interaction, { releaseId, testMode, automated = false }) {
+export function automaticEggPing(roleId) {
+  // Never ping @everyone/@here, users, or unconfigured arbitrary roles.
+  const validated = /^\\d{17,20}$/.test(String(roleId || "")) ? String(roleId) : "";
+  return { mention: validated ? "<@&" + validated + ">" : "",
+    allowedMentions: { parse: [], roles: validated ? [validated] : [] } };
+}
+
+export async function publishCardDrop(interaction, { releaseId, testMode, automated = false, roleId = "" }) {
   const release = await CardRelease.findOne({ releaseId, status: "active" }).lean();
   if (!release) return interaction.editReply("No active release has that ID. Configure and approve a release first.");
   const odds = Object.fromEntries(["Common","Uncommon","Rare","Ultra-Rare","Legendary"].map(k => [k, release.hatchOdds[k]]));
@@ -662,11 +669,12 @@ export async function publishCardDrop(interaction, { releaseId, testMode, automa
         cardDefinitionId: x.card._id, petId: x.card.petId, rarity: x.rarity,
       })),
     });
+    const notification = automated ? automaticEggPing(roleId) : { mention: "", allowedMentions: { parse: [] } };
     posted = await interaction.channel.send({
-      content: dropText(drop, release.name, petNames),
+      content: (notification.mention ? notification.mention + "\\n" : "") + dropText(drop, release.name, petNames),
       files: [new AttachmentBuilder(dropPng, { name: "card-drop.png" })],
       components: [rowButtons(drop)],
-      allowedMentions: { parse: [] },
+      allowedMentions: notification.allowedMentions,
     });
     if(achievementStart() && !automated){
       const session=await mongoose.startSession();
