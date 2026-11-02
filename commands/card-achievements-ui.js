@@ -1,3 +1,4 @@
+import {isCardGameEnabled} from "../services/card-game-mode.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
 import { achievementPages, listCardAchievements } from "../services/card-achievements.js";
 
@@ -63,7 +64,7 @@ export async function handleCardAchievementButton(interaction) {
   if (interaction.user.id !== ownerId) {
     return deny(interaction, "These are another collector's private achievements. Open your own with `.achievements`.");
   }
-  if (process.env.ENABLE_CARD_GAME_TEST !== "1")
+  if (!isCardGameEnabled())
     return deny(interaction, "Hatchem achievements are currently unavailable.");
   await interaction.deferUpdate();
   try {
