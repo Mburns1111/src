@@ -9,6 +9,12 @@ and the exact supported release-secret triggers. The following design sections
 record the agreed specification, including future themed-secret concepts.
 
 
+## Discord achievements display — compact default
+
+The collector's `.achievements`, `/cards achievements`, and the **Achievements** button on the public inventory now open a **private, compact view**: one line per visible milestone, up to 12 milestones per page, with its name and current progress or earned discovery rank. The small header keeps total badges, bonus grabs, bonus drops, and aggregate secret discovery counts. Regular achievement descriptions are hidden in the compact view to avoid a giant mobile message.
+
+To see the full requirements and descriptions, use **`.achievements full`** or choose **Detailed achievements** in the `/cards achievements` `view` option. Page navigation remains `.achievements 2` for compact or `.achievements full 2` for detailed. Earned secret achievements still show their true names, conditions, dates, and rewards **only in the owner's private response**; undiscovered secrets still show aggregate counts only. This is purely display formatting and does not alter progress, unlocks, rewards, or the public inventory.
+
 ## Reward tiers
 
 | Tier | Award per newly unlocked achievement | Meaning |
