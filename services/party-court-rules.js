@@ -93,12 +93,13 @@ export const COURT_PROMPTS = Object.freeze([
 ].map(([category, text], index) => Object.freeze({ id: index + 1, category, text })));
 
 export const COURT_ROUND_POINTS = Object.freeze([1000, 1500, 2000]);
-export const COURT_MIN_PLAYERS = 4;
+// A host may start with any nonempty lobby; one player is a solo showcase.
+export const COURT_MIN_PLAYERS = 1;
 export const COURT_MAX_PLAYERS = 20;
 
 export function assignCourtMatchups(players, round, category = "mixed", usedIds = [], random = Math.random) {
   if (players.length < COURT_MIN_PLAYERS || players.length > COURT_MAX_PLAYERS || new Set(players).size !== players.length)
-    throw new Error("Court of Chaos requires 4–20 distinct players.");
+    throw new Error("Court of Chaos requires 1–20 distinct players.");
   const pool = COURT_PROMPTS.filter(p => (category === "mixed" || p.category === category) && !usedIds.includes(p.id));
   const available = pool.length ? pool : COURT_PROMPTS.filter(p => category === "mixed" || p.category === category);
   const shuffled = [...players];
@@ -108,9 +109,10 @@ export function assignCourtMatchups(players, round, category = "mixed", usedIds 
   }
   const matchups = [];
   const options = [...available];
-  const count = Math.floor(players.length / 2);
+  const count = Math.max(1, Math.floor(players.length / 2));
   for (let i = 0, offset = 0; i < count; i++) {
-    const size = players.length % 2 && i === count - 1 ? 3 : 2;
+    const size = players.length === 1 ? 1 :
+      (players.length % 2 && i === count - 1 ? 3 : 2);
     const playerIds = shuffled.slice(offset, offset + size);
     offset += size;
     if (!options.length) options.push(...available);
@@ -139,7 +141,7 @@ export function scoreCourtMatchup(playerIds, answers, votes, round) {
 }
 
 export function courtRewardPlan(scores, answeredCounts, completedRounds, priorCompletionCount = 0) {
-  if (completedRounds < 2 || scores.length < 4 || priorCompletionCount >= 2) return [];
+  if (completedRounds < 2 || scores.length === 0 || priorCompletionCount >= 2) return [];
   const eligible = scores.filter(p => (answeredCounts[p.userId] || 0) >= 2)
     .sort((a,b) => b.score - a.score ||
       (b.finalRound || 0) - (a.finalRound || 0) ||
@@ -150,7 +152,9 @@ export function courtRewardPlan(scores, answeredCounts, completedRounds, priorCo
     const rank = eligible.findIndex(p => p.score === player.score &&
       (p.finalRound || 0) === (player.finalRound || 0) &&
       (p.wins || 0) === (player.wins || 0)) + 1;
-    return { userId: player.userId, completion: 5, placement: [10,6,3][rank - 1] || 0 };
+    // A solo session has no opponent and therefore no competitive placement bonus.
+    return { userId: player.userId, completion: 5,
+      placement: scores.length === 1 ? 0 : ([10,6,3][rank - 1] || 0) };
   });
 }
 
