@@ -14,7 +14,7 @@ Use a development bot token, development MongoDB database and test Discord serve
 2. Check out the development branch and run tests.
 3. Run the existing **register-commands.js** to register /party with the *development* Discord application only. The script replaces the application command lists; confirm the token, application ID, and guild ID first.
 4. Restart the test bot.
-5. Create a Discord text channel for games, then run /setup channels party_games:#your-channel. As staff with Manage Server, use **/party start game:Court of Chaos** to create a signup lobby, or **/party host** to create the same kind of lobby with optional category and rewards settings. Both commands post the lobby in the configured channel, regardless of where they are used. Neither command launches Round 1.
+5. Create a Discord text channel for games, then run /setup channels party_games:#your-channel. As staff with Manage Server, use **/party start** or **/party host**. Both commands offer a game option; if left blank, a private **Choose your Party Game** dropdown appears. Select Court of Chaos to create the signup lobby. /party host also accepts optional category and rewards settings. Neither command launches Round 1.
 6. Have 1–20 accounts use Join; Leave and rejoin; try the 21st account. Test separate 1-, 2- and 3-player games.
 7. Only after members have joined, the **staff member who created the lobby** clicks **Start Party** beside Join and Leave to begin Round 1. **/party start creates the signup lobby; it never skips signup.** Other admins and members cannot start somebody else's lobby, and at least one player must have joined. Every player then gets **two different prompts per round** through My Prompts & Answers and submits each answer with its own button/modal. The modal reply must say **Saved for Round 1** and show exactly what was stored. Clicking My Prompt & Answer again must display **Your saved answer**. Staff can use /party status to see the number of saved submissions without viewing private answers.
 8. After the **full 60-second answer period**, with 2+ players, each question is shown individually with **30 seconds to read and vote**. With one player, both prompts are revealed without voting. The timer does NOT end early when all answers have been submitted.
@@ -24,7 +24,7 @@ Use a development bot token, development MongoDB database and test Discord serve
 ## Staff controls
 
 - /setup channels party_games:#your-channel: save the dedicated Party Games channel, without changing the other channels
-- /party start game:Court of Chaos: **create the signup lobby**, not start answering. The required game selector currently lists Court of Chaos only. After players join, the original host clicks the **Start Party** button to begin Round 1.
+- /party start with game selection: opens a **private game-selection menu** if no game is specified, or creates the selected game's signup lobby directly. The game option is optional only because the private picker provides the alternative. Court of Chaos is the only available choice. It never starts the answering timer.
 - /party status: phase, players and remaining time
 - /party next: staff starts the next round after the 10-second break; also available as a staff-only button in the Party Games message
 - /party pause: stop automatic phase advances
@@ -79,7 +79,7 @@ Use Replit's Stop button first. In Replit Shell run `ps -eo pid,ppid,args | grep
 
 The game no longer edits the original lobby message through all phases. Instead:
 
-1. On `/party start game:Court of Chaos` (or `/party host`), one signup lobby post appears with **Join, Leave, Start Party** buttons. The lobby stays open indefinitely until the staff user who created it presses **Start Party**. Only then are the lobby buttons removed and the answering phase opened in a new message.
+1. On `/party start` or `/party host`, staff chooses **Court of Chaos** using the optional slash `game` field or the private game picker. Only **after selection** does a signup lobby post appear with **Join, Leave, Start Party** buttons. The lobby stays open indefinitely until the staff user who created it presses **Start Party**. Only then are the lobby buttons removed and the answering phase opened in a new message.
 2. A **new round-answering post** provides a private prompt button and 60-second entry countdown. When the entry period closes, that post is marked closed; it stays visible.
 3. Every question is **its own new public voting message** with 30 seconds of voting. When the timer closes, **the same question message** is edited to display its answer results, names and points, and the vote controls are removed.
 4. After the 8-second reveal, another question begins in **a new message**. Nothing in the previous question is replaced or erased.
@@ -91,6 +91,15 @@ The bot records the Discord message ID for each stage in MongoDB, so normal rest
 ## Initial lobby start permissions and game selection
 
 - A lobby shows the host's mention plus three buttons: **Join**, **Leave**, and **Start Party**. The Start Party button is visible to everyone, but only the user who created that lobby **and still has Manage Server permission** may use it. Everyone else gets a private denial without starting the game.
-- The **`/party start game:Court of Chaos`** slash command creates a signup lobby using a required Discord game selector; it does **not** begin Round 1. Court of Chaos is the only implemented game, so no other game is advertised as playable.
-- The slash command creates the signup lobby without requiring any joined members. The **Start Party** button is the separate, host-only action that requires at least one joined player and begins Round 1. Both actions guard against an existing active lobby/game. Staff retain their existing round-management commands.
+- Both `/party start` and `/party host` let staff choose the game in a slash-command `game` field, or via the **private dropdown** when that field is omitted. A game must be chosen; it never silently defaults to Court of Chaos. Round 1 starts only when the original host clicks **Start Party**.
+- The game-selection step creates no lobby until a game is chosen. The resulting signup lobby starts with zero joined members and no countdown. The **Start Party** button is the separate, host-only action that requires at least one joined player and begins Round 1. Both actions guard against an existing active lobby/game. Staff retain their existing round-management commands.
 - This change adds a slash-command option, so run **`node register-commands.js`** on the **development bot** after pulling the branch. Do not run the development registration against the live application's credentials.
+
+## Game picker checks
+
+- Run `/party start` without specifying `game`; it should show a private dropdown titled **Choose your Party Game**, not automatically create a Court of Chaos lobby.
+- Select **Court of Chaos**. Only now should a public signup lobby with **Join / Leave / Start Party** appear in the configured Party Games channel. The lobby has zero players and no countdown.
+- Run `/party host` without specifying a game; it must also show the picker, preserving any requested category and rewards settings.
+- If the slash-command `game` option was explicitly supplied, that already counts as choosing the game; there is no need to choose twice.
+- A different staff member cannot use someone else's private picker. Invalid selections must not create a lobby.
+- Re-register slash commands in Replit using the development bot's token and application ID, then restart. Discord can cache old command definitions; reload the client if stale options remain.
