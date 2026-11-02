@@ -147,7 +147,10 @@ test("owner slash commands expose draft creation, roster and read-only review ac
   }
   const create = cmds.find(option => option.name === "create-release");
   assert.ok(create.options.every(option => option.required));
-  assert.equal(cmds.some(option => ["activate", "publish", "retire"].includes(option.name)), false);
+  for (const name of ["assign-art","set-enabled","activate","pause","resume","retire"])
+    assert.ok(cmds.some(option => option.name === name), name);
+  assert.equal(cmds.find(option=>option.name==="activate").options.find(option=>option.name==="confirm").required,true);
+  assert.equal(cmds.find(option=>option.name==="retire").options.find(option=>option.name==="confirm").required,true);
 });
 
 test("bulk pet list parser supports the first 100 selected release pets, but refuses oversized lists", () => {
