@@ -4,7 +4,7 @@ import PartyGame from "../models/PartyGame.js";
 import PartyResponse from "../models/PartyResponse.js";
 import { handlePartyInteraction } from "../commands/party.js";
 import {
-  courtGameDisplay, shortenCourtAnswerWindow, COURT_TIMINGS,
+  courtGameDisplay, advanceCourtGame, startNextCourtRound, COURT_TIMINGS,
 } from "../services/party-court-engine.js";
 
 const gameId = "507f1f77bcf86cd799439011";
@@ -14,7 +14,7 @@ const b = "345678901234567890";
 const game = () => ({
   _id: gameId, guildId, messageId: "456789012345678901",
   phase: "answering", paused: false,
-  phaseEndsAt: new Date(Date.now() + 45_000),
+  phaseEndsAt: new Date(Date.now() + 60_000),
   players: [a, b], round: 1, batch: 0,
   matchups: [{ playerIds: [a,b], promptId: 1, prompt: "What is the worst prize?" }],
 });
@@ -26,9 +26,9 @@ function restore(changes) {
   for (const [obj,name,fn] of changes.reverse()) obj[name] = fn;
 }
 
-test("fast standard pace caps answers at 45s, votes at 15s and reveals at 8s and intermissions at 10s", () => {
-  assert.equal(COURT_TIMINGS.answerMs, 45_000);
-  assert.equal(COURT_TIMINGS.voteMs, 15_000);
+test("standard pace allows full 60s answers, 30s per question, 8s reveals and 10s intermissions", () => {
+  assert.equal(COURT_TIMINGS.answerMs, 60_000);
+  assert.equal(COURT_TIMINGS.voteMs, 30_000);
   assert.equal(COURT_TIMINGS.revealMs, 8_000);
   assert.equal(COURT_TIMINGS.intermissionMs, 10_000);
 });
@@ -84,7 +84,7 @@ test("player can check their exact saved answer privately", async () => {
   const changes = [], replies = [];
   try {
     stub(changes, PartyGame, "findOne", async () => game());
-    stub(changes, PartyResponse, "findOne", async () => ({ text: "Microwave with legs" }));
+    stub(changes, PartyResponse, "find", () => ({lean: async () => [{ matchupIndex:0, text: "Microwave with legs" }] }));
     await handlePartyInteraction({
       isButton: () => true, isModalSubmit: () => false,
       customId: "party:prompt:" + gameId, guildId, user:{id:a},
@@ -93,7 +93,7 @@ test("player can check their exact saved answer privately", async () => {
     });
     assert.match(replies[0].content,/Your saved answer/);
     assert.match(replies[0].content,/Microwave with legs/);
-    assert.equal(replies[0].components[0].components[0].data.label,"Edit Saved Answer");
+    assert.equal(replies[0].components[0].components[0].data.label,"Edit Question 1");
   } finally { restore(changes); }
 });
 
@@ -115,39 +115,78 @@ test("saved responses are displayed during the voting phase, not treated as miss
   } finally { restore(changes); }
 });
 
-test("all saved answers shorten the countdown; partial entries don't", async () => {
-  const changes = [], updates = [];
+
+test("answer phase cannot end early even after all players submit", async () => {
+  const changes = [];
   try {
-    let answers = [{ userId:a, matchupIndex:0 }];
-    stub(changes, PartyResponse, "find", () => ({
-      select: () => ({ lean: async () => answers }),
-    }));
-    stub(changes, PartyGame, "updateOne", async (filter, update) => {
-      updates.push({filter,update});
-      return {modifiedCount:1};
+    const g = { ...game(), phaseEndsAt:new Date(Date.now()+50_000) };
+    const updates=[];
+    stub(changes, PartyGame, "updateOne", async (...args) => {
+      updates.push(args);return {modifiedCount:1};
     });
-    const g = game();
-    assert.equal(await shortenCourtAnswerWindow(g),false);
+    assert.equal(await advanceCourtGame(g), false);
     assert.equal(updates.length,0);
-    answers = [{userId:a,matchupIndex:0},{userId:b,matchupIndex:0}];
-    assert.equal(await shortenCourtAnswerWindow(g),true);
-    assert.equal(updates.length,1);
-    const ms = updates[0].update.$set.phaseEndsAt.getTime() - Date.now();
-    assert.ok(ms > 0 && ms <= 5_000);
-    assert.equal(updates[0].update.$inc.renderVersion,1);
+    const expired = { ...g, phaseEndsAt:new Date(Date.now()-1_000) };
+    assert.equal(await advanceCourtGame(expired),true);
+    assert.equal(updates[0][1].$set.phase,"voting");
+    const until = updates[0][1].$set.phaseEndsAt.getTime()-Date.now();
+    assert.ok(until>0 && until <= 30_000);
   } finally { restore(changes); }
 });
 
-test("a saved answer from the wrong matchup does not end the round early", async () => {
-  const changes = [];
+test("intermission never moves on its own even after ten seconds", async () => {
+  const changes=[];
   try {
-    stub(changes, PartyResponse, "find", () => ({
-      select: () => ({ lean: async () => [
-        {userId:a,matchupIndex:1},{userId:b,matchupIndex:0},
-      ] }),
-    }));
-    stub(changes, PartyGame, "updateOne", async () =>
-      assert.fail("The round cannot end with a mismatched submission"));
-    assert.equal(await shortenCourtAnswerWindow(game()),false);
+    stub(changes, PartyGame, "updateOne", async () => assert.fail("Must wait for staff"));
+    const g = { ...game(), round:1, phase:"intermission",
+      phaseEndsAt:new Date(Date.now()-30_000) };
+    assert.equal(await advanceCourtGame(g),false);
   } finally { restore(changes); }
+});
+
+test("staff transition respects ten-second break and starts exactly the next round", async () => {
+  const changes=[],writes=[];
+  try {
+    stub(changes, PartyGame, "updateOne", async (filter,change) => {
+      writes.push({filter,change});return {modifiedCount:1};
+    });
+    const g={...game(), round:1, phase:"intermission", category:"silly",
+      usedPromptIds:[], phaseEndsAt:new Date(Date.now()+7_000)};
+    assert.equal(await startNextCourtRound(g),false);
+    assert.equal(writes.length,0);
+    g.phaseEndsAt=new Date(Date.now()-1_000);
+    assert.equal(await startNextCourtRound(g),true);
+    assert.equal(writes.length,1);
+    assert.equal(writes[0].filter.phase,"intermission");
+    assert.equal(writes[0].filter.round,1);
+    assert.equal(writes[0].change.$set.round,2);
+    assert.equal(writes[0].change.$set.phase,"answering");
+    assert.equal(writes[0].change.$set.matchups.length,2);
+  } finally { restore(changes); }
+});
+
+test("each member sees two questions, two saved answers and separate buttons", async () => {
+  const changes=[],replies=[];
+  try {
+    const g=game();
+    g.matchups=[
+      {playerIds:[a,b], promptId:1, prompt:"First question?"},
+      {playerIds:[a,b], promptId:2, prompt:"Second question?"},
+    ];
+    stub(changes, PartyGame, "findOne", async () => g);
+    stub(changes, PartyResponse, "find", () => ({lean:async ()=>[
+      {matchupIndex:0,text:"First answer"}, {matchupIndex:1,text:"Second answer"},
+    ]}));
+    await handlePartyInteraction({
+      isButton:()=>true,isModalSubmit:()=>false,customId:"party:prompt:"+gameId,
+      guildId,user:{id:a},deferReply:async()=>{},
+      editReply:async msg=>replies.push(msg),
+    });
+    assert.match(replies[0].content,/First question/);
+    assert.match(replies[0].content,/Second question/);
+    assert.match(replies[0].content,/First answer/);
+    assert.match(replies[0].content,/Second answer/);
+    assert.equal(replies[0].components[0].components.length,2);
+    assert.ok(replies[0].components[0].components[1].data.custom_id.endsWith(":1:1"));
+  } finally {restore(changes);}
 });
