@@ -3,6 +3,8 @@ import CardSeries from "../models/CardSeries.js";
 import CardRelease from "../models/CardRelease.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
+import CardArtwork from "../models/CardArtwork.js";
+import { freezeAchievementRelease } from "./card-achievement-engine.js";
 import { CARD_RARITIES, DEFAULT_HATCH_ODDS, validateHatchOdds } from "./card-hatch-engine.js";
 
 // A series, release, and definition are global across all guilds.
@@ -195,4 +197,109 @@ export async function checkRelease({ releaseId: requestedId }) {
       problems.push(rarity + " has no hatchable cards; its odds would be redistributed.");
   }
   return { release, pets: cards.length, usable: usable.length, problems };
+}
+
+
+// Only owner-approved artwork may be attached to a draft official release.
+// The pet is enabled in a separate explicit step after its art is reviewed.
+export async function assignReleaseArtwork({ releaseId: requestedId, kind, key, petId }) {
+  const id = releaseId(requestedId);
+  requireDraft(await CardRelease.findOne({ releaseId: id }).lean());
+  if (id.startsWith("test-")) throw Error("Use the dedicated test-artwork tools for test releases.");
+  if (!["pet","background","frame"].includes(kind)) throw Error("Artwork kind must be pet, background or frame.");
+  const artwork = await CardArtwork.findOne({ key: String(key).trim().toLowerCase(), kind, licenseReviewStatus: "approved" }).lean();
+  if (!artwork) throw Error("Only artwork with an approved license review may be assigned.");
+  if (kind === "pet") {
+    if (!petId || !artwork.artistCredit) throw Error("Pet artwork requires a pet and artist credit.");
+    const selected = await CardDefinition.updateOne({ releaseId: id, petId: String(petId).trim(), artStatus: { $ne: "test-placeholder" } },
+      { $set: { petArtworkKey: artwork.key, artistCredit: artwork.artistCredit, artStatus: "approved" } });
+    if (selected.modifiedCount !== 1) throw Error("That draft pet was not updated. Check its ID and current artwork.");
+  } else {
+    if (petId) throw Error("Background/frame artwork is release-wide; omit the pet.");
+    const field = kind === "background" ? "cardBackgroundKey" : "cardFrameKey";
+    const updated = await CardRelease.updateOne({ releaseId: id, status: "draft" }, { $set: { [field]: artwork.key } });
+    if (updated.modifiedCount !== 1) throw Error("That draft release was not updated.");
+  }
+  return { releaseId: id, key: artwork.key, kind, petId: petId || "" };
+}
+
+export async function setReleasePetEnabled({ releaseId: requestedId, petId, enabled }) {
+  const id = releaseId(requestedId);
+  requireDraft(await CardRelease.findOne({ releaseId: id }).lean());
+  if (typeof enabled !== "boolean") throw Error("Choose enabled or disabled.");
+  const card = await CardDefinition.findOne({ releaseId: id, petId: String(petId).trim() }).lean();
+  if (!card) throw Error("That pet is not in the draft release.");
+  if (enabled) {
+    if (card.artStatus !== "approved" || !card.petArtworkKey || !card.artistCredit)
+      throw Error("Approve and assign credited pet artwork before enabling this card.");
+    if (!await CardArtwork.exists({ key: card.petArtworkKey, kind: "pet", licenseReviewStatus: "approved" }))
+      throw Error("The pet's artwork license is not approved.");
+  }
+  await CardDefinition.updateOne({ _id: card._id, releaseId: id }, { $set: { enabled } });
+  return { releaseId: id, petId: card.petId, enabled };
+}
+
+// More stringent than a draft hatch-odds check: this is the official launch gate.
+export async function checkOfficialReleaseReadiness({ releaseId: requestedId }) {
+  const base = await checkRelease({ releaseId: requestedId });
+  const { release } = base;
+  const problems = [...base.problems];
+  if (release.releaseId.startsWith("test-")) problems.push("Test releases cannot be launched as official releases.");
+  if (!release.eggImageUrl && !release.eggImageFileId) problems.push("Egg artwork has not been configured.");
+  const activeDefs = await CardDefinition.find({
+    releaseId: release.releaseId, enabled: true, artStatus: "approved", hatchWeight: { $gt: 0 },
+  }).lean();
+  const keys = [
+    ...activeDefs.map(d => d.petArtworkKey).filter(Boolean),
+    release.cardBackgroundKey, release.cardFrameKey,
+  ].filter(Boolean);
+  const assets = keys.length ? await CardArtwork.find({ key: { $in: [...new Set(keys)] } }).lean() : [];
+  const approved = new Map(assets.map(asset => [asset.key, asset]));
+  for (const card of activeDefs) {
+    const asset = approved.get(card.petArtworkKey);
+    if (!card.petArtworkKey || !card.artistCredit || !asset || asset.kind !== "pet" || asset.licenseReviewStatus !== "approved")
+      problems.push("Missing approved, credited pet artwork: " + card.petId);
+  }
+  for (const [key, kind] of [[release.cardBackgroundKey, "background"], [release.cardFrameKey, "frame"]]) {
+    if (key && (approved.get(key)?.kind !== kind || approved.get(key)?.licenseReviewStatus !== "approved"))
+      problems.push("Release " + kind + " art must be license-approved: " + key);
+  }
+  const secrets = release.achievementSecrets || [];
+  if (secrets.length < 6 || ["basic","medium","advanced"].some(tier => secrets.filter(secret => secret.tier === tier).length < 2))
+    problems.push("Configure six private egg achievements (at least two per tier) before activation.");
+  return { ...base, problems };
+}
+
+export async function activateRelease({ releaseId: requestedId }) {
+  const id = releaseId(requestedId);
+  const check = await checkOfficialReleaseReadiness({ releaseId: id });
+  if (check.release.status !== "draft") throw Error("Only draft releases may be activated.");
+  if (check.problems.length) throw Error("Release not ready: " + check.problems.join(" | "));
+  const session = await mongoose.startSession();
+  try {
+    let updated;
+    await session.withTransaction(async () => {
+      updated = await CardRelease.findOneAndUpdate({ releaseId: id, status: "draft" },
+        { $set: { status: "active" } }, { session, new: true });
+      if (!updated) throw Error("Release status changed before activation.");
+      await freezeAchievementRelease(id, session);
+    });
+    return { releaseId: id, status: "active" };
+  } finally { await session.endSession(); }
+}
+
+export async function transitionRelease({ releaseId: requestedId, action }) {
+  const id = releaseId(requestedId);
+  const moves = {
+    pause: { from: "active", to: "paused" },
+    resume: { from: "paused", to: "active" },
+    retire: { from: ["active","paused"], to: "retired" },
+  };
+  const move = moves[action];
+  if (!move) throw Error("Invalid release transition.");
+  const source = Array.isArray(move.from) ? { $in: move.from } : move.from;
+  const updated = await CardRelease.findOneAndUpdate({ releaseId: id, status: source },
+    { $set: { status: move.to } }, { new: true }).lean();
+  if (!updated) throw Error("Release is not in a state that allows " + action + ". Retired eggs cannot be restarted.");
+  return { releaseId: id, status: updated.status };
 }
