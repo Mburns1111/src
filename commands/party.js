@@ -11,6 +11,7 @@ import {
   publishCourtGame, partyButton,
 } from "../services/party-court-engine.js";
 import { COURT_MIN_PLAYERS, safeCourtText } from "../services/party-court-rules.js";
+import { trackCourtAnswerPanel } from "../services/party-private-panels.js";
 
 export const data = new SlashCommandBuilder()
   .setName("party").setDescription("Staff-hosted, text-based Party Games")
@@ -27,6 +28,9 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("game").setDescription("Game to play (or choose in the private game menu)")
       .addChoices({ name: "Court of Chaos", value: "court" })))
   .addSubcommand(c => c.setName("next").setDescription("Start the next round after the 10-second break"))
+  .addSubcommand(c => c.setName("prize").setDescription("Set the first-place prize announcement (delivered manually)")
+    .addStringOption(o => o.setName("message").setDescription("Example: Winner receives a Mystery Egg from staff")
+      .setRequired(true).setMaxLength(300)))
   .addSubcommand(c => c.setName("status").setDescription("Show the active game's private staff status"))
   .addSubcommand(c => c.setName("pause").setDescription("Pause the game's timer"))
   .addSubcommand(c => c.setName("resume").setDescription("Resume a paused game"))
@@ -132,6 +136,24 @@ export async function execute(interaction) {
   }
   const game = await activeGame(interaction.guildId);
   if (!game) return interaction.editReply(errorText("There is no active Party Game in this server."));
+  if (op === "prize") {
+    if (interaction.user.id !== game.hostId)
+      return interaction.editReply(errorText("Only the original party host can set its first-place prize."));
+    if (game.phase === "ended" || game.phase === "cancelled")
+      return interaction.editReply(errorText("This party has already finished."));
+    const message = interaction.options.getString("message", true).trim();
+    if (!message || message.length > 300 || /@everyone|@here/i.test(message) ||
+        /https?:\/\/|discord\.gg\//i.test(message))
+      return interaction.editReply(errorText("Enter 1–300 characters without links or mass mentions."));
+    const changed = await PartyGame.updateOne({
+      _id: game._id, active: true, hostId: interaction.user.id,
+    }, { $set: { prizeMessage: message }, $inc: { renderVersion: 1 } });
+    if (changed.modifiedCount) void publishCourtGame(interaction.client, game)
+      .catch(error => console.error("[Party] Prize display refresh will retry:", error));
+    return interaction.editReply(errorText(changed.modifiedCount
+      ? "🏆 First-place prize message saved. The final results will display it; staff must deliver the prize manually."
+      : "The party changed before the prize could be saved."));
+  }
   if (op === "status") {
     const savedCount = game.phase === "answering" ?
       await PartyResponse.countDocuments({ gameId: game._id, round: game.round,
@@ -240,7 +262,7 @@ export async function privateCourtPromptPanel(game, userId, note = "") {
     if (open) buttons.push(new ButtonBuilder()
       .setCustomId(partyButton(game, "answer", game.round + ":" + idx))
       .setLabel((answer ? "Edit" : "Answer") + " Question " + (number + 1))
-      .setStyle(ButtonStyle.Primary));
+      .setStyle(answer ? ButtonStyle.Success : ButtonStyle.Primary));
   }
   lines.push(open
     ? "Answering closes " + "<t:" + Math.ceil(game.phaseEndsAt.getTime() / 1000) + ":R>."
@@ -293,6 +315,34 @@ export async function handlePartyInteraction(interaction) {
       .catch(error => console.error("[Party] Lobby refresh will retry:", error));
     return;
   }
+  if (action === "start" || action === "next") {
+    // Just update the public lobby/standings. There is no need for a
+    // second private "Round started" message when the new round is visible.
+    await interaction.deferUpdate();
+    const game = await loadGame(interaction, gameId);
+    let errorMessage = "";
+    let started = false;
+    if (!game?.messageId) errorMessage = "This party game is unavailable.";
+    else if (!staff(interaction)) errorMessage = "Only staff can start a round.";
+    else if (action === "start") {
+      const result = await startHostedLobby(interaction, game);
+      started = result.started;
+      if (!started) errorMessage = result.message;
+    } else if (game.phase !== "intermission" || Number(roundText) !== game.round) {
+      errorMessage = "This next-round button is no longer active.";
+    } else if (game.phaseEndsAt && game.phaseEndsAt.getTime() > Date.now()) {
+      errorMessage = "The 10-second intermission is still running.";
+    } else {
+      started = await startNextCourtRound(game);
+      if (!started) errorMessage = "The next round has already started or the game changed.";
+    }
+    if (!started) return interaction.followUp({
+      ...errorText(errorMessage), flags: MessageFlags.Ephemeral,
+    });
+    void publishCourtGame(interaction.client, game)
+      .catch(error => console.error("[Party] Round publication will retry:", error));
+    return;
+  }
   // Show modals without a database round-trip. All eligibility, round and
   // deadline checks are performed again on the actual modal submission.
   if (action === "answer") {
@@ -311,26 +361,6 @@ export async function handlePartyInteraction(interaction) {
   await acknowledgePartyInteraction(interaction, action);
   const game = await loadGame(interaction, gameId);
   if (!game || !game.messageId) return interaction.editReply(errorText("This party game is unavailable."));
-  if (action === "start") {
-    const result = await startHostedLobby(interaction, game);
-    const reply = await interaction.editReply(errorText(result.message));
-    if (result.started) void publishCourtGame(interaction.client, game)
-      .catch(error => console.error("[Party] Lobby start publish will retry:", error));
-    return reply;
-  }
-  if (action === "next") {
-    if (!staff(interaction)) return interaction.editReply(errorText("Only staff with Manage Server can begin the next round."));
-    if (game.phase !== "intermission" || Number(roundText) !== game.round)
-      return interaction.editReply(errorText("This next-round button is no longer active."));
-    if (game.phaseEndsAt && game.phaseEndsAt.getTime() > Date.now())
-      return interaction.editReply(errorText("The 10-second intermission is still running."));
-    const started = await startNextCourtRound(game);
-    const reply = await interaction.editReply(errorText(started ? "Round " + (game.round + 1) + " started!" :
-      "The next round has already started or the game changed."));
-    if (started) void publishCourtGame(interaction.client, game)
-      .catch(error => console.error("[Party] Next round refresh will retry:", error));
-    return reply;
-  }
   if (action === "leave") {
     const result = await PartyGame.updateOne({
       _id: game._id, phase: "lobby", players: interaction.user.id,
@@ -343,7 +373,9 @@ export async function handlePartyInteraction(interaction) {
   if (action === "prompt") {
     if (game.phase !== "answering" || game.paused || timeLeft(game) <= 0)
       return interaction.editReply(errorText("The answering phase isn't open."));
-    return interaction.editReply(await privateCourtPromptPanel(game, interaction.user.id));
+    const reply = await interaction.editReply(await privateCourtPromptPanel(game, interaction.user.id));
+    trackCourtAnswerPanel(game, interaction);
+    return reply;
   }
   if (action === "submit") {
     const round = Number(roundText), idx = Number(matchupText);
