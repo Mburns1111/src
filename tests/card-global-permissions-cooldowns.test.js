@@ -52,7 +52,7 @@ test("server admins can only manage local Card roles and automatic drops", () =>
   assert.deepEqual(ownerCommand.options.map(x => x.name), [
     "releases", "create-series", "create-release", "edit-release", "add-pet",
     "add-pets", "remove-pet", "set-weight", "set-odds", "release-check",
-    "assign-art", "set-enabled", "activate", "pause", "resume", "retire", "inspect",
+    "egg-upload", "egg-review", "assign-art", "set-enabled", "activate", "pause", "resume", "retire", "inspect",
   ]);
 });
 
