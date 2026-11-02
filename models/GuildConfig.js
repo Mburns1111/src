@@ -22,8 +22,7 @@ const guildConfigSchema = new mongoose.Schema(
     shopCategoryMessageIds: { type: Map, of: String, default: () => ({}) },
     commandChannelId: { type: String, default: "" },
     hatchemChannelId: { type: String, default: "" },
-    hatchemAutoDropsEnabled: { type: Boolean, default: false },
-    // Legacy fixed interval is ignored; scheduled eggs now use a random 45–75 minute delay.
+    // Automatic egg timing uses global fixed rules in every configured server.
     hatchemNextAutoDropAt: { type: Date, default: null },
     hatchemLastAutoDropAt: { type: Date, default: null },
     hatchemNextActivityDropAt: { type: Date, default: null },
