@@ -21,7 +21,9 @@ export const data = new SlashCommandBuilder()
         { name: "Mixed", value: "mixed" }, { name: "Silly & Random", value: "silly" },
         { name: "Roblox & Adopt Me", value: "roblox" }, { name: "Fantasy & Chaos", value: "fantasy" }))
     .addBooleanOption(o => o.setName("rewards").setDescription("Award AM Isa Points to eligible players (default: yes)")))
-  .addSubcommand(c => c.setName("start").setDescription("Start the current lobby"))
+  .addSubcommand(c => c.setName("start").setDescription("Start the hosted party lobby")
+    .addStringOption(o => o.setName("game").setDescription("Which party game to start?")
+      .setRequired(true).addChoices({ name: "Court of Chaos", value: "court" })))
   .addSubcommand(c => c.setName("next").setDescription("Start the next round after the 10-second break"))
   .addSubcommand(c => c.setName("status").setDescription("Show the active game's private staff status"))
   .addSubcommand(c => c.setName("pause").setDescription("Pause the game's timer"))
@@ -45,6 +47,22 @@ async function activeGame(guildId) {
 function updateGameVersion(game, update, guard = {}) {
   return PartyGame.updateOne({ _id: game._id, phase: game.phase, phaseEndsAt: game.phaseEndsAt, ...guard },
     { $set: update, $inc: { renderVersion: 1 } });
+}
+
+// All entry points use the same checks, so neither the slash command nor a
+// button can let another admin start somebody else's lobby.
+async function startHostedLobby(interaction, game, requestedType = "court") {
+  if (!staff(interaction) || interaction.user.id !== game.hostId)
+    return { started: false, message: "Only the admin who hosted this party can start it." };
+  if (requestedType !== "court" || (game.gameType || "court") !== requestedType)
+    return { started: false, message: "This lobby is for Court of Chaos. Select Court of Chaos to start it." };
+  if (game.phase !== "lobby")
+    return { started: false, message: "The lobby has already started or closed." };
+  if (game.players.length < COURT_MIN_PLAYERS)
+    return { started: false, message: "At least one player must join before starting." };
+  const started = await beginCourtGame(game);
+  return { started, message: started ? "Court of Chaos started! Round 1 is open." :
+    "This lobby was already started or changed. Check /party status." };
 }
 
 export async function execute(interaction) {
@@ -96,10 +114,12 @@ export async function execute(interaction) {
   }
   let changed = false;
   if (op === "start") {
-    if (game.phase !== "lobby") return interaction.editReply(errorText("The lobby has already started."));
-    if (game.players.length < COURT_MIN_PLAYERS)
-      return interaction.editReply(errorText("At least one player must join before starting."));
-    changed = await beginCourtGame(game);
+    const selected = interaction.options.getString("game", true);
+    const result = await startHostedLobby(interaction, game, selected);
+    const reply = await interaction.editReply(errorText(result.message));
+    if (result.started) void publishCourtGame(interaction.client, game)
+      .catch(error => console.error("[Party] Hosted lobby publish will retry:", error));
+    return reply;
   } else if (op === "next") {
     if (game.phase !== "intermission")
       return interaction.editReply(errorText("The next round can only start after the current round finishes."));
@@ -186,6 +206,13 @@ export async function handlePartyInteraction(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const game = await loadGame(interaction, gameId);
   if (!game || !game.messageId) return interaction.editReply(errorText("This party game is unavailable."));
+  if (action === "start") {
+    const result = await startHostedLobby(interaction, game);
+    const reply = await interaction.editReply(errorText(result.message));
+    if (result.started) void publishCourtGame(interaction.client, game)
+      .catch(error => console.error("[Party] Lobby start publish will retry:", error));
+    return reply;
+  }
   if (action === "next") {
     if (!staff(interaction)) return interaction.editReply(errorText("Only staff with Manage Server can begin the next round."));
     if (game.phase !== "intermission" || Number(roundText) !== game.round)
