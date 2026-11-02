@@ -299,16 +299,19 @@ async function publishCourtTimeline(game, channel) {
     payload = await courtGameDisplay(game);
   } else return;
   await publishStage(game, channel, cache, key, variant, payload, { current: true });
-  // Start the 30-second minimum voting window when the message is actually
-  // visible, not before Discord receives it. This is a deterministic target
-  // based on the first send, so a retry never keeps adding 30 seconds.
-  if (game.phase === "voting") {
+  // The full countdown begins when the stage message is visible, not
+  // when MongoDB first changes phase. This covers both the 90-second
+  // two-answer window and the 30-second per-question voting window.
+  // Anchoring to the FIRST post timestamp prevents retries from granting
+  // extra time indefinitely after a restart.
+  if (game.phase === "answering" || game.phase === "voting") {
     const opened = cache.get(key)?.openedAt;
     if (opened) {
-      const minimumEnd = new Date(new Date(opened).getTime() + VOTE_MS);
+      const duration = game.phase === "answering" ? ANSWER_MS : VOTE_MS;
+      const minimumEnd = new Date(new Date(opened).getTime() + duration);
       if (minimumEnd.getTime() > new Date(game.phaseEndsAt).getTime()) {
         await PartyGame.updateOne({
-          _id: game._id, phase: "voting", round: game.round, batch: game.batch,
+          _id: game._id, phase: game.phase, round: game.round, batch: game.batch,
           phaseEndsAt: game.phaseEndsAt,
         }, { $set: { phaseEndsAt: minimumEnd }, $inc: { renderVersion: 1 } });
       }
