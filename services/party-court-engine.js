@@ -14,8 +14,8 @@ import {
 export const COURT_TIMINGS = Object.freeze({
   answerMs: 45_000,
   voteMs: 15_000,
-  revealMs: 5_000,
-  intermissionMs: 3_000,
+  revealMs: 8_000,
+  intermissionMs: 10_000,
   allAnsweredGraceMs: 5_000,
 });
 const ANSWER_MS = COURT_TIMINGS.answerMs;
