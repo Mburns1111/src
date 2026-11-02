@@ -166,7 +166,7 @@ async function publishStage(game, channel, cache, key, variant, payload, { curre
     const recent = await channel.messages.fetch({ limit: 100 });
     const existing = [...recent.values()].find(message =>
       message.author?.id === channel.client?.user?.id &&
-      message.content?.includes(stageMarker(game, key)));
+      message.content?.split("\n").includes(stageMarker(game, key)));
     const message = existing || await channel.send(display);
     await PartyPost.updateOne({ _id: post._id, messageId: "" }, {
       $set: { messageId: message.id, renderedVariant: variant, renderedVersion: version },
