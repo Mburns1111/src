@@ -15,6 +15,8 @@ import { data as shopCommand } from "./commands/shop.js";
 import { data as cardsCommand,ownerCardOptions } from "./commands/cards.js";
 import { data as cardsAdminCommand } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand, cardsReleaseCommand, RELEASE_LIFECYCLE_SUBCOMMANDS } from "./commands/cards-owner.js";
+import { buildCardCommandRegistration } from "./services/card-command-registration.js";
+import { isCardGameTestMode } from "./services/card-game-mode.js";
 import { data as testPointsCommand } from "./commands/test-points.js";
 import { data as pointsAdminCommand } from "./commands/points-admin.js";
 import { data as pointsObserveCommand } from "./commands/points-observe.js";
@@ -27,22 +29,15 @@ const guildId = process.env.DISCORD_GUILD_ID;
 // This validation never sends an API request or prints environment secrets.
 validateRuntimeConfiguration({ mode: "register" });
 
-if (process.env.ENABLE_CARD_GAME_TEST === "1" && !guildId) throw new Error("Card testing requires DISCORD_GUILD_ID for test-guild-only registration.");
+if (isCardGameTestMode() && !guildId) throw new Error("Card testing requires DISCORD_GUILD_ID for test-guild-only registration.");
 const rest = new REST({ version: "10" }).setToken(token);
 
-// Keep private card-artwork/testing subcommands out of the public /cards menu.
-const playerCards = cardsCommand.toJSON();
-const privateOwnerCards = {
-  ...cardsOwnerCommand.toJSON(),
-  default_member_permissions: "0",
-  options: [
-    ...cardsOwnerCommand.toJSON().options.filter(option => !RELEASE_LIFECYCLE_SUBCOMMANDS.includes(option.name)),
-    ...ownerCardOptions.toJSON().options,
-  ],
-};
-const privateReleaseCards = { ...cardsReleaseCommand, default_member_permissions: "0" };
-if ([playerCards, privateOwnerCards, privateReleaseCards].some(command => command.options.length > 25))
-  throw new Error("Discord command subcommand limit exceeded.");
+// Only the approved Hatchem commands are registered globally in live mode.
+const { globalCardCommands, testGuildCardCommands } = buildCardCommandRegistration({
+  playerCards: cardsCommand,
+  cardsAdminCommand, cardsOwnerCommand, cardsReleaseCommand,
+  ownerCardOptions, releaseSubcommands: RELEASE_LIFECYCLE_SUBCOMMANDS,
+});
 
 const commands = [
   profileCommand,
@@ -61,7 +56,7 @@ const commands = [
   helpCommand,
 ].map((command) => command.toJSON());
 
-await rest.put(Routes.applicationCommands(clientId), { body: commands });
+await rest.put(Routes.applicationCommands(clientId), { body: [...commands, ...globalCardCommands] });
 
 console.log(
   "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, points-admin, help commands.",
@@ -69,8 +64,8 @@ console.log(
 
 if (guildId) {
   await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-    body: process.env.ENABLE_CARD_GAME_TEST === "1"
-      ? [...commands, playerCards, cardsAdminCommand.toJSON(), privateOwnerCards, privateReleaseCards]
+    body: isCardGameTestMode()
+      ? [...commands, ...testGuildCardCommands]
       : commands,
   });
 
