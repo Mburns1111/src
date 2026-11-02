@@ -90,7 +90,12 @@ export async function courtGameDisplay(game) {
     if (game.phase === "reveal") lines.push("", "Next stage " + seconds(game.phaseEndsAt) + ".");
   } else if (game.phase === "intermission" || game.phase === "ended") {
     lines.push(game.phase === "ended" ? "**The final verdict!**" : "Round " + game.round + " complete. Next round " + seconds(game.phaseEndsAt) + ".");
-    lines.push(...topScores(game).map((p,i) => (i + 1) + ". <@" + p.userId + "> — **" + p.score + "**"));
+    const standings = topScores(game);
+    lines.push(...standings.map(p => {
+      const place = standings.findIndex(other => other.score === p.score &&
+        other.finalRound === p.finalRound && other.wins === p.wins) + 1;
+      return place + ". <@" + p.userId + "> — **" + p.score + "**";
+    }));
     if (game.phase === "ended") lines.push(game.rewardsEnabled ? "AM Isa Points rewards: enabled (subject to eligibility)." : "AM Isa Points rewards: disabled.");
   } else {
     lines.push("This game was ended by staff. No rewards will be issued.");
