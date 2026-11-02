@@ -85,4 +85,3 @@ if (guildId) {
 
   console.log(`Synchronized ${guildCommands.length} guild-only testing commands for server ${guildId}; removed stale duplicates of global commands.`);
 }
-}
