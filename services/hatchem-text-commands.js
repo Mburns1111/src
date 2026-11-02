@@ -65,7 +65,11 @@ export function parseHatchemText(content) {
   if (action === "drop") return { action: "drop", options: {} };
   if (action === "shop" || action === "inventory") return { action, options: {} };
   if (action === "dust") return { action, options: {} };
-  if (["achievements","halloffame","hof"].includes(action)) return {action:"achievements",options:{page:Math.max(1,parseInt(args)||1),view:action==="achievements"?"mine":"hall"}};
+  if (["achievements","halloffame","hof"].includes(action)) {
+    const detail = action === "achievements" && /^(?:full|details?)(?:\s|$)/i.test(args);
+    const pageText = detail ? args.replace(/^(?:full|details?)\s*/i, "") : args;
+    return {action:"achievements",options:{page:Math.max(1,parseInt(pageText)||1),view:action!=="achievements"?"hall":detail?"details":"mine"}};
+  }
   if(action==="history")return {action,options:{}};
   if (["lock","unlock"].includes(action)) return {action,options:{card_id:args}};
   if (action==="show") return {action,options:{pet:args}};
@@ -146,7 +150,8 @@ export const HATCHEM_HELP = [
   ".dustupgrade CARDID (or .upgrade CARDID dust) — upgrade with 1–3 matching cards plus dust",
   ".lock CARDID / .unlock CARDID — prevent or allow burns, gifts, trades and upgrades",
   ".history — view completed gifts and trades",
-  ".achievements [page] — privately view milestones and earned rewards",
+  ".achievements [page] — compact private milestone list",
+  ".achievements full [page] — detailed list with goal descriptions",
   ".hof [page] — anonymous Secret Hall of Fame",
   ".show Pet Name — display a card in this channel; /cards show has search suggestions",
   "Tag FIRST, then pet name or IDs. No quotes necessary; create multiword tags first.",
