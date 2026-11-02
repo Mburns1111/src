@@ -113,6 +113,8 @@ export async function execute(interaction) {
     const user = interaction.options.getUser("player", true);
     const idx = game.matchups.findIndex(match => match.playerIds.includes(user.id));
     if (idx < 0) return interaction.editReply(errorText("That player is not in this round."));
+    if (game.phase === "voting" && (idx < game.batch * 2 || idx >= (game.batch + 1) * 2))
+      return interaction.editReply(errorText("That matchup has already been scored or is not yet open."));
     const updated = await PartyResponse.updateOne({
       gameId: game._id, round: game.round, matchupIndex: idx, kind: "answer", userId: user.id,
     }, { $set: { text: "" } });
