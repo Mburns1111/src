@@ -1,5 +1,5 @@
 import {
-  ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder,
 } from "discord.js";
 import PartyGame from "../models/PartyGame.js";
 import PartyResponse from "../models/PartyResponse.js";
@@ -57,34 +57,47 @@ export async function courtBatchResults(game) {
   });
 }
 
+// One clear Discord embed per public game phase; the interaction buttons
+// remain underneath the embed and each vote still has a permanent message.
 export async function courtGameDisplay(game) {
-  const title = "**🎭 COURT OF CHAOS — " + phaseLabel[game.phase] + "**";
-  const lines = [title];
+  const phaseColors = {
+    lobby: 0xA76EAF, answering: 0x7776C7, voting: 0x6279D4,
+    reveal: 0xB58A57, intermission: 0xA76EAF,
+    ended: 0x60A781, cancelled: 0x9B6673,
+  };
+  const embed = new EmbedBuilder()
+    .setColor(phaseColors[game.phase] || phaseColors.lobby)
+    .setTitle("🎭 Court of Chaos · " + (phaseLabel[game.phase] || "Party Game"));
   const rows = [];
   if (game.phase === "lobby") {
-    lines.push("**Players:** " + game.players.length + "/" + COURT_MAX_PLAYERS + " · Start with any number of players.");
-    lines.push(mentions(game.players));
-    lines.push("**Game:** Court of Chaos · **Host:** <@" + game.hostId + ">");
-    lines.push("Only the host can start once someone joins. One-player games are solo showcases without voting.");
+    embed.setDescription("**Game:** Court of Chaos\n**Host:** <@" + game.hostId + ">\n" +
+      "Join before the host starts the game. One-player lobbies play solo.");
+    embed.addFields({ name: "Players (" + game.players.length + "/" + COURT_MAX_PLAYERS + ")",
+      value: mentions(game.players).slice(0, 1024) });
     rows.push(new ActionRowBuilder().addComponents(
       button(partyButton(game, "join"), "Join", ButtonStyle.Success),
       button(partyButton(game, "leave"), "Leave", ButtonStyle.Secondary),
       button(partyButton(game, "start"), "Start Party", ButtonStyle.Primary)));
   } else if (game.phase === "answering") {
-    lines.push("**Round " + game.round + "/3** — answer both private prompts within 90 seconds.");
-    lines.push("Answering closes " + seconds(game.phaseEndsAt) + (game.paused ? " (PAUSED)" : "") + ".");
-    lines.push("Both prompts are private. Voting begins when the full timer ends.");
-    lines.push("Use the button to check or edit either saved answer.");
+    embed.setDescription("**Round " + game.round + " of 3** · Two private questions per player\n" +
+      "Answering closes " + seconds(game.phaseEndsAt) + (game.paused ? " · **PAUSED**" : "") + ".");
+    embed.addFields({ name: "How to play",
+      value: "Select **My Prompts & Answers** to answer or edit both questions. " +
+        "Voting starts automatically after the 90-second entry window." });
     rows.push(new ActionRowBuilder().addComponents(
       button(partyButton(game, "prompt"), "My Prompts & Answers", ButtonStyle.Primary)));
   } else if (game.phase === "voting" || game.phase === "reveal") {
     const results = await courtBatchResults(game);
-    lines.push("**Round " + game.round + "/3** · Matchups " +
-      (game.batch * BATCH_SIZE + 1) + " of " + game.matchups.length);
-    if (game.phase === "voting") lines.push("Vote for your favorite answer! Closes " + seconds(game.phaseEndsAt) + (game.paused ? " (PAUSED)" : "") + ".");
-    if (game.players.length === 1) lines.push("Solo showcase — no opponent or audience vote; enjoy your answer reveal!");
+    embed.setDescription("**Round " + game.round + " of 3** · Question " +
+      (game.batch * BATCH_SIZE + 1) + " of " + game.matchups.length + "\n" +
+      (game.phase === "voting"
+        ? "**Vote for your favorite answer!** Closes " + seconds(game.phaseEndsAt) +
+          (game.paused ? " · **PAUSED**" : "") + "."
+        : (game.players.length === 1 ? "Solo showcase · no audience voting." :
+          "**Voting complete — here are the results.**")) +
+      (game.phase === "reveal" && game.phaseEndsAt ? "\nNext question " + seconds(game.phaseEndsAt) + "." : ""));
     for (const { match, matchupIndex, answers, votes, scores } of results) {
-      lines.push("", resultTitle(game, matchupIndex), safeCourtText(match.prompt));
+      embed.addFields({ name: "Question", value: safeCourtText(match.prompt) || "(No prompt)" });
       const participants = match.playerIds.map((id, i) => ({
         id, label: String.fromCharCode(65 + i), answer: answers.find(a => a.userId === id)?.text || "",
       }));
@@ -92,9 +105,13 @@ export async function courtGameDisplay(game) {
         const answer = participant.answer ? safeCourtText(participant.answer) : "(No answer submitted)";
         const count = votes.filter(v => v.targetId === participant.id &&
           !match.playerIds.includes(v.userId || v.voterId)).length;
-        lines.push("**" + participant.label + ":** " + answer +
-          (game.phase === "reveal" ? " — <@" + participant.id + "> (" + count +
-          " vote" + (count === 1 ? "" : "s") + ", " + (scores[participant.id] || 0) + " pts)" : ""));
+        embed.addFields({
+          name: "Answer " + participant.label,
+          value: answer + (game.phase === "reveal"
+            ? "\n<@" + participant.id + "> · **" + count + " vote" +
+              (count === 1 ? "" : "s") + "** · **" + (scores[participant.id] || 0) + " pts**"
+            : ""),
+        });
       }
       if (game.phase === "voting" && match.playerIds.length > 1) {
         const candidates = participants.filter(p => p.answer);
@@ -103,28 +120,28 @@ export async function courtGameDisplay(game) {
             "Match " + (matchupIndex + 1) + " · " + p.label, ButtonStyle.Primary))));
       }
     }
-    if (game.phase === "reveal" && game.phaseEndsAt) lines.push("", "Next stage " + seconds(game.phaseEndsAt) + ".");
   } else if (game.phase === "intermission" || game.phase === "ended") {
-    lines.push(game.phase === "ended" ? "**The final verdict!**" :
-      "Round " + game.round + " complete. The next round **will not start automatically**." );
-    if (game.phase === "intermission") {
-      lines.push("Staff: use **Start Next Round** after the 10-second break" +
-        (game.phaseEndsAt && game.phaseEndsAt > new Date() ? " (ready " + seconds(game.phaseEndsAt) + ")." : "."));
-      rows.push(new ActionRowBuilder().addComponents(
-        button(partyButton(game, "next", String(game.round)), "Start Next Round", ButtonStyle.Success)));
-    }
+    embed.setDescription(game.phase === "ended" ? "**Final standings**" :
+      "**Round " + game.round + " complete.** The next round **will not start automatically**.\n" +
+      "Staff may click **Start Next Round** after the 10-second break" +
+      (game.phaseEndsAt && new Date(game.phaseEndsAt) > new Date()
+        ? " · ready " + seconds(game.phaseEndsAt) : "") + ".");
+    if (game.phase === "intermission") rows.push(new ActionRowBuilder().addComponents(
+      button(partyButton(game, "next", String(game.round)), "Start Next Round", ButtonStyle.Success)));
     const standings = topScores(game);
-    lines.push(...standings.map(p => {
+    const ranks = standings.map(p => {
       const place = standings.findIndex(other => other.score === p.score &&
         other.finalRound === p.finalRound && other.wins === p.wins) + 1;
-      return place + ". <@" + p.userId + "> — **" + p.score + "**";
-    }));
-    if (game.phase === "ended") lines.push(game.rewardsEnabled ? "AM Isa Points rewards: enabled (subject to eligibility)." : "AM Isa Points rewards: disabled.");
+      return "**" + place + ".** <@" + p.userId + "> — **" + p.score + " pts**";
+    }).join("\n");
+    embed.addFields({ name: "Standings", value: ranks || "No scores yet" });
+    if (game.phase === "ended") embed.addFields({ name: "AM Isa Points",
+      value: game.rewardsEnabled ? "Rewards enabled (eligibility rules apply)." : "Rewards disabled." });
   } else {
-    lines.push("This game was ended by staff. No rewards will be issued.");
+    embed.setDescription("The game was ended by staff. No rewards will be issued.");
   }
-  if (game.paused) lines.push("⏸️ Staff paused the game.");
-  return { content: lines.join("\n").slice(0, 1950), components: rows, allowedMentions: { parse: [] } };
+  if (game.paused) embed.addFields({ name: "Paused", value: "⏸️ Staff paused the game." });
+  return { content: "", embeds: [embed], components: rows, allowedMentions: { parse: [] } };
 }
 
 // Each stage owns a permanent public message. The lobby is edited only for
