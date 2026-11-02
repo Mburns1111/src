@@ -80,7 +80,7 @@ async function collectionView(id, ownerId) {
   // Keep the entire collection within Discord's five action rows: four
   // filters and one card picker. Page navigation lives in the picker.
   const cardChoices = page.cards.map((c, i) => ({
-    label: `${page.page * 8 + i + 1}. ${c.petName}`,
+    label: `${page.page * 8 + i + 1}. ${c.locked ? "🔒 " : ""}${c.petName}`,
     value: String(c._id),
   }));
   if (page.page > 0) cardChoices.push({ label: "← Previous page", value: "__prev__" });
@@ -172,7 +172,7 @@ export async function handleCardCollectionInteraction(interaction) {
         frameImageSource: frame?.bytes,
       });
       return interaction.editReply({
-        content: `**${safe(pet?.name || def.petId)}** · ${safe(def.rarity)} · ${labelStage(copy.upgradeLevel)}\nCard ID: \`${copy.publicId || "PENDING"}\`${copy.tag ? ` · Tag: ${safe(copy.tag)}` : ""}`,
+        content: `**${safe(pet?.name || def.petId)}** · ${safe(def.rarity)} · ${labelStage(copy.upgradeLevel)}\nCard ID: \`${copy.publicId || "PENDING"}\`${copy.tag ? ` · Tag: ${safe(copy.tag)}` : ""}${copy.locked ? " · 🔒 Locked" : ""}`,
         embeds: [],
         files: [new AttachmentBuilder(png, { name: "collection-card.png" })],
         attachments: [],
