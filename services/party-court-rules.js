@@ -96,12 +96,17 @@ export function scoreCourtMatchup(playerIds, answers, votes, round) {
 export function courtRewardPlan(scores, answeredCounts, completedRounds, priorCompletionCount = 0) {
   if (completedRounds < 2 || scores.length < 4 || priorCompletionCount >= 2) return [];
   const eligible = scores.filter(p => (answeredCounts[p.userId] || 0) >= 2)
-    .sort((a,b) => b.score - a.score || a.userId.localeCompare(b.userId));
-  return eligible.map((player, index) => ({
-    userId: player.userId,
-    completion: 5,
-    placement: [10,6,3][index] || 0,
-  }));
+    .sort((a,b) => b.score - a.score ||
+      (b.finalRound || 0) - (a.finalRound || 0) ||
+      (b.wins || 0) - (a.wins || 0) ||
+      a.userId.localeCompare(b.userId));
+  return eligible.map((player, index) => {
+    // Identical overall/final-round/win results share their placement.
+    const rank = eligible.findIndex(p => p.score === player.score &&
+      (p.finalRound || 0) === (player.finalRound || 0) &&
+      (p.wins || 0) === (player.wins || 0)) + 1;
+    return { userId: player.userId, completion: 5, placement: [10,6,3][rank - 1] || 0 };
+  });
 }
 
 export function safeCourtText(text) {
