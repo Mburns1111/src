@@ -7,7 +7,7 @@ import PartyGame from "../models/PartyGame.js";
 import PartyResponse from "../models/PartyResponse.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import {
-  beginCourtGame, advanceCourtGame, courtGameDisplay,
+  beginCourtGame, advanceCourtGame, startNextCourtRound, courtGameDisplay,
   publishCourtGame, partyButton,
 } from "../services/party-court-engine.js";
 import { COURT_MIN_PLAYERS, safeCourtText } from "../services/party-court-rules.js";
@@ -22,6 +22,7 @@ export const data = new SlashCommandBuilder()
         { name: "Roblox & Adopt Me", value: "roblox" }, { name: "Fantasy & Chaos", value: "fantasy" }))
     .addBooleanOption(o => o.setName("rewards").setDescription("Award AM Isa Points to eligible players (default: yes)")))
   .addSubcommand(c => c.setName("start").setDescription("Start the current lobby"))
+  .addSubcommand(c => c.setName("next").setDescription("Start the next round after the 10-second break"))
   .addSubcommand(c => c.setName("status").setDescription("Show the active game's private staff status"))
   .addSubcommand(c => c.setName("pause").setDescription("Pause the game's timer"))
   .addSubcommand(c => c.setName("resume").setDescription("Resume a paused game"))
@@ -88,7 +89,7 @@ export async function execute(interaction) {
     return interaction.editReply(errorText(
       "**Court of Chaos** · " + game.phase +
       "\nRound: " + game.round + "/3 · Players: " + game.players.length +
-      (savedCount === null ? "" : "\nSaved submissions: " + savedCount + "/" + game.players.length) +
+      (savedCount === null ? "" : "\nSaved submissions: " + savedCount + "/" + (game.players.length * 2)) +
       "\nPaused: " + (game.paused ? "yes" : "no") +
       "\nTime left: " + Math.ceil(timeLeft(game) / 1000) + "s" +
       "\nMessage: https://discord.com/channels/" + game.guildId + "/" + game.channelId + "/" + game.messageId));
@@ -99,6 +100,12 @@ export async function execute(interaction) {
     if (game.players.length < COURT_MIN_PLAYERS)
       return interaction.editReply(errorText("At least one player must join before starting."));
     changed = await beginCourtGame(game);
+  } else if (op === "next") {
+    if (game.phase !== "intermission")
+      return interaction.editReply(errorText("The next round can only start after the current round finishes."));
+    if (game.phaseEndsAt && game.phaseEndsAt.getTime() > Date.now())
+      return interaction.editReply(errorText("The 10-second break is not over yet."));
+    changed = await startNextCourtRound(game);
   } else if (op === "pause") {
     if (game.paused || !["answering","voting","reveal","intermission"].includes(game.phase))
       return interaction.editReply(errorText("This game cannot be paused now."));
@@ -116,6 +123,8 @@ export async function execute(interaction) {
       : { phaseEndsAt: new Date(game.phaseEndsAt.getTime() + 30_000) })).modifiedCount > 0;
   } else if (op === "skip") {
     if (game.paused) return interaction.editReply(errorText("Resume before skipping a phase."));
+    if (game.phase === "intermission")
+      return interaction.editReply(errorText("Use /party next or Start Next Round to begin the next round."));
     changed = await advanceCourtGame(game, { force: true });
   } else if (op === "remove-answer") {
     if (!["answering","voting"].includes(game.phase))
@@ -123,7 +132,7 @@ export async function execute(interaction) {
     const user = interaction.options.getUser("player", true);
     const idx = game.matchups.findIndex(match => match.playerIds.includes(user.id));
     if (idx < 0) return interaction.editReply(errorText("That player is not in this round."));
-    if (game.phase === "voting" && (idx < game.batch * 2 || idx >= (game.batch + 1) * 2))
+    if (game.phase === "voting" && idx !== game.batch)
       return interaction.editReply(errorText("That matchup has already been scored or is not yet open."));
     const updated = await PartyResponse.updateOne({
       gameId: game._id, round: game.round, matchupIndex: idx, kind: "answer", userId: user.id,
@@ -177,6 +186,19 @@ export async function handlePartyInteraction(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const game = await loadGame(interaction, gameId);
   if (!game || !game.messageId) return interaction.editReply(errorText("This party game is unavailable."));
+  if (action === "next") {
+    if (!staff(interaction)) return interaction.editReply(errorText("Only staff with Manage Server can begin the next round."));
+    if (game.phase !== "intermission" || Number(roundText) !== game.round)
+      return interaction.editReply(errorText("This next-round button is no longer active."));
+    if (game.phaseEndsAt && game.phaseEndsAt.getTime() > Date.now())
+      return interaction.editReply(errorText("The 10-second intermission is still running."));
+    const started = await startNextCourtRound(game);
+    const reply = await interaction.editReply(errorText(started ? "Round " + (game.round + 1) + " started!" :
+      "The next round has already started or the game changed."));
+    if (started) void publishCourtGame(interaction.client, game)
+      .catch(error => console.error("[Party] Next round refresh will retry:", error));
+    return reply;
+  }
   if (action === "join") {
     if (game.phase !== "lobby") return interaction.editReply(errorText("The lobby has closed."));
     const result = await PartyGame.updateOne({
@@ -201,23 +223,28 @@ export async function handlePartyInteraction(interaction) {
   if (action === "prompt") {
     if (game.phase !== "answering" || game.paused || timeLeft(game) <= 0)
       return interaction.editReply(errorText("The answering phase isn't open."));
-    const match = game.matchups.find(m => m.playerIds.includes(interaction.user.id));
-    if (!match) return interaction.editReply(errorText("You're spectating. Players can only join before a game starts."));
-    const idx = game.matchups.indexOf(match);
-    const saved = await PartyResponse.findOne({
-      gameId: game._id, round: game.round, matchupIndex: idx,
-      kind: "answer", userId: interaction.user.id,
-    });
-    const row = new ActionRowBuilder().addComponents(new ButtonBuilder()
-      .setCustomId(partyButton(game, "answer", game.round + ":" + idx))
-      .setLabel(saved?.text ? "Edit Saved Answer" : "Submit Answer")
-      .setStyle(ButtonStyle.Primary));
+    const matches = game.matchups
+      .map((match, idx) => ({ match, idx }))
+      .filter(({ match }) => match.playerIds.includes(interaction.user.id));
+    if (!matches.length) return interaction.editReply(errorText("You're spectating. Players can only join before a game starts."));
+    const saved = await PartyResponse.find({
+      gameId: game._id, round: game.round, kind: "answer", userId: interaction.user.id,
+    }).lean();
+    const lines = ["**Your two private prompts — Round " + game.round + "**"];
+    const buttons = [];
+    for (const [number, { match, idx }] of matches.entries()) {
+      const answer = saved.find(a => a.matchupIndex === idx)?.text;
+      lines.push("", "**Question " + (number + 1) + ":** " + match.prompt,
+        answer ? "✅ Saved: " + safeCourtText(answer) : "⚠️ No answer saved yet.");
+      buttons.push(new ButtonBuilder()
+        .setCustomId(partyButton(game, "answer", game.round + ":" + idx))
+        .setLabel((answer ? "Edit" : "Answer") + " Question " + (number + 1))
+        .setStyle(ButtonStyle.Primary));
+    }
     return interaction.editReply({
-      content: "**Your private prompt:** " + match.prompt +
-        "\n" + (saved?.text ? "✅ **Your saved answer:** " + safeCourtText(saved.text) :
-        "⚠️ **No answer saved yet.** Click Submit Answer and send the form.") +
-        "\nPlease submit before the deadline.",
-      components: [row], allowedMentions: { parse: [] },
+      content: lines.join("\n") + "\nAll answers close after 60 seconds.",
+      components: [new ActionRowBuilder().addComponents(...buttons)],
+      allowedMentions: { parse: [] },
     });
   }
   if (action === "submit") {
@@ -248,7 +275,7 @@ export async function handlePartyInteraction(interaction) {
     const round = Number(roundText), idx = Number(matchupText);
     const match = game.matchups[idx];
     if (game.phase !== "voting" || game.paused || timeLeft(game) <= 0 ||
-        round !== game.round || !match || idx < game.batch * 2 || idx >= (game.batch + 1) * 2)
+        round !== game.round || !match || idx !== game.batch)
       return interaction.editReply(errorText("Voting is no longer open for this matchup."));
     if (!match.playerIds.includes(candidateId) || match.playerIds.includes(interaction.user.id))
       return interaction.editReply(errorText("You can't vote for yourself or in your own matchup."));
