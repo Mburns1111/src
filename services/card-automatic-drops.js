@@ -35,6 +35,8 @@ export async function configureAutomaticDrops({ guildId, enabled, now = new Date
     hatchemNextAutoDropAt: next,
     hatchemNextActivityDropAt: enabled ? now : null,
   } });
+  // Do not reuse conversation activity accumulated before an on/off change.
+  activity.delete(guildId);
   return { enabled, minMinutes: AUTO_DROP_MIN_MINUTES,
     maxMinutes: AUTO_DROP_MAX_MINUTES, nextAt: next };
 }
@@ -57,9 +59,10 @@ async function chooseCurrentRelease() {
   return chooseAutomaticDropRelease(releases, process.env.ENABLE_CARD_GAME_TEST === "1");
 }
 
-async function hasOpenAutomaticEgg(guildId, now) {
+async function hasOpenCardEgg(guildId, now) {
+  // Never put an automatic egg on top of an ongoing player or test egg.
   return Boolean(await CardDrop.exists({
-    guildId, mode: "automatic", status: "open", expiresAt: { $gt: now },
+    guildId, status: "open", expiresAt: { $gt: now },
   }));
 }
 
@@ -96,7 +99,7 @@ export async function reconcileAutomaticCardDrops(client, now = new Date()) {
   let published = 0;
   for (const config of configs) {
     try {
-      if (await hasOpenAutomaticEgg(config.guildId, now)) continue;
+      if (await hasOpenCardEgg(config.guildId, now)) continue;
       const claimed = await GuildConfig.findOneAndUpdate({
         guildId: config.guildId,
         hatchemAutoDropsEnabled: true,
