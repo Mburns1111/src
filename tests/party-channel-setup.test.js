@@ -75,7 +75,7 @@ function hostInteraction() {
     memberPermissions: { has: bit => bit === PermissionFlagsBits.ManageGuild },
     options: {
       getSubcommand: () => "host",
-      getString: () => null,
+      getString: name => name === "game" ? "court" : null,
       getBoolean: () => null,
     },
     channel: { send: async () => { assert.fail("Never publish into the invoking channel."); } },
