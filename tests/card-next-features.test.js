@@ -37,11 +37,11 @@ test("all new commands are in public test-guild slash definition under Discord's
 });
 
 test("dust assisted upgrades need at least one real copy and scale by rarity/stage",()=>{
- assert.deepEqual(DUST_UPGRADE_COSTS,{Common:5,Uncommon:6,Rare:7,"Ultra-Rare":8,Legendary:10});
+ assert.deepEqual(DUST_UPGRADE_COSTS,{Common:2,Uncommon:2,Rare:3,"Ultra-Rare":3,Legendary:4});
  assert.deepEqual(calculateDustUpgrade({rarity:"Rare",stage:"normal",cardCount:3}),
-  {missing:1,cost:7,target:"neon"});
+  {missing:1,cost:3,target:"neon"});
  assert.deepEqual(calculateDustUpgrade({rarity:"Legendary",stage:"neon",cardCount:2}),
-  {missing:2,cost:100,target:"mega"});
+  {missing:2,cost:40,target:"mega"});
  for(const n of [0,4,-1])assert.throws(
   ()=>calculateDustUpgrade({rarity:"Common",stage:"normal",cardCount:n}),/1–3/);
  assert.throws(()=>calculateDustUpgrade({rarity:"Rare",stage:"mega",cardCount:2}),/Only Normal/);
