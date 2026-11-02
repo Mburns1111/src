@@ -56,7 +56,7 @@ export async function handleCardAchievementButton(interaction) {
       parts[0] !== "cards" || parts[1] !== "achievements" ||
       !["previous", "next", "toggle"].includes(parts[2]) ||
       !["compact", "details"].includes(parts[3]) ||
-      !/^[1-9]\\d{0,3}$/.test(parts[4]) || !validOwner(parts[5])) {
+      !/^[1-9]\d{0,3}$/.test(parts[4]) || !validOwner(parts[5])) {
     return deny(interaction, "That achievement page button is invalid.");
   }
   const [, , , view, pageText, ownerId] = parts;
