@@ -89,6 +89,7 @@ import { handleCardCollectionInteraction } from "./commands/card-collection-ui.j
 import { handleCardShopInteraction } from "./commands/card-shop-ui.js";
 import { handleCardInventoryInteraction } from "./commands/card-inventory-ui.js";
 import { handleCardAchievementButton } from "./commands/card-achievements-ui.js";
+import { handleHatchemTutorialButton } from "./commands/card-tutorial-ui.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -545,6 +546,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:shop:")) {
       await handleCardShopInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:tutorial:")) {
+      await handleHatchemTutorialButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:inventory:")) {
