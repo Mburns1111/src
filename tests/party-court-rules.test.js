@@ -67,7 +67,22 @@ test("completion rewards require two answered rounds, regardless of lobby size",
   assert.deepEqual(courtRewardPlan(players,answers,3).map(p=>[p.userId,p.completion,p.placement]),
     [["a",5,10],["b",5,6],["d",5,3]]);
   assert.deepEqual(courtRewardPlan(players,answers,1),[]);
-  assert.deepEqual(courtRewardPlan(players,answers,3,2),[]);
+  // A player can win dozens of previously hosted games without losing
+  // eligibility for a new one. The historical count is intentionally ignored.
+  assert.deepEqual(courtRewardPlan(players,answers,3,250),
+    courtRewardPlan(players,answers,3));
+});
+test("each additional completed Court game can award the same winners again", () => {
+  const players = [
+    { userId:"alice",score:5000,finalRound:2000,wins:4 },
+    { userId:"bob",score:3000,finalRound:1000,wins:2 },
+  ];
+  const participation = {alice:3,bob:3};
+  for(let previouslyWon=0;previouslyWon<25;previouslyWon++) {
+    const plan=courtRewardPlan(players,participation,3,previouslyWon);
+    assert.deepEqual(plan.map(r=>[r.userId,r.completion,r.placement]),
+      [["alice",5,10],["bob",5,6]]);
+  }
 });
 test("user-supplied text is constrained and cannot ping everyone", () => {
   const text = safeCourtText("@everyone **hello**");
