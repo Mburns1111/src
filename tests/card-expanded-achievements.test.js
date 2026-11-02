@@ -82,7 +82,10 @@ test("compact achievements use single-line milestones and phone-sized pages; ful
  assert.ok(compact.every(p=>(p.match(/^▫️ |^✅ /gm)||[]).length<=12));
  assert.ok(compact[0].includes("Extra Grabs:** 1"));
  assert.ok(compact[0].includes("Extra Drops:** 1"));
- assert.ok(compact[0].includes("Descriptions: `.achievements full`"));
+ assert.ok(compact[0].includes("Page 1/"));
+ assert.ok(compact.every(p=>!p.includes("Next: `.achievements")));
+ assert.ok(compact.every(p=>!p.includes("Descriptions: `.achievements")));
+ assert.ok(compact.every(p=>p.length<=2000));
  assert.ok(compact.every(p=>!p.includes(CARD_ACHIEVEMENTS[0].description)));
  const details=achievementPages(rows,{detailed:true});
  assert.ok(details.join("\n").includes(CARD_ACHIEVEMENTS[0].description));
