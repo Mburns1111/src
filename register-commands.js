@@ -22,6 +22,7 @@ import { data as testPointsCommand } from "./commands/test-points.js";
 import { data as pointsAdminCommand } from "./commands/points-admin.js";
 import { data as pointsObserveCommand } from "./commands/points-observe.js";
 import { data as helpCommand } from "./commands/help.js";
+import { data as partyCommand } from "./commands/party.js";
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -57,12 +58,13 @@ const commands = [
   pointsAdminCommand,
   pointsObserveCommand,
   helpCommand,
+  partyCommand,
 ].map((command) => command.toJSON());
 
 await rest.put(Routes.applicationCommands(clientId), { body: [...commands, ...globalCardCommands] });
 
 console.log(
-  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, giveaway, trial, points-admin, help commands.",
+  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, giveaway, trial, points-admin, help, party commands.",
 );
 
 if (guildId) {
