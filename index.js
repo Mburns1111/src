@@ -963,7 +963,6 @@ async function shutdown(signal) {
   console.log(`Received ${signal}; shutting down.`);
   if (voiceActivityTimer) clearInterval(voiceActivityTimer);
   if (cardDropCloseTimer) clearInterval(cardDropCloseTimer);
-  if (cardAutoDropTimer) clearInterval(cardAutoDropTimer);
   await client.destroy();
   await mongoose.disconnect();
   process.exit(0);
