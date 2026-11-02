@@ -78,7 +78,7 @@ import {
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
-import { reconcileAutomaticCardDrops } from "./services/card-automatic-drops.js";
+import { reconcileAutomaticCardDrops, maybePublishActivityEgg } from "./services/card-automatic-drops.js";
 import { data as cardsAdminCommand, execute as executeCardsAdmin } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand, execute as executeCardsOwner, autocompleteCardsOwner } from "./commands/cards-owner.js";
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
@@ -213,6 +213,10 @@ client.on(Events.MessageCreate, message => {
         await runHatchemText(message, parsed);
       }
     })().catch(error => console.error("[Hatchem] Text routing failed:", error));
+  }
+  if (process.env.ENABLE_CARD_GAME_TEST === "1") {
+    void maybePublishActivityEgg(client, message).catch(error =>
+      console.error("[Hatchem] Activity chance check failed:", error));
   }
   awardMessageActivity(message).then(result => {
     if (result.credited) console.log(`[Points] Chat +${result.amount} to ${message.author.id}.`);
