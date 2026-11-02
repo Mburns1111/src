@@ -23,6 +23,8 @@ const partyGameSchema = new mongoose.Schema({
   usedPromptIds: { type: [Number], default: [] },
   // Scores and answered counts are updated on an atomic phase transition, not per vote.
   scores: { type: mongoose.Schema.Types.Mixed, default: {} },
+  roundScores: { type: mongoose.Schema.Types.Mixed, default: {} },
+  matchupWins: { type: mongoose.Schema.Types.Mixed, default: {} },
   answeredCounts: { type: mongoose.Schema.Types.Mixed, default: {} },
   completedRounds: { type: Number, default: 0 },
   phaseEndsAt: { type: Date, default: null },
