@@ -1,3 +1,4 @@
+import {isCardGameEnabled} from "../services/card-game-mode.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags } from "discord.js";
 import CardCollector from "../models/CardCollector.js";
 import CardCopy from "../models/CardCopy.js";
@@ -65,7 +66,7 @@ export async function cardInventoryPayload({ guildId, userId, displayName }) {
 }
 
 export async function startCardInventory(interaction) {
-  if (process.env.ENABLE_CARD_GAME_TEST !== "1")
+  if (!isCardGameEnabled())
     return interaction.editReply("Hatchem inventory is available on the development bot only.");
   try {
     return await interaction.editReply(await cardInventoryPayload({
@@ -95,7 +96,7 @@ export async function handleCardInventoryInteraction(interaction) {
       allowedMentions: { parse: [] },
     });
   }
-  if (process.env.ENABLE_CARD_GAME_TEST !== "1")
+  if (!isCardGameEnabled())
     return interaction.reply({ content: "Hatchem inventory is unavailable.", flags: MessageFlags.Ephemeral });
 
   if (action === "collection") {
