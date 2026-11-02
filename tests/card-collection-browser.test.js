@@ -78,7 +78,7 @@ test("collection slash command targets members and public response is explicitly
   assert.ok(command.options.some(o => o.name === "member" && o.type === 6 && !o.required));
   const routing = readFileSync(new URL("../index.js", import.meta.url), "utf8");
   const ui = readFileSync(new URL("../commands/card-collection-ui.js", import.meta.url), "utf8");
-  assert.match(routing, /publicCollection \? \{\} : \{ flags: MessageFlags\.Ephemeral \}/);
+  assert.match(routing, /publicCardView \? \{\} : \{ flags: MessageFlags\.Ephemeral \}/);
   assert.match(ui, /getCollectionSession\(id, interaction\.user\.id\)/);
   assert.match(ui, /getCollectionPage\(session\.collectionOwnerId, session\)/);
   assert.match(ui, /findOwnedCollectionCard\(session\.collectionOwnerId,/);
