@@ -50,18 +50,18 @@ function stubEnvironment(){
   mongoose.startSession=original.session;
  }};
 }
-test("dust upgrade confirmation atomically consumes two physical cards and 14 Rare Dust",async()=>{
+test("dust upgrade confirmation atomically consumes two physical cards and 6 Rare Dust",async()=>{
  const env=stubEnvironment();
  try {
   const pending=await prepareDustUpgrade({ownerId:owner,guildId:guild,cardReference:"Abc12"});
   assert.equal(pending.cards.length,2);
-  assert.equal(pending.cost,14);
+  assert.equal(pending.cost,6);
   assert.equal(pending.missing,2);
   assert.equal(pending.available,55);
   let debits=0,consumes=0,mints=0,audits=0;
   CardCollector.updateOne=async(query,change,opts)=>{
-    assert.equal(query["dust.Rare"].$gte,14);
-    assert.deepEqual(change.$inc,{"dust.Rare":-14});
+    assert.equal(query["dust.Rare"].$gte,6);
+    assert.deepEqual(change.$inc,{"dust.Rare":-6});
     assert.equal(opts.session,env.session);
     debits++;return {modifiedCount:1};
   };
@@ -78,13 +78,13 @@ test("dust upgrade confirmation atomically consumes two physical cards and 14 Ra
     mints++;return [{_id:new mongoose.Types.ObjectId()}];
   };
   CardLifecycleEvent.create=async(items,opts)=>{
-    assert.equal(items[0].dustSpent.amount,14);
+    assert.equal(items[0].dustSpent.amount,6);
     assert.equal(items[0].dustSpent.rarity,"Rare");
     assert.equal(opts.session,env.session);
     audits++;
   };
   const result=await confirmDustUpgrade(pending.token,owner,guild);
-  assert.equal(result.dustSpent,14);
+  assert.equal(result.dustSpent,6);
   assert.equal(result.target,"neon");
   assert.equal(debits,1);assert.equal(consumes,1);
   assert.equal(mints,1);assert.equal(audits,1);
