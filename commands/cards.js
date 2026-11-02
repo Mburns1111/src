@@ -1,4 +1,5 @@
 import {recordPublishedDrop, achievementStart} from "../services/card-achievement-engine.js";
+import {isCardGameEnabled,isCardGameTestMode} from "../services/card-game-mode.js";
 import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, MessageFlags, SlashCommandBuilder, StringSelectMenuBuilder } from "discord.js";
 import mongoose from "mongoose";
 import { claimCardActionCooldown, releaseCardActionCooldown, readCardActionCooldown } from "../services/card-action-cooldowns.js";
@@ -126,7 +127,8 @@ export const ownerCardOptions = new SlashCommandBuilder().setName("cards-owner-t
     .addStringOption(o => o.setName("release").setDescription("Select an active test egg").setRequired(true).setAutocomplete(true))
 );
 
-const isEnabled = () => process.env.ENABLE_CARD_GAME_TEST === "1";
+const isEnabled = () => isCardGameEnabled();
+const isTestMode = () => isCardGameTestMode();
 const formatCardId = value => "`" + String(value ?? "PENDING").replace(/`/g, "") + "`";
 const escapeDiscord = text => String(text ?? "").replace(/[@`*_~|<>]/g, "");
 const rowButtons = drop => new ActionRowBuilder().addComponents(drop.slots.map((slot, i) =>
@@ -422,7 +424,7 @@ export async function execute(interaction) {
     }
   }
   if (option === "egg-art-upload") {
-    if (!isEnabled()) return interaction.editReply("Egg artwork upload is only available on the development bot.");
+    if (!isTestMode()) return interaction.editReply("Test egg artwork upload is unavailable outside the development bot.");
     if (!isCardGameOwner(interaction.user.id)) {
       return interaction.editReply("Only the card-game owner can upload egg artwork. Add CARD_GAME_OWNER_DISCORD_ID to Replit Secrets.");
     }
@@ -438,7 +440,7 @@ export async function execute(interaction) {
           `Release: ${result.releaseId} · Artwork: ${result.artworkId}`,
           `Credit: ${result.creditText}`,
           "Source/license review remains pending. This upload is for development testing only.",
-          "Run /cards test-drop release:test-s1-r1 to preview it.",
+          "Run /cards-owner test-drop release:test-s1-r1 to preview it.",
         ].join("\n"),
         allowedMentions: { parse: [] },
       });
@@ -448,7 +450,7 @@ export async function execute(interaction) {
     }
   }
   if (option === "art-upload" || option === "art-assign") {
-    if (!isEnabled()) return interaction.editReply("Card artwork tools are enabled only on the development bot.");
+    if (option === "art-assign" ? !isTestMode() : !isEnabled()) return interaction.editReply("This artwork action is unavailable in the current Hatchem mode.");
     if (!isCardGameOwner(interaction.user.id)) return interaction.editReply("Only the card-game owner can manage card artwork. Add CARD_GAME_OWNER_DISCORD_ID to Replit Secrets.");
     try {
       const kind = interaction.options.getString("kind", true);
@@ -461,7 +463,7 @@ export async function execute(interaction) {
           revisionNote: interaction.options.getString("revision_note") || "",
         });
         return interaction.editReply({
-          content: `Saved **${escapeDiscord(result.key)}** (${result.kind}) to MongoDB. Artwork remains under review. ${interaction.options.getString("replaces") ? "The original version was preserved. " : ""}Use /cards art-info to inspect it and /cards art-assign to display it in TEST cards.`,
+          content: `Saved **${escapeDiscord(result.key)}** (${result.kind}) to MongoDB. Artwork remains under review. ${interaction.options.getString("replaces") ? "The original version was preserved. " : ""}Use /cards-owner art-info to inspect and /cards-owner art-review to approve. After approval, assign it with /cards-release assign-art.`,
           allowedMentions: { parse: [] },
         });
       }
@@ -567,13 +569,13 @@ export async function execute(interaction) {
     const releases = await CardRelease.find({ status: "active" })
       .select("releaseId").sort({ createdAt: -1, _id: -1 }).limit(40).lean();
     const selected = releases.find(r => !r.releaseId.startsWith("test-")) ||
-      releases.find(r => r.releaseId === "test-s1-r1");
+      (isTestMode() ? releases.find(r => r.releaseId === "test-s1-r1") : null);
     if (!selected) return interaction.editReply(
       "There is no active egg release yet. The owner must activate one before players can drop."
     );
     return publishCardDrop(interaction, { releaseId: selected.releaseId, testMode: false });
   }
-  if (!isEnabled()) return interaction.editReply("Card test drops are disabled on this bot.");
+  if (!isTestMode()) return interaction.editReply("Test drops are available on the development bot only.");
   if (!isCardGameOwner(interaction.user.id))
     return interaction.editReply("Only the card-game owner can start test drops. Add CARD_GAME_OWNER_DISCORD_ID to Replit Secrets.");
   const releaseId = interaction.options.getString("release", true);
@@ -600,7 +602,7 @@ export async function publishCardDrop(interaction, { releaseId, testMode, automa
   if (!release) return interaction.editReply("No active release has that ID. Configure and approve a release first.");
   const odds = Object.fromEntries(["Common","Uncommon","Rare","Ultra-Rare","Legendary"].map(k => [k, release.hatchOdds[k]]));
   validateHatchOdds(odds);
-  const allowedArtStatuses = testMode || releaseId.startsWith("test-") && isEnabled()
+  const allowedArtStatuses = (testMode && isTestMode()) || (releaseId.startsWith("test-") && isTestMode())
     ? ["approved", "test-placeholder"] : ["approved"];
   const definitions = await CardDefinition.find({
     releaseId, seriesId: release.seriesId, enabled: true,
@@ -1050,7 +1052,7 @@ export async function autocompleteCards(interaction) {
     const option = interaction.options.getSubcommand(false);
     const focused = interaction.options.getFocused();
     if (option === "test-drop") {
-      if (!isCardGameOwner(interaction.user.id)) return interaction.respond([]);
+      if (!isTestMode() || !isCardGameOwner(interaction.user.id)) return interaction.respond([]);
       const releases = await CardRelease.find({ releaseId: /^test-/, status: "active" })
         .select("releaseId name").sort({ createdAt: -1 }).limit(200).lean();
       const term = String(focused || "").toLocaleLowerCase();
