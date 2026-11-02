@@ -35,7 +35,8 @@ function fakeButton(game, userId, isAdmin = true) {
     isButton: () => true, isModalSubmit: () => false,
     user: { id: userId },
     memberPermissions: isAdmin ? permitted() : { has: () => false },
-    deferReply: async () => {}, editReply: async reply => { replies.push(reply); },
+    deferUpdate: async () => {},
+    followUp: async reply => { replies.push(reply); },
     replies, client: {},
   };
 }
@@ -99,12 +100,12 @@ test("lobby button refuses another admin and regular members without changing ga
   });
 });
 
-test("host button starts a nonempty lobby exactly once and acknowledges privately", async () => {
+test("host button starts a nonempty lobby without an ephemeral announcement", async () => {
   const game = lobby();
   await withLobby(game, async writes => {
     const interaction = fakeButton(game, hostId);
     await handlePartyInteraction(interaction);
-    assert.match(interaction.replies[0].content, /Court of Chaos started/);
+    assert.equal(interaction.replies.length, 0);
     assert.equal(writes.length, 1);
     assert.equal(writes[0].filter.phase, "lobby");
     assert.equal(writes[0].update.$set.phase, "answering");
