@@ -107,7 +107,8 @@ test("final embed explains actual Points amounts and optional manually fulfilled
   assert.match(fields["🎟️ AM Isa Points rewards"],/\+10/);
   assert.match(fields["🎟️ AM Isa Points rewards"],/\+6/);
   assert.match(fields["🎟️ AM Isa Points rewards"],/\+3/);
-  assert.match(fields["🎟️ AM Isa Points rewards"],/2 rewarded games/);
+  assert.match(fields["🎟️ AM Isa Points rewards"],/No daily limit/);
+  assert.doesNotMatch(fields["🎟️ AM Isa Points rewards"],/Maximum|2 rewarded games/);
   assert.match(fields["🏆 Host-provided first-place prize"],/Winner receives a Mystery Egg/);
   assert.match(fields["🏆 Host-provided first-place prize"],new RegExp(a));
   assert.match(fields["🏆 Host-provided first-place prize"],/not sent automatically/);
