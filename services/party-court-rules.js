@@ -154,8 +154,10 @@ export function scoreCourtMatchup(playerIds, answers, votes, round) {
   return totals;
 }
 
-export function courtRewardPlan(scores, answeredCounts, completedRounds, priorCompletionCount = 0) {
-  if (completedRounds < 2 || scores.length === 0 || priorCompletionCount >= 2) return [];
+export function courtRewardPlan(scores, answeredCounts, completedRounds) {
+  // Eligibility depends on answering enough rounds in THIS game, never on
+  // previous victories or how many parties someone played that day.
+  if (completedRounds < 2 || scores.length === 0) return [];
   const eligible = scores.filter(p => (answeredCounts[p.userId] || 0) >= 2)
     .sort((a,b) => b.score - a.score ||
       (b.finalRound || 0) - (a.finalRound || 0) ||
