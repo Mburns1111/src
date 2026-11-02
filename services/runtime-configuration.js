@@ -1,3 +1,5 @@
+import { validateCardGameMode } from "./card-game-mode.js";
+
 export class StartupConfigurationError extends Error {
   constructor(message) { super(message); this.name = "StartupConfigurationError"; }
 }
@@ -22,6 +24,9 @@ export function validateRuntimeConfiguration({
   if (!Number.isSafeInteger(nodeMajor) || nodeMajor<20)
     throw new StartupConfigurationError("Node.js 20 or newer is required (Node.js 22 recommended).");
   if (mode==="static") return {mode,nodeMajor};
+  // A production card launch is never inferred from hosting. Reject unsafe
+  // or contradictory switches before connecting to Discord or MongoDB.
+  validateCardGameMode(env);
   required(env,"DISCORD_TOKEN");
   if (mode==="register") {
     discordId(required(env,"DISCORD_CLIENT_ID"),"DISCORD_CLIENT_ID");
