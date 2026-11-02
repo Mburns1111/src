@@ -197,7 +197,10 @@ async function publishStage(game, channel, cache, key, variant, payload, { curre
 // must never prevent the next timed voting question from appearing.
 async function editHistoricalCourtPost(game, channel, cache, key, variant, payload) {
   const post = cache.get(key);
-  if (!post || post.renderedVariant === "missing") return;
+  // Completed questions may be reconstructed after a restart even if their
+  // post was never created; closed entry/break posts are edited only if they
+  // already existed. A previously deleted post is never recreated.
+  if ((!post && variant !== "result") || post?.renderedVariant === "missing") return;
   try {
     await publishStage(game, channel, cache, key, variant, payload);
   } catch (error) {
@@ -205,8 +208,10 @@ async function editHistoricalCourtPost(game, channel, cache, key, variant, paylo
       console.warn("[Party] Historical message deleted; preserving game progress", {
         gameId: String(game._id), stage: key,
       });
-      await PartyPost.updateOne({ _id: post._id }, { $set: { renderedVariant: "missing" } });
-      post.renderedVariant = "missing";
+      if (post) {
+        await PartyPost.updateOne({ _id: post._id }, { $set: { renderedVariant: "missing" } });
+        post.renderedVariant = "missing";
+      }
     } else {
       // A temporary API failure editing a historical post can be retried on
       // the next sweep. Do not hold up the next question in the meantime.
