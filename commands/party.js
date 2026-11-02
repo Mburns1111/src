@@ -10,7 +10,7 @@ import {
   beginCourtGame, advanceCourtGame, courtGameDisplay,
   publishCourtGame, partyButton,
 } from "../services/party-court-engine.js";
-import { COURT_MIN_PLAYERS, COURT_MAX_PLAYERS } from "../services/party-court-rules.js";
+import { COURT_MIN_PLAYERS, safeCourtText } from "../services/party-court-rules.js";
 
 export const data = new SlashCommandBuilder()
   .setName("party").setDescription("Staff-hosted, text-based Party Games")
@@ -81,12 +81,18 @@ export async function execute(interaction) {
   }
   const game = await activeGame(interaction.guildId);
   if (!game) return interaction.editReply(errorText("There is no active Party Game in this server."));
-  if (op === "status") return interaction.editReply(errorText(
-    "**Court of Chaos** · " + game.phase +
-    "\nRound: " + game.round + "/3 · Players: " + game.players.length +
-    "\nPaused: " + (game.paused ? "yes" : "no") +
-    "\nTime left: " + Math.ceil(timeLeft(game) / 1000) + "s" +
-    "\nMessage: https://discord.com/channels/" + game.guildId + "/" + game.channelId + "/" + game.messageId));
+  if (op === "status") {
+    const savedCount = game.phase === "answering" ?
+      await PartyResponse.countDocuments({ gameId: game._id, round: game.round,
+        kind: "answer", text: { $nin: ["", null] } }) : null;
+    return interaction.editReply(errorText(
+      "**Court of Chaos** · " + game.phase +
+      "\nRound: " + game.round + "/3 · Players: " + game.players.length +
+      (savedCount === null ? "" : "\nSaved submissions: " + savedCount + "/" + game.players.length) +
+      "\nPaused: " + (game.paused ? "yes" : "no") +
+      "\nTime left: " + Math.ceil(timeLeft(game) / 1000) + "s" +
+      "\nMessage: https://discord.com/channels/" + game.guildId + "/" + game.channelId + "/" + game.messageId));
+  }
   let changed = false;
   if (op === "start") {
     if (game.phase !== "lobby") return interaction.editReply(errorText("The lobby has already started."));
@@ -198,11 +204,19 @@ export async function handlePartyInteraction(interaction) {
     const match = game.matchups.find(m => m.playerIds.includes(interaction.user.id));
     if (!match) return interaction.editReply(errorText("You're spectating. Players can only join before a game starts."));
     const idx = game.matchups.indexOf(match);
+    const saved = await PartyResponse.findOne({
+      gameId: game._id, round: game.round, matchupIndex: idx,
+      kind: "answer", userId: interaction.user.id,
+    });
     const row = new ActionRowBuilder().addComponents(new ButtonBuilder()
       .setCustomId(partyButton(game, "answer", game.round + ":" + idx))
-      .setLabel("Submit or Edit Answer").setStyle(ButtonStyle.Primary));
+      .setLabel(saved?.text ? "Edit Saved Answer" : "Submit Answer")
+      .setStyle(ButtonStyle.Primary));
     return interaction.editReply({
-      content: "**Your private prompt:** " + match.prompt + "\nSubmit before the round ends.",
+      content: "**Your private prompt:** " + match.prompt +
+        "\n" + (saved?.text ? "✅ **Your saved answer:** " + safeCourtText(saved.text) :
+        "⚠️ **No answer saved yet.** Click Submit Answer and send the form.") +
+        "\nPlease submit before the deadline.",
       components: [row], allowedMentions: { parse: [] },
     });
   }
@@ -215,11 +229,20 @@ export async function handlePartyInteraction(interaction) {
     const answer = interaction.fields.getTextInputValue("answer").trim();
     if (!answer || answer.length > 160 || /https?:\/\/|discord\.gg\/|@everyone|@here/i.test(answer))
       return interaction.editReply(errorText("Use 1–160 characters with no links or mass mentions."));
-    await PartyResponse.findOneAndUpdate({
+    // Confirm the database returned the stored value. Never tell a player
+    // their submission was saved if the write did not succeed.
+    const saved = await PartyResponse.findOneAndUpdate({
       gameId: game._id, guildId: game.guildId, round, matchupIndex: idx,
       kind: "answer", userId: interaction.user.id,
     }, { $set: { text: answer } }, { upsert: true, new: true, setDefaultsOnInsert: true });
-    return interaction.editReply(errorText("Your answer is saved! You may edit it until the deadline."));
+    if (!saved || saved.text !== answer) {
+      console.error("[Party] Answer write was not confirmed", { gameId, round, idx });
+      return interaction.editReply(errorText("⚠️ Your answer was NOT confirmed. Please try submitting it again."));
+    }
+    console.log("[Party] Answer saved", { gameId, round, idx });
+    return interaction.editReply(errorText(
+      "✅ **Saved for Round " + round + "!** Your answer: " + safeCourtText(saved.text) +
+      "\nYou can check or edit it through My Prompt & Answer until voting begins."));
   }
   if (action === "vote") {
     const round = Number(roundText), idx = Number(matchupText);

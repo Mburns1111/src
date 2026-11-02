@@ -16,8 +16,8 @@ Use a development bot token, development MongoDB database and test Discord serve
 4. Restart the test bot.
 5. Create a Discord text channel for games, then run /setup channels party_games:#your-channel. As staff with Manage Server, use /party host (category and rewards optional). The lobby always posts in the configured channel, regardless of where the command was used.
 6. Have 1–20 accounts use Join; Leave and rejoin; try the 21st account. Test separate 1-, 2- and 3-player games.
-7. Staff runs /party start. Members use My Prompt & Answer, then Submit or Edit Answer in the private modal.
-8. With 2+ players, after 90 seconds, noncontestants and spectators vote via the buttons (30 seconds per batch, two matchups per batch). Solo games skip voting and show their submitted answer.
+7. Staff runs /party start. Members use My Prompt & Answer, then Submit or Edit Answer in the private modal. The modal reply must say **Saved for Round 1** and show exactly what was stored. Clicking My Prompt & Answer again must display **Your saved answer**. Staff can use /party status to see the number of saved submissions without viewing private answers.
+8. With 2+ players, after up to 45 seconds, noncontestants and spectators vote via the buttons (15 seconds per batch, two matchups per batch). Once everyone has submitted, the answer phase shortens to approximately 5 seconds. Solo games skip voting and show their submitted answer.
 9. Observe each reveal (8 seconds) and the 10-second intermission after rounds 1 and 2. The game ends after round 3.
 10. Review the leaderboard. If rewards were enabled, check /points-admin history and audit. Verify each eligible member earns +5 completion (including solo participants with two submitted answers); placement bonuses are +10/+6/+3 only for games with multiple competitors. No more than two rewarded games per UTC date.
 
@@ -54,7 +54,7 @@ Only members with Manage Server can use /party commands. Regular members and spe
 
 ## Timing notes
 
-Each game is three rounds. Each participant writes one answer per round. Answers are open for 90 seconds; with 2+ players, voting happens in two-matchup 30-second batches; verdict display lasts 8 seconds; intermission lasts 10 seconds. Solo games skip the vote phase entirely. Games with 20 players will take significantly longer than games with 1–3. The timer advances in one 5-second reconciliation sweep, so deadlines may be a few seconds late. Displayed times use Discord relative timestamps.
+Each game is three rounds. Each participant writes one answer per round. Answers are open for a maximum of 45 seconds (automatically shortening to a 5-second grace period once every player has saved an answer); with 2+ players, voting happens in two-matchup 15-second batches; verdict display lasts 5 seconds; intermission lasts 3 seconds. Solo games skip the vote phase entirely. Games with 20 players will take significantly longer than games with 1–3. The timer advances in one 5-second reconciliation sweep, so deadlines may be a few seconds late. Displayed times use Discord relative timestamps.
 
 ## Player counts and rewards
 

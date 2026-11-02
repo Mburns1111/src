@@ -10,10 +10,18 @@ import {
   scoreCourtMatchup, COURT_MIN_PLAYERS, COURT_MAX_PLAYERS,
 } from "./party-court-rules.js";
 
-const ANSWER_MS = 90_000;
-const VOTE_MS = 30_000;
-const REVEAL_MS = 8_000;
-const INTERMISSION_MS = 10_000;
+// Standard pace: 45s maximum to answer, or finish after everyone submits.
+export const COURT_TIMINGS = Object.freeze({
+  answerMs: 45_000,
+  voteMs: 15_000,
+  revealMs: 5_000,
+  intermissionMs: 3_000,
+  allAnsweredGraceMs: 5_000,
+});
+const ANSWER_MS = COURT_TIMINGS.answerMs;
+const VOTE_MS = COURT_TIMINGS.voteMs;
+const REVEAL_MS = COURT_TIMINGS.revealMs;
+const INTERMISSION_MS = COURT_TIMINGS.intermissionMs;
 const BATCH_SIZE = 2;
 const phaseLabel = { lobby:"Lobby", answering:"Answering", voting:"Voting", reveal:"Verdict", intermission:"Between rounds", ended:"Finished", cancelled:"Cancelled" };
 
@@ -62,7 +70,8 @@ export async function courtGameDisplay(game) {
   } else if (game.phase === "answering") {
     lines.push("**Round " + game.round + "/3** — privately submit one funny answer.");
     lines.push("Answering closes " + seconds(game.phaseEndsAt) + (game.paused ? " (PAUSED)" : "") + ".");
-    lines.push("Your prompt is private. You can edit your answer before time runs out.");
+    lines.push("Your prompt is private. Check your saved answer using the same button.");
+    lines.push("If everyone answers, voting begins after a brief 5-second grace period.");
     rows.push(new ActionRowBuilder().addComponents(
       button(partyButton(game, "prompt"), "My Prompt & Answer", ButtonStyle.Primary)));
   } else if (game.phase === "voting" || game.phase === "reveal") {
@@ -103,6 +112,26 @@ export async function courtGameDisplay(game) {
   }
   if (game.paused) lines.push("⏸️ Staff paused the game.");
   return { content: lines.join("\n").slice(0, 1950), components: rows, allowedMentions: { parse: [] } };
+}
+
+// Reduce idle time only when every player has a verified answer in the correct
+// round AND matchup. This works for solo sessions and large matchups alike.
+export async function shortenCourtAnswerWindow(game, now = Date.now()) {
+  if (game.phase !== "answering" || game.paused || !game.phaseEndsAt ||
+      game.phaseEndsAt.getTime() <= now + COURT_TIMINGS.allAnsweredGraceMs) return false;
+  const expected = game.matchups.flatMap((match, index) =>
+    match.playerIds.map(userId => userId + ":" + index));
+  if (!expected.length) return false;
+  const answers = await PartyResponse.find({
+    gameId: game._id, round: game.round, kind: "answer", text: { $nin: ["", null] },
+  }).select("userId matchupIndex").lean();
+  const saved = new Set(answers.map(a => a.userId + ":" + a.matchupIndex));
+  if (!expected.every(id => saved.has(id))) return false;
+  const shortenedEnd = new Date(now + COURT_TIMINGS.allAnsweredGraceMs);
+  const updated = await PartyGame.updateOne({
+    _id: game._id, phase: "answering", paused: false, phaseEndsAt: game.phaseEndsAt,
+  }, { $set: { phaseEndsAt: shortenedEnd }, $inc: { renderVersion: 1 } });
+  return updated.modifiedCount > 0;
 }
 
 // Publish is safe to retry after a restart. Version checks avoid sending a
@@ -254,9 +283,13 @@ export async function reconcileCourtGames(client) {
     const active = await PartyGame.find({ active: true }).limit(80);
     for (const game of active) {
       try {
-        if (game.phaseEndsAt && !game.paused && game.phaseEndsAt.getTime() <= Date.now())
-          await advanceCourtGame(game);
-        await publishCourtGame(client, game);
+        if (game.phase === "answering" && !game.paused)
+          await shortenCourtAnswerWindow(game);
+        // Re-read after any shortening so the sweep never acts on stale deadlines.
+        const current = await PartyGame.findById(game._id);
+        if (current?.phaseEndsAt && !current.paused && current.phaseEndsAt.getTime() <= Date.now())
+          await advanceCourtGame(current);
+        await publishCourtGame(client, current || game);
       } catch (error) { console.error("[Party] Game reconciliation failed", String(game._id), error); }
     }
     const terminal = await PartyGame.find({
