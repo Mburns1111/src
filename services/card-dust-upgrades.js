@@ -10,7 +10,7 @@ import { allocateCardId } from "./card-identifiers.js";
 import { findOwnedCardById } from "./card-owned-selection.js";
 
 export const DUST_UPGRADE_COSTS=Object.freeze({
-  Common:5,Uncommon:6,Rare:7,"Ultra-Rare":8,Legendary:10,
+  Common:2,Uncommon:2,Rare:3,"Ultra-Rare":3,Legendary:4,
 });
 const TTL=90_000;
 const pending=new Map();
@@ -21,8 +21,8 @@ export function calculateDustUpgrade({rarity,stage,cardCount}) {
   if(!Number.isInteger(cardCount)||cardCount<1||cardCount>3)
     throw Error("Dust upgrades need 1–3 matching physical cards. Use .upgrade with four cards.");
   const missing=4-cardCount;
-  // A Neon is created from four Normals; one missing Neon therefore costs
-  // five times the Normal replacement amount. All spending uses SAME rarity.
+  // A missing Neon costs five times a missing Normal of the same rarity.
+  // This matches the existing 1 Normal / 5 Neon dust-burn ratio.
   const cost=missing*DUST_UPGRADE_COSTS[rarity]*(stage==="neon"?5:1);
   return {missing,cost,target:stage==="normal"?"neon":"mega"};
 }
