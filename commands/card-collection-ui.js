@@ -80,7 +80,7 @@ async function collectionView(id, ownerId) {
   // Keep the entire collection within Discord's five action rows: four
   // filters and one card picker. Page navigation lives in the picker.
   const cardChoices = page.cards.map((c, i) => ({
-    label: `${page.page * 8 + i + 1}. ${c.locked ? "🔒 " : ""}${c.petName}`,
+    label: `${page.page * 10 + i + 1}. ${c.locked ? "🔒 " : ""}${c.petName} · ID ${c.publicId || "PENDING"}`,
     value: String(c._id),
   }));
   if (page.page > 0) cardChoices.push({ label: "← Previous page", value: "__prev__" });
