@@ -214,7 +214,8 @@ export async function handlePartyInteraction(interaction) {
   const [prefix, action, gameId, roundText, matchupText, candidateId] = interaction.customId.split(":");
   if (prefix !== "party") return;
   if (action === "pick") {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    // Update the original private menu rather than leaving an active selector behind.
+    await interaction.deferUpdate();
     if (!interaction.isStringSelectMenu() || !staff(interaction) ||
         interaction.user.id !== gameId)
       return interaction.editReply(errorText("Only the staff member who opened this game picker can select the game."));
