@@ -590,7 +590,7 @@ function formatCardCooldown(date) {
 
 export function automaticEggPing(roleId) {
   // Never ping @everyone/@here, users, or unconfigured arbitrary roles.
-  const validated = /^\\d{17,20}$/.test(String(roleId || "")) ? String(roleId) : "";
+  const validated = /^\d{17,20}$/.test(String(roleId || "")) ? String(roleId) : "";
   return { mention: validated ? "<@&" + validated + ">" : "",
     allowedMentions: { parse: [], roles: validated ? [validated] : [] } };
 }
@@ -671,7 +671,7 @@ export async function publishCardDrop(interaction, { releaseId, testMode, automa
     });
     const notification = automated ? automaticEggPing(roleId) : { mention: "", allowedMentions: { parse: [] } };
     posted = await interaction.channel.send({
-      content: (notification.mention ? notification.mention + "\\n" : "") + dropText(drop, release.name, petNames),
+      content: (notification.mention ? notification.mention + "\n" : "") + dropText(drop, release.name, petNames),
       files: [new AttachmentBuilder(dropPng, { name: "card-drop.png" })],
       components: [rowButtons(drop)],
       allowedMentions: notification.allowedMentions,
