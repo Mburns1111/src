@@ -208,6 +208,50 @@ function privateReply(interaction, msg) {
   return interaction.reply({ ...errorText(msg), flags: MessageFlags.Ephemeral });
 }
 
+// A modal opened from a button on a private prompt panel can UPDATE that
+// panel instead of adding a second ephemeral "saved" reply. When the modal
+// has no originating message (older Discord clients / direct modal tests),
+// fall back to a regular private acknowledgement.
+async function acknowledgePartyInteraction(interaction, action) {
+  if (action === "submit" && interaction.isFromMessage?.() && interaction.deferUpdate) {
+    await interaction.deferUpdate();
+    return;
+  }
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+}
+
+export async function privateCourtPromptPanel(game, userId, note = "") {
+  const matches = game.matchups
+    .map((match, idx) => ({ match, idx }))
+    .filter(({ match }) => match.playerIds.includes(userId));
+  if (!matches.length) return errorText(
+    "You're spectating. Players can only join before a game starts.");
+  const records = await PartyResponse.find({
+    gameId: game._id, round: game.round, kind: "answer", userId,
+  }).lean();
+  const open = game.phase === "answering" && !game.paused && timeLeft(game) > 0;
+  const lines = ["**Your two private prompts — Round " + game.round + "**"];
+  if (note) lines.push(note);
+  const buttons = [];
+  for (const [number, { match, idx }] of matches.entries()) {
+    const answer = records.find(a => a.matchupIndex === idx)?.text;
+    lines.push("", "**Question " + (number + 1) + ":** " + safeCourtText(match.prompt),
+      answer ? "✅ Your saved answer: " + safeCourtText(answer) : "⚠️ No answer saved yet.");
+    if (open) buttons.push(new ButtonBuilder()
+      .setCustomId(partyButton(game, "answer", game.round + ":" + idx))
+      .setLabel((answer ? "Edit" : "Answer") + " Question " + (number + 1))
+      .setStyle(ButtonStyle.Primary));
+  }
+  lines.push(open
+    ? "Answering closes " + "<t:" + Math.ceil(game.phaseEndsAt.getTime() / 1000) + ":R>."
+    : "Entries are closed. These answers are shown for reference.");
+  return {
+    content: lines.join("\n"),
+    components: buttons.length ? [new ActionRowBuilder().addComponents(...buttons)] : [],
+    allowedMentions: { parse: [] },
+  };
+}
+
 export async function handlePartyInteraction(interaction) {
   if (!interaction.isButton() && !interaction.isModalSubmit() &&
       !interaction.isStringSelectMenu()) return;
@@ -240,7 +284,7 @@ export async function handlePartyInteraction(interaction) {
       .setStyle(TextInputStyle.Paragraph).setMinLength(1).setMaxLength(160).setRequired(true)));
     return interaction.showModal(modal);
   }
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await acknowledgePartyInteraction(interaction, action);
   const game = await loadGame(interaction, gameId);
   if (!game || !game.messageId) return interaction.editReply(errorText("This party game is unavailable."));
   if (action === "start") {
@@ -287,29 +331,7 @@ export async function handlePartyInteraction(interaction) {
   if (action === "prompt") {
     if (game.phase !== "answering" || game.paused || timeLeft(game) <= 0)
       return interaction.editReply(errorText("The answering phase isn't open."));
-    const matches = game.matchups
-      .map((match, idx) => ({ match, idx }))
-      .filter(({ match }) => match.playerIds.includes(interaction.user.id));
-    if (!matches.length) return interaction.editReply(errorText("You're spectating. Players can only join before a game starts."));
-    const saved = await PartyResponse.find({
-      gameId: game._id, round: game.round, kind: "answer", userId: interaction.user.id,
-    }).lean();
-    const lines = ["**Your two private prompts — Round " + game.round + "**"];
-    const buttons = [];
-    for (const [number, { match, idx }] of matches.entries()) {
-      const answer = saved.find(a => a.matchupIndex === idx)?.text;
-      lines.push("", "**Question " + (number + 1) + ":** " + match.prompt,
-        answer ? "✅ Your saved answer: " + safeCourtText(answer) : "⚠️ No answer saved yet.");
-      buttons.push(new ButtonBuilder()
-        .setCustomId(partyButton(game, "answer", game.round + ":" + idx))
-        .setLabel((answer ? "Edit" : "Answer") + " Question " + (number + 1))
-        .setStyle(ButtonStyle.Primary));
-    }
-    return interaction.editReply({
-      content: lines.join("\n") + "\nAll answers close after 60 seconds.",
-      components: [new ActionRowBuilder().addComponents(...buttons)],
-      allowedMentions: { parse: [] },
-    });
+    return interaction.editReply(await privateCourtPromptPanel(game, interaction.user.id));
   }
   if (action === "submit") {
     const round = Number(roundText), idx = Number(matchupText);
@@ -331,9 +353,12 @@ export async function handlePartyInteraction(interaction) {
       return interaction.editReply(errorText("⚠️ Your answer was NOT confirmed. Please try submitting it again."));
     }
     console.log("[Party] Answer saved", { gameId, round, idx });
-    return interaction.editReply(errorText(
-      "✅ **Saved for Round " + round + "!** Your answer: " + safeCourtText(saved.text) +
-      "\nYou can check or edit it through My Prompt & Answer until voting begins."));
+    // One up-to-date private panel replaces two contradictory ephemeral
+    // messages, showing BOTH answers and the remaining time.
+    return interaction.editReply(await privateCourtPromptPanel(game, interaction.user.id,
+      "✅ **Saved for Round " + round + "!** Question " +
+      (game.matchups.filter(m => m.playerIds.includes(interaction.user.id))
+        .findIndex(m => m === match) + 1) + " recorded."));
   }
   if (action === "vote") {
     const round = Number(roundText), idx = Number(matchupText);
