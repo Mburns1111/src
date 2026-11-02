@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import PartyGame from "../models/PartyGame.js";
 import PartyPost from "../models/PartyPost.js";
 import PartyResponse from "../models/PartyResponse.js";
-import { publishCourtGame } from "../services/party-court-engine.js";
+import { publishCourtGame, reconcileCourtGames } from "../services/party-court-engine.js";
 
 const gameId = "507f1f77bcf86cd799439011";
 const guildId = "123456789012345678";
@@ -61,8 +61,14 @@ function fixture() {
     if (query.publishingToken && query.publishingToken!==snapshot.publishingToken)
       return {modifiedCount:0};
     Object.assign(snapshot, update.$set);
+    for(const [field,amount] of Object.entries(update.$inc || {}))
+      snapshot[field] = Number(snapshot[field] || 0) + amount;
     return {modifiedCount:1};
   });
+  stub(PartyGame,"findById",async()=>({...snapshot}));
+  stub(PartyGame,"find",query=>({
+    limit:async()=>query.active === true && snapshot.active ? [{...snapshot}] : [],
+  }));
   stub(PartyPost,"find",async()=>[...posts.values()].map(p=>({...p})));
   stub(PartyPost,"findOneAndUpdate",async(query,update)=>{
     if (!posts.has(query.key)) posts.set(query.key, {
@@ -76,13 +82,18 @@ function fixture() {
     Object.assign(posts.get(key),update.$set);
     return {modifiedCount:1};
   });
-  stub(PartyResponse,"find",()=>({lean:async()=>[
-    {matchupIndex:0,kind:"answer",userId:a,text:"A funny answer"},
-    {matchupIndex:0,kind:"answer",userId:b,text:"A different answer"},
-    {matchupIndex:1,kind:"answer",userId:a,text:"Second A"},
-    {matchupIndex:1,kind:"answer",userId:b,text:"Second B"},
-    {matchupIndex:0,kind:"vote",userId:"spectator",targetId:a},
-  ]}));
+  stub(PartyResponse,"find",()=>({
+    lean:async()=>[
+      {matchupIndex:0,kind:"answer",userId:a,text:"A funny answer"},
+      {matchupIndex:0,kind:"answer",userId:b,text:"A different answer"},
+      {matchupIndex:1,kind:"answer",userId:a,text:"Second A"},
+      {matchupIndex:1,kind:"answer",userId:b,text:"Second B"},
+      {matchupIndex:0,kind:"vote",userId:"spectator",targetId:a},
+    ],
+    select:()=>({lean:async()=>[
+      {userId:a},{userId:a},{userId:b},{userId:b},
+    ]}),
+  }));
   const client={channels:{fetch:async id=>{assert.equal(id,channelId);return channel;}}};
   return {
     client,snapshot,posts,messages,history,
@@ -173,5 +184,89 @@ test("completed votes and round standings remain visible after next round starts
     assert.deepEqual(x.messages.get(oldBreak.messageId).components,[]);
     assert.ok(x.posts.get("r1-question-0")?.messageId);
     assert.ok(x.posts.get("r1-question-1")?.messageId);
+  }finally{x.restore();}
+});
+
+test("reconciliation automatically posts question two after vote one and eight-second result", async()=>{
+  const x=fixture();
+  try {
+    await x.publish();
+    assert.equal(x.snapshot.phase,"answering");
+    assert.ok(x.posts.get("r1-answer")?.messageId);
+    // The entry window was visibly open for 90 seconds. Expiring it should
+    // send the FIRST voting question, with its own full 30 seconds to vote.
+    x.posts.get("r1-answer").openedAt=new Date(Date.now()-100_000);
+    x.snapshot.phaseEndsAt=new Date(Date.now()-1000);
+    await reconcileCourtGames(x.client);
+    assert.equal(x.snapshot.phase,"voting");
+    assert.equal(x.snapshot.batch,0);
+    const first=x.posts.get("r1-question-0");
+    assert.ok(first?.messageId);
+    assert.ok(x.snapshot.phaseEndsAt.getTime() >= first.openedAt.getTime()+30_000);
+    // Close first vote; result must replace the buttons on its own post.
+    first.openedAt=new Date(Date.now()-40_000);
+    x.snapshot.phaseEndsAt=new Date(Date.now()-1000);
+    await reconcileCourtGames(x.client);
+    assert.equal(x.snapshot.phase,"reveal");
+    assert.equal(x.snapshot.batch,0);
+    assert.equal(x.posts.get("r1-question-0").renderedVariant,"result");
+    assert.deepEqual(x.messages.get(first.messageId).components,[]);
+    // After 8 seconds of reveal, a different new message must contain
+    // question two, and the first result is still readable.
+    x.snapshot.phaseEndsAt=new Date(Date.now()-1000);
+    await reconcileCourtGames(x.client);
+    assert.equal(x.snapshot.phase,"voting");
+    assert.equal(x.snapshot.batch,1);
+    const second=x.posts.get("r1-question-1");
+    assert.ok(second?.messageId);
+    assert.notEqual(second.messageId,first.messageId);
+    assert.match(x.messages.get(second.messageId).content,/Question two/);
+    assert.match(x.messages.get(first.messageId).content,/1 vote, 1000 pts/);
+    // The second vote also completes, and the next stage is a staff
+    // controlled break, never a silent next-round transition.
+    second.openedAt=new Date(Date.now()-40_000);
+    x.snapshot.phaseEndsAt=new Date(Date.now()-1000);
+    await reconcileCourtGames(x.client);
+    assert.equal(x.snapshot.phase,"reveal");
+    assert.equal(x.snapshot.batch,1);
+    x.snapshot.phaseEndsAt=new Date(Date.now()-1000);
+    await reconcileCourtGames(x.client);
+    assert.equal(x.snapshot.phase,"intermission");
+    assert.ok(x.posts.get("r1-break")?.messageId);
+    await reconcileCourtGames(x.client);
+    assert.equal(x.snapshot.phase,"intermission");
+  }finally{x.restore();}
+});
+
+test("deleted old voting message cannot prevent a new question from being sent", async()=>{
+  const x=fixture();
+  try{
+    await x.publish();
+    x.setPhase("voting",0);
+    await x.publish();
+    const first=x.posts.get("r1-question-0");
+    x.setPhase("reveal",0);
+    await x.publish();
+    assert.equal(first.renderedVariant,"result");
+    // Mimic an old result that was not marked finalized before Discord
+    // deleted it. Subsequent publishes must still create the new question.
+    x.messages.delete(first.messageId);
+    first.renderedVariant="voting";
+    x.setPhase("voting",1);
+    await x.publish();
+    assert.equal(x.snapshot.phase,"voting");
+    assert.equal(first.renderedVariant,"missing");
+    assert.ok(x.posts.get("r1-question-1")?.messageId);
+    assert.match(x.messages.get(x.posts.get("r1-question-1").messageId).content,/Question two/);
+  } finally{x.restore();}
+});
+
+test("a missing original lobby message cannot stall the answering stage", async()=>{
+  const x=fixture();
+  try {
+    x.messages.delete("lobby-1");
+    await x.publish();
+    assert.equal(x.snapshot.lobbyArchived,true);
+    assert.ok(x.posts.get("r1-answer")?.messageId);
   }finally{x.restore();}
 });
