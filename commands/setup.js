@@ -6,6 +6,7 @@ import {
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
+import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
 import { requireGuild } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 import { ensureHouseEntry } from "./house.js";
@@ -204,9 +205,9 @@ export async function execute(interaction) {
       guide = await hatchemChannel.messages.fetch(previousHatchem.hatchemGuideMessageId).catch(() => null);
       if (guide?.author?.id !== interaction.client.user.id) guide = null;
     }
-    if (guide) await guide.edit({ content: HATCHEM_GUIDE, allowedMentions: { parse: [] } });
+    if (guide) await guide.edit({ content: HATCHEM_GUIDE, components: [hatchemTutorialEntryRow()], allowedMentions: { parse: [] } });
     else {
-      guide = await hatchemChannel.send({ content: HATCHEM_GUIDE, allowedMentions: { parse: [] } });
+      guide = await hatchemChannel.send({ content: HATCHEM_GUIDE, components: [hatchemTutorialEntryRow()], allowedMentions: { parse: [] } });
       await GuildConfig.updateOne({ guildId: interaction.guildId },
         { $set: { hatchemGuideMessageId: guide.id } });
     }
