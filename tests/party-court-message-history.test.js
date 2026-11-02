@@ -14,7 +14,7 @@ const original = [
   { playerIds: [a,b], promptId: 2, prompt: "Question two?" },
 ];
 
-function fixture() {
+function fixture({ hydrated = false } = {}) {
   const history = [];
   const posts = new Map();
   let nextMessage = 100;
@@ -55,7 +55,7 @@ function fixture() {
   stub(PartyGame,"findOneAndUpdate",async(query,update)=> {
     if (snapshot.publishingUntil && snapshot.publishingUntil > new Date()) return null;
     Object.assign(snapshot,update.$set);
-    return {...snapshot};
+    return hydrated ? new PartyGame({ ...snapshot }) : { ...snapshot };
   });
   stub(PartyGame,"updateOne",async(query,update)=>{
     if (query.publishingToken && query.publishingToken!==snapshot.publishingToken)
@@ -65,9 +65,9 @@ function fixture() {
       snapshot[field] = Number(snapshot[field] || 0) + amount;
     return {modifiedCount:1};
   });
-  stub(PartyGame,"findById",async()=>({...snapshot}));
+  stub(PartyGame,"findById",async()=>hydrated ? new PartyGame({ ...snapshot }) : { ...snapshot });
   stub(PartyGame,"find",query=>({
-    limit:async()=>query.active === true && snapshot.active ? [{...snapshot}] : [],
+    limit:async()=>query.active === true && snapshot.active ? [hydrated ? new PartyGame({ ...snapshot }) : {...snapshot}] : [],
   }));
   stub(PartyPost,"find",async()=>[...posts.values()].map(p=>({...p})));
   stub(PartyPost,"findOneAndUpdate",async(query,update)=>{
@@ -268,5 +268,51 @@ test("a missing original lobby message cannot stall the answering stage", async(
     await x.publish();
     assert.equal(x.snapshot.lobbyArchived,true);
     assert.ok(x.posts.get("r1-answer")?.messageId);
+  }finally{x.restore();}
+});
+
+test("Mongoose document fields survive historical reveal rebuilding after bot restart", async () => {
+  // Prior tests returned plain JS objects, masking the real live crash:
+  // {...mongooseDocument} does not copy players/matchups/scores from _doc.
+  const x=fixture({hydrated:true});
+  try {
+    await x.publish();
+    x.setPhase("voting",0);
+    await x.publish();
+    x.setPhase("reveal",0);
+    await x.publish();
+    assert.equal(x.posts.get("r1-question-0").renderedVariant,"result");
+    const text=x.messages.get(x.posts.get("r1-question-0").messageId).content;
+    assert.match(text,/A funny answer/);
+    assert.match(text,/A different answer/);
+    assert.match(text,/1 vote, 1000 pts/);
+    assert.doesNotMatch(text,/undefined/);
+    // A second sweep must work with another rehydrated document.
+    await x.publish();
+    assert.equal(x.history.filter(event=>event[0]==="send").length,2);
+  }finally{x.restore();}
+});
+
+test("historical break rendering also retains Mongoose fields on Round 2",async()=>{
+  const x=fixture({hydrated:true});
+  try {
+    await x.publish();
+    x.setPhase("reveal",1);
+    await x.publish();
+    x.setPhase("intermission",1);
+    await x.publish();
+    const breakPost=x.posts.get("r1-break");
+    assert.ok(breakPost?.messageId);
+    x.snapshot.round=2;
+    x.snapshot.matchups=[
+      {playerIds:[a,b],promptId:3,prompt:"Round 2 first?"},
+      {playerIds:[a,b],promptId:4,prompt:"Round 2 second?"},
+    ];
+    x.snapshot.roundMatchups["2"]=x.snapshot.matchups;
+    x.setPhase("answering",0);
+    await x.publish();
+    assert.equal(x.posts.get("r1-break").renderedVariant,"completed");
+    assert.ok(x.posts.get("r2-answer")?.messageId);
+    assert.match(x.messages.get(breakPost.messageId).content,/Round 1 complete/);
   }finally{x.restore();}
 });
