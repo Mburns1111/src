@@ -384,7 +384,9 @@ function courtStoryPlaque(ctx, event, participants, meta) {
   for (; fontSize >= 19; fontSize--) {
     ctx.font = fontSize + 'px "AM Nunito", sans-serif';
     lines = wrapCourtStory(ctx, story, maxWidth);
-    if (lines.length <= 4) break;
+    // Leave breathing room above the status divider with the fuller stories.
+    const storyHeight = (lines.length - 1) * Math.min(34, fontSize + 5) + fontSize;
+    if (lines.length <= 4 && storyHeight <= 124) break;
   }
   ctx.fillStyle = IVORY;
   ctx.font = fontSize + 'px "AM Nunito", sans-serif';
@@ -451,3 +453,4 @@ export async function buildTrialEventPortrait(client, event, meta = {}) {
   ]);
   return renderTrialEventPortrait(event, { victim, actor }, meta);
 }
+

@@ -82,7 +82,7 @@ test("100 new gentle harvest scenarios preserve the original 120 and the solo/du
   assert.ok(harvest.every(text => text.includes("{victim}")));
   assert.ok(HARVEST_DUEL_TRIAL_EVENTS.every(text => text.includes("{actor}")));
   assert.ok(HARVEST_SOLO_TRIAL_EVENTS.every(text => !text.includes("{actor}")));
-  assert.ok(harvest.every(text => text.length <= 190), "stories should fit the compact Canvas plaque");
+  assert.ok(harvest.every(text => text.length <= 230), "stories should fit the compact Canvas plaque");
   assert.ok(harvest.some(text => /scarecrow/i.test(text)));
   assert.ok(harvest.some(text => /orchard/i.test(text)));
   assert.ok(harvest.some(text => /autumn/i.test(text)));
@@ -676,3 +676,4 @@ test("previously saved trials with hour claim windows retain the original units 
   const signup = survivalAnnouncement(record({ claimWindowHours: 24 }));
   assert.match(signup.embeds[0].data.description, /Claim window:.*24 hours/);
 });
+
