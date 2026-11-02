@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   assignCourtMatchups, scoreCourtMatchup, courtRewardPlan,
-  safeCourtText, COURT_PROMPTS,
+  safeCourtText, COURT_PROMPTS, COURT_MATCHUPS_PER_PLAYER,
 } from "../services/party-court-rules.js";
 
 test("Court prompt bank uses original, distinct questions across every category", () => {
@@ -13,15 +13,16 @@ test("Court prompt bank uses original, distinct questions across every category"
 });
 
 for (const count of [1,2,3,4,5,6,19,20]) {
-  test("court matchups assign exactly one opponent group per player, count " + count, () => {
+  test("court matchups assign TWO opponent groups per player, count " + count, () => {
     const players = Array.from({ length: count }, (_, i) => String(100000000000000001n + BigInt(i)));
     const rounds = assignCourtMatchups(players, 1, "mixed", [], () => 0.37);
     const assigned = rounds.flatMap(m => m.playerIds);
-    assert.equal(assigned.length, count);
-    assert.equal(new Set(assigned).size, count);
+    assert.equal(COURT_MATCHUPS_PER_PLAYER, 2);
+    assert.equal(assigned.length, count * 2);
     assert.deepEqual(new Set(assigned), new Set(players));
-    assert.equal(rounds.filter(m => m.playerIds.length === 3).length, count >= 3 ? count % 2 : 0);
-    assert.equal(rounds.filter(m => m.playerIds.length === 1).length, count === 1 ? 1 : 0);
+    for (const id of players) assert.equal(assigned.filter(p => p === id).length, 2);
+    assert.equal(rounds.filter(m => m.playerIds.length === 3).length, count >= 3 ? (count % 2) * 2 : 0);
+    assert.equal(rounds.filter(m => m.playerIds.length === 1).length, count === 1 ? 2 : 0);
     assert.equal(new Set(rounds.map(m => m.promptId)).size, rounds.length);
   });
 }
@@ -82,8 +83,9 @@ test("final-round score then matchup wins break ties; exact ties share placement
 
 test("solo Court game can reveal answers without a comparison or placement bonus", () => {
   const matchups = assignCourtMatchups(["solo"], 1, "silly", [], () => 0.2);
-  assert.equal(matchups.length, 1);
+  assert.equal(matchups.length, 2);
   assert.deepEqual(matchups[0].playerIds, ["solo"]);
+  assert.deepEqual(matchups[1].playerIds, ["solo"]);
   assert.deepEqual(scoreCourtMatchup(["solo"], [{ userId: "solo", text: "A funny answer" }], [], 1), {solo:0});
   assert.deepEqual(courtRewardPlan([{userId:"solo",score:0}], {solo:3}, 3), [
     {userId:"solo",completion:5,placement:0},
@@ -92,14 +94,36 @@ test("solo Court game can reveal answers without a comparison or placement bonus
 });
 test("a two-player game forms one head-to-head matchup", () => {
   const matchups=assignCourtMatchups(["a","b"], 1);
-  assert.equal(matchups.length, 1);
-  assert.equal(matchups[0].playerIds.length, 2);
+  assert.equal(matchups.length, 2);
+  assert.ok(matchups.every(m => m.playerIds.length === 2));
   assert.deepEqual(scoreCourtMatchup(["a","b"],[
     {userId:"a",text:"One"}, {userId:"b",text:"Two"},
   ],[],1),{a:500,b:500});
 });
 test("a three-player game forms one three-way matchup", () => {
   const matchups=assignCourtMatchups(["a","b","c"], 1);
-  assert.equal(matchups.length, 1);
-  assert.equal(matchups[0].playerIds.length, 3);
+  assert.equal(matchups.length, 2);
+  assert.ok(matchups.every(m => m.playerIds.length === 3));
+});
+
+test("four and six players rotate opponents for their second matchup", () => {
+  for (const count of [4, 6, 8]) {
+    const ids = Array.from({length: count}, (_, i) => String(i + 1));
+    const matches = assignCourtMatchups(ids, 1, "mixed", [], () => 0.3);
+    const firstPass = matches.slice(0, count / 2);
+    const secondPass = matches.slice(count / 2);
+    for (const user of ids) {
+      const initial = firstPass.find(m => m.playerIds.includes(user));
+      const second = secondPass.find(m => m.playerIds.includes(user));
+      assert.ok(initial && second);
+      assert.notDeepEqual(initial.playerIds.slice().sort(), second.playerIds.slice().sort());
+    }
+  }
+});
+test("a round never repeats a prompt even after previous rounds exhaust most of the category", () => {
+  const players = Array.from({length:20}, (_, i) => String(i));
+  const usedIds = COURT_PROMPTS.filter(p => p.category === "roblox").slice(0, 29).map(p => p.id);
+  const matches = assignCourtMatchups(players, 3, "roblox", usedIds, () => 0);
+  assert.equal(matches.length, 20);
+  assert.equal(new Set(matches.map(m => m.promptId)).size, 20);
 });
