@@ -111,7 +111,8 @@ test("each question has its own permanent voting message; result edits only that
     await x.publish();
     assert.equal(x.posts.get("r1-question-0").messageId,first.messageId);
     assert.match(x.messages.get(first.messageId).content,/A funny answer/);
-    assert.match(x.messages.get(first.messageId).content,/pts/);
+    assert.match(x.messages.get(first.messageId).content,/1 vote, 1000 pts/);
+    assert.match(x.messages.get(first.messageId).content,/0 votes, 0 pts/);
     assert.deepEqual(x.messages.get(first.messageId).components,[]);
 
     x.setPhase("voting",1);
