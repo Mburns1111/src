@@ -20,7 +20,7 @@ export function eligibleAchievementTime(at=new Date()){
  const start=achievementStart();return Boolean(start&&new Date(at)>=start);
 }
 export function eligiblePlayerDrop(drop){
- return drop?.mode==="player"&&!String(drop.releaseId).startsWith("test-")&&eligibleAchievementTime(drop.createdAt);
+ return ["player","automatic"].includes(drop?.mode)&&!String(drop.releaseId).startsWith("test-")&&eligibleAchievementTime(drop.createdAt);
 }
 export async function initializeAchievements(){
  if(!achievementStart())return;
