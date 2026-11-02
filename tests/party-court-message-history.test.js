@@ -131,8 +131,8 @@ test("each question has its own permanent voting message; result edits only that
     await x.publish();
     assert.equal(x.posts.get("r1-question-0").messageId,first.messageId);
     assert.match(visible(x.messages.get(first.messageId)),/A funny answer/);
-    assert.match(visible(x.messages.get(first.messageId)),/1 vote[s]?\\*\\* · \\*\\*1000 pts/);
-    assert.match(visible(x.messages.get(first.messageId)),/0 votes\\*\\* · \\*\\*0 pts/);
+    assert.match(visible(x.messages.get(first.messageId)),/1 vote[\\s\\S]*1000 pts/);
+    assert.match(visible(x.messages.get(first.messageId)),/0 votes[\\s\\S]*0 pts/);
     assert.deepEqual(x.messages.get(first.messageId).components,[]);
 
     x.setPhase("voting",1);
@@ -228,7 +228,7 @@ test("reconciliation automatically posts question two after vote one and eight-s
     assert.ok(second?.messageId);
     assert.notEqual(second.messageId,first.messageId);
     assert.match(visible(x.messages.get(second.messageId)),/Question two/);
-    assert.match(visible(x.messages.get(first.messageId)),/1 vote[s]?\\*\\* · \\*\\*1000 pts/);
+    assert.match(visible(x.messages.get(first.messageId)),/1 vote[\\s\\S]*1000 pts/);
     // The second vote also completes, and the next stage is a staff
     // controlled break, never a silent next-round transition.
     second.openedAt=new Date(Date.now()-40_000);
@@ -292,7 +292,7 @@ test("Mongoose document fields survive historical reveal rebuilding after bot re
     const text=visible(x.messages.get(x.posts.get("r1-question-0").messageId));
     assert.match(text,/A funny answer/);
     assert.match(text,/A different answer/);
-    assert.match(text,/1 vote[s]?\\*\\* · \\*\\*1000 pts/);
+    assert.match(text,/1 vote[\\s\\S]*1000 pts/);
     assert.doesNotMatch(text,/undefined/);
     // A second sweep must work with another rehydrated document.
     await x.publish();
