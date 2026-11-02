@@ -29,7 +29,7 @@ export function publicSecretReceipt(a){
 // visible only to their discoverer, in this private achievements response.
 export const ACHIEVEMENTS_PER_PAGE = 12;
 
-export function achievementPages(rows){
+export function achievementPages(rows,{detailed=false}={}){
  const secrets=rows.filter(a=>a.secret),visible=rows.filter(a=>!a.secret);
  const groups=new Map();for(const a of secrets){const category=(a.anonymousId||"Permanent").split(" · ")[0];
   const g=groups.get(category)||{earned:0,total:0};g.total++;if(a.earned)g.earned++;groups.set(category,g);}
@@ -47,7 +47,7 @@ export function achievementPages(rows){
  const shown=[...visible.filter(a=>!recurring(a)),...recent,...upcoming,...secrets.filter(a=>a.earned)];
  const lines=shown.map(a=>{
   const name=safe(a.name);
-  if(!a.earned)return "▫️ "+name+" — "+Math.min(a.current||0,a.goal)+"/"+a.goal;
+  if(!a.earned)return "▫️ "+name+" — "+Math.min(a.current||0,a.goal)+"/"+a.goal+(detailed?"\n"+safe(a.description):"");
   const date=a.unlockedAt&&Number.isFinite(new Date(a.unlockedAt).getTime())?
    " · <t:"+Math.floor(new Date(a.unlockedAt).getTime()/1000)+":d>":"";
   const rank=a.discoveryNumber?" · #"+a.discoveryNumber:" · Legacy badge";
@@ -56,7 +56,7 @@ export function achievementPages(rows){
    // Secret name, condition and earned reward stay available *privately*.
    return "✅ "+name+rank+date+"\n"+safe(a.description)+reward;
   }
-  return "✅ "+name+rank+date+reward;
+  return "✅ "+name+rank+date+reward+(detailed?"\n"+safe(a.description):"");
  });
  const pages=[];let section=[],size=overview.length;
  const push=()=>{
@@ -73,14 +73,15 @@ export function achievementPages(rows){
  return pages.map((items,i)=>[
   overview,
   "",
-  "**Milestones**",
+  detailed?"**Milestones · detailed view**":"**Milestones**",
   items.join("\n"),
   "",
   "Page "+(i+1)+"/"+pages.length+
-   (pages.length>1?" · Next: `.achievements "+(i+2<=pages.length?i+2:1)+"`":""),
+   (pages.length>1?" · Next: `.achievements "+(detailed?"full ":"")+(i+2<=pages.length?i+2:1)+"`":"")+
+   (detailed?" · Compact: `.achievements`":" · Descriptions: `.achievements full`"),
  ].join("\n"));
 }
-export function formatCardAchievements(rows,page=1){const pages=achievementPages(rows);return pages[Math.max(0,Math.min(pages.length-1,Number(page||1)-1))];}
+export function formatCardAchievements(rows,page=1,detailed=false){const pages=achievementPages(rows,{detailed});return pages[Math.max(0,Math.min(pages.length-1,Number(page||1)-1))];}
 export async function secretHallOfFame(page=1){
  const rows=await CardAchievement.find({secret:true,discoveryNumber:{$lte:3,$gte:1}}).sort({anonymousId:1,discoveryNumber:1}).lean();
  if(!rows.length)return "🏛️ **Secret Hall of Fame**\nNo secrets have been discovered yet.";
