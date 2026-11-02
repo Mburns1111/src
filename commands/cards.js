@@ -29,6 +29,7 @@ import { prepareCardTagConfirmation, getCardTagConfirmation, cancelCardTagConfir
 import { startCardCollection } from "./card-collection-ui.js";
 import { startCardShop } from "./card-shop-ui.js";
 import { startCardInventory } from "./card-inventory-ui.js";
+import { loadAchievementMessage } from "./card-achievements-ui.js";
 import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade, suggestOwnedCardUpgrades } from "../services/card-upgrades.js";
 import { prepareDustUpgrade,confirmDustUpgrade,cancelDustUpgrade } from "../services/card-dust-upgrades.js";
 import { setCardLock } from "../services/card-locks.js";
@@ -201,8 +202,10 @@ export async function execute(interaction) {
     try{
       const page=interaction.options.getInteger("page")||1;
       const view=interaction.options.getString("view");
-      const content=view==="hall"?await secretHallOfFame(page):formatCardAchievements(await listCardAchievements(interaction.user.id),page,view==="details");
-      return interaction.editReply({content,allowedMentions:{parse:[]}});
+      if(view==="hall")return interaction.editReply({content:await secretHallOfFame(page),allowedMentions:{parse:[]}});
+      return interaction.editReply(await loadAchievementMessage(interaction.user.id,{
+        view:view==="details"?"details":"compact",page,
+      }));
     }
     catch(error){console.warn("[Cards] Achievements:",error);return interaction.editReply("Unable to load achievements.");}
   }
