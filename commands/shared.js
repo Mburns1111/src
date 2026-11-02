@@ -104,7 +104,9 @@ export function validateWebUrl(value, label) {
   }
 }
 
-export async function getConfiguredTextChannel(interaction, field, purpose) {
+// Event announcements also need guild-level notification settings. This
+// returns the same channel and the saved configuration in one DB read.
+export async function getConfiguredTextChannelAndConfig(interaction, field, purpose) {
   const config = await GuildConfig.findOne({ guildId: interaction.guildId });
   const channelId = config?.[field];
   if (!channelId) {
@@ -119,6 +121,11 @@ export async function getConfiguredTextChannel(interaction, field, purpose) {
       `The configured ${purpose} channel is unavailable. Ask an admin to run \`/setup channels\` again.`,
     );
   }
+  return { channel, config };
+}
+
+export async function getConfiguredTextChannel(interaction, field, purpose) {
+  const { channel } = await getConfiguredTextChannelAndConfig(interaction, field, purpose);
   return channel;
 }
 

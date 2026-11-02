@@ -12,6 +12,7 @@ import { data as tradeCommand } from "./commands/trade.js";
 import { data as setupCommand } from "./commands/setup.js";
 import { data as adminImportCommand } from "./commands/admin-import-listing.js";
 import { data as shopCommand } from "./commands/shop.js";
+import { data as giveawayCommand, trialData as trialCommand } from "./commands/giveaway.js";
 import { data as cardsCommand,ownerCardOptions } from "./commands/cards.js";
 import { data as cardsAdminCommand } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand, cardsReleaseCommand, RELEASE_LIFECYCLE_SUBCOMMANDS } from "./commands/cards-owner.js";
@@ -50,6 +51,8 @@ const commands = [
   setupCommand,
   adminImportCommand,
   shopCommand,
+  giveawayCommand,
+  trialCommand,
   ...(process.env.ENABLE_TEST_POINTS === "1" ? [testPointsCommand] : []),
   pointsAdminCommand,
   pointsObserveCommand,
@@ -59,7 +62,7 @@ const commands = [
 await rest.put(Routes.applicationCommands(clientId), { body: [...commands, ...globalCardCommands] });
 
 console.log(
-  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, points-admin, help commands.",
+  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, giveaway, trial, points-admin, help commands.",
 );
 
 if (guildId) {

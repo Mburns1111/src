@@ -77,6 +77,9 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
+import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton } from "./commands/giveaway.js";
+import { reconcileGiveaways } from "./services/giveaways.js";
+import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
 import { reconcileAutomaticCardDrops, maybePublishActivityEgg } from "./services/card-automatic-drops.js";
 import {isCardGameEnabled,isCardGameTestMode} from "./services/card-game-mode.js";
@@ -314,6 +317,8 @@ const commandHandlers = new Map([
   [setupCommand.name, executeSetup],
   [adminImportCommand.name, executeAdminImport],
   [shopCommand.name, executeShop],
+  [giveawayCommand.name, executeGiveaway],
+  [trialCommand.name, executeGiveaway],
   [cardsCommand.name, executeCards],
   [cardsAdminCommand.name, executeCardsAdmin],
   [cardsOwnerCommand.name, executePrivateCardCommands],
@@ -399,6 +404,28 @@ client.once(Events.ClientReady, async (readyClient) => {
     void runCardAutoDropSweep();
   }
   console.log(`Bot is online as ${readyClient.user.tag}.`);
+  let giveawaySweepActive = false;
+  const sweepGiveaways = async () => {
+    if (giveawaySweepActive) return;
+    giveawaySweepActive = true;
+    try { await reconcileGiveaways(readyClient); }
+    catch (error) { console.error("[Giveaways] Cleanup sweep failed:", error); }
+    finally { giveawaySweepActive = false; }
+  };
+  void sweepGiveaways();
+  const giveawayTimer = setInterval(() => void sweepGiveaways(), 30_000);
+  giveawayTimer.unref?.();
+  let trialSweepActive = false;
+  const sweepSurvivalTrials = async () => {
+    if (trialSweepActive) return;
+    trialSweepActive = true;
+    try { await reconcileSurvivalTrials(readyClient); }
+    catch (error) { console.error("[Trials] Sweep failed:", error); }
+    finally { trialSweepActive = false; }
+  };
+  void sweepSurvivalTrials();
+  const trialTimer = setInterval(() => void sweepSurvivalTrials(), 1000);
+  trialTimer.unref?.();
   void (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
       try {
@@ -555,6 +582,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:grab:")) {
       await handleCardGrab(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("giveaway:")) {
+      await handleGiveawayButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("dm:notice:")) {
