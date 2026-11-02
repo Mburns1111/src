@@ -40,7 +40,7 @@ function fakeSlash(userId, selected = "court") {
     options: {
       getSubcommand: () => "start",
       getString: (name, required) => {
-        assert.equal(name, "game"); assert.equal(required, true);
+        assert.equal(name, "game"); assert.equal(required, undefined);
         return selected;
       },
     },
@@ -62,10 +62,10 @@ async function withLobby(game, handler) {
   finally { for (const [key, value] of saved.reverse()) PartyGame[key] = value; }
 }
 
-test("party start slash command requires game selection, currently Court of Chaos", () => {
+test("party start slash command provides a game field with an explicit private picker fallback", () => {
   const start = data.toJSON().options.find(x => x.name === "start");
   const option = start.options.find(x => x.name === "game");
-  assert.equal(option.required, true);
+  assert.notEqual(option.required, true);
   assert.equal(option.type, 3);
   assert.equal(option.choices.length, 1);
   assert.equal(option.choices[0].name, "Court of Chaos");
@@ -182,5 +182,114 @@ test("/party start with unsupported game does not create or launch a lobby", asy
   } finally {
     PartyGame.create = originalCreate;
     GuildConfig.findOne = originalFind;
+  }
+});
+
+test("/party start without game opens a private selector before creating any lobby", async () => {
+  const originalCreate = PartyGame.create;
+  const originalFind = GuildConfig.findOne;
+  try {
+    PartyGame.create = async () => assert.fail("No lobby before game selection");
+    GuildConfig.findOne = async () => assert.fail("No configuration lookup before selection");
+    const interaction = fakeSlash(hostId, null);
+    await execute(interaction);
+    const view = interaction.replies[0];
+    assert.match(view.content, /Choose your Party Game/);
+    assert.match(view.content, /will NOT start until/);
+    assert.equal(view.components.length, 1);
+    const menu = view.components[0].components[0].toJSON();
+    assert.equal(menu.type, 3);
+    assert.equal(menu.options.length, 1);
+    assert.equal(menu.options[0].label, "Court of Chaos");
+    assert.equal(menu.options[0].value, "court");
+    assert.ok(menu.custom_id.startsWith("party:pick:" + hostId + ":"));
+  } finally {
+    PartyGame.create = originalCreate;
+    GuildConfig.findOne = originalFind;
+  }
+});
+
+test("/party host without game cannot silently pick Court of Chaos", async () => {
+  const originalCreate = PartyGame.create;
+  try {
+    PartyGame.create = async () => assert.fail("Must choose a game first");
+    const interaction = fakeSlash(hostId, null);
+    interaction.options = {
+      getSubcommand: () => "host",
+      getString: () => null,
+      getBoolean: () => null,
+    };
+    await execute(interaction);
+    assert.match(interaction.replies[0].content, /Choose your Party Game/);
+    assert.equal(interaction.replies[0].components[0].components[0].data.options[0].value, "court");
+  } finally {
+    PartyGame.create = originalCreate;
+  }
+});
+
+test("picker selection by its creator opens the signup lobby, not Round 1", async () => {
+  const originalFind = GuildConfig.findOne;
+  const originalCreate = PartyGame.create;
+  const originalUpdate = PartyGame.updateOne;
+  const sent = [], created = [], responses = [];
+  try {
+    GuildConfig.findOne = async () => ({ partyGamesChannelId: "567890123456789012" });
+    PartyGame.create = async doc => {
+      created.push(doc);
+      return { ...lobby([]), ...doc, _id: gameId, players: [], phase: "lobby" };
+    };
+    PartyGame.updateOne = async (_filter, update) => {
+      assert.deepEqual(Object.keys(update.$set).sort(), ["messageId", "renderedVersion"]);
+      return { modifiedCount: 1 };
+    };
+    await handlePartyInteraction({
+      guildId,
+      customId: "party:pick:" + hostId + ":silly:0",
+      user: { id: hostId },
+      memberPermissions: permitted(),
+      isButton: () => false, isModalSubmit: () => false, isStringSelectMenu: () => true,
+      values: ["court"],
+      deferReply: async () => {},
+      editReply: async value => responses.push(value),
+      guild: { channels: { fetch: async () => ({
+        id: "567890123456789012", isTextBased: () => true,
+        send: async payload => {
+          sent.push(payload);
+          return { id: "999999999999999999", url: "https://discord.com/channels/example/signup" };
+        },
+      }) } },
+    });
+    assert.equal(created.length, 1);
+    assert.equal(created[0].category, "silly");
+    assert.equal(created[0].rewardsEnabled, false);
+    assert.deepEqual(created[0].players, []);
+    assert.equal(created[0].phase, "lobby");
+    assert.equal(created[0].phaseEndsAt, null);
+    assert.equal(sent.length, 1);
+    assert.deepEqual(sent[0].components[0].components.map(x => x.data.label),
+      ["Join", "Leave", "Start Party"]);
+    assert.match(responses[0].content, /Game selected: Court of Chaos/);
+  } finally {
+    GuildConfig.findOne = originalFind;
+    PartyGame.create = originalCreate;
+    PartyGame.updateOne = originalUpdate;
+  }
+});
+
+test("another member cannot use the creator's game selector", async () => {
+  const originalCreate = PartyGame.create;
+  const responses = [];
+  try {
+    PartyGame.create = async () => assert.fail("Another member cannot create through old picker");
+    await handlePartyInteraction({
+      guildId, customId: "party:pick:" + hostId + ":mixed:1",
+      user: { id: otherAdminId }, memberPermissions: permitted(),
+      isButton: () => false, isModalSubmit: () => false, isStringSelectMenu: () => true,
+      values: ["court"], deferReply: async () => {},
+      editReply: async value => responses.push(value),
+    });
+    assert.match(responses[0].content, /Only the staff member who opened/);
+  } finally {
+    PartyGame.create = originalCreate;
   }
 });
