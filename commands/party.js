@@ -269,6 +269,30 @@ export async function handlePartyInteraction(interaction) {
     const category = ["mixed", "silly", "roblox", "fantasy"].includes(roundText) ? roundText : "mixed";
     return createPartySignup(interaction, selected, category, matchupText !== "0");
   }
+  if (action === "join") {
+    // A successful join is already visible in the updated public lobby embed.
+    // Acknowledge the button silently without adding an ephemeral "You joined".
+    await interaction.deferUpdate();
+    const game = await loadGame(interaction, gameId);
+    if (!game || !game.messageId || game.phase !== "lobby")
+      return interaction.followUp({
+        ...errorText("This signup lobby is no longer open."),
+        flags: MessageFlags.Ephemeral,
+      });
+    const result = await PartyGame.updateOne({
+      _id: game._id, phase: "lobby", players: { $ne: interaction.user.id },
+      "players.19": { $exists: false },
+    }, { $addToSet: { players: interaction.user.id }, $inc: { renderVersion: 1 } });
+    if (!result.modifiedCount)
+      return interaction.followUp({
+        ...errorText(game.players.includes(interaction.user.id)
+          ? "You're already in the lobby." : "The lobby is closed or full."),
+        flags: MessageFlags.Ephemeral,
+      });
+    void publishCourtGame(interaction.client, game)
+      .catch(error => console.error("[Party] Lobby refresh will retry:", error));
+    return;
+  }
   // Show modals without a database round-trip. All eligibility, round and
   // deadline checks are performed again on the actual modal submission.
   if (action === "answer") {
@@ -305,18 +329,6 @@ export async function handlePartyInteraction(interaction) {
       "The next round has already started or the game changed."));
     if (started) void publishCourtGame(interaction.client, game)
       .catch(error => console.error("[Party] Next round refresh will retry:", error));
-    return reply;
-  }
-  if (action === "join") {
-    if (game.phase !== "lobby") return interaction.editReply(errorText("The lobby has closed."));
-    const result = await PartyGame.updateOne({
-      _id: game._id, phase: "lobby", players: { $ne: interaction.user.id },
-      "players.19": { $exists: false },
-    }, { $addToSet: { players: interaction.user.id }, $inc: { renderVersion: 1 } });
-    const reply = await interaction.editReply(errorText(result.modifiedCount ? "You joined Court of Chaos!" :
-      game.players.includes(interaction.user.id) ? "You're already in the lobby." : "The lobby is closed or full."));
-    if (result.modifiedCount) void publishCourtGame(interaction.client, game)
-      .catch(error => console.error("[Party] Lobby refresh will retry:", error));
     return reply;
   }
   if (action === "leave") {
