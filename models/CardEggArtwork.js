@@ -18,5 +18,8 @@ const schema = new mongoose.Schema({
   sourceArtistUrl: { type: String, default: "" },
   licenseReviewStatus: { type: String, enum: ["needs-review", "approved", "rejected"], default: "needs-review" },
   uploadedBy: { type: String, required: true },
+  reviewedBy: { type: String, default: "" },
+  reviewedAt: { type: Date, default: null },
+  reviewNote: { type: String, default: "" },
 }, { timestamps: true });
 export default mongoose.models.CardEggArtwork || mongoose.model("CardEggArtwork", schema);
