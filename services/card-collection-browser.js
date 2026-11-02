@@ -95,7 +95,7 @@ export async function getCollectionPage(ownerId, session) {
     { $facet: {
       total: [{ $count: "n" }],
       cards: [{ $sort: sort }, { $skip: session.page * COLLECTION_PAGE_SIZE }, { $limit: COLLECTION_PAGE_SIZE },
-        { $project: { _id: 1, publicId: 1, petName: 1, rarityName: 1, releaseName: 1, upgradeLevel: 1, tag: 1 } }],
+        { $project: { _id: 1, publicId: 1, petName: 1, rarityName: 1, releaseName: 1, upgradeLevel: 1, tag: 1, locked: 1 } }],
     } },
   ]);
   const total = result?.total?.[0]?.n || 0;
