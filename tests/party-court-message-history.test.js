@@ -9,6 +9,13 @@ const gameId = "507f1f77bcf86cd799439011";
 const guildId = "123456789012345678";
 const channelId = "234567890123456789";
 const a = "345678901234567890", b = "456789012345678901";
+const asEmbed = value => typeof value?.toJSON === "function" ? value.toJSON() : value;
+function visible(message) {
+  return [message?.content || "", ...(message?.embeds || []).map(e => {
+    const data=asEmbed(e);
+    return [data.title, data.description, ...(data.fields || []).flatMap(f=>[f.name,f.value])].join("\\n");
+  })].join("\\n");
+}
 const original = [
   { playerIds: [a,b], promptId: 1, prompt: "Question one?" },
   { playerIds: [a,b], promptId: 2, prompt: "Question two?" },
@@ -20,8 +27,8 @@ function fixture({ hydrated = false } = {}) {
   let nextMessage = 100;
   const messages = new Map();
   messages.set("lobby-1", {
-    id:"lobby-1", content:"Join Court", author:{id:"bot"},
-    edit:async function(payload) {this.content=payload.content;this.components=payload.components;history.push(["edit",this.id,payload.content]);},
+    id:"lobby-1", content:"Join Court", embeds:[], author:{id:"bot"},
+    edit:async function(payload) {this.content=payload.content;this.embeds=payload.embeds || [];this.components=payload.components;history.push(["edit",this.id,visible(this)]);},
   });
   const channel = {
     client:{user:{id:"bot"}},isTextBased:()=>true,
@@ -32,12 +39,12 @@ function fixture({ hydrated = false } = {}) {
     }},
     send:async payload => {
       const id="msg-"+(++nextMessage);
-      const message={id,content:payload.content,author:{id:"bot"},
+      const message={id,content:payload.content,embeds:payload.embeds || [],author:{id:"bot"},
         components:payload.components,
-        edit:async function(next) {this.content=next.content;this.components=next.components;history.push(["edit",id,next.content]);},
+        edit:async function(next) {this.content=next.content;this.embeds=next.embeds || [];this.components=next.components;history.push(["edit",id,visible(this)]);},
       };
       messages.set(id,message);
-      history.push(["send",id,payload.content]);
+      history.push(["send",id,visible(message)]);
       return message;
     },
   };
@@ -109,7 +116,7 @@ test("each question has its own permanent voting message; result edits only that
     await x.publish();
     const answer = x.posts.get("r1-answer");
     assert.ok(answer?.messageId);
-    assert.ok(x.messages.get("lobby-1").content.includes("Lobby closed"));
+    assert.ok(visible(x.messages.get("lobby-1")).includes("Lobby closed"));
     x.setPhase("voting",0);
     await x.publish();
     const first=x.posts.get("r1-question-0");
@@ -117,15 +124,15 @@ test("each question has its own permanent voting message; result edits only that
     assert.ok(first.openedAt instanceof Date);
     assert.ok(x.snapshot.phaseEndsAt.getTime() >= first.openedAt.getTime() + 30_000);
     assert.notEqual(first.messageId,answer.messageId);
-    assert.match(x.messages.get(first.messageId).content,/Vote for your favorite/);
-    assert.match(x.messages.get(answer.messageId).content,/Entries closed/);
+    assert.match(visible(x.messages.get(first.messageId)),/Vote for your favorite/);
+    assert.match(visible(x.messages.get(answer.messageId)),/Entries closed/);
 
     x.setPhase("reveal",0);
     await x.publish();
     assert.equal(x.posts.get("r1-question-0").messageId,first.messageId);
-    assert.match(x.messages.get(first.messageId).content,/A funny answer/);
-    assert.match(x.messages.get(first.messageId).content,/1 vote, 1000 pts/);
-    assert.match(x.messages.get(first.messageId).content,/0 votes, 0 pts/);
+    assert.match(visible(x.messages.get(first.messageId)),/A funny answer/);
+    assert.match(visible(x.messages.get(first.messageId)),/1 vote[s]?\\*\\* · \\*\\*1000 pts/);
+    assert.match(visible(x.messages.get(first.messageId)),/0 votes\\*\\* · \\*\\*0 pts/);
     assert.deepEqual(x.messages.get(first.messageId).components,[]);
 
     x.setPhase("voting",1);
@@ -134,8 +141,8 @@ test("each question has its own permanent voting message; result edits only that
     assert.ok(second?.messageId);
     assert.notEqual(first.messageId,second.messageId);
     assert.ok(x.history.filter(row=>row[0]==="send").length===3);
-    assert.match(x.messages.get(first.messageId).content,/pts/);
-    assert.match(x.messages.get(second.messageId).content,/Question two/);
+    assert.match(visible(x.messages.get(first.messageId)),/pts/);
+    assert.match(visible(x.messages.get(second.messageId)),/Question two/);
   } finally{x.restore();}
 });
 
@@ -220,8 +227,8 @@ test("reconciliation automatically posts question two after vote one and eight-s
     const second=x.posts.get("r1-question-1");
     assert.ok(second?.messageId);
     assert.notEqual(second.messageId,first.messageId);
-    assert.match(x.messages.get(second.messageId).content,/Question two/);
-    assert.match(x.messages.get(first.messageId).content,/1 vote, 1000 pts/);
+    assert.match(visible(x.messages.get(second.messageId)),/Question two/);
+    assert.match(visible(x.messages.get(first.messageId)),/1 vote[s]?\\*\\* · \\*\\*1000 pts/);
     // The second vote also completes, and the next stage is a staff
     // controlled break, never a silent next-round transition.
     second.openedAt=new Date(Date.now()-40_000);
@@ -257,7 +264,7 @@ test("deleted old voting message cannot prevent a new question from being sent",
     assert.equal(x.snapshot.phase,"voting");
     assert.equal(first.renderedVariant,"missing");
     assert.ok(x.posts.get("r1-question-1")?.messageId);
-    assert.match(x.messages.get(x.posts.get("r1-question-1").messageId).content,/Question two/);
+    assert.match(visible(x.messages.get(x.posts.get("r1-question-1").messageId)),/Question two/);
   } finally{x.restore();}
 });
 
@@ -282,10 +289,10 @@ test("Mongoose document fields survive historical reveal rebuilding after bot re
     x.setPhase("reveal",0);
     await x.publish();
     assert.equal(x.posts.get("r1-question-0").renderedVariant,"result");
-    const text=x.messages.get(x.posts.get("r1-question-0").messageId).content;
+    const text=visible(x.messages.get(x.posts.get("r1-question-0").messageId));
     assert.match(text,/A funny answer/);
     assert.match(text,/A different answer/);
-    assert.match(text,/1 vote, 1000 pts/);
+    assert.match(text,/1 vote[s]?\\*\\* · \\*\\*1000 pts/);
     assert.doesNotMatch(text,/undefined/);
     // A second sweep must work with another rehydrated document.
     await x.publish();
@@ -313,6 +320,6 @@ test("historical break rendering also retains Mongoose fields on Round 2",async(
     await x.publish();
     assert.equal(x.posts.get("r1-break").renderedVariant,"completed");
     assert.ok(x.posts.get("r2-answer")?.messageId);
-    assert.match(x.messages.get(breakPost.messageId).content,/Round 1 complete/);
+    assert.match(visible(x.messages.get(breakPost.messageId)),/Round 1 complete/);
   }finally{x.restore();}
 });
