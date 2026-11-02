@@ -10,13 +10,14 @@ const userId="123456789012345678", guildId="234567890123456789";
 const stub=(entries,object,key,value)=>{entries.push([object,key,object[key]]);object[key]=value;};
 const restore=entries=>{for(const [object,key,old] of entries.reverse())object[key]=old;};
 
-test("Extra Grabs work in the development game before achievement launch and refund on failed entry",async()=>{
- const oldFlag=process.env.ENABLE_CARD_GAME_TEST,oldStart=process.env.CARD_ACHIEVEMENTS_START_AT;
+for (const mode of ["test","production"]) test(`Extra Grabs work in ${mode} mode before achievement launch and refund on failed entry`,async()=>{
+ const oldFlag=process.env.ENABLE_CARD_GAME_TEST,oldLive=process.env.ENABLE_CARD_GAME,oldStart=process.env.CARD_ACHIEVEMENTS_START_AT;
  const old=[],now=new Date("2026-11-02T15:00:00Z");
  let bonusGrabs=1,refunds=0,used=false,source="";
  const session={withTransaction:fn=>fn(),endSession:async()=>{}};
  try{
-  process.env.ENABLE_CARD_GAME_TEST="1";
+  if(mode==="production") { delete process.env.ENABLE_CARD_GAME_TEST; process.env.ENABLE_CARD_GAME="1"; }
+  else { process.env.ENABLE_CARD_GAME_TEST="1"; delete process.env.ENABLE_CARD_GAME; }
   delete process.env.CARD_ACHIEVEMENTS_START_AT;
   stub(old,mongoose,"startSession",async()=>session);
   stub(old,AchievementControl,"updateOne",async()=>({matchedCount:0}));
@@ -62,6 +63,8 @@ test("Extra Grabs work in the development game before achievement launch and ref
   restore(old);
   if(oldFlag===undefined)delete process.env.ENABLE_CARD_GAME_TEST;
   else process.env.ENABLE_CARD_GAME_TEST=oldFlag;
+  if(oldLive===undefined)delete process.env.ENABLE_CARD_GAME;
+  else process.env.ENABLE_CARD_GAME=oldLive;
   if(oldStart===undefined)delete process.env.CARD_ACHIEVEMENTS_START_AT;
   else process.env.CARD_ACHIEVEMENTS_START_AT=oldStart;
  }
