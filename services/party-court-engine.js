@@ -193,18 +193,52 @@ async function publishStage(game, channel, cache, key, variant, payload, { curre
   }
 }
 
+// Previous messages are only historical records; an inability to edit one
+// must never prevent the next timed voting question from appearing.
+async function editHistoricalCourtPost(game, channel, cache, key, variant, payload) {
+  const post = cache.get(key);
+  if (!post || post.renderedVariant === "missing") return;
+  try {
+    await publishStage(game, channel, cache, key, variant, payload);
+  } catch (error) {
+    if (Number(error?.code) === 10008) {
+      console.warn("[Party] Historical message deleted; preserving game progress", {
+        gameId: String(game._id), stage: key,
+      });
+      await PartyPost.updateOne({ _id: post._id }, { $set: { renderedVariant: "missing" } });
+      post.renderedVariant = "missing";
+    } else {
+      // A temporary API failure editing a historical post can be retried on
+      // the next sweep. Do not hold up the next question in the meantime.
+      console.error("[Party] Could not refresh historical stage", {
+        gameId: String(game._id), stage: key, error,
+      });
+    }
+  }
+}
+
 async function archiveCourtLobby(game, channel) {
   if (game.lobbyArchived || !game.messageId || game.phase === "lobby") return;
-  const lobby = await channel.messages.fetch(game.messageId);
-  await lobby.edit({
-    content: "**🎭 COURT OF CHAOS — Lobby " +
-      (game.phase === "cancelled" ? "cancelled" : "closed") +
-      "**\n" + game.players.length + " players joined: " + mentions(game.players) +
-      "\nRound updates and voting questions are preserved in the messages below.",
-    components: [], allowedMentions: { parse: [] },
-  });
-  await PartyGame.updateOne({ _id: game._id, lobbyArchived: { $ne: true } },
-    { $set: { lobbyArchived: true } });
+  try {
+    const lobby = await channel.messages.fetch(game.messageId);
+    await lobby.edit({
+      content: "**🎭 COURT OF CHAOS — Lobby " +
+        (game.phase === "cancelled" ? "cancelled" : "closed") +
+        "**\n" + game.players.length + " players joined: " + mentions(game.players) +
+        "\nRound updates and voting questions are preserved in the messages below.",
+      components: [], allowedMentions: { parse: [] },
+    });
+    await PartyGame.updateOne({ _id: game._id, lobbyArchived: { $ne: true } },
+      { $set: { lobbyArchived: true } });
+  } catch (error) {
+    if (Number(error?.code) === 10008) {
+      await PartyGame.updateOne({ _id: game._id }, { $set: { lobbyArchived: true } });
+    } else {
+      console.error("[Party] Could not archive lobby; continuing game publication", {
+        gameId: String(game._id), error,
+      });
+    }
+  }
 }
 
 async function publishCourtTimeline(game, channel) {
@@ -231,7 +265,7 @@ async function publishCourtTimeline(game, channel) {
           "The next round **will not start automatically**.",
           "Staff started Round " + game.round + ". This round is complete.");
         display.components = [];
-        await publishStage(game, channel, cache, previousKey, "completed", display);
+        await editHistoricalCourtPost(game, channel, cache, previousKey, "completed", display);
       }
     }
   }
@@ -244,7 +278,7 @@ async function publishCourtTimeline(game, channel) {
     const entered = !currentRound || !["lobby", "answering"].includes(game.phase);
     const answerKey = stageKey(round, "answer");
     if (entered && cache.has(answerKey) && cache.get(answerKey).renderedVariant !== "closed") {
-      await publishStage(game, channel, cache, answerKey, "closed", {
+      await editHistoricalCourtPost(game, channel, cache, answerKey, "closed", {
         content: "**🎭 Round " + round + " — Entries closed**\n" +
           "The full answer window ended. Questions and voting results follow below.",
         components: [],
@@ -260,7 +294,7 @@ async function publishCourtTimeline(game, channel) {
       };
       const key = stageKey(round, "question", idx);
       if (cache.get(key)?.renderedVariant === "result") continue;
-      await publishStage(game, channel, cache, key, "result",
+      await editHistoricalCourtPost(game, channel, cache, key, "result",
         await courtGameDisplay(previous));
     }
   }
