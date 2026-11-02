@@ -53,9 +53,9 @@ export async function courtGameDisplay(game) {
   const lines = [title];
   const rows = [];
   if (game.phase === "lobby") {
-    lines.push("**Players:** " + game.players.length + "/" + COURT_MAX_PLAYERS + " (minimum " + COURT_MIN_PLAYERS + ")");
+    lines.push("**Players:** " + game.players.length + "/" + COURT_MAX_PLAYERS + " · Start with any number of players.");
     lines.push(mentions(game.players));
-    lines.push("Staff can start with /party start. Everyone may spectate and vote.");
+    lines.push("Staff can start with /party start whenever anyone joins. One-player games are solo showcases without voting.");
     rows.push(new ActionRowBuilder().addComponents(
       button(partyButton(game, "join"), "Join", ButtonStyle.Success),
       button(partyButton(game, "leave"), "Leave", ButtonStyle.Secondary)));
@@ -70,6 +70,7 @@ export async function courtGameDisplay(game) {
     lines.push("**Round " + game.round + "/3** · Matchups " +
       (game.batch * BATCH_SIZE + 1) + "–" + (game.batch * BATCH_SIZE + results.length));
     if (game.phase === "voting") lines.push("Vote for your favorite answer! Closes " + seconds(game.phaseEndsAt) + (game.paused ? " (PAUSED)" : "") + ".");
+    if (game.players.length === 1) lines.push("Solo showcase — no opponent or audience vote; enjoy your answer reveal!");
     for (const { match, matchupIndex, answers, scores } of results) {
       lines.push("", resultTitle(game, matchupIndex), safeCourtText(match.prompt));
       const participants = match.playerIds.map((id, i) => ({
@@ -80,7 +81,7 @@ export async function courtGameDisplay(game) {
         lines.push("**" + participant.label + ":** " + answer +
           (game.phase === "reveal" ? " — <@" + participant.id + "> (" + (scores[participant.id] || 0) + " pts)" : ""));
       }
-      if (game.phase === "voting") {
+      if (game.phase === "voting" && match.playerIds.length > 1) {
         const candidates = participants.filter(p => p.answer);
         if (candidates.length) rows.push(new ActionRowBuilder().addComponents(...candidates.map(p =>
           button(partyButton(game, "vote", game.round + ":" + matchupIndex + ":" + p.id),
@@ -119,7 +120,7 @@ export async function publishCourtGame(client, source) {
 }
 
 export async function beginCourtGame(game) {
-  if (game.players.length < COURT_MIN_PLAYERS) throw new Error("At least four players must join before starting.");
+  if (game.players.length < COURT_MIN_PLAYERS) throw new Error("At least one player must join before starting.");
   const matchups = assignCourtMatchups(game.players, 1, game.category);
   const changed = await PartyGame.updateOne({
     _id: game._id, phase: "lobby", players: game.players,
@@ -140,9 +141,11 @@ export async function advanceCourtGame(game, { force = false } = {}) {
   if (!force && (game.phaseEndsAt == null || new Date(game.phaseEndsAt).getTime() > now)) return false;
   const next = { phaseEndsAt: null };
   if (game.phase === "answering") {
-    next.phase = "voting";
+    // One-player games have no other answers to compare: reveal immediately.
+    // Keep the usual reveal/intermission transitions and completion tracking.
+    next.phase = game.players.length === 1 ? "reveal" : "voting";
     next.batch = 0;
-    next.phaseEndsAt = new Date(now + VOTE_MS);
+    next.phaseEndsAt = new Date(now + (game.players.length === 1 ? REVEAL_MS : VOTE_MS));
   } else if (game.phase === "voting") {
     const results = await courtBatchResults(game);
     const scores = { ...game.scores };
@@ -208,7 +211,7 @@ export async function advanceCourtGame(game, { force = false } = {}) {
 
 export async function settleCourtRewards(game) {
   if (game.phase !== "ended" || game.rewardSettledAt) return;
-  if (!game.rewardsEnabled || game.players.length < 4 || game.completedRounds < 2) {
+  if (!game.rewardsEnabled || game.completedRounds < 2) {
     await PartyGame.updateOne({ _id: game._id }, { $set: { rewardSettledAt: new Date() } });
     return;
   }
