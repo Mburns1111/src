@@ -171,10 +171,13 @@ async function publishStage(game, channel, cache, key, variant, payload, { curre
       message.author?.id === channel.client?.user?.id &&
       message.content?.split("\n").includes(stageMarker(game, key)));
     const message = existing || await channel.send(display);
+    const openedAt = message.createdAt || (
+      message.createdTimestamp ? new Date(message.createdTimestamp) : new Date());
     await PartyPost.updateOne({ _id: post._id, messageId: "" }, {
-      $set: { messageId: message.id, renderedVariant: variant, renderedVersion: version },
+      $set: { messageId: message.id, openedAt, renderedVariant: variant, renderedVersion: version },
     });
     post.messageId = message.id;
+    post.openedAt = openedAt;
     post.renderedVariant = variant;
     post.renderedVersion = version;
   } else {
@@ -294,6 +297,21 @@ async function publishCourtTimeline(game, channel) {
     payload = await courtGameDisplay(game);
   } else return;
   await publishStage(game, channel, cache, key, variant, payload, { current: true });
+  // Start the 30-second minimum voting window when the message is actually
+  // visible, not before Discord receives it. This is a deterministic target
+  // based on the first send, so a retry never keeps adding 30 seconds.
+  if (game.phase === "voting") {
+    const opened = cache.get(key)?.openedAt;
+    if (opened) {
+      const minimumEnd = new Date(new Date(opened).getTime() + VOTE_MS);
+      if (minimumEnd.getTime() > new Date(game.phaseEndsAt).getTime()) {
+        await PartyGame.updateOne({
+          _id: game._id, phase: "voting", round: game.round, batch: game.batch,
+          phaseEndsAt: game.phaseEndsAt,
+        }, { $set: { phaseEndsAt: minimumEnd }, $inc: { renderVersion: 1 } });
+      }
+    }
+  }
 }
 
 export async function publishCourtGame(client, source) {
