@@ -14,7 +14,7 @@ const b = "345678901234567890";
 const game = () => ({
   _id: gameId, guildId, messageId: "456789012345678901",
   phase: "answering", paused: false,
-  phaseEndsAt: new Date(Date.now() + 60_000),
+  phaseEndsAt: new Date(Date.now() + 90_000),
   players: [a, b], round: 1, batch: 0,
   matchups: [{ playerIds: [a,b], promptId: 1, prompt: "What is the worst prize?" }],
 });
@@ -26,8 +26,8 @@ function restore(changes) {
   for (const [obj,name,fn] of changes.reverse()) obj[name] = fn;
 }
 
-test("standard pace allows full 60s answers, 30s per question, 8s reveals and 10s intermissions", () => {
-  assert.equal(COURT_TIMINGS.answerMs, 60_000);
+test("standard pace allows full 90s answers, 30s per question, 8s reveals and 10s intermissions", () => {
+  assert.equal(COURT_TIMINGS.answerMs, 90_000);
   assert.equal(COURT_TIMINGS.voteMs, 30_000);
   assert.equal(COURT_TIMINGS.revealMs, 8_000);
   assert.equal(COURT_TIMINGS.intermissionMs, 10_000);
@@ -41,6 +41,9 @@ test("modal submission writes correct round/matchup then confirms stored answer"
       saved.push({ filter, update, opts });
       return { ...filter, text: update.$set.text };
     });
+    stub(changes, PartyResponse, "find", () => ({ lean: async () => [
+      { matchupIndex: 0, text: "Microwave with legs" },
+    ] }));
     await handlePartyInteraction({
       isButton: () => false, isModalSubmit: () => true,
       customId: "party:submit:" + gameId + ":1:0",
@@ -244,4 +247,63 @@ test("two answers in one round count as one completed round for rewards", async 
     assert.equal(updates[0].$set.answeredCounts[a],1);
     assert.equal(updates[0].$set.answeredCounts[b],1);
   } finally {restore(changes);}
+});
+
+test("modal submit refreshes the same private message and both answer statuses", async () => {
+  const changes=[], events=[],responses=[];
+  const g=game();
+  g.matchups=[
+    {playerIds:[a,b],promptId:1,prompt:"First question?"},
+    {playerIds:[a,b],promptId:2,prompt:"Second question?"},
+  ];
+  const answers=new Map();
+  try {
+    stub(changes,PartyGame,"findOne",async()=>g);
+    stub(changes,PartyResponse,"findOneAndUpdate",async(filter,update)=>{
+      answers.set(filter.matchupIndex,update.$set.text);
+      return {...filter,text:update.$set.text};
+    });
+    stub(changes,PartyResponse,"find",()=>({lean:async()=>[...answers].map(([matchupIndex,text])=>({matchupIndex,text}))}));
+    for (const [idx,text] of [[0,"First saved"],[1,"Second saved"]]) {
+      await handlePartyInteraction({
+        isButton:()=>false,isModalSubmit:()=>true,isStringSelectMenu:()=>false,
+        isFromMessage:()=>true,
+        customId:"party:submit:"+gameId+":1:"+idx, guildId,user:{id:a},
+        deferUpdate:async()=>events.push("deferUpdate"),
+        deferReply:async()=>assert.fail("Modal opened from private panel must not send another ephemeral reply"),
+        editReply:async content=>{events.push("editReply");responses.push(content)},
+        fields:{getTextInputValue:()=>text},
+      });
+    }
+    assert.deepEqual(events,["deferUpdate","editReply","deferUpdate","editReply"]);
+    assert.match(responses[0].content,/Saved for Round 1/);
+    assert.match(responses[0].content,/First saved/);
+    assert.match(responses[0].content,/No answer saved yet/);
+    assert.equal(responses[0].components[0].components.length,2);
+    assert.match(responses[1].content,/First saved/);
+    assert.match(responses[1].content,/Second saved/);
+    assert.doesNotMatch(responses[1].content,/No answer saved yet/);
+    assert.deepEqual(responses[1].components[0].components.map(b=>b.data.label),
+      ["Edit Question 1","Edit Question 2"]);
+  } finally{restore(changes)}
+});
+
+test("fallback modal submission without a source message is still acknowledged privately",async()=>{
+  const changes=[],events=[],replies=[];
+  try {
+    stub(changes,PartyGame,"findOne",async()=>game());
+    stub(changes,PartyResponse,"findOneAndUpdate",async(filter,update)=>({...filter,text:update.$set.text}));
+    stub(changes,PartyResponse,"find",()=>({lean:async()=>[{matchupIndex:0,text:"Recorded"}]}));
+    await handlePartyInteraction({
+      isButton:()=>false,isModalSubmit:()=>true,isStringSelectMenu:()=>false,
+      isFromMessage:()=>false,
+      customId:"party:submit:"+gameId+":1:0",guildId,user:{id:a},
+      deferReply:async opts=>events.push(opts),
+      deferUpdate:async()=>assert.fail("No source message to update"),
+      editReply:async content=>replies.push(content),
+      fields:{getTextInputValue:()=> "Recorded"},
+    });
+    assert.equal(events.length,1);
+    assert.match(replies[0].content,/Recorded/);
+  }finally {restore(changes)}
 });
