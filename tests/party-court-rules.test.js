@@ -48,6 +48,14 @@ test("a player cannot influence their own match and unanswered prompts forfeit",
   assert.deepEqual(scoreCourtMatchup(["a","b"],answers,[{voterId:"a",targetId:"a"},{voterId:"b",targetId:"b"}],1),{a:500,b:500});
   assert.deepEqual(scoreCourtMatchup(["a","b"],[answers[0]],[{voterId:"c",targetId:"a"}],1),{a:0,b:0});
 });
+test("MongoDB vote records use userId and contestant ballots are never counted", () => {
+  const answers = [{ userId:"a",text:"A" },{ userId:"b",text:"B" }];
+  const votes = [
+    { userId:"a",targetId:"a" }, // contested participant cannot vote
+    { userId:"audience",targetId:"b" },
+  ];
+  assert.deepEqual(scoreCourtMatchup(["a","b"],answers,votes,1),{a:0,b:1000});
+});
 test("three-way matchups split equally on no votes", () => {
   const p=["a","b","c"];
   const answers=p.map(userId=>({userId,text:"answer"}));
