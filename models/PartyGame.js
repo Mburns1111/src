@@ -9,7 +9,10 @@ const matchupSchema = new mongoose.Schema({
 const partyGameSchema = new mongoose.Schema({
   guildId: { type: String, required: true, index: true },
   channelId: { type: String, required: true },
-  messageId: { type: String, default: "" },
+  messageId: { type: String, default: "" }, // Original lobby message, retained as history.
+  lobbyArchived: { type: Boolean, default: false },
+  publishingUntil: { type: Date, default: null },
+  publishingToken: { type: String, default: "" },
   hostId: { type: String, required: true },
   gameType: { type: String, default: "court" },
   category: { type: String, enum: ["mixed", "silly", "roblox", "fantasy"], default: "mixed" },
@@ -20,6 +23,7 @@ const partyGameSchema = new mongoose.Schema({
   round: { type: Number, default: 0 },
   batch: { type: Number, default: 0 },
   matchups: { type: [matchupSchema], default: [] },
+  roundMatchups: { type: mongoose.Schema.Types.Mixed, default: {} },
   usedPromptIds: { type: [Number], default: [] },
   // Scores and answered counts are updated on an atomic phase transition, not per vote.
   scores: { type: mongoose.Schema.Types.Mixed, default: {} },
