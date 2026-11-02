@@ -18,8 +18,9 @@ test("one player can start and moves from answering straight to reveal", async (
     assert.equal(await beginCourtGame(lobby), true);
     const start = writes[0].update.$set;
     assert.equal(start.phase, "answering");
-    assert.equal(start.matchups.length, 1);
+    assert.equal(start.matchups.length, 2);
     assert.deepEqual(start.matchups[0].playerIds, ["solo"]);
+    assert.deepEqual(start.matchups[1].playerIds, ["solo"]);
     assert.equal(start.round, 1);
 
     const answering = { ...lobby, ...start, phaseEndsAt: new Date(Date.now() - 1000) };
