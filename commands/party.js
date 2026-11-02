@@ -87,7 +87,7 @@ export async function execute(interaction) {
   if (op === "start") {
     if (game.phase !== "lobby") return interaction.editReply(errorText("The lobby has already started."));
     if (game.players.length < COURT_MIN_PLAYERS)
-      return interaction.editReply(errorText("At least four members must join first."));
+      return interaction.editReply(errorText("At least one player must join before starting."));
     changed = await beginCourtGame(game);
   } else if (op === "pause") {
     if (game.paused || !["answering","voting","reveal","intermission"].includes(game.phase))
