@@ -12,6 +12,7 @@ const count = value => Number.isSafeInteger(Number(value)) && Number(value) >= 0
 const RARITIES = ["Common", "Uncommon", "Rare", "Ultra-Rare", "Legendary"];
 
 export function inventoryButtons(guildId, userId) {
+  if (!validId(guildId) || !validId(userId)) throw Error("Invalid inventory owner or server.");
   const row = new ActionRowBuilder();
   for (const [action, label, style] of [
     ["collection", "Collection", ButtonStyle.Primary],
