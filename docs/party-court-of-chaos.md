@@ -55,7 +55,7 @@ Each game is three rounds. Each participant writes one answer per round. Answers
 
 ## Important limitations in first iteration
 
-- 45 original prompts are included as a starter pack (15 per category).
+- 90 original prompts are included as a starter pack (30 per category).
 - Staff permissions currently mean Manage Server; a separate Game Night Host role is not yet configurable.
 - The session is intended for a single active game per server; an event playlist and lobby replay are future enhancements.
 - Player answer moderation is basic: link/mass-mention rejection plus staff removal. Continue using Discord AutoMod and human staff oversight.
