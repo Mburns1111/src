@@ -27,7 +27,7 @@ function fixture() {
     client:{user:{id:"bot"}},isTextBased:()=>true,
     messages:{fetch:async id => {
       if (typeof id === "object") return new Map(messages);
-      if (!messages.has(id)) throw new Error("Missing message: "+id);
+      if (!messages.has(id)) throw Object.assign(new Error("Unknown Message: "+id), {code:10008});
       return messages.get(id);
     }},
     send:async payload => {
