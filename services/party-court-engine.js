@@ -3,6 +3,8 @@ import {
 } from "discord.js";
 import PartyGame from "../models/PartyGame.js";
 import PartyResponse from "../models/PartyResponse.js";
+import PartyPost from "../models/PartyPost.js";
+import { randomUUID } from "node:crypto";
 import PointsLedger from "../models/PointsLedger.js";
 import { grantPoints } from "./points-rewards.js";
 import {
@@ -96,7 +98,7 @@ export async function courtGameDisplay(game) {
             "Match " + (matchupIndex + 1) + " · " + p.label, ButtonStyle.Primary))));
       }
     }
-    if (game.phase === "reveal") lines.push("", "Next stage " + seconds(game.phaseEndsAt) + ".");
+    if (game.phase === "reveal" && game.phaseEndsAt) lines.push("", "Next stage " + seconds(game.phaseEndsAt) + ".");
   } else if (game.phase === "intermission" || game.phase === "ended") {
     lines.push(game.phase === "ended" ? "**The final verdict!**" :
       "Round " + game.round + " complete. The next round **will not start automatically**." );
@@ -120,18 +122,200 @@ export async function courtGameDisplay(game) {
   return { content: lines.join("\n").slice(0, 1950), components: rows, allowedMentions: { parse: [] } };
 }
 
-// Publish is safe to retry after a restart. Version checks avoid sending a
-// second edit on every timer tick. A later sweep corrects out-of-order edits.
+// Each stage owns a permanent public message. The lobby is edited only for
+// joining, then archived; every new question/round gets a fresh Discord post.
+// A Mongo lease serializes concurrent publish attempts across bot processes.
+// A visible deterministic marker lets retry recover a message sent just before
+// a crash, even if its message ID had not yet been saved to MongoDB.
+const stageMarker = (game, key) =>
+  "-# Court " + String(game._id) + " | " + key;
+const stageKey = (round, kind, index) =>
+  "r" + round + "-" + kind + (index === undefined ? "" : "-" + index);
+const snapshot = (game, round) =>
+  (game.roundMatchups?.[String(round)] || (game.round === round ? game.matchups : null));
+const stagePayload = (game, key, payload) => ({
+  ...payload,
+  content: String(payload.content || "").slice(0, 1800) + "\n" + stageMarker(game, key),
+  allowedMentions: { parse: [] },
+});
+
+async function publishStage(game, channel, cache, key, variant, payload, { current = false } = {}) {
+  let post = cache.get(key);
+  if (!post) {
+    try {
+      post = await PartyPost.findOneAndUpdate(
+        { gameId: game._id, key },
+        { $setOnInsert: { guildId: game.guildId, channelId: game.channelId } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+    } catch (error) {
+      if (Number(error?.code) !== 11000) throw error;
+      post = await PartyPost.findOne({ gameId: game._id, key });
+    }
+    if (!post) throw new Error("Could not reserve Court post " + key);
+    cache.set(key, post);
+  }
+  const version = current ? game.renderVersion : 0;
+  if (post.messageId && post.renderedVariant === variant &&
+      (!current || Number(post.renderedVersion || 0) >= version)) return;
+
+  const display = stagePayload(game, key, payload);
+  if (!post.messageId) {
+    // Recover a Discord post from a previous interrupted send. We never send
+    // a replacement without checking the channel's recent messages first.
+    const recent = await channel.messages.fetch({ limit: 100 });
+    const existing = [...recent.values()].find(message =>
+      message.author?.id === channel.client?.user?.id &&
+      message.content?.includes(stageMarker(game, key)));
+    const message = existing || await channel.send(display);
+    await PartyPost.updateOne({ _id: post._id, messageId: "" }, {
+      $set: { messageId: message.id, renderedVariant: variant, renderedVersion: version },
+    });
+    post.messageId = message.id;
+    post.renderedVariant = variant;
+    post.renderedVersion = version;
+  } else {
+    const message = await channel.messages.fetch(post.messageId);
+    await message.edit(display);
+    await PartyPost.updateOne({ _id: post._id }, {
+      $set: { renderedVariant: variant, renderedVersion: version },
+    });
+    post.renderedVariant = variant;
+    post.renderedVersion = version;
+  }
+}
+
+async function archiveCourtLobby(game, channel) {
+  if (game.lobbyArchived || !game.messageId || game.phase === "lobby") return;
+  const lobby = await channel.messages.fetch(game.messageId);
+  await lobby.edit({
+    content: "**🎭 COURT OF CHAOS — Lobby " +
+      (game.phase === "cancelled" ? "cancelled" : "closed") +
+      "**\n" + game.players.length + " players joined: " + mentions(game.players) +
+      "\nRound updates and voting questions are preserved in the messages below.",
+    components: [], allowedMentions: { parse: [] },
+  });
+  await PartyGame.updateOne({ _id: game._id, lobbyArchived: { $ne: true } },
+    { $set: { lobbyArchived: true } });
+}
+
+async function publishCourtTimeline(game, channel) {
+  if (game.phase === "lobby") {
+    if (!game.messageId || game.renderedVersion >= game.renderVersion) return;
+    const lobby = await channel.messages.fetch(game.messageId);
+    await lobby.edit(await courtGameDisplay(game));
+    return;
+  }
+  await archiveCourtLobby(game, channel);
+  const posts = await PartyPost.find({ gameId: game._id });
+  const cache = new Map(posts.map(p => [p.key, p]));
+
+  // Old round breaks lose their button when a staff member starts the next
+  // round. Their standings remain visible in the original post.
+  if (game.round > 1) {
+    const previousKey = stageKey(game.round - 1, "break");
+    if (cache.has(previousKey)) {
+      const old = cache.get(previousKey);
+      if (old.renderedVariant !== "completed") {
+        const previous = { ...game, round: game.round - 1, phase: "intermission", phaseEndsAt: null };
+        const display = await courtGameDisplay(previous);
+        display.content = display.content.replace(
+          "The next round **will not start automatically**.",
+          "Staff started Round " + game.round + ". This round is complete.");
+        display.components = [];
+        await publishStage(game, channel, cache, previousKey, "completed", display);
+      }
+    }
+  }
+
+  // A round's entry post is never reused as a voting message.
+  for (let round = 1; round <= game.round; round++) {
+    const matchups = snapshot(game, round);
+    if (!matchups?.length) continue; // Compatibility with already-running games.
+    const currentRound = round === game.round;
+    const entered = !currentRound || !["lobby", "answering"].includes(game.phase);
+    const answerKey = stageKey(round, "answer");
+    if (entered && cache.has(answerKey) && cache.get(answerKey).renderedVariant !== "closed") {
+      await publishStage(game, channel, cache, answerKey, "closed", {
+        content: "**🎭 Round " + round + " — Entries closed**\n" +
+          "The full answer window ended. Questions and voting results follow below.",
+        components: [],
+      });
+    }
+    const countCompleted = !currentRound ? matchups.length :
+      ["intermission", "ended"].includes(game.phase) ? matchups.length :
+      game.phase === "reveal" ? game.batch + 1 :
+      game.phase === "voting" ? game.batch : 0;
+    for (let idx = 0; idx < countCompleted; idx++) {
+      const previous = {
+        ...game, round, batch: idx, matchups, phase: "reveal", phaseEndsAt: null,
+      };
+      const key = stageKey(round, "question", idx);
+      if (cache.get(key)?.renderedVariant === "result") continue;
+      await publishStage(game, channel, cache, key, "result",
+        await courtGameDisplay(previous));
+    }
+  }
+  let key, variant, payload;
+  if (game.phase === "answering") {
+    key = stageKey(game.round, "answer");
+    variant = "answering";
+    payload = await courtGameDisplay(game);
+  } else if (game.phase === "voting") {
+    key = stageKey(game.round, "question", game.batch);
+    variant = "voting";
+    payload = await courtGameDisplay(game);
+  } else if (game.phase === "reveal") {
+    // Result has already been posted/updated above. Never create a second
+    // message to show the result of the same question.
+    return;
+  } else if (game.phase === "intermission") {
+    key = stageKey(game.round, "break");
+    variant = "intermission";
+    payload = await courtGameDisplay(game);
+  } else if (game.phase === "ended" || game.phase === "cancelled") {
+    // Cancelled games remove buttons from their most recent post. An ended
+    // game has already finalized each voting question independently.
+    if (game.phase === "cancelled") {
+      const last = [...cache.values()].filter(p => p.messageId &&
+        ["answering", "voting", "intermission"].includes(p.renderedVariant)).at(-1);
+      if (last) {
+        const message = await channel.messages.fetch(last.messageId);
+        await message.edit({ content: message.content + "\n**Game cancelled by staff.**",
+          components: [], allowedMentions: { parse: [] } });
+        await PartyPost.updateOne({ _id: last._id }, { $set: { renderedVariant: "cancelled" } });
+      }
+    }
+    key = game.phase === "ended" ? "final" : "cancelled";
+    variant = game.phase;
+    payload = await courtGameDisplay(game);
+  } else return;
+  await publishStage(game, channel, cache, key, variant, payload, { current: true });
+}
+
 export async function publishCourtGame(client, source) {
-  const game = await PartyGame.findById(source._id);
-  if (!game?.messageId || game.renderedVersion >= game.renderVersion) return;
-  const channel = await client.channels.fetch(game.channelId);
-  if (!channel?.isTextBased()) throw new Error("Court game channel is unavailable.");
-  const message = await channel.messages.fetch(game.messageId);
-  const display = await courtGameDisplay(game);
-  await message.edit(display);
-  await PartyGame.updateOne({ _id: game._id, renderVersion: game.renderVersion },
-    { $set: { renderedVersion: game.renderVersion } });
+  const now = Date.now();
+  const token = randomUUID();
+  const game = await PartyGame.findOneAndUpdate({
+    _id: source._id,
+    $or: [{ publishingUntil: null }, { publishingUntil: { $lte: new Date(now) } }],
+  }, { $set: {
+    publishingUntil: new Date(now + 60_000), publishingToken: token,
+  } }, { new: true });
+  if (!game) return; // Another publisher is working; the next sweep retries.
+  try {
+    const channel = await client.channels.fetch(game.channelId);
+    if (!channel?.isTextBased() || typeof channel.send !== "function")
+      throw new Error("Court game channel is unavailable.");
+    await publishCourtTimeline(game, channel);
+    await PartyGame.updateOne({
+      _id: game._id, renderVersion: game.renderVersion,
+      round: game.round, batch: game.batch, phase: game.phase,
+    }, { $set: { renderedVersion: game.renderVersion } });
+  } finally {
+    await PartyGame.updateOne({ _id: game._id, publishingToken: token },
+      { $set: { publishingUntil: null, publishingToken: "" } });
+  }
 }
 
 export async function beginCourtGame(game) {
@@ -141,6 +325,7 @@ export async function beginCourtGame(game) {
     _id: game._id, phase: "lobby", players: game.players,
   }, { $set: {
     phase: "answering", round: 1, batch: 0, matchups,
+    roundMatchups: { "1": matchups },
     usedPromptIds: matchups.map(m => m.promptId),
     scores: Object.fromEntries(game.players.map(id => [id, 0])),
     roundScores: {}, matchupWins: Object.fromEntries(game.players.map(id => [id, 0])),
@@ -232,6 +417,7 @@ export async function startNextCourtRound(game, now = Date.now()) {
   }, {
     $set: {
       phase: "answering", round, batch: 0, matchups,
+      roundMatchups: { ...game.roundMatchups, [String(round)]: matchups },
       usedPromptIds: [...game.usedPromptIds, ...matchups.map(m => m.promptId)],
       phaseEndsAt: new Date(now + ANSWER_MS),
     },
@@ -285,11 +471,15 @@ export async function reconcileCourtGames(client) {
     const active = await PartyGame.find({ active: true }).limit(80);
     for (const game of active) {
       try {
+        // Preserve the existing question's public result before moving on,
+        // even if the Discord send/edit was delayed by a restart or outage.
+        await publishCourtGame(client, game);
         const current = await PartyGame.findById(game._id);
         if (current && !current.paused && ["answering", "voting", "reveal"].includes(current.phase) &&
-            current.phaseEndsAt && current.phaseEndsAt.getTime() <= Date.now())
-          await advanceCourtGame(current);
-        await publishCourtGame(client, current || game);
+            current.phaseEndsAt && current.phaseEndsAt.getTime() <= Date.now()) {
+          if (await advanceCourtGame(current))
+            await publishCourtGame(client, current);
+        }
       } catch (error) { console.error("[Party] Game reconciliation failed", String(game._id), error); }
     }
     const terminal = await PartyGame.find({
