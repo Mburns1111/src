@@ -190,3 +190,58 @@ test("each member sees two questions, two saved answers and separate buttons", a
     assert.ok(replies[0].components[0].components[1].data.custom_id.endsWith(":1:1"));
   } finally {restore(changes);}
 });
+
+test("round break shows a staff-only Start Next Round action and does not restart itself", async () => {
+  const shown = await courtGameDisplay({
+    ...game(), phase:"intermission", round:1, players:[a,b],
+    scores:{ [a]:120, [b]:30 },
+    phaseEndsAt:new Date(Date.now()-2000),
+  });
+  assert.match(shown.content,/will not start automatically/);
+  assert.equal(shown.components.length,1);
+  assert.equal(shown.components[0].components[0].data.label,"Start Next Round");
+  assert.equal(shown.components[0].components[0].data.custom_id,"party:next:"+gameId+":1");
+});
+
+test("ordinary members cannot start the next round from the public button", async () => {
+  const changes=[],replies=[];
+  try {
+    const g={...game(),phase:"intermission",round:1,
+      phaseEndsAt:new Date(Date.now()-15_000)};
+    stub(changes,PartyGame,"findOne",async()=>g);
+    stub(changes,PartyGame,"updateOne",async()=>assert.fail("Only staff may advance rounds"));
+    await handlePartyInteraction({
+      isButton:()=>true, isModalSubmit:()=>false,
+      customId:"party:next:"+gameId+":1",
+      guildId,user:{id:a},memberPermissions:{has:()=>false},
+      deferReply:async()=>{},editReply:async msg=>replies.push(msg),
+    });
+    assert.match(replies[0].content,/Only staff/);
+  } finally {restore(changes);}
+});
+
+test("two answers in one round count as one completed round for rewards", async () => {
+  const changes=[],updates=[];
+  try {
+    stub(changes,PartyGame,"updateOne",async(_query,change)=>{
+      updates.push(change);return {modifiedCount:1};
+    });
+    stub(changes,PartyResponse,"find",()=>({
+      select:()=>({lean:async()=>[
+        {userId:a},{userId:a},{userId:b},{userId:b},
+      ]}),
+    }));
+    const g={...game(),phase:"reveal",round:1,batch:1,
+      matchups:[
+        {playerIds:[a,b],promptId:1,prompt:"One"},
+        {playerIds:[a,b],promptId:2,prompt:"Two"},
+      ],
+      answeredCounts:{[a]:0,[b]:0},usedPromptIds:[1,2],
+      phaseEndsAt:new Date(Date.now()-10_000),
+    };
+    assert.equal(await advanceCourtGame(g),true);
+    assert.equal(updates[0].$set.phase,"intermission");
+    assert.equal(updates[0].$set.answeredCounts[a],1);
+    assert.equal(updates[0].$set.answeredCounts[b],1);
+  } finally {restore(changes);}
+});
