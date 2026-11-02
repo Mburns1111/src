@@ -42,6 +42,25 @@
 - Discord does not support native autocomplete while typing free-form `.show` text. Ambiguous typed queries return potential matching pet names and suggest `/cards show` for selection.
 - The artwork shown comes from approved/configured card assets where available. A test release may still show the existing placeholder until art is approved.
 
+## 6. Public Hatchem inventory dashboard
+
+- Type `.inventory` or use `/cards inventory` **inside the configured Hatchem channel**. Both post an ordinary **public** inventory embed; no private response or DM is used for the inventory.
+- The dashboard shows the requesting member's **Extra Grabs, Extra Drops, owned total (Normal/Neon/Mega Neon), server Points, and five rarity dust balances**. Card counts exclude cards that were burned, consumed, or transferred away.
+- Bonuses, card ownership, and dust follow the collector across servers; Points come **only from this Discord server**. The snapshot refreshes each time the command is run, rather than automatically updating old messages.
+- The public inventory has three buttons: **Collection** opens that member's existing public, interactive collection browser; **Achievements** opens their existing **private** achievements screen; and **Hatchem Shop** opens their existing **private** purchase menu. Only the inventory owner can operate the buttons. Others can run their own `.inventory`.
+- Discord allows at most 25 `/cards` subcommands. To add `/cards inventory`, the redundant `/cards tag-multiple` shortcut was removed. Use `/cards tag tag:NAME card_ids:ID1,ID2` instead, or the existing typed `.tagmultiple` alias. No underlying bulk-tag functionality was removed; `/cards untag-multiple` remains.
+- After updating the development branch, run `node register-commands.js` again so Discord sees the new slash option. No production release or merge was performed.
+
+### Discord inventory checks
+
+- [ ] After purchasing one Extra Grab and one Extra Drop, `.inventory` in Hatchem shows both updated balances and the server Points balance reduced by 30.
+- [ ] `/cards inventory` posts visibly in Hatchem, rather than responding ephemerally.
+- [ ] Burn or gift a test card, then run `.inventory` again. Only **currently owned** cards count; totals and stages match `.collection`.
+- [ ] Compare all five dust balances against `.dust`; compare extras against `.shop`.
+- [ ] Press Collection on your own inventory: it opens a public collection with functioning filters. Press Achievements and Hatchem Shop: their detailed screens open privately, as before.
+- [ ] Another member pressing any of the three inventory buttons is refused privately and cannot edit/open the original owner's screens.
+- [ ] Re-run inventory from a second server (if available): global card/dust/bonus counts match, but Points reflect that server's wallet.
+
 ## Fresh two-account testing sequence
 
 - [ ] Both users run `.history` and `.achievements` **before** trying new activity; existing completed gifts and grabs should appear correctly.
