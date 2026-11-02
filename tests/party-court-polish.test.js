@@ -11,8 +11,9 @@ const id="507f1f77bcf86cd799439011";
 const guildId="123456789012345678";
 const hostId="234567890123456789";
 const playerId="345678901234567890";
-const game=()=>({_id:id,guildId,hostId,round:1,batch:0,phase:"answering",
+const game=()=>({_id:id,guildId,hostId,messageId:"456789012345678901",round:1,batch:0,phase:"answering",
   phaseEndsAt:new Date(Date.now()+90_000),paused:false,active:true,players:[hostId,playerId],
+  usedPromptIds:[1,2],category:"mixed",roundMatchups:{},
   matchups:[
     {playerIds:[hostId,playerId],promptId:1,prompt:"First prompt?"},
     {playerIds:[hostId,playerId],promptId:2,prompt:"Second prompt?"},
