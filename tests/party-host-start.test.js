@@ -249,7 +249,7 @@ test("picker selection by its creator opens the signup lobby, not Round 1", asyn
       memberPermissions: permitted(),
       isButton: () => false, isModalSubmit: () => false, isStringSelectMenu: () => true,
       values: ["court"],
-      deferReply: async () => {},
+      deferUpdate: async () => {},
       editReply: async value => responses.push(value),
       guild: { channels: { fetch: async () => ({
         id: "567890123456789012", isTextBased: () => true,
@@ -285,7 +285,7 @@ test("another member cannot use the creator's game selector", async () => {
       guildId, customId: "party:pick:" + hostId + ":mixed:1",
       user: { id: otherAdminId }, memberPermissions: permitted(),
       isButton: () => false, isModalSubmit: () => false, isStringSelectMenu: () => true,
-      values: ["court"], deferReply: async () => {},
+      values: ["court"], deferUpdate: async () => {},
       editReply: async value => responses.push(value),
     });
     assert.match(responses[0].content, /Only the staff member who opened/);
