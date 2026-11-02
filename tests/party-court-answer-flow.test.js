@@ -7,6 +7,12 @@ import {
   courtGameDisplay, advanceCourtGame, startNextCourtRound, COURT_TIMINGS,
 } from "../services/party-court-engine.js";
 
+function embedText(view) {
+  return (view.embeds || []).map(embed=>{
+    const e=typeof embed.toJSON === "function" ? embed.toJSON() : embed;
+    return [e.title,e.description,...(e.fields || []).flatMap(f=>[f.name,f.value])].join("\n");
+  }).join("\n");
+}
 const gameId = "507f1f77bcf86cd799439011";
 const guildId = "123456789012345678";
 const a = "234567890123456789";
@@ -110,9 +116,9 @@ test("saved responses are displayed during the voting phase, not treated as miss
       ],
     }));
     const display = await courtGameDisplay({ ...game(), phase:"voting", batch:0 });
-    assert.match(display.content,/Microwave with legs/);
-    assert.match(display.content,/Unpaid Tax Collector/);
-    assert.doesNotMatch(display.content,/No answer submitted/);
+    assert.match(embedText(display),/Microwave with legs/);
+    assert.match(embedText(display),/Unpaid Tax Collector/);
+    assert.doesNotMatch(embedText(display),/No answer submitted/);
     assert.equal(display.components.length,1);
     assert.equal(display.components[0].components.length,2);
   } finally { restore(changes); }
@@ -200,7 +206,7 @@ test("round break shows a staff-only Start Next Round action and does not restar
     scores:{ [a]:120, [b]:30 },
     phaseEndsAt:new Date(Date.now()-2000),
   });
-  assert.match(shown.content,/will not start automatically/);
+  assert.match(embedText(shown),/will not start automatically/);
   assert.equal(shown.components.length,1);
   assert.equal(shown.components[0].components[0].data.label,"Start Next Round");
   assert.equal(shown.components[0].components[0].data.custom_id,"party:next:"+gameId+":1");
