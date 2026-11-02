@@ -5,6 +5,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { requireGuild } from "./shared.js";
 import { UserFacingError } from "./errors.js";
 import { ensureHouseEntry } from "./house.js";
@@ -67,6 +68,12 @@ export const data = new SlashCommandBuilder()
       )
       .addChannelOption((option) =>
         option
+          .setName("hatchem")
+          .setDescription("Hatchem collectible-card game channel")
+          .addChannelTypes(ChannelType.GuildText),
+      )
+      .addChannelOption((option) =>
+        option
           .setName("shop")
           .setDescription("Channel for the permanent shop catalog")
           .addChannelTypes(ChannelType.GuildText),
@@ -83,6 +90,7 @@ export async function execute(interaction) {
   const profilesChannel = interaction.options.getChannel("profiles");
   const tradingPostChannel = interaction.options.getChannel("trading_post");
   const shopChannel = interaction.options.getChannel("shop");
+  const hatchemChannel = interaction.options.getChannel("hatchem");
 
   if (
     !commandsChannel &&
@@ -92,7 +100,8 @@ export async function execute(interaction) {
     !tradeVoting &&
     !profilesChannel &&
     !tradingPostChannel &&
-    !shopChannel
+    !shopChannel &&
+    !hatchemChannel
   ) {
     throw new UserFacingError("Choose at least one channel to configure.");
   }
@@ -108,10 +117,14 @@ export async function execute(interaction) {
   if (tradeVoting) updates.tradeVoteChannelId = tradeVoting.id;
   if (profilesChannel) updates.profileChannelId = profilesChannel.id;
   if (tradingPostChannel) updates.tradingPostChannelId = tradingPostChannel.id;
+  if (hatchemChannel) updates.hatchemChannelId = hatchemChannel.id;
 
   // Ensure the shop before updating channel settings so its existing message IDs
   // are checked against the previous channel when a shop is moved.
   if (shopChannel) await ensureShopEntry(interaction.guild, shopChannel);
+  const previousHatchem = hatchemChannel
+    ? await GuildConfig.findOne({ guildId: interaction.guildId }).select("hatchemChannelId hatchemGuideMessageId").lean()
+    : null;
 
   await GuildConfig.findOneAndUpdate(
     { guildId: interaction.guildId },
@@ -125,6 +138,20 @@ export async function execute(interaction) {
   if (tradeVoting) await ensureTradeVoteEntry(interaction.guild, tradeVoting);
   if (tradingPostChannel) {
     await ensureTradingPostEntry(interaction.guild, tradingPostChannel);
+  }
+
+  if (hatchemChannel) {
+    let guide = null;
+    if (previousHatchem?.hatchemChannelId === hatchemChannel.id && previousHatchem.hatchemGuideMessageId) {
+      guide = await hatchemChannel.messages.fetch(previousHatchem.hatchemGuideMessageId).catch(() => null);
+      if (guide?.author?.id !== interaction.client.user.id) guide = null;
+    }
+    if (guide) await guide.edit({ content: HATCHEM_GUIDE, allowedMentions: { parse: [] } });
+    else {
+      guide = await hatchemChannel.send({ content: HATCHEM_GUIDE, allowedMentions: { parse: [] } });
+      await GuildConfig.updateOne({ guildId: interaction.guildId },
+        { $set: { hatchemGuideMessageId: guide.id } });
+    }
   }
 
   const configured = [];
@@ -148,6 +175,7 @@ export async function execute(interaction) {
   if (shopChannel) {
     configured.push(`Shop catalog and Points button: ${shopChannel}`);
   }
+  if (hatchemChannel) configured.push(`Hatchem card-game commands: ${hatchemChannel}`);
 
   await interaction.editReply({
     content: `Channel settings saved.\n${configured.join("\n")}`,

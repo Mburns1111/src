@@ -21,6 +21,13 @@ const guildConfigSchema = new mongoose.Schema(
     shopMessageId: { type: String, default: "" },
     shopCategoryMessageIds: { type: Map, of: String, default: () => ({}) },
     commandChannelId: { type: String, default: "" },
+    hatchemChannelId: { type: String, default: "" },
+    // Automatic egg timing uses global fixed rules in every configured server.
+    hatchemNextAutoDropAt: { type: Date, default: null },
+    hatchemLastAutoDropAt: { type: Date, default: null },
+    hatchemNextActivityDropAt: { type: Date, default: null },
+    cardRoleId: { type: String, default: "" },
+    hatchemGuideMessageId: { type: String, default: "" },
     profileChannelId: { type: String, default: "" },
     profileEntryChannelId: { type: String, default: "" },
     profileEntryMessageId: { type: String, default: "" },
