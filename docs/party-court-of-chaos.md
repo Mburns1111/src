@@ -15,11 +15,11 @@ Use a development bot token, development MongoDB database and test Discord serve
 3. Run the existing **register-commands.js** to register /party with the *development* Discord application only. The script replaces the application command lists; confirm the token, application ID, and guild ID first.
 4. Restart the test bot.
 5. As staff with Manage Server, use /party host in the desired party-game channel (category and rewards optional).
-6. Have 4–20 accounts use Join; Leave and rejoin; try the 21st account.
+6. Have 1–20 accounts use Join; Leave and rejoin; try the 21st account. Test separate 1-, 2- and 3-player games.
 7. Staff runs /party start. Members use My Prompt & Answer, then Submit or Edit Answer in the private modal.
-8. After 90 seconds, noncontestants and spectators vote via the buttons (30 seconds per batch, two matchups per batch).
+8. With 2+ players, after 90 seconds, noncontestants and spectators vote via the buttons (30 seconds per batch, two matchups per batch). Solo games skip voting and show their submitted answer.
 9. Observe each reveal (8 seconds) and the 10-second intermission after rounds 1 and 2. The game ends after round 3.
-10. Review the leaderboard. If rewards were enabled, check /points-admin history and audit. Verify each eligible member earns +5 completion and qualifying placements earn +10/+6/+3; no more than two rewarded games per UTC date.
+10. Review the leaderboard. If rewards were enabled, check /points-admin history and audit. Verify each eligible member earns +5 completion (including solo participants with two submitted answers); placement bonuses are +10/+6/+3 only for games with multiple competitors. No more than two rewarded games per UTC date.
 
 ## Staff controls
 
@@ -39,8 +39,10 @@ Only members with Manage Server can use /party commands. Regular members and spe
 - Only lobby members can answer; all server members except matchup contestants can vote.
 - Answers are hidden until voting. Votes are hidden until the reveal.
 - A vote can be changed until the deadline without increasing the ballot count.
-- No answer means forfeit (no points when fewer than two valid answers remain).
-- Odd lobby sizes produce one three-contestant matchup.
+- No answer means forfeit (no matchup points when fewer than two valid answers remain).
+- One player creates a solo showcase (no vote buttons, no competitive points, no placement bonus).
+- Two players compete head-to-head; three players share one three-person matchup.
+- Larger odd lobbies produce one three-contestant matchup.
 - Two simultaneous joins/answers/votes don't duplicate membership or ballots.
 - A staff-removed answer disappears from vote options before its result is scored.
 - Bot restart during answering, voting, and reveal resumes safely.
@@ -51,7 +53,11 @@ Only members with Manage Server can use /party commands. Regular members and spe
 
 ## Timing notes
 
-Each game is three rounds. Each participant writes one answer per round. Answers are open for 90 seconds; voting happens in two-matchup 30-second batches; verdict display lasts 8 seconds; intermission lasts 10 seconds. Games with 20 players will take significantly longer than games with 4. The timer advances in one 5-second reconciliation sweep, so deadlines may be a few seconds late. Displayed times use Discord relative timestamps.
+Each game is three rounds. Each participant writes one answer per round. Answers are open for 90 seconds; with 2+ players, voting happens in two-matchup 30-second batches; verdict display lasts 8 seconds; intermission lasts 10 seconds. Solo games skip the vote phase entirely. Games with 20 players will take significantly longer than games with 1–3. The timer advances in one 5-second reconciliation sweep, so deadlines may be a few seconds late. Displayed times use Discord relative timestamps.
+
+## Player counts and rewards
+
+Staff can start whenever at least one member joins; there is **no minimum group size** beyond having someone to play. A one-player game is a prompt-and-reveal showcase rather than a head-to-head contest, so it does not award a competitive placement. Completion Points remain possible after two submitted answers and are still limited to two rewarded games per UTC day. A two-player game works normally with outside audience votes; if no votes are cast, the round points split evenly.
 
 ## Important limitations in first iteration
 
