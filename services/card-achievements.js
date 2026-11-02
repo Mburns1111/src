@@ -76,9 +76,7 @@ export function achievementPages(rows,{detailed=false}={}){
   detailed?"**Milestones · detailed view**":"**Milestones**",
   items.join("\n"),
   "",
-  "Page "+(i+1)+"/"+pages.length+
-   (pages.length>1?" · Next: `.achievements "+(detailed?"full ":"")+(i+2<=pages.length?i+2:1)+"`":"")+
-   (detailed?" · Compact: `.achievements`":" · Descriptions: `.achievements full`"),
+  "Page "+(i+1)+"/"+pages.length,
  ].join("\n"));
 }
 export function formatCardAchievements(rows,page=1,detailed=false){const pages=achievementPages(rows,{detailed});return pages[Math.max(0,Math.min(pages.length-1,Number(page||1)-1))];}
