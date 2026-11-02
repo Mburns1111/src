@@ -66,7 +66,9 @@ test("party start slash command requires game selection, currently Court of Chao
   const option = start.options.find(x => x.name === "game");
   assert.equal(option.required, true);
   assert.equal(option.type, 3);
-  assert.deepEqual(option.choices, [{ name: "Court of Chaos", value: "court" }]);
+  assert.equal(option.choices.length, 1);
+  assert.equal(option.choices[0].name, "Court of Chaos");
+  assert.equal(option.choices[0].value, "court");
 });
 
 test("lobby displays Join, Leave and Start Party for the original host", async () => {
