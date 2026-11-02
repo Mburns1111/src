@@ -54,7 +54,7 @@ Only members with Manage Server can use /party commands. Regular members and spe
 
 ## Timing notes
 
-Each game is three rounds. Each participant writes one answer per round. Answers are open for a maximum of 45 seconds (automatically shortening to a 5-second grace period once every player has saved an answer); with 2+ players, voting happens in two-matchup 15-second batches; verdict display lasts 5 seconds; intermission lasts 3 seconds. Solo games skip the vote phase entirely. Games with 20 players will take significantly longer than games with 1–3. The timer advances in one 5-second reconciliation sweep, so deadlines may be a few seconds late. Displayed times use Discord relative timestamps.
+Each game is three rounds. Each participant writes one answer per round. Answers are open for a maximum of 45 seconds (automatically shortening to a 5-second grace period once every player has saved an answer); with 2+ players, voting happens in two-matchup 15-second batches; verdict display lasts 8 seconds; intermission lasts 10 seconds. Solo games skip the vote phase entirely. Games with 20 players will take significantly longer than games with 1–3. The timer advances in one 5-second reconciliation sweep, so deadlines may be a few seconds late. Displayed times use Discord relative timestamps.
 
 ## Player counts and rewards
 
