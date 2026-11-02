@@ -1,0 +1,707 @@
+{
+  "generatedOn": "2026-10-26",
+  "status": "needs-independent-validation",
+  "onlyAdoptmeValues": [
+    {
+      "petId": "bird-of-paradise",
+      "name": "Bird Of Paradise",
+      "rarity": "Rare",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "dragonfruit-fox",
+      "name": "Dragonfruit Fox",
+      "rarity": "Legendary",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "malaysian-tapir",
+      "name": "Malaysian Tapir",
+      "rarity": "Common",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "mr-whiskerpips",
+      "name": "Mr Whiskerpips",
+      "rarity": "Ultra-Rare",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "mrs-whiskerpips",
+      "name": "Mrs Whiskerpips",
+      "rarity": "Ultra-Rare",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "ring-tailed-lemur",
+      "name": "Ring-Tailed Lemur",
+      "rarity": "Rare",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "striped-eggy",
+      "name": "Striped Eggy",
+      "rarity": "Legendary",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "tio-de-nadal",
+      "name": "Tió De Nadal",
+      "rarity": "Legendary",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "tri-horned-treehopper",
+      "name": "Tri-Horned Treehopper",
+      "rarity": "Ultra-Rare",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "wooly-rhino",
+      "name": "Wooly Rhino",
+      "rarity": "Ultra-Rare",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    },
+    {
+      "petId": "yellow-lipped-sea-krait",
+      "name": "Yellow-Lipped Sea Krait",
+      "rarity": "Uncommon",
+      "reviewReason": "Not found in GameVault facts; verify name and existence."
+    }
+  ],
+  "onlyGamevaultFacts": [
+    {
+      "petId": "aestus",
+      "releaseDate": "2026-06-20",
+      "origin": "Summer Camp Event (2026)",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Aestus"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "amethyst-penguin",
+      "releaseDate": "2026-09-11",
+      "origin": "Gemstone Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Amethyst_Penguin"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "ballet-swan",
+      "releaseDate": "2026-09-04",
+      "origin": null,
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Ballet_Swan"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "bison",
+      "releaseDate": "2026-05-29",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Bison"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "blue-cat",
+      "releaseDate": "2026-09-17",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Blue_Cat"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "bolt",
+      "releaseDate": "2026-10-09",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Bolt"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "burger-bear",
+      "releaseDate": "2026-07-03",
+      "origin": "Summer Camp Event (2026)",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Burger_Bear"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "candicorn",
+      "releaseDate": "2026-03-13",
+      "origin": "Sugar Festival Event (2026)",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Candicorn"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "catte",
+      "releaseDate": "2026-09-18",
+      "origin": "Kitty Biscuit",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Catte"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "cattuccino",
+      "releaseDate": "2026-09-18",
+      "origin": "Kitty Biscuit",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Cattuccino"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "chocolate-dutch-guinea-pig",
+      "releaseDate": "2026-04-03",
+      "origin": "Pets Plus",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Chocolate_Dutch_Guinea_Pig"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "clubtail-dragonfly",
+      "releaseDate": "2026-06-20",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Clubtail_Dragonfly"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "clumpty",
+      "releaseDate": "2026-08-29",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Clumpty"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "cocoadile",
+      "releaseDate": "2026-03-13",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Cocoadile"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "crimson-cape",
+      "releaseDate": "2026-08-29",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Crimson_Cape"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "dark-choccybunny",
+      "releaseDate": "2026-04-03",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Dark_Choccybunny"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "easter-bunny",
+      "releaseDate": "2026-04-04",
+      "origin": "Sugar Festival Event (2026)",
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "general-sheepdog",
+      "releaseDate": null,
+      "origin": "Summer Camp Event (2026)",
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "glormy-crab",
+      "releaseDate": "2026-04-24",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Glormy_Crab"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "glyptodon-ducky",
+      "releaseDate": "2026-05-22",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Glyptodon_Ducky"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "gumball-caterpillar",
+      "releaseDate": "2026-03-13",
+      "origin": "Sugar Festival Event (2026)",
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "gummy-guana",
+      "releaseDate": "2026-03-13",
+      "origin": "Sugar Festival Event (2026)",
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "huntsman-robin",
+      "releaseDate": "2026-08-29",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Huntsman_Robin"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "jacobin-pigeon",
+      "releaseDate": "2026-10-03",
+      "origin": "Basic Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Jacobin_Pigeon"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "jester-dragon",
+      "releaseDate": "2026-10-03",
+      "origin": "Halloween Event (2026)",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Jester_Dragon"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "jiggly-jerboa",
+      "releaseDate": "2026-03-27",
+      "origin": "Basic Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Jiggly_Jerboa"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "jumpscare",
+      "releaseDate": "2026-10-03",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Jumpscare"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "kiwi-kiwi",
+      "releaseDate": "2026-08-21",
+      "origin": "Crystal Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Kiwi_Kiwi"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "latte-kitsune",
+      "releaseDate": "2026-03-27",
+      "origin": "Sugar Festival Event (2026)",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Latte_Kitsune"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "little-lamb",
+      "releaseDate": "2026-08-29",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Little_Lamb"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "matcha-cat",
+      "releaseDate": "2026-09-18",
+      "origin": "Kitty Biscuit",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Matcha_Cat"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "milk-choccybunny",
+      "releaseDate": "2026-04-03",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Milk_Choccybunny"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "mochi-meow",
+      "releaseDate": "2026-03-20",
+      "origin": "Sugar Festival Event (2026)",
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "moonbeam-peacock",
+      "releaseDate": null,
+      "origin": "Golden Dandelion",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Moonbeam_Peacock"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "mummy-spider",
+      "releaseDate": "2026-10-03",
+      "origin": "Halloween Event (2026)",
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "nurse-shark",
+      "releaseDate": "2026-06-05",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Nurse_Shark"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "oakee",
+      "releaseDate": "2026-07-03",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Oakee"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "oakee-knight",
+      "releaseDate": "2026-07-03",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Oakee_Knight"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "oakee-wizard",
+      "releaseDate": "2026-07-03",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Oakee_Wizard"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "peachick",
+      "releaseDate": null,
+      "origin": "Golden Dandelion",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Peachick"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "peahen",
+      "releaseDate": null,
+      "origin": "Golden Dandelion",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Peahen"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "pilot-gull",
+      "releaseDate": "2026-06-12",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Pilot_Gull"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "pink-dog",
+      "releaseDate": "2026-09-17",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Pink_Dog"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "pinkypillar",
+      "releaseDate": "2026-08-29",
+      "origin": "Basic Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Pinkypillar"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "princess-mare",
+      "releaseDate": "2026-08-29",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Princess_Mare"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "pupcake",
+      "releaseDate": "2026-04-03",
+      "origin": "Sugar Festival Event (2026)",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Pupcake"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "purrowl",
+      "releaseDate": "2026-04-17",
+      "origin": "Pet age-up reward",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Purrowl"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "rainbow-trout",
+      "releaseDate": "2026-06-20",
+      "origin": "Summer Camp Event (2026)",
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "red-dutch-guinea-pig",
+      "releaseDate": "2026-04-03",
+      "origin": "Pets Plus",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Red_Dutch_Guinea_Pig"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "red-panda-ducky",
+      "releaseDate": "2026-05-30",
+      "origin": "Basic Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Red_Panda_Ducky"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "river-otter",
+      "releaseDate": "2026-06-26",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/River_Otter"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "rubber-ducky",
+      "releaseDate": "2026-05-22",
+      "origin": "Basic Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Rubber_Ducky"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "ruddy-duck",
+      "releaseDate": "2026-07-10",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Ruddy_Duck"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "s-mores-raccoon",
+      "releaseDate": "2026-07-10",
+      "origin": "Summer Camp Event (2026)",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/S'mores_Raccoon"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "shadow-dragon-ducky",
+      "releaseDate": "2026-05-22",
+      "origin": null,
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Shadow_Dragon_Ducky"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "sheepdog-ducky",
+      "releaseDate": "2026-06-13",
+      "origin": null,
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "skelicorn",
+      "releaseDate": "2026-10-09",
+      "origin": "Halloween Event (2026)",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Skelicorn"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "solaris",
+      "releaseDate": "2026-06-20",
+      "origin": "Summer Camp Event (2026)",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Solaris"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "strawberry-shortcake-ducky",
+      "releaseDate": "2026-05-22",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Strawberry_Shortcake_Ducky"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "strawberry-tortle",
+      "releaseDate": "2026-08-21",
+      "origin": "Crystal Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Strawberry_Tortle"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "stygian-owl",
+      "releaseDate": "2026-06-26",
+      "origin": "Summer Camp Event (2026)",
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "sunflower-friend",
+      "releaseDate": "2026-07-24",
+      "origin": null,
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "sushi-penguin",
+      "releaseDate": "2026-05-09",
+      "origin": "Admin Abuse Egg or pet age-up reward",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Sushi_Penguin"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "tealwood-monster",
+      "releaseDate": "2026-06-20",
+      "origin": "Summer Camp Event (2026)",
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "three-blind-mice",
+      "releaseDate": "2026-08-29",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Three_Blind_Mice"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "ti-de-nadal",
+      "releaseDate": "2023-04-01",
+      "origin": null,
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Ti%C3%B3_De_Nadal"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "tortoiseshell-guinea-pig",
+      "releaseDate": "2026-04-03",
+      "origin": "Pets Plus",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Tortoiseshell_Guinea_Pig"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "tuxedo-cat",
+      "releaseDate": "2026-08-14",
+      "origin": null,
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Tuxedo_Cat"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "unicorn-ducky",
+      "releaseDate": "2026-05-22",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Unicorn_Ducky"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "velocirooster",
+      "releaseDate": "2026-03-07",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Velocirooster"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "violet-friend",
+      "releaseDate": "2026-07-24",
+      "origin": null,
+      "wikiSources": [],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "waffle-wyrm",
+      "releaseDate": "2026-03-20",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/Waffle_Wyrm"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    },
+    {
+      "petId": "white-choccybunny",
+      "releaseDate": "2026-04-03",
+      "origin": "Admin Abuse Egg",
+      "wikiSources": [
+        "https://adoptme.fandom.com/wiki/White_Choccybunny"
+      ],
+      "reviewReason": "Not found in adoptme-values pet records; obtain name and rarity from independent authorized reference."
+    }
+  ]
+}
