@@ -4,7 +4,7 @@ import CardSeries from "../models/CardSeries.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
-import { createSeries, createRelease, editRelease, addReleasePet, addReleasePetsBulk, removeReleasePet, setReleasePetWeight, setReleaseOdds, checkRelease } from "../services/card-global-releases.js";
+import { createSeries, createRelease, editRelease, addReleasePet, addReleasePetsBulk, removeReleasePet, setReleasePetWeight, setReleaseOdds, checkOfficialReleaseReadiness, assignReleaseArtwork, setReleasePetEnabled, activateRelease, transitionRelease } from "../services/card-global-releases.js";
 
 const PAGE_SIZE = 15;
 const clean = value => String(value ?? "").replace(/[@`*_~|<>]/g, "").slice(0, 120);
@@ -60,6 +60,32 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(command => command.setName("release-check")
     .setDescription("OWNER: privately inspect readiness without activating an egg")
     .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(command => command.setName("assign-art")
+    .setDescription("OWNER: attach license-approved artwork to a draft release")
+    .addStringOption(o => o.setName("release").setDescription("Draft release").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("kind").setDescription("Artwork layer").setRequired(true)
+      .addChoices({name:"Pet",value:"pet"},{name:"Background",value:"background"},{name:"Frame",value:"frame"}))
+    .addStringOption(o => o.setName("key").setDescription("Approved artwork library key").setRequired(true))
+    .addStringOption(o => o.setName("pet").setDescription("Pet ID (required for pet art)")))
+  .addSubcommand(command => command.setName("set-enabled")
+    .setDescription("OWNER: enable or disable one approved draft pet")
+    .addStringOption(o => o.setName("release").setDescription("Draft release").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("pet").setDescription("Pet ID").setRequired(true).setAutocomplete(true))
+    .addBooleanOption(o => o.setName("enabled").setDescription("Include in egg hatches").setRequired(true)))
+  .addSubcommand(command => command.setName("activate")
+    .setDescription("OWNER: publish an art-approved draft egg worldwide")
+    .addStringOption(o => o.setName("release").setDescription("Ready draft release").setRequired(true).setAutocomplete(true))
+    .addBooleanOption(o => o.setName("confirm").setDescription("Confirm official activation").setRequired(true)))
+  .addSubcommand(command => command.setName("pause")
+    .setDescription("OWNER: temporarily stop hatches from an active egg")
+    .addStringOption(o => o.setName("release").setDescription("Active release").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(command => command.setName("resume")
+    .setDescription("OWNER: resume hatches from a paused egg")
+    .addStringOption(o => o.setName("release").setDescription("Paused release").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(command => command.setName("retire")
+    .setDescription("OWNER: permanently stop a release from hatching")
+    .addStringOption(o => o.setName("release").setDescription("Active or paused release").setRequired(true).setAutocomplete(true))
+    .addBooleanOption(o => o.setName("confirm").setDescription("Irreversibly retire this egg").setRequired(true)))
   .addSubcommand(command => command.setName("inspect")
     .setDescription("Privately inspect all pets and weights in an egg release")
     .addStringOption(option => option.setName("release")
@@ -76,7 +102,8 @@ export async function execute(interaction) {
   const page = interaction.options.getInteger("page") || 1;
   const option = interaction.options.getSubcommand();
   if (["create-series", "create-release", "edit-release", "add-pet",
-      "add-pets", "remove-pet", "set-weight", "set-odds", "release-check"].includes(option)) {
+      "add-pets", "remove-pet", "set-weight", "set-odds", "release-check",
+      "assign-art", "set-enabled", "activate", "pause", "resume", "retire"].includes(option)) {
     const string = key => interaction.options.getString(key);
     const number = key => interaction.options.getNumber(key);
     try {
@@ -130,8 +157,30 @@ export async function execute(interaction) {
         } });
         return interaction.editReply("Saved rarity percentages for draft " + clean(result.releaseId) + ". All five add to 100%.");
       }
+      if (option === "assign-art") {
+        const changed = await assignReleaseArtwork({releaseId:string("release"),kind:string("kind"),
+          key:string("key"),petId:string("pet")});
+        return interaction.editReply("Assigned approved " + clean(changed.kind) + " artwork \`" + clean(changed.key) +
+          "\` to draft \`" + clean(changed.releaseId) + "\`" +
+          (changed.petId ? " for pet \`" + clean(changed.petId) + "\`" : "") +
+          ". Enable the pet separately once its artwork is ready.");
+      }
+      if (option === "set-enabled") {
+        const updated = await setReleasePetEnabled({releaseId:string("release"),petId:string("pet"),
+          enabled:interaction.options.getBoolean("enabled",true)});
+        return interaction.editReply("Pet \`"+clean(updated.petId)+"\` is now **"+(updated.enabled?"enabled":"disabled")+"** in draft \`"+clean(updated.releaseId)+"\`.");
+      }
+      if (["activate","pause","resume","retire"].includes(option)) {
+        if (["activate","retire"].includes(option) && !interaction.options.getBoolean("confirm", true))
+          return interaction.editReply("No changes made. Confirmation is required.");
+        const updated = option==="activate"
+          ? await activateRelease({releaseId:string("release")})
+          : await transitionRelease({releaseId:string("release"),action:option});
+        return interaction.editReply("Egg release \`"+clean(updated.releaseId)+"\` is now **"+clean(updated.status)+"** globally."+
+          (updated.status==="retired"?" Retirement is permanent.":""));
+      }
       if (option === "release-check") {
-        const check = await checkRelease({ releaseId: string("release") });
+        const check = await checkOfficialReleaseReadiness({ releaseId: string("release") });
         return interaction.editReply([
           "**Owner-only release readiness — " + clean(check.release.name) + "**",
           "Status: " + clean(check.release.status) + " · Assigned: " + check.pets +
