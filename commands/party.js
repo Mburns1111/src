@@ -324,12 +324,14 @@ export async function handlePartyInteraction(interaction) {
     let errorMessage = "";
     let started = false;
     if (!game?.messageId) errorMessage = "This party game is unavailable.";
-    else if (!staff(interaction)) errorMessage = "Only staff can start a round.";
     else if (action === "start") {
+      // Preserve the lobby owner's exact permission explanation rather than
+      // replacing it with a generic staff-only error.
       const result = await startHostedLobby(interaction, game);
       started = result.started;
       if (!started) errorMessage = result.message;
-    } else if (game.phase !== "intermission" || Number(roundText) !== game.round) {
+    } else if (!staff(interaction)) errorMessage = "Only staff can start a round.";
+    else if (game.phase !== "intermission" || Number(roundText) !== game.round) {
       errorMessage = "This next-round button is no longer active.";
     } else if (game.phaseEndsAt && game.phaseEndsAt.getTime() > Date.now()) {
       errorMessage = "The 10-second intermission is still running.";
