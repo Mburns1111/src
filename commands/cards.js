@@ -61,7 +61,7 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c=>c.setName("history").setDescription("See the last 12 gifts and trades you completed"))
   .addSubcommand(c=>c.setName("achievements").setDescription("View your private milestones or anonymous Secret Hall of Fame")
     .addIntegerOption(o=>o.setName("page").setDescription("Page number").setMinValue(1))
-    .addStringOption(o=>o.setName("view").setDescription("Which screen").addChoices({name:"My achievements",value:"mine"},{name:"Secret Hall of Fame",value:"hall"})))
+    .addStringOption(o=>o.setName("view").setDescription("Which screen").addChoices({name:"My achievements (compact)",value:"mine"},{name:"Detailed achievements",value:"details"},{name:"Secret Hall of Fame",value:"hall"})))
   .addSubcommand(c=>c.setName("dustupgrade").setDescription("Use rarity dust to replace missing upgrade copies")
     .addStringOption(o=>o.setName("card").setDescription("An owned Normal/Neon card ID").setRequired(true).setAutocomplete(true)))
   .addSubcommand(c=>c.setName("show").setDescription("Search for and publicly display a release card by pet name")
@@ -200,7 +200,8 @@ export async function execute(interaction) {
   if(option==="achievements"){
     try{
       const page=interaction.options.getInteger("page")||1;
-      const content=interaction.options.getString("view")==="hall"?await secretHallOfFame(page):formatCardAchievements(await listCardAchievements(interaction.user.id),page);
+      const view=interaction.options.getString("view");
+      const content=view==="hall"?await secretHallOfFame(page):formatCardAchievements(await listCardAchievements(interaction.user.id),page,view==="details");
       return interaction.editReply({content,allowedMentions:{parse:[]}});
     }
     catch(error){console.warn("[Cards] Achievements:",error);return interaction.editReply("Unable to load achievements.");}
