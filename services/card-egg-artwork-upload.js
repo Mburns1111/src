@@ -82,3 +82,72 @@ export async function storeTestEggArtwork({ releaseId, attachment, uploadedBy })
     throw error;
   }
 }
+
+
+// Official egg banners are stored separately from TEST egg fixtures.
+// Attribution is supplied by the owner and remains under review until approved.
+export async function storeOfficialEggArtwork({
+  releaseId, attachment, uploadedBy, artist, platform, sourceId, creditText,
+}) {
+  if (!releaseId || String(releaseId).startsWith("test-")) throw Error("Choose a real draft release, not a test fixture.");
+  const release = await CardRelease.findOne({ releaseId, status: "draft" });
+  if (!release) throw Error("Official egg artwork can only be added to an existing draft release.");
+  const attribution = [artist,platform,sourceId,creditText].map(v=>String(v||"").trim());
+  if (attribution.some(v=>!v || v.length>250)) throw Error("Provide the artist, source platform, source ID and credit text (each up to 250 characters).");
+  if (!attachment?.url || !attachment?.name) throw Error("Attach a PNG, JPG or WebP image.");
+  if (attachment.size > EGG_ART_MAX_BYTES) throw Error("Egg artwork exceeds 12 MB.");
+  if (release.eggImageFileId || release.eggImageUrl || await CardEggArtwork.exists({ releaseId }))
+    throw Error("This release already has egg artwork; existing assets cannot be overwritten.");
+  const bytes = await readDiscordAttachment(attachment.url, { maxBytes: EGG_ART_MAX_BYTES });
+  assertImageSafeToDecode(bytes);
+  const {mime,ext} = imageType(bytes);
+  if (!mongoose.connection.db) throw Error("MongoDB must be connected.");
+  const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db,{bucketName:CARD_EGG_BUCKET});
+  const artworkId = "official-"+releaseId;
+  const upload = bucket.openUploadStream(artworkId+"."+ext,{
+    contentType:mime,metadata:{releaseId,artworkId,contentType:mime},
+  });
+  let uploaded = false;
+  try {
+    await new Promise((resolve,reject)=>{
+      upload.once("error",reject);upload.once("finish",resolve);upload.end(bytes);
+    });
+    uploaded=true;
+    const record=await CardEggArtwork.create({
+      artworkId,releaseId,fileId:upload.id,bucket:CARD_EGG_BUCKET,
+      originalFilename:String(attachment.name).slice(0,255),
+      contentType:mime,byteLength:bytes.length,
+      creatorName:attribution[0],sourceArtist:attribution[0],
+      sourcePlatform:attribution[1],sourceAssetId:attribution[2],
+      creditText:attribution[3],licenseReviewStatus:"needs-review",uploadedBy,
+    });
+    try {
+      const updated=await CardRelease.updateOne({
+        _id:release._id,status:"draft",eggImageFileId:null,eggImageUrl:"",
+      },{$set:{eggImageFileId:upload.id,eggImageBucket:CARD_EGG_BUCKET,eggArtworkId:artworkId}});
+      if(updated.modifiedCount!==1)throw Error("Egg artwork link changed during upload.");
+    }catch(error){
+      await CardEggArtwork.deleteOne({_id:record._id});
+      throw error;
+    }
+    return {releaseId,artworkId,reviewStatus:"needs-review"};
+  }catch(error){
+    if(uploaded){try{await bucket.delete(upload.id)}catch(cleanup){console.error("[Hatchem] Failed to clean egg art:",cleanup)}}
+    else{try{await upload.abort()}catch{/* already failed */}}
+    throw error;
+  }
+}
+
+export async function reviewOfficialEggArtwork({ releaseId, reviewerId, note }) {
+  const explanation=String(note||"").trim();
+  if(explanation.length<10||explanation.length>1000)
+    throw Error("Provide a permission/source review note between 10 and 1000 characters.");
+  const release=await CardRelease.findOne({releaseId,status:"draft"}).lean();
+  if(!release||String(releaseId).startsWith("test-"))throw Error("Only official draft egg art may be approved.");
+  const updated=await CardEggArtwork.findOneAndUpdate({
+    releaseId,licenseReviewStatus:"needs-review",
+  },{$set:{licenseReviewStatus:"approved",reviewedBy:reviewerId,
+    reviewedAt:new Date(),reviewNote:explanation}},{new:true}).lean();
+  if(!updated)throw Error("No pending artwork was found for this draft release.");
+  return {releaseId,status:"approved",creditText:updated.creditText};
+}
