@@ -7,11 +7,13 @@ import PendingCardTagDeletion from "../models/PendingCardTagDeletion.js";
 
 test("bulk tag commands accept required ID list and delete-tag requires tag", () => {
   const commands = data.toJSON().options;
-  for (const sub of ["tag-multiple", "untag-multiple"]) {
-    const cmd = commands.find(o => o.name === sub);
-    assert.ok(cmd);
-    assert.equal(cmd.options.find(o => o.name === "card_ids").required, true);
-  }
+  const tag = commands.find(o => o.name === "tag");
+  assert.ok(tag, "the primary tag command must support multiple explicit IDs");
+  assert.ok(tag.options.some(o => o.name === "card_ids"));
+  assert.ok(!commands.some(o => o.name === "tag-multiple"),
+    "the redundant slash alias frees a Discord subcommand slot for inventory");
+  const untag = commands.find(o => o.name === "untag-multiple");
+  assert.equal(untag.options.find(o => o.name === "card_ids").required, true);
   const deletion = commands.find(o => o.name === "delete-tag");
   assert.equal(deletion.options.find(o => o.name === "tag").required, true);
 });
