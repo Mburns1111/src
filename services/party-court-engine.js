@@ -78,7 +78,8 @@ export async function courtGameDisplay(game) {
           (game.phase === "reveal" ? " — <@" + participant.id + "> (" + (scores[participant.id] || 0) + " pts)" : ""));
       }
       if (game.phase === "voting") {
-        rows.push(new ActionRowBuilder().addComponents(...participants.filter(p => p.answer).map(p =>
+        const candidates = participants.filter(p => p.answer);
+        if (candidates.length) rows.push(new ActionRowBuilder().addComponents(...candidates.map(p =>
           button(partyButton(game, "vote", game.round + ":" + matchupIndex + ":" + p.id),
             "Match " + (matchupIndex + 1) + " · " + p.label, ButtonStyle.Primary))));
       }
@@ -231,6 +232,14 @@ export async function reconcileCourtGames(client) {
           await advanceCourtGame(game);
         await publishCourtGame(client, game);
       } catch (error) { console.error("[Party] Game reconciliation failed", String(game._id), error); }
+    }
+    const terminal = await PartyGame.find({
+      active: false, phase: { $in: ["ended", "cancelled"] },
+      $expr: { $lt: ["$renderedVersion", "$renderVersion"] },
+    }).limit(30);
+    for (const game of terminal) {
+      try { await publishCourtGame(client, game); }
+      catch (error) { console.error("[Party] Terminal message refresh failed", String(game._id), error); }
     }
     const unpaid = await PartyGame.find({ phase: "ended", rewardsEnabled: true, rewardSettledAt: null }).limit(30);
     for (const game of unpaid) {
