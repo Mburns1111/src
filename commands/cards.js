@@ -597,6 +597,18 @@ export function automaticEggPing(roleId) {
     allowedMentions: { parse: [], roles: validated ? [validated] : [] } };
 }
 
+// Preserve the visible role mention when a wild egg is edited after a grab
+// or when it closes. Editing must NOT send another notification: only the
+// original send whitelists the role in allowedMentions.
+export function dropMessageContent(drop, releaseName, { roleId = "", previousContent = "" } = {}) {
+  const originalMention = drop.mode === "automatic"
+    ? /^<@&\d{17,20}>(?=\n)/.exec(String(previousContent || ""))?.[0] || ""
+    : "";
+  const mention = drop.mode === "automatic"
+    ? originalMention || automaticEggPing(roleId).mention : "";
+  return (mention ? mention + "\n" : "") + dropText(drop, releaseName);
+}
+
 export async function publishCardDrop(interaction, { releaseId, testMode, automated = false, roleId = "" }) {
   const release = await CardRelease.findOne({ releaseId, status: "active" }).lean();
   if (!release) return interaction.editReply("No active release has that ID. Configure and approve a release first.");
@@ -672,8 +684,10 @@ export async function publishCardDrop(interaction, { releaseId, testMode, automa
       })),
     });
     const notification = automated ? automaticEggPing(roleId) : { mention: "", allowedMentions: { parse: [] } };
+    if (automated && !notification.mention)
+      throw Error("Automatic egg requires a valid configured Card role ID.");
     posted = await interaction.channel.send({
-      content: (notification.mention ? notification.mention + "\n" : "") + dropText(drop, release.name, petNames),
+      content: dropMessageContent(drop, release.name, { roleId }),
       files: [new AttachmentBuilder(dropPng, { name: "card-drop.png" })],
       components: [rowButtons(drop)],
       allowedMentions: notification.allowedMentions,
@@ -849,7 +863,7 @@ export async function handleCardGrab(interaction) {
         // deadline must not skip the worker's final display update.
         if (drop.status === "open" && new Date(drop.expiresAt) > new Date()) {
           const release = await CardRelease.findOne({ releaseId: drop.releaseId }).select("name").lean();
-          await interaction.message.edit({ content: dropText(drop, release?.name || drop.releaseId, names), components: [rowButtons(drop)], allowedMentions: { parse: [] } });
+          await interaction.message.edit({ content: dropMessageContent(drop, release?.name || drop.releaseId, { previousContent: interaction.message.content }), components: [rowButtons(drop)], allowedMentions: { parse: [] } });
         }
       }
     } catch (error) { console.warn("[Cards] Could not refresh drop display:", error.message); }
@@ -909,7 +923,7 @@ export async function reconcileCardDropClosures(client) {
       const names = Object.fromEntries(pets.map(p => [p.petId, p.name]));
       const release = await CardRelease.findOne({ releaseId: drop.releaseId }).select("name").lean();
       await message.edit({
-        content: dropText(drop, release?.name || drop.releaseId, names),
+        content: dropMessageContent(drop, release?.name || drop.releaseId, { previousContent: message.content }),
         components: [], allowedMentions: { parse: [] },
       });
       await CardDrop.updateOne({ _id: drop._id }, { $set: { displayClosedAt: new Date() } });

@@ -1,18 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 import GuildConfig from "../models/GuildConfig.js";
 import CardDrop from "../models/CardDrop.js";
 import { data as adminCommands } from "../commands/cards-admin.js";
-import { automaticEggPing } from "../commands/cards.js";
+import { automaticEggPing, dropMessageContent } from "../commands/cards.js";
 import {
-  chooseAutomaticDropRelease, initializeAutomaticDropSchedules, nextTimedDrop,
+  chooseAutomaticDropRelease,
   observeAutomaticDropActivity, clearAutomaticDropActivityForTests,
-  AUTO_DROP_MIN_MINUTES, AUTO_DROP_MAX_MINUTES,
   ACTIVITY_CHANCE, ACTIVITY_MESSAGES_REQUIRED, ACTIVITY_MEMBERS_REQUIRED,
 } from "../services/card-automatic-drops.js";
 import { eligiblePlayerDrop } from "../services/card-achievement-engine.js";
 
-test("every server uses global automatic egg settings and local managers cannot change them", () => {
+test("every server uses fixed activity-only rules and local managers cannot change them", () => {
   assert.ok(CardDrop.schema.path("mode").enumValues.includes("automatic"));
   assert.ok(GuildConfig.schema.path("hatchemNextAutoDropAt"));
   assert.ok(GuildConfig.schema.path("hatchemLastAutoDropAt"));
@@ -35,52 +35,37 @@ test("automatic egg pings only the registered server Card role", () => {
   }
 });
 
-test("timed eggs use an independent uniform 45–75 minute random window", () => {
-  const now=new Date("2026-11-02T12:00:00Z");
-  assert.equal(AUTO_DROP_MIN_MINUTES,45);
-  assert.equal(AUTO_DROP_MAX_MINUTES,75);
-  assert.equal(nextTimedDrop(now,(min,max)=>{
-    assert.equal(min,45);assert.equal(max,76);return 45;
-  }).toISOString(),"2026-11-02T12:45:00.000Z");
-  assert.equal(nextTimedDrop(now,(_min,_max)=>75).toISOString(),"2026-11-02T13:15:00.000Z");
-  for(let i=0;i<50;i++){
-    const delay=+nextTimedDrop(now)-+now;
-    assert.ok(delay>=45*60_000&&delay<=75*60_000);
-  }
+test("activity-only wild eggs never start from a timer, even with legacy Mongo dates", async () => {
+  const scheduler = await fs.readFile(new URL("../services/card-automatic-drops.js", import.meta.url), "utf8");
+  const index = await fs.readFile(new URL("../index.js", import.meta.url), "utf8");
+  assert.doesNotMatch(scheduler, /function nextTimedDrop|initializeAutomaticDropSchedules|reconcileAutomaticCardDrops/);
+  assert.doesNotMatch(index, /runCardAutoDropSweep|reconcileAutomaticCardDrops|cardAutoDropTimer/);
+  assert.match(index, /maybePublishActivityEgg\(client, message\)/);
+  assert.ok(GuildConfig.schema.path("hatchemNextAutoDropAt"),
+    "Old scheduled timestamps remain backward-compatible but inert.");
+  assert.ok(!scheduler.includes("hatchemNextAutoDropAt"));
 });
 
-test("configured servers get automatic schedules without opt-in, preserving existing dates", async () => {
-  const original = { find: GuildConfig.find, update: GuildConfig.updateOne };
-  const calls = [];
-  try {
-    GuildConfig.find = query => {
-      assert.equal(query.hatchemNextAutoDropAt, null);
-      assert.equal(query.hatchemChannelId.$ne, "");
-      assert.equal(query.cardRoleId.$ne, "");
-      assert.equal("hatchemAutoDropsEnabled" in query, false);
-      return { select: () => ({ limit: () => ({ lean: async () => [
-        { guildId: "111111111111111111" },
-        { guildId: "222222222222222222" },
-      ] }) }) };
-    };
-    GuildConfig.updateOne = async (filter, update) => {
-      assert.equal(filter.hatchemNextAutoDropAt, null);
-      assert.equal(filter.hatchemChannelId.$ne, "");
-      assert.equal(filter.cardRoleId.$ne, "");
-      calls.push({ filter, update });
-      return { modifiedCount: 1 };
-    };
-    const now = new Date("2026-11-02T12:00:00Z");
-    assert.equal(await initializeAutomaticDropSchedules(now), 2);
-    assert.equal(calls.length, 2);
-    for (const call of calls) {
-      const due = call.update.$set.hatchemNextAutoDropAt;
-      assert.ok(+due >= +now + 45 * 60_000);
-      assert.ok(+due <= +now + 75 * 60_000);
-    }
-  } finally {
-    GuildConfig.find = original.find; GuildConfig.updateOne = original.update;
-  }
+test("activity eggs ping the Card role once and keep it visible after grab and closure", async () => {
+  const roleId = "123456789012345678";
+  const announcement = dropMessageContent({ mode: "automatic", status: "open",
+    expiresAt: new Date(Date.now() + 75_000) }, "Test", { roleId });
+  assert.ok(announcement.startsWith("<@&" + roleId + ">\n🥚"));
+  const afterGrab = dropMessageContent({ mode: "automatic", status: "open",
+    expiresAt: new Date(Date.now() + 75_000) }, "Test", { previousContent: announcement });
+  assert.equal(afterGrab, announcement);
+  const afterClose = dropMessageContent({ mode: "automatic", status: "closed",
+    expiresAt: new Date(Date.now() - 1000) }, "Test", { previousContent: afterGrab });
+  assert.ok(afterClose.startsWith("<@&" + roleId + ">\n🥚"));
+  assert.match(afterClose, /Drop Ended/);
+  assert.equal((afterClose.match(/<@&/g) || []).length, 1);
+  assert.ok(!dropMessageContent({mode:"player",status:"open",
+    expiresAt:new Date(Date.now()+75_000)}, "Test", {roleId,previousContent:announcement}).includes("<@&"));
+  const source = await fs.readFile(new URL("../commands/cards.js", import.meta.url), "utf8");
+  assert.match(source, /allowedMentions: notification\.allowedMentions/);
+  assert.match(source, /previousContent: interaction\.message\.content/);
+  assert.match(source, /previousContent: message\.content/);
+  assert.match(source, /components: \[rowButtons\(drop\)\], allowedMentions: \{ parse: \[\] \}/);
 });
 
 test("activity chance requires real chat from three people; bots, spam and commands do not qualify", () => {

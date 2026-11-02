@@ -29,7 +29,7 @@ test("a short, optional tutorial explains every player mechanic in correct order
     ".view",".lock",".upgrade",".burn",".dustupgrade",".trade",".give",".shop",".achievements",".help"]){
     assert.ok(whole.includes(command),command+" should be explained in tutorial");
   }
-  for(const detail of ["75 seconds","45–75 minutes","15 minutes","5-minute",
+  for(const detail of ["75 seconds","12 meaningful messages","20% chance","15 minutes","5-minute",
     "4 matching Normal","4 matching Neons","10 Points","20 Points","Card role"]){
     assert.ok(whole.includes(detail),detail+" should be taught");
   }

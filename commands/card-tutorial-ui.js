@@ -23,7 +23,7 @@ export const HATCHEM_TUTORIAL_PAGES = Object.freeze([
     description: [
       "🥚 Every egg reveals **3 pet cards**. You'll have **75 seconds** to enter.",
       "",
-      "🎲 **Wild eggs** appear automatically every **45–75 minutes**. Active server chat can also trigger a bonus wild egg.",
+      "🎲 **Wild eggs** depend on server activity—not a clock. 12 meaningful messages from 3 members in 10 minutes gives a **20% chance** at an egg.",
       "📣 Wild eggs ping your server's Card role in the Hatchem channel.",
       "",
       "Want to hatch one yourself? Type `.drop`.",
