@@ -106,6 +106,20 @@ export const data = new SlashCommandBuilder()
     .addIntegerOption(option => option.setName("page")
       .setDescription("Page of the release's pets").setMinValue(1).setRequired(false)));
 
+// Keep legacy /cards-owner commands (including owner test/artwork tools) intact.
+// Official release lifecycle operations use a second, owner-only slash command
+// to stay below Discord\u0027s 25-subcommand limit.
+export const RELEASE_LIFECYCLE_SUBCOMMANDS = Object.freeze([
+  "egg-upload", "egg-review", "assign-art", "set-enabled",
+  "activate", "pause", "resume", "retire",
+]);
+export const cardsReleaseCommand = {
+  ...data.toJSON(),
+  name: "cards-release",
+  description: "Private owner-only official egg release controls",
+  options: data.toJSON().options.filter(option => RELEASE_LIFECYCLE_SUBCOMMANDS.includes(option.name)),
+};
+
 export async function execute(interaction) {
   // Never query or reveal release data until the ID-based owner check succeeds.
   // There is intentionally no administrator/role bypass.
