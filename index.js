@@ -82,6 +82,7 @@ import { data as cardsAdminCommand, execute as executeCardsAdmin } from "./comma
 import { data as cardsOwnerCommand, execute as executeCardsOwner, autocompleteCardsOwner } from "./commands/cards-owner.js";
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
 import { handleCardShopInteraction } from "./commands/card-shop-ui.js";
+import { handleCardInventoryInteraction } from "./commands/card-inventory-ui.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -472,12 +473,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // acknowledgement. All other slash commands keep their fast defer.
     if (interaction.isChatInputCommand() &&
         interaction.commandName !== adminImportCommand.name) {
-      // Collections are intentionally public so other members can browse them.
-      // All other slash commands retain their existing private replies.
-      const publicCollection = interaction.commandName === cardsCommand.name &&
-        interaction.options.getSubcommand(false) === "collection" &&
+      // Collection browsing and the inventory snapshot are explicitly public.
+      // Shop, achievements and other card commands still open privately.
+      const publicCardView = interaction.commandName === cardsCommand.name &&
+        ["collection", "inventory"].includes(interaction.options.getSubcommand(false)) &&
         process.env.ENABLE_CARD_GAME_TEST === "1";
-      await interaction.deferReply(publicCollection ? {} : { flags: MessageFlags.Ephemeral });
+      await interaction.deferReply(publicCardView ? {} : { flags: MessageFlags.Ephemeral });
     }
 
     if (interaction.isModalSubmit() &&
@@ -492,6 +493,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:shop:")) {
       await handleCardShopInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:inventory:")) {
+      await handleCardInventoryInteraction(interaction);
       return;
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId.startsWith("cards:collection:")) {
