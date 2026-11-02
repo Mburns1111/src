@@ -4,6 +4,7 @@ import CardRelease from "../models/CardRelease.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import CardArtwork from "../models/CardArtwork.js";
+import CardEggArtwork from "../models/CardEggArtwork.js";
 import { freezeAchievementRelease } from "./card-achievement-engine.js";
 import { CARD_RARITIES, DEFAULT_HATCH_ODDS, validateHatchOdds } from "./card-hatch-engine.js";
 
@@ -245,7 +246,9 @@ export async function checkOfficialReleaseReadiness({ releaseId: requestedId }) 
   const { release } = base;
   const problems = [...base.problems];
   if (release.releaseId.startsWith("test-")) problems.push("Test releases cannot be launched as official releases.");
-  if (!release.eggImageUrl && !release.eggImageFileId) problems.push("Egg artwork has not been configured.");
+  if (!release.eggImageFileId) problems.push("Official egg artwork must be uploaded to MongoDB.");
+  else if (!await CardEggArtwork.exists({releaseId:release.releaseId,licenseReviewStatus:"approved",fileId:release.eggImageFileId}))
+    problems.push("Official egg artwork has not passed its source/license review.");
   const activeDefs = await CardDefinition.find({
     releaseId: release.releaseId, enabled: true, artStatus: "approved", hatchWeight: { $gt: 0 },
   }).lean();
