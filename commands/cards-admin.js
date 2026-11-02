@@ -1,5 +1,6 @@
 import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import { configureAutomaticDrops } from "../services/card-automatic-drops.js";
 
 export const data = new SlashCommandBuilder()
   .setName("cards-admin")
@@ -8,12 +9,28 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(command => command.setName("setup-role")
     .setDescription("Set the Card role for this server; no release controls")
     .addRoleOption(option => option.setName("role")
-      .setDescription("Role registered collectors will receive").setRequired(true)));
+      .setDescription("Role registered collectors will receive").setRequired(true)))
+  .addSubcommand(command => command.setName("auto-drops")
+    .setDescription("Enable or disable scheduled eggs in this server")
+    .addBooleanOption(option => option.setName("enabled").setDescription("Post eggs automatically").setRequired(true))
+    .addIntegerOption(option => option.setName("minutes").setDescription("Minutes between eggs (15–1440, default 60)").setMinValue(15).setMaxValue(1440)));
 
 export async function execute(interaction) {
   if (!interaction.guildId || !interaction.guild) return interaction.editReply("Use this command inside a server.");
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return interaction.editReply("Only server managers can configure the local Card role.");
+    return interaction.editReply("Only server managers can configure Hatchem in this server.");
+  }
+  if (interaction.options.getSubcommand() === "auto-drops") {
+    try {
+      const result = await configureAutomaticDrops({
+        guildId: interaction.guildId,
+        enabled: interaction.options.getBoolean("enabled", true),
+        minutes: interaction.options.getInteger("minutes"),
+      });
+      return interaction.editReply(result.enabled
+        ? "Automatic Hatchem eggs enabled every **" + result.minutes + " minutes** in the configured Hatchem channel. Next egg: <t:" + Math.ceil(result.nextAt.getTime()/1000) + ":R>. This does not affect player drop cooldowns."
+        : "Automatic Hatchem eggs disabled for this server. Player-created drops are unaffected.");
+    } catch(error) { return interaction.editReply(error.message); }
   }
   if (interaction.options.getSubcommand() !== "setup-role") return interaction.editReply("Unknown Card setup action.");
   const role = interaction.options.getRole("role", true);
