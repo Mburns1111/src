@@ -166,7 +166,7 @@ export async function settleClosedCardDrop(drop) {
 // Losing entrants receive their five-minute grab opportunity back. The
 // sourceDropId check prevents a retry from erasing a newer entry's cooldown.
 export async function refundLosingCardGrabCooldowns(drop) {
-  if (drop.mode !== "player" || drop.grabRefundedAt) return;
+  if (drop.mode === "test" || drop.grabRefundedAt) return;
   const fresh = await CardDrop.findById(drop._id).lean();
   if (!fresh || fresh.status !== "closed" || fresh.grabRefundedAt) return;
   if (fresh.slots.some(slot =>
