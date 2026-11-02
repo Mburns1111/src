@@ -160,7 +160,7 @@ test("/party start game:Court of Chaos opens signup without starting Round 1", a
       ["Join", "Leave", "Start Party"]);
     assert.equal(updates.length, 1);
     assert.deepEqual(Object.keys(updates[0].update.$set).sort(), ["messageId", "renderedVersion"]);
-    assert.match(interaction.replies[0].content, /signup lobby created/);
+    assert.match(interaction.replies[0].content, /Signup lobby created/i);
     assert.match(interaction.replies[0].content, /Members can Join or Leave/);
     assert.doesNotMatch(interaction.replies[0].content, /Round 1 is open/);
   } finally {
