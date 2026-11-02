@@ -25,30 +25,60 @@ export function publicSecretReceipt(a){
  return "🔮 <@"+a.discordUserId+"> discovered a secret Hatchem achievement! They are #"+a.discoveryNumber+
   " to discover it! · "+safe(a.anonymousId)+(a.releaseFirst?" · First new unlock during "+safe(a.releaseId):"");
 }
+// Fit the main list on a phone screen. Detailed secret requirements remain
+// visible only to their discoverer, in this private achievements response.
+export const ACHIEVEMENTS_PER_PAGE = 12;
+
 export function achievementPages(rows){
  const secrets=rows.filter(a=>a.secret),visible=rows.filter(a=>!a.secret);
  const groups=new Map();for(const a of secrets){const category=(a.anonymousId||"Permanent").split(" · ")[0];
   const g=groups.get(category)||{earned:0,total:0};g.total++;if(a.earned)g.earned++;groups.set(category,g);}
+ const earnedCount=rows.filter(a=>a.earned).length;
  const overview=["🏆 **Your Hatchem Achievements**",
-  "Extra Grabs: **"+(rows.wallet?.bonusGrabs||0)+"** · Extra Drops: **"+(rows.wallet?.bonusDrops||0)+"**",
+  "**Earned:** "+earnedCount+"/"+rows.length+" · **Extra Grabs:** "+(rows.wallet?.bonusGrabs||0)+" · **Extra Drops:** "+(rows.wallet?.bonusDrops||0),
   ...[...groups].map(([name,g])=>"🔒 "+safe(name)+" Secrets: "+g.earned+"/"+g.total+" discovered"),
-  secrets.some(a=>!a.earned)?"❔ Undiscovered secrets":"",
-  !achievementStart()?"Achievement rewards await the official start date.":"",
+  !achievementStart()?"*Rewards start on the official launch date.*":"",
  ].filter(Boolean).join("\n");
- // Only next/recent recurring milestones are shown; earned records remain durable.
+ // Show only nearby recurring milestones, not the unbounded 50-grab/drop list.
  const recurring=a=>/^(grab|drop)-\d+$/.test(a.key);
  const milestones=visible.filter(recurring);
  const recent=milestones.filter(a=>a.earned).sort((a,b)=>new Date(b.unlockedAt)-new Date(a.unlockedAt)).slice(0,6);
  const upcoming=["grab","drop"].flatMap(kind=>milestones.filter(a=>a.key.startsWith(kind+"-")&&!a.earned).sort((a,b)=>a.goal-b.goal).slice(0,1));
  const shown=[...visible.filter(a=>!recurring(a)),...recent,...upcoming,...secrets.filter(a=>a.earned)];
- const lines=shown.map(a=>a.earned?
-  "✅ **"+safe(a.name)+"**"+(a.discoveryNumber?" · #"+a.discoveryNumber:" · Legacy badge")+
-  (a.unlockedAt?" · <t:"+Math.floor(new Date(a.unlockedAt).getTime()/1000)+":d>":"")+
-  "\n"+safe(a.description)+(a.rewardGrantedAt?" · Earned +"+(a.rewardGrabs||0)+" grabs / +"+(a.rewardDrops||0)+" drops":""):
-  "▫️ **"+safe(a.name)+"** — "+Math.min(a.current||0,a.goal)+"/"+a.goal+"\n"+safe(a.description));
- const pages=[];let text=overview;
- for(const line of lines){if(text.length+line.length>1750){pages.push(text);text="🏆 **Your Hatchem Achievements**";}text+="\n\n"+line;}
- pages.push(text);return pages.map((p,i)=>p+"\n\nPage "+(i+1)+"/"+pages.length+" · `.achievements "+(i+2<=pages.length?i+2:1)+"`");
+ const lines=shown.map(a=>{
+  const name=safe(a.name);
+  if(!a.earned)return "▫️ "+name+" — "+Math.min(a.current||0,a.goal)+"/"+a.goal;
+  const date=a.unlockedAt&&Number.isFinite(new Date(a.unlockedAt).getTime())?
+   " · <t:"+Math.floor(new Date(a.unlockedAt).getTime()/1000)+":d>":"";
+  const rank=a.discoveryNumber?" · #"+a.discoveryNumber:" · Legacy badge";
+  const reward=a.rewardGrantedAt?" · +"+(a.rewardGrabs||0)+" grabs / +"+(a.rewardDrops||0)+" drops":"";
+  if(a.secret){
+   // Secret name, condition and earned reward stay available *privately*.
+   return "✅ "+name+rank+date+"\n"+safe(a.description)+reward;
+  }
+  return "✅ "+name+rank+date+reward;
+ });
+ const pages=[];let section=[],size=overview.length;
+ const push=()=>{
+  if(section.length){pages.push(section);section=[];size=overview.length;}
+ };
+ for(const line of lines){
+  // Count each achievement as one item, even if a discovered secret has a
+  // second private detail line. Bound pages by both height and Discord size.
+  if(section.length>=ACHIEVEMENTS_PER_PAGE||size+line.length+2>1730)push();
+  section.push(line);size+=line.length+2;
+ }
+ push();
+ if(!pages.length)pages.push(["No achievements available yet."]);
+ return pages.map((items,i)=>[
+  overview,
+  "",
+  "**Milestones**",
+  items.join("\n"),
+  "",
+  "Page "+(i+1)+"/"+pages.length+
+   (pages.length>1?" · Next: `.achievements "+(i+2<=pages.length?i+2:1)+"`":""),
+ ].join("\n"));
 }
 export function formatCardAchievements(rows,page=1){const pages=achievementPages(rows);return pages[Math.max(0,Math.min(pages.length-1,Number(page||1)-1))];}
 export async function secretHallOfFame(page=1){
