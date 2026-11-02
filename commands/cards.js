@@ -588,7 +588,7 @@ function formatCardCooldown(date) {
   return "<t:" + unix + ":R> (<t:" + unix + ":t>)";
 }
 
-async function publishCardDrop(interaction, { releaseId, testMode, automated = false }) {
+export async function publishCardDrop(interaction, { releaseId, testMode, automated = false }) {
   const release = await CardRelease.findOne({ releaseId, status: "active" }).lean();
   if (!release) return interaction.editReply("No active release has that ID. Configure and approve a release first.");
   const odds = Object.fromEntries(["Common","Uncommon","Rare","Ultra-Rare","Legendary"].map(k => [k, release.hatchOdds[k]]));
