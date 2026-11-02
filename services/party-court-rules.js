@@ -97,28 +97,42 @@ export const COURT_ROUND_POINTS = Object.freeze([1000, 1500, 2000]);
 export const COURT_MIN_PLAYERS = 1;
 export const COURT_MAX_PLAYERS = 20;
 
+// Each person gets two separate prompts per round, with a new opponent
+// where the roster permits it. With one member, both prompts are solo.
+export const COURT_MATCHUPS_PER_PLAYER = 2;
+
 export function assignCourtMatchups(players, round, category = "mixed", usedIds = [], random = Math.random) {
   if (players.length < COURT_MIN_PLAYERS || players.length > COURT_MAX_PLAYERS || new Set(players).size !== players.length)
     throw new Error("Court of Chaos requires 1–20 distinct players.");
-  const pool = COURT_PROMPTS.filter(p => (category === "mixed" || p.category === category) && !usedIds.includes(p.id));
-  const available = pool.length ? pool : COURT_PROMPTS.filter(p => category === "mixed" || p.category === category);
   const shuffled = [...players];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
+  const pool = COURT_PROMPTS.filter(p => category === "mixed" || p.category === category);
+  // Prefer unused prompts, and never repeat a prompt within the same round.
+  const alreadyUsed = new Set(usedIds);
+  const usedThisRound = new Set();
   const matchups = [];
-  const options = [...available];
-  const count = Math.max(1, Math.floor(players.length / 2));
-  for (let i = 0, offset = 0; i < count; i++) {
-    const size = players.length === 1 ? 1 :
-      (players.length % 2 && i === count - 1 ? 3 : 2);
-    const playerIds = shuffled.slice(offset, offset + size);
-    offset += size;
-    if (!options.length) options.push(...available);
-    const choice = Math.floor(random() * options.length);
-    const [prompt] = options.splice(choice, 1);
-    matchups.push({ playerIds, promptId: prompt.id, prompt: prompt.text });
+  for (let pass = 0; pass < COURT_MATCHUPS_PER_PLAYER; pass++) {
+    const roster = pass === 0 ? shuffled : [
+      ...shuffled.slice(1), shuffled[0],
+    ];
+    let offset = 0;
+    const count = Math.max(1, Math.floor(roster.length / 2));
+    for (let i = 0; i < count; i++) {
+      const size = roster.length === 1 ? 1 :
+        (roster.length % 2 === 1 && i === count - 1 ? 3 : 2);
+      const playerIds = roster.slice(offset, offset + size);
+      offset += size;
+      const notShown = pool.filter(p => !usedThisRound.has(p.id));
+      const fresh = notShown.filter(p => !alreadyUsed.has(p.id));
+      const choices = fresh.length ? fresh : notShown;
+      if (!choices.length) throw new Error("Not enough unique Court of Chaos prompts for this round.");
+      const prompt = choices[Math.floor(random() * choices.length)];
+      usedThisRound.add(prompt.id);
+      matchups.push({ playerIds, promptId: prompt.id, prompt: prompt.text });
+    }
   }
   return matchups;
 }
