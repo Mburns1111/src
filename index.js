@@ -80,7 +80,7 @@ import { execute as executeShop, data as shopCommand, ensureShopEntry, handleSho
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
 import { reconcileAutomaticCardDrops, maybePublishActivityEgg } from "./services/card-automatic-drops.js";
 import { data as cardsAdminCommand, execute as executeCardsAdmin } from "./commands/cards-admin.js";
-import { data as cardsOwnerCommand, execute as executeCardsOwner, autocompleteCardsOwner } from "./commands/cards-owner.js";
+import { data as cardsOwnerCommand, cardsReleaseCommand, execute as executeCardsOwner, autocompleteCardsOwner } from "./commands/cards-owner.js";
 import { handleCardCollectionInteraction } from "./commands/card-collection-ui.js";
 import { handleCardShopInteraction } from "./commands/card-shop-ui.js";
 import { handleCardInventoryInteraction } from "./commands/card-inventory-ui.js";
@@ -311,6 +311,7 @@ const commandHandlers = new Map([
   [cardsCommand.name, executeCards],
   [cardsAdminCommand.name, executeCardsAdmin],
   [cardsOwnerCommand.name, executePrivateCardCommands],
+  [cardsReleaseCommand.name, executePrivateCardCommands],
   [testPointsCommand.name, executeTestPoints],
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
@@ -473,7 +474,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         } else {
           await interaction.respond([]);
         }
-      } else if (interaction.commandName === cardsOwnerCommand.name) {
+      } else if ([cardsOwnerCommand.name, cardsReleaseCommand.name].includes(interaction.commandName)) {
         if (ownerOnlyCardSubcommands.has(interaction.options.getSubcommand(false)))
           await autocompleteCards(interaction);
         else await autocompleteCardsOwner(interaction);
@@ -822,6 +823,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         cardsCommand.name,
         cardsAdminCommand.name,
         cardsOwnerCommand.name,
+        cardsReleaseCommand.name,
         testPointsCommand.name,
         pointsAdminCommand.name,
         pointsObserveCommand.name,
@@ -831,7 +833,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     ) {
       await ensureProfileCard(interaction.guild, interaction.user);
     }
-    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name].includes(interaction.commandName) && interaction.guildId) {
+    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name, cardsReleaseCommand.name].includes(interaction.commandName) && interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
       if (
         config?.commandChannelId &&
