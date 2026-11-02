@@ -115,10 +115,10 @@ test("collection query includes lock state so locked cards can display the symbo
 test("collection list, picker and card detail all display locked visual indicator", async () => {
   const { readFileSync } = await import("node:fs");
   const source = readFileSync(new URL("../commands/card-collection-ui.js", import.meta.url), "utf8");
-  assert.match(source, /c\\.locked \\? \\["🔒"\\] : \\[\\]/,
+  assert.ok(source.includes('c.locked ? ["🔒"] : []'),
     "list row should append a lock for locked cards only");
-  assert.match(source, /c\\.locked \\? "🔒 " : ""/,
+  assert.ok(source.includes('c.locked ? "🔒 " : ""'),
     "card selector should show the same lock at a glance");
-  assert.match(source, /copy\\.locked \\? " · 🔒 Locked" : ""/,
+  assert.ok(source.includes('copy.locked ? " · 🔒 Locked" : ""'),
     "the selected card detail should disclose protection");
 });
