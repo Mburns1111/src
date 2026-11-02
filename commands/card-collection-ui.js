@@ -92,9 +92,9 @@ async function collectionView(id, ownerId) {
 }
 
 export async function startCardCollection(interaction) {
-  const target = interaction.options.getUser("member") || interaction.user;
+  const target = interaction.options?.getUser?.("member") || interaction.user;
   const name = target.id === interaction.user.id ? "Your Card Collection" : `${target.username}’s Card Collection`;
-  const requestedTag = interaction.options.getString("tag")?.trim() || "";
+  const requestedTag = interaction.options?.getString?.("tag")?.trim() || "";
   const id = openCollectionSession(interaction.user.id, target.id, name);
   if (requestedTag) {
     const available = await listCollectionTags(target.id);
