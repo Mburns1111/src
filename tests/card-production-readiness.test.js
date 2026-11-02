@@ -79,7 +79,7 @@ test("live Hatchem rejects a forged test-drop interaction without touching data"
     delete process.env.ENABLE_CARD_GAME_TEST;
     let reply="";
     await executeCards({
-      user:{id:OWNER},options:{getSubcommand:()=>"test-drop"},
+      guildId:"234567890123456789",user:{id:OWNER},options:{getSubcommand:()=>"test-drop"},
       editReply:response=>{reply=response;},
     });
     assert.match(reply,/Test drops are available on the development bot only/);
