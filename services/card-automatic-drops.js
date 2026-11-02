@@ -1,27 +1,42 @@
+import { randomInt } from "node:crypto";
 import GuildConfig from "../models/GuildConfig.js";
 import CardRelease from "../models/CardRelease.js";
+import CardDrop from "../models/CardDrop.js";
+import { qualifyingMessageText } from "./activity-rewards.js";
 import { publishCardDrop } from "../commands/cards.js";
 
-export const AUTO_DROP_DEFAULT_MINUTES = 60;
-export const AUTO_DROP_MINUTES_MIN = 15;
-export const AUTO_DROP_MINUTES_MAX = 1440;
+// The two systems are independent: every server gets a timed egg every
+// 45-75 minutes, plus an occasional extra egg for genuine conversation.
+export const AUTO_DROP_MIN_MINUTES = 45;
+export const AUTO_DROP_MAX_MINUTES = 75;
+export const ACTIVITY_WINDOW_MS = 10 * 60_000;
+export const ACTIVITY_MESSAGES_REQUIRED = 12;
+export const ACTIVITY_MEMBERS_REQUIRED = 3;
+export const ACTIVITY_USER_COOLDOWN_MS = 60_000;
+export const ACTIVITY_ROLL_COOLDOWN_MS = 10 * 60_000;
+export const ACTIVITY_CHANCE = 0.20;
+export const ACTIVITY_BONUS_COOLDOWN_MS = 30 * 60_000;
+export const AUTOMATIC_EGG_SPACING_MS = 15 * 60_000;
 
-// Automatic drops are opt-in per server, and the next due time is durable.
-// Existing guilds remain disabled until a server manager explicitly opts in.
-export async function configureAutomaticDrops({ guildId, enabled, minutes, now = new Date() }) {
-  if (!guildId || typeof enabled !== "boolean") throw Error("Specify a server and whether automatic drops are enabled.");
+export function nextTimedDrop(now = new Date(), randint = randomInt) {
+  const minutes = randint(AUTO_DROP_MIN_MINUTES, AUTO_DROP_MAX_MINUTES + 1);
+  return new Date(now.getTime() + minutes * 60_000);
+}
+
+export async function configureAutomaticDrops({ guildId, enabled, now = new Date() }) {
+  if (!guildId || typeof enabled !== "boolean")
+    throw Error("Specify a server and whether automatic drops are enabled.");
   const config = await GuildConfig.findOne({ guildId }).lean();
-  if (!config?.hatchemChannelId) throw Error("Set up the Hatchem channel before enabling automatic drops.");
-  const interval = minutes ?? config.hatchemAutoDropMinutes ?? AUTO_DROP_DEFAULT_MINUTES;
-  if (!Number.isInteger(interval) || interval < AUTO_DROP_MINUTES_MIN || interval > AUTO_DROP_MINUTES_MAX)
-    throw Error("Choose an interval between 15 and 1440 whole minutes.");
-  const next = enabled ? new Date(now.getTime() + interval * 60_000) : null;
+  if (!config?.hatchemChannelId)
+    throw Error("Set up the Hatchem channel before enabling automatic drops.");
+  const next = enabled ? nextTimedDrop(now) : null;
   await GuildConfig.updateOne({ guildId }, { $set: {
     hatchemAutoDropsEnabled: enabled,
-    hatchemAutoDropMinutes: interval,
     hatchemNextAutoDropAt: next,
+    hatchemNextActivityDropAt: enabled ? now : null,
   } });
-  return { enabled, minutes: interval, nextAt: next };
+  return { enabled, minMinutes: AUTO_DROP_MIN_MINUTES,
+    maxMinutes: AUTO_DROP_MAX_MINUTES, nextAt: next };
 }
 
 export function chooseAutomaticDropRelease(releases, allowTest = false) {
@@ -29,52 +44,149 @@ export function chooseAutomaticDropRelease(releases, allowTest = false) {
     (allowTest ? releases.find(r => r.releaseId === "test-s1-r1") : null) || null;
 }
 
-// A conditional write on the GuildConfig row is the cross-process scheduler lock.
-// Every due window is claimed before sending, so restarts/parallel bot processes
-// cannot duplicate an egg. If Discord fails, log it and retry next window.
+// Shared, conditional MongoDB writes ensure that parallel bot processes and
+// reconnects cannot claim the same timed slot or activity reward window.
+// The last-post check spaces timed and activity eggs at least 15 minutes apart.
+function lastEggIsOldEnough(now) {
+  return { $not: { $gt: new Date(now.getTime() - AUTOMATIC_EGG_SPACING_MS) } };
+}
+
+async function chooseCurrentRelease() {
+  const releases = await CardRelease.find({ status: "active" })
+    .select("releaseId").sort({ createdAt: -1, _id: -1 }).limit(40).lean();
+  return chooseAutomaticDropRelease(releases, process.env.ENABLE_CARD_GAME_TEST === "1");
+}
+
+async function hasOpenAutomaticEgg(guildId, now) {
+  return Boolean(await CardDrop.exists({
+    guildId, mode: "automatic", status: "open", expiresAt: { $gt: now },
+  }));
+}
+
+async function sendAutomaticEgg(client, config, releaseId) {
+  const channel = await client.channels.fetch(config.hatchemChannelId);
+  if (!channel || channel.guildId !== config.guildId || typeof channel.send !== "function")
+    throw Error("Configured Hatchem channel is missing or cannot receive messages.");
+  await publishCardDrop({
+    user: { id: client.user.id },
+    guildId: config.guildId,
+    channelId: channel.id,
+    channel,
+    editReply: async message => {
+      throw Error(typeof message === "string" ? message : "Automatic drop was rejected.");
+    },
+    suppressSuccessDropReply: async () => null,
+  }, { releaseId, testMode: false, automated: true });
+}
+
+// The timed schedule remains independent of bonuses. If another auto egg is
+// open or was posted in the last 15 minutes, the due slot stays due until it
+// can safely post. A failed send never creates an endless immediate retry.
 export async function reconcileAutomaticCardDrops(client, now = new Date()) {
   if (process.env.ENABLE_CARD_GAME_TEST !== "1") return 0;
   const configs = await GuildConfig.find({
     hatchemAutoDropsEnabled: true,
     hatchemNextAutoDropAt: { $lte: now },
     hatchemChannelId: { $ne: "" },
-  }).select("guildId hatchemChannelId hatchemAutoDropMinutes").lean();
+  }).select("guildId hatchemChannelId").lean();
   if (!configs.length) return 0;
-  const releases = await CardRelease.find({ status: "active" })
-    .select("releaseId").sort({ createdAt: -1, _id: -1 }).limit(40).lean();
-  const selected = chooseAutomaticDropRelease(releases, true);
-  if (!selected) return 0;
+  const release = await chooseCurrentRelease();
+  if (!release) return 0;
 
   let published = 0;
   for (const config of configs) {
-    const interval = config.hatchemAutoDropMinutes || AUTO_DROP_DEFAULT_MINUTES;
-    if (!Number.isInteger(interval) || interval < AUTO_DROP_MINUTES_MIN || interval > AUTO_DROP_MINUTES_MAX) {
-      console.error("[Hatchem] Invalid automatic drop interval for server", config.guildId);
-      continue;
-    }
-    const claimed = await GuildConfig.findOneAndUpdate({
-      guildId: config.guildId,
-      hatchemAutoDropsEnabled: true,
-      hatchemNextAutoDropAt: { $lte: now },
-    }, { $set: { hatchemNextAutoDropAt: new Date(now.getTime() + interval * 60_000) } },
-    { returnDocument: "after" }).lean();
-    if (!claimed) continue;
     try {
-      const channel = await client.channels.fetch(claimed.hatchemChannelId);
-      if (!channel || channel.guildId !== claimed.guildId || typeof channel.send !== "function")
-        throw Error("Configured Hatchem channel is missing or not sendable.");
-      await publishCardDrop({
-        user: { id: client.user.id },
-        guildId: claimed.guildId,
-        channelId: channel.id,
-        channel,
-        editReply: async message => { throw Error(typeof message === "string" ? message : "Automatic drop was rejected."); },
-        suppressSuccessDropReply: async () => null,
-      }, { releaseId: selected.releaseId, testMode: false, automated: true });
+      if (await hasOpenAutomaticEgg(config.guildId, now)) continue;
+      const claimed = await GuildConfig.findOneAndUpdate({
+        guildId: config.guildId,
+        hatchemAutoDropsEnabled: true,
+        hatchemNextAutoDropAt: { $lte: now },
+        hatchemLastAutoDropAt: lastEggIsOldEnough(now),
+      }, { $set: {
+        hatchemNextAutoDropAt: nextTimedDrop(now),
+        hatchemLastAutoDropAt: now,
+      } }, { returnDocument: "after" }).lean();
+      if (!claimed) continue;
+      await sendAutomaticEgg(client, claimed, release.releaseId);
       published++;
     } catch (error) {
-      console.error("[Hatchem] Automatic egg failed in server " + config.guildId + ":", error);
+      console.error("[Hatchem] Timed egg failed in server " + config.guildId + ":", error);
     }
   }
   return published;
+}
+
+// Activity is observed in memory only. Message content is neither retained
+// nor recorded: keep just user IDs and timestamps for the rolling 10m window.
+// Per-member pacing plus 3 distinct people prevent one spammer generating eggs.
+// Persistent MongoDB limits below remain authoritative across bot processes.
+const activity = new Map();
+const MAX_ACTIVITY_GUILDS = 500;
+const MAX_EVENTS_PER_GUILD = 150;
+export function clearAutomaticDropActivityForTests() { activity.clear(); }
+
+export function observeAutomaticDropActivity(message, now = new Date()) {
+  if (!message?.guildId || !message.author?.id || message.author.bot ||
+      message.webhookId || message.system || !qualifyingMessageText(message.content))
+    return false;
+
+  for (const [id, state] of activity) {
+    if (state.updatedAt < now.getTime() - ACTIVITY_WINDOW_MS) activity.delete(id);
+  }
+  let state = activity.get(message.guildId);
+  if (!state) {
+    if (activity.size >= MAX_ACTIVITY_GUILDS) activity.delete(activity.keys().next().value);
+    state = { events: [], lastPerUser: new Map(), lastRollAt: 0, updatedAt: 0 };
+    activity.set(message.guildId, state);
+  }
+  const ts = now.getTime();
+  state.updatedAt = ts;
+  state.events = state.events.filter(e => e.at > ts - ACTIVITY_WINDOW_MS);
+  for (const [id, time] of state.lastPerUser)
+    if (time <= ts - ACTIVITY_USER_COOLDOWN_MS) state.lastPerUser.delete(id);
+  if (ts - (state.lastPerUser.get(message.author.id) || 0) < ACTIVITY_USER_COOLDOWN_MS)
+    return false;
+  state.lastPerUser.set(message.author.id, ts);
+  state.events.push({ userId: message.author.id, at: ts });
+  if (state.events.length > MAX_EVENTS_PER_GUILD)
+    state.events.splice(0, state.events.length - MAX_EVENTS_PER_GUILD);
+
+  if (state.events.length < ACTIVITY_MESSAGES_REQUIRED ||
+      new Set(state.events.map(e => e.userId)).size < ACTIVITY_MEMBERS_REQUIRED ||
+      ts - state.lastRollAt < ACTIVITY_ROLL_COOLDOWN_MS) return false;
+  state.events = [];
+  state.lastRollAt = ts;
+  return true; // One chance roll, not one guaranteed egg.
+}
+
+// A successful qualifying burst produces one 20% chance. At most one
+// activity bonus every 30m per server; and no two auto eggs within 15m.
+export async function maybePublishActivityEgg(client, message, {
+  now = new Date(), random = Math.random,
+} = {}) {
+  if (process.env.ENABLE_CARD_GAME_TEST !== "1") return false;
+  if (!observeAutomaticDropActivity(message, now)) return false;
+  if (random() >= ACTIVITY_CHANCE) return false;
+  if (await hasOpenAutomaticEgg(message.guildId, now)) return false;
+  const release = await chooseCurrentRelease();
+  if (!release) return false;
+
+  const claimed = await GuildConfig.findOneAndUpdate({
+    guildId: message.guildId,
+    hatchemAutoDropsEnabled: true,
+    hatchemChannelId: { $ne: "" },
+    hatchemLastAutoDropAt: lastEggIsOldEnough(now),
+    hatchemNextActivityDropAt: { $not: { $gt: now } },
+  }, { $set: {
+    hatchemNextActivityDropAt: new Date(now.getTime() + ACTIVITY_BONUS_COOLDOWN_MS),
+    hatchemLastAutoDropAt: now,
+  } }, { returnDocument: "after" }).lean();
+  if (!claimed) return false;
+  try {
+    await sendAutomaticEgg(client, claimed, release.releaseId);
+    return true;
+  } catch (error) {
+    console.error("[Hatchem] Activity bonus egg failed in server " + message.guildId + ":", error);
+    return false;
+  }
 }
