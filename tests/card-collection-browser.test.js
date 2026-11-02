@@ -1,9 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { data } from "../commands/cards.js";
+import CardCopy from "../models/CardCopy.js";
 import { COLLECTION_PAGE_SIZE, COLLECTION_RARITY_OPTIONS, COLLECTION_SORT_OPTIONS,
   openCollectionSession, getCollectionSession, updateCollectionSession, closeCollectionSession,
-  listCollectionRarities, listCollectionTags } from "../services/card-collection-browser.js";
+  listCollectionRarities, listCollectionTags, getCollectionPage } from "../services/card-collection-browser.js";
 import { startCardCollection, handleCardCollectionInteraction } from "../commands/card-collection-ui.js";
 
 test("private collection viewer supports 10-card pages and sortable filters", () => {
@@ -82,4 +83,42 @@ test("collection slash command targets members and public response is explicitly
   assert.match(ui, /getCollectionSession\(id, interaction\.user\.id\)/);
   assert.match(ui, /getCollectionPage\(session\.collectionOwnerId, session\)/);
   assert.match(ui, /findOwnedCollectionCard\(session\.collectionOwnerId,/);
+});
+
+test("collection query includes lock state so locked cards can display the symbol", async () => {
+  const original = CardCopy.aggregate;
+  const sessionId = openCollectionSession("123456789012345678");
+  try {
+    CardCopy.aggregate = async stages => {
+      const projection = stages.at(-1)?.$facet?.cards?.at(-1)?.$project;
+      assert.equal(projection?.locked, 1,
+        "MongoDB projection must return locked for collection list rows");
+      assert.equal(projection?.publicId, 1);
+      return [{
+        total: [{ n: 2 }],
+        cards: [
+          { _id: "a", publicId: "Abc12", locked: true, petName: "Owl", upgradeLevel: "normal" },
+          { _id: "b", publicId: "Def34", locked: false, petName: "Cat", upgradeLevel: "normal" },
+        ],
+      }];
+    };
+    const session = getCollectionSession(sessionId, "123456789012345678");
+    const page = await getCollectionPage("123456789012345678", session);
+    assert.equal(page.cards[0].locked, true);
+    assert.equal(page.cards[1].locked, false);
+  } finally {
+    CardCopy.aggregate = original;
+    closeCollectionSession(sessionId, "123456789012345678");
+  }
+});
+
+test("collection list, picker and card detail all display locked visual indicator", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("../commands/card-collection-ui.js", import.meta.url), "utf8");
+  assert.match(source, /c\\.locked \\? \\["🔒"\\] : \\[\\]/,
+    "list row should append a lock for locked cards only");
+  assert.match(source, /c\\.locked \\? "🔒 " : ""/,
+    "card selector should show the same lock at a glance");
+  assert.match(source, /copy\\.locked \\? " · 🔒 Locked" : ""/,
+    "the selected card detail should disclose protection");
 });
