@@ -4,7 +4,7 @@ import CardCopy from "../models/CardCopy.js";
 import PointsWallet from "../models/PointsWallet.js";
 import { startCardCollection } from "./card-collection-ui.js";
 import { startCardShop } from "./card-shop-ui.js";
-import { formatCardAchievements, listCardAchievements } from "../services/card-achievements.js";
+import { loadAchievementMessage } from "./card-achievements-ui.js";
 
 const validId = value => /^\d{17,20}$/.test(String(value || ""));
 const safe = value => String(value || "").replace(/[@`*_~|<>\r\n]/g, "").slice(0, 60);
@@ -114,8 +114,7 @@ export async function handleCardInventoryInteraction(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     if (action === "shop") return await startCardShop(interaction);
-    const content = formatCardAchievements(await listCardAchievements(userId), 1);
-    return interaction.editReply({ content, allowedMentions: { parse: [] } });
+    return interaction.editReply(await loadAchievementMessage(userId));
   } catch (error) {
     console.error("[Hatchem Inventory] Could not open linked screen:", error);
     return interaction.editReply("Could not open that Hatchem screen. Use its command to try again.");
