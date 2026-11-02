@@ -28,6 +28,7 @@ import { selectOwnedTagTargets } from "../services/card-tag-targets.js";
 import { prepareCardTagConfirmation, getCardTagConfirmation, cancelCardTagConfirmation, confirmCardTagChange } from "../services/card-tag-confirmations.js";
 import { startCardCollection } from "./card-collection-ui.js";
 import { startCardShop } from "./card-shop-ui.js";
+import { startCardInventory } from "./card-inventory-ui.js";
 import { prepareCardUpgrade, confirmCardUpgrade, cancelCardUpgrade, suggestOwnedCardUpgrades } from "../services/card-upgrades.js";
 import { prepareDustUpgrade,confirmDustUpgrade,cancelDustUpgrade } from "../services/card-dust-upgrades.js";
 import { setCardLock } from "../services/card-locks.js";
@@ -49,6 +50,7 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
   .addSubcommand(c => c.setName("drop").setDescription("Drop an active egg (15-minute cooldown across all servers)"))
   .addSubcommand(c => c.setName("cooldowns").setDescription("Check when your next drop and grab are ready"))
   .addSubcommand(c => c.setName("shop").setDescription("Buy Extra Grabs and Extra Drops with Points"))
+  .addSubcommand(c => c.setName("inventory").setDescription("Publicly display your Hatchem cards, bonus actions, Points and dust"))
   .addSubcommand(c => c.setName("collection").setDescription("Show your collection or another member’s cards")
     .addUserOption(o => o.setName("member").setDescription("Whose collection to view (defaults to yours)").setRequired(false))
     .addStringOption(o => o.setName("tag").setDescription("Optional saved tag filter, e.g. cute").setRequired(false)))
@@ -80,9 +82,6 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
     .addStringOption(o => o.setName("card_ids").setDescription("Optional 2–20 card IDs, separated by spaces or commas").setRequired(false)))
   .addSubcommand(c => c.setName("untag").setDescription("Confirm removing tags from one or all matching cards")
     .addStringOption(o => o.setName("card_id").setDescription("Optional ID or pet-name prefix; defaults to newest owned").setRequired(false).setAutocomplete(true)))
-  .addSubcommand(c => c.setName("tag-multiple").setDescription("Apply one tag to multiple cards you own")
-    .addStringOption(o => o.setName("tag").setDescription("Tag to apply").setRequired(true).setMinLength(1).setMaxLength(32))
-    .addStringOption(o => o.setName("card_ids").setDescription("1–20 five-character card IDs, comma-separated").setRequired(true)))
   .addSubcommand(c => c.setName("untag-multiple").setDescription("Remove tags from multiple cards you own")
     .addStringOption(o => o.setName("card_ids").setDescription("1–20 five-character card IDs, comma-separated").setRequired(true)))
   .addSubcommand(c => c.setName("create-tag").setDescription("Save a reusable collection tag, even with no assigned cards")
@@ -168,6 +167,7 @@ export async function execute(interaction) {
     return startCardTrade(interaction,{gift:option==="give"});
   }
   if (option === "shop") return startCardShop(interaction);
+  if (option === "inventory") return startCardInventory(interaction);
   if (option === "collection") {
     if (isEnabled()) return startCardCollection(interaction);
     const summary = await getCardCollectionSummary(interaction.user.id);
