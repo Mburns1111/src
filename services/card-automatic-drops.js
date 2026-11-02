@@ -1,4 +1,5 @@
 import { randomInt } from "node:crypto";
+import {isCardGameEnabled,isCardGameTestMode} from "./card-game-mode.js";
 import GuildConfig from "../models/GuildConfig.js";
 import CardRelease from "../models/CardRelease.js";
 import CardDrop from "../models/CardDrop.js";
@@ -61,7 +62,7 @@ function lastEggIsOldEnough(now) {
 async function chooseCurrentRelease() {
   const releases = await CardRelease.find({ status: "active" })
     .select("releaseId").sort({ createdAt: -1, _id: -1 }).limit(40).lean();
-  return chooseAutomaticDropRelease(releases, process.env.ENABLE_CARD_GAME_TEST === "1");
+  return chooseAutomaticDropRelease(releases, isCardGameTestMode());
 }
 
 async function hasOpenCardEgg(guildId, now) {
@@ -91,7 +92,7 @@ async function sendAutomaticEgg(client, config, releaseId) {
 // open or was posted in the last 15 minutes, the due slot stays due until it
 // can safely post. A failed send never creates an endless immediate retry.
 export async function reconcileAutomaticCardDrops(client, now = new Date()) {
-  if (process.env.ENABLE_CARD_GAME_TEST !== "1") return 0;
+  if (!isCardGameEnabled()) return 0;
   await initializeAutomaticDropSchedules(now);
   const configs = await GuildConfig.find({
     hatchemNextAutoDropAt: { $lte: now },
@@ -174,7 +175,7 @@ export function observeAutomaticDropActivity(message, now = new Date()) {
 export async function maybePublishActivityEgg(client, message, {
   now = new Date(), random = Math.random,
 } = {}) {
-  if (process.env.ENABLE_CARD_GAME_TEST !== "1") return false;
+  if (!isCardGameEnabled()) return false;
   if (!observeAutomaticDropActivity(message, now)) return false;
   if (random() >= ACTIVITY_CHANCE) return false;
   if (await hasOpenCardEgg(message.guildId, now)) return false;
