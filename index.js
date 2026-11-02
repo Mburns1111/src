@@ -394,7 +394,7 @@ client.once(Events.ClientReady, async (readyClient) => {
     cardDropCloseTimer.unref?.();
     void runCardDropCloseSweep();
   }
-  console.log(`Bot is online as ${readyClient.user.tag}.`);
+  console.log(`Bot is online as ${readyClient.user.tag} (PID ${process.pid}).`);
   void reconcileCourtGames(readyClient).catch(error => console.error("[Party] Sweep failed:", error));
   const partyTimer = setInterval(() => void reconcileCourtGames(readyClient).catch(error => console.error("[Party] Sweep failed:", error)), 5000);
   partyTimer.unref?.();

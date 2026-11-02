@@ -5,6 +5,7 @@ import {
 } from "discord.js";
 import PartyGame from "../models/PartyGame.js";
 import PartyResponse from "../models/PartyResponse.js";
+import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import {
   beginCourtGame, advanceCourtGame, courtGameDisplay,
   publishCourtGame, partyButton,
@@ -14,7 +15,7 @@ import { COURT_MIN_PLAYERS, COURT_MAX_PLAYERS } from "../services/party-court-ru
 export const data = new SlashCommandBuilder()
   .setName("party").setDescription("Staff-hosted, text-based Party Games")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-  .addSubcommand(c => c.setName("host").setDescription("Create a Court of Chaos lobby here")
+  .addSubcommand(c => c.setName("host").setDescription("Open a Court of Chaos lobby in the configured Party Games channel")
     .addStringOption(o => o.setName("category").setDescription("Prompt category")
       .addChoices(
         { name: "Mixed", value: "mixed" }, { name: "Silly & Random", value: "silly" },
@@ -49,12 +50,15 @@ export async function execute(interaction) {
   if (!staff(interaction)) return interaction.editReply(errorText("Only staff with Manage Server can host Party Games."));
   const op = interaction.options.getSubcommand();
   if (op === "host") {
-    if (!interaction.channel?.isTextBased() || typeof interaction.channel.send !== "function")
-      return interaction.editReply(errorText("Use /party host in a regular text channel."));
+    // The destination is saved by /setup channels, never inferred from the
+    // command's current channel. In particular, never post into general chat.
+    const { channel } = await getConfiguredTextChannelAndConfig(
+      interaction, "partyGamesChannelId", "Party Games",
+    );
     let game;
     try {
       game = await PartyGame.create({
-        guildId: interaction.guildId, channelId: interaction.channelId,
+        guildId: interaction.guildId, channelId: channel.id,
         hostId: interaction.user.id,
         category: interaction.options.getString("category") || "mixed",
         rewardsEnabled: interaction.options.getBoolean("rewards") !== false,
@@ -65,7 +69,7 @@ export async function execute(interaction) {
       throw error;
     }
     try {
-      const message = await interaction.channel.send(await courtGameDisplay(game));
+      const message = await channel.send(await courtGameDisplay(game));
       await PartyGame.updateOne({ _id: game._id }, { $set: { messageId: message.id, renderedVersion: 1 } });
       return interaction.editReply(errorText("Court of Chaos lobby created: " + message.url + ". Members can now join!"));
     } catch (error) {
@@ -128,11 +132,12 @@ export async function execute(interaction) {
       $inc: { renderVersion: 1 },
     })).modifiedCount > 0;
   }
-  if (changed) {
-    try { await publishCourtGame(interaction.client, game); }
-    catch (error) { console.error("[Party] Message refresh pending reconciliation:", error); }
-  }
-  return interaction.editReply(errorText(changed ? "Party Game updated." : "The game changed while processing. Check /party status."));
+  // The command was already deferred in index.js. Confirm the action before
+  // waiting on Discord message edits; the persistent sweeper retries failures.
+  const reply = await interaction.editReply(errorText(changed ? "Party Game updated." : "The game changed while processing. Check /party status."));
+  if (changed) void publishCourtGame(interaction.client, game)
+    .catch(error => console.error("[Party] Message refresh pending reconciliation:", error));
+  return reply;
 }
 
 function loadGame(interaction, id) {
@@ -148,14 +153,16 @@ export async function handlePartyInteraction(interaction) {
     return;
   const [prefix, action, gameId, roundText, matchupText, candidateId] = interaction.customId.split(":");
   if (prefix !== "party") return;
-  // Modal must be shown as the FIRST response; no deferral is allowed here.
+  // Show modals without a database round-trip. All eligibility, round and
+  // deadline checks are performed again on the actual modal submission.
   if (action === "answer") {
-    const game = await loadGame(interaction, gameId);
-    const match = game?.matchups.find(m => m.playerIds.includes(interaction.user.id));
-    if (!game || game.phase !== "answering" || game.paused || timeLeft(game) <= 0 || !match)
-      return privateReply(interaction, "Your answer window is closed or you aren't playing this round.");
-    const idx = game.matchups.indexOf(match);
-    const modal = new ModalBuilder().setCustomId(partyButton(game, "submit", game.round + ":" + idx)).setTitle("Court of Chaos — Your Answer");
+    if (!/^[0-9a-f]{24}$/i.test(gameId) ||
+        !Number.isInteger(Number(roundText)) || Number(roundText) < 1 ||
+        !Number.isInteger(Number(matchupText)) || Number(matchupText) < 0)
+      return privateReply(interaction, "This answer button has expired. Open My Prompt again.");
+    const modal = new ModalBuilder()
+      .setCustomId("party:submit:" + gameId + ":" + roundText + ":" + matchupText)
+      .setTitle("Court of Chaos — Your Answer");
     modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
       .setCustomId("answer").setLabel("Your funniest answer (160 characters)")
       .setStyle(TextInputStyle.Paragraph).setMinLength(1).setMaxLength(160).setRequired(true)));
@@ -170,24 +177,30 @@ export async function handlePartyInteraction(interaction) {
       _id: game._id, phase: "lobby", players: { $ne: interaction.user.id },
       "players.19": { $exists: false },
     }, { $addToSet: { players: interaction.user.id }, $inc: { renderVersion: 1 } });
-    if (result.modifiedCount) await publishCourtGame(interaction.client, game);
-    return interaction.editReply(errorText(result.modifiedCount ? "You joined Court of Chaos!" :
+    const reply = await interaction.editReply(errorText(result.modifiedCount ? "You joined Court of Chaos!" :
       game.players.includes(interaction.user.id) ? "You're already in the lobby." : "The lobby is closed or full."));
+    if (result.modifiedCount) void publishCourtGame(interaction.client, game)
+      .catch(error => console.error("[Party] Lobby refresh will retry:", error));
+    return reply;
   }
   if (action === "leave") {
     const result = await PartyGame.updateOne({
       _id: game._id, phase: "lobby", players: interaction.user.id,
     }, { $pull: { players: interaction.user.id }, $inc: { renderVersion: 1 } });
-    if (result.modifiedCount) await publishCourtGame(interaction.client, game);
-    return interaction.editReply(errorText(result.modifiedCount ? "You left the lobby." : "You're not in the lobby."));
+    const reply = await interaction.editReply(errorText(result.modifiedCount ? "You left the lobby." : "You're not in the lobby."));
+    if (result.modifiedCount) void publishCourtGame(interaction.client, game)
+      .catch(error => console.error("[Party] Lobby refresh will retry:", error));
+    return reply;
   }
   if (action === "prompt") {
     if (game.phase !== "answering" || game.paused || timeLeft(game) <= 0)
       return interaction.editReply(errorText("The answering phase isn't open."));
     const match = game.matchups.find(m => m.playerIds.includes(interaction.user.id));
     if (!match) return interaction.editReply(errorText("You're spectating. Players can only join before a game starts."));
+    const idx = game.matchups.indexOf(match);
     const row = new ActionRowBuilder().addComponents(new ButtonBuilder()
-      .setCustomId(partyButton(game, "answer")).setLabel("Submit or Edit Answer").setStyle(ButtonStyle.Primary));
+      .setCustomId(partyButton(game, "answer", game.round + ":" + idx))
+      .setLabel("Submit or Edit Answer").setStyle(ButtonStyle.Primary));
     return interaction.editReply({
       content: "**Your private prompt:** " + match.prompt + "\nSubmit before the round ends.",
       components: [row], allowedMentions: { parse: [] },

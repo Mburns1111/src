@@ -74,6 +74,12 @@ export const data = new SlashCommandBuilder()
       )
       .addChannelOption((option) =>
         option
+          .setName("party_games")
+          .setDescription("Dedicated channel for staff-hosted Party Games")
+          .addChannelTypes(ChannelType.GuildText),
+      )
+      .addChannelOption((option) =>
+        option
           .setName("shop")
           .setDescription("Channel for the permanent shop catalog")
           .addChannelTypes(ChannelType.GuildText),
@@ -119,6 +125,7 @@ export async function execute(interaction) {
   const tradingPostChannel = interaction.options.getChannel("trading_post");
   const shopChannel = interaction.options.getChannel("shop");
   const hatchemChannel = interaction.options.getChannel("hatchem");
+  const partyGamesChannel = interaction.options.getChannel("party_games");
   const giveawayChannel = interaction.options.getChannel("giveaways");
   const survivalTrialChannel = interaction.options.getChannel("survival_trials");
   const giveawayPingRole = interaction.options.getRole("giveaway_ping");
@@ -139,6 +146,7 @@ export async function execute(interaction) {
     !tradingPostChannel &&
     !shopChannel &&
     !hatchemChannel &&
+    !partyGamesChannel &&
     !giveawayChannel &&
     !survivalTrialChannel &&
     !giveawayPingRole &&
@@ -172,6 +180,7 @@ export async function execute(interaction) {
   if (profilesChannel) updates.profileChannelId = profilesChannel.id;
   if (tradingPostChannel) updates.tradingPostChannelId = tradingPostChannel.id;
   if (hatchemChannel) updates.hatchemChannelId = hatchemChannel.id;
+  if (partyGamesChannel) updates.partyGamesChannelId = partyGamesChannel.id;
   if (giveawayChannel) updates.giveawayChannelId = giveawayChannel.id;
   if (survivalTrialChannel) updates.survivalTrialChannelId = survivalTrialChannel.id;
   if (giveawayPingRole || clearGiveawayPing) updates.giveawayPingRoleId = clearGiveawayPing ? "" : giveawayPingRole.id;
@@ -244,6 +253,7 @@ export async function execute(interaction) {
   if (clearGiveawayPing) configured.push("Regular giveaway notifications: disabled");
   if (clearTrialPing) configured.push("Court's Trial notifications: disabled");
   if (hatchemChannel) configured.push(`Hatchem card-game commands: ${hatchemChannel}`);
+  if (partyGamesChannel) configured.push(`Party Games: ${partyGamesChannel}`);
 
   await interaction.editReply({
     content: `Channel settings saved.\n${configured.join("\n")}`,

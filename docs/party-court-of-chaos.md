@@ -14,7 +14,7 @@ Use a development bot token, development MongoDB database and test Discord serve
 2. Check out the development branch and run tests.
 3. Run the existing **register-commands.js** to register /party with the *development* Discord application only. The script replaces the application command lists; confirm the token, application ID, and guild ID first.
 4. Restart the test bot.
-5. As staff with Manage Server, use /party host in the desired party-game channel (category and rewards optional).
+5. Create a Discord text channel for games, then run /setup channels party_games:#your-channel. As staff with Manage Server, use /party host (category and rewards optional). The lobby always posts in the configured channel, regardless of where the command was used.
 6. Have 1–20 accounts use Join; Leave and rejoin; try the 21st account. Test separate 1-, 2- and 3-player games.
 7. Staff runs /party start. Members use My Prompt & Answer, then Submit or Edit Answer in the private modal.
 8. With 2+ players, after 90 seconds, noncontestants and spectators vote via the buttons (30 seconds per batch, two matchups per batch). Solo games skip voting and show their submitted answer.
@@ -23,6 +23,7 @@ Use a development bot token, development MongoDB database and test Discord serve
 
 ## Staff controls
 
+- /setup channels party_games:#your-channel: save the dedicated Party Games channel, without changing the other channels
 - /party status: phase, players and remaining time
 - /party pause: stop automatic phase advances
 - /party resume: resume from saved time remaining
@@ -58,6 +59,10 @@ Each game is three rounds. Each participant writes one answer per round. Answers
 ## Player counts and rewards
 
 Staff can start whenever at least one member joins; there is **no minimum group size** beyond having someone to play. A one-player game is a prompt-and-reveal showcase rather than a head-to-head contest, so it does not award a competitive placement. Completion Points remain possible after two submitted answers and are still limited to two rewarded games per UTC day. A two-player game works normally with outside audience votes; if no votes are cast, the round points split evenly.
+
+## Duplicate Replit processes and interaction timeout checks
+
+Use Replit's Stop button first. In Replit Shell run `ps -eo pid,ppid,args | grep -E '[n]ode .*index\.js|[n]pm (start|run)'`. If there are leftover bot processes, use `kill PID` for each verified **bot** PID. Do not use `pkill node` because that can terminate unrelated Replit services. Restart once, with one Run button OR one `npm start`, not both. Startup logs include the process PID. If Discord shows "The application did not respond", check the Replit logs for `Interaction failed`, `Unknown interaction`, `DiscordAPIError`, or another bot PID. After fixes, restart and re-register using development credentials.
 
 ## Important limitations in first iteration
 
