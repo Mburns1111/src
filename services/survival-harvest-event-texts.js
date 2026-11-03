@@ -52,8 +52,7 @@ export const HARVEST_SOLO_TRIAL_EVENTS = Object.freeze([
   "🌙 {victim} followed a wandering lantern across the moor. It belonged to the gatekeeper. The gatekeeper tipped his hat, collected their contestant ribbon, and thanked them for saving him a trip.",
   "🍐 {victim} sampled the harvest cake before the judges. The cake voted against them. A marzipan usher rose from the icing and escorted the surprised taster toward the competition's exit.",
   "🏮 {victim} lit the last orchard lantern. It illuminated only the road home. They followed its warm glow to a waiting carriage, where their farewell invitation lay on the seat.",
-  "🌻 {victim} followed a sunflower turning after dark. It pointed beyond the arena. By the time they questioned its unusual habits, the checkpoint had closed and the gardener requested their badge."
-,
+  "🌻 {victim} followed a sunflower turning after dark. It pointed beyond the arena. By the time they questioned its unusual habits, the checkpoint had closed and the gardener requested their badge.",
   "🕯️ {victim} entered the archive to study the trial's old maps. The shelves shifted around them, and every aisle led to the records room beyond the contestant boundary.",
   "🗝️ {victim} found a key beneath the judge's bench. It opened a door behind the dais, where a waiting attendant accepted their badge and marked the passage one-way.",
   "🪞 {victim} noticed their reflection was a step behind. When they turned to investigate, the mirror opened into a quiet gallery reserved for former contestants.",
@@ -156,8 +155,7 @@ export const HARVEST_DUEL_TRIAL_EVENTS = Object.freeze([
   "🎪 {actor} won the autumn fair's ring-toss challenge. {victim} tossed their ring into a portal. The portal politely returned a farewell ribbon, then carried the unlucky thrower through to the spectators' entrance.",
   "🌫️ {actor} waited for the orchard mist to clear. {victim} rushed ahead and missed the bridge. An orchard spirit caught the hasty contestant safely and delivered them to the departure bank instead of the checkpoint.",
   "🍐 {actor} handed the royal baker a ripe pear. {victim} handed over the baker's enchanted bell. The bell summoned the kitchen's departure porter, who collected the mistaken contestant's badge along with the dishes.",
-  "🍂 {actor} deciphered the Court's leaf-covered ledger. {victim} read the page marked *Departure*. The ledger stamped their page with a final golden leaf and summoned an attendant to escort them outside."
-,
+  "🍂 {actor} deciphered the Court's leaf-covered ledger. {victim} read the page marked *Departure*. The ledger stamped their page with a final golden leaf and summoned an attendant to escort them outside.",
   "⚔️ {actor} reached the west stair before the bell. {victim} chose the portrait corridor, where every painted door led farther from the checkpoint and ended at the outer gate.",
   "🗝️ {actor} found the key to the judge's chamber. {victim} tried the key on the old gatehouse instead, and its keeper accepted the mistaken entry as a notice of departure.",
   "🪞 {actor} recognized the false reflection in the gallery. {victim} followed it through a mirrored arch, which closed behind them and opened only onto the spectators' side.",
