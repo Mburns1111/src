@@ -1,6 +1,7 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
+import { scanActivity } from "../services/giveaway-activity.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
   closeGiveaway, rerollGiveaway, publishGiveawayResult,
@@ -22,6 +23,18 @@ export const data = new SlashCommandBuilder()
     .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering"))
     .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (max 720)").setMinValue(1).setMaxValue(720))
     .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400)))
+  .addSubcommand(c => c.setName("activity").setDescription("Schedule giveaway using a manual seven-day activity scan")
+    .addStringOption(o => o.setName("title").setDescription("Title").setRequired(true))
+    .addStringOption(o => o.setName("prize").setDescription("Prize").setRequired(true))
+    .addStringOption(o => o.setName("type").setDescription("Activity scope").setRequired(true).addChoices({name:"General server",value:"general"},{name:"Selected channels",value:"channels"}))
+    .addIntegerOption(o => o.setName("minutes").setDescription("Minutes until winners announced").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
+    .addIntegerOption(o => o.setName("minimum").setDescription("Minimum messages").setMinValue(1))
+    .addIntegerOption(o => o.setName("winners").setDescription("Winners").setMinValue(1).setMaxValue(10))
+    .addChannelOption(o => o.setName("channel_1").setDescription("Channel 1"))
+    .addChannelOption(o => o.setName("channel_2").setDescription("Channel 2"))
+    .addChannelOption(o => o.setName("channel_3").setDescription("Channel 3"))
+    .addChannelOption(o => o.setName("channel_4").setDescription("Channel 4"))
+    .addChannelOption(o => o.setName("channel_5").setDescription("Channel 5")))
   .addSubcommand(c => c.setName("end").setDescription("End a normal giveaway early and retain its results")
     .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true)))
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
@@ -107,6 +120,35 @@ export async function execute(interaction) {
   const operation = interaction.options.getSubcommand();
   const survivalCommand = interaction.commandName === "trial";
   try {
+    if (operation === "activity") {
+      const { channel } = await getConfiguredTextChannelAndConfig(interaction, "giveawayChannelId", "giveaway");
+      const type = interaction.options.getString("type", true);
+      const channels = [1,2,3,4,5].map(n => interaction.options.getChannel("channel_"+n)).filter(Boolean);
+      if (type === "channels" && !channels.length) throw Error("Choose at least one channel.");
+      const checkedAt = new Date(), startAt = new Date(checkedAt.getTime() - 7*86400000);
+      const minimum = interaction.options.getInteger("minimum") || 1;
+      const scan = await scanActivity(interaction.guild, { type, channelIds:[...new Set(channels.map(c=>c.id))], startAt, endAt:checkedAt, minimum });
+      if (!scan.entrantIds.length) throw Error("Nobody qualified; giveaway was not created.");
+      const endsAt = new Date(Date.now() + interaction.options.getInteger("minutes",true)*60000);
+      const record = await Giveaway.create({
+        guildId:interaction.guildId, channelId:channel.id, creatorId:interaction.user.id,
+        title:interaction.options.getString("title",true), prize:interaction.options.getString("prize",true),
+        winnerCount:interaction.options.getInteger("winners") || 1, endsAt, mode:"activity",
+        status:"publishing", entrantIds:scan.entrantIds, activityType:type,
+        activityChannelIds:scan.channelIds, activityMinimum:minimum,
+        activityStartAt:startAt, activityCheckedAt:checkedAt,
+      });
+      let message;
+      try {
+        message = await channel.send(giveawayAnnouncement({...record.toObject(),status:"open"}));
+        await Giveaway.updateOne({_id:record._id,status:"publishing"},{$set:{status:"open",messageId:message.id}});
+      } catch(error) {
+        await Giveaway.updateOne({_id:record._id},{$set:{status:"failed"}}).catch(()=>{});
+        if(message) await message.delete().catch(()=>{});
+        throw error;
+      }
+      return interaction.editReply({content:`Scheduled: ${message.url}\n**${scan.entrantIds.length}** qualifying members, entries locked. Winners announced <t:${Math.floor(endsAt.getTime()/1000)}:F>.\nID: \`${record._id}\``,allowedMentions:{parse:[]}});
+    }
     if (operation === "start") {
       const survival = survivalCommand;
       const { channel, config } = await getConfiguredTextChannelAndConfig(
@@ -273,6 +315,7 @@ export async function handleGiveawayButton(interaction) {
       }
       return interaction.editReply("⚔️ The Court’s Trial has begun! Watch this channel for each elimination.");
     }
+    if (record.mode === "activity" && action !== "count") return interaction.editReply("Entries are locked for activity giveaways.");
     if (action === "count") return interaction.editReply({
       content: `🥀 Current entries: **${record.entrantIds?.length || 0}** · Winners: **${record.winnerCount}**.`,
       allowedMentions: { parse: [] },
