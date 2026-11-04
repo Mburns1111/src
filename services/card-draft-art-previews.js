@@ -37,11 +37,12 @@ export function selectReleasePreviewCards(definitions, count = 3) {
   return chosen;
 }
 
-async function draftRelease(releaseId) {
+async function previewRelease(releaseId, { draftOnly = false } = {}) {
   const release = await CardRelease.findOne({ releaseId: String(releaseId || "").trim() }).lean();
   if (!release) throw new Error("Release not found.");
-  if (release.status !== "draft") throw new Error("The artwork preview is for draft releases only.");
-  if (release.releaseId.startsWith("test-")) throw new Error("Choose the actual draft release, not the test fixture.");
+  if (draftOnly && release.status !== "draft")
+    throw new Error("The three-card layout preview is for draft releases only.");
+  if (release.releaseId.startsWith("test-")) throw new Error("Choose an official release, not the test fixture.");
   return release;
 }
 
@@ -58,16 +59,16 @@ async function cardPresentation(release, definition, petNames, upgradeLevel = "n
 }
 
 /**
- * Read-only previews of REAL draft release artwork, never a simulated drop.
+ * Read-only previews of REAL release artwork, never a simulated drop.
  * No CardCopy, CardDrop, CardClaim, cooldown, Points or achievement writes.
  */
 export async function previewOfficialDraftCard({ releaseId, petId, upgradeLevel = "normal" }) {
   if (!["normal", "neon", "mega"].includes(upgradeLevel)) throw new Error("Invalid preview stage.");
-  const release = await draftRelease(releaseId);
+  const release = await previewRelease(releaseId);
   const definition = await CardDefinition.findOne({
     releaseId: release.releaseId, petId: String(petId || "").trim(),
   }).lean();
-  if (!definition) throw new Error("That pet is not assigned to this draft release.");
+  if (!definition) throw new Error("That pet is not assigned to this release.");
   const [pet, series] = await Promise.all([
     PetCatalog.findOne({ petId: definition.petId }).select("name").lean(),
     CardSeries.findOne({ seriesId: release.seriesId }).select("name").lean(),
@@ -82,7 +83,7 @@ export async function previewOfficialDraftCard({ releaseId, petId, upgradeLevel 
 }
 
 export async function previewOfficialDraftDrop({ releaseId }) {
-  const release = await draftRelease(releaseId);
+  const release = await previewRelease(releaseId, { draftOnly: true });
   const definitions = await CardDefinition.find({ releaseId: release.releaseId }).lean();
   if (definitions.length < 3) throw new Error("Add at least three pets to this draft release to preview a three-card layout.");
   const chosen = selectReleasePreviewCards(definitions, 3);
