@@ -1,5 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import CardArtwork from "../models/CardArtwork.js";
+import { selectedCardPetArt } from "./card-pet-art-stages.js";
 
 // Only use explicit, safe HTTPS destinations recorded for the artwork.
 // Never turn artist names or unsourced artwork into guessed clickable URLs.
@@ -14,25 +15,39 @@ export function validCardArtistUrl(value) {
   } catch { return ""; }
 }
 
-export function cardArtistDestination(definition, artwork = null) {
+export function cardArtistDestination(definition, artwork = null, { alternate = false } = {}) {
   if (!definition) return null;
-  const original = validCardArtistUrl(definition.artSourceUrl || artwork?.sourceUrl);
-  const profile = validCardArtistUrl(definition.artistUrl) ||
-    validCardArtistUrl(artwork?.artistUrl);
+  // An alternate illustration belongs to its own artist. Never send visitors
+  // to the Normal illustration's profile/post when viewing Neon or Mega art.
+  const original = alternate
+    ? validCardArtistUrl(artwork?.sourceUrl)
+    : validCardArtistUrl(definition.artSourceUrl) || validCardArtistUrl(artwork?.sourceUrl);
+  const profile = alternate
+    ? validCardArtistUrl(artwork?.artistUrl)
+    : validCardArtistUrl(definition.artistUrl) || validCardArtistUrl(artwork?.artistUrl);
   const url = original || profile;
   if (!url) return null;
-  const credit = String(definition.artistCredit || artwork?.artistCredit || "").trim().slice(0, 80);
+  const credit = String(alternate
+    ? artwork?.artistCredit || ""
+    : artwork?.artistCredit || definition.artistCredit || "").trim().slice(0, 80);
   return { url, credit, isOriginal: Boolean(original) };
 }
 
-export async function cardArtistDestinations(definitions) {
+/**
+ * Resolve each card's displayed illustration for its upgrade stage.
+ * upgradeLevels is positional, matching definitions; omitted values mean Normal.
+ */
+export async function cardArtistDestinations(definitions, upgradeLevels = []) {
   if (!Array.isArray(definitions) || !definitions.length) return [];
-  const keys = [...new Set(definitions.map(def => def?.petArtworkKey).filter(Boolean))];
+  const selected = definitions.map((definition, index) =>
+    selectedCardPetArt(definition, upgradeLevels[index] || "normal"));
+  const keys = [...new Set(selected.map(item => item.key).filter(Boolean))];
   const artworks = keys.length ? await CardArtwork.find({
     key: { $in: keys }, kind: "pet",
   }).select("key artistCredit artistUrl sourceUrl").lean() : [];
   const byKey = new Map(artworks.map(item => [item.key, item]));
-  return definitions.map(def => cardArtistDestination(def, byKey.get(def?.petArtworkKey)));
+  return definitions.map((def, index) =>
+    cardArtistDestination(def, byKey.get(selected[index].key), { alternate: selected[index].override }));
 }
 
 export function artistLinkButton(destination, { index = null } = {}) {
