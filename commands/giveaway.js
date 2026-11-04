@@ -248,7 +248,7 @@ export async function execute(interaction) {
     if (operation === "end") {
       if (record.mode === "survival") throw Error("Use the Start Trial (Staff) button to begin a trial, or /trial cancel to stop it.");
       if (record.status === "publishing" || record.status === "failed") throw Error("This giveaway was never published.");
-      updated = await closeGiveaway({ id: record._id, guildId: interaction.guildId });
+      updated = await closeGiveaway({ id: record._id, guildId: interaction.guildId, client: interaction.client });
       if (updated?.status === "rerolling") throw Error("Wait for the current reroll to finish.");
     } else if (operation === "reroll") {
       updated = await rerollGiveaway({
