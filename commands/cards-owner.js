@@ -7,7 +7,7 @@ import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
 import { storeOfficialEggArtwork, reviewOfficialEggArtwork } from "../services/card-egg-artwork-upload.js";
-import { createSeries, createRelease, editRelease, addReleasePet, addReleasePetsBulk, removeReleasePet, setReleasePetWeight, setReleasePetArtSource, setReleaseStagePetArt, clearReleaseStagePetArt, setReleaseOdds, checkOfficialReleaseReadiness, assignReleaseArtwork, setReleasePetEnabled, activateRelease, transitionRelease } from "../services/card-global-releases.js";
+import { createSeries, createRelease, editRelease, addReleasePet, addReleasePetsBulk, removeReleasePet, setReleasePetWeight, setReleasePetArtSource, replaceReleasePetArtwork, setReleaseStagePetArt, clearReleaseStagePetArt, setReleaseOdds, checkOfficialReleaseReadiness, assignReleaseArtwork, setReleasePetEnabled, activateRelease, transitionRelease } from "../services/card-global-releases.js";
 
 const PAGE_SIZE = 15;
 const clean = value => String(value ?? "").replace(/[@`*_~|<>]/g, "").slice(0, 120);
@@ -87,6 +87,11 @@ export const data = new SlashCommandBuilder()
       .addChoices({name:"Pet",value:"pet"},{name:"Background",value:"background"},{name:"Frame",value:"frame"}))
     .addStringOption(o => o.setName("key").setDescription("Approved artwork library key").setRequired(true))
     .addStringOption(o => o.setName("pet").setDescription("Pet ID (required for pet art)")))
+  .addSubcommand(command => command.setName("replace-pet-art")
+    .setDescription("OWNER: replace a Normal card illustration even after launch")
+    .addStringOption(o => o.setName("release").setDescription("Official release").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("pet").setDescription("Pet in this release").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("key").setDescription("Approved replacement pet artwork key").setRequired(true)))
   .addSubcommand(command => command.setName("set-stage-art")
     .setDescription("OWNER: assign approved Neon or Mega art, including after launch")
     .addStringOption(o => o.setName("release").setDescription("Official release").setRequired(true).setAutocomplete(true))
@@ -140,7 +145,7 @@ export const data = new SlashCommandBuilder()
 // Official release lifecycle operations use a second, owner-only slash command
 // to stay below Discord\u0027s 25-subcommand limit.
 export const RELEASE_LIFECYCLE_SUBCOMMANDS = Object.freeze([
-  "egg-upload", "egg-review", "assign-art", "set-stage-art", "clear-stage-art", "set-enabled",
+  "egg-upload", "egg-review", "assign-art", "replace-pet-art", "set-stage-art", "clear-stage-art", "set-enabled",
   "activate", "pause", "resume", "retire",
 ]);
 export const cardsReleaseCommand = {
@@ -160,7 +165,7 @@ export async function execute(interaction) {
   const option = interaction.options.getSubcommand();
   if (["create-series", "create-release", "edit-release", "add-pet",
       "add-pets", "remove-pet", "set-weight", "set-art-source", "set-odds", "release-check",
-      "assign-art", "set-stage-art", "clear-stage-art", "set-enabled", "activate", "pause", "resume", "retire",
+      "assign-art", "replace-pet-art", "set-stage-art", "clear-stage-art", "set-enabled", "activate", "pause", "resume", "retire",
       "egg-upload", "egg-review", "preview-art", "preview-drop"].includes(option)) {
     const string = key => interaction.options.getString(key);
     const number = key => interaction.options.getNumber(key);
@@ -272,6 +277,14 @@ export async function execute(interaction) {
           "\` to draft \`" + clean(changed.releaseId) + "\`" +
           (changed.petId ? " for pet \`" + clean(changed.petId) + "\`" : "") +
           ". Enable the pet separately once its artwork is ready.");
+      }
+      if (option === "replace-pet-art") {
+        const result = await replaceReleasePetArtwork({
+          releaseId: string("release"), petId: string("pet"), key: string("key"),
+        });
+        return interaction.editReply("Replaced Normal artwork for pet \`" + clean(result.petId) +
+          "\` in \`" + clean(result.releaseId) + "\` with approved \`" + clean(result.key) +
+          "\`. Existing copies display the updated art when reopened; IDs and odds are unchanged.");
       }
       if (option === "set-stage-art") {
         const result = await setReleaseStagePetArt({
@@ -395,7 +408,7 @@ export async function autocompleteCardsOwner(interaction) {
       const existing = new Set(assigned);
       suggestions = pets.filter(p => !existing.has(p.petId)).slice(0, 25)
         .map(p => ({ name: (p.name + " · " + p.rarity).slice(0, 100), value: p.petId }));
-    } else if (focused.name === "pet" && ["remove-pet", "set-weight", "set-art-source", "set-stage-art", "clear-stage-art", "preview-art"].includes(option)) {
+    } else if (focused.name === "pet" && ["remove-pet", "set-weight", "set-art-source", "replace-pet-art", "set-stage-art", "clear-stage-art", "preview-art"].includes(option)) {
       const selectedRelease = interaction.options.getString("release");
       if (!selectedRelease) return interaction.respond([]);
       const assigned = await CardDefinition.find({ releaseId: selectedRelease })
