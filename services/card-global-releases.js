@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import CardSeries from "../models/CardSeries.js";
 import CardRelease from "../models/CardRelease.js";
+import { validCardArtistUrl } from "./card-artist-links.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import CardArtwork from "../models/CardArtwork.js";
@@ -168,6 +169,22 @@ export async function removeReleasePet({ releaseId: requestedId, petId }) {
     throw new Error("Only unapproved, disabled draft pets can be removed; assigned art is protected.");
   return { releaseId: id, petId: pid };
 }
+/** Owner records the exact original artwork page for a draft pet.
+ * Does not approve the artist's license or enable the card.
+ */
+export async function setReleasePetArtSource({ releaseId: requestedId, petId, sourceUrl }) {
+  const id = releaseId(requestedId), pid = releaseId(petId);
+  requireDraft(await CardRelease.findOne({ releaseId: id }).lean());
+  const url = validCardArtistUrl(sourceUrl);
+  if (!url) throw Error("Provide a valid HTTPS original-artwork link.");
+  const updated = await CardDefinition.findOneAndUpdate(
+    { releaseId: id, petId: pid },
+    { $set: { artSourceUrl: url } }, { new: true, runValidators: true },
+  ).lean();
+  if (!updated) throw Error("That pet is not assigned to this draft release.");
+  return { releaseId: id, petId: pid, sourceUrl: url };
+}
+
 export async function setReleasePetWeight({ releaseId: requestedId, petId, weight }) {
   const id = releaseId(requestedId), pid = releaseId(petId), selectedWeight = hatchWeight(weight);
   requireDraft(await CardRelease.findOne({ releaseId: id }).lean());
