@@ -65,7 +65,8 @@ test("activity eggs ping the Card role once and keep it visible after grab and c
   assert.match(source, /allowedMentions: notification\.allowedMentions/);
   assert.match(source, /previousContent: interaction\.message\.content/);
   assert.match(source, /previousContent: message\.content/);
-  assert.match(source, /components: \[rowButtons\(drop\)\], allowedMentions: \{ parse: \[\] \}/);
+  assert.match(source, /components: \[rowButtons\(drop\), \.\.\.preservedArtistLinkRows\(interaction\.message\)\], allowedMentions: \{ parse: \[\] \}/);
+  assert.match(source, /components: preservedArtistLinkRows\(message\), allowedMentions: \{ parse: \[\] \}/);
 });
 
 test("activity chance requires real chat from three people; bots, spam and commands do not qualify", () => {
