@@ -59,6 +59,29 @@ function placeholderPet(ctx, name, x, y, w, h, accent) {
   ctx.fillText("Replace with approved artist artwork", centerX, y + h - 63);
   ctx.restore();
 }
+// Adaptive white backing protects tiny footer labels from busy artist artwork.
+// Each chip hugs its visible text; unoccupied footer art stays unobscured.
+function footerTextChip(ctx, { value, x, baseline, maxTextWidth, font, color, align = "left" }) {
+  const text = String(value ?? "");
+  const paddingX = 12;
+  const chipHeight = 34;
+  ctx.save();
+  ctx.font = font;
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = align;
+  const measuredWidth = ctx.measureText(text).width;
+  // The public ID is allowed at most 165px, so it never covers the
+  // artist-credit chip on the same line.
+  const textWidth = Math.min(measuredWidth, maxTextWidth);
+  const chipWidth = Math.ceil(textWidth + paddingX * 2);
+  const left = align === "right" ? x - textWidth - paddingX : x - paddingX;
+  roundRect(ctx, left, baseline - 27, chipWidth, chipHeight, 9,
+    "rgba(255,255,255,0.97)", "rgba(113,128,120,0.30)", 1);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, baseline, maxTextWidth);
+  ctx.restore();
+}
+
 function cover(ctx, image, x, y, w, h) {
   const scale = Math.max(w / image.width, h / image.height);
   const iw = image.width * scale, ih = image.height * scale;
@@ -199,28 +222,27 @@ export async function renderCollectibleCardPreview({
     return canvas.toBuffer("image/png");
   }
 
-  // Dedicated footer rows: don't let right-aligned collector text leak into artist credit.
-  // Canva safe zone: x=88..812, bottom baseline <=1192.
-  ctx.save();
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "#62716B";
-  ctx.font = "24px sans-serif";
-  ctx.fillText(`${seriesName}  ·  ${releaseName}`, 88, 1117, 724);
-
-  ctx.font = "bold 24px sans-serif";
-  ctx.fillStyle = "#4C605A";
-  ctx.fillText(`Other collectors: ${Math.max(0, Number(otherCollectorCount) || 0)}`, 88, 1154, 724);
-
-  ctx.font = "23px sans-serif";
-  ctx.fillStyle = "#62716B";
-  ctx.fillText(artistCredit ? `Art: ${artistCredit}` : "Art credit: pending", 88, 1191, 515);
-
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#384A44";
-  ctx.font = "bold 30px monospace";
-  ctx.fillText(publicId, 810, 1191, 165);
-  ctx.restore();
+  // White, text-sized chips are drawn AFTER all imported art/frames.
+  // This keeps dark floral details from obscuring metadata without covering
+  // the whole decorated footer. Coordinates match the artist's 900x1260 kit.
+  footerTextChip(ctx, {
+    value: `${seriesName}  ·  ${releaseName}`, x: 88, baseline: 1117,
+    maxTextWidth: 724, font: "24px sans-serif", color: "#384A44",
+  });
+  footerTextChip(ctx, {
+    value: `Other collectors: ${Math.max(0, Number(otherCollectorCount) || 0)}`,
+    x: 88, baseline: 1154, maxTextWidth: 724,
+    font: "bold 24px sans-serif", color: "#384A44",
+  });
+  footerTextChip(ctx, {
+    value: artistCredit ? `Art: ${artistCredit}` : "Art credit: pending",
+    x: 88, baseline: 1191, maxTextWidth: 515,
+    font: "23px sans-serif", color: "#384A44",
+  });
+  footerTextChip(ctx, {
+    value: publicId, x: 810, baseline: 1191, maxTextWidth: 165,
+    font: "bold 30px monospace", color: "#273D36", align: "right",
+  });
 
   return canvas.toBuffer("image/png");
 }
