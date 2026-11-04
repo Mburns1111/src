@@ -25,6 +25,7 @@ const giveawaySchema = new mongoose.Schema({
   activityType: { type: String, default: "" },
   activityChannelIds: { type: [String], default: [] },
   activityMinimum: { type: Number, default: 1 },
+  activityDays: { type: Number, default: 1 },
   activityStartAt: { type: Date, default: null },
   activityCheckedAt: { type: Date, default: null },
   activityVerifiedIds: { type: [String], default: [] },
