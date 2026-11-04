@@ -255,6 +255,8 @@ export async function checkOfficialReleaseReadiness({ releaseId: requestedId }) 
   const keys = [
     ...activeDefs.map(d => d.petArtworkKey).filter(Boolean),
     release.cardBackgroundKey, release.cardFrameKey,
+    ...Object.values(release.cardRarityFrameKeys || {}),
+    ...Object.values(release.cardStageOverlayKeys || {}),
   ].filter(Boolean);
   const assets = keys.length ? await CardArtwork.find({ key: { $in: [...new Set(keys)] } }).lean() : [];
   const approved = new Map(assets.map(asset => [asset.key, asset]));
@@ -263,7 +265,13 @@ export async function checkOfficialReleaseReadiness({ releaseId: requestedId }) 
     if (!card.petArtworkKey || !card.artistCredit || !asset || asset.kind !== "pet" || asset.licenseReviewStatus !== "approved")
       problems.push("Missing approved, credited pet artwork: " + card.petId);
   }
-  for (const [key, kind] of [[release.cardBackgroundKey, "background"], [release.cardFrameKey, "frame"]]) {
+  const sharedArtwork = [
+    [release.cardBackgroundKey, "background"],
+    [release.cardFrameKey, "frame"],
+    ...Object.values(release.cardRarityFrameKeys || {}).map(key => [key, "frame"]),
+    ...Object.values(release.cardStageOverlayKeys || {}).map(key => [key, "frame"]),
+  ];
+  for (const [key, kind] of sharedArtwork) {
     if (key && (approved.get(key)?.kind !== kind || approved.get(key)?.licenseReviewStatus !== "approved"))
       problems.push("Release " + kind + " art must be license-approved: " + key);
   }
