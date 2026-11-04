@@ -3,6 +3,7 @@ import CardArtwork from "../models/CardArtwork.js";
 import CardArtworkReview from "../models/CardArtworkReview.js";
 import { readDiscordAttachment } from "./media-transfer.js";
 import { assertImageSafeToDecode } from "./image-dimensions.js";
+import { validCardArtistUrl } from "./card-artist-links.js";
 
 export const CARD_ARTWORK_BUCKET = "cardArtwork";
 export const CARD_ARTWORK_MAX_BYTES = 12 * 1024 * 1024;
@@ -21,12 +22,14 @@ function imageType(bytes) {
   if (bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP") return { mime: "image/webp", ext: "webp" };
   throw new Error("Only PNG, JPG and WebP artwork is supported.");
 }
-export async function uploadCardArtwork({ key, kind, attachment, artistCredit = "", uploadedBy, replacesKey = "", revisionNote = "" }) {
+export async function uploadCardArtwork({ key, kind, attachment, artistCredit = "", artistUrl = "", sourceUrl = "", uploadedBy, replacesKey = "", revisionNote = "" }) {
   const artworkKey = validateCardArtworkKey(key);
   if (!CARD_ARTWORK_KINDS.includes(kind)) throw new Error("Invalid card artwork layer type.");
   if (!attachment?.url || !attachment?.name) throw new Error("Attach a PNG, JPG or WebP image.");
   if (attachment.size > CARD_ARTWORK_MAX_BYTES) throw new Error("Artwork exceeds 12 MB.");
   if (kind === "pet" && !String(artistCredit).trim()) throw new Error("Pet artwork requires an artist credit.");
+  if (artistUrl && !validCardArtistUrl(artistUrl)) throw new Error("Artist profile must be a valid HTTPS URL.");
+  if (sourceUrl && !validCardArtistUrl(sourceUrl)) throw new Error("Original artwork must be a valid HTTPS URL.");
   if (await CardArtwork.exists({ key: artworkKey })) throw new Error("This artwork key already exists. Use a new key; existing artwork is never overwritten.");
   let predecessor = null;
   if (replacesKey) {
@@ -60,6 +63,7 @@ export async function uploadCardArtwork({ key, kind, attachment, artistCredit = 
       key: artworkKey, kind, fileId: upload.id, bucket: CARD_ARTWORK_BUCKET,
       mime, originalFilename: String(attachment.name).slice(0, 255),
       byteLength: bytes.length, artistCredit: String(artistCredit).trim(),
+      artistUrl: validCardArtistUrl(artistUrl), sourceUrl: validCardArtistUrl(sourceUrl),
       uploadedBy, licenseReviewStatus: "needs-review",
       replacesKey: predecessor?.key || "", revisionNote: String(revisionNote).trim().slice(0, 500),
     });
