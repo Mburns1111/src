@@ -3,7 +3,7 @@ import CardCopy from "../models/CardCopy.js";
 import CardRelease from "../models/CardRelease.js";
 import CardSeries from "../models/CardSeries.js";
 import PetCatalog from "../models/PetCatalog.js";
-import { loadCardArtwork } from "./card-artwork-assets.js";
+import { loadCardPresentationAssets } from "./card-artwork-layer-loader.js";
 import { renderCollectibleCardPreview } from "./card-preview-renderer.js";
 import { escapePetNameSearch } from "./card-owned-selection.js";
 
@@ -57,19 +57,14 @@ export async function renderShownCard(reference){
   const [pet,release,series,collectors]=await Promise.all([
     PetCatalog.findOne({petId:definition.petId}).select("name").lean(),
     CardRelease.findOne({releaseId:definition.releaseId})
-      .select("name cardBackgroundKey cardFrameKey status").lean(),
+      .lean(),
     CardSeries.findOne({seriesId:definition.seriesId}).select("name").lean(),
     CardCopy.distinct("ownerDiscordUserId",{cardDefinitionId:definition._id,state:"owned"}),
   ]);
-  const [petImage,backgroundImage,frameImage]=await Promise.all([
-    loadCardArtwork(definition.petArtworkKey,"pet"),
-    loadCardArtwork(release?.cardBackgroundKey,"background"),
-    loadCardArtwork(release?.cardFrameKey,"frame"),
-  ]);
+  const assets = await loadCardPresentationAssets({ definition, release, upgradeLevel: "normal" });
   const name=pet?.name||definition.petId;
   const png=await renderCollectibleCardPreview({
-    petImageSource:petImage?.bytes,backgroundImageSource:backgroundImage?.bytes,
-    frameImageSource:frameImage?.bytes,petName:name,rarity:definition.rarity,
+    ...assets,petName:name,rarity:definition.rarity,
     releaseName:release?.name||definition.releaseId,
     seriesName:series?.name||definition.seriesId,
     publicId:"PREVIEW",artStatus:definition.artStatus,artUrl:definition.artUrl,
