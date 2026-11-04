@@ -737,8 +737,7 @@ export async function handleCardUpgrade(interaction) {
       if (!definition) throw new Error("Upgraded card definition missing");
       const [pet, release, series, otherCollectorCount] = await Promise.all([
         PetCatalog.findOne({ petId: definition.petId }).select("name").lean(),
-        CardRelease.findOne({ releaseId: definition.releaseId })
-          .select("name cardBackgroundKey cardFrameKey").lean(),
+        CardRelease.findOne({ releaseId: definition.releaseId }).lean(),
         CardSeries.findOne({ seriesId: definition.seriesId }).select("name").lean(),
         countOtherCardCollectors({
           cardDefinitionId: upgraded.cardDefinitionId,
