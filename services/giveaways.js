@@ -26,7 +26,8 @@ export function giveawayAnnouncement(record) {
   const winners = (record.winnerIds || []).map((id, i) => `${i + 1}. <@${id}>`);
   const changed = (record.rerollHistory || []).slice(-8).map(item =>
     `#${item.slot + 1}: <@${item.previousId}> → <@${item.replacementId}>`);
-  const foxStory = ended
+  const activity = record.mode === "activity";
+  const foxStory = activity ? (ended ? "🥀 Activity giveaway concluded." : "🥀 Activity entries are locked; no manual entry.") : ended
     ? winners.length === 1
       ? `🦊 **The fox cackles:** "My sneaky helper <@${record.winnerIds[0]}> distracted <@${record.creatorId}> while I swiped the prize straight from their pocket! What a marvelous heist!"`
       : winners.length > 1
@@ -39,7 +40,7 @@ export function giveawayAnnouncement(record) {
     record.prize.slice(0, 1800),
     "",
     `**Hosted by:** <@${record.creatorId}>`,
-    ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
+    ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : activity ? `**Locked entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
     ended
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
@@ -60,7 +61,7 @@ export function giveawayAnnouncement(record) {
     .setTitle((ended ? "🦊 Heist Complete · " : "🦊 The Fox\u2019s Giveaway · ") + record.title.slice(0, 180))
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
-  const components = (!ended && !finishing && record.status === "open")
+  const components = (!activity && !ended && !finishing && record.status === "open")
     ? [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`giveaway:enter:${record._id}`).setLabel("Enter Giveaway").setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`giveaway:leave:${record._id}`).setLabel("Leave").setStyle(ButtonStyle.Secondary),
@@ -73,7 +74,7 @@ export function giveawayAnnouncement(record) {
 export async function joinGiveaway({ id, guildId, userId, mode = "standard", now = new Date() }) {
   const updated = await Giveaway.updateOne({
     _id: id, guildId, status: "open", endsAt: { $gt: now },
-    ...(mode === "survival" ? { mode: "survival", [`entrantIds.${MAX_TRIAL_ENTRANTS - 1}`]: { $exists: false } } : { mode: { $ne: "survival" } }),
+    ...(mode === "survival" ? { mode: "survival", [`entrantIds.${MAX_TRIAL_ENTRANTS - 1}`]: { $exists: false } } : { mode: "standard" }),
   }, { $addToSet: { entrantIds: userId } });
   if (updated.modifiedCount) return "joined";
   const current = await Giveaway.findOne({ _id: id, guildId })
@@ -87,7 +88,7 @@ export async function joinGiveaway({ id, guildId, userId, mode = "standard", now
 export async function leaveGiveaway({ id, guildId, userId, now = new Date() }) {
   const changed = await Giveaway.updateOne({
     _id: id, guildId, status: "open", endsAt: { $gt: now },
-    entrantIds: userId,
+    mode: { $ne: "activity" }, entrantIds: userId,
   }, { $pull: { entrantIds: userId } });
   if (changed.modifiedCount) return "left";
   const current = await Giveaway.findOne({ _id: id, guildId })
@@ -96,7 +97,7 @@ export async function leaveGiveaway({ id, guildId, userId, now = new Date() }) {
   return current.entrantIds?.includes(userId) ? "unavailable" : "not-entered";
 }
 
-export async function closeGiveaway({ id, guildId, now = new Date() }) {
+export async function closeGiveaway({ id, guildId, now = new Date(), client = null }) {
   let item = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, mode: { $ne: "survival" }, status: "open" },
     { $set: { status: "closing" } },
@@ -105,10 +106,21 @@ export async function closeGiveaway({ id, guildId, now = new Date() }) {
   if (!item) item = await Giveaway.findOne({ _id: id, guildId }).lean();
   if (!item || item.mode === "survival" || !["closing", "ended"].includes(item.status)) return item;
   if (item.status === "ended") return item;
-  const winnerIds = chooseGiveawayWinners(item.entrantIds || [], item.winnerCount);
+  let eligible = item.entrantIds || [];
+  if (item.mode === "activity") {
+    if (!client) throw Error("Discord client required to verify activity entrants.");
+    const guild = await client.guilds.fetch(item.guildId);
+    const verified = [];
+    for (const id of [...new Set(eligible)]) {
+      try { await guild.members.fetch({user:id,force:true}); verified.push(id); }
+      catch(error) { if (error.code !== 10007 && error.status !== 404) throw error; }
+    }
+    eligible = verified;
+  }
+  const winnerIds = chooseGiveawayWinners(eligible, item.winnerCount);
   const changed = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "closing" },
-    { $set: { status: "ended", winnerIds, claimStartedAt: now, renderedAt: null }, $inc: { renderVersion: 1 } },
+    { $set: { status: "ended", winnerIds, ...(item.mode === "activity" ? {activityVerifiedIds:eligible} : {}), claimStartedAt: now, renderedAt: null }, $inc: { renderVersion: 1 } },
     { returnDocument: "after" },
   ).lean();
   return changed || Giveaway.findOne({ _id: id, guildId }).lean();
@@ -120,7 +132,7 @@ export async function rerollGiveaway({ id, guildId, staffId, slot }) {
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Choose an existing winner number to reroll.");
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
-  if (!chooseGiveawayWinners(item.entrantIds || [], 1, used).length)
+  if (!chooseGiveawayWinners(item.mode === "activity" ? item.activityVerifiedIds || [] : item.entrantIds || [], 1, used).length)
     throw Error("There are no unused entrants left for a reroll.");
   const reserved = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "ended" },
@@ -189,7 +201,7 @@ export async function reconcileGiveaways(client, { now = new Date(), limit = 30 
       let latest = candidate;
       if (candidate.status === "rerolling") latest = await finishPendingReroll(candidate);
       if (candidate.status === "open" || candidate.status === "closing")
-        latest = await closeGiveaway({ id: candidate._id, guildId: candidate.guildId, now });
+        latest = await closeGiveaway({ id: candidate._id, guildId: candidate.guildId, now, client });
       if (["ended", "cancelled", "running"].includes(latest?.status) && !latest.renderedAt)
         await publishGiveawayResult(client, latest);
     } catch (error) {
