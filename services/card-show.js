@@ -6,6 +6,7 @@ import PetCatalog from "../models/PetCatalog.js";
 import { loadCardPresentationAssets } from "./card-artwork-layer-loader.js";
 import { renderCollectibleCardPreview } from "./card-preview-renderer.js";
 import { escapePetNameSearch } from "./card-owned-selection.js";
+import { cardArtistDestinations } from "./card-artist-links.js";
 
 export async function suggestShowCards(search="") {
   const term=String(search||"").trim().slice(0,100);
@@ -70,5 +71,6 @@ export async function renderShownCard(reference){
     publicId:"PREVIEW",artStatus:definition.artStatus,artUrl:definition.artUrl,
     artistCredit:definition.artistCredit,otherCollectorCount:collectors.length,
   });
-  return {png,name,rarity:definition.rarity,release:release?.name||definition.releaseId};
+  const [artistLink] = await cardArtistDestinations([definition]);
+  return {png,name,rarity:definition.rarity,release:release?.name||definition.releaseId,artistLink};
 }
