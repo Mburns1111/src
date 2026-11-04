@@ -1,4 +1,4 @@
-import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
 import { qualifyingActivity, completedActivityWeek } from "../services/giveaway-activity-counter.js";
@@ -143,16 +143,14 @@ export async function execute(interaction) {
         activityChannelIds:scan.channelIds, activityMinimum:minimum, activityDays:days,
         activityStartAt:startAt, activityCheckedAt:checkedAt,
       });
-      let message;
-      try {
-        message = await channel.send(giveawayAnnouncement({...record.toObject(),status:"open"}));
-        await Giveaway.updateOne({_id:record._id,status:"publishing"},{$set:{status:"open",messageId:message.id}});
-      } catch(error) {
-        await Giveaway.updateOne({_id:record._id},{$set:{status:"failed"}}).catch(()=>{});
-        if(message) await message.delete().catch(()=>{});
-        throw error;
-      }
-      return interaction.editReply({content:`Scheduled: ${message.url}\n**${scan.entrantIds.length}** qualifying members, entries locked. Completed week: ${week}. Required: ${minimum} message(s) on ${days} distinct day(s). Winners announced <t:${Math.floor(endsAt.getTime()/1000)}:F>.\nID: \`${record._id}\``,allowedMentions:{parse:[]}});
+      await Giveaway.updateOne({_id:record._id},{$set:{status:"draft"}});
+      return interaction.editReply({
+        content:`**Private activity giveaway preview**\nWeek: ${week} (Wednesday–Wednesday, Eastern)\nQualified: **${scan.entrantIds.length}**\nRequirement: ${minimum} message(s) on ${days} different days\nAnnouncement: <t:${Math.floor(endsAt.getTime()/1000)}:F>\nConfirm to lock entries. Nothing will be posted until winners are drawn.`,
+        components:[new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`giveaway:confirm:${record._id}`).setLabel("Confirm & schedule").setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId(`giveaway:cancel:${record._id}`).setLabel("Cancel").setStyle(ButtonStyle.Secondary),
+        )],allowedMentions:{parse:[]},
+      });
     }
     if (operation === "start") {
       const survival = survivalCommand;
@@ -281,14 +279,25 @@ export async function execute(interaction) {
 export async function handleGiveawayButton(interaction) {
   if (!interaction.guildId || !interaction.guild || interaction.user.bot)
     return interaction.reply({ content: "Giveaway entries are only available to server members.", flags: MessageFlags.Ephemeral });
-  const match = /^giveaway:(enter|leave|count|launch):([0-9a-f]{24})$/.exec(interaction.customId);
+  const match = /^giveaway:(enter|leave|count|launch|confirm|cancel):([0-9a-f]{24})$/.exec(interaction.customId);
   if (!match) return interaction.reply({ content: "Invalid giveaway button.", flags: MessageFlags.Ephemeral });
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const [, action, id] = match;
   try {
     const record = await Giveaway.findOne({ _id: id, guildId: interaction.guildId }).lean();
-    if (!record || record.messageId !== interaction.message?.id || record.channelId !== interaction.channelId)
+    if (!record || (!["confirm","cancel"].includes(action) && (record.messageId !== interaction.message?.id || record.channelId !== interaction.channelId)))
       return interaction.editReply("This giveaway announcement could not be verified.");
+    if (action === "confirm" || action === "cancel") {
+      if (record.mode !== "activity" || record.status !== "draft" || record.creatorId !== interaction.user.id ||
+          !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
+        return interaction.editReply("This preview is unavailable or belongs to another staff member.");
+      const updated = await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,status:"draft",creatorId:interaction.user.id},
+        {$set:{status:action==="confirm"?"open":"cancelled"}},{returnDocument:"after"}).lean();
+      if (!updated) return interaction.editReply("Already handled.");
+      return interaction.editReply({content:action==="confirm"
+        ? `Surprise giveaway scheduled with **${updated.entrantIds.length}** locked entries. Announcement: <t:${Math.floor(new Date(updated.endsAt).getTime()/1000)}:F>. ID: \`${id}\``
+        : "Cancelled. Nothing was posted.",components:[]});
+    }
     if (action === "launch") {
       if (record.mode !== "survival") return interaction.editReply("This is not an elimination trial.");
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
