@@ -11,6 +11,8 @@ const schema = new mongoose.Schema({
   mime: { type: String, required: true },
   originalFilename: { type: String, required: true },
   byteLength: { type: Number, required: true },
+  // Optional integrity check for resumable bulk imports; older assets can omit it.
+  checksumSha256: { type: String, default: "" },
   artistCredit: { type: String, default: "", maxlength: 100 },
   artistUrl: { type: String, default: "" },
   replacesKey: { type: String, default: "", index: true },
