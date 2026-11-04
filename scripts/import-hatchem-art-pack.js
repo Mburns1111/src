@@ -122,6 +122,15 @@ async function store(entry) {
     if (existing.kind !== originalKind(entry) ||
         (existing.checksumSha256 && existing.checksumSha256 !== entry.sha256))
       throw Error("Existing artwork key refers to a different file: " + entry.key);
+    // Filling in a real artist credit later is allowed only while the asset
+    // remains under review. Never rewrite approved attribution or image bytes.
+    if (entry.kind === "pet" && artist && !existing.artistCredit &&
+        existing.licenseReviewStatus === "needs-review") {
+      await CardArtwork.updateOne(
+        { key: entry.key, licenseReviewStatus: "needs-review", artistCredit: "" },
+        { $set: { artistCredit: artist } },
+      );
+    }
     console.log("Already uploaded:", entry.key);
     return;
   }
