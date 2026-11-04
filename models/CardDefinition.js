@@ -10,6 +10,7 @@ const schema = new mongoose.Schema({
   petArtworkKey: { type: String, default: "" },
   artistCredit: { type: String, default: "", maxlength: 100 },
   artistUrl: { type: String, default: "" },
+  artSourceUrl: { type: String, default: "", maxlength: 1800 },
   hatchWeight: { type: Number, default: 1, min: 0 },
   valueReview: {
     valueScore: { type: Number, default: null },
