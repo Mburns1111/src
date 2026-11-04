@@ -58,5 +58,5 @@ export function dropArtistLinkRow(destinations) {
 // Keep attribution buttons on a drop after it closes or a grab updates it.
 export function preservedArtistLinkRows(message) {
   return (message?.components || []).filter(row =>
-    row.components?.length && row.components.every(button => button.style === ButtonStyle.Link));
+    row.components?.length && row.components.every(button => (button.style ?? button.data?.style) === ButtonStyle.Link));
 }
