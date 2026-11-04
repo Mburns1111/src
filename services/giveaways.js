@@ -113,7 +113,7 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
     const verified = [];
     for (const id of [...new Set(eligible)]) {
       try { await guild.members.fetch({user:id,force:true}); verified.push(id); }
-      catch(error) { if (error.code !== 10007 && error.status !== 404) throw error; }
+      catch(error) { if (error.code !== 10007) throw error; }
     }
     eligible = verified;
   }
