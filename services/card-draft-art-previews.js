@@ -6,6 +6,7 @@ import { loadCardPresentationAssets } from "./card-artwork-layer-loader.js";
 import { loadStoredReleaseEggImage } from "./card-egg-artwork.js";
 import { renderCollectibleCardPreview } from "./card-preview-renderer.js";
 import { renderThreeCardDropImage } from "./card-drop-renderer.js";
+import { cardArtistDestinations } from "./card-artist-links.js";
 
 const RARITY_ORDER = ["Common", "Ultra-Rare", "Legendary", "Uncommon", "Rare"];
 
@@ -76,7 +77,8 @@ export async function previewOfficialDraftCard({ releaseId, petId, upgradeLevel 
     ...info, releaseName: release.name, seriesName: series?.name || release.seriesId,
     upgradeLevel, dropMode: false,
   });
-  return { png, petName: info.petName, releaseName: release.name, hasAssignedArt: Boolean(definition.petArtworkKey) };
+  const [artistLink] = await cardArtistDestinations([definition]);
+  return { png, petName: info.petName, releaseName: release.name, hasAssignedArt: Boolean(definition.petArtworkKey), artistLink };
 }
 
 export async function previewOfficialDraftDrop({ releaseId }) {
@@ -95,5 +97,6 @@ export async function previewOfficialDraftDrop({ releaseId }) {
     releaseName: release.name, seriesName: series?.name || release.seriesId,
     eggImageSource, cards,
   });
-  return { png, petNames: cards.map(card => card.petName), releaseName: release.name };
+  const artistLinks = await cardArtistDestinations(chosen);
+  return { png, petNames: cards.map(card => card.petName), releaseName: release.name, artistLinks };
 }
