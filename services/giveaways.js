@@ -149,7 +149,7 @@ export async function finishPendingReroll(item) {
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Giveaway reroll state requires staff repair.");
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
-  const replacementId = chooseGiveawayWinners(item.entrantIds || [], 1, used)[0];
+  const replacementId = chooseGiveawayWinners(item.mode === "activity" ? item.activityVerifiedIds || [] : item.entrantIds || [], 1, used)[0];
   if (!replacementId) throw Error("No unused entrants remain.");
   const previousId = item.winnerIds[slot];
   const winnerIds = [...item.winnerIds];
@@ -168,6 +168,22 @@ export async function publishGiveawayResult(client, item) {
   if (item?.mode === "survival") {
     if (!item?.messageId || !["ended", "cancelled", "running"].includes(item.status)) return false;
     await publishSurvivalAnnouncement(client, item);
+    return true;
+  }
+  if (item?.mode === "activity" && item.status === "ended") {
+    const channel = await client.channels.fetch(item.channelId);
+    if (!channel?.messages?.fetch || !channel.send) throw Error("Activity announcement channel is unavailable.");
+    let message = item.messageId ? await channel.messages.fetch(item.messageId).catch(e => {
+      if (e.code === 10008) return null;
+      throw e;
+    }) : null;
+    if (!message) {
+      const recent = await channel.messages.fetch({limit:100});
+      message = recent.find(m => m.author?.id === client.user?.id &&
+        m.embeds?.some(e => e.footer?.text?.includes(`Giveaway ID: ${item._id}`)));
+    }
+    if (!message) message = await channel.send(giveawayAnnouncement(item));
+    await Giveaway.updateOne({_id:item._id,status:"ended"},{$set:{messageId:message.id,renderedAt:new Date()}});
     return true;
   }
   if (!item?.messageId || !["ended", "open"].includes(item.status)) return false;
