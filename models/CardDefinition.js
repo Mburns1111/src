@@ -8,8 +8,15 @@ const schema = new mongoose.Schema({
   artStatus: { type: String, enum: ["missing", "pending", "approved", "test-placeholder"], default: "missing" },
   artUrl: { type: String, default: "" },
   petArtworkKey: { type: String, default: "" },
+  // Optional illustration overrides. Existing copies always resolve these at render time;
+  // no new card ID, hatch chance, or upgrade transaction is needed.
+  stagePetArtworkKeys: {
+    neon: { type: String, default: "" },
+    mega: { type: String, default: "" },
+  },
   artistCredit: { type: String, default: "", maxlength: 100 },
   artistUrl: { type: String, default: "" },
+  artSourceUrl: { type: String, default: "", maxlength: 1800 },
   hatchWeight: { type: Number, default: 1, min: 0 },
   valueReview: {
     valueScore: { type: Number, default: null },
