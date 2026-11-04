@@ -15,6 +15,7 @@ const schema = new mongoose.Schema({
   checksumSha256: { type: String, default: "" },
   artistCredit: { type: String, default: "", maxlength: 100 },
   artistUrl: { type: String, default: "" },
+  sourceUrl: { type: String, default: "", maxlength: 1800 },
   replacesKey: { type: String, default: "", index: true },
   revisionNote: { type: String, default: "", maxlength: 500 },
   licenseReviewStatus: { type: String, enum: ["needs-review", "approved", "rejected"], default: "needs-review" },
