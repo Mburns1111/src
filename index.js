@@ -204,10 +204,10 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // Messages are never stored or logged: only a short SHA-256 digest is kept to
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
-  if (!message.guildId || message.author?.bot || !message.content) return;
+  if (!message.guildId || message.author?.bot || message.webhookId) return;
   // Only commands typed in the assigned Hatchem text channel are parsed.
   // Ordinary chat and every other channel are ignored by this handler.
-  const parsed = isCardGameEnabled() &&
+  const parsed = Boolean(message.content) && isCardGameEnabled() &&
     (!isCardGameTestMode() || message.guildId === process.env.DISCORD_GUILD_ID) &&
     message.content.startsWith(".")
     ? parseHatchemText(message.content) : null;
