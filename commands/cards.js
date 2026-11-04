@@ -312,11 +312,11 @@ export async function execute(interaction) {
         rarity: definition.rarity, upgradeLevel: copy.upgradeLevel,
         releaseName: release?.name || definition.releaseId,
         seriesName: series?.name || definition.seriesId,
-        publicId: copy.publicId, artistCredit: definition.artistCredit,
+        publicId: copy.publicId, artistCredit: assets.displayArtistCredit,
         otherCollectorCount,
         artStatus: definition.artStatus, artUrl: definition.artUrl,
       });
-      const [artistLink] = await cardArtistDestinations([definition]);
+      const [artistLink] = await cardArtistDestinations([definition], [copy.upgradeLevel]);
       return interaction.editReply({
         content: `**${escapeDiscord(pet?.name || definition.petId)}** · ${definition.rarity} · Card \`${copy.publicId}\``,
         files: [new AttachmentBuilder(png, { name: "collectible-card-preview.png" })],
@@ -750,12 +750,12 @@ export async function handleCardUpgrade(interaction) {
         publicId: upgraded.publicId,
         releaseName: release?.name || definition.releaseId,
         seriesName: series?.name || definition.seriesId,
-        artistCredit: definition.artistCredit,
+        artistCredit: assets.displayArtistCredit,
         artUrl: definition.artUrl,
         artStatus: definition.artStatus,
         otherCollectorCount,
       });
-      const [artistLink] = await cardArtistDestinations([definition]);
+      const [artistLink] = await cardArtistDestinations([definition], [upgraded.upgradeLevel]);
       publicPost = await interaction.channel.send({
         components: artistLink ? [cardArtistLinkRow(artistLink)] : [],
         content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(pet?.name || definition.petId)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: ${formatCardId(result.publicId)}${dustMode?" · Used "+result.dustSpent+" "+result.rarity+" Dust":""}`,
