@@ -1,7 +1,7 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
-import { scanActivity } from "../services/giveaway-activity.js";
+import { qualifyingActivity, completedActivityWeek } from "../services/giveaway-activity-counter.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
   closeGiveaway, rerollGiveaway, publishGiveawayResult,
@@ -28,7 +28,8 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("prize").setDescription("Prize").setRequired(true))
     .addStringOption(o => o.setName("type").setDescription("Activity scope").setRequired(true).addChoices({name:"General server",value:"general"},{name:"Selected channels",value:"channels"}))
     .addIntegerOption(o => o.setName("minutes").setDescription("Minutes until winners announced").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
-    .addIntegerOption(o => o.setName("minimum").setDescription("Minimum messages").setMinValue(1))
+    .addIntegerOption(o => o.setName("minimum").setDescription("Messages required per active day (default 1)").setMinValue(1))
+    .addIntegerOption(o => o.setName("days").setDescription("Distinct active days required (default 1, e.g. 3)").setMinValue(1).setMaxValue(7))
     .addIntegerOption(o => o.setName("winners").setDescription("Winners").setMinValue(1).setMaxValue(10))
     .addChannelOption(o => o.setName("channel_1").setDescription("Channel 1"))
     .addChannelOption(o => o.setName("channel_2").setDescription("Channel 2"))
@@ -125,9 +126,13 @@ export async function execute(interaction) {
       const type = interaction.options.getString("type", true);
       const channels = [1,2,3,4,5].map(n => interaction.options.getChannel("channel_"+n)).filter(Boolean);
       if (type === "channels" && !channels.length) throw Error("Choose at least one channel.");
-      const checkedAt = new Date(), startAt = new Date(checkedAt.getTime() - 7*86400000);
+      const checkedAt = new Date(), week = completedActivityWeek(checkedAt);
+      const startAt = new Date(week + "T12:00:00Z");
       const minimum = interaction.options.getInteger("minimum") || 1;
-      const scan = await scanActivity(interaction.guild, { type, channelIds:[...new Set(channels.map(c=>c.id))], startAt, endAt:checkedAt, minimum });
+      const days = interaction.options.getInteger("days") || 1;
+      const channelIds = [...new Set(channels.map(c=>c.id))];
+      const entrantIds = await qualifyingActivity({guildId:interaction.guildId,type,channelIds,minimum,days,week});
+      const scan = {entrantIds,channelIds};
       if (!scan.entrantIds.length) throw Error("Nobody qualified; giveaway was not created.");
       const endsAt = new Date(Date.now() + interaction.options.getInteger("minutes",true)*60000);
       const record = await Giveaway.create({
@@ -135,7 +140,7 @@ export async function execute(interaction) {
         title:interaction.options.getString("title",true), prize:interaction.options.getString("prize",true),
         winnerCount:interaction.options.getInteger("winners") || 1, endsAt, mode:"activity",
         status:"publishing", entrantIds:scan.entrantIds, activityType:type,
-        activityChannelIds:scan.channelIds, activityMinimum:minimum,
+        activityChannelIds:scan.channelIds, activityMinimum:minimum, activityDays:days,
         activityStartAt:startAt, activityCheckedAt:checkedAt,
       });
       let message;
@@ -147,7 +152,7 @@ export async function execute(interaction) {
         if(message) await message.delete().catch(()=>{});
         throw error;
       }
-      return interaction.editReply({content:`Scheduled: ${message.url}\n**${scan.entrantIds.length}** qualifying members, entries locked. Winners announced <t:${Math.floor(endsAt.getTime()/1000)}:F>.\nID: \`${record._id}\``,allowedMentions:{parse:[]}});
+      return interaction.editReply({content:`Scheduled: ${message.url}\n**${scan.entrantIds.length}** qualifying members, entries locked. Completed week: ${week}. Required: ${minimum} message(s) on ${days} distinct day(s). Winners announced <t:${Math.floor(endsAt.getTime()/1000)}:F>.\nID: \`${record._id}\``,allowedMentions:{parse:[]}});
     }
     if (operation === "start") {
       const survival = survivalCommand;
