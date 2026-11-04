@@ -50,7 +50,7 @@ test("server admins can configure only the local Card role, not automatic drop t
   const ownerCommand = cardsOwner.toJSON();
   assert.deepEqual(ownerCommand.options.map(x => x.name), [
     "releases", "create-series", "create-release", "edit-release", "add-pet",
-    "add-pets", "remove-pet", "set-weight", "set-odds", "release-check",
+    "add-pets", "remove-pet", "set-weight", "set-art-source", "set-odds", "release-check",
     "egg-upload", "egg-review", "assign-art", "set-enabled", "activate", "pause", "resume", "retire", "preview-art", "preview-drop", "inspect",
   ]);
 });
