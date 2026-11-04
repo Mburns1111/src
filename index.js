@@ -89,6 +89,7 @@ import { handleCardCollectionInteraction } from "./commands/card-collection-ui.j
 import { handleCardShopInteraction } from "./commands/card-shop-ui.js";
 import { handleCardInventoryInteraction } from "./commands/card-inventory-ui.js";
 import { handleCardAchievementButton } from "./commands/card-achievements-ui.js";
+import { handleHatchemTutorialButton } from "./commands/card-tutorial-ui.js";
 import { handleListingAppearanceDM, handleOutfitAppearancePicker, handleHouseAppearancePicker } from "./commands/listing-appearance-editor.js";
 import { reconcileOutfitsForGuild } from "./services/outfit-reconciliation.js";
 import { reconcileHousesForGuild } from "./services/house-availability.js";
@@ -102,6 +103,8 @@ import { awardMessageActivity, eligibleVoiceStates, recordVoiceMinute } from "./
 import { runBounded, VOICE_TICK_CONCURRENCY } from "./services/bounded-work.js";
 import PointsSettings from "./models/PointsSettings.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
+import { data as partyCommand, execute as executeParty, handlePartyInteraction } from "./commands/party.js";
+import { reconcileCourtGames } from "./services/party-court-engine.js";
 import { execute as executeHelp, data as helpCommand, handleHelpTopicButton } from "./commands/help.js";
 import {
   handleTradingPostCardButton,
@@ -318,6 +321,7 @@ const commandHandlers = new Map([
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
   [helpCommand.name, executeHelp],
+  [partyCommand.name, executeParty],
 ]);
 
 // Startup maintenance is best-effort and must never gate a slash command.
@@ -391,7 +395,10 @@ client.once(Events.ClientReady, async (readyClient) => {
     cardDropCloseTimer.unref?.();
     void runCardDropCloseSweep();
   }
-  console.log(`Bot is online as ${readyClient.user.tag}.`);
+  console.log(`Bot is online as ${readyClient.user.tag} (PID ${process.pid}).`);
+  void reconcileCourtGames(readyClient).catch(error => console.error("[Party] Sweep failed:", error));
+  const partyTimer = setInterval(() => void reconcileCourtGames(readyClient).catch(error => console.error("[Party] Sweep failed:", error)), 5000);
+  partyTimer.unref?.();
   let giveawaySweepActive = false;
   const sweepGiveaways = async () => {
     if (giveawaySweepActive) return;
@@ -535,6 +542,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleCardShopInteraction(interaction);
       return;
     }
+    if (interaction.isButton() && interaction.customId.startsWith("cards:tutorial:")) {
+      await handleHatchemTutorialButton(interaction);
+      return;
+    }
     if (interaction.isButton() && interaction.customId.startsWith("cards:inventory:")) {
       await handleCardInventoryInteraction(interaction);
       return;
@@ -570,6 +581,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:grab:")) {
       await handleCardGrab(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("party:")) {
+      await handlePartyInteraction(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("giveaway:")) {
@@ -852,13 +867,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
         testPointsCommand.name,
         pointsAdminCommand.name,
         pointsObserveCommand.name,
+        partyCommand.name,
         profileCleanupCommand.name,
         profileRefreshCommand.name,
       ].includes(interaction.commandName)
     ) {
       await ensureProfileCard(interaction.guild, interaction.user);
     }
-    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name, cardsReleaseCommand.name].includes(interaction.commandName) && interaction.guildId) {
+    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name, cardsReleaseCommand.name, partyCommand.name].includes(interaction.commandName) && interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
       if (
         config?.commandChannelId &&

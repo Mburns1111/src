@@ -26,6 +26,7 @@ const guildConfigSchema = new mongoose.Schema(
     shopCategoryMessageIds: { type: Map, of: String, default: () => ({}) },
     commandChannelId: { type: String, default: "" },
     hatchemChannelId: { type: String, default: "" },
+    partyGamesChannelId: { type: String, default: "" },
     // Legacy timed-drop due date; retained for existing MongoDB documents but
     // deliberately ignored. Wild eggs now come only from server activity.
     hatchemNextAutoDropAt: { type: Date, default: null },

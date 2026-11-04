@@ -18,10 +18,12 @@ import { data as cardsAdminCommand } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand, cardsReleaseCommand, RELEASE_LIFECYCLE_SUBCOMMANDS } from "./commands/cards-owner.js";
 import { buildCardCommandRegistration } from "./services/card-command-registration.js";
 import { isCardGameTestMode } from "./services/card-game-mode.js";
+import { planCommandScopes } from "./services/command-registration-scopes.js";
 import { data as testPointsCommand } from "./commands/test-points.js";
 import { data as pointsAdminCommand } from "./commands/points-admin.js";
 import { data as pointsObserveCommand } from "./commands/points-observe.js";
 import { data as helpCommand } from "./commands/help.js";
+import { data as partyCommand } from "./commands/party.js";
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -57,20 +59,29 @@ const commands = [
   pointsAdminCommand,
   pointsObserveCommand,
   helpCommand,
+  partyCommand,
 ].map((command) => command.toJSON());
 
-await rest.put(Routes.applicationCommands(clientId), { body: [...commands, ...globalCardCommands] });
+// Publish ordinary commands in one scope only. The optional guild endpoint
+// contains *only* test-only card commands; PUT [] removes stale guild copies
+// of global commands created by older registration scripts.
+const { globalCommands, guildCommands } = planCommandScopes({
+  commonCommands: commands,
+  globalCardCommands,
+  testGuildCardCommands,
+  guildId,
+  testMode: isCardGameTestMode(),
+});
+await rest.put(Routes.applicationCommands(clientId), { body: globalCommands });
 
 console.log(
-  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, giveaway, trial, points-admin, help commands.",
+  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, giveaway, trial, points-admin, help, party commands.",
 );
 
 if (guildId) {
   await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-    body: isCardGameTestMode()
-      ? [...commands, ...testGuildCardCommands]
-      : commands,
+    body: guildCommands,
   });
 
-  console.log(`Also registered commands for test server ${guildId}.`);
+  console.log(`Synchronized ${guildCommands.length} guild-only testing commands for server ${guildId}; removed stale duplicates of global commands.`);
 }

@@ -1,5 +1,6 @@
 import { execute as executeCards } from "../commands/cards.js";
 import { listCollectorTags } from "./card-tag-catalog.js";
+import { sendHatchemTutorial } from "../commands/card-tutorial-ui.js";
 
 /**
  * User-facing format is .tag <tag name> [pet name or IDs], without quotes.
@@ -53,7 +54,7 @@ export function parseHatchemTagArguments(raw, savedTags = []) {
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|halloffame|hof|history|show|shop|inventory)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|tutorial|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|halloffame|hof|history|show|shop|inventory)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = ({createtag:"create-tag",tagcreate:"create-tag",tagdelete:"delete-tag",tagmultiple:"tag-multiple",untagmultiple:"untag-multiple",deletetag:"delete-tag"})[found[1].toLowerCase()] || found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "register") return { action, options: {} };
@@ -100,6 +101,7 @@ export function parseHatchemText(content) {
 export const HATCHEM_GUIDE = [
   "**🥚 Hatchem — Hatch, Collect & Upgrade!**",
   "Type .register to join Hatchem and receive this server\u2019s Card role.",
+  "New to Hatchem? Click **Learn to Play** below or type .tutorial for a short walkthrough.",
   "Type a command starting with a dot (.) here, or use /cards:",
   ".collection [tag] or .collection @member [tag] — filter collection",
   ".upgrade [pet name or card ID] — combine four matching cards",
@@ -125,6 +127,7 @@ export const HATCHEM_GUIDE = [
 export const HATCHEM_HELP = [
   "**🥚 Hatchem typed commands — start with a dot (.)**",
   ".register — join Hatchem in this server and receive your Card role",
+  ".tutorial — open the six-page beginner walkthrough",
   "Registration is required before regular drops or grabs. Join separately in each server.",
   ".drop — player egg every 15 minutes globally",
   ".cooldowns — check drop and grab availability",
@@ -159,6 +162,10 @@ export const HATCHEM_HELP = [
 
 export async function runHatchemText(message, parsed) {
   if (!parsed) return false;
+  if (parsed.action === "tutorial") {
+    await sendHatchemTutorial(message);
+    return true;
+  }
   if (parsed.action === "help") {
     await message.reply({ content:HATCHEM_HELP,allowedMentions:{parse:[]} });
     return true;
