@@ -45,3 +45,24 @@ test("long credited artist text cannot overlap the ID chip", async () => {
   const [ir,ig,ib] = await rgba(png, 818, 1178);
   assert.ok(ir > 230 && ig > 230 && ib > 230, "ID always has a readable white backing");
 });
+
+test("Normal, Neon and Mega stage labels have centered text-fitting white chips", async () => {
+  const measuringCanvas = createCanvas(W, H);
+  const measure = measuringCanvas.getContext("2d");
+  measure.font = "700 28px sans-serif";
+
+  for (const stage of ["normal", "neon", "mega"]) {
+    const png = await renderCollectibleCardPreview({
+      petName: "Albino Bat", rarity: "Ultra-Rare", upgradeLevel: stage,
+      rarityFrameImageSource: filledRarityArt(),
+    });
+    const width = measure.measureText(stage.toUpperCase()).width;
+    const rightPaddingX = Math.round(W / 2 + width / 2 + 6);
+    const [r, g, b] = await rgba(png, rightPaddingX, 1038);
+    assert.ok(r > 230 && g > 230 && b > 230,
+      stage + " should have a white label chip padded beyond its text");
+    const [or, og, ob] = await rgba(png, 300, 1038);
+    assert.ok(or > 175 && og < 125 && ob > 110,
+      stage + " should leave surrounding decorative artwork visible");
+  }
+});
