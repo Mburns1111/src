@@ -56,7 +56,8 @@ test("Normal, Neon and Mega stage labels have centered text-fitting white chips"
       petName: "Albino Bat", rarity: "Ultra-Rare", upgradeLevel: stage,
       rarityFrameImageSource: filledRarityArt(),
     });
-    const width = measure.measureText(stage.toUpperCase()).width;
+    const stageLabel = stage === "mega" ? "MEGA NEON" : stage.toUpperCase();
+    const width = measure.measureText(stageLabel).width;
     const rightPaddingX = Math.round(W / 2 + width / 2 + 6);
     const [r, g, b] = await rgba(png, rightPaddingX, 1038);
     assert.ok(r > 230 && g > 230 && b > 230,
