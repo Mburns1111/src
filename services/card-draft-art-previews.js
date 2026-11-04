@@ -2,7 +2,7 @@ import CardDefinition from "../models/CardDefinition.js";
 import CardRelease from "../models/CardRelease.js";
 import CardSeries from "../models/CardSeries.js";
 import PetCatalog from "../models/PetCatalog.js";
-import { loadCardArtwork } from "./card-artwork-assets.js";
+import { loadCardPresentationAssets } from "./card-artwork-layer-loader.js";
 import { loadStoredReleaseEggImage } from "./card-egg-artwork.js";
 import { renderCollectibleCardPreview } from "./card-preview-renderer.js";
 import { renderThreeCardDropImage } from "./card-drop-renderer.js";
@@ -44,21 +44,15 @@ async function draftRelease(releaseId) {
   return release;
 }
 
-async function cardPresentation(release, definition, petNames) {
-  const [petImage, backgroundImage, frameImage] = await Promise.all([
-    loadCardArtwork(definition.petArtworkKey, "pet"),
-    loadCardArtwork(release.cardBackgroundKey, "background"),
-    loadCardArtwork(release.cardFrameKey, "frame"),
-  ]);
+async function cardPresentation(release, definition, petNames, upgradeLevel = "normal") {
+  const assets = await loadCardPresentationAssets({ definition, release, upgradeLevel });
   return {
     petName: petNames.get(definition.petId) || definition.petId,
     rarity: definition.rarity,
     artStatus: definition.artStatus,
     artistCredit: definition.artistCredit,
     artUrl: definition.artUrl,
-    petImageSource: petImage?.bytes,
-    backgroundImageSource: backgroundImage?.bytes,
-    frameImageSource: frameImage?.bytes,
+    ...assets,
   };
 }
 
@@ -66,7 +60,8 @@ async function cardPresentation(release, definition, petNames) {
  * Read-only previews of REAL draft release artwork, never a simulated drop.
  * No CardCopy, CardDrop, CardClaim, cooldown, Points or achievement writes.
  */
-export async function previewOfficialDraftCard({ releaseId, petId }) {
+export async function previewOfficialDraftCard({ releaseId, petId, upgradeLevel = "normal" }) {
+  if (!["normal", "neon", "mega"].includes(upgradeLevel)) throw new Error("Invalid preview stage.");
   const release = await draftRelease(releaseId);
   const definition = await CardDefinition.findOne({
     releaseId: release.releaseId, petId: String(petId || "").trim(),
@@ -76,10 +71,10 @@ export async function previewOfficialDraftCard({ releaseId, petId }) {
     PetCatalog.findOne({ petId: definition.petId }).select("name").lean(),
     CardSeries.findOne({ seriesId: release.seriesId }).select("name").lean(),
   ]);
-  const info = await cardPresentation(release, definition, new Map([[definition.petId, pet?.name || definition.petId]]));
+  const info = await cardPresentation(release, definition, new Map([[definition.petId, pet?.name || definition.petId]]), upgradeLevel);
   const png = await renderCollectibleCardPreview({
     ...info, releaseName: release.name, seriesName: series?.name || release.seriesId,
-    upgradeLevel: "normal", dropMode: true,
+    upgradeLevel, dropMode: false,
   });
   return { png, petName: info.petName, releaseName: release.name, hasAssignedArt: Boolean(definition.petArtworkKey) };
 }
