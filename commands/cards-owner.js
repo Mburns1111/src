@@ -1,4 +1,5 @@
-import { SlashCommandBuilder } from "discord.js";
+import { AttachmentBuilder, SlashCommandBuilder } from "discord.js";
+import { previewOfficialDraftCard, previewOfficialDraftDrop } from "../services/card-draft-art-previews.js";
 import CardRelease from "../models/CardRelease.js";
 import CardSeries from "../models/CardSeries.js";
 import CardDefinition from "../models/CardDefinition.js";
@@ -99,6 +100,13 @@ export const data = new SlashCommandBuilder()
     .setDescription("OWNER: permanently stop a release from hatching")
     .addStringOption(o => o.setName("release").setDescription("Active or paused release").setRequired(true).setAutocomplete(true))
     .addBooleanOption(o => o.setName("confirm").setDescription("Irreversibly retire this egg").setRequired(true)))
+  .addSubcommand(command => command.setName("preview-art")
+    .setDescription("OWNER: privately preview one pet from the REAL draft release")
+    .addStringOption(o => o.setName("release").setDescription("Actual draft release").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("pet").setDescription("Pet already added to the draft").setRequired(true).setAutocomplete(true)))
+  .addSubcommand(command => command.setName("preview-drop")
+    .setDescription("OWNER: preview three real draft-release cards without dropping them")
+    .addStringOption(o => o.setName("release").setDescription("Actual draft release").setRequired(true).setAutocomplete(true)))
   .addSubcommand(command => command.setName("inspect")
     .setDescription("Privately inspect all pets and weights in an egg release")
     .addStringOption(option => option.setName("release")
@@ -131,10 +139,33 @@ export async function execute(interaction) {
   if (["create-series", "create-release", "edit-release", "add-pet",
       "add-pets", "remove-pet", "set-weight", "set-odds", "release-check",
       "assign-art", "set-enabled", "activate", "pause", "resume", "retire",
-      "egg-upload", "egg-review"].includes(option)) {
+      "egg-upload", "egg-review", "preview-art", "preview-drop"].includes(option)) {
     const string = key => interaction.options.getString(key);
     const number = key => interaction.options.getNumber(key);
     try {
+      if (option === "preview-art") {
+        const result = await previewOfficialDraftCard({
+          releaseId: string("release"), petId: string("pet"),
+        });
+        return interaction.editReply({
+          content: "**DRAFT artwork preview — " + clean(result.releaseName) + "**\n" +
+            "**" + clean(result.petName) + "** · " +
+            (result.hasAssignedArt ? "assigned artwork" : "artwork not assigned") +
+            "\nRead-only: no egg, card ownership, Points or cooldowns changed.",
+          files: [new AttachmentBuilder(result.png, { name: "draft-card-preview.png" })],
+          allowedMentions: { parse: [] },
+        });
+      }
+      if (option === "preview-drop") {
+        const result = await previewOfficialDraftDrop({ releaseId: string("release") });
+        return interaction.editReply({
+          content: "**DRAFT three-card layout — " + clean(result.releaseName) + "**\n" +
+            result.petNames.map((name, index) => (index + 1) + ". " + clean(name)).join(" · ") +
+            "\nRead-only visual preview; no egg was hatched or card reserved.",
+          files: [new AttachmentBuilder(result.png, { name: "draft-three-card-preview.png" })],
+          allowedMentions: { parse: [] },
+        });
+      }
       if (option === "create-series") {
         const result = await createSeries({ seriesId: string("id"), name: string("name") });
         return interaction.editReply("Created global series **" + clean(result.name) + "** (ID: " + clean(result.id) + "). Status: draft.");
@@ -313,7 +344,7 @@ export async function autocompleteCardsOwner(interaction) {
       const existing = new Set(assigned);
       suggestions = pets.filter(p => !existing.has(p.petId)).slice(0, 25)
         .map(p => ({ name: (p.name + " · " + p.rarity).slice(0, 100), value: p.petId }));
-    } else if (focused.name === "pet" && ["remove-pet", "set-weight"].includes(option)) {
+    } else if (focused.name === "pet" && ["remove-pet", "set-weight", "preview-art"].includes(option)) {
       const selectedRelease = interaction.options.getString("release");
       if (!selectedRelease) return interaction.respond([]);
       const assigned = await CardDefinition.find({ releaseId: selectedRelease })
