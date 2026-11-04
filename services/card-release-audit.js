@@ -8,7 +8,7 @@ import { selectedCardPetArt } from "./card-pet-art-stages.js";
 import { validCardArtistUrl } from "./card-artist-links.js";
 
 export function auditHatchemRelease({
-  release, definitions, artwork, egg, expected = 110,
+  release, definitions, artwork, egg, expected = 108,
   achievementStartConfigured = false,
   guilds = [],
 } = {}) {
