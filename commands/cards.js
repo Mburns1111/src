@@ -99,12 +99,14 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
 export const ownerCardOptions = new SlashCommandBuilder().setName("cards-owner-tools").setDescription("Owner artwork and test tools")
   .addSubcommand(c => c.setName("egg-art-upload").setDescription("OWNER: save the Release 1 egg artwork to MongoDB")
     .addAttachmentOption(o => o.setName("image").setDescription("Release 1 egg image (PNG/JPG/WebP)").setRequired(true)))
-  .addSubcommand(c => c.setName("art-upload").setDescription("OWNER: upload a test card art asset to MongoDB")
+  .addSubcommand(c => c.setName("art-upload").setDescription("OWNER: upload a card art asset to MongoDB")
     .addStringOption(o => o.setName("key").setDescription("Unique artwork ID, e.g. cat-art-01").setRequired(true))
     .addStringOption(o => o.setName("kind").setDescription("Layer type").setRequired(true)
       .addChoices({ name: "Pet illustration", value: "pet" }, { name: "Card background", value: "background" }, { name: "Transparent frame", value: "frame" }))
     .addAttachmentOption(o => o.setName("image").setDescription("PNG, JPG or WebP image").setRequired(true))
     .addStringOption(o => o.setName("artist").setDescription("Artist to credit (required for pet art)").setRequired(false))
+    .addStringOption(o => o.setName("artist_url").setDescription("Optional artist profile (HTTPS)").setRequired(false))
+    .addStringOption(o => o.setName("source_url").setDescription("Optional original artwork post (HTTPS)").setRequired(false))
     .addStringOption(o => o.setName("replaces").setDescription("Older artwork key for a new revision").setRequired(false))
     .addStringOption(o => o.setName("revision_note").setDescription("What changed? Required for revisions").setRequired(false)))
   .addSubcommand(c => c.setName("art-assign").setDescription("OWNER: assign uploaded artwork to TEST cards or release")
@@ -458,11 +460,13 @@ export async function execute(interaction) {
         const result = await uploadCardArtwork({
           kind, key, attachment: interaction.options.getAttachment("image", true),
           artistCredit: interaction.options.getString("artist") || "", uploadedBy: interaction.user.id,
+          artistUrl: interaction.options.getString("artist_url") || "",
+          sourceUrl: interaction.options.getString("source_url") || "",
           replacesKey: interaction.options.getString("replaces") || "",
           revisionNote: interaction.options.getString("revision_note") || "",
         });
         return interaction.editReply({
-          content: `Saved **${escapeDiscord(result.key)}** (${result.kind}) to MongoDB. Artwork remains under review. ${interaction.options.getString("replaces") ? "The original version was preserved. " : ""}Use /cards-owner art-info to inspect and /cards-owner art-review to approve. After approval, assign it with /cards-release assign-art.`,
+          content: `Saved **${escapeDiscord(result.key)}** (${result.kind}) to MongoDB. Artwork remains under review. ${interaction.options.getString("replaces") ? "The original version was preserved. " : ""}Use /cards-owner art-info to inspect and /cards-owner art-review to approve. After approval, use /cards-release assign-art for Normal art or /cards-release set-stage-art for Neon/Mega art.`,
           allowedMentions: { parse: [] },
         });
       }
