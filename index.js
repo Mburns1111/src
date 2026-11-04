@@ -79,6 +79,7 @@ import {
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton } from "./commands/giveaway.js";
 import { reconcileGiveaways } from "./services/giveaways.js";
+import { recordGiveawayMessage } from "./services/giveaway-activity-counter.js";
 import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
 import { maybePublishActivityEgg } from "./services/card-automatic-drops.js";
@@ -224,6 +225,7 @@ client.on(Events.MessageCreate, message => {
     void maybePublishActivityEgg(client, message).catch(error =>
       console.error("[Hatchem] Activity chance check failed:", error));
   }
+  void recordGiveawayMessage(message).catch(error => console.error("[Giveaways] Activity counter:",error));
   awardMessageActivity(message).then(result => {
     if (result.credited) console.log(`[Points] Chat +${result.amount} to ${message.author.id}.`);
   }).catch(error => {
