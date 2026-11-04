@@ -69,7 +69,7 @@ export async function renderShownCard(reference){
     releaseName:release?.name||definition.releaseId,
     seriesName:series?.name||definition.seriesId,
     publicId:"PREVIEW",artStatus:definition.artStatus,artUrl:definition.artUrl,
-    artistCredit:definition.artistCredit,otherCollectorCount:collectors.length,
+    artistCredit:assets.displayArtistCredit,otherCollectorCount:collectors.length,
   });
   const [artistLink] = await cardArtistDestinations([definition]);
   return {png,name,rarity:definition.rarity,release:release?.name||definition.releaseId,artistLink};
