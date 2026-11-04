@@ -164,11 +164,11 @@ export async function handleCardCollectionInteraction(interaction) {
         ...assets,
         petName: pet?.name || def.petId, rarity: def.rarity, upgradeLevel: copy.upgradeLevel,
         publicId: copy.publicId || "PENDING", releaseName: release?.name || def.releaseId,
-        seriesName: series?.name || def.seriesId, artistCredit: def.artistCredit,
+        seriesName: series?.name || def.seriesId, artistCredit: assets.displayArtistCredit,
         artUrl: def.artUrl, artStatus: def.artStatus, otherCollectorCount: count,
 
       });
-      const [artistLink] = await cardArtistDestinations([def]);
+      const [artistLink] = await cardArtistDestinations([def], [copy.upgradeLevel]);
       const artistRow = cardArtistLinkRow(artistLink);
       return interaction.editReply({
         content: `**${safe(pet?.name || def.petId)}** · ${safe(def.rarity)} · ${labelStage(copy.upgradeLevel)}\nCard ID: \`${copy.publicId || "PENDING"}\`${copy.tag ? ` · Tag: ${safe(copy.tag)}` : ""}${copy.locked ? " · 🔒 Locked" : ""}`,
