@@ -12,6 +12,7 @@ import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
 import { storeTestEggArtwork } from "../services/card-egg-artwork-upload.js";
 import { uploadCardArtwork, loadCardArtwork, browseCardArtwork, getCardArtworkDetails, reviewCardArtwork } from "../services/card-artwork-assets.js";
+import { loadCardPresentationAssets } from "../services/card-artwork-layer-loader.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
 import CardCopy from "../models/CardCopy.js";
@@ -298,19 +299,13 @@ export async function execute(interaction) {
       if (!definition) return interaction.editReply("That card's artwork definition is missing.");
       const [pet, release, series, otherCollectorCount] = await Promise.all([
         PetCatalog.findOne({ petId: definition.petId }).select("name").lean(),
-        CardRelease.findOne({ releaseId: definition.releaseId }).select("name cardBackgroundKey cardFrameKey").lean(),
+        CardRelease.findOne({ releaseId: definition.releaseId }).lean(),
         CardSeries.findOne({ seriesId: definition.seriesId }).select("name").lean(),
         countOtherCardCollectors({ cardDefinitionId: copy.cardDefinitionId, ownerDiscordUserId: interaction.user.id }),
       ]);
-      const [petImage, backgroundImage, frameImage] = await Promise.all([
-        loadCardArtwork(definition.petArtworkKey, "pet"),
-        loadCardArtwork(release?.cardBackgroundKey, "background"),
-        loadCardArtwork(release?.cardFrameKey, "frame"),
-      ]);
+      const assets = await loadCardPresentationAssets({ definition, release, upgradeLevel: copy.upgradeLevel });
       const png = await renderCollectibleCardPreview({
-        petImageSource: petImage?.bytes,
-        backgroundImageSource: backgroundImage?.bytes,
-        frameImageSource: frameImage?.bytes,
+        ...assets,
         petName: pet?.name || definition.petId,
         rarity: definition.rarity, upgradeLevel: copy.upgradeLevel,
         releaseName: release?.name || definition.releaseId,
@@ -624,19 +619,14 @@ export async function publishCardDrop(interaction, { releaseId, testMode, automa
       "Run `node scripts/find-release-egg-artwork.js test-s1-r1` in Replit to identify its stored filename/bucket. No drop was created."
     );
   }
-  const [backgroundImage, frameImage] = await Promise.all([
-    loadCardArtwork(release.cardBackgroundKey, "background"),
-    loadCardArtwork(release.cardFrameKey, "frame"),
-  ]);
-  const petImages = await Promise.all(revealed.map(({ card }) => loadCardArtwork(card.petArtworkKey, "pet")));
+  const cardAssets = await Promise.all(revealed.map(({ card }) =>
+    loadCardPresentationAssets({ definition: card, release, upgradeLevel: "normal" })));
   const dropPng = await renderThreeCardDropImage({
     releaseName: release.name,
     seriesName: series?.name || release.seriesId,
     eggImageSource,
     cards: revealed.map(({ card, rarity }, i) => ({
-      petImageSource: petImages[i]?.bytes,
-      backgroundImageSource: backgroundImage?.bytes,
-      frameImageSource: frameImage?.bytes,
+      ...cardAssets[i],
       petName: petNames[card.petId] || card.petId,
       rarity,
       artStatus: card.artStatus,
@@ -746,15 +736,9 @@ export async function handleCardUpgrade(interaction) {
           ownerDiscordUserId: interaction.user.id,
         }),
       ]);
-      const [petImage, backgroundImage, frameImage] = await Promise.all([
-        loadCardArtwork(definition.petArtworkKey, "pet"),
-        loadCardArtwork(release?.cardBackgroundKey, "background"),
-        loadCardArtwork(release?.cardFrameKey, "frame"),
-      ]);
+      const assets = await loadCardPresentationAssets({ definition, release, upgradeLevel: upgraded.upgradeLevel });
       const image = await renderCollectibleCardPreview({
-        petImageSource: petImage?.bytes,
-        backgroundImageSource: backgroundImage?.bytes,
-        frameImageSource: frameImage?.bytes,
+        ...assets,
         petName: pet?.name || definition.petId,
         rarity: definition.rarity,
         upgradeLevel: upgraded.upgradeLevel,
