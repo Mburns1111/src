@@ -2,7 +2,7 @@
 /**
  * Read-only launch audit against the database currently configured in Replit.
  *
- *   node scripts/audit-hatchem-release.js --release=s1-r1 --expected=110
+ *   node scripts/audit-hatchem-release.js --release=s1-r1 --expected=108
  *
  * Does NOT approve images, change card states, set achievement start dates,
  * activate releases, alter Discord permissions, or publish messages.
@@ -23,10 +23,10 @@ const args=Object.fromEntries(process.argv.slice(2).map(arg=>{
   return [key,value.length?value.join("="):true];
 }));
 const releaseId=String(args.release || "s1-r1").trim();
-const expected=Number(args.expected ?? 110);
+const expected=Number(args.expected ?? 108);
 if(!/^[a-z0-9][a-z0-9-]{1,63}$/.test(releaseId) ||
    !Number.isSafeInteger(expected) || expected<1 || expected>200)
-  throw Error("Usage: node scripts/audit-hatchem-release.js --release=s1-r1 --expected=110");
+  throw Error("Usage: node scripts/audit-hatchem-release.js --release=s1-r1 --expected=108");
 if(!process.env.MONGODB_URI)throw Error("MONGODB_URI is required.");
 
 await mongoose.connect(process.env.MONGODB_URI);
