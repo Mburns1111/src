@@ -51,7 +51,7 @@ async function cardPresentation(release, definition, petNames, upgradeLevel = "n
     petName: petNames.get(definition.petId) || definition.petId,
     rarity: definition.rarity,
     artStatus: definition.artStatus,
-    artistCredit: definition.artistCredit,
+    artistCredit: assets.displayArtistCredit,
     artUrl: definition.artUrl,
     ...assets,
   };
@@ -77,7 +77,7 @@ export async function previewOfficialDraftCard({ releaseId, petId, upgradeLevel 
     ...info, releaseName: release.name, seriesName: series?.name || release.seriesId,
     upgradeLevel, dropMode: false,
   });
-  const [artistLink] = await cardArtistDestinations([definition]);
+  const [artistLink] = await cardArtistDestinations([definition], [upgradeLevel]);
   return { png, petName: info.petName, releaseName: release.name, hasAssignedArt: Boolean(definition.petArtworkKey), artistLink };
 }
 
