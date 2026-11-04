@@ -74,7 +74,8 @@ function footerTextChip(ctx, { value, x, baseline, maxTextWidth, font, color, al
   // artist-credit chip on the same line.
   const textWidth = Math.min(measuredWidth, maxTextWidth);
   const chipWidth = Math.ceil(textWidth + paddingX * 2);
-  const left = align === "right" ? x - textWidth - paddingX : x - paddingX;
+  const left = align === "right" ? x - textWidth - paddingX :
+    align === "center" ? x - textWidth / 2 - paddingX : x - paddingX;
   roundRect(ctx, left, baseline - 27, chipWidth, chipHeight, 9,
     "rgba(255,255,255,0.97)", "rgba(113,128,120,0.30)", 1);
   ctx.fillStyle = color;
@@ -197,7 +198,13 @@ export async function renderCollectibleCardPreview({
 
   centered(ctx, String(petName || "Mystery Pet"), W/2, 157, W-130, 88, "#2E3937");
   centered(ctx, String(rarity || "Common").toUpperCase(), W/2, 206, W-190, 27, accent);
-  centered(ctx, upgradeLabel(upgradeLevel).toUpperCase(), W/2, 1049, 640, 28, "#3D5750");
+  // Match the metadata footer: a text-sized white chip keeps NORMAL, NEON
+  // and MEGA legible over decorative stage/rarity artwork, without hiding it.
+  footerTextChip(ctx, {
+    value: upgradeLabel(upgradeLevel).toUpperCase(),
+    x: W / 2, baseline: 1049, maxTextWidth: 640,
+    font: "700 28px sans-serif", color: "#3D5750", align: "center",
+  });
 
   // All displayed artwork is credited on the card, including drop cards.
   // A test-placeholder is explicitly described as a placeholder, not as real artist art.
