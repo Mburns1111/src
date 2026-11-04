@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import CardSeries from "../models/CardSeries.js";
 import CardRelease from "../models/CardRelease.js";
 import { validCardArtistUrl } from "./card-artist-links.js";
+import { CARD_ALTERNATE_ART_STAGES } from "./card-pet-art-stages.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import CardArtwork from "../models/CardArtwork.js";
@@ -241,6 +242,49 @@ export async function assignReleaseArtwork({ releaseId: requestedId, kind, key, 
   return { releaseId: id, key: artwork.key, kind, petId: petId || "" };
 }
 
+/**
+ * Cosmetic-only artwork assignment. Can be used AFTER a release launches:
+ * all existing Neon/Mega copies resolve the art through their CardDefinition
+ * at view time. Normal art, card IDs, hatch weights and rarity stay untouched.
+ * Every alternate asset must first pass the existing manual artwork review.
+ */
+export async function setReleaseStagePetArt({ releaseId: requestedId, petId, stage, key }) {
+  const id = releaseId(requestedId), pid = releaseId(petId);
+  if (!CARD_ALTERNATE_ART_STAGES.includes(stage))
+    throw Error("Choose Neon or Mega Neon for alternate pet artwork.");
+  const release = await CardRelease.findOne({ releaseId: id }).lean();
+  if (!release) throw Error("Release not found.");
+  if (id.startsWith("test-")) throw Error("Use an official release, not a test fixture.");
+  const selectedKey = String(key ?? "").trim().toLowerCase();
+  const artwork = await CardArtwork.findOne({
+    key: selectedKey, kind: "pet", licenseReviewStatus: "approved",
+  }).lean();
+  if (!artwork?.artistCredit) throw Error("Alternate pet art must be credited and license-approved.");
+  const updated = await CardDefinition.findOneAndUpdate(
+    { releaseId: id, petId: pid },
+    { $set: { ["stagePetArtworkKeys." + stage]: selectedKey } },
+    { new: true, runValidators: true },
+  ).lean();
+  if (!updated) throw Error("That pet is not assigned to the release.");
+  return { releaseId: id, petId: pid, stage, key: selectedKey };
+}
+
+/** Revert a stage to Normal artwork while retaining the original asset in storage. */
+export async function clearReleaseStagePetArt({ releaseId: requestedId, petId, stage }) {
+  const id = releaseId(requestedId), pid = releaseId(petId);
+  if (!CARD_ALTERNATE_ART_STAGES.includes(stage))
+    throw Error("Choose Neon or Mega Neon for alternate pet artwork.");
+  if (!await CardRelease.exists({ releaseId: id }) || id.startsWith("test-"))
+    throw Error("Official release not found.");
+  const card = await CardDefinition.findOneAndUpdate(
+    { releaseId: id, petId: pid },
+    { $set: { ["stagePetArtworkKeys." + stage]: "" } },
+    { new: true, runValidators: true },
+  ).lean();
+  if (!card) throw Error("That pet is not assigned to the release.");
+  return { releaseId: id, petId: pid, stage };
+}
+
 export async function setReleasePetEnabled({ releaseId: requestedId, petId, enabled }) {
   const id = releaseId(requestedId);
   requireDraft(await CardRelease.findOne({ releaseId: id }).lean());
@@ -271,6 +315,7 @@ export async function checkOfficialReleaseReadiness({ releaseId: requestedId }) 
   }).lean();
   const keys = [
     ...activeDefs.map(d => d.petArtworkKey).filter(Boolean),
+    ...activeDefs.flatMap(d => Object.values(d.stagePetArtworkKeys || {})).filter(Boolean),
     release.cardBackgroundKey, release.cardFrameKey,
     ...Object.values(release.cardRarityFrameKeys || {}),
     ...Object.values(release.cardStageOverlayKeys || {}),
@@ -281,6 +326,15 @@ export async function checkOfficialReleaseReadiness({ releaseId: requestedId }) 
     const asset = approved.get(card.petArtworkKey);
     if (!card.petArtworkKey || !card.artistCredit || !asset || asset.kind !== "pet" || asset.licenseReviewStatus !== "approved")
       problems.push("Missing approved, credited pet artwork: " + card.petId);
+    // Optional stage illustrations are never required, but when configured
+    // must be legitimate approved pet assets rather than blank/broken art.
+    for (const stage of CARD_ALTERNATE_ART_STAGES) {
+      const key = card.stagePetArtworkKeys?.[stage];
+      if (!key) continue;
+      const other = approved.get(key);
+      if (!other || other.kind !== "pet" || other.licenseReviewStatus !== "approved" || !other.artistCredit)
+        problems.push("Alternate " + stage + " artwork is not approved: " + card.petId);
+    }
   }
   const sharedArtwork = [
     [release.cardBackgroundKey, "background"],
