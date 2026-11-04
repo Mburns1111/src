@@ -1,7 +1,7 @@
 import { PermissionFlagsBits } from "discord.js";
 export async function scanActivity(guild, { type, channelIds, startAt, endAt, minimum }) {
   const all = type === "general" ? [...(await guild.channels.fetch()).values()].filter(Boolean) : await Promise.all(channelIds.map(id => guild.channels.fetch(id)));
-  const channels = all.filter(c => c?.messages?.fetch && c.permissionsFor(guild.members.me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory]));
+  const channels = all.filter(c => c?.messages?.fetch && c.permissionsFor(guild.members.me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory]) && (type !== "general" || c.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel)));
   if (type === "channels" && channels.length !== channelIds.length) throw Error("Some selected channels cannot be scanned.");
   if (!channels.length) throw Error("No accessible channels.");
   const counts = new Map();
