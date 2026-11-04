@@ -1,12 +1,13 @@
 import { AttachmentBuilder, SlashCommandBuilder } from "discord.js";
 import { previewOfficialDraftCard, previewOfficialDraftDrop } from "../services/card-draft-art-previews.js";
+import { cardArtistLinkRow, dropArtistLinkRow } from "../services/card-artist-links.js";
 import CardRelease from "../models/CardRelease.js";
 import CardSeries from "../models/CardSeries.js";
 import CardDefinition from "../models/CardDefinition.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { isCardGameOwner } from "../services/card-owner-access.js";
 import { storeOfficialEggArtwork, reviewOfficialEggArtwork } from "../services/card-egg-artwork-upload.js";
-import { createSeries, createRelease, editRelease, addReleasePet, addReleasePetsBulk, removeReleasePet, setReleasePetWeight, setReleaseOdds, checkOfficialReleaseReadiness, assignReleaseArtwork, setReleasePetEnabled, activateRelease, transitionRelease } from "../services/card-global-releases.js";
+import { createSeries, createRelease, editRelease, addReleasePet, addReleasePetsBulk, removeReleasePet, setReleasePetWeight, setReleasePetArtSource, setReleaseOdds, checkOfficialReleaseReadiness, assignReleaseArtwork, setReleasePetEnabled, activateRelease, transitionRelease } from "../services/card-global-releases.js";
 
 const PAGE_SIZE = 15;
 const clean = value => String(value ?? "").replace(/[@`*_~|<>]/g, "").slice(0, 120);
@@ -51,6 +52,11 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true))
     .addStringOption(o => o.setName("pet").setDescription("Search pets already assigned to this release").setRequired(true).setAutocomplete(true))
     .addNumberOption(o => o.setName("weight").setDescription("Weight, 0 disables its chance").setMinValue(0).setMaxValue(10000).setRequired(true)))
+  .addSubcommand(command => command.setName("set-art-source")
+    .setDescription("OWNER: record the original artwork link for a draft card")
+    .addStringOption(o => o.setName("release").setDescription("Draft release").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("pet").setDescription("Pet already in the draft").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("source_url").setDescription("Original artwork post (HTTPS URL)").setRequired(true).setMaxLength(1800)))
   .addSubcommand(command => command.setName("set-odds")
     .setDescription("OWNER: set all five rarity percentages in a DRAFT release")
     .addStringOption(o => o.setName("release").setDescription("Select a global release").setRequired(true).setAutocomplete(true))
@@ -140,7 +146,7 @@ export async function execute(interaction) {
   const page = interaction.options.getInteger("page") || 1;
   const option = interaction.options.getSubcommand();
   if (["create-series", "create-release", "edit-release", "add-pet",
-      "add-pets", "remove-pet", "set-weight", "set-odds", "release-check",
+      "add-pets", "remove-pet", "set-weight", "set-art-source", "set-odds", "release-check",
       "assign-art", "set-enabled", "activate", "pause", "resume", "retire",
       "egg-upload", "egg-review", "preview-art", "preview-drop"].includes(option)) {
     const string = key => interaction.options.getString(key);
@@ -157,6 +163,7 @@ export async function execute(interaction) {
             (result.hasAssignedArt ? "assigned artwork" : "artwork not assigned") +
             "\nRead-only: no egg, card ownership, Points or cooldowns changed.",
           files: [new AttachmentBuilder(result.png, { name: "draft-card-preview.png" })],
+          components: result.artistLink ? [cardArtistLinkRow(result.artistLink)] : [],
           allowedMentions: { parse: [] },
         });
       }
@@ -167,6 +174,7 @@ export async function execute(interaction) {
             result.petNames.map((name, index) => (index + 1) + ". " + clean(name)).join(" · ") +
             "\nRead-only visual preview; no egg was hatched or card reserved.",
           files: [new AttachmentBuilder(result.png, { name: "draft-three-card-preview.png" })],
+          components: result.artistLinks?.some(Boolean) ? [dropArtistLinkRow(result.artistLinks)] : [],
           allowedMentions: { parse: [] },
         });
       }
@@ -212,6 +220,14 @@ export async function execute(interaction) {
           releaseId: string("release"), petId: string("pet"), weight: number("weight"),
         });
         return interaction.editReply("Updated " + clean(result.petId) + " hatch weight to **" + result.weight + "** in draft " + clean(result.releaseId) + ".");
+      }
+      if (option === "set-art-source") {
+        const result = await setReleasePetArtSource({
+          releaseId: string("release"), petId: string("pet"), sourceUrl: string("source_url"),
+        });
+        return interaction.editReply("Saved original artwork link for \`" + clean(result.petId) +
+          "\` in draft \`" + clean(result.releaseId) +
+          "\`. It will appear on published card views; artwork permission still requires separate review.");
       }
       if (option === "set-odds") {
         const result = await setReleaseOdds({ releaseId: string("release"), odds: {
@@ -348,7 +364,7 @@ export async function autocompleteCardsOwner(interaction) {
       const existing = new Set(assigned);
       suggestions = pets.filter(p => !existing.has(p.petId)).slice(0, 25)
         .map(p => ({ name: (p.name + " · " + p.rarity).slice(0, 100), value: p.petId }));
-    } else if (focused.name === "pet" && ["remove-pet", "set-weight", "preview-art"].includes(option)) {
+    } else if (focused.name === "pet" && ["remove-pet", "set-weight", "set-art-source", "preview-art"].includes(option)) {
       const selectedRelease = interaction.options.getString("release");
       if (!selectedRelease) return interaction.respond([]);
       const assigned = await CardDefinition.find({ releaseId: selectedRelease })
