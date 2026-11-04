@@ -6,7 +6,7 @@ import CardRelease from "../models/CardRelease.js";
 import CardSeries from "../models/CardSeries.js";
 import PetCatalog from "../models/PetCatalog.js";
 import { renderCollectibleCardPreview } from "../services/card-preview-renderer.js";
-import { loadCardArtwork } from "../services/card-artwork-assets.js";
+import { loadCardPresentationAssets } from "../services/card-artwork-layer-loader.js";
 import { countOtherCardCollectors } from "../services/card-ownership-stats.js";
 import { getCardCollectionSummary } from "../services/card-collection-summary.js";
 import {
@@ -154,22 +154,18 @@ export async function handleCardCollectionInteraction(interaction) {
       if (!def) throw new Error("Card definition missing.");
       const [pet, release, series, count] = await Promise.all([
         PetCatalog.findOne({ petId: def.petId }).select("name").lean(),
-        CardRelease.findOne({ releaseId: def.releaseId }).select("name cardBackgroundKey cardFrameKey").lean(),
+        CardRelease.findOne({ releaseId: def.releaseId }).lean(),
         CardSeries.findOne({ seriesId: def.seriesId }).select("name").lean(),
         countOtherCardCollectors({ cardDefinitionId: copy.cardDefinitionId, ownerDiscordUserId: session.collectionOwnerId }),
       ]);
-      const [petImage, background, frame] = await Promise.all([
-        loadCardArtwork(def.petArtworkKey, "pet"),
-        loadCardArtwork(release?.cardBackgroundKey, "background"),
-        loadCardArtwork(release?.cardFrameKey, "frame"),
-      ]);
+      const assets = await loadCardPresentationAssets({ definition: def, release, upgradeLevel: copy.upgradeLevel });
       const png = await renderCollectibleCardPreview({
+        ...assets,
         petName: pet?.name || def.petId, rarity: def.rarity, upgradeLevel: copy.upgradeLevel,
         publicId: copy.publicId || "PENDING", releaseName: release?.name || def.releaseId,
         seriesName: series?.name || def.seriesId, artistCredit: def.artistCredit,
         artUrl: def.artUrl, artStatus: def.artStatus, otherCollectorCount: count,
-        petImageSource: petImage?.bytes, backgroundImageSource: background?.bytes,
-        frameImageSource: frame?.bytes,
+
       });
       return interaction.editReply({
         content: `**${safe(pet?.name || def.petId)}** · ${safe(def.rarity)} · ${labelStage(copy.upgradeLevel)}\nCard ID: \`${copy.publicId || "PENDING"}\`${copy.tag ? ` · Tag: ${safe(copy.tag)}` : ""}${copy.locked ? " · 🔒 Locked" : ""}`,
