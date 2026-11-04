@@ -8,6 +8,7 @@ import PetCatalog from "../models/PetCatalog.js";
 import { renderCollectibleCardPreview } from "../services/card-preview-renderer.js";
 import { loadCardPresentationAssets } from "../services/card-artwork-layer-loader.js";
 import { countOtherCardCollectors } from "../services/card-ownership-stats.js";
+import { cardArtistDestinations, cardArtistLinkRow } from "../services/card-artist-links.js";
 import { getCardCollectionSummary } from "../services/card-collection-summary.js";
 import {
   openCollectionSession, getCollectionSession, updateCollectionSession,
@@ -167,13 +168,15 @@ export async function handleCardCollectionInteraction(interaction) {
         artUrl: def.artUrl, artStatus: def.artStatus, otherCollectorCount: count,
 
       });
+      const [artistLink] = await cardArtistDestinations([def]);
+      const artistRow = cardArtistLinkRow(artistLink);
       return interaction.editReply({
         content: `**${safe(pet?.name || def.petId)}** · ${safe(def.rarity)} · ${labelStage(copy.upgradeLevel)}\nCard ID: \`${copy.publicId || "PENDING"}\`${copy.tag ? ` · Tag: ${safe(copy.tag)}` : ""}${copy.locked ? " · 🔒 Locked" : ""}`,
         embeds: [],
         files: [new AttachmentBuilder(png, { name: "collection-card.png" })],
         attachments: [],
         components: [select(`cards:collection:pick:${id}`, "Back to collection",
-          [{ label: "← Back to collection", value: "__back__" }], undefined)],
+          [{ label: "← Back to collection", value: "__back__" }], undefined), ...(artistRow ? [artistRow] : [])],
         allowedMentions: { parse: [] },
       });
     } else {
