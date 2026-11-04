@@ -103,7 +103,10 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(command => command.setName("preview-art")
     .setDescription("OWNER: privately preview one pet from the REAL draft release")
     .addStringOption(o => o.setName("release").setDescription("Actual draft release").setRequired(true).setAutocomplete(true))
-    .addStringOption(o => o.setName("pet").setDescription("Pet already added to the draft").setRequired(true).setAutocomplete(true)))
+    .addStringOption(o => o.setName("pet").setDescription("Pet already added to the draft").setRequired(true).setAutocomplete(true))
+    .addStringOption(o => o.setName("stage").setDescription("Preview Normal, Neon or Mega framing")
+      .addChoices({ name: "Normal", value: "normal" }, { name: "Neon", value: "neon" },
+        { name: "Mega", value: "mega" })))
   .addSubcommand(command => command.setName("preview-drop")
     .setDescription("OWNER: preview three real draft-release cards without dropping them")
     .addStringOption(o => o.setName("release").setDescription("Actual draft release").setRequired(true).setAutocomplete(true)))
@@ -146,6 +149,7 @@ export async function execute(interaction) {
       if (option === "preview-art") {
         const result = await previewOfficialDraftCard({
           releaseId: string("release"), petId: string("pet"),
+          upgradeLevel: string("stage") || "normal",
         });
         return interaction.editReply({
           content: "**DRAFT artwork preview — " + clean(result.releaseName) + "**\n" +
