@@ -19,8 +19,7 @@ export function completedActivityWeek(date=new Date()) {
 }
 export async function recordGiveawayMessage(message) {
   if (!message.guildId || !message.author?.id || message.author.bot || message.webhookId ||
-      !message.channelId || !message.channel?.isTextBased?.() ||
-      !message.channel.permissionsFor(message.guild.roles.everyone)?.has("ViewChannel")) return;
+      !message.channelId || !message.channel?.isTextBased?.()) return;
   const date=message.createdAt || new Date();
   const day=easternDay(date).day;
   await GiveawayActivityCount.updateOne(
