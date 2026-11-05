@@ -183,6 +183,22 @@ node scripts/configure-card-achievements.js .hatchem-private/series1-secrets.jso
 
 The first command performs **no database writes**. Applying freezes
 configuration in a MongoDB transaction but **never activates the game**.
+
+If `--apply` says **"Only an unfrozen official draft release may be
+configured"**, do **not** retry or reset the release. The roster may already
+have been frozen. The read-only audit reports the counts; to confirm the
+six stored secret names, conditions, pet IDs, tiers, availability policies
+and their display order match the private owner file **exactly** (without
+printing them), use:
+
+```bash
+node scripts/configure-card-achievements.js .hatchem-private/series1-secrets.json --verify
+```
+
+A successful comparison prints `"verified": true`, both `rosterMatchesApproved`
+and `secretsMatchPrivateFile` as `true`, and `"changesMade": false`.
+A mismatch produces only generic diagnostics; it never prints private
+solutions, writes to MongoDB or removes a frozen roster.
 Never paste secrets into public GitHub issues, PRs, logs or shared channels.
 Dry-run results list counts and generic errors, not secret names.
 
