@@ -2,6 +2,10 @@ import { CARD_ACHIEVEMENTS, SECRET_ACHIEVEMENTS } from "./card-achievement-catal
 
 const TIERS = ["basic", "medium", "advanced"];
 const METRICS = ["acquiredDesigns", "ownedDesigns", "neonDesigns", "megaDesigns"];
+// Stable anonymous slots; exact titles, pet solutions and triggers stay private.
+export const SERIES1_REQUIRED_SECRET_KEYS = Object.freeze(
+  Array.from({length:6},(_,i)=>"s1-secret-"+String(i+1).padStart(2,"0")),
+);
 const id = value => String(value ?? "");
 const isTimestamp = value => typeof value === "string" &&
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) &&
@@ -64,6 +68,9 @@ export function inspectReleaseAchievementReadiness({
   }
   for (const tier of TIERS)
     if (tiers[tier] < 2) problems.push("Release needs at least two " + tier + " secrets.");
+  if (release?.releaseId === "s1-r1" &&
+      SERIES1_REQUIRED_SECRET_KEYS.some(key => !keys.has(key)))
+    problems.push("Series 1 must retain all six approved anonymous secret slots.");
   const reviewed = actual.filter(d =>
     Number.isFinite(d.valueReview?.valueScore) &&
     id(d.valueReview?.sourceName).trim() &&
