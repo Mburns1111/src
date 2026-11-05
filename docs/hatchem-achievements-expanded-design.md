@@ -14,6 +14,19 @@
 > Never commit private release-secret names or conditions to this public repo.
 >
 
+> **Owner's final scope decision (November 4): INCLUDE ALL.** All logged
+> achievements are in scope for release; no more choosing, shortening, or
+> replacing the surprise list. That includes the full visible milestone set,
+> every one of the 12 permanent hidden surprises, the Series 1 full-roster
+> completion badge, **all six previously discussed Series 1 pet-themed
+> surprises**, and infinitely recurring grab/drop milestones. Future eggs add
+> new release-specific secrets on top of the permanent set. The six generic
+> brainstorming examples later in this historical design document are **not a
+> replacement shortlist** for the six previously discussed Series 1 pet-themed
+> achievements. Preserve the actual private names/triggers outside the public
+> repo and implement them all before activation. The full Series 1 floor is
+> **56 distinct achievement keys plus ongoing recurring milestones**.
+>
 **Status:** Core expanded progression, rewards, discovery ranks, private secrets,
 Hall of Fame and bonus spending are implemented on the development branch.
 Official rewards require an explicit start date. Discord verification is deferred.
