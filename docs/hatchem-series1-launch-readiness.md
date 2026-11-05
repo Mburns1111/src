@@ -103,9 +103,34 @@ as a request to set a speculative date.
 
 ### Private secret configuration, after owner review
 
+The six Series 1 surprise achievements are **approved in full**, not a shortlist.
+The achievement engine already supports the four combinations of **lifetime
+acquisition**, **current ownership**, **currently owned Neon** and **currently
+owned Mega** that those challenges require. A private configuration file
+maps the exact selected pet IDs to immutable MongoDB card definition IDs.
+It is **not** an ordinary public JSON seed and must never be checked into
+source control. The ignored `.hatchem-private/` folder is provided for local
+Replit preparation, or use a file outside the checkout.
+
+Each private secret may specify an array `petIds` **or** `definitionIds`.
+The authoring script resolves `petIds` from the approved, enabled
+`s1-r1` roster and rejects unknown, duplicate, disabled, test-release or
+unapproved cards. The exact solutions stay private; console errors only
+show a numbered generic slot. The DB continues to store immutable
+`definitionIds` and preserves the same award/rank engine. The source
+contains no actual secret names or pet solutions.
+
+**Source-history limitation:** Three of the six approved challenges have
+exact pet combinations preserved in the recovered decision history. Three
+have approved concepts and target counts/stages, but their exact pet
+selections were not recorded in the accessible sources. **Do not substitute
+a guessed set of pets** or claim that these are fully configured. Keep
+those secret slots reserved and the release unactivated until the private
+pet IDs are established.
+
 ```bash
 # Use a PRIVATE file outside tracked repository files:
-node scripts/configure-card-achievements.js /path/to/private-s1-secrets.json
+node scripts/configure-card-achievements.js .hatchem-private/series1-secrets.json
 
 # Only after confirming the dry-run and exact approved requirements:
 node scripts/configure-card-achievements.js /path/to/private-s1-secrets.json --apply
