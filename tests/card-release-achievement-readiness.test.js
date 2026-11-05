@@ -20,7 +20,7 @@ const release = {
   achievementRoster:definitions.map(d=>d._id),achievementSecrets:secrets,
 };
 const inspect = overrides=>inspectReleaseAchievementReadiness({
-  release, definitions, launchBoundary:start, ...overrides,
+  release, definitions, launchBoundary:start, rewardSeasonReleaseId:"s1-r1", ...overrides,
 });
 
 test("full 108-card Series 1 preflight accepts exact roster, six secrets, and reviewed values",()=>{
@@ -33,6 +33,16 @@ test("full 108-card Series 1 preflight accepts exact roster, six secrets, and re
   assert.equal(result.permanentSecrets,12);
   assert.equal(result.globalNamedAchievements,49);
   assert.ok(result.warnings.some(w=>w.includes("only reviewed cards")));
+});
+
+test("first-discovery rewards require Series 1 reward season at launch",()=>{
+  for (const value of [undefined, "", "test-s1-r1", "s2-r1"]) {
+    const result=inspect({rewardSeasonReleaseId:value});
+    assert.ok(result.problems.some(p=>p.includes("CARD_REWARD_SEASON_RELEASE")));
+  }
+  assert.ok(!inspect({rewardSeasonReleaseId:"s1-r1"}).problems.some(p=>p.includes("CARD_REWARD_SEASON_RELEASE")));
+  assert.ok(!inspect({rewardSeasonReleaseId:undefined,checkLaunchBoundary:false})
+    .problems.some(p=>p.includes("CARD_REWARD_SEASON_RELEASE")));
 });
 
 test("invalid or missing achievement launch boundary blocks activation",()=>{
