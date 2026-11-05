@@ -17,9 +17,9 @@ test("live Hatchem guide uses grouped, readable and Discord-sized command instru
   assert.match(HATCHEM_GUIDE, /Eggs & Collecting/);
   assert.match(HATCHEM_GUIDE, /Upgrades & Organizing/);
   assert.match(HATCHEM_GUIDE, /Trading, Extras & Rewards/);
-  assert.match(HATCHEM_GUIDE, /`\\.register`/);
-  assert.match(HATCHEM_GUIDE, /`\\.tutorial`/);
-  assert.match(HATCHEM_GUIDE, /`\\.help`/);
+  assert.ok(HATCHEM_GUIDE.includes("'.register'".replaceAll("'", "`")));
+  assert.ok(HATCHEM_GUIDE.includes("'.tutorial'".replaceAll("'", "`")));
+  assert.ok(HATCHEM_GUIDE.includes("'.help'".replaceAll("'", "`")));
   assert.match(HATCHEM_GUIDE, /`Abc12`/);
   assert.match(HATCHEM_GUIDE, /10 Points/);
   assert.match(HATCHEM_GUIDE, /20 Points/);
