@@ -91,6 +91,44 @@ register production commands, or edit Wispbyte.**
    registering global commands and finally activating `s1-r1`.
    Each step must be verified independently.
 
+## Safe owner review of Series 1 trading values
+
+The latest read-only audit reported **0 source-dated reviewed values**.
+This blocks the four value-based achievements. It does **not** invalidate
+the approved pet rarity, existing release hatch weights, or official art.
+The owner previously chose to compare multiple trading-value sources
+rather than assign value using Adopt Me rarity alone. Do not replace this
+with invented numeric scores or automatically reuse hatch weights.
+
+The new owner workflow provides a complete 108-pet template and preserves
+two independently published source URLs per reviewed score:
+
+```bash
+# First command creates a PRIVATE local file; no Mongo writes.
+node scripts/review-series1-card-values.js --export .hatchem-private/series1-values.json
+
+# Fill reviewMethod (common numeric scoring methodology), and enter
+# for each reviewed pet: numeric score, TWO HTTPS sources from distinct
+# websites, and actual review date as ISO timestamp with timezone.
+# Unreviewed entries stay null/empty, not guessed.
+
+# This command only verifies the draft roster and review evidence.
+node scripts/review-series1-card-values.js --check .hatchem-private/series1-values.json
+
+# Only after manual source review and explicit approval:
+# Applies reviewed values IN A TRANSACTION on the development bot ONLY.
+node scripts/review-series1-card-values.js --apply .hatchem-private/series1-values.json
+```
+
+The script refuses to overwrite a previously reviewed numeric score,
+alter the rarity/odds, or update a release other than the 108-card
+`s1-r1` draft. It requires **two independent sources** per score and
+counts reviewed values; a minimum of 20 is required for the value
+achievements to work, while reviewing **all 108** before launch is
+preferable to avoid biased top-10%/top-20% rankings. Export, check and
+apply do not activate cards, register production commands, or launch eggs.
+Do not share credential-bearing URLs or commit the private review JSON.
+
 ## Safe preparation on the Replit development bot
 
 ```bash
