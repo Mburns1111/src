@@ -6,6 +6,7 @@ import { CARD_RARITIES, validateHatchOdds } from "./card-hatch-engine.js";
 import { SERIES1_ARTIST_PETS } from "./card-series1-artist-pack.js";
 import { selectedCardPetArt } from "./card-pet-art-stages.js";
 import { validCardArtistUrl } from "./card-artist-links.js";
+import { inspectReleaseAchievementReadiness } from "./card-release-achievement-readiness.js";
 
 export function auditHatchemRelease({
   release, definitions, artwork, egg, expected = 108,
@@ -93,12 +94,10 @@ export function auditHatchemRelease({
   if (!release.eggImageFileId || !egg || egg.licenseReviewStatus !== "approved" ||
       String(egg.fileId) !== String(release.eggImageFileId))
     problems.push("Official egg image is missing or lacks an approved source/license review.");
-  const secrets = release.achievementSecrets || [];
-  if (secrets.length < 6 || ["basic","medium","advanced"].some(
-    tier => secrets.filter(s => s.tier === tier).length < 2))
-    problems.push("Six owner-authored release secrets (2 each tier) are required.");
-  if (!Array.isArray(release.achievementRoster) || release.achievementRoster.length !== expected)
-    problems.push("Frozen achievement roster does not match planned release size.");
+  const achievement = inspectReleaseAchievementReadiness({
+    release, definitions:cards, requireFrozen:true, checkLaunchBoundary:false,
+  });
+  problems.push(...achievement.problems);
   if (!achievementStartConfigured)
     problems.push("CARD_ACHIEVEMENTS_START_AT not configured. Do not activate before selecting the launch boundary.");
   const configuredGuilds = guilds.filter(g => g.hatchemChannelId && g.cardRoleId).length;
@@ -120,8 +119,12 @@ export function auditHatchemRelease({
     customMega,
     eggApproved: Boolean(egg && egg.licenseReviewStatus === "approved" &&
       String(egg.fileId) === String(release.eggImageFileId)),
-    privateSecretsConfigured: secrets.length,
-    frozenAchievementDesignCount: release.achievementRoster?.length || 0,
+    privateSecretsConfigured: achievement.releaseSecrets,
+    globalNamedAchievements: achievement.globalNamedAchievements,
+    permanentSecretsConfigured: achievement.permanentSecrets,
+    reviewedValueCards: achievement.reviewedValueCards,
+    achievementWarnings: achievement.warnings,
+    frozenAchievementDesignCount: achievement.frozenRosterCount,
     achievementStartConfigured,
     configuredHatchemGuilds: configuredGuilds,
     gate: problems.length ? "NOT READY" : "DATABASE GATES PASS — MANUAL DISCORD TESTS STILL REQUIRED",

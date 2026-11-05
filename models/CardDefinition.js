@@ -23,6 +23,13 @@ const schema = new mongoose.Schema({
     sourceName: { type: String, default: "" },
     sourceUrl: { type: String, default: "" },
     checkedAt: { type: Date, default: null },
+    reviewMethod: { type: String, default: "", maxlength: 300 },
+    // Keep the two independent published sources used to review this score.
+    // Legacy sourceName/sourceUrl remain the primary display fields.
+    sources: { type: [new mongoose.Schema({
+      name: { type: String, required: true, maxlength: 120 },
+      url: { type: String, required: true, maxlength: 1800 },
+    }, { _id: false })], default: [] },
   },
   enabled: { type: Boolean, default: false },
 }, { timestamps: true });

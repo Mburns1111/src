@@ -77,11 +77,15 @@ export function achievementDefinitions(snapshot){
  for(const release of releases){
   const roster=release.achievementRoster||[];
   const acquired=new Set(acquisitions.filter(c=>c.releaseId===release.releaseId).map(c=>c.definitionId));
-  if(roster.length)out.push({key:"full-release-"+release.releaseId,name:"👑 Egg Completionist · "+release.name,
+  // A frozen DRAFT release is a preparation state, never an eligible challenge.
+  if(roster.length&&release.status!=="draft")out.push({key:"full-release-"+release.releaseId,name:"👑 Egg Completionist · "+release.name,
    description:"Acquire every design in the frozen "+release.name+" roster.",tier:"advanced",secret:false,
    goal:roster.length,current:roster.filter(id=>acquired.has(id)).length});
   for(const [i,s] of (release.achievementSecrets||[]).entries()){
-   const eligible=s.activeOnly?release.status==="active":true;
+   // activeOnly:false allows *post-release* legacy completion, never a
+   // prelaunch draft or withdrawn test release.
+   const eligible=release.status==="active"||(!s.activeOnly&&
+     ["paused","retired"].includes(release.status));
    const ownedIds=new Set(owned.filter(c=>(s.metric!=="neonDesigns"||c.upgradeLevel==="neon")&&(s.metric!=="megaDesigns"||c.upgradeLevel==="mega")).map(c=>String(c.cardDefinitionId)));
    const available=s.metric==="acquiredDesigns"?acquired:ownedIds;
    out.push({key:"secret:"+release.releaseId+":"+s.key,name:s.name,description:s.description,tier:s.tier,secret:true,

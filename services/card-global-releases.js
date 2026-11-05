@@ -8,6 +8,7 @@ import PetCatalog from "../models/PetCatalog.js";
 import CardArtwork from "../models/CardArtwork.js";
 import CardEggArtwork from "../models/CardEggArtwork.js";
 import { freezeAchievementRelease } from "./card-achievement-engine.js";
+import { inspectReleaseAchievementReadiness } from "./card-release-achievement-readiness.js";
 import { CARD_RARITIES, DEFAULT_HATCH_ODDS, validateHatchOdds } from "./card-hatch-engine.js";
 
 // A series, release, and definition are global across all guilds.
@@ -379,10 +380,11 @@ export async function checkOfficialReleaseReadiness({ releaseId: requestedId }) 
     if (key && (approved.get(key)?.kind !== kind || approved.get(key)?.licenseReviewStatus !== "approved"))
       problems.push("Release " + kind + " art must be license-approved: " + key);
   }
-  const secrets = release.achievementSecrets || [];
-  if (secrets.length < 6 || ["basic","medium","advanced"].some(tier => secrets.filter(secret => secret.tier === tier).length < 2))
-    problems.push("Configure six private egg achievements (at least two per tier) before activation.");
-  return { ...base, problems };
+  const achievement = inspectReleaseAchievementReadiness({
+    release, definitions:activeDefs, requireFrozen:true, checkLaunchBoundary:true,
+  });
+  problems.push(...achievement.problems);
+  return { ...base, problems: [...new Set(problems)] };
 }
 
 export async function activateRelease({ releaseId: requestedId }) {
