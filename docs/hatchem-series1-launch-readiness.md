@@ -48,11 +48,12 @@ register production commands, or edit Wispbyte.**
    and unlimited recurring grab/drop milestones every 50. Future release
    secrets are additional, never replacements. Existing code for fixed
    achievements must remain intact.
-   **Implementation is still required** for the Series 1 themed conditions:
-   map the agreed challenges to actual enabled `CardDefinition._id` values
-   and their supported event/collection triggers. Any unsupported triggers
-   require implementation/testing rather than deleting an approved badge.
-   Store the private exact secret configuration **outside this PUBLIC repo**.
+   **The owner has finalized all six Series 1 pet combinations.**
+   Source now supports their acquisition, ownership, Neon and Mega triggers;
+   the private JSON has all approved pet IDs and stable anonymous keys.
+   What remains is checking that JSON against MongoDB and freezing the
+   immutable `CardDefinition._id` roster. Store the full secret file
+   **outside this PUBLIC repo**.
    The minimum count for Series 1 is **56 distinct achievement keys** (49
    global fixed + 1 Series 1 completion + 6 Series 1 secrets), **plus
    unbounded recurring milestone keys**.
@@ -162,20 +163,22 @@ show a numbered generic slot. The DB continues to store immutable
 `definitionIds` and preserves the same award/rank engine. The source
 contains no actual secret names or pet solutions.
 
-**Source-history limitation:** Three of the six approved challenges have
-exact pet combinations preserved in the recovered decision history. Three
-have approved concepts and target counts/stages, but their exact pet
-selections were not recorded in the accessible sources. **Do not substitute
-a guessed set of pets** or claim that these are fully configured. Keep
-those secret slots reserved and the release unactivated until the private
-pet IDs are established.
+**Final owner decision:** All six secret concepts and every associated
+pet/stage combination have been approved. The PRIVATE
+`Hatchem-Series1-Private-Achievements.json` now contains all six records
+with no placeholders. The public GitHub repo intentionally does not
+contain secret titles, detailed conditions or pet combinations. The
+Replit database audit still reports **0 configured secrets** and **0
+frozen-roster cards** because the approved file has not yet been applied.
+First run the read-only secret dry-run against the actual draft release;
+only then explicitly freeze it with `--apply`.
 
 ```bash
 # Use a PRIVATE file outside tracked repository files:
 node scripts/configure-card-achievements.js .hatchem-private/series1-secrets.json
 
 # Only after confirming the dry-run and exact approved requirements:
-node scripts/configure-card-achievements.js /path/to/private-s1-secrets.json --apply
+node scripts/configure-card-achievements.js .hatchem-private/series1-secrets.json --apply
 ```
 
 The first command performs **no database writes**. Applying freezes
@@ -183,8 +186,8 @@ configuration in a MongoDB transaction but **never activates the game**.
 Never paste secrets into public GitHub issues, PRs, logs or shared channels.
 Dry-run results list counts and generic errors, not secret names.
 
-The **achievement list is already selected** and must not be reopened or
-trimmed. Remaining work concerns implementing/testing the full agreed set,
-mapping the six themed challenges to the approved Series 1 pet records,
-freezing their private configuration, reviewing pet values, and selecting
-the **launch timestamp**. The game is **not yet launch-ready**.
+The **achievement list and all six themed combinations are finalized**;
+do not ask the owner to reselect them. Remaining work is the private
+configuration dry-run and roster freeze, reviewing source-backed values,
+manual Discord regression tests, and selecting the **actual launch
+timestamp** when authorized. The game is **not yet launch-ready**.
