@@ -15,9 +15,11 @@ register production commands, or edit Wispbyte.**
 > `verified:true`, `mismatches:[]`, `changesMade:false`.
 > **The exact secret configuration and 108-card completion roster are now
 > VERIFIED; do not reapply or overwrite them.** Remaining launch blockers:
-> launch clock/reward season and the public-source secrecy decision.
-> The owner subsequently confirmed all manual gameplay tests complete;
-> value reviews were completed in the November 5 import described below. Release remains draft; no deployment
+> launch clock/reward season and separate merge/deployment/activation
+> approvals. The owner confirmed all manual gameplay tests complete;
+> trading-value reviews were completed in the November 5 import below.
+> The owner explicitly accepted the public-source visibility of the 12
+> permanent secret definitions. Release remains draft; no deployment
 > or activation approved.
 >
 > **Owner-reported value import — November 5, 2026:** The 108-pet,
@@ -34,8 +36,8 @@ register production commands, or edit Wispbyte.**
 > achievement clock (`CARD_ACHIEVEMENTS_START_AT`) and reward season
 > (`CARD_REWARD_SEASON_RELEASE=s1-r1`); set these only during the authorized
 > launch process. **The owner confirms the Discord gameplay and reward
-> tests are complete.** Permanent secret source-confidentiality review
-> remains outstanding.
+> tests are complete.** Permanent-secret source visibility has been
+> disclosed and accepted by the owner (see item 8).
 >
 ## Current verified source state
 
@@ -120,11 +122,18 @@ register production commands, or edit Wispbyte.**
    owner attestation, not an independently captured Discord test log.
    **Do not request another test pass merely because old checkboxes remain
    open in historical notes.**
-8. **Resolve private-secret source exposure.** The old global secret
-   definitions currently live in readable repository source. UI secrecy
-   does not conceal definitions from people who inspect a public repo.
-   Before launch decide whether to move those definitions into controlled
-   private configuration or restrict source access.
+8. **OWNER-ACCEPTED — Permanent secret source exposure.** The owner
+   understands that the **production** `AM-bot` repository is private
+   while the **development** `src` repository is public, and that the
+   12 permanent global secret conditions remain readable in the public
+   development source. The six Series 1 secrets stay in private, ignored
+   configuration and have been independently verified against MongoDB.
+   On November 5, the owner explicitly chose not to restructure the
+   permanent-secret code because casual community players are unlikely
+   to search the public source. This is a documented acceptance of that
+   exposure risk, **not** a claim that the source has become private.
+   Do not reopen this as an activation blocker unless the owner changes
+   that decision.
 9. After read-only checks pass and owner testing is recorded, get **separate
    explicit approvals** for merging tested code, Wispbyte deployment,
    registering global commands and finally activating `s1-r1`.
@@ -245,8 +254,9 @@ Dry-run results list counts and generic errors, not secret names.
 The **achievement list and all six themed combinations are finalized**;
 do not ask the owner to reselect them. Their frozen configuration and
 108 reviewed pet values were verified against Replit MongoDB, and the
-owner has confirmed Discord gameplay tests complete. Remaining launch
-work: address the public-source visibility of the 12 permanent global
-secret definitions, choose the immutable **actual launch timestamp**,
-configure the reward season, and obtain separate merge, deployment and
-activation approvals. The game remains **draft and inactive**.
+owner has confirmed Discord gameplay tests complete and accepted
+the disclosed public-source visibility risk of the 12 permanent global
+secret definitions. Remaining launch work: choose the immutable **actual
+launch timestamp**, configure the reward season, and obtain separate
+merge, deployment and activation approvals. The game remains **draft
+and inactive**.
