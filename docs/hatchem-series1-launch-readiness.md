@@ -61,6 +61,53 @@ register production commands, or edit Wispbyte.**
 - This branch adds stricter achievement readiness checks; **it does not set
   any achievement launch date or write private secrets into Git**.
 
+## Production migration checkpoint — November 5, 2026
+
+**Do not deploy the development branch directly to Wispbyte.** GitHub's
+current file-tree comparison shows the public development `Mburns1111/src`
+branch at `c3c732d4` has **504 tracked files**, while the private production
+`Mburns1111/AM-bot/main` has **257**. There are **247 development-only
+paths** (including Hatchem services/models/owner commands), **9 shared
+paths with changes**, and no private-production-only paths in this
+GitHub snapshot. Production `AM-bot/main` is not yet equipped to launch
+Hatchem. This is a GitHub check, not proof about local, uncommitted
+Wispbyte files, running bot processes or the currently configured MongoDB.
+
+Prepare a **separate private production release branch and reviewed merge**
+after the public `src` PR #35 is explicitly approved and merged. Preserve
+existing production configuration and use the private repository as
+Wispbyte's deployment source. Do not paste tokens, MongoDB URIs, private
+secret JSON or other secrets into public GitHub.
+
+Launch order and approvals remain independent:
+
+1. Explicitly approve and merge public development PR #35 to `src/main`.
+2. Prepare a production migration branch from `AM-bot/main` using
+   the tested development code; review the 247 additions and 9 shared-file
+   changes, run CI and confirm the normal bot's features.
+3. Separately approve the private production merge and Wispbyte deploy.
+   Check Wispbyte pulls the **private** production commit, not `src`,
+   and run production-mode config preflight without disclosing secrets.
+4. Audit the **actual production MongoDB** before activation. The approved
+   six-secret frozen roster and 108 value reviews were verified in the
+   Replit development connection only. Do not assume Wispbyte has the
+   same database. Preserve the private configuration outside public Git
+   and do not silently re-freeze the existing release.
+5. At the intended actual launch time, set the once-only explicit ISO
+   `CARD_ACHIEVEMENTS_START_AT` (with timezone), set
+   `CARD_REWARD_SEASON_RELEASE=s1-r1`, confirm
+   `ENABLE_CARD_GAME=1`, `ENABLE_CARD_GAME_TEST` is off, and confirm
+   owner ID plus Message Content Intent. Ensure commands are registered
+   in the appropriate production application **only after approval**.
+6. Re-run the read-only release audit under production settings, secure
+   explicit owner authorization, then activate `s1-r1` using the owner
+   `/cards-release activate` command with confirmation. Verify the result
+   and prevent accidental double-deployment or duplicate bot instances.
+
+Do not set an invented or backdated achievement timestamp, merge production,
+register production commands or activate eggs as a side effect of documenting
+this plan.
+
 ## Blockers before approving a public activation
 
 1. **Review current database** with `node scripts/audit-hatchem-release.js --release=s1-r1 --expected=108`.
