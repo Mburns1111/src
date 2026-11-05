@@ -12,6 +12,7 @@ import CardRelease from "../models/CardRelease.js";
 import { loadStoredReleaseEggImage } from "../services/card-egg-artwork.js";
 import { storeTestEggArtwork } from "../services/card-egg-artwork-upload.js";
 import { uploadCardArtwork, loadCardArtwork, browseCardArtwork, getCardArtworkDetails, reviewCardArtwork } from "../services/card-artwork-assets.js";
+import { loadCardPresentationAssets } from "../services/card-artwork-layer-loader.js";
 import CardDefinition from "../models/CardDefinition.js";
 import CardDrop from "../models/CardDrop.js";
 import CardCopy from "../models/CardCopy.js";
@@ -21,6 +22,7 @@ import CardClaim from "../models/CardClaim.js";
 import CardSeries from "../models/CardSeries.js";
 import { resolveCardId } from "../services/card-identifiers.js";
 import { renderCollectibleCardPreview } from "../services/card-preview-renderer.js";
+import { cardArtistDestinations, cardArtistLinkRow, dropArtistLinkRow, preservedArtistLinkRows } from "../services/card-artist-links.js";
 import { renderThreeCardDropImage } from "../services/card-drop-renderer.js";
 import { getCardCollectionSummary, formatCardCollectionSummary, updateOwnedCardTag } from "../services/card-collection-summary.js";
 import { findOwnedCardForCommand, suggestOwnedCardReferences } from "../services/card-owned-selection.js";
@@ -97,12 +99,14 @@ export const data = new SlashCommandBuilder().setName("cards").setDescription("H
 export const ownerCardOptions = new SlashCommandBuilder().setName("cards-owner-tools").setDescription("Owner artwork and test tools")
   .addSubcommand(c => c.setName("egg-art-upload").setDescription("OWNER: save the Release 1 egg artwork to MongoDB")
     .addAttachmentOption(o => o.setName("image").setDescription("Release 1 egg image (PNG/JPG/WebP)").setRequired(true)))
-  .addSubcommand(c => c.setName("art-upload").setDescription("OWNER: upload a test card art asset to MongoDB")
+  .addSubcommand(c => c.setName("art-upload").setDescription("OWNER: upload a card art asset to MongoDB")
     .addStringOption(o => o.setName("key").setDescription("Unique artwork ID, e.g. cat-art-01").setRequired(true))
     .addStringOption(o => o.setName("kind").setDescription("Layer type").setRequired(true)
       .addChoices({ name: "Pet illustration", value: "pet" }, { name: "Card background", value: "background" }, { name: "Transparent frame", value: "frame" }))
     .addAttachmentOption(o => o.setName("image").setDescription("PNG, JPG or WebP image").setRequired(true))
     .addStringOption(o => o.setName("artist").setDescription("Artist to credit (required for pet art)").setRequired(false))
+    .addStringOption(o => o.setName("artist_url").setDescription("Optional artist profile (HTTPS)").setRequired(false))
+    .addStringOption(o => o.setName("source_url").setDescription("Optional original artwork post (HTTPS)").setRequired(false))
     .addStringOption(o => o.setName("replaces").setDescription("Older artwork key for a new revision").setRequired(false))
     .addStringOption(o => o.setName("revision_note").setDescription("What changed? Required for revisions").setRequired(false)))
   .addSubcommand(c => c.setName("art-assign").setDescription("OWNER: assign uploaded artwork to TEST cards or release")
@@ -219,6 +223,7 @@ export async function execute(interaction) {
         content:"🃏 **"+escapeDiscord(shown.name)+"** · "+escapeDiscord(shown.rarity)+
           " · "+escapeDiscord(shown.release),
         files:[new AttachmentBuilder(shown.png,{name:"hatchem-show.png"})],
+        components: shown.artistLink ? [cardArtistLinkRow(shown.artistLink)] : [],
         allowedMentions:{parse:[]},
       });
       if(interaction.suppressShowReply)return interaction.suppressShowReply();
@@ -298,30 +303,26 @@ export async function execute(interaction) {
       if (!definition) return interaction.editReply("That card's artwork definition is missing.");
       const [pet, release, series, otherCollectorCount] = await Promise.all([
         PetCatalog.findOne({ petId: definition.petId }).select("name").lean(),
-        CardRelease.findOne({ releaseId: definition.releaseId }).select("name cardBackgroundKey cardFrameKey").lean(),
+        CardRelease.findOne({ releaseId: definition.releaseId }).lean(),
         CardSeries.findOne({ seriesId: definition.seriesId }).select("name").lean(),
         countOtherCardCollectors({ cardDefinitionId: copy.cardDefinitionId, ownerDiscordUserId: interaction.user.id }),
       ]);
-      const [petImage, backgroundImage, frameImage] = await Promise.all([
-        loadCardArtwork(definition.petArtworkKey, "pet"),
-        loadCardArtwork(release?.cardBackgroundKey, "background"),
-        loadCardArtwork(release?.cardFrameKey, "frame"),
-      ]);
+      const assets = await loadCardPresentationAssets({ definition, release, upgradeLevel: copy.upgradeLevel });
       const png = await renderCollectibleCardPreview({
-        petImageSource: petImage?.bytes,
-        backgroundImageSource: backgroundImage?.bytes,
-        frameImageSource: frameImage?.bytes,
+        ...assets,
         petName: pet?.name || definition.petId,
         rarity: definition.rarity, upgradeLevel: copy.upgradeLevel,
         releaseName: release?.name || definition.releaseId,
         seriesName: series?.name || definition.seriesId,
-        publicId: copy.publicId, artistCredit: definition.artistCredit,
+        publicId: copy.publicId, artistCredit: assets.displayArtistCredit,
         otherCollectorCount,
         artStatus: definition.artStatus, artUrl: definition.artUrl,
       });
+      const [artistLink] = await cardArtistDestinations([definition], [copy.upgradeLevel]);
       return interaction.editReply({
-        content: `**${escapeDiscord(pet?.name || definition.petId)}** · ${definition.rarity} · Card \`${copy.publicId}\`\n*First layout preview — placeholder pet artwork until approved art is available.*`,
+        content: `**${escapeDiscord(pet?.name || definition.petId)}** · ${definition.rarity} · Card \`${copy.publicId}\``,
         files: [new AttachmentBuilder(png, { name: "collectible-card-preview.png" })],
+        components: artistLink ? [cardArtistLinkRow(artistLink)] : [],
         allowedMentions: { parse: [] },
       });
     } catch (error) {
@@ -459,11 +460,13 @@ export async function execute(interaction) {
         const result = await uploadCardArtwork({
           kind, key, attachment: interaction.options.getAttachment("image", true),
           artistCredit: interaction.options.getString("artist") || "", uploadedBy: interaction.user.id,
+          artistUrl: interaction.options.getString("artist_url") || "",
+          sourceUrl: interaction.options.getString("source_url") || "",
           replacesKey: interaction.options.getString("replaces") || "",
           revisionNote: interaction.options.getString("revision_note") || "",
         });
         return interaction.editReply({
-          content: `Saved **${escapeDiscord(result.key)}** (${result.kind}) to MongoDB. Artwork remains under review. ${interaction.options.getString("replaces") ? "The original version was preserved. " : ""}Use /cards-owner art-info to inspect and /cards-owner art-review to approve. After approval, assign it with /cards-release assign-art.`,
+          content: `Saved **${escapeDiscord(result.key)}** (${result.kind}) to MongoDB. Artwork remains under review. ${interaction.options.getString("replaces") ? "The original version was preserved. " : ""}Use /cards-owner art-info to inspect and /cards-owner art-review to approve. After approval, use /cards-release assign-art for Normal art or /cards-release set-stage-art for Neon/Mega art.`,
           allowedMentions: { parse: [] },
         });
       }
@@ -636,19 +639,14 @@ export async function publishCardDrop(interaction, { releaseId, testMode, automa
       "Run `node scripts/find-release-egg-artwork.js test-s1-r1` in Replit to identify its stored filename/bucket. No drop was created."
     );
   }
-  const [backgroundImage, frameImage] = await Promise.all([
-    loadCardArtwork(release.cardBackgroundKey, "background"),
-    loadCardArtwork(release.cardFrameKey, "frame"),
-  ]);
-  const petImages = await Promise.all(revealed.map(({ card }) => loadCardArtwork(card.petArtworkKey, "pet")));
+  const cardAssets = await Promise.all(revealed.map(({ card }) =>
+    loadCardPresentationAssets({ definition: card, release, upgradeLevel: "normal" })));
   const dropPng = await renderThreeCardDropImage({
     releaseName: release.name,
     seriesName: series?.name || release.seriesId,
     eggImageSource,
     cards: revealed.map(({ card, rarity }, i) => ({
-      petImageSource: petImages[i]?.bytes,
-      backgroundImageSource: backgroundImage?.bytes,
-      frameImageSource: frameImage?.bytes,
+      ...cardAssets[i],
       petName: petNames[card.petId] || card.petId,
       rarity,
       artStatus: card.artStatus,
@@ -658,6 +656,7 @@ export async function publishCardDrop(interaction, { releaseId, testMode, automa
   });
   // Generate the ID before the cooldown claim so a failed send can safely
   // refund only this attempt, without erasing a newer cooldown.
+  const artistRow = dropArtistLinkRow(await cardArtistDestinations(revealed.map(({ card }) => card)));
   const dropId = new mongoose.Types.ObjectId();
   let claimedCooldown = false;
   if (!testMode && !automated) {
@@ -689,7 +688,7 @@ export async function publishCardDrop(interaction, { releaseId, testMode, automa
     posted = await interaction.channel.send({
       content: dropMessageContent(drop, release.name, { roleId }),
       files: [new AttachmentBuilder(dropPng, { name: "card-drop.png" })],
-      components: [rowButtons(drop)],
+      components: [rowButtons(drop), ...(artistRow ? [artistRow] : [])],
       allowedMentions: notification.allowedMentions,
     });
     if(achievementStart() && !automated){
@@ -752,35 +751,30 @@ export async function handleCardUpgrade(interaction) {
       if (!definition) throw new Error("Upgraded card definition missing");
       const [pet, release, series, otherCollectorCount] = await Promise.all([
         PetCatalog.findOne({ petId: definition.petId }).select("name").lean(),
-        CardRelease.findOne({ releaseId: definition.releaseId })
-          .select("name cardBackgroundKey cardFrameKey").lean(),
+        CardRelease.findOne({ releaseId: definition.releaseId }).lean(),
         CardSeries.findOne({ seriesId: definition.seriesId }).select("name").lean(),
         countOtherCardCollectors({
           cardDefinitionId: upgraded.cardDefinitionId,
           ownerDiscordUserId: interaction.user.id,
         }),
       ]);
-      const [petImage, backgroundImage, frameImage] = await Promise.all([
-        loadCardArtwork(definition.petArtworkKey, "pet"),
-        loadCardArtwork(release?.cardBackgroundKey, "background"),
-        loadCardArtwork(release?.cardFrameKey, "frame"),
-      ]);
+      const assets = await loadCardPresentationAssets({ definition, release, upgradeLevel: upgraded.upgradeLevel });
       const image = await renderCollectibleCardPreview({
-        petImageSource: petImage?.bytes,
-        backgroundImageSource: backgroundImage?.bytes,
-        frameImageSource: frameImage?.bytes,
+        ...assets,
         petName: pet?.name || definition.petId,
         rarity: definition.rarity,
         upgradeLevel: upgraded.upgradeLevel,
         publicId: upgraded.publicId,
         releaseName: release?.name || definition.releaseId,
         seriesName: series?.name || definition.seriesId,
-        artistCredit: definition.artistCredit,
+        artistCredit: assets.displayArtistCredit,
         artUrl: definition.artUrl,
         artStatus: definition.artStatus,
         otherCollectorCount,
       });
+      const [artistLink] = await cardArtistDestinations([definition], [upgraded.upgradeLevel]);
       publicPost = await interaction.channel.send({
+        components: artistLink ? [cardArtistLinkRow(artistLink)] : [],
         content: `✨ <@${interaction.user.id}> upgraded **${escapeDiscord(pet?.name || definition.petId)}** into a **${result.target === "neon" ? "Neon" : "Mega Neon"}**! · Card ID: ${formatCardId(result.publicId)}${dustMode?" · Used "+result.dustSpent+" "+result.rarity+" Dust":""}`,
         files: [new AttachmentBuilder(image, { name: "upgraded-card.png" })],
         allowedMentions: { users: [interaction.user.id], parse: [] },
@@ -863,7 +857,7 @@ export async function handleCardGrab(interaction) {
         // deadline must not skip the worker's final display update.
         if (drop.status === "open" && new Date(drop.expiresAt) > new Date()) {
           const release = await CardRelease.findOne({ releaseId: drop.releaseId }).select("name").lean();
-          await interaction.message.edit({ content: dropMessageContent(drop, release?.name || drop.releaseId, { previousContent: interaction.message.content }), components: [rowButtons(drop)], allowedMentions: { parse: [] } });
+          await interaction.message.edit({ content: dropMessageContent(drop, release?.name || drop.releaseId, { previousContent: interaction.message.content }), components: [rowButtons(drop), ...preservedArtistLinkRows(interaction.message)], allowedMentions: { parse: [] } });
         }
       }
     } catch (error) { console.warn("[Cards] Could not refresh drop display:", error.message); }
@@ -924,7 +918,7 @@ export async function reconcileCardDropClosures(client) {
       const release = await CardRelease.findOne({ releaseId: drop.releaseId }).select("name").lean();
       await message.edit({
         content: dropMessageContent(drop, release?.name || drop.releaseId, { previousContent: message.content }),
-        components: [], allowedMentions: { parse: [] },
+        components: preservedArtistLinkRows(message), allowedMentions: { parse: [] },
       });
       await CardDrop.updateOne({ _id: drop._id }, { $set: { displayClosedAt: new Date() } });
     } catch (error) {

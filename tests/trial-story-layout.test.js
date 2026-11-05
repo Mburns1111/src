@@ -6,14 +6,14 @@ import { courtStoryText, wrapCourtStory } from "../services/trial-event-portrait
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "../services/survival-event-texts.js";
 import { HARVEST_SOLO_TRIAL_EVENTS, HARVEST_DUEL_TRIAL_EVENTS } from "../services/survival-harvest-event-texts.js";
 
-test("all 220 expanded stories fit the portrait plaque with long contestant names", () => {
+test("all 320 expanded stories fit the portrait plaque with long contestant names", () => {
   registerAppearanceFonts();
   const ctx = createCanvas(1000, 720).getContext("2d");
   const groups = [SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS,
     HARVEST_SOLO_TRIAL_EVENTS, HARVEST_DUEL_TRIAL_EVENTS];
   const templates = groups.flat();
-  assert.equal(templates.length, 220);
-  assert.equal(new Set(templates).size, 220);
+  assert.equal(templates.length, 320);
+  assert.equal(new Set(templates).size, 320);
   const actorId = "345678901234567890", victimId = "234567890123456789";
   for (const [groupIndex, group] of groups.entries()) {
     for (const [index, template] of group.entries()) {

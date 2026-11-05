@@ -50,7 +50,8 @@ test("setup exposes two distinct optional giveaway channel selectors", () => {
   }
   assert.ok(GuildConfig.schema.path("giveawayPingRoleId"));
   assert.ok(GuildConfig.schema.path("survivalTrialPingRoleId"));
-  assert.equal(config.options.length, 15);
+  assert.equal(config.options.length, 16);
+  assert.ok(names.includes("party_games"), "Party Games has a dedicated channel selector.");
   assert.ok(names.includes("hatchem"), "Preserve Hatchem channel setup alongside the two giveaway channels.");
   for (const command of [giveawayCommand, trialCommand]) {
     const operation = command.toJSON().options.find(o => o.name === "start");

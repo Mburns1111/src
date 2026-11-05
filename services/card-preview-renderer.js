@@ -59,6 +59,30 @@ function placeholderPet(ctx, name, x, y, w, h, accent) {
   ctx.fillText("Replace with approved artist artwork", centerX, y + h - 63);
   ctx.restore();
 }
+// Adaptive white backing protects tiny footer labels from busy artist artwork.
+// Each chip hugs its visible text; unoccupied footer art stays unobscured.
+function footerTextChip(ctx, { value, x, baseline, maxTextWidth, font, color, align = "left" }) {
+  const text = String(value ?? "");
+  const paddingX = 12;
+  const chipHeight = 34;
+  ctx.save();
+  ctx.font = font;
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = align;
+  const measuredWidth = ctx.measureText(text).width;
+  // The public ID is allowed at most 165px, so it never covers the
+  // artist-credit chip on the same line.
+  const textWidth = Math.min(measuredWidth, maxTextWidth);
+  const chipWidth = Math.ceil(textWidth + paddingX * 2);
+  const left = align === "right" ? x - textWidth - paddingX :
+    align === "center" ? x - textWidth / 2 - paddingX : x - paddingX;
+  roundRect(ctx, left, baseline - 27, chipWidth, chipHeight, 9,
+    "rgba(255,255,255,0.97)", "rgba(113,128,120,0.30)", 1);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, baseline, maxTextWidth);
+  ctx.restore();
+}
+
 function cover(ctx, image, x, y, w, h) {
   const scale = Math.max(w / image.width, h / image.height);
   const iw = image.width * scale, ih = image.height * scale;
@@ -70,6 +94,7 @@ export async function renderCollectibleCardPreview({
   seriesName = "Series 1", publicId = "PREVIEW", artistCredit = "", otherCollectorCount = 0,
   artUrl = "", artStatus = "missing", dropMode = false,
   petImageSource = null, backgroundImageSource = null, frameImageSource = null,
+  rarityFrameImageSource = null, stageOverlayImageSource = null,
 } = {}) {
   const { width: W, height: H } = CARD_PREVIEW_SIZE;
   const canvas = createCanvas(W, H);
@@ -78,6 +103,7 @@ export async function renderCollectibleCardPreview({
   const neon = upgradeLevel === "neon", mega = upgradeLevel === "mega";
   const rim = accent; // Keep rarity identity consistent for all upgrades.
   const stageGlow = mega ? "#DCA7FA" : neon ? "#71E6C5" : null;
+  const customRarityDesign = Boolean(rarityFrameImageSource);
 
   const outer = ctx.createLinearGradient(0, 0, W, H);
   outer.addColorStop(0, "#F8F4F1"); outer.addColorStop(1, "#E4EDE8");
@@ -87,6 +113,9 @@ export async function renderCollectibleCardPreview({
     const bg = await loadImage(backgroundImageSource);
     ctx.drawImage(bg, 0, 0, W, H);
   }
+  // Preserve complete owner artwork: don't paint the default white card
+  // panels or procedural motifs over an imported full-size rarity design.
+  if (!customRarityDesign) {
   // Subtle background motif leaves space for Canva replacement artwork.
   for (let i = 0; i < 10; i++) {
     ctx.strokeStyle = rim + "16"; ctx.lineWidth = 8;
@@ -104,19 +133,14 @@ export async function renderCollectibleCardPreview({
     roundRect(ctx, 63, 61, W-126, 12, 6, band);
   }
 
-  centered(ctx, String(petName || "Mystery Pet"), W/2, 157, W-130, 88, "#2E3937");
-  centered(ctx, String(rarity || "Common").toUpperCase(), W/2, 206, W-190, 27, accent);
-
+  }
   const art = { x: 83, y: 242, w: 734, h: 748 };
-  // Artwork has its own rounded rarity-colored frame, independent of stage glow.
-  roundRect(ctx, art.x-10, art.y-10, art.w+20, art.h+20, 30, "#F3F7F3", accent, 10);
-  roundRect(ctx, art.x-3, art.y-3, art.w+6, art.h+6, 24, null, light, 3);
-  ctx.save(); ctx.beginPath(); ctx.roundRect(art.x, art.y, art.w, art.h, 20); ctx.clip();
-  const backdrop = ctx.createLinearGradient(art.x, art.y, art.x + art.w, art.y + art.h);
-  backdrop.addColorStop(0, "#FAF9F4");
-  backdrop.addColorStop(1, light + "85");
-  ctx.fillStyle = backdrop; ctx.fillRect(art.x, art.y, art.w, art.h);
-
+  // Rarity art is drawn UNDER the pet image. This deliberately supports
+  // Common designs with opaque decoration as well as transparent frames.
+  if (rarityFrameImageSource) {
+    const rarityFrame = await loadImage(rarityFrameImageSource);
+    ctx.drawImage(rarityFrame, 0, 0, W, H);
+  }
   let image = null;
   if (petImageSource) {
     image = await loadImage(petImageSource);
@@ -124,21 +148,45 @@ export async function renderCollectibleCardPreview({
     try { image = await loadImageSource(artUrl); }
     catch (error) { console.warn("[Cards] Preview image unavailable:", error.message); }
   }
-  if (image) cover(ctx, image, art.x, art.y, art.w, art.h);
-  else placeholderPet(ctx, petName, art.x, art.y, art.w, art.h, accent);
-  ctx.restore();
+  // The uploaded 900x1260 pet art is already positioned correctly and has
+  // intentional alpha. Never crop it or stretch the opaque placeholder area.
+  if (image?.width === W && image?.height === H) {
+    ctx.drawImage(image, 0, 0, W, H);
+  } else {
+    if (!customRarityDesign) {
+      roundRect(ctx, art.x-10, art.y-10, art.w+20, art.h+20, 30, "#F3F7F3", accent, 10);
+      roundRect(ctx, art.x-3, art.y-3, art.w+6, art.h+6, 24, null, light, 3);
+    }
+    ctx.save(); ctx.beginPath(); ctx.roundRect(art.x, art.y, art.w, art.h, 20); ctx.clip();
+    if (!customRarityDesign) {
+      const backdrop = ctx.createLinearGradient(art.x, art.y, art.x + art.w, art.y + art.h);
+      backdrop.addColorStop(0, "#FAF9F4");
+      backdrop.addColorStop(1, light + "85");
+      ctx.fillStyle = backdrop; ctx.fillRect(art.x, art.y, art.w, art.h);
+    }
+    if (image) {
+      if (image.width === art.w && image.height === art.h) ctx.drawImage(image, art.x, art.y);
+      else cover(ctx, image, art.x, art.y, art.w, art.h);
+    } else placeholderPet(ctx, petName, art.x, art.y, art.w, art.h, accent);
+    ctx.restore();
+  }
 
-  // Put upgrade effects around the stage badge, not around the artwork or main frame.
-  if (stageGlow) {
+  // Procedural stage decorations remain the fallback for legacy cards.
+  if (!customRarityDesign && stageGlow) {
     ctx.save();
     ctx.shadowColor = stageGlow;
     ctx.shadowBlur = mega ? 36 : 27;
     roundRect(ctx, 104, 1005, 692, 67, 23, mega ? "#F3E2F6" : "#DEF8EF", stageGlow, 6);
     ctx.restore();
-  } else {
+  } else if (!customRarityDesign) {
     roundRect(ctx, 110, 1011, 680, 55, 18, "#EAF0EA", light, 2);
   }
-  centered(ctx, upgradeLabel(upgradeLevel).toUpperCase(), W/2, 1049, 640, 28, "#3D5750");
+  // A stage overlay (Neon/Mega) sits above the pet and rarity artwork;
+  // all labels are drawn after these overlays to remain readable.
+  if (stageOverlayImageSource) {
+    const stageOverlay = await loadImage(stageOverlayImageSource);
+    ctx.drawImage(stageOverlay, 0, 0, W, H);
+  }
 
   // Transparent decorative frame overlays sit above the art and panels,
   // but beneath bot-generated names, credits, identifiers and metadata.
@@ -147,6 +195,16 @@ export async function renderCollectibleCardPreview({
     const frame = await loadImage(frameImageSource);
     ctx.drawImage(frame, 0, 0, W, H);
   }
+
+  centered(ctx, String(petName || "Mystery Pet"), W/2, 157, W-130, 88, "#2E3937");
+  centered(ctx, String(rarity || "Common").toUpperCase(), W/2, 206, W-190, 27, accent);
+  // Match the metadata footer: a text-sized white chip keeps NORMAL, NEON
+  // and MEGA legible over decorative stage/rarity artwork, without hiding it.
+  footerTextChip(ctx, {
+    value: upgradeLabel(upgradeLevel).toUpperCase(),
+    x: W / 2, baseline: 1049, maxTextWidth: 640,
+    font: "700 28px sans-serif", color: "#3D5750", align: "center",
+  });
 
   // All displayed artwork is credited on the card, including drop cards.
   // A test-placeholder is explicitly described as a placeholder, not as real artist art.
@@ -171,28 +229,27 @@ export async function renderCollectibleCardPreview({
     return canvas.toBuffer("image/png");
   }
 
-  // Dedicated footer rows: don't let right-aligned collector text leak into artist credit.
-  // Canva safe zone: x=88..812, bottom baseline <=1192.
-  ctx.save();
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "#62716B";
-  ctx.font = "24px sans-serif";
-  ctx.fillText(`${seriesName}  ·  ${releaseName}`, 88, 1117, 724);
-
-  ctx.font = "bold 24px sans-serif";
-  ctx.fillStyle = "#4C605A";
-  ctx.fillText(`Other collectors: ${Math.max(0, Number(otherCollectorCount) || 0)}`, 88, 1154, 724);
-
-  ctx.font = "23px sans-serif";
-  ctx.fillStyle = "#62716B";
-  ctx.fillText(artistCredit ? `Art: ${artistCredit}` : "Art credit: pending", 88, 1191, 515);
-
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#384A44";
-  ctx.font = "bold 30px monospace";
-  ctx.fillText(publicId, 810, 1191, 165);
-  ctx.restore();
+  // White, text-sized chips are drawn AFTER all imported art/frames.
+  // This keeps dark floral details from obscuring metadata without covering
+  // the whole decorated footer. Coordinates match the artist's 900x1260 kit.
+  footerTextChip(ctx, {
+    value: `${seriesName}  ·  ${releaseName}`, x: 88, baseline: 1117,
+    maxTextWidth: 724, font: "24px sans-serif", color: "#384A44",
+  });
+  footerTextChip(ctx, {
+    value: `Other collectors: ${Math.max(0, Number(otherCollectorCount) || 0)}`,
+    x: 88, baseline: 1154, maxTextWidth: 724,
+    font: "bold 24px sans-serif", color: "#384A44",
+  });
+  footerTextChip(ctx, {
+    value: artistCredit ? `Art: ${artistCredit}` : "Art credit: pending",
+    x: 88, baseline: 1191, maxTextWidth: 515,
+    font: "23px sans-serif", color: "#384A44",
+  });
+  footerTextChip(ctx, {
+    value: publicId, x: 810, baseline: 1191, maxTextWidth: 165,
+    font: "bold 30px monospace", color: "#273D36", align: "right",
+  });
 
   return canvas.toBuffer("image/png");
 }

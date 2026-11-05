@@ -8,6 +8,19 @@ const schema = new mongoose.Schema({
   eggImageUrl: { type: String, default: "" },
   cardBackgroundKey: { type: String, default: "" },
   cardFrameKey: { type: String, default: "" },
+  // Full-canvas rarity designs and transparent stage layers are independent
+  // of the legacy optional generic frame.
+  cardRarityFrameKeys: {
+    Common: { type: String, default: "" },
+    Uncommon: { type: String, default: "" },
+    Rare: { type: String, default: "" },
+    "Ultra-Rare": { type: String, default: "" },
+    Legendary: { type: String, default: "" },
+  },
+  cardStageOverlayKeys: {
+    neon: { type: String, default: "" },
+    mega: { type: String, default: "" },
+  },
   eggArtworkId: { type: String, default: "" },
   eggImageFileId: { type: mongoose.Schema.Types.ObjectId, default: null },
   eggImageBucket: { type: String, default: "" },

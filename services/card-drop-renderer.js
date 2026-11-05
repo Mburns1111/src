@@ -112,6 +112,8 @@ export async function renderThreeCardDropImage({
     petImageSource: card.petImageSource,
     backgroundImageSource: card.backgroundImageSource,
     frameImageSource: card.frameImageSource,
+    rarityFrameImageSource: card.rarityFrameImageSource,
+    stageOverlayImageSource: card.stageOverlayImageSource,
     dropMode: true,
   }))));
   for (let i = 0; i < 3; i++) {
