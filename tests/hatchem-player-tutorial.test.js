@@ -109,6 +109,29 @@ test("the fifth Learn to Play page advances to page six and Finish closes it",as
   });
 });
 
+test("Next page buttons promptly acknowledge clicks before rendering each screen",async()=>{
+  await inMode(async()=>{
+    const calls=[];
+    const interaction={
+      isButton:()=>true,
+      deferUpdate:async()=>{calls.push({type:"defer"});},
+      editReply:async payload=>{calls.push({type:"edit",payload});},
+      update:async()=>{throw Error("Direct update should not be used when deferUpdate is available");},
+    };
+    for(const index of [1,2,3,4,5]){
+      calls.length=0;
+      await handleHatchemTutorialButton({...interaction,customId:"cards:tutorial:page:"+index});
+      assert.deepEqual(calls.map(call=>call.type),["defer","edit"]);
+      assert.match(calls[1].payload.embeds[0].toJSON().footer.text,
+        new RegExp("Page "+(index+1)+" of 6"));
+    }
+    calls.length=0;
+    await handleHatchemTutorialButton({...interaction,customId:"cards:tutorial:close"});
+    assert.deepEqual(calls.map(call=>call.type),["defer","edit"]);
+    assert.deepEqual(calls[1].payload.embeds,[]);
+  });
+});
+
 test("typed tutorial prefers DM, falls back to a private-button prompt when DMs are closed",async()=>{
   const sent=[],replies=[];
   const message={author:{send:async payload=>sent.push(payload)},
