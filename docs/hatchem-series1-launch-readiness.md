@@ -38,13 +38,24 @@ register production commands, or edit Wispbyte.**
    coverage is preferable before launch to avoid biased rankings.
    Never substitute official rarity for reviewed trading value or invent
    a market score.
-3. **Owner-author six (or more) private Series 1 secret definitions**:
-   at least two Basic, two Medium, and two Advanced. Each must use actual
-   enabled `CardDefinition._id` values, unique stable keys, clear secret
-   names/conditions, `activeOnly`, and an implemented metric
-   (`acquiredDesigns`, `ownedDesigns`, `neonDesigns`, `megaDesigns`).
-   Review the attainable requirements. Keep the exact secrets in a **local
-   private JSON file outside this PUBLIC GitHub repo**.
+3. **Implement EVERY previously logged achievement — selection is CLOSED**.
+   The owner has repeatedly confirmed that **all proposed surprise/secret
+   achievements** and **every recorded regular achievement** are included,
+   without a vote, shortlist, substitutions, or asking again. This means
+   all 37 fixed visible achievements, all 12 permanent hidden achievements,
+   the Series 1 release-completion achievement, all six previously discussed
+   Series 1 themed secrets (minimum two Basic, two Medium, two Advanced),
+   and unlimited recurring grab/drop milestones every 50. Future release
+   secrets are additional, never replacements. Existing code for fixed
+   achievements must remain intact.
+   **Implementation is still required** for the Series 1 themed conditions:
+   map the agreed challenges to actual enabled `CardDefinition._id` values
+   and their supported event/collection triggers. Any unsupported triggers
+   require implementation/testing rather than deleting an approved badge.
+   Store the private exact secret configuration **outside this PUBLIC repo**.
+   The minimum count for Series 1 is **56 distinct achievement keys** (49
+   global fixed + 1 Series 1 completion + 6 Series 1 secrets), **plus
+   unbounded recurring milestone keys**.
 4. **Freeze the exact 108-card completion roster and secret config** from
    the private JSON after review (see commands below). This does not
    activate the release. The new preflight rejects missing/stale rosters
@@ -105,6 +116,8 @@ configuration in a MongoDB transaction but **never activates the game**.
 Never paste secrets into public GitHub issues, PRs, logs or shared channels.
 Dry-run results list counts and generic errors, not secret names.
 
-The owner must still select the actual secret conditions and launch boundary.
-Without those choices the branch can be safely developed/tested but the game
-is **not yet launch-ready**.
+The **achievement list is already selected** and must not be reopened or
+trimmed. Remaining work concerns implementing/testing the full agreed set,
+mapping the six themed challenges to the approved Series 1 pet records,
+freezing their private configuration, reviewing pet values, and selecting
+the **launch timestamp**. The game is **not yet launch-ready**.
