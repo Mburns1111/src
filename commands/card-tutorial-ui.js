@@ -127,6 +127,17 @@ export function hatchemTutorialPage(index) {
   return { embeds: [embed], components: [row], allowedMentions: { parse: [] } };
 }
 
+// Acknowledge page-navigation clicks before editing the guide. Discord requires
+// component interactions to be acknowledged promptly, including on the last page.
+async function editTutorialPage(interaction, payload) {
+  if (typeof interaction.deferUpdate === "function" && typeof interaction.editReply === "function") {
+    await interaction.deferUpdate();
+    return interaction.editReply(payload);
+  }
+  // Keep compatibility with lightweight interaction adapters in tests.
+  return interaction.update(payload);
+}
+
 export async function handleHatchemTutorialButton(interaction) {
   if (!interaction.isButton?.() || !interaction.customId?.startsWith(TUTORIAL_BUTTON_PREFIX))
     return false;
@@ -148,7 +159,7 @@ export async function handleHatchemTutorialButton(interaction) {
     return true;
   }
   if (action === "close") {
-    await interaction.update({
+    await editTutorialPage(interaction, {
       content: "📖 Tutorial finished! You can reopen it with the **Learn to Play** button or `.tutorial`.",
       embeds: [], components: [], allowedMentions: { parse: [] },
     });
@@ -163,7 +174,7 @@ export async function handleHatchemTutorialButton(interaction) {
     });
     return true;
   }
-  await interaction.update(hatchemTutorialPage(index));
+  await editTutorialPage(interaction, hatchemTutorialPage(index));
   return true;
 }
 
