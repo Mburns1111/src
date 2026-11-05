@@ -1,5 +1,19 @@
 # Hatchem — Expanded Achievements & Bonus Actions
 
+> **Source-of-truth correction — November 4, 2026:** The implemented
+> `card-achievement-catalog.js` contains **37 visible fixed achievements
+> (including the four reviewed-value badges) and 12 permanent hidden secrets**:
+> **49 fixed global definitions**. The **50th** achievement in the earlier
+> counting example is the dynamically created **completion badge for a particular
+> release**, not another fixed global achievement. Each official release then
+> adds **at least six new privately configured secrets**, plus recurring
+> grab/drop milestones every 50. These are additive, not substitutes.
+> The older October 31 implementation notes below are historical; card
+> extra purchases are now coded at **10 Points per Grab and 20 per Drop**.
+> A review of code is not proof of successful Discord testing or launch.
+> Never commit private release-secret names or conditions to this public repo.
+>
+
 **Status:** Core expanded progression, rewards, discovery ranks, private secrets,
 Hall of Fame and bonus spending are implemented on the development branch.
 Official rewards require an explicit start date. Discord verification is deferred.
