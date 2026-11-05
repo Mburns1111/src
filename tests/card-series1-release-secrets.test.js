@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {compilePrivateReleaseSecrets} from "../services/card-release-secret-authoring.js";
+import {compilePrivateReleaseSecrets,verifyFrozenReleaseSecrets} from "../services/card-release-secret-authoring.js";
 import {achievementDefinitions} from "../services/card-achievement-engine.js";
 import {CARD_ACHIEVEMENTS,SECRET_ACHIEVEMENTS} from "../services/card-achievement-catalog.js";
 
@@ -118,4 +118,64 @@ test("active-only secret locks after retirement without revoking a prior earned 
  const secrets=achievementDefinitions(snapshot);
  assert.equal(secrets.find(a=>a.key==="secret:s1-r1:private-1").archived,true);
  assert.equal(secrets.find(a=>a.key==="secret:s1-r1:private-2").archived,false);
+});
+
+test("read-only frozen verification matches exact private secrets without disclosing solutions",()=>{
+ const allDefs=[
+  ...definitions,
+  ...Array.from({length:94},(_,i)=>({
+   _id:"extra-"+i,petId:"extra-"+i,releaseId:"s1-r1",
+   enabled:true,artStatus:"approved",hatchWeight:1,
+  })),
+ ];
+ const initial=compilePrivateReleaseSecrets(privateConfig,allDefs);
+ const release={
+  releaseId:"s1-r1",status:"draft",achievementRoster:allDefs.map(d=>d._id),
+  achievementSecrets:initial.secrets,
+ };
+ const before=JSON.stringify(release);
+ const report=verifyFrozenReleaseSecrets({release,definitions:allDefs,config:privateConfig});
+ assert.equal(report.verified,true);
+ assert.equal(report.privateSecretsInDatabase,6);
+ assert.equal(report.frozenRosterCards,108);
+ assert.equal(report.secretsMatchPrivateFile,true);
+ assert.equal(report.changesMade,false);
+ assert.equal(JSON.stringify(release),before);
+ const output=JSON.stringify(report);
+ for(const secret of privateConfig.secrets) {
+  assert.ok(!output.includes(secret.name));
+  assert.ok(!output.includes(secret.description));
+  for(const pet of secret.petIds)assert.ok(!output.includes(pet));
+ }
+});
+
+test("frozen verification refuses mismatched secret conditions and roster, without leaking names",()=>{
+ const allDefs=[
+  ...definitions,
+  ...Array.from({length:94},(_,i)=>({
+   _id:"extra-"+i,petId:"extra-"+i,releaseId:"s1-r1",
+   enabled:true,artStatus:"approved",hatchWeight:1,
+  })),
+ ];
+ const frozen=compilePrivateReleaseSecrets(privateConfig,allDefs).secrets;
+ const changed=frozen.map((s,i)=>i===2?{...s,definitionIds:[s.definitionIds[0]]}:s);
+ const release={
+  releaseId:"s1-r1",status:"draft",achievementRoster:allDefs.map(d=>d._id),
+  achievementSecrets:changed,
+ };
+ const report=verifyFrozenReleaseSecrets({release,definitions:allDefs,config:privateConfig});
+ assert.equal(report.verified,false);
+ assert.equal(report.secretsMatchPrivateFile,false);
+ assert.equal(report.rosterMatchesApproved,true);
+ assert.equal(report.changesMade,false);
+ assert.ok(!JSON.stringify(report).includes(privateConfig.secrets[2].name));
+ assert.ok(!JSON.stringify(report).includes(privateConfig.secrets[2].petIds[0]));
+ const other=verifyFrozenReleaseSecrets({
+  release:{...release,achievementSecrets:frozen,achievementRoster:release.achievementRoster.slice(1)},
+  definitions:allDefs,config:privateConfig,
+ });
+ assert.equal(other.verified,false);
+ assert.equal(other.rosterMatchesApproved,false);
+ assert.equal(other.secretsMatchPrivateFile,true);
+ assert.equal(other.changesMade,false);
 });
