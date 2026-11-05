@@ -17,7 +17,8 @@ const guest=SERIES1_ARTIST_PETS.map((pet,i)=>({
   enabled:false,hatchWeight:1,rarity:rarityList[88+i],
 }));
 const release={
-  releaseId:"s1-r1",status:"draft",hatchOdds:counts,
+  releaseId:"s1-r1",status:"draft",
+  hatchOdds:{Common:26,Uncommon:26,Rare:26,"Ultra-Rare":14,Legendary:8},
   cardBackgroundKey:"s1-r1-background",
   cardFrameKey:"s1-r1-outline",
   cardRarityFrameKeys:{
