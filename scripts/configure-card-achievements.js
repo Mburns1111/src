@@ -5,6 +5,7 @@ import CardRelease from "../models/CardRelease.js";
 import CardDefinition from "../models/CardDefinition.js";
 import {freezeAchievementRelease} from "../services/card-achievement-engine.js";
 import {inspectReleaseAchievementReadiness} from "../services/card-release-achievement-readiness.js";
+import {compilePrivateReleaseSecrets} from "../services/card-release-secret-authoring.js";
 
 // Dry-run is strictly read-only. Applying freezes the private secrets and
 // exact approved roster transactionally; it never starts achievements or an egg.
@@ -26,13 +27,14 @@ async function validateConfiguration(session = null) {
   const cards = CardDefinition.find({releaseId:config.releaseId});
   if (session) cards.session(session);
   const definitions = await cards.lean();
+  const compiled = compilePrivateReleaseSecrets(config, definitions);
   const result = inspectReleaseAchievementReadiness({
-    release, definitions, secrets:config.secrets,
+    release, definitions, secrets:compiled.secrets,
     requireFrozen:false, checkLaunchBoundary:false, requireValueReviews:false,
   });
   if (result.problems.length)
     throw Error("Secret/roster readiness failed: " + result.problems.join(" | "));
-  return {release,result};
+  return {release,result,compiled};
 }
 
 await mongoose.connect(process.env.MONGODB_URI);
@@ -50,8 +52,8 @@ try {
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
-        const {release} = await validateConfiguration(session);
-        release.achievementSecrets = config.secrets;
+        const {release,compiled} = await validateConfiguration(session);
+        release.achievementSecrets = compiled.secrets;
         await release.validate();
         await release.save({session});
         await freezeAchievementRelease(config.releaseId,session);
