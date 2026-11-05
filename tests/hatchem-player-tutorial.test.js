@@ -89,6 +89,49 @@ test("guide button opens private page, Next edits privately, Finish ends cleanly
   });
 });
 
+test("the fifth Learn to Play page advances to page six and Finish closes it",async()=>{
+  await inMode(async()=>{
+    const updates=[];
+    const interaction={
+      isButton:()=>true,
+      update:async payload=>updates.push(payload),
+      reply:async()=>{ throw Error("Should update the existing tutorial"); },
+    };
+    await handleHatchemTutorialButton({...interaction,customId:"cards:tutorial:page:4"});
+    assert.match(updates.at(-1).embeds[0].toJSON().footer.text,/Page 5 of 6/);
+    assert.equal(updates.at(-1).components[0].toJSON().components[1].custom_id,
+      "cards:tutorial:page:5");
+    await handleHatchemTutorialButton({...interaction,customId:"cards:tutorial:page:5"});
+    assert.match(updates.at(-1).embeds[0].toJSON().footer.text,/Page 6 of 6/);
+    await handleHatchemTutorialButton({...interaction,customId:"cards:tutorial:close"});
+    assert.deepEqual(updates.at(-1).embeds,[]);
+    assert.deepEqual(updates.at(-1).components,[]);
+  });
+});
+
+test("Next page buttons promptly acknowledge clicks before rendering each screen",async()=>{
+  await inMode(async()=>{
+    const calls=[];
+    const interaction={
+      isButton:()=>true,
+      deferUpdate:async()=>{calls.push({type:"defer"});},
+      editReply:async payload=>{calls.push({type:"edit",payload});},
+      update:async()=>{throw Error("Direct update should not be used when deferUpdate is available");},
+    };
+    for(const index of [1,2,3,4,5]){
+      calls.length=0;
+      await handleHatchemTutorialButton({...interaction,customId:"cards:tutorial:page:"+index});
+      assert.deepEqual(calls.map(call=>call.type),["defer","edit"]);
+      assert.match(calls[1].payload.embeds[0].toJSON().footer.text,
+        new RegExp("Page "+(index+1)+" of 6"));
+    }
+    calls.length=0;
+    await handleHatchemTutorialButton({...interaction,customId:"cards:tutorial:close"});
+    assert.deepEqual(calls.map(call=>call.type),["defer","edit"]);
+    assert.deepEqual(calls[1].payload.embeds,[]);
+  });
+});
+
 test("typed tutorial prefers DM, falls back to a private-button prompt when DMs are closed",async()=>{
   const sent=[],replies=[];
   const message={author:{send:async payload=>sent.push(payload)},
