@@ -2,7 +2,7 @@ import CardAchievement from "../models/CardAchievement.js";
 import CardCollector from "../models/CardCollector.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {achievementSnapshot,achievementDefinitions,achievementStart} from "./card-achievement-engine.js";
-import {isUnrankedCardGameCreator} from "./card-owner-access.js";
+import {isSharedCardGameCreator} from "./card-owner-access.js";
 export {CARD_ACHIEVEMENTS} from "./card-achievement-catalog.js";
 const safe=s=>String(s??"").replace(/[@`*_~|<>]/g,"");
 export async function getAchievementProgress(userId){return (await achievementSnapshot(userId)).progress;}
@@ -15,10 +15,11 @@ export async function listCardAchievements(userId){
  // Preserve pre-launch badges and earned definitions even if a release is archived.
  for(const row of saved)if(!rows.some(a=>a.key===row.key))rows.push({...row,name:row.name||row.key,earned:true,legacy:!row.discoveryNumber});
  rows.wallet=await CardCollector.findOne({discordUserId:userId}).select("bonusGrabs bonusDrops").lean();
- rows.unranked=isUnrankedCardGameCreator(userId);
+ rows.sharedCreator=isSharedCardGameCreator(userId);
  return rows;
 }
 export function privateAchievementReceipt(a){
+ if(a.creatorShared)return safe(a.name)+" — Creator · Shared achievement; you earn the badge without occupying a member discovery place or receiving new achievement extras.";
  return safe(a.name)+" — "+safe(a.description)+"\nYou are #"+a.discoveryNumber+" to earn this achievement!"+
   (a.releaseFirst?" First new unlock during "+safe(a.releaseId)+"!":"")+
   "\nRewards: +"+(a.rewardGrabs||0)+" Extra Grabs · +"+(a.rewardDrops||0)+" Extra Drops.";
@@ -39,7 +40,7 @@ export function achievementPages(rows,{detailed=false}={}){
  const overview=["🏆 **Your Hatchem Achievements**",
   "**Earned:** "+earnedCount+"/"+rows.length+" · **Extra Grabs:** "+(rows.wallet?.bonusGrabs||0)+" · **Extra Drops:** "+(rows.wallet?.bonusDrops||0),
   ...[...groups].map(([name,g])=>"🔒 "+safe(name)+" Secrets: "+g.earned+"/"+g.total+" discovered"),
-  rows.unranked?"*Creator account · unranked. Achievements, first-discovery ranks and achievement rewards are disabled.*":"",
+  rows.sharedCreator?"*Creator · Shared: you earn achievements and progress without taking numbered discovery places, first-unlock bonuses or new achievement rewards from members.*":"",
   !achievementStart()?"*Rewards start on the official launch date.*":"",
  ].filter(Boolean).join("\n");
  // Show only nearby recurring milestones, not the unbounded 50-grab/drop list.
@@ -53,7 +54,7 @@ export function achievementPages(rows,{detailed=false}={}){
   if(!a.earned)return "▫️ "+name+" — "+Math.min(a.current||0,a.goal)+"/"+a.goal+(detailed?"\n"+safe(a.description):"");
   const date=a.unlockedAt&&Number.isFinite(new Date(a.unlockedAt).getTime())?
    " · <t:"+Math.floor(new Date(a.unlockedAt).getTime()/1000)+":d>":"";
-  const rank=a.discoveryNumber?" · #"+a.discoveryNumber:" · Legacy badge";
+  const rank=(rows.sharedCreator||a.creatorShared)?" · Creator · Shared":a.discoveryNumber?" · #"+a.discoveryNumber:" · Legacy badge";
   const reward=a.rewardGrantedAt?" · +"+(a.rewardGrabs||0)+" grabs / +"+(a.rewardDrops||0)+" drops":"";
   if(a.secret){
    // Secret name, condition and earned reward stay available *privately*.
@@ -84,7 +85,11 @@ export function achievementPages(rows,{detailed=false}={}){
 }
 export function formatCardAchievements(rows,page=1,detailed=false){const pages=achievementPages(rows,{detailed});return pages[Math.max(0,Math.min(pages.length-1,Number(page||1)-1))];}
 export async function secretHallOfFame(page=1){
- const rows=await CardAchievement.find({secret:true,discoveryNumber:{$lte:3,$gte:1}}).sort({anonymousId:1,discoveryNumber:1}).lean();
+ const query={secret:true,discoveryNumber:{$lte:3,$gte:1},creatorShared:{$ne:true}};
+ // Do not show old creator places even if the explicit conversion is still pending.
+ if(isSharedCardGameCreator(process.env.CARD_GAME_OWNER_DISCORD_ID))
+  query.discordUserId={$ne:process.env.CARD_GAME_OWNER_DISCORD_ID};
+ const rows=await CardAchievement.find(query).sort({anonymousId:1,discoveryNumber:1}).lean();
  if(!rows.length)return "🏛️ **Secret Hall of Fame**\nNo secrets have been discovered yet.";
  const groups=new Map();for(const a of rows){const g=groups.get(a.key)||[];g.push(a);groups.set(a.key,g);}
  const entries=[...groups.values()];const pages=Math.ceil(entries.length/6),selected=Math.min(pages,Math.max(1,Number(page)||1));
@@ -94,7 +99,7 @@ export async function secretHallOfFame(page=1){
 }
 export async function deliverAchievementNotices(client){
  if(!achievementStart())return;
- const rows=await CardAchievement.find({rewardGrantedAt:{$ne:null},noticeAttemptedAt:null}).sort({unlockedAt:1,discoveryNumber:1}).limit(20).lean();
+ const rows=await CardAchievement.find({rewardGrantedAt:{$ne:null},noticeAttemptedAt:null,creatorShared:{$ne:true}}).sort({unlockedAt:1,discoveryNumber:1}).limit(20).lean();
  for(const row of rows){
   // At-most-once external delivery: earned records remain privately readable if a DM fails.
   const claimed=await CardAchievement.updateOne({_id:row._id,noticeAttemptedAt:null},{$set:{noticeAttemptedAt:new Date()}});
