@@ -65,6 +65,14 @@ export function auditHatchemRelease({
           !item.artistCredit) problems.push("Unapproved "+stage+" alternative: "+card.petId);
     }
   }
+  if (release.releaseId === "s1-r1") {
+    for (const excluded of ["hedgehog", "vampire-dragon"]) {
+      if (ids.has(excluded)) problems.push("Excluded Series 1 pet must not be in the 108-card release: " + excluded);
+    }
+    for (const petId of expectedArtists.keys()) {
+      if (!ids.has(petId)) problems.push("An imported artist pet is missing from Series 1: " + petId);
+    }
+  }
   if (missingCredits) problems.push(missingCredits+" pet cards have missing artist credit.");
   if (incompleteExternalLinks)
     problems.push(incompleteExternalLinks+" external-artist cards need corrected credit or clickable profile.");
