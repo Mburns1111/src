@@ -1,6 +1,8 @@
 import { execute as executeCards } from "../commands/cards.js";
 import { listCollectorTags } from "./card-tag-catalog.js";
 import { sendHatchemTutorial } from "../commands/card-tutorial-ui.js";
+import {isUnrankedCardGameCreator} from "./card-owner-access.js";
+import {previewCreatorAchievementReset,resetCreatorAchievements} from "./card-creator-reset.js";
 
 /**
  * User-facing format is .tag <tag name> [pet name or IDs], without quotes.
@@ -54,10 +56,11 @@ export function parseHatchemTagArguments(raw, savedTags = []) {
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|tutorial|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|halloffame|hof|history|show|shop|inventory)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|tutorial|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|halloffame|hof|history|show|shop|inventory|creatorreset)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = ({createtag:"create-tag",tagcreate:"create-tag",tagdelete:"delete-tag",tagmultiple:"tag-multiple",untagmultiple:"untag-multiple",deletetag:"delete-tag"})[found[1].toLowerCase()] || found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "register") return { action, options: {} };
+  if (action === "creatorreset") return {action,options:{mode:args}};
   if (action === "trade") return { action, options: { member: args } };
   if (action === "give") {
     const match = /^(<@!?\d{17,20}>)(?:\s+([\s\S]+))?$/.exec(args);
@@ -167,6 +170,44 @@ export const HATCHEM_HELP = [
 
 export async function runHatchemText(message, parsed) {
   if (!parsed) return false;
+  // Production creator-only maintenance; never advertised to players.
+  if (parsed.action === "creatorreset") {
+    if (!isUnrankedCardGameCreator(message.author.id)) {
+      await message.reply({content:"This creator-only maintenance command is unavailable.",
+        allowedMentions:{parse:[]}});
+      return true;
+    }
+    try {
+      if (parsed.options.mode === "CONFIRM") {
+        const result = await resetCreatorAchievements(message.author.id);
+        await message.reply({content:[
+          "**Creator achievements reset. Your account is unranked.**",
+          "Removed: " + result.badges + " badges, " + result.events + " events, " + result.acquisitions + " acquisition records.",
+          "Released " + result.firsts + " creator-held release-first slots.",
+          "Forfeited " + result.rewardGrabsForfeited + " unspent achievement grabs and " + result.rewardDropsForfeited + " drops; purchased extras were protected.",
+          "Your cards, Points, tags and registration were not changed; other players' ranks were preserved.",
+          "You can keep playing, but you will not earn achievement badges, ranks or rewards.",
+        ].join("\n"),allowedMentions:{parse:[]}});
+      } else {
+        const preview=await previewCreatorAchievementReset(message.author.id);
+        await message.reply({content:[
+          "**Creator achievement reset preview — no changes yet**",
+          preview.badges + " badges · " + preview.events + " events · " + preview.acquisitions + " acquisition records.",
+          preview.firsts + " creator-held release-first slots can reopen to players.",
+          "Forfeit up to " + preview.rewards.forfeit.grab + " unspent achievement grabs and " +
+            preview.rewards.forfeit.drop + " drops, protecting purchased extras.",
+          "Only your achievement history is reset; owned cards, Points, tags and other players stay unchanged.",
+          "To proceed permanently, type \`.creatorreset CONFIRM\` (uppercase).",
+        ].join("\n"),allowedMentions:{parse:[]}});
+      }
+    } catch (error) {
+      console.error("[Hatchem] Creator achievement reset failed:",error);
+      await message.reply({content:"Creator achievement reset failed. No partial changes were saved. Check the bot console.",
+        allowedMentions:{parse:[]}});
+    }
+    return true;
+  }
+
   if (parsed.action === "tutorial") {
     await sendHatchemTutorial(message);
     return true;
