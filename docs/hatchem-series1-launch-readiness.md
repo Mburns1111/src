@@ -62,9 +62,13 @@ register production commands, or edit Wispbyte.**
    or secret IDs that do not belong to the enabled release.
 5. **Choose an explicit ISO launch timestamp with timezone** and configure
    `CARD_ACHIEVEMENTS_START_AT` in the eventual **authorized** runtime.
-   Record it once; changing an established timestamp can cause the
-   achievement engine to reject startup. Do not backdate to include
-   development/test activity. Test eggs remain ineligible.
+   Set `CARD_REWARD_SEASON_RELEASE=s1-r1` at the same time: without an
+   explicit current season, general actions can silently miss their
+   release-first extra-grab reward. The Series 1 activation gate now
+   verifies the reward-season setting. Record the launch timestamp once;
+   changing an established timestamp can cause the achievement engine to
+   reject startup. Do not backdate to include development/test activity.
+   Test eggs remain ineligible.
 6. **Confirm one or more server Hatchem channels and local Card roles.**
    Verify bot role hierarchy, message/attachment permissions, Message
    Content intent and the owner ID. Verify the main live token/database
