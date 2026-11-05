@@ -76,6 +76,33 @@ test("creator earns saved badges without discovery ranks, first-in-release token
  });
 });
 
+test("creator may earn first, but the first regular player still receives rank #1 and the first-release bonus",async()=>{
+ await inProduction(async()=>{
+  const undo=[],saved=[],claimed=new Set(),wallets=[];
+  stub(undo,CardAchievement,"findOne",({discordUserId,key})=>q(saved.find(a=>a.discordUserId===discordUserId&&a.key===key)));
+  stub(undo,CardAchievement,"create",async([row])=>{saved.push(row);return [row];});
+  let discovery=0;
+  stub(undo,AchievementDiscovery,"findOneAndUpdate",async()=>({value:++discovery}));
+  stub(undo,AchievementReleaseFirst,"exists",({ _id })=>({session:async()=>claimed.has(_id)}));
+  stub(undo,AchievementReleaseFirst,"create",async([row])=>{claimed.add(row._id);});
+  stub(undo,CardCollector,"updateOne",async(query,update)=>{wallets.push([query.discordUserId,update.$inc]);});
+  try{
+   const definition={key:"first-neon",name:"Neon",tier:"medium",description:"Create a Neon."};
+   const event={_id:"test-grant",at:new Date("2026-11-05T18:00:00Z")};
+   const shared=await grantAchievement({userId:creator,definition,event,releaseId:"s1-r1",session:{}});
+   const winner=await grantAchievement({userId:memberA,definition,event,releaseId:"s1-r1",session:{}});
+   assert.equal(shared.creatorShared,true);
+   assert.equal(shared.discoveryNumber,undefined);
+   assert.equal(winner.discoveryNumber,1);
+   assert.equal(winner.releaseFirst,true);
+   assert.equal(winner.rewardGrabs,1);
+   assert.equal(winner.rewardDrops,1);
+   assert.deepEqual(wallets,[[memberA,{bonusGrabs:1,bonusDrops:1}]]);
+   assert.equal(discovery,1,"creator has no effect on player discovery counter");
+  }finally{restore(undo);}
+ });
+});
+
 test("creator achievement snapshot reads saved progress and owned cards",async()=>{
  await inProduction(async()=>{
   const undo=[];
