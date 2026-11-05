@@ -53,3 +53,53 @@ export function compilePrivateReleaseSecrets(config, definitions) {
   });
   return {releaseId:config.releaseId,secrets};
 }
+
+
+/**
+ * Read-only comparison of the owner-approved PRIVATE file to the release
+ * already frozen in MongoDB. Never expose solutions, keys, design IDs or
+ * names in results. This does not validate launch date or reviewed values.
+ */
+export function verifyFrozenReleaseSecrets({release, definitions, config}) {
+  const compiled=compilePrivateReleaseSecrets(config,definitions);
+  const approved=(definitions||[]).filter(d=>
+    d.releaseId===config.releaseId && d.enabled &&
+    d.artStatus==="approved" && Number(d.hatchWeight)>0);
+  const expectedIds=new Set(approved.map(d=>id(d._id)));
+  const frozenIds=(release?.achievementRoster||[]).map(id);
+  const stored=release?.achievementSecrets||[];
+  const rosterMatchesApproved=release?.releaseId===config.releaseId &&
+    release?.status==="draft" && approved.length===definitions.length &&
+    (config.releaseId!=="s1-r1" || approved.length===108) &&
+    expectedIds.size===approved.length &&
+    frozenIds.length===approved.length &&
+    new Set(frozenIds).size===frozenIds.length &&
+    frozenIds.every(value=>expectedIds.has(value));
+  // Slot order determines the anonymous Secret 01/02 display, so compare it.
+  // Definition ID order within one slot is immaterial to unlock conditions.
+  const sameSecret=(a,b)=>Boolean(a&&b&&
+    ["key","name","description","tier","metric"].every(field=>id(a[field])===id(b[field])) &&
+    a.activeOnly===b.activeOnly &&
+    Array.isArray(a.definitionIds) && Array.isArray(b.definitionIds) &&
+    a.definitionIds.length===b.definitionIds.length &&
+    new Set(a.definitionIds.map(id)).size===a.definitionIds.length &&
+    [...a.definitionIds].map(id).sort().every((v,i)=>v===[...b.definitionIds].map(id).sort()[i]));
+  const secretsMatch=Array.isArray(stored) &&
+    stored.length===compiled.secrets.length &&
+    stored.every((s,i)=>sameSecret(s,compiled.secrets[i]));
+  const mismatches=[];
+  if(!rosterMatchesApproved)mismatches.push("Frozen roster differs from current approved release cards.");
+  if(!secretsMatch)mismatches.push("Frozen secret definitions differ from the private configuration.");
+  return {
+    releaseId:config.releaseId,
+    mode:"VERIFY ONLY",
+    privateSecretsInFile:compiled.secrets.length,
+    privateSecretsInDatabase:stored.length,
+    frozenRosterCards:frozenIds.length,
+    approvedRosterCards:approved.length,
+    rosterMatchesApproved,
+    secretsMatchPrivateFile:secretsMatch,
+    verified:mismatches.length===0,
+    mismatches,changesMade:false,releaseRemainsDraft:release?.status==="draft",
+  };
+}
