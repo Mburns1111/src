@@ -65,8 +65,9 @@ export function planSeries1ValueReviews({release,definitions,config}) {
   const cards=approvedSeries1(definitions);
   if (config?.releaseId!==SERIES1_VALUE_RELEASE ||
       !Array.isArray(config.reviews) || config.reviews.length!==108 ||
-      !String(config.reviewMethod || "").trim())
-    throw Error("Use a 108-row Series 1 review file with a documented, common scoring method.");
+      !String(config.reviewMethod || "").trim() ||
+      String(config.reviewMethod).length > 300)
+    throw Error("Use a 108-row Series 1 review file with a documented, common scoring method (max 300 characters).");
   const byPet=new Map(cards.map(d=>[String(d.petId),d]));
   const seen=new Set(), changes=[];
   let alreadyReviewed=0;
