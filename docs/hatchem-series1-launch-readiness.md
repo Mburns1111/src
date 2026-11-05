@@ -15,9 +15,9 @@ register production commands, or edit Wispbyte.**
 > `verified:true`, `mismatches:[]`, `changesMade:false`.
 > **The exact secret configuration and 108-card completion roster are now
 > VERIFIED; do not reapply or overwrite them.** Remaining launch blockers:
-> launch clock/reward season, real Discord regression checks and the
-> public-source secrecy decision. Value reviews were completed in the later
-> November 5 import described below. Release remains draft; no deployment
+> launch clock/reward season and the public-source secrecy decision.
+> The owner subsequently confirmed all manual gameplay tests complete;
+> value reviews were completed in the November 5 import described below. Release remains draft; no deployment
 > or activation approved.
 >
 > **Owner-reported value import — November 5, 2026:** The 108-pet,
@@ -33,8 +33,9 @@ register production commands, or edit Wispbyte.**
 > The only remaining audit blockers are the intentionally unset official
 > achievement clock (`CARD_ACHIEVEMENTS_START_AT`) and reward season
 > (`CARD_REWARD_SEASON_RELEASE=s1-r1`); set these only during the authorized
-> launch process. **Manual Discord gameplay/reward testing and permanent
-> secret source-confidentiality review are still outstanding.**
+> launch process. **The owner confirms the Discord gameplay and reward
+> tests are complete.** Permanent secret source-confidentiality review
+> remains outstanding.
 >
 ## Current verified source state
 
@@ -108,27 +109,33 @@ register production commands, or edit Wispbyte.**
    Content intent and the owner ID. Verify the main live token/database
    separation and keep `ENABLE_CARD_GAME_TEST` and `ENABLE_CARD_GAME`
    mutually exclusive.
-7. **Finish realistic Discord regression testing** on the development bot.
-   Automated CI does not prove database transactional correctness with
-   multiple concurrent users. The specific remaining user-reported cases
-   include dust-assisted upgrades, locks, history, public show, the bonus
-   shop, automatic wild eggs, release-secret achievements and simultaneous
-   first-discovery bonuses; retest grab/drop cooldown refunds, restarts,
-   and registration/role security.
+7. **COMPLETE — Discord regression testing (owner-confirmed).**
+   On November 5, 2026, the owner explicitly confirmed that *all gameplay
+   tests had already been completed*, correcting an outdated testing list.
+   This includes the previously flagged categories of dust-assisted
+   upgrades, locks, history, public show, bonus shop purchases, automatic
+   wild eggs, release achievements and first-discovery cases, alongside
+   previously completed trading, gifts, burning, normal upgrades, tags,
+   collection, registration, role security and owner controls. This is
+   owner attestation, not an independently captured Discord test log.
+   **Do not request another test pass merely because old checkboxes remain
+   open in historical notes.**
 8. **Resolve private-secret source exposure.** The old global secret
    definitions currently live in readable repository source. UI secrecy
    does not conceal definitions from people who inspect a public repo.
    Before launch decide whether to move those definitions into controlled
    private configuration or restrict source access.
-9. After read-only checks pass and manual tests are recorded, get **separate
+9. After read-only checks pass and owner testing is recorded, get **separate
    explicit approvals** for merging tested code, Wispbyte deployment,
    registering global commands and finally activating `s1-r1`.
    Each step must be verified independently.
 
 ## Safe owner review of Series 1 trading values
 
-The latest read-only audit reported **0 source-dated reviewed values**.
-This blocks the four value-based achievements. It does **not** invalidate
+The original read-only audit reported **0 source-dated reviewed values**;
+this was resolved by the November 5 import of **108/108 source-dated
+reviews**, confirmed by the follow-up audit. The four value-based
+achievements now have complete reviewed coverage. It does **not** invalidate
 the approved pet rarity, existing release hatch weights, or official art.
 The owner previously chose to compare multiple trading-value sources
 rather than assign value using Adopt Me rarity alone. Do not replace this
@@ -236,7 +243,10 @@ Never paste secrets into public GitHub issues, PRs, logs or shared channels.
 Dry-run results list counts and generic errors, not secret names.
 
 The **achievement list and all six themed combinations are finalized**;
-do not ask the owner to reselect them. Remaining work is the private
-configuration dry-run and roster freeze, reviewing source-backed values,
-manual Discord regression tests, and selecting the **actual launch
-timestamp** when authorized. The game is **not yet launch-ready**.
+do not ask the owner to reselect them. Their frozen configuration and
+108 reviewed pet values were verified against Replit MongoDB, and the
+owner has confirmed Discord gameplay tests complete. Remaining launch
+work: address the public-source visibility of the 12 permanent global
+secret definitions, choose the immutable **actual launch timestamp**,
+configure the reward season, and obtain separate merge, deployment and
+activation approvals. The game remains **draft and inactive**.
