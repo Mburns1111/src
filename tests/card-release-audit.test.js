@@ -9,15 +9,14 @@ const release = {
   cardRarityFrameKeys:{Common:"common"},
   cardStageOverlayKeys:{neon:"neon-frame",mega:"mega-frame"},
   achievementRoster:["a","b"],
-  achievementSecrets:[
-    {tier:"basic"},{tier:"basic"},{tier:"medium"},{tier:"medium"},
-    {tier:"advanced"},{tier:"advanced"},
-  ],
+  achievementSecrets:["basic","basic","medium","medium","advanced","advanced"]
+    .map((tier,i)=>({key:"secret-"+i,name:"Private secret "+i,description:"Private condition",
+      tier,metric:"acquiredDesigns",definitionIds:["a"],activeOnly:true})),
 };
 const defs=[
-  {petId:"a",rarity:"Common",petArtworkKey:"pet-a",artistCredit:"Lilly",
+  {_id:"a",petId:"a",rarity:"Common",petArtworkKey:"pet-a",artistCredit:"Lilly",
     artStatus:"approved",enabled:true,hatchWeight:1,stagePetArtworkKeys:{neon:"pet-a-neon"}},
-  {petId:"b",rarity:"Legendary",petArtworkKey:"pet-b",artistCredit:"Lilly",
+  {_id:"b",petId:"b",rarity:"Legendary",petArtworkKey:"pet-b",artistCredit:"Lilly",
     artStatus:"approved",enabled:true,hatchWeight:1},
 ];
 const assets=[
