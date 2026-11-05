@@ -28,7 +28,7 @@ async function validateConfiguration(session = null) {
   const definitions = await cards.lean();
   const result = inspectReleaseAchievementReadiness({
     release, definitions, secrets:config.secrets,
-    requireFrozen:false, checkLaunchBoundary:false,
+    requireFrozen:false, checkLaunchBoundary:false, requireValueReviews:false,
   });
   if (result.problems.length)
     throw Error("Secret/roster readiness failed: " + result.problems.join(" | "));
