@@ -15,9 +15,26 @@ register production commands, or edit Wispbyte.**
 > `verified:true`, `mismatches:[]`, `changesMade:false`.
 > **The exact secret configuration and 108-card completion roster are now
 > VERIFIED; do not reapply or overwrite them.** Remaining launch blockers:
-> source-reviewed card values (last audit: 0), launch clock/reward season,
-> and real Discord regression checks. Release remains draft; no deployment
+> launch clock/reward season, real Discord regression checks and the
+> public-source secrecy decision. Value reviews were completed in the later
+> November 5 import described below. Release remains draft; no deployment
 > or activation approved.
+>
+> **Owner-reported value import — November 5, 2026:** The 108-pet,
+> two-source review file was checked first (`pendingReviews:108`,
+> `reviewedAfter:108`, `valueAchievementCoverageReady:true`,
+> `databaseChanged:false`), then imported to Replit MongoDB
+> (`reviewsAdded:108`, `eggRemainsDraft:true`,
+> `rarityAndHatchWeightsUnchanged:true`). The subsequent official read-only
+> audit reports `reviewedValueCards:108`, `achievementWarnings:[]`,
+> 108/108 hatchable approved pet art, approved egg art, all six secrets,
+> and 108 frozen designs. **Artwork, roster, secret definitions and reviewed
+> trading values are complete; do not re-import or re-freeze them.**
+> The only remaining audit blockers are the intentionally unset official
+> achievement clock (`CARD_ACHIEVEMENTS_START_AT`) and reward season
+> (`CARD_REWARD_SEASON_RELEASE=s1-r1`); set these only during the authorized
+> launch process. **Manual Discord gameplay/reward testing and permanent
+> secret source-confidentiality review are still outstanding.**
 >
 ## Current verified source state
 
@@ -47,7 +64,7 @@ register production commands, or edit Wispbyte.**
    It must report exactly 108 enabled/approved cards and an approved official egg
    and shared artwork. Missing artist credits, guest profile links, or license
    reviews are blockers. Review the provenance evidence outside public Discord.
-2. **Review card values.** The top-20%/top-10% achievements require
+2. **COMPLETE — Review card values.** The top-20%/top-10% achievements require
    source-dated `CardDefinition.valueReview` records. At least **20 reviewed
    Series 1 definitions** are necessary for these to work; full 108-card
    coverage is preferable before launch to avoid biased rankings.
@@ -66,16 +83,17 @@ register production commands, or edit Wispbyte.**
    **The owner has finalized all six Series 1 pet combinations.**
    Source now supports their acquisition, ownership, Neon and Mega triggers;
    the private JSON has all approved pet IDs and stable anonymous keys.
-   What remains is checking that JSON against MongoDB and freezing the
-   immutable `CardDefinition._id` roster. Store the full secret file
+   The owner has verified the private file against the frozen MongoDB
+   configuration: **all six exact conditions and all 108 design IDs match**.
+   Do not repeat the frozen-roster write. Store the full secret file
    **outside this PUBLIC repo**.
    The minimum count for Series 1 is **56 distinct achievement keys** (49
    global fixed + 1 Series 1 completion + 6 Series 1 secrets), **plus
    unbounded recurring milestone keys**.
-4. **Freeze the exact 108-card completion roster and secret config** from
-   the private JSON after review (see commands below). This does not
-   activate the release. The new preflight rejects missing/stale rosters
-   or secret IDs that do not belong to the enabled release.
+4. **COMPLETE — Frozen roster and secret config.** Replit verification
+   confirmed all six exact private definitions and the frozen 108-card
+   completion roster match the approved release. Do not run `--apply`
+   again or unfreeze the draft release.
 5. **Choose an explicit ISO launch timestamp with timezone** and configure
    `CARD_ACHIEVEMENTS_START_AT` in the eventual **authorized** runtime.
    Set `CARD_REWARD_SEASON_RELEASE=s1-r1` at the same time: without an
