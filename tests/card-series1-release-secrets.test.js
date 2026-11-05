@@ -5,9 +5,9 @@ import {achievementDefinitions} from "../services/card-achievement-engine.js";
 import {CARD_ACHIEVEMENTS,SECRET_ACHIEVEMENTS} from "../services/card-achievement-catalog.js";
 
 const ids=[
- "owl","happy-duckling","shark","koi-carp","unicorn","baku",
- "cute-a-cabra","leopard-shark","otter","turtle","shark-puppy",
- "arctic-fox","dragonfly","glacier-moth"
+ "pet-01","pet-02","pet-03","pet-04","pet-05","pet-06",
+ "pet-07","pet-08","pet-09","pet-10","pet-11",
+ "pet-12","pet-13","pet-14"
 ];
 const definitions=ids.map((petId,i)=>({
  _id:"definition-"+(i+1),releaseId:"s1-r1",petId,enabled:true,
@@ -20,12 +20,12 @@ const secret=(i,tier,metric,petIds,activeOnly=false)=>({
 const privateConfig={
  releaseId:"s1-r1",
  secrets:[
-  secret(1,"basic","ownedDesigns",["owl","happy-duckling"]),
-  secret(2,"basic","acquiredDesigns",["shark","koi-carp"]),
-  secret(3,"medium","ownedDesigns",["unicorn","baku","cute-a-cabra"]),
-  secret(4,"medium","acquiredDesigns",["leopard-shark","otter","turtle","shark-puppy"]),
-  secret(5,"advanced","neonDesigns",["arctic-fox","dragonfly"]),
-  secret(6,"advanced","megaDesigns",["glacier-moth"]),
+  secret(1,"basic","ownedDesigns",["pet-01","pet-02"]),
+  secret(2,"basic","acquiredDesigns",["pet-03","pet-04"]),
+  secret(3,"medium","ownedDesigns",["pet-05","pet-06","pet-07"]),
+  secret(4,"medium","acquiredDesigns",["pet-08","pet-09","pet-10","pet-11"]),
+  secret(5,"advanced","neonDesigns",["pet-12","pet-13"]),
+  secret(6,"advanced","megaDesigns",["pet-14"]),
  ],
 };
 
@@ -44,18 +44,18 @@ test("private config resolves all six tiered Series 1 challenges by approved pet
 });
 test("unknown pet and incomplete combination cannot be configured",()=>{
  const invalid={...privateConfig,secrets:privateConfig.secrets.map((s,i)=>
-  i===3?{...s,petIds:["leopard-shark","missing-pet"]}:s)};
+  i===3?{...s,petIds:["pet-08","missing-pet"]}:s)};
  assert.throws(()=>compilePrivateReleaseSecrets(invalid,definitions),/secret #4 references pet/);
  const incomplete={...privateConfig,secrets:privateConfig.secrets.map((s,i)=>
   i===5?{...s,petIds:[]}:s)};
  assert.throws(()=>compilePrivateReleaseSecrets(incomplete,definitions),/secret #6 must list/);
 });
 test("duplicate cards, unapproved pet art and test-release definitions are rejected",()=>{
- const bad={...privateConfig,secrets:[{...privateConfig.secrets[0],petIds:["owl","owl"]},...privateConfig.secrets.slice(1)]};
+ const bad={...privateConfig,secrets:[{...privateConfig.secrets[0],petIds:["pet-01","pet-01"]},...privateConfig.secrets.slice(1)]};
  assert.throws(()=>compilePrivateReleaseSecrets(bad,definitions),/secret #1 must list/);
- const unapproved=definitions.map(d=>d.petId==="owl"?{...d,artStatus:"pending"}:d);
+ const unapproved=definitions.map(d=>d.petId==="pet-01"?{...d,artStatus:"pending"}:d);
  assert.throws(()=>compilePrivateReleaseSecrets(privateConfig,unapproved),/secret #1 references pet/);
- const fromTest=definitions.map(d=>d.petId==="owl"?{...d,releaseId:"test-s1-r1"}:d);
+ const fromTest=definitions.map(d=>d.petId==="pet-01"?{...d,releaseId:"test-s1-r1"}:d);
  assert.throws(()=>compilePrivateReleaseSecrets(privateConfig,fromTest),/secret #1 references pet/);
 });
 test("private error reports do not leak secret titles, pets or combinations",()=>{
@@ -82,16 +82,16 @@ test("all six requirements honor owned vs acquired vs Neon vs Mega, including af
  assert.equal(entries.filter(a=>a.secret&&a.key.startsWith("secret:s1-r1:")).length,6);
  assert.ok(entries.filter(a=>a.key.startsWith("secret:s1-r1:")).every(a=>a.current===0));
  snapshot.owned=[
-  ...["owl","happy-duckling","unicorn","baku","cute-a-cabra"].map((petId,i)=>({
+  ...["pet-01","pet-02","pet-05","pet-06","pet-07"].map((petId,i)=>({
    cardDefinitionId:definitions.find(d=>d.petId===petId)._id,upgradeLevel:"normal",_id:"normal-"+i
   })),
-  ...["arctic-fox","dragonfly"].map((petId,i)=>({
+  ...["pet-12","pet-13"].map((petId,i)=>({
    cardDefinitionId:definitions.find(d=>d.petId===petId)._id,upgradeLevel:"neon",_id:"neon-"+i
   })),
-  {cardDefinitionId:definitions.find(d=>d.petId==="glacier-moth")._id,
+  {cardDefinitionId:definitions.find(d=>d.petId==="pet-14")._id,
     upgradeLevel:"mega",_id:"mega-1"},
  ];
- snapshot.acquisitions=["shark","koi-carp","leopard-shark","otter","turtle","shark-puppy"]
+ snapshot.acquisitions=["pet-03","pet-04","pet-08","pet-09","pet-10","pet-11"]
   .map(petId=>({
    definitionId:definitions.find(d=>d.petId===petId)._id,releaseId:"s1-r1"
   }));
