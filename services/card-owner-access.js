@@ -12,3 +12,14 @@ export function assertCardGameOwner(discordUserId, env = process.env) {
     throw new Error("Only the card-game owner can manage releases or artwork. Check the owner ID secret if you are the owner.");
   }
 }
+
+/**
+ * The production game owner is intentionally unranked. This is tied to the
+ * already configured owner ID, never a Discord role or guild administrator.
+ * The development/test bot still permits achievement testing by its owner.
+ */
+export function isUnrankedCardGameCreator(discordUserId, env = process.env) {
+  return env?.ENABLE_CARD_GAME === "1" &&
+    env?.ENABLE_CARD_GAME_TEST !== "1" &&
+    isCardGameOwner(discordUserId, env);
+}
