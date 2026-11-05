@@ -3,6 +3,7 @@ const schema=new mongoose.Schema({
   discordUserId:{type:String,required:true,index:true},
   key:{type:String,required:true},
   discoveryNumber:{type:Number,min:1},
+  creatorShared:{type:Boolean,default:false},
   name:String,description:String,tier:String,secret:{type:Boolean,default:false},
   anonymousId:String,releaseId:String,eventId:String,
   releaseFirst:{type:Boolean,default:false},
