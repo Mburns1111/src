@@ -5,14 +5,16 @@ import CardRelease from "../models/CardRelease.js";
 import CardDefinition from "../models/CardDefinition.js";
 import {freezeAchievementRelease} from "../services/card-achievement-engine.js";
 import {inspectReleaseAchievementReadiness} from "../services/card-release-achievement-readiness.js";
-import {compilePrivateReleaseSecrets} from "../services/card-release-secret-authoring.js";
+import {compilePrivateReleaseSecrets,verifyFrozenReleaseSecrets} from "../services/card-release-secret-authoring.js";
 
 // Dry-run is strictly read-only. Applying freezes the private secrets and
 // exact approved roster transactionally; it never starts achievements or an egg.
 const [filename, ...flags] = process.argv.slice(2);
-if (!filename || flags.some(flag => flag !== "--apply") || flags.length > 1)
-  throw Error("Usage: node scripts/configure-card-achievements.js config.json [--apply]");
+if (!filename || flags.some(flag => !["--apply","--verify"].includes(flag)) ||
+    flags.length > 1)
+  throw Error("Usage: node scripts/configure-card-achievements.js config.json [--apply|--verify]");
 const apply = flags.includes("--apply");
+const verify = flags.includes("--verify");
 const config = JSON.parse(await fs.readFile(filename, "utf8"));
 if (!config.releaseId || !Array.isArray(config.secrets))
   throw Error("Expected releaseId and secrets array.");
@@ -39,7 +41,14 @@ async function validateConfiguration(session = null) {
 
 await mongoose.connect(process.env.MONGODB_URI);
 try {
-  if (!apply) {
+  if (verify) {
+    const release=await CardRelease.findOne({releaseId:config.releaseId}).lean();
+    if(!release)throw Error("Configured release not found.");
+    const definitions=await CardDefinition.find({releaseId:config.releaseId}).lean();
+    const report=verifyFrozenReleaseSecrets({release,definitions,config});
+    console.log(JSON.stringify(report,null,2));
+    if(!report.verified)process.exitCode=2;
+  } else if (!apply) {
     const {result} = await validateConfiguration();
     console.log(JSON.stringify({
       releaseId:config.releaseId,mode:"DRY RUN",privateSecretsValidated:result.releaseSecrets,
