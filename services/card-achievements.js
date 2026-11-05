@@ -2,6 +2,7 @@ import CardAchievement from "../models/CardAchievement.js";
 import CardCollector from "../models/CardCollector.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {achievementSnapshot,achievementDefinitions,achievementStart} from "./card-achievement-engine.js";
+import {isUnrankedCardGameCreator} from "./card-owner-access.js";
 export {CARD_ACHIEVEMENTS} from "./card-achievement-catalog.js";
 const safe=s=>String(s??"").replace(/[@`*_~|<>]/g,"");
 export async function getAchievementProgress(userId){return (await achievementSnapshot(userId)).progress;}
@@ -14,6 +15,7 @@ export async function listCardAchievements(userId){
  // Preserve pre-launch badges and earned definitions even if a release is archived.
  for(const row of saved)if(!rows.some(a=>a.key===row.key))rows.push({...row,name:row.name||row.key,earned:true,legacy:!row.discoveryNumber});
  rows.wallet=await CardCollector.findOne({discordUserId:userId}).select("bonusGrabs bonusDrops").lean();
+ rows.unranked=isUnrankedCardGameCreator(userId);
  return rows;
 }
 export function privateAchievementReceipt(a){
@@ -37,6 +39,7 @@ export function achievementPages(rows,{detailed=false}={}){
  const overview=["🏆 **Your Hatchem Achievements**",
   "**Earned:** "+earnedCount+"/"+rows.length+" · **Extra Grabs:** "+(rows.wallet?.bonusGrabs||0)+" · **Extra Drops:** "+(rows.wallet?.bonusDrops||0),
   ...[...groups].map(([name,g])=>"🔒 "+safe(name)+" Secrets: "+g.earned+"/"+g.total+" discovered"),
+  rows.unranked?"*Creator account · unranked. Achievements, first-discovery ranks and achievement rewards are disabled.*":"",
   !achievementStart()?"*Rewards start on the official launch date.*":"",
  ].filter(Boolean).join("\n");
  // Show only nearby recurring milestones, not the unbounded 50-grab/drop list.
