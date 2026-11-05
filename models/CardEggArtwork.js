@@ -16,6 +16,8 @@ const schema = new mongoose.Schema({
   sourcePlatform: { type: String, required: true },
   sourceAssetId: { type: String, required: true },
   sourceArtistUrl: { type: String, default: "" },
+  reusedFromReleaseId: { type: String, default: "" },
+  reusedFromArtworkId: { type: String, default: "" },
   licenseReviewStatus: { type: String, enum: ["needs-review", "approved", "rejected"], default: "needs-review" },
   uploadedBy: { type: String, required: true },
   reviewedBy: { type: String, default: "" },
