@@ -16,7 +16,7 @@ const isTimestamp = value => typeof value === "string" &&
  */
 export function inspectReleaseAchievementReadiness({
   release, definitions = [], secrets = release?.achievementSecrets || [],
-  requireFrozen = true, checkLaunchBoundary = true,
+  requireFrozen = true, checkLaunchBoundary = true, requireValueReviews = true,
   launchBoundary = process.env.CARD_ACHIEVEMENTS_START_AT,
 } = {}) {
   const problems = [];
@@ -69,7 +69,7 @@ export function inspectReleaseAchievementReadiness({
     id(d.valueReview?.sourceName).trim() &&
     d.valueReview?.checkedAt &&
     Number.isFinite(new Date(d.valueReview.checkedAt).getTime()));
-  if (release?.releaseId === "s1-r1" && reviewed.length < 20)
+  if (requireValueReviews && release?.releaseId === "s1-r1" && reviewed.length < 20)
     problems.push("Reviewed-value achievements need at least 20 source-dated value reviews in Series 1.");
   if (reviewed.length < actual.length)
     warnings.push("Some approved cards lack reviewed-value metadata; value-ranking achievements cover only reviewed cards.");
