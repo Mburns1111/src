@@ -4,6 +4,21 @@
 **This checklist does not grant permission to deploy, activate an egg, merge a PR,
 register production commands, or edit Wispbyte.**
 
+> **Owner-reported Replit verification — November 5, 2026:** The official
+> `s1-r1` draft passed a read-only audit for 108/108 enabled/hatchable,
+> approved card and egg artwork, and 20/20 guest-art attribution links.
+> A later owner-run `--verify` compared the PRIVATE six-secret JSON to
+> the frozen MongoDB configuration and returned
+> `privateSecretsInFile:6`, `privateSecretsInDatabase:6`,
+> `frozenRosterCards:108`, `approvedRosterCards:108`,
+> `rosterMatchesApproved:true`, `secretsMatchPrivateFile:true`,
+> `verified:true`, `mismatches:[]`, `changesMade:false`.
+> **The exact secret configuration and 108-card completion roster are now
+> VERIFIED; do not reapply or overwrite them.** Remaining launch blockers:
+> source-reviewed card values (last audit: 0), launch clock/reward season,
+> and real Discord regression checks. Release remains draft; no deployment
+> or activation approved.
+>
 ## Current verified source state
 
 - The current `main` code includes Hatchem (merged through PR #31) and subsequent
