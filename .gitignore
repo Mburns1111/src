@@ -14,3 +14,6 @@ npm-debug.log*
 # Local system files
 .DS_Store
 Thumbs.db
+
+# Private, owner-authored Hatchem achievement solutions (never commit)
+.hatchem-private/
