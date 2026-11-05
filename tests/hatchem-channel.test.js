@@ -11,6 +11,20 @@ test("Hatchem has dedicated configured channel in server setup", () => {
   assert.match(HATCHEM_GUIDE, /Hatchem/);
 });
 
+test("live Hatchem guide uses grouped, readable and Discord-sized command instructions", () => {
+  assert.ok(HATCHEM_GUIDE.length <= 2000, "Discord content limit");
+  assert.match(HATCHEM_GUIDE, /Start playing/);
+  assert.match(HATCHEM_GUIDE, /Eggs & Collecting/);
+  assert.match(HATCHEM_GUIDE, /Upgrades & Organizing/);
+  assert.match(HATCHEM_GUIDE, /Trading, Extras & Rewards/);
+  assert.match(HATCHEM_GUIDE, /`\\.register`/);
+  assert.match(HATCHEM_GUIDE, /`\\.tutorial`/);
+  assert.match(HATCHEM_GUIDE, /`\\.help`/);
+  assert.match(HATCHEM_GUIDE, /`Abc12`/);
+  assert.match(HATCHEM_GUIDE, /10 Points/);
+  assert.match(HATCHEM_GUIDE, /20 Points/);
+});
+
 test("Hatchem parses only leading recognized commands with typed arguments", () => {
   assert.equal(parseHatchemText("hello there"), null);
   assert.equal(parseHatchemText("I want to upgrade"), null);
