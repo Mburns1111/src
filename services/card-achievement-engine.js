@@ -7,7 +7,7 @@ import CardRelease from "../models/CardRelease.js";
 import PetCatalog from "../models/PetCatalog.js";
 import {AchievementControl,AchievementEvent,CardAcquisition,AchievementDiscovery,AchievementReleaseFirst,CardBonusUse} from "../models/CardAchievementState.js";
 import {CARD_ACHIEVEMENTS,SECRET_ACHIEVEMENTS,recurringAchievements,reviewedSets,rewardFor} from "./card-achievement-catalog.js";
-import {isUnrankedCardGameCreator} from "./card-owner-access.js";
+import {isSharedCardGameCreator} from "./card-owner-access.js";
 
 // An explicit launch boundary excludes development history. Never infer it from a restart.
 export function achievementStart(){
@@ -63,12 +63,11 @@ export function buildAchievementProgress({events,acquisitions,owned,definitions,
 }
 export async function achievementSnapshot(userId,session=null){
  // Queries deliberately sequential: the Mongo driver forbids parallel transaction operations.
- // The live creator can still own and play cards, but never builds an
- // achievement ledger or retains collection-based achievement progress.
- const unranked=isUnrankedCardGameCreator(userId);
- const events=unranked?[]:await AchievementEvent.find({userId}).session(session).lean();
- const acquisitions=unranked?[]:await CardAcquisition.find({userId}).session(session).lean();
- const owned=unranked?[]:await CardCopy.find({ownerDiscordUserId:userId,state:"owned",achievementEligible:true}).session(session).lean();
+ // Creator progress is recorded just like a member's; only the award's
+ // competitive rank and payout differ in production.
+ const events=await AchievementEvent.find({userId}).session(session).lean();
+ const acquisitions=await CardAcquisition.find({userId}).session(session).lean();
+ const owned=await CardCopy.find({ownerDiscordUserId:userId,state:"owned",achievementEligible:true}).session(session).lean();
  const definitions=await CardDefinition.find({releaseId:{$not:/^test-/}}).session(session).lean();
  const releases=await CardRelease.find({releaseId:{$not:/^test-/}}).session(session).lean();
  const pets=await PetCatalog.find({petId:{$in:[...new Set(definitions.map(d=>d.petId))]}}).select("petId name").session(session).lean();
@@ -100,35 +99,35 @@ export function achievementDefinitions(snapshot){
  return out.map(a=>({...a,current:a.current??progress[a.metric]??0}));
 }
 export async function grantAchievement({userId,definition,event,releaseId,session}){
- if(isUnrankedCardGameCreator(userId))return null;
+ const creatorShared=isSharedCardGameCreator(userId);
  const key=definition.key;
  // Existing pre-launch badges are archival, not retroactive world firsts.
  const existing=await CardAchievement.findOne({discordUserId:userId,key}).session(session).lean();
- if(existing?.discoveryNumber||existing?.rewardGrantedAt)return null;
+ if(existing?.creatorShared||existing?.discoveryNumber||existing?.rewardGrantedAt)return null;
  if(existing)await CardAchievement.updateOne({_id:existing._id},{$set:{key:"legacy:"+key}},{session});
- const counter=await AchievementDiscovery.findOneAndUpdate({_id:key},{$inc:{value:1}},{upsert:true,new:true,session});
+ const counter=creatorShared?null:await AchievementDiscovery.findOneAndUpdate({_id:key},{$inc:{value:1}},{upsert:true,new:true,session});
  let releaseFirst=false;
- if(releaseId&&definition.tier!=="basic"){
+ if(!creatorShared&&releaseId&&definition.tier!=="basic"){
   const id=JSON.stringify([releaseId,key]);
   if(!await AchievementReleaseFirst.exists({_id:id}).session(session)){
    await AchievementReleaseFirst.create([{_id:id,userId,key,releaseId}],{session});releaseFirst=true;
   }
  }
- const reward=rewardFor(definition.tier,releaseFirst);
+ const reward=creatorShared?{grabs:0,drops:0}:rewardFor(definition.tier,releaseFirst);
  const [row]=await CardAchievement.create([{
   discordUserId:userId,key,name:definition.name,description:definition.description,tier:definition.tier,
-  secret:Boolean(definition.secret),anonymousId:definition.anonymousId,discoveryNumber:counter.value,
+  secret:Boolean(definition.secret),anonymousId:definition.anonymousId,
+  discoveryNumber:counter?.value,creatorShared,
   unlockedAt:event.at,releaseId:releaseId||"",eventId:event._id,releaseFirst,
-  rewardGrabs:reward.grabs,rewardDrops:reward.drops,rewardGrantedAt:event.at,
+  rewardGrabs:reward.grabs,rewardDrops:reward.drops,rewardGrantedAt:creatorShared?null:event.at,
   channelId:event.channelId||"",guildId:event.guildId||"",
  }],{session});
- await CardCollector.updateOne({discordUserId:userId},{$inc:{bonusGrabs:reward.grabs,bonusDrops:reward.drops}},{session,upsert:true});
+ if(!creatorShared)await CardCollector.updateOne({discordUserId:userId},{$inc:{bonusGrabs:reward.grabs,bonusDrops:reward.drops}},{session,upsert:true});
  return row;
 }
 // MUST run inside the gameplay transaction. A single control write serializes
 // discovery allocation (including different collectors) before any reads.
 export async function recordAchievementEvent(input,session){
- if(isUnrankedCardGameCreator(input.userId))return;
  if(!eligibleAchievementTime(input.at||new Date())||input.test)return;
  if(!session)throw Error("Achievement events require the gameplay transaction.");
  const guard=await AchievementControl.updateOne({_id:"clock"},{$inc:{sequence:1}},{session});
