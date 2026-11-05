@@ -10,7 +10,7 @@ const definitions = Array.from({length:108}, (_,i) => ({
   valueReview:i<20?{valueScore:10+i,sourceName:"verified-reference",checkedAt:new Date("2026-11-01")}:{},
 }));
 const secrets = ["basic","basic","medium","medium","advanced","advanced"].map((tier,i) => ({
-  key:"s"+i, name:"Never print this private secret "+i,
+  key:"s1-secret-"+String(i+1).padStart(2,"0"), name:"Never print this private secret "+i,
   description:"Private requirement for secret "+i, tier,
   metric:["acquiredDesigns","ownedDesigns","neonDesigns","megaDesigns"][i%4],
   definitionIds:["pet-"+i], activeOnly:true,
@@ -77,6 +77,12 @@ test("release authoring can validate secrets without launch clock or value revie
   assert.ok(launch.problems.some(p=>p.includes("CARD_ACHIEVEMENTS_START_AT")));
 });
 
+test("official Series 1 rejects silently swapping out one of six approved secret slots",()=>{
+ const changed=secrets.map((s,i)=>i===5?{...s,key:"replacement-key"}:s);
+ const result=inspect({secrets:changed});
+ assert.ok(result.problems.some(p=>p.includes("all six approved anonymous secret slots")));
+ assert.ok(!JSON.stringify(result).includes(changed[5].name));
+});
 test("each Series 1 tier requires two secrets with real IDs; no secret names are printed",()=>{
   const broken=secrets.slice(0,5);
   const result=inspect({secrets:broken});
