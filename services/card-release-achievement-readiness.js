@@ -22,6 +22,7 @@ export function inspectReleaseAchievementReadiness({
   release, definitions = [], secrets = release?.achievementSecrets || [],
   requireFrozen = true, checkLaunchBoundary = true, requireValueReviews = true,
   launchBoundary = process.env.CARD_ACHIEVEMENTS_START_AT,
+  rewardSeasonReleaseId = process.env.CARD_REWARD_SEASON_RELEASE,
 } = {}) {
   const problems = [];
   const warnings = [];
@@ -82,6 +83,12 @@ export function inspectReleaseAchievementReadiness({
     warnings.push("Some approved cards lack reviewed-value metadata; value-ranking achievements cover only reviewed cards.");
   if (checkLaunchBoundary && !isTimestamp(launchBoundary))
     problems.push("CARD_ACHIEVEMENTS_START_AT must be set to an explicit ISO timestamp with timezone before activation.");
+  // Series 1 is the first official season. General events (e.g. gifts and
+  // trading) require one explicit active reward season for release-first
+  // bonuses; otherwise those awards silently lose their extra grab.
+  if (checkLaunchBoundary && release?.releaseId === "s1-r1" &&
+      rewardSeasonReleaseId !== "s1-r1")
+    problems.push("CARD_REWARD_SEASON_RELEASE must be s1-r1 for Series 1 first-discovery bonuses.");
   return {
     globalNamedAchievements: CARD_ACHIEVEMENTS.length + SECRET_ACHIEVEMENTS.length,
     permanentSecrets: SECRET_ACHIEVEMENTS.length,
