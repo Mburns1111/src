@@ -161,9 +161,9 @@ export async function execute(interaction) {
     }
     if (operation === "watch-list") {
       const rules=await GiveawayWatchRule.find({guildId:interaction.guildId}).sort({nameKey:1}).limit(30).lean();
-      const lines=rules.map(rule=>`• **${String(rule.name).replace(/[@`*_~|<>]/g,"")}** · <#${rule.channelId}> · ${rule.minimumMessages} message(s) / ${rule.activeDays} days · ${rule.minimumChars}+ chars`);
+      const lines=rules.map(rule=>`• **${String(rule.name).replace(/[@*_~|<>]/g,"")}** · <#${rule.channelId}> · ${rule.minimumMessages} message(s) / ${rule.activeDays} days · ${rule.minimumChars}+ chars`);
       return interaction.editReply({content:rules.length
-        ? ("**Saved watched channels**\\n"+lines.join("\\n")).slice(0,1900)
+        ? ("**Saved watched channels**\n"+lines.join("\n")).slice(0,1900)
         : "No saved watches yet. Use /giveaway watch-save to create one.",allowedMentions:{parse:[]}});
     }
     if (operation === "watch-delete") {
