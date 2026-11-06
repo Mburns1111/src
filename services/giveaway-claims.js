@@ -54,7 +54,8 @@ export function prizeClaimLines(record, { finished = false } = {}) {
   if (duration) {
     const deadline = finished ? prizeClaimDeadline(record) : null;
     if (deadline) {
-      lines.push("**Claim deadline:** <t:" + deadline + ":F> (<t:" + deadline + ":R>)");
+      const label=record.mode!=="survival" && (record.rerollHistory || []).length ? "Original claim deadline" : "Claim deadline";
+      lines.push("**" + label + ":** <t:" + deadline + ":F> (<t:" + deadline + ":R>)");
     } else {
       lines.push("**Claim window:** " + duration.count + " " + duration.unit +
         (duration.count === 1 ? "" : "s") + " after winners are announced");
