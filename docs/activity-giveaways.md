@@ -6,8 +6,8 @@
 
 1. Assign the public destination with `/setup channels giveaways:#giveaways`. This is where standard giveaway posts and automatic activity drawing results appear.
 2. Save one watched channel at a time:
-   - Daily QOTD: `/giveaway watch-save name:QOTD channel:#question-of-the-day period:daily min_chars:25 messages:1 days:1`
-   - Weekly discussion: `/giveaway watch-save name:Discussion channel:#discussion period:weekly min_chars:20 messages:1 days:3`
+   - Daily QOTD: `/giveaway watch-save name:QOTD channel:#question-of-the-day period:daily min_chars:25 messages:1`
+   - Weekly discussion: `/giveaway watch-save name:Discussion channel:#discussion period:weekly min_chars:20 messages:50`
    - `/giveaway watch-list` shows all saved rules. Reuse `watch-save` with the same name to edit **only** that rule. When editing an existing watch, omitted settings are preserved.
 3. Create an independent one-time or recurring drawing plan:
    - Daily QOTD: `/giveaway plan-create name:QOTD-Daily title:QOTD Daily Prize watch:QOTD announce_at:2026-11-11 19:00 prize:Diamond Egg repeat:daily period:daily claim_hours:48 winners:1`
@@ -32,6 +32,25 @@
 - **Prize cycling**: `repeat_prizes` determines whether the ordered prize list cycles after the last prize (default true). No prize is consumed when a scheduled draw finds zero eligible members.
 
 All start times and day boundaries use `America/New_York` and handle daylight-saving changes. Daily and weekly same-clock-time recurrences keep the Eastern clock time; fixed-hour intervals may shift their Eastern clock time when DST changes. You may update the next announcement, schedule, or activity period later with `/giveaway plan-edit` without changing past drawings.
+
+## Configurable activity counts and mention/phrase challenges
+
+Each watch uses staff-defined thresholds rather than a fixed message quota:
+
+- `messages`: **total qualifying messages within the selected activity period** (for example, 50 messages in the previous Eastern calendar day, or 50 messages anywhere in the last completed Wednesday–Wednesday week).
+- `period`: daily or weekly. Daily messages from Tuesday do not roll over into Wednesday, and weekly drawings exclude earlier weeks.
+- `min_chars`: optional minimum length for each message; command-style messages, bots and webhooks do not count.
+- `per_day` and `days`: **optional additional** minimum/day and minimum distinct active days. These are not imposed when only a total target is provided.
+- `mention_member`: optional explicit Discord member mention required in each counted message, e.g., tag Tina in #general. Plain-text names, @role pings and reply-only notifications do not count.
+- `phrase`: optional case-insensitive text that must appear in the same message (e.g., "you are wonderful"). If both mention and phrase are configured, both must match for the message to count.
+- `clear_mention:true` and `clear_phrase:true` remove existing challenge requirements. Editing matching requirements starts a new counter version so old messages cannot qualify under the changed challenge.
+
+Examples:
+- `/giveaway watch-save name:Chat-50 channel:#general period:weekly messages:50 min_chars:10 days:1`
+- `/giveaway watch-save name:Compliment channel:#general period:daily messages:1 mention_member:@Tina phrase:you are wonderful min_chars:5`
+- `/giveaway watch-save name:QOTD channel:#qotd period:daily messages:1 min_chars:25`
+
+All watched-message counts are accumulated by the bot as messages arrive and checked against the selected **completed** activity period. The bot records counts, not message bodies. A phrase check verifies the words, not whether a free-form answer is factually correct.
 
 ## Daily and weekly activity eligibility
 

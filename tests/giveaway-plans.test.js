@@ -8,6 +8,7 @@ import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {addGiveawayPlanCommands,validatePlanSchedule} from "../commands/giveaway-plans.js";
 import {SlashCommandBuilder} from "discord.js";
+import {data as giveawayCommand} from "../commands/giveaway.js";
 
 test("Eastern announcement timestamps accept future local times and reject invalid formats",()=>{
  const before=new Date("2026-11-06T05:00:00Z");
@@ -138,4 +139,18 @@ test("a scheduled plan never redraws the same activity day at another hour",asyn
    assert.equal(outcome.drawn,false);
    assert.match(outcome.result,/already been drawn/);
  }finally{Giveaway.findOne=old;}
+});
+
+test("watch settings expose total messages for the chosen period, not forced per-day totals",()=>{
+ const watch=giveawayCommand.toJSON().options.find(o=>o.name==="watch-save");
+ assert.ok(watch);
+ const messages=watch.options.find(o=>o.name==="messages");
+ assert.match(messages.description,/Total qualifying messages/i);
+ assert.equal(messages.max_value,10000);
+ assert.ok(watch.options.find(o=>o.name==="period"));
+ assert.ok(watch.options.find(o=>o.name==="mention_member"));
+ assert.ok(watch.options.find(o=>o.name==="phrase"));
+ assert.ok(watch.options.find(o=>o.name==="per_day"));
+ const manual=giveawayCommand.toJSON().options.find(o=>o.name==="activity");
+ assert.ok(manual.options.find(o=>o.name==="messages"));
 });
