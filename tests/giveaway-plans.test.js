@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {parseEasternAnnouncement,nextWeeklyAnnouncement} from "../services/giveaway-plan-time.js";
+import {nextGiveawayPlanCycle,runGiveawayPlan} from "../services/giveaway-plans.js";
+import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {addGiveawayPlanCommands} from "../commands/giveaway-plans.js";
 import {SlashCommandBuilder} from "discord.js";
@@ -28,4 +30,30 @@ test("plan setup supports edit/reorder/status and does not alter existing giveaw
  const builder=addGiveawayPlanCommands(new SlashCommandBuilder().setName("check").setDescription("Check"));
  const subcommands=builder.toJSON().options.map(x=>x.name);
  assert.deepEqual(subcommands,["plan-create","plan-list","plan-view","plan-edit","prize-add","prize-edit","prize-remove","prize-move"]);
+});
+
+test("independent prize list rotates weekly and never consumes a prize without eligible entrants",()=>{
+ const base={recurring:true,repeatPrizes:true,nextPrizeIndex:0,prizes:["Pet A","Pet B"],nextRunAt:new Date("2026-11-11T18:00:00Z")};
+ const drawn=nextGiveawayPlanCycle(base,{drawn:true,result:"Drawn"});
+ assert.equal(drawn.status,"active");
+ assert.equal(drawn.nextPrizeIndex,1);
+ const empty=nextGiveawayPlanCycle({...base,nextPrizeIndex:1},{drawn:false,result:"No entrants"});
+ assert.equal(empty.nextPrizeIndex,1);
+ const loop=nextGiveawayPlanCycle({...base,nextPrizeIndex:1},{drawn:true,result:"Drawn"});
+ assert.equal(loop.nextPrizeIndex,0);
+ const stop=nextGiveawayPlanCycle({...base,repeatPrizes:false,nextPrizeIndex:1},{drawn:true,result:"Drawn"});
+ assert.equal(stop.status,"paused");
+ assert.equal(nextGiveawayPlanCycle({...base,recurring:false},{drawn:true,result:"Done"}).status,"completed");
+});
+test("stale week-old plan does not publish a flood of outdated results",async()=>{
+ const original=Giveaway.findOne;
+ try {
+   Giveaway.findOne=()=>({lean:async()=>null});
+   const result=await runGiveawayPlan({},{
+     status:"active",_id:"507f1f77bcf86cd799439011",
+     guildId:"123456789012345678",nextRunAt:new Date("2026-10-28T18:00:00Z"),
+   },{now:new Date("2026-11-06T19:00:00Z")});
+   assert.equal(result.drawn,false);
+   assert.match(result.result,/Skipped an outdated drawing/);
+ }finally{Giveaway.findOne=original;}
 });
