@@ -182,7 +182,7 @@ export async function execute(interaction) {
         throw Error("Choose either a new member/phrase or the corresponding clear option.");
       if(mentionUser?.bot) throw Error("The mentioned target must be a real server member.");
       const requiredMentionUserId=clearMention?"":(mentionUser?.id || existing?.requiredMentionUserId || "");
-      const requiredPhrase=clearPhrase?"":(phraseInput?.trim().replace(/\\s+/g," ") || existing?.requiredPhrase || "");
+      const requiredPhrase=clearPhrase?"":(phraseInput?.trim().replace(/\s+/g," ") || existing?.requiredPhrase || "");
       // Increment only when message-matching conditions changed. Previously
       // matched messages are not reused under an incompatible challenge.
       const criteriaChanged=!existing || existing.channelId!==channel.id ||
