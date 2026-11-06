@@ -116,6 +116,20 @@ export async function leaveGiveaway({ id, guildId, userId, now = new Date() }) {
   return current.entrantIds?.includes(userId) ? "unavailable" : "not-entered";
 }
 
+async function verifyServerMembers(client,guildId,ids) {
+  const guild=await client.guilds.fetch(guildId);
+  const verified=[];
+  for(const id of [...new Set(ids)]) {
+    try {
+      const member=await guild.members.fetch({user:id,force:true});
+      if(member && !member.user?.bot)verified.push(id);
+    }catch(error){
+      if(error.code!==10007)throw error;
+    }
+  }
+  return verified;
+}
+
 export async function closeGiveaway({ id, guildId, now = new Date(), client = null }) {
   let item = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, mode: { $ne: "survival" }, status: "open" },
@@ -126,16 +140,8 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   if (!item || item.mode === "survival" || !["closing", "ended"].includes(item.status)) return item;
   if (item.status === "ended") return item;
   let eligible = item.entrantIds || [];
-  if (item.mode === "activity") {
-    if (!client) throw Error("Discord client required to verify activity entrants.");
-    const guild = await client.guilds.fetch(item.guildId);
-    const verified = [];
-    for (const id of [...new Set(eligible)]) {
-      try { await guild.members.fetch({user:id,force:true}); verified.push(id); }
-      catch(error) { if (error.code !== 10007) throw error; }
-    }
-    eligible = verified;
-  }
+  if (item.mode==="activity" && !client) throw Error("Discord client required to verify activity entrants.");
+  if(client) eligible=await verifyServerMembers(client,item.guildId,eligible);
   const winnerIds = chooseGiveawayWinners(eligible, item.winnerCount);
   const changed = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "closing" },
@@ -148,7 +154,7 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   return changed || Giveaway.findOne({ _id: id, guildId }).lean();
 }
 
-export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "staff", now = new Date() }) {
+export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "staff", now = new Date(), client = null }) {
   const item = await Giveaway.findOne({ _id: id, guildId, status: "ended" }).lean();
   if (!item) throw Error("That giveaway is not finished or does not exist.");
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
@@ -160,13 +166,15 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
       throw Error("A ticket was filed or this place is not eligible for an automatic reroll.");
   }
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
-  if (!chooseGiveawayWinners(item.mode === "activity" ? item.activityVerifiedIds || [] : item.entrantIds || [], 1, used).length)
-    throw Error("There are no unused entrants left for a reroll.");
+  const pool=(item.mode==="activity" ? item.activityVerifiedIds || [] : item.entrantIds || [])
+    .filter(id=>!used.includes(id));
+  const verified=client ? await verifyServerMembers(client,item.guildId,pool) : [...new Set(pool)];
+  if (!verified.length) throw Error("There are no unused current server members left for a reroll.");
   const reserved = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "ended",
       ...(reason==="claim-expired" ? {winnerClaims:{$not:{$elemMatch:{slot,userId:item.winnerIds[slot]}}},claimResolvedSlots:{$ne:slot}} : {}) },
     { $set: { status: "rerolling", pendingRerollSlot: slot, pendingRerollStaffId: staffId,
-      pendingRerollReason:reason,pendingRerollAt:now,renderedAt:null } },
+      pendingRerollReason:reason,pendingRerollAt:now,pendingRerollEligibleIds:verified,renderedAt:null } },
     { returnDocument: "after" },
   ).lean();
   if (!reserved) throw Error("Another staff member is updating this giveaway. Try again.");
@@ -179,7 +187,7 @@ export async function finishPendingReroll(item) {
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Giveaway reroll state requires staff repair.");
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
-  const replacementId = chooseGiveawayWinners(item.mode === "activity" ? item.activityVerifiedIds || [] : item.entrantIds || [], 1, used)[0];
+  const replacementId = chooseGiveawayWinners(item.pendingRerollEligibleIds?.length ? item.pendingRerollEligibleIds : (item.mode === "activity" ? item.activityVerifiedIds || [] : item.entrantIds || []), 1, used)[0];
   if (!replacementId) throw Error("No unused entrants remain.");
   const previousId = item.winnerIds[slot];
   const winnerIds = [...item.winnerIds];
@@ -191,7 +199,7 @@ export async function finishPendingReroll(item) {
     _id: item._id, status: "rerolling", pendingRerollSlot: slot,
   }, {
     $set: { winnerIds,winnerAssignedAt, status:"ended", pendingRerollSlot:null, pendingRerollStaffId:"",
-      pendingRerollReason:"",pendingRerollAt:null,claimCheckAt:nextClaimCheckAt(reissued),renderedAt:null },
+      pendingRerollReason:"",pendingRerollAt:null,pendingRerollEligibleIds:[],claimCheckAt:nextClaimCheckAt(reissued),renderedAt:null },
     $push: { rerollHistory: { slot,previousId,replacementId,staffId:item.pendingRerollStaffId,
       reason:item.pendingRerollReason||"staff",at:item.pendingRerollAt||new Date() } },
     $inc: { renderVersion: 1 },
