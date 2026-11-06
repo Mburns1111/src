@@ -28,7 +28,7 @@ test("public directory announces watch requirements, next draw and prize without
  assert.doesNotMatch(embed.description,/\b(entrantIds|winnerIds|locked entries)\b/);
  assert.match(embed.footer.text,/Activity Giveaway Plan ID/);
  const directed=activityPlanListingEmbed(plan,rule,{winnerChannelId:winnersId}).toJSON();
- assert.match(directed.description,/<#${winnersId}>/);
+ assert.ok(directed.description.includes(`<#${winnersId}>`));
  const oneOff=activityOneOffListingEmbed({_id:planId,status:"open",mode:"activity",
   title:"Special Event",prize:"Fancy Pet",endsAt:new Date("2026-11-11T19:00:00Z"),
   winnerCount:1,entrantIds:["private-member"],activityChannelIds:["456789012345678901"],
