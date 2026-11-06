@@ -23,8 +23,15 @@ export async function reconcileGiveawayClaims(client, {now=new Date(),limit=30}=
             {_id:latest._id,status:"ended",[`winnerIds.${slot}`]:latest.winnerIds[slot]},
             {$addToSet:{claimResolvedSlots:slot},$set:{renderedAt:null},$inc:{renderVersion:1}});
         } else {
-          latest=await rerollGiveaway({id:latest._id,guildId:latest.guildId,staffId:"bot",slot,
-            reason:"claim-expired",now,client});
+          try {
+            latest=await rerollGiveaway({id:latest._id,guildId:latest.guildId,staffId:"bot",slot,
+              reason:"claim-expired",now,client});
+          } catch(error) {
+            if(!/no unused current server members/i.test(String(error.message))) throw error;
+            await Giveaway.updateOne(
+              {_id:latest._id,status:"ended",[`winnerIds.${slot}`]:latest.winnerIds[slot]},
+              {$addToSet:{claimResolvedSlots:slot},$set:{renderedAt:null},$inc:{renderVersion:1}});
+          }
         }
         latest=await Giveaway.findById(latest._id).lean();
         if (!latest || latest.status!=="ended") break;
