@@ -16,6 +16,12 @@ const giveawaySchema = new mongoose.Schema({
   claimWindowMinutes: { type: Number, default: null, min: 1, max: 43200 },
   claimInstructions: { type: String, default: "", maxlength: 400 },
   claimStartedAt: { type: Date, default: null },
+  // Per-place ticket submissions and deadlines survive restarts and rerolls.
+  winnerClaims: [{ slot: Number, userId: String, ticketNumber: String, ticketUrl: String, submittedAt: Date }],
+  winnerAssignedAt: { type: [Date], default: [] },
+  claimResolvedSlots: { type: [Number], default: [] },
+  autoRerollClaims: { type: Boolean, default: false },
+  claimCheckAt: { type: Date, default: null },
   requiredRoleId: { type: String, default: "" },
   // Saved for audit: role notified once when this event was originally posted.
   announcementPingRoleId: { type: String, default: "" },
@@ -48,15 +54,18 @@ const giveawaySchema = new mongoose.Schema({
   winnerIds: { type: [String], default: [] },
   rerollHistory: [{
     slot: Number, previousId: String, replacementId: String,
-    staffId: String, at: Date,
+    staffId: String, reason: String, at: Date,
   }],
   pendingRerollSlot: { type: Number, default: null },
   pendingRerollStaffId: { type: String, default: "" },
+  pendingRerollReason: { type: String, default: "" },
+  pendingRerollAt: { type: Date, default: null },
   renderedAt: { type: Date, default: null },
   renderVersion: { type: Number, default: 0 },
 }, { timestamps: true });
 
 giveawaySchema.index({ guildId: 1, status: 1, endsAt: 1 });
+giveawaySchema.index({ status: 1, claimCheckAt: 1 });
 giveawaySchema.index({ guildId: 1, mode: 1, entrantIds: 1 });
 giveawaySchema.index({ guildId: 1, mode: 1, originalChampionId: 1, status: 1 });
 giveawaySchema.index({ mode: 1, status: 1, nextEventAt: 1 });
