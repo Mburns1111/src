@@ -8,9 +8,12 @@ import { easternMidnight, shiftCalendarDay } from "../services/giveaway-plan-tim
 import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {addGiveawayPlanCommands,executeGiveawayPlanAdmin,PLAN_OPERATIONS} from "./giveaway-plans.js";
+import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} from "./giveaway-banners.js";
+import {ensureBannerRegistered} from "../services/giveaway-banners.js";
+import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
-  closeGiveaway, rerollGiveaway, publishGiveawayResult,
+  closeGiveaway, rerollGiveaway, publishGiveawayResult, giveawayAnnouncementWithBanner,
 } from "../services/giveaways.js";
 import {
   TRIAL_SPEED_CHOICES, DEFAULT_TRIAL_SPEED_SECONDS, MAX_TRIAL_SIGNUP_MINUTES,
@@ -28,7 +31,8 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
     .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering"))
     .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (max 720)").setMinValue(1).setMaxValue(720))
-    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400)))
+    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400))
+    .addStringOption(o => o.setName("banner").setDescription("Optional registered banner image name").setMaxLength(60)))
   .addSubcommand(c => c.setName("activity").setDescription("Schedule a surprise giveaway from the previous day or week")
     .addStringOption(o => o.setName("title").setDescription("Title").setRequired(true))
     .addStringOption(o => o.setName("prize").setDescription("Prize").setRequired(true))
@@ -44,6 +48,7 @@ export const data = new SlashCommandBuilder()
         {name:"Previous Wednesday–Wednesday week",value:"weekly"}))
     .addIntegerOption(o => o.setName("min_chars").setDescription("Minimum characters per message").setMinValue(0).setMaxValue(2000))
     .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours to file ticket claim (default 48)").setMinValue(1).setMaxValue(720))
+    .addStringOption(o => o.setName("banner").setDescription("Optional registered banner for this giveaway").setMaxLength(60))
     .addChannelOption(o => o.setName("channel_1").setDescription("Channel 1"))
     .addChannelOption(o => o.setName("channel_2").setDescription("Channel 2"))
     .addChannelOption(o => o.setName("channel_3").setDescription("Channel 3"))
@@ -81,6 +86,7 @@ export const data = new SlashCommandBuilder()
 
 
 addGiveawayPlanCommands(data);
+addGiveawayBannerCommands(data);
 
 export const trialData = new SlashCommandBuilder()
   .setName("trial").setDescription("The Court's Trials: elimination competitions")
@@ -158,6 +164,8 @@ export async function execute(interaction) {
   try {
     if (!survivalCommand && PLAN_OPERATIONS.has(operation))
       return await executeGiveawayPlanAdmin(interaction);
+    if (!survivalCommand && BANNER_OPERATIONS.has(operation))
+      return await executeGiveawayBannerAdmin(interaction);
     if (operation === "watch-save") {
       const name=interaction.options.getString("name",true).trim();
       if (watchNameKey(name)==="general") throw Error("The name general is reserved for server-wide activity.");
@@ -220,7 +228,9 @@ export async function execute(interaction) {
       return interaction.editReply(result.deletedCount?"Watched channel rule removed. Existing giveaway records are unchanged.":"No rule exists under that name.");
     }
     if (operation === "activity") {
-      const { channel } = await getConfiguredTextChannelAndConfig(interaction, "giveawayChannelId", "giveaway");
+      await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayListChannelId","activity giveaway list");
+      const { channel } = await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayWinnersChannelId","activity giveaway winners");
+      const bannerNameKey=await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));
       const watch=interaction.options.getString("watch");
       const saved=watch?await GiveawayWatchRule.findOne({guildId:interaction.guildId,nameKey:watchNameKey(watch)}).lean():null;
       if(watch && !saved)throw Error("Saved watched channel not found. Use watch-list.");
@@ -251,7 +261,7 @@ export async function execute(interaction) {
       if (!scan.entrantIds.length) throw Error("Nobody qualified; giveaway was not created.");
       const endsAt = new Date(Date.now() + interaction.options.getInteger("minutes",true)*60000);
       const record = await Giveaway.create({
-        guildId:interaction.guildId, channelId:channel.id, creatorId:interaction.user.id,
+        guildId:interaction.guildId, channelId:channel.id, creatorId:interaction.user.id,bannerNameKey,
         title:interaction.options.getString("title",true), prize:interaction.options.getString("prize",true),
         winnerCount:interaction.options.getInteger("winners") || 1, endsAt, mode:"activity",
         status:"publishing", entrantIds:scan.entrantIds, activityType:type,
@@ -280,12 +290,13 @@ export async function execute(interaction) {
         survival ? "Court's Trial survival giveaway" : "standard giveaway",
       );
       const pingRoleId = survival ? config?.survivalTrialPingRoleId : config?.giveawayPingRoleId;
+      const bannerNameKey=survival ? "" : await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));
       const minutes = survival
         ? (interaction.options.getInteger("signup_minutes") || 15)
         : interaction.options.getInteger("minutes", true);
       const winnerCount = interaction.options.getInteger("winners") || 1;
       const record = await Giveaway.create({
-        guildId: interaction.guildId, channelId: channel.id,
+        guildId: interaction.guildId, channelId: channel.id,bannerNameKey,
         creatorId: interaction.user.id,
         title: interaction.options.getString("title", true).trim(),
         prize: interaction.options.getString("prize", true).trim(),
@@ -303,7 +314,8 @@ export async function execute(interaction) {
       });
       let message;
       try {
-        const announcement = giveawayAnnouncement({ ...record.toObject(), status: "open" });
+        const announcement = survival ? giveawayAnnouncement({ ...record.toObject(), status: "open" }) :
+          await giveawayAnnouncementWithBanner({ ...record.toObject(), status: "open" });
         // Only the creation message may ping the assigned notification role.
         // All later edits/results use no allowed mentions and never ping again.
         if (pingRoleId) {
@@ -442,6 +454,10 @@ export async function handleGiveawayButton(interaction) {
       const updated = await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,status:"draft",creatorId:interaction.user.id},
         {$set:{status:action==="confirm"?"open":"cancelled"}},{returnDocument:"after"}).lean();
       if (!updated) return interaction.editReply("Already handled.");
+      if(action==="confirm"){
+        try {await publishActivityOneOffListing(interaction.client,updated);}
+        catch(error){console.error("[Giveaways] Scheduled activity listing will retry:",error);}
+      }
       return interaction.editReply({content:action==="confirm"
         ? `Surprise giveaway scheduled with **${updated.entrantIds.length}** locked entries. Announcement: <t:${Math.floor(new Date(updated.endsAt).getTime()/1000)}:F>. ID: \`${id}\``
         : "Cancelled. Nothing was posted.",components:[]});
