@@ -1,6 +1,6 @@
 import GiveawayPlan, {planNameKey} from "../models/GiveawayPlan.js";
 import GiveawayWatchRule, {watchNameKey} from "../models/GiveawayWatchRule.js";
-import {parseEasternAnnouncement} from "../services/giveaway-plan-time.js";
+import {parseEasternAnnouncement,validateCustomActivityWindow} from "../services/giveaway-plan-time.js";
 import {planRepeatMode} from "../services/giveaway-plans.js";
 import {getConfiguredTextChannelAndConfig} from "./shared.js";
 import {ensureBannerRegistered} from "../services/giveaway-banners.js";
@@ -28,7 +28,11 @@ export function addGiveawayPlanCommands(builder) {
    .addIntegerOption(o=>o.setName("claim_hours").setDescription("Ticket claim period in hours (default 48)").setMinValue(1).setMaxValue(720))
    .addIntegerOption(o=>o.setName("winners").setDescription("Winners per drawing (default 1)").setMinValue(1).setMaxValue(10))
    .addIntegerOption(o=>o.setName("messages").setDescription("Total messages required in the selected daily/weekly period").setMinValue(1).setMaxValue(10000))
-   .addStringOption(o=>o.setName("banner").setDescription("Optional registered banner name (inherits default otherwise)").setMaxLength(60)))
+   .addStringOption(o=>o.setName("banner").setDescription("Optional registered banner name (inherits default otherwise)").setMaxLength(60))
+   .addBooleanOption(o=>o.setName("review").setDescription("Require private staff approval before each drawing (default off)"))
+   .addBooleanOption(o=>o.setName("progress").setDescription("Show members a private Check My Progress button (default off)"))
+   .addStringOption(o=>o.setName("starts_at").setDescription("One-time custom activity start: YYYY-MM-DD HH:mm Eastern"))
+   .addStringOption(o=>o.setName("ends_at").setDescription("One-time custom activity cutoff: YYYY-MM-DD HH:mm Eastern")))
  .addSubcommand(c=>c.setName("plan-list").setDescription("Review saved giveaway schedules and recurrence"))
  .addSubcommand(c=>c.setName("plan-view").setDescription("View editable prize list and schedule details")
    .addStringOption(o=>o.setName("name").setDescription("Saved plan name").setRequired(true)))
@@ -49,7 +53,12 @@ export function addGiveawayPlanCommands(builder) {
    .addIntegerOption(o=>o.setName("claim_hours").setDescription("Hours to file ticket after each drawing").setMinValue(1).setMaxValue(720))
    .addIntegerOption(o=>o.setName("winners").setDescription("Number of winners").setMinValue(1).setMaxValue(10))
    .addIntegerOption(o=>o.setName("messages").setDescription("Override total messages needed per activity period").setMinValue(1).setMaxValue(10000))
-   .addStringOption(o=>o.setName("banner").setDescription("Registered banner name or default to inherit server banner").setMaxLength(60)))
+   .addStringOption(o=>o.setName("banner").setDescription("Registered banner name or default to inherit server banner").setMaxLength(60))
+   .addBooleanOption(o=>o.setName("review").setDescription("Require staff review before drawing"))
+   .addBooleanOption(o=>o.setName("progress").setDescription("Enable member-only progress button"))
+   .addStringOption(o=>o.setName("starts_at").setDescription("Custom activity start YYYY-MM-DD HH:mm Eastern (once only)"))
+   .addStringOption(o=>o.setName("ends_at").setDescription("Custom activity cutoff YYYY-MM-DD HH:mm Eastern (once only)"))
+   .addBooleanOption(o=>o.setName("clear_window").setDescription("Return to automatic previous-day/week activity window")))
  .addSubcommand(c=>c.setName("prize-add").setDescription("Append an upcoming prize to a saved plan")
    .addStringOption(o=>o.setName("name").setDescription("Saved plan name").setRequired(true))
    .addStringOption(o=>o.setName("prize").setDescription("Prize details").setRequired(true).setMaxLength(1500)))
@@ -90,7 +99,9 @@ function summary(plan,details=false) {
    `Activity checked: ${(plan.activityPeriod||"weekly")==="daily" ? "Previous Eastern calendar day only" : "Previous Wednesday–Wednesday week"} · Prize cycle: ${plan.repeatPrizes?"Repeat list":"Stop after final prize"}`,
    `Next draw: <t:${unix(plan.nextRunAt)}:F> · Claim window: ${plan.claimWindowHours} hours · Winners: ${plan.winnerCount}`,
    `Required messages: ${plan.minimumTotalMessages??"from watched channel (1 for general activity)"} across selected activity period`,
-   `Embed banner: ${plan.bannerNameKey||"Server default"}`];
+   `Embed banner: ${plan.bannerNameKey||"Server default"}`,
+   `Staff approval: ${plan.requireStaffReview?"Required":"Automatic"} · Member progress: ${plan.progressEnabled?"Enabled":"Disabled"}`,
+   ...(plan.customActivityStartAt?[ `Custom activity: <t:${unix(plan.customActivityStartAt)}:F> → <t:${unix(plan.customActivityEndAt)}:F>`]:[])];
  if(details){
   lines.push("**Prize list**");
   lines.push(...(plan.prizes.length ? plan.prizes.map((p,i)=>
@@ -126,6 +137,12 @@ export async function executeGiveawayPlanAdmin(interaction) {
   const period=interaction.options.getString("period") ||
     (mode==="daily"?"daily":watchedRule?.activityPeriod||"weekly");
   const schedule=validatePlanSchedule(mode,period,interaction.options.getInteger("interval_hours"));
+  const custom=validateCustomActivityWindow(
+    interaction.options.getString("starts_at"),interaction.options.getString("ends_at"),
+    {announceAt:nextRunAt,recurrence:mode});
+  const review=interaction.options.getBoolean("review")??false;
+  const progress=interaction.options.getBoolean("progress")??false;
+  if(review)await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayReviewChannelId","private staff review");
   const prize=interaction.options.getString("prize",true).trim();
   const bannerNameKey=await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));
   if(!prize)throw Error("Enter a prize.");
@@ -133,6 +150,8 @@ export async function executeGiveawayPlanAdmin(interaction) {
    guildId:interaction.guildId,name,nameKey:key,
    title:interaction.options.getString("title",true).trim(),watchNameKey:watch,
    creatorId:interaction.user.id,channelId:channel.id,bannerNameKey,
+   requireStaffReview:review,progressEnabled:progress,
+   customActivityStartAt:custom.startAt,customActivityEndAt:custom.endAt,
    ...schedule,repeatPrizes:interaction.options.getBoolean("repeat_prizes")??true,
    nextRunAt,claimWindowHours:interaction.options.getInteger("claim_hours")??48,
    winnerCount:interaction.options.getInteger("winners")??1,
@@ -158,8 +177,9 @@ export async function executeGiveawayPlanAdmin(interaction) {
  if(op==="plan-edit") {
   let changed=false;
   for(const [option,field] of [["title","title"],["repeat_prizes","repeatPrizes"],
-    ["claim_hours","claimWindowHours"],["winners","winnerCount"],["messages","minimumTotalMessages"]]){
-   let value=option==="repeat_prizes"?interaction.options.getBoolean(option):
+    ["claim_hours","claimWindowHours"],["winners","winnerCount"],
+    ["messages","minimumTotalMessages"],["review","requireStaffReview"],["progress","progressEnabled"]]){
+   let value=["repeat_prizes","review","progress"].includes(option)?interaction.options.getBoolean(option):
      option==="claim_hours"||option==="winners"||option==="messages"?interaction.options.getInteger(option):
      interaction.options.getString(option);
    if(value!==null && value!==undefined){plan[field]=value;changed=true;}
@@ -185,6 +205,24 @@ export async function executeGiveawayPlanAdmin(interaction) {
   }
   const at=interaction.options.getString("announce_at");
   if(at){plan.nextRunAt=parseEasternAnnouncement(at);changed=true;}
+  const clearWindow=interaction.options.getBoolean("clear_window")===true;
+  const startWindow=interaction.options.getString("starts_at");
+  const endWindow=interaction.options.getString("ends_at");
+  if(clearWindow&&(startWindow||endWindow))throw Error("Cannot clear and set custom activity dates together.");
+  if(clearWindow){
+    plan.customActivityStartAt=null;plan.customActivityEndAt=null;changed=true;
+  }else if(startWindow||endWindow){
+    const custom=validateCustomActivityWindow(
+      startWindow||plan.customActivityStartAt,endWindow||plan.customActivityEndAt,
+      {announceAt:plan.nextRunAt,recurrence:mode});
+    plan.customActivityStartAt=custom.startAt;plan.customActivityEndAt=custom.endAt;changed=true;
+  }
+  if(plan.customActivityStartAt){
+    validateCustomActivityWindow(plan.customActivityStartAt,plan.customActivityEndAt,
+      {announceAt:plan.nextRunAt,recurrence:mode});
+  }
+  if(plan.requireStaffReview)
+    await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayReviewChannelId","private staff review");
   const enabled=interaction.options.getBoolean("enabled");
   if(enabled!==null){
     if(enabled && !plan.prizes.length) throw Error("Add at least one prize before enabling a plan.");
