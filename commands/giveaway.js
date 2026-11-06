@@ -53,6 +53,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(c => c.setName("watch-list").setDescription("Review saved named activity channel rules"))
   .addSubcommand(c => c.setName("watch-delete").setDescription("Remove a named watched channel rule")
     .addStringOption(o => o.setName("name").setDescription("Saved rule name").setRequired(true)))
+  .addSubcommand(c => c.setName("edit-prize").setDescription("Update a giveaway's prize before winners are drawn")
+    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or existing message link").setRequired(true))
+    .addStringOption(o => o.setName("prize").setDescription("Updated prize details").setRequired(true).setMinLength(2).setMaxLength(1500)))
   .addSubcommand(c => c.setName("end").setDescription("End a normal giveaway early and retain its results")
     .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true)))
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
@@ -272,6 +275,16 @@ export async function execute(interaction) {
     }
     const record = await findGiveaway(interaction.options.getString("id", true), interaction.guildId);
     if (!record) throw Error("Event not found in this server.");
+    if (operation === "edit-prize") {
+      if (record.mode==="survival" || !["draft","open"].includes(record.status))
+        throw Error("This prize can only be updated before the giveaway's drawing.");
+      const prize=interaction.options.getString("prize",true).trim();
+      const edited=await Giveaway.findOneAndUpdate({_id:record._id,guildId:interaction.guildId,status:{$in:["draft","open"]}},
+        {$set:{prize,renderedAt:null},$inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+      if (!edited)throw Error("The giveaway was already drawn. Its historical prize is unchanged.");
+      if (edited.messageId)await publishGiveawayResult(interaction.client,edited);
+      return interaction.editReply("Giveaway prize updated. Existing entries and past drawings were not changed.");
+    }
     if (operation === "entrants") {
       if (survivalCommand && record.mode !== "survival") {
         throw Error("Use /giveaway entrants for regular giveaways.");
