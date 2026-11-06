@@ -31,6 +31,7 @@ export function addGiveawayPlanCommands(builder) {
    .addStringOption(o=>o.setName("banner").setDescription("Optional registered banner name (inherits default otherwise)").setMaxLength(60))
    .addBooleanOption(o=>o.setName("review").setDescription("Require private staff approval before each drawing (default off)"))
    .addBooleanOption(o=>o.setName("progress").setDescription("Show members a private Check My Progress button (default off)"))
+   .addBooleanOption(o=>o.setName("announce_empty").setDescription("Announce no winner when no members qualify (default on)"))
    .addStringOption(o=>o.setName("starts_at").setDescription("One-time custom activity start: YYYY-MM-DD HH:mm Eastern"))
    .addStringOption(o=>o.setName("ends_at").setDescription("One-time custom activity cutoff: YYYY-MM-DD HH:mm Eastern")))
  .addSubcommand(c=>c.setName("plan-list").setDescription("Review saved giveaway schedules and recurrence"))
@@ -56,6 +57,7 @@ export function addGiveawayPlanCommands(builder) {
    .addStringOption(o=>o.setName("banner").setDescription("Registered banner name or default to inherit server banner").setMaxLength(60))
    .addBooleanOption(o=>o.setName("review").setDescription("Require staff review before drawing"))
    .addBooleanOption(o=>o.setName("progress").setDescription("Enable member-only progress button"))
+   .addBooleanOption(o=>o.setName("announce_empty").setDescription("Announce a no-qualifier result with no winner"))
    .addStringOption(o=>o.setName("starts_at").setDescription("Custom activity start YYYY-MM-DD HH:mm Eastern (once only)"))
    .addStringOption(o=>o.setName("ends_at").setDescription("Custom activity cutoff YYYY-MM-DD HH:mm Eastern (once only)"))
    .addBooleanOption(o=>o.setName("clear_window").setDescription("Return to automatic previous-day/week activity window")))
@@ -100,7 +102,7 @@ function summary(plan,details=false) {
    `Next draw: <t:${unix(plan.nextRunAt)}:F> · Claim window: ${plan.claimWindowHours} hours · Winners: ${plan.winnerCount}`,
    `Required messages: ${plan.minimumTotalMessages??"from watched channel (1 for general activity)"} across selected activity period`,
    `Embed banner: ${plan.bannerNameKey||"Server default"}`,
-   `Staff approval: ${plan.requireStaffReview?"Required":"Automatic"} · Member progress: ${plan.progressEnabled?"Enabled":"Disabled"}`,
+   `Staff approval: ${plan.requireStaffReview?"Required":"Automatic"} · Member progress: ${plan.progressEnabled?"Enabled":"Disabled"} · Empty result notice: ${plan.announceEmptyResults?"On":"Off"}`,
    ...(plan.customActivityStartAt?[ `Custom activity: <t:${unix(plan.customActivityStartAt)}:F> → <t:${unix(plan.customActivityEndAt)}:F>`]:[])];
  if(details){
   lines.push("**Prize list**");
@@ -151,6 +153,7 @@ export async function executeGiveawayPlanAdmin(interaction) {
    title:interaction.options.getString("title",true).trim(),watchNameKey:watch,
    creatorId:interaction.user.id,channelId:channel.id,bannerNameKey,
    requireStaffReview:review,progressEnabled:progress,
+   announceEmptyResults:interaction.options.getBoolean("announce_empty")??true,
    customActivityStartAt:custom.startAt,customActivityEndAt:custom.endAt,
    ...schedule,repeatPrizes:interaction.options.getBoolean("repeat_prizes")??true,
    nextRunAt,claimWindowHours:interaction.options.getInteger("claim_hours")??48,
@@ -178,8 +181,9 @@ export async function executeGiveawayPlanAdmin(interaction) {
   let changed=false;
   for(const [option,field] of [["title","title"],["repeat_prizes","repeatPrizes"],
     ["claim_hours","claimWindowHours"],["winners","winnerCount"],
-    ["messages","minimumTotalMessages"],["review","requireStaffReview"],["progress","progressEnabled"]]){
-   let value=["repeat_prizes","review","progress"].includes(option)?interaction.options.getBoolean(option):
+    ["messages","minimumTotalMessages"],["review","requireStaffReview"],["progress","progressEnabled"],
+    ["announce_empty","announceEmptyResults"]]){
+   let value=["repeat_prizes","review","progress","announce_empty"].includes(option)?interaction.options.getBoolean(option):
      option==="claim_hours"||option==="winners"||option==="messages"?interaction.options.getInteger(option):
      interaction.options.getString(option);
    if(value!==null && value!==undefined){plan[field]=value;changed=true;}

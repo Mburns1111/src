@@ -89,6 +89,9 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
       if (error.code!==10007) throw error; // never discard a member on temporary Discord failures
     }
   }
+  if(!eligible.length && !plan.announceEmptyResults && !plan.requireStaffReview)
+    return {result:"No qualifying members — outcome recorded privately, prize retained.",
+      drawn:false,activityPeriod:activityWindow.period,activityKey:activityWindow.key};
   const prize=plan.prizes[plan.nextPrizeIndex];
   if (!prize) throw Error("No next prize configured.");
   const config=await GuildConfig.findOne({guildId:plan.guildId})
@@ -108,6 +111,7 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
         title:plan.title,prize,winnerCount:plan.winnerCount,endsAt:runAt,
         mode:"activity",status:plan.requireStaffReview?"pending_review":"closing",
         requireStaffReview:Boolean(plan.requireStaffReview),progressEnabled:Boolean(plan.progressEnabled),
+        announceEmptyResults:Boolean(plan.announceEmptyResults),
         roleBonuses,customActivityStartAt:plan.customActivityStartAt||null,
         customActivityEndAt:plan.customActivityEndAt||null,
         entrantIds:eligible,activityVerifiedIds:eligible,

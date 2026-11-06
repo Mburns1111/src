@@ -12,6 +12,7 @@ const giveawaySchema = new mongoose.Schema({
   bannerNameKey: { type: String, default: "" },
   requireStaffReview:{type:Boolean,default:false},
   progressEnabled:{type:Boolean,default:false},
+  announceEmptyResults:{type:Boolean,default:true},
   reviewChannelId:{type:String,default:""},
   reviewMessageId:{type:String,default:""},
   reviewedBy:{type:String,default:""},

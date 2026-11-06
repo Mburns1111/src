@@ -17,6 +17,7 @@ const schema=new mongoose.Schema({
   winnerCount:{type:Number,default:1,min:1,max:10},
   requireStaffReview:{type:Boolean,default:false},
   progressEnabled:{type:Boolean,default:false},
+  announceEmptyResults:{type:Boolean,default:true},
   // A manually bounded one-time activity window, inclusive start / exclusive end.
   customActivityStartAt:{type:Date,default:null},
   customActivityEndAt:{type:Date,default:null},
