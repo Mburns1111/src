@@ -77,8 +77,9 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
-import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton } from "./commands/giveaway.js";
+import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton, handleGiveawayClaimModal } from "./commands/giveaway.js";
 import { reconcileGiveaways } from "./services/giveaways.js";
+import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
 import { recordGiveawayMessage } from "./services/giveaway-activity-counter.js";
 import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
@@ -406,7 +407,7 @@ client.once(Events.ClientReady, async (readyClient) => {
   const sweepGiveaways = async () => {
     if (giveawaySweepActive) return;
     giveawaySweepActive = true;
-    try { await reconcileGiveaways(readyClient); }
+    try { await reconcileGiveaways(readyClient); await reconcileGiveawayClaims(readyClient); }
     catch (error) { console.error("[Giveaways] Cleanup sweep failed:", error); }
     finally { giveawaySweepActive = false; }
   };
@@ -588,6 +589,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("party:")) {
       await handlePartyInteraction(interaction);
+      return;
+    }
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("giveaway:ticket:")) {
+      await handleGiveawayClaimModal(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("giveaway:")) {
