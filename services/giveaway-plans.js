@@ -9,6 +9,17 @@ import { closeGiveaway, publishGiveawayResult } from "./giveaways.js";
 export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
   if (plan.status!=="active" || new Date(plan.nextRunAt)>now) return "not-due";
   const runAt=new Date(plan.nextRunAt);
+  // If a restart interrupted the plan after saving its drawing, reuse that
+  // drawing before any fresh activity scan. Never lose or redraw its winners.
+  const existing=await Giveaway.findOne({scheduleId:plan._id,scheduleRunAt:runAt}).lean();
+  if(existing){
+    const restored=existing.status==="ended" ? existing
+      : await closeGiveaway({id:existing._id,guildId:plan.guildId,now,client});
+    if(restored?.status!=="ended") throw Error("Prior drawing could not yet be recovered.");
+    try { await publishGiveawayResult(client,restored); }
+    catch(error) { console.error("[Giveaways] Recovered drawing is waiting for Discord publish:",error); }
+    return {result:`Recovered saved drawing ${restored._id}`,drawn:true,week:completedActivityWeek(runAt)};
+  }
   const nameKey=plan.watchNameKey;
   const rule=nameKey==="general" ? null
     : await GiveawayWatchRule.findOne({guildId:plan.guildId,nameKey}).lean();
