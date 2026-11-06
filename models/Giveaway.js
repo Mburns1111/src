@@ -63,6 +63,7 @@ const giveawaySchema = new mongoose.Schema({
   pendingRerollStaffId: { type: String, default: "" },
   pendingRerollReason: { type: String, default: "" },
   pendingRerollAt: { type: Date, default: null },
+  pendingRerollEligibleIds: { type: [String], default: [] },
   renderedAt: { type: Date, default: null },
   renderVersion: { type: Number, default: 0 },
 }, { timestamps: true });
