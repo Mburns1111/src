@@ -73,6 +73,17 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
   return {result:`Drawn: ${eligible.length} eligible entrants; giveaway ${record._id}.`,drawn:true,week};
 }
 
+export function nextGiveawayPlanCycle(plan,outcome,now=new Date()) {
+ const nextIndex=plan.nextPrizeIndex+(outcome.drawn?1:0);
+ const finishedPrizes=nextIndex>=plan.prizes.length;
+ return {
+   status:!plan.recurring ? "completed" : (finishedPrizes && !plan.repeatPrizes ? "paused" : "active"),
+   nextRunAt:plan.recurring ? nextWeeklyAnnouncement(plan.nextRunAt) : plan.nextRunAt,
+   nextPrizeIndex:finishedPrizes && plan.repeatPrizes ? 0 : nextIndex,
+   lastRunAt:now,lastResult:outcome.result,
+ };
+}
+
 export async function reconcileGiveawayPlans(client,{now=new Date(),limit=10}={}) {
  const due=await GiveawayPlan.find({status:"active",nextRunAt:{$lte:now},
    $or:[{leaseUntil:null},{leaseUntil:{$lte:now}}]}).sort({nextRunAt:1}).limit(limit).lean();
@@ -87,14 +98,8 @@ export async function reconcileGiveawayPlans(client,{now=new Date(),limit=10}={}
   try {
     const outcome=await runGiveawayPlan(client,owned,{now});
     if (outcome==="not-due") continue;
-    const nextIndex=owned.nextPrizeIndex+(outcome.drawn?1:0);
-    const finishedPrizes=nextIndex >= owned.prizes.length;
-    const nextPrizeIndex=finishedPrizes && owned.repeatPrizes ? 0 : nextIndex;
-    const status=!owned.recurring ? "completed" :
-      (finishedPrizes && !owned.repeatPrizes ? "paused" : "active");
     await GiveawayPlan.updateOne({_id:owned._id,leaseKey},{$set:{
-      status, nextRunAt:owned.recurring ? nextWeeklyAnnouncement(owned.nextRunAt) : owned.nextRunAt,
-      nextPrizeIndex,lastRunAt:now,lastResult:outcome.result,leaseUntil:null,leaseKey:"",
+      ...nextGiveawayPlanCycle(owned,outcome,now),leaseUntil:null,leaseKey:"",
     }});
   }catch(error) {
     // Expired leases are retried; a unique schedule/run constraint prevents a second draw.
