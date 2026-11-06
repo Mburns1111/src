@@ -68,9 +68,16 @@ test("secret UI never reveals undiscovered names/conditions and stays within mes
  const rows=[...CARD_ACHIEVEMENTS,...SECRET_ACHIEVEMENTS].map(a=>({...a,earned:false,current:0}));
  const text=achievementPages(rows).join("\n");
  for(const secret of SECRET_ACHIEVEMENTS){assert.ok(!text.includes(secret.name));assert.ok(!text.includes(secret.description));}
+ assert.ok(!text.includes("🔮 SECRET —"),"Undiscovered secret labels must stay hidden");
  assert.match(text,/0\/12 discovered/);assert.ok(achievementPages(rows).every(p=>p.length<=2000));
  rows.find(a=>a.secret).earned=true;
- assert.ok(achievementPages(rows).join("\n").includes(SECRET_ACHIEVEMENTS[0].name));
+ for(const detailed of [false,true]){
+  const privateText=achievementPages(rows,{detailed}).join("\n");
+  assert.ok(privateText.includes("✅ 🔮 SECRET — "+SECRET_ACHIEVEMENTS[0].name));
+  assert.ok(privateText.includes(SECRET_ACHIEVEMENTS[0].description));
+  assert.ok(!privateText.includes("🔮 SECRET — "+CARD_ACHIEVEMENTS[0].name));
+  assert.ok(achievementPages(rows,{detailed}).every(p=>p.length<=2000));
+ }
 });
 test("compact achievements use single-line milestones and phone-sized pages; full descriptions remain optional",()=>{
  const rows=[...CARD_ACHIEVEMENTS,...SECRET_ACHIEVEMENTS].map(a=>({...a,earned:false,current:0}));
