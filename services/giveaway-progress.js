@@ -1,0 +1,73 @@
+import {MessageFlags} from "discord.js";
+import GiveawayPlan from "../models/GiveawayPlan.js";
+import Giveaway from "../models/Giveaway.js";
+import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
+import {memberActivityProgress,activityWeek,currentActivityDay} from "./giveaway-activity-counter.js";
+import {weightForMember} from "./giveaway-role-weights.js";
+
+export async function handleActivityGiveawayProgress(interaction) {
+ await interaction.deferReply({flags:MessageFlags.Ephemeral});
+ try {
+  const match=/^activity-progress:(plan|event):([a-f0-9]{24})$/.exec(interaction.customId);
+  if(!match||!interaction.guildId)return interaction.editReply("This activity progress link is invalid.");
+  const isPlan=match[1]==="plan";
+  const item=await (isPlan?GiveawayPlan:Giveaway).findOne({
+    _id:match[2],guildId:interaction.guildId,
+  }).lean();
+  if(!item?.progressEnabled || item.listMessageId!==interaction.message?.id ||
+     item.listChannelId!==interaction.channelId ||
+     (isPlan?item.status!=="active":item.status!=="open"))
+    return interaction.editReply("Progress tracking is unavailable for this giveaway.");
+  const rule=isPlan && item.watchNameKey!=="general"
+    ? await GiveawayWatchRule.findOne({guildId:interaction.guildId,nameKey:item.watchNameKey}).lean()
+    :null;
+  const period=isPlan?item.activityPeriod:item.activityPeriod;
+  const customStart=isPlan?item.customActivityStartAt:item.customActivityStartAt;
+  const customEnd=isPlan?item.customActivityEndAt:item.customActivityEndAt;
+  const now=new Date(),custom=customStart&&customEnd;
+  const settings=isPlan?{
+    minimumTotalMessages:item.minimumTotalMessages??rule?.minimumTotalMessages??1,
+    minimum:rule?.minimumMessages??1,
+    days:period==="daily"&&!custom?1:rule?.activeDays??1,
+    minimumChars:rule?.minimumChars??1,
+    type:rule?"channels":"general",
+    channelIds:rule?[rule.channelId]:[],
+  }:{
+    minimumTotalMessages:item.activityMinTotalMessages||1,
+    minimum:item.activityMinimum||1,
+    days:item.activityDays||1,
+    minimumChars:item.activityMinChars||1,
+    type:item.activityType||"general",
+    channelIds:item.activityChannelIds||[],
+  };
+  const endAt=custom?new Date(Math.min(new Date(customEnd).getTime(),now.getTime())):null;
+  const window=custom ? {startAt:new Date(customStart),endAt} :
+    {period,key:isPlan?(period==="daily"?currentActivityDay(now):activityWeek(now)):item.activityPeriodKey};
+  // Custom window has not opened yet. No activity can have been credited.
+  let progress={messages:0,activeDays:0,target:settings.minimumTotalMessages,qualified:false};
+  if(!custom||endAt>new Date(customStart))
+    progress=await memberActivityProgress({guildId:interaction.guildId,userId:interaction.user.id,
+      rule,period,...settings,...window});
+  const qualifying=progress.qualified?"**Goal reached!**":"Not qualified yet";
+  const bonuses=isPlan?[...(rule?.roleBonuses||[]),...(item.roleBonuses||[])]:item.roleBonuses||[];
+  let weight=1;
+  if(bonuses.length){
+    const member=await interaction.guild.members.fetch(interaction.user.id);
+    // Unique role IDs are counted once even when configured on both watch and plan.
+    const merged=[...new Map(bonuses.map(b=>[b.roleId,b])).values()];
+    weight=weightForMember(member,merged);
+  }
+  return interaction.editReply({content:[
+    `**Your activity progress · ${item.title}**`,
+    `${Math.min(progress.messages,settings.minimumTotalMessages)} / ${settings.minimumTotalMessages} qualifying messages`,
+    settings.days>1?`Active days: ${progress.activeDays} / ${settings.days}`:null,
+    `Status: ${qualifying}`,
+    `Drawing weight if qualified: ${weight} chance${weight===1?"":"s"} (still one unique entrant)`,
+    custom?`Activity ends: <t:${Math.floor(new Date(customEnd).getTime()/1000)}:F>`:
+      `Activity period: ${period==="daily"?"Eastern calendar day":"Eastern Wednesday–Wednesday week"}`,
+   ].filter(Boolean).join("\n"),allowedMentions:{parse:[]}});
+ }catch(error){
+   console.error("[Giveaways] Progress check failed:",error);
+   return interaction.editReply("I couldn't check your current activity progress. Please try again.");
+ }
+}
