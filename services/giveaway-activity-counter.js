@@ -1,6 +1,8 @@
 import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import GiveawayActivityRuleCount from "../models/GiveawayActivityRuleCount.js";
+import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
+import GiveawayActivityRuleMinuteCount from "../models/GiveawayActivityRuleMinuteCount.js";
 
 const formatter = new Intl.DateTimeFormat("en-US", {timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",weekday:"short"});
 function easternDay(date) {
@@ -64,6 +66,10 @@ export async function recordGiveawayMessage(message) {
   const date=message.createdAt || new Date();
   const day=easternDay(date).day;
   const week=activityWeek(date);
+  const minute=new Date(Math.floor(date.getTime()/60000)*60000);
+  await GiveawayActivityMinuteCount.updateOne(
+    {guildId:message.guildId,userId:message.author.id,channelId:message.channelId,minute},
+    {$inc:{count:1,[`lengths.${length}`]:1},$setOnInsert:{day}},{upsert:true});
   await GiveawayActivityCount.updateOne(
     {guildId:message.guildId,userId:message.author.id,channelId:message.channelId,day},
     {$inc:{count:1,[`lengths.${length}`]:1},$setOnInsert:{week}},{upsert:true});
@@ -74,19 +80,30 @@ export async function recordGiveawayMessage(message) {
     $or:[{requiredMentionUserId:{$type:"string",$ne:""}},
       {requiredPhrase:{$type:"string",$ne:""}}],
   }).lean();
-  await Promise.all(rules.filter(rule=>messageMatchesGiveawayWatch(message,rule)).map(rule=>
-    GiveawayActivityRuleCount.updateOne(
-      {guildId:message.guildId,ruleId:rule._id,criteriaVersion:rule.criteriaVersion||0,
-        userId:message.author.id,day},
-      {$inc:{count:1},$setOnInsert:{week}},{upsert:true})));
+  await Promise.all(rules.filter(rule=>messageMatchesGiveawayWatch(message,rule)).map(async rule=>{
+    const id={guildId:message.guildId,ruleId:rule._id,criteriaVersion:rule.criteriaVersion||0,
+      userId:message.author.id};
+    await Promise.all([
+      GiveawayActivityRuleCount.updateOne({...id,day},
+        {$inc:{count:1},$setOnInsert:{week}},{upsert:true}),
+      GiveawayActivityRuleMinuteCount.updateOne({...id,minute},
+        {$inc:{count:1},$setOnInsert:{day}},{upsert:true}),
+    ]);
+  }));
 }
-export function qualifyingActivityPipeline({guildId,type,channelIds=[],minimum=1,days=1,minimumChars=0,minimumTotalMessages=0,week=completedActivityWeek(),day=null}) {
+export function qualifyingActivityPipeline({guildId,type,channelIds=[],minimum=1,days=1,minimumChars=0,
+  minimumTotalMessages=0,week=completedActivityWeek(),day=null,startAt=null,endAt=null,userId=null}) {
   if (!["channels","general"].includes(type)) throw Error("Invalid activity scope.");
   if (type==="channels" && !channelIds.length) throw Error("Choose a watched channel.");
   if (!Number.isInteger(minimumChars) || minimumChars < 0 || minimumChars > 2000) throw Error("Character count must be 0–2000.");
   if(day!==null && !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw Error("Invalid activity day.");
   if(day!==null && days!==1) throw Error("Daily activity can require only one active day.");
-  const match={guildId,...(day!==null?{day}:{week}),...(type==="channels"?{channelId:{$in:channelIds}}:{})};
+  const custom=startAt!==null && endAt!==null;
+  if((startAt!==null)!==(endAt!==null))throw Error("A custom activity window needs both endpoints.");
+  if(custom && new Date(startAt)>=new Date(endAt))throw Error("Activity end must be after start.");
+  const match={guildId,...(custom?{minute:{$gte:new Date(startAt),$lt:new Date(endAt)}}:day!==null?{day}:{week}),
+    ...(userId?{userId}:{}),
+    ...(type==="channels"?{channelId:{$in:channelIds}}:{})};
   const messages=minimumChars===0 ? "$count" : {
     $sum:{$map:{
       input:{$filter:{
@@ -107,7 +124,8 @@ export function qualifyingActivityPipeline({guildId,type,channelIds=[],minimum=1
   ];
 }
 export async function qualifyingActivity(options) {
-  const rows=await GiveawayActivityCount.aggregate(qualifyingActivityPipeline(options));
+  const Model=options.startAt&&options.endAt?GiveawayActivityMinuteCount:GiveawayActivityCount;
+  const rows=await Model.aggregate(qualifyingActivityPipeline(options));
   return rows.map(r=>r._id);
 }
 
@@ -115,10 +133,12 @@ export async function qualifyingActivity(options) {
  * The daily and weekly scopes use the same boundaries as regular activity. */
 export function qualifyingWatchRulePipeline({guildId,rule,day=null,week=completedActivityWeek(),
     minimum=rule.minimumMessages||1,days=rule.activeDays||1,
-    minimumTotalMessages=rule.minimumTotalMessages||0}) {
+    minimumTotalMessages=rule.minimumTotalMessages||0,startAt=null,endAt=null,userId=null}) {
   if(day!==null && days!==1) throw Error("Daily watches require a single active day.");
+  if((startAt!==null)!==(endAt!==null))throw Error("A custom watch window needs both endpoints.");
   const match={guildId,ruleId:rule._id,criteriaVersion:rule.criteriaVersion||0,
-    ...(day!==null?{day}:{week})};
+    ...(userId?{userId}:{}),
+    ...(startAt!==null?{minute:{$gte:new Date(startAt),$lt:new Date(endAt)}}:day!==null?{day}:{week})};
   return [
     {$match:match},
     {$group:{_id:{userId:"$userId",day:"$day"},messages:{$sum:"$count"}}},
@@ -130,15 +150,39 @@ export function qualifyingWatchRulePipeline({guildId,rule,day=null,week=complete
 }
 export async function qualifyingWatchActivity({guildId,rule,period="weekly",
     key,minimum=rule.minimumMessages||1,days=rule.activeDays||1,
-    minimumChars=rule.minimumChars??1,minimumTotalMessages=rule.minimumTotalMessages||0}) {
+    minimumChars=rule.minimumChars??1,minimumTotalMessages=rule.minimumTotalMessages||0,
+    startAt=null,endAt=null,userId=null}) {
+  const custom=startAt!==null&&endAt!==null;
+  const window=custom?{startAt,endAt}:(period==="daily"?{day:key}:{week:key});
   const params={guildId,type:"channels",channelIds:[rule.channelId],
-    minimum,days,minimumChars,minimumTotalMessages,
-    ...(period==="daily"?{day:key}:{week:key})};
+    minimum,days,minimumChars,minimumTotalMessages,userId,...window};
   if(!rule.requiredMentionUserId && !rule.requiredPhrase)
     return qualifyingActivity(params);
-  const rows=await GiveawayActivityRuleCount.aggregate(qualifyingWatchRulePipeline({
-    guildId,rule,minimum,days,minimumTotalMessages,
-    ...(period==="daily"?{day:key}:{week:key}),
+  const model=custom?GiveawayActivityRuleMinuteCount:GiveawayActivityRuleCount;
+  const rows=await model.aggregate(qualifyingWatchRulePipeline({
+    guildId,rule,minimum,days,minimumTotalMessages,userId,...window,
   }));
   return rows.map(row=>row._id);
+}
+
+/** Member-only progress without exposing anyone else's counts or any message text. */
+export async function memberActivityProgress({guildId,userId,rule=null,type="general",
+  channelIds=[],minimum=1,days=1,minimumChars=1,minimumTotalMessages=1,
+  period="daily",key,startAt=null,endAt=null}) {
+  const window=startAt&&endAt?{startAt,endAt}:(period==="daily"?{day:key}:{week:key});
+  const watched=rule&&Boolean(rule.requiredMentionUserId||rule.requiredPhrase);
+  const pipeline=watched?qualifyingWatchRulePipeline({
+    guildId,rule,minimum,days,minimumTotalMessages,userId,...window,
+  }):qualifyingActivityPipeline({guildId,userId,
+    type:rule?"channels":type,channelIds:rule?[rule.channelId]:channelIds,
+    minimum,days,minimumChars,minimumTotalMessages,...window});
+  // Remove the qualifying threshold to return partial progress for every member.
+  pipeline.pop();
+  const Model=watched?(startAt&&endAt?GiveawayActivityRuleMinuteCount:GiveawayActivityRuleCount):
+    (startAt&&endAt?GiveawayActivityMinuteCount:GiveawayActivityCount);
+  const [progress]=await Model.aggregate(pipeline);
+  return {messages:progress?.totalMessages||0,activeDays:progress?.activeDays||0,
+    target:minimumTotalMessages,requiredDays:days,
+    qualified:(progress?.totalMessages||0)>=minimumTotalMessages &&
+      (progress?.activeDays||0)>=days};
 }
