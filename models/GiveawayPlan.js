@@ -15,7 +15,10 @@ const schema=new mongoose.Schema({
   prizes:{type:[String],default:[]},
   nextPrizeIndex:{type:Number,default:0,min:0},
   repeatPrizes:{type:Boolean,default:true},
-  recurring:{type:Boolean,default:false},
+  recurring:{type:Boolean,default:false}, // retained for older weekly plans
+  repeatMode:{type:String,enum:["once","daily","weekly","interval"],default:null},
+  intervalMinutes:{type:Number,default:null,min:60,max:43200},
+  activityPeriod:{type:String,enum:["daily","weekly"],default:"weekly"},
   nextRunAt:{type:Date,required:true},
   status:{type:String,enum:["active","paused","completed"],default:"active"},
   leaseUntil:{type:Date,default:null},

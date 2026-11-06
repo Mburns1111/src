@@ -8,5 +8,6 @@ const schema = new mongoose.Schema({
 },{timestamps:true});
 schema.index({guildId:1,userId:1,channelId:1,day:1},{unique:true});
 schema.index({guildId:1,week:1,channelId:1});
+schema.index({guildId:1,day:1,channelId:1});
 schema.index({createdAt:1},{expireAfterSeconds:90*86400});
 export default mongoose.models.GiveawayActivityCount || mongoose.model("GiveawayActivityCount",schema);

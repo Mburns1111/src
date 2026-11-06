@@ -42,3 +42,35 @@ export function nextWeeklyAnnouncement(previous) {
  const nextDate=new Date(Date.UTC(p.y,p.m-1,p.d+7,12));
  return easternToUtc(nextDate.getUTCFullYear(),nextDate.getUTCMonth()+1,nextDate.getUTCDate(),p.h,p.min);
 }
+
+/** Given an Eastern calendar date (YYYY-MM-DD), return the real UTC midnight.
+ * This uses calendar dates instead of subtracting 24 hours: DST days may be 23/25 hours. */
+export function easternMidnight(day) {
+ const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(day));
+ if(!match) throw Error("Invalid Eastern calendar day.");
+ const [,yy,mm,dd]=match;
+ return easternToUtc(Number(yy),Number(mm),Number(dd),0,0);
+}
+export function shiftCalendarDay(day,days) {
+ const d=new Date(day+"T12:00:00Z");
+ if(!Number.isFinite(d.getTime())) throw Error("Invalid Eastern calendar day.");
+ d.setUTCDate(d.getUTCDate()+days);
+ return d.toISOString().slice(0,10);
+}
+export function nextDailyAnnouncement(previous) {
+ const p=easternParts(new Date(previous));
+ const next=shiftCalendarDay(`${String(p.y).padStart(4,"0")}-${String(p.m).padStart(2,"0")}-${String(p.d).padStart(2,"0")}`,1);
+ const [y,m,d]=next.split("-").map(Number);
+ return easternToUtc(y,m,d,p.h,p.min);
+}
+export function nextPlanAnnouncement(previous,mode,intervalMinutes) {
+ if(mode==="daily") return nextDailyAnnouncement(previous);
+ if(mode==="weekly") return nextWeeklyAnnouncement(previous);
+ if(mode==="interval") {
+   if(!Number.isSafeInteger(intervalMinutes)||intervalMinutes<60||intervalMinutes>43200)
+     throw Error("Recurring interval must be between 60 and 43,200 minutes.");
+   return new Date(new Date(previous).getTime()+intervalMinutes*60_000);
+ }
+ if(mode==="once") return new Date(previous);
+ throw Error("Unsupported recurring schedule.");
+}
