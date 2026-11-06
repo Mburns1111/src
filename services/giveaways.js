@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt } from "./giveaway-claims.js";
 import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
@@ -90,6 +91,13 @@ export function giveawayAnnouncement(record) {
       )]
     : [];
   return { embeds: [embed], components, allowedMentions: { parse: [] } };
+}
+
+export async function giveawayAnnouncementWithBanner(record) {
+  const announcement=giveawayAnnouncement(record);
+  if(record.mode==="survival")return announcement;
+  const banner=await getGiveawayBanner(record.guildId,record.bannerNameKey);
+  return attachGiveawayBanner(announcement,banner);
 }
 
 export async function joinGiveaway({ id, guildId, userId, mode = "standard", now = new Date() }) {
@@ -227,10 +235,10 @@ export async function publishGiveawayResult(client, item) {
       message = recent.find(m => m.author?.id === client.user?.id &&
         m.embeds?.some(e => e.footer?.text?.includes(`Giveaway ID: ${item._id}`)));
     }
-    if (!message) message = await channel.send(giveawayAnnouncement(item));
+    if (!message) message = await channel.send(await giveawayAnnouncementWithBanner(item));
     else {
       if (message.author?.id !== client.user?.id) throw Error("Activity announcement does not belong to the bot.");
-      await message.edit(giveawayAnnouncement(item));
+      await message.edit(await giveawayAnnouncementWithBanner(item));
     }
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
       {$set:{messageId:message.id,renderedAt:new Date()}});
@@ -241,7 +249,7 @@ export async function publishGiveawayResult(client, item) {
   if (!channel?.messages?.fetch) throw Error("Giveaway channel is inaccessible.");
   const message = await channel.messages.fetch(item.messageId);
   if (message.author?.id !== client.user?.id) throw Error("Giveaway message is not authored by this bot.");
-  await message.edit(giveawayAnnouncement(item));
+  await message.edit(await giveawayAnnouncementWithBanner(item));
   if (item.status === "ended") {
     await Giveaway.updateOne(
       { _id: item._id, status: "ended", renderVersion: item.renderVersion },
