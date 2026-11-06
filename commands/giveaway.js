@@ -9,7 +9,6 @@ import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js"
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {addGiveawayPlanCommands,executeGiveawayPlanAdmin,PLAN_OPERATIONS} from "./giveaway-plans.js";
 import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} from "./giveaway-banners.js";
-import {addGiveawayRoleBonusCommands,executeGiveawayRoleBonusAdmin,ROLE_BONUS_OPERATIONS} from "./giveaway-role-bonuses.js";
 import {ensureBannerRegistered} from "../services/giveaway-banners.js";
 import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {
@@ -92,7 +91,6 @@ export const data = new SlashCommandBuilder()
 
 addGiveawayPlanCommands(data);
 addGiveawayBannerCommands(data);
-addGiveawayRoleBonusCommands(data);
 
 export const trialData = new SlashCommandBuilder()
   .setName("trial").setDescription("The Court's Trials: elimination competitions")
@@ -172,8 +170,6 @@ export async function execute(interaction) {
       return await executeGiveawayPlanAdmin(interaction);
     if (!survivalCommand && BANNER_OPERATIONS.has(operation))
       return await executeGiveawayBannerAdmin(interaction);
-    if (!survivalCommand && ROLE_BONUS_OPERATIONS.has(operation))
-      return await executeGiveawayRoleBonusAdmin(interaction);
     if (operation === "watch-save") {
       const name=interaction.options.getString("name",true).trim();
       if (watchNameKey(name)==="general") throw Error("The name general is reserved for server-wide activity.");

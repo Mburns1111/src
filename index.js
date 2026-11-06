@@ -84,6 +84,7 @@ import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
 import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
 import { handleActivityGiveawayProgress } from "./services/giveaway-progress.js";
 import { handleGiveawayReviewButton,reconcilePendingGiveawayReviews } from "./services/giveaway-review.js";
+import {data as giveawayRoleCommand,executeGiveawayRoleBonusAdmin} from "./commands/giveaway-role-bonuses.js";
 import { recordGiveawayMessage } from "./services/giveaway-activity-counter.js";
 import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
@@ -320,6 +321,7 @@ const commandHandlers = new Map([
   [adminImportCommand.name, executeAdminImport],
   [shopCommand.name, executeShop],
   [giveawayCommand.name, executeGiveaway],
+  [giveawayRoleCommand.name,executeGiveawayRoleBonusAdmin],
   [trialCommand.name, executeGiveaway],
   [cardsCommand.name, executeCards],
   [cardsAdminCommand.name, executeCardsAdmin],
