@@ -1,6 +1,8 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
+import { submitGiveawayTicket } from "../services/giveaway-ticket-claims.js";
+import { winnerClaimDeadline, winnerHasClaim } from "../services/giveaway-claims.js";
 import { qualifyingActivity, completedActivityWeek } from "../services/giveaway-activity-counter.js";
 import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js";
 import {
@@ -205,6 +207,7 @@ export async function execute(interaction) {
         prize: interaction.options.getString("prize", true).trim(),
         rules: interaction.options.getString("rules")?.trim() || "",
         claimWindowHours: survival ? null : (interaction.options.getInteger("claim_hours") || null),
+        autoRerollClaims: !survival && Boolean(interaction.options.getInteger("claim_hours")),
         claimWindowMinutes: survival ? (interaction.options.getInteger("claim_minutes") || null) : null,
         claimInstructions: interaction.options.getString("claim_instructions")?.trim() || "",
         requiredRoleId: interaction.options.getRole("role")?.id || "",
@@ -313,14 +316,31 @@ export async function execute(interaction) {
 export async function handleGiveawayButton(interaction) {
   if (!interaction.guildId || !interaction.guild || interaction.user.bot)
     return interaction.reply({ content: "Giveaway entries are only available to server members.", flags: MessageFlags.Ephemeral });
-  const match = /^giveaway:(enter|leave|count|launch|confirm|cancel):([0-9a-f]{24})$/.exec(interaction.customId);
+  const match = /^giveaway:(enter|leave|count|launch|confirm|cancel|claim):([0-9a-f]{24})$/.exec(interaction.customId);
   if (!match) return interaction.reply({ content: "Invalid giveaway button.", flags: MessageFlags.Ephemeral });
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const [, action, id] = match;
+  if (action!=="claim") await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const record = await Giveaway.findOne({ _id: id, guildId: interaction.guildId }).lean();
     if (!record || (!["confirm","cancel"].includes(action) && (record.messageId !== interaction.message?.id || record.channelId !== interaction.channelId)))
-      return interaction.editReply("This giveaway announcement could not be verified.");
+      return action==="claim"
+        ? interaction.reply({content:"This giveaway announcement could not be verified.",flags:MessageFlags.Ephemeral})
+        : interaction.editReply("This giveaway announcement could not be verified.");
+    if (action === "claim") {
+      if (record.mode==="survival" || record.status!=="ended" || !(record.winnerIds || []).includes(interaction.user.id))
+        return interaction.reply({content:"Only current winners can file ticket claims after the drawing.",flags:MessageFlags.Ephemeral});
+      const slot=record.winnerIds.indexOf(interaction.user.id);
+      if (winnerHasClaim(record,slot))
+        return interaction.reply({content:"You already filed a claim. Ask staff to correct it if necessary.",flags:MessageFlags.Ephemeral});
+      const deadline=winnerClaimDeadline(record,slot);
+      if (deadline && deadline<=new Date()) return interaction.reply({content:"Your ticket claim deadline has passed.",flags:MessageFlags.Ephemeral});
+      if ((record.claimResolvedSlots || []).includes(slot)) return interaction.reply({content:"This winning place has expired.",flags:MessageFlags.Ephemeral});
+      return interaction.showModal(new ModalBuilder().setCustomId(`giveaway:ticket:${id}`).setTitle("File your giveaway claim")
+        .addComponents(
+          new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_number").setLabel("Your ticket number").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80)),
+          new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_url").setLabel("Link to your ticket").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(500)),
+        ));
+    }
     if (action === "confirm" || action === "cancel") {
       if (record.mode !== "activity" || record.status !== "draft" || record.creatorId !== interaction.user.id ||
           !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
@@ -390,8 +410,29 @@ export async function handleGiveawayButton(interaction) {
     return interaction.editReply({ content: message, allowedMentions: { parse: [] } });
   } catch (error) {
     console.error("[Giveaways] Button action failed:", error);
+    if (action==="claim" && !interaction.replied && !interaction.deferred)
+      return interaction.reply({content:"I couldn't open your ticket form. Please try again.",flags:MessageFlags.Ephemeral});
     return interaction.editReply(action === "launch"
       ? "I couldn't start the trial. Check the Replit console for [Trials] or [Giveaways] errors."
       : "I couldn't update your entry. Please try again.");
+  }
+}
+
+export async function handleGiveawayClaimModal(interaction) {
+  const match=/^giveaway:ticket:([0-9a-f]{24})$/.exec(interaction.customId);
+  if (!match || !interaction.guildId || interaction.user.bot)
+    return interaction.reply({content:"Invalid ticket claim.",flags:MessageFlags.Ephemeral});
+  await interaction.deferReply({flags:MessageFlags.Ephemeral});
+  try {
+    const updated=await submitGiveawayTicket({
+      id:match[1],guildId:interaction.guildId,userId:interaction.user.id,
+      ticketNumber:interaction.fields.getTextInputValue("ticket_number"),
+      ticketUrl:interaction.fields.getTextInputValue("ticket_url"),
+    });
+    try { await publishGiveawayResult(interaction.client,updated); }
+    catch(error) { console.error("[Giveaways] Ticket saved but announcement refresh failed:",error); }
+    return interaction.editReply("Your ticket claim was saved. The giveaway announcement will show your ticket details.");
+  } catch(error) {
+    return interaction.editReply(error.message||"Unable to record your ticket claim.");
   }
 }
