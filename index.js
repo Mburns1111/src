@@ -82,6 +82,8 @@ import { reconcileGiveaways } from "./services/giveaways.js";
 import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
 import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
 import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
+import { handleActivityGiveawayProgress } from "./services/giveaway-progress.js";
+import { handleGiveawayReviewButton,reconcilePendingGiveawayReviews } from "./services/giveaway-review.js";
 import { recordGiveawayMessage } from "./services/giveaway-activity-counter.js";
 import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
@@ -412,6 +414,7 @@ client.once(Events.ClientReady, async (readyClient) => {
     try {
       await reconcileGiveawayPlans(readyClient);
       await reconcileGiveaways(readyClient);
+      await reconcilePendingGiveawayReviews(readyClient);
       await reconcileGiveawayClaims(readyClient);
       await reconcileActivityGiveawayListings(readyClient);
     }
@@ -596,6 +599,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("party:")) {
       await handlePartyInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("activity-progress:")) {
+      await handleActivityGiveawayProgress(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("giveaway-review:")) {
+      await handleGiveawayReviewButton(interaction);
       return;
     }
     if (interaction.isModalSubmit() && interaction.customId.startsWith("giveaway:ticket:")) {
