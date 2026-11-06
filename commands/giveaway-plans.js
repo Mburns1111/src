@@ -3,6 +3,8 @@ import GiveawayWatchRule, {watchNameKey} from "../models/GiveawayWatchRule.js";
 import {parseEasternAnnouncement} from "../services/giveaway-plan-time.js";
 import {planRepeatMode} from "../services/giveaway-plans.js";
 import {getConfiguredTextChannelAndConfig} from "./shared.js";
+import {ensureBannerRegistered} from "../services/giveaway-banners.js";
+import {publishActivityPlanListing} from "../services/giveaway-directory.js";
 
 export const PLAN_OPERATIONS=new Set(["plan-create","plan-list","plan-view","plan-edit",
   "prize-add","prize-edit","prize-remove","prize-move"]);
@@ -25,7 +27,8 @@ export function addGiveawayPlanCommands(builder) {
    .addBooleanOption(o=>o.setName("repeat_prizes").setDescription("Loop through saved prizes when recurring (default: yes)"))
    .addIntegerOption(o=>o.setName("claim_hours").setDescription("Ticket claim period in hours (default 48)").setMinValue(1).setMaxValue(720))
    .addIntegerOption(o=>o.setName("winners").setDescription("Winners per drawing (default 1)").setMinValue(1).setMaxValue(10))
-   .addIntegerOption(o=>o.setName("messages").setDescription("Total messages required in the selected daily/weekly period").setMinValue(1).setMaxValue(10000)))
+   .addIntegerOption(o=>o.setName("messages").setDescription("Total messages required in the selected daily/weekly period").setMinValue(1).setMaxValue(10000))
+   .addStringOption(o=>o.setName("banner").setDescription("Optional registered banner name (inherits default otherwise)").setMaxLength(60)))
  .addSubcommand(c=>c.setName("plan-list").setDescription("Review saved giveaway schedules and recurrence"))
  .addSubcommand(c=>c.setName("plan-view").setDescription("View editable prize list and schedule details")
    .addStringOption(o=>o.setName("name").setDescription("Saved plan name").setRequired(true)))
@@ -45,7 +48,8 @@ export function addGiveawayPlanCommands(builder) {
    .addBooleanOption(o=>o.setName("enabled").setDescription("Enable or pause the plan"))
    .addIntegerOption(o=>o.setName("claim_hours").setDescription("Hours to file ticket after each drawing").setMinValue(1).setMaxValue(720))
    .addIntegerOption(o=>o.setName("winners").setDescription("Number of winners").setMinValue(1).setMaxValue(10))
-   .addIntegerOption(o=>o.setName("messages").setDescription("Override total messages needed per activity period").setMinValue(1).setMaxValue(10000)))
+   .addIntegerOption(o=>o.setName("messages").setDescription("Override total messages needed per activity period").setMinValue(1).setMaxValue(10000))
+   .addStringOption(o=>o.setName("banner").setDescription("Registered banner name or default to inherit server banner").setMaxLength(60)))
  .addSubcommand(c=>c.setName("prize-add").setDescription("Append an upcoming prize to a saved plan")
    .addStringOption(o=>o.setName("name").setDescription("Saved plan name").setRequired(true))
    .addStringOption(o=>o.setName("prize").setDescription("Prize details").setRequired(true).setMaxLength(1500)))
@@ -85,7 +89,8 @@ function summary(plan,details=false) {
    `Repeat: ${planRepeatMode(plan)==="interval" ? `Every ${plan.intervalMinutes/60} hours` : ({once:"One-time",daily:"Daily at the same Eastern time",weekly:"Weekly at the same Eastern time"})[planRepeatMode(plan)]}`,
    `Activity checked: ${(plan.activityPeriod||"weekly")==="daily" ? "Previous Eastern calendar day only" : "Previous Wednesday–Wednesday week"} · Prize cycle: ${plan.repeatPrizes?"Repeat list":"Stop after final prize"}`,
    `Next draw: <t:${unix(plan.nextRunAt)}:F> · Claim window: ${plan.claimWindowHours} hours · Winners: ${plan.winnerCount}`,
-   `Required messages: ${plan.minimumTotalMessages??"from watched channel (1 for general activity)"} across selected activity period`];
+   `Required messages: ${plan.minimumTotalMessages??"from watched channel (1 for general activity)"} across selected activity period`,
+   `Embed banner: ${plan.bannerNameKey||"Server default"}`];
  if(details){
   lines.push("**Prize list**");
   lines.push(...(plan.prizes.length ? plan.prizes.map((p,i)=>
@@ -107,7 +112,9 @@ export async function executeGiveawayPlanAdmin(interaction) {
  const op=interaction.options.getSubcommand();
  if(!PLAN_OPERATIONS.has(op)) throw Error("Unknown giveaway plan action.");
  if(op==="plan-create"){
-  const {channel}=await getConfiguredTextChannelAndConfig(interaction,"giveawayChannelId","giveaway");
+  // Activity entries are listed publicly, but winners are announced elsewhere.
+  await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayListChannelId","activity giveaway list");
+  const {channel}=await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayWinnersChannelId","activity giveaway winners");
   const name=interaction.options.getString("name",true).trim();
   const key=planNameKey(name);
   if(key==="general")throw Error("Choose a plan name other than general.");
@@ -120,17 +127,21 @@ export async function executeGiveawayPlanAdmin(interaction) {
     (mode==="daily"?"daily":watchedRule?.activityPeriod||"weekly");
   const schedule=validatePlanSchedule(mode,period,interaction.options.getInteger("interval_hours"));
   const prize=interaction.options.getString("prize",true).trim();
+  const bannerNameKey=await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));
   if(!prize)throw Error("Enter a prize.");
   const plan=await GiveawayPlan.create({
    guildId:interaction.guildId,name,nameKey:key,
    title:interaction.options.getString("title",true).trim(),watchNameKey:watch,
-   creatorId:interaction.user.id,channelId:channel.id,
+   creatorId:interaction.user.id,channelId:channel.id,bannerNameKey,
    ...schedule,repeatPrizes:interaction.options.getBoolean("repeat_prizes")??true,
    nextRunAt,claimWindowHours:interaction.options.getInteger("claim_hours")??48,
    winnerCount:interaction.options.getInteger("winners")??1,
    minimumTotalMessages:interaction.options.getInteger("messages")??null,prizes:[prize],
   }).catch(error=>{if(error.code===11000)throw Error("A plan with that name already exists. Use plan-edit instead.");throw error;});
-  return interaction.editReply({content:"Saved giveaway plan.\n"+summary(plan,true),allowedMentions:{parse:[]}});
+  try { await publishActivityPlanListing(interaction.client,plan); }
+  catch(error) { console.error("[Giveaways] New plan listing will retry:",error); }
+  return interaction.editReply({content:"Saved giveaway plan. Its public listing will appear in the activity directory.\n"+summary(plan,true),
+    allowedMentions:{parse:[]}});
  }
  if(op==="plan-list"){
   const plans=await GiveawayPlan.find({guildId:interaction.guildId}).sort({nameKey:1}).limit(30).lean();
@@ -155,6 +166,12 @@ export async function executeGiveawayPlanAdmin(interaction) {
   }
   const watch=interaction.options.getString("watch");
   if(watch!==null){plan.watchNameKey=await ensureRule(interaction.guildId,watch);changed=true;}
+  const banner=interaction.options.getString("banner");
+  if(banner!==null){
+    plan.bannerNameKey=banner.trim().toLocaleLowerCase("en-US")==="default"
+      ? "" : await ensureBannerRegistered(interaction.guildId,banner);
+    changed=true;
+  }
   const mode=interaction.options.getString("repeat") || planRepeatMode(plan);
   const period=interaction.options.getString("period") ||
     (interaction.options.getString("repeat")==="daily"?"daily":plan.activityPeriod||"weekly");
@@ -210,5 +227,7 @@ export async function executeGiveawayPlanAdmin(interaction) {
     plan.status="active";
   await plan.save();
  }
+ try { await publishActivityPlanListing(interaction.client,plan); }
+ catch(error) { console.error("[Giveaways] Updated plan listing will retry:",error); }
  return interaction.editReply({content:"Saved changes.\n"+summary(plan,true).slice(0,1800),allowedMentions:{parse:[]}});
 }
