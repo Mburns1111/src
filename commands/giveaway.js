@@ -3,7 +3,8 @@ import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
 import { submitGiveawayTicket } from "../services/giveaway-ticket-claims.js";
 import { winnerClaimDeadline, winnerHasClaim } from "../services/giveaway-claims.js";
-import { qualifyingActivity, completedActivityWeek } from "../services/giveaway-activity-counter.js";
+import { qualifyingActivity, completedActivityWeek, previousActivityDay } from "../services/giveaway-activity-counter.js";
+import { easternMidnight, shiftCalendarDay } from "../services/giveaway-plan-time.js";
 import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {addGiveawayPlanCommands,executeGiveawayPlanAdmin,PLAN_OPERATIONS} from "./giveaway-plans.js";
@@ -28,7 +29,7 @@ export const data = new SlashCommandBuilder()
     .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering"))
     .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (max 720)").setMinValue(1).setMaxValue(720))
     .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400)))
-  .addSubcommand(c => c.setName("activity").setDescription("Schedule a surprise giveaway from completed weekly activity")
+  .addSubcommand(c => c.setName("activity").setDescription("Schedule a surprise giveaway from the previous day or week")
     .addStringOption(o => o.setName("title").setDescription("Title").setRequired(true))
     .addStringOption(o => o.setName("prize").setDescription("Prize").setRequired(true))
     .addIntegerOption(o => o.setName("minutes").setDescription("Minutes until winners announced").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
@@ -37,6 +38,9 @@ export const data = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("days").setDescription("Distinct active days required (default 1, e.g. 3)").setMinValue(1).setMaxValue(7))
     .addIntegerOption(o => o.setName("winners").setDescription("Winners").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("watch").setDescription("Saved named watched-channel rule (optional)"))
+    .addStringOption(o => o.setName("period").setDescription("Select the previous day or previous Wed–Wed week")
+      .addChoices({name:"Previous Eastern calendar day",value:"daily"},
+        {name:"Previous Wednesday–Wednesday week",value:"weekly"}))
     .addIntegerOption(o => o.setName("min_chars").setDescription("Minimum characters per message").setMinValue(0).setMaxValue(2000))
     .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours to file ticket claim (default 48)").setMinValue(1).setMaxValue(720))
     .addChannelOption(o => o.setName("channel_1").setDescription("Channel 1"))
@@ -44,12 +48,15 @@ export const data = new SlashCommandBuilder()
     .addChannelOption(o => o.setName("channel_3").setDescription("Channel 3"))
     .addChannelOption(o => o.setName("channel_4").setDescription("Channel 4"))
     .addChannelOption(o => o.setName("channel_5").setDescription("Channel 5")))
-  .addSubcommand(c => c.setName("watch-save").setDescription("Save or update one named watched channel for weekly activity")
+  .addSubcommand(c => c.setName("watch-save").setDescription("Save a named channel watched daily or Wednesday–Wednesday")
     .addStringOption(o => o.setName("name").setDescription("Example: QOTD, Suggestions, Art").setRequired(true).setMinLength(1).setMaxLength(60))
     .addChannelOption(o => o.setName("channel").setDescription("Channel whose messages count").setRequired(true))
     .addIntegerOption(o => o.setName("min_chars").setDescription("Minimum characters per qualifying message (default 1)").setMinValue(0).setMaxValue(2000))
     .addIntegerOption(o => o.setName("messages").setDescription("Messages needed per active day (default 1)").setMinValue(1).setMaxValue(50))
-    .addIntegerOption(o => o.setName("days").setDescription("Distinct active days each Wed–Wed week (default 3)").setMinValue(1).setMaxValue(7)))
+    .addIntegerOption(o => o.setName("days").setDescription("Required active days: 1 for daily, up to 7 weekly").setMinValue(1).setMaxValue(7))
+    .addStringOption(o => o.setName("period").setDescription("Daily: prior calendar day; Weekly: prior Wednesday–Wednesday")
+      .addChoices({name:"Daily — previous calendar day",value:"daily"},
+        {name:"Weekly — Wednesday to Wednesday",value:"weekly"})))
   .addSubcommand(c => c.setName("watch-list").setDescription("Review saved named activity channel rules"))
   .addSubcommand(c => c.setName("watch-delete").setDescription("Remove a named watched channel rule")
     .addStringOption(o => o.setName("name").setDescription("Saved rule name").setRequired(true)))
@@ -150,18 +157,25 @@ export async function execute(interaction) {
       if (watchNameKey(name)==="general") throw Error("The name general is reserved for server-wide activity.");
       const channel=interaction.options.getChannel("channel",true);
       if (!channel?.isTextBased?.() || !channel.messages?.fetch) throw Error("Choose a text channel whose messages the bot can read.");
-      const minimumChars=interaction.options.getInteger("min_chars") ?? 1;
-      const minimumMessages=interaction.options.getInteger("messages") ?? 1;
-      const activeDays=interaction.options.getInteger("days") ?? 3;
+      const nameKey=watchNameKey(name);
+      const existing=await GiveawayWatchRule.findOne({guildId:interaction.guildId,nameKey}).lean();
+      const activityPeriod=interaction.options.getString("period") || existing?.activityPeriod || "weekly";
+      const minimumChars=interaction.options.getInteger("min_chars") ?? existing?.minimumChars ?? 1;
+      const minimumMessages=interaction.options.getInteger("messages") ?? existing?.minimumMessages ?? 1;
+      const periodChanged=existing?.activityPeriod && existing.activityPeriod!==activityPeriod;
+      const activeDays=interaction.options.getInteger("days") ??
+        (activityPeriod==="daily"?1:(periodChanged?3:existing?.activeDays??3));
+      if(activityPeriod==="daily" && activeDays!==1)
+        throw Error("Daily watches check one calendar day; set days:1. Weekly watches can require multiple days.");
       await GiveawayWatchRule.findOneAndUpdate(
-        {guildId:interaction.guildId,nameKey:watchNameKey(name)},
-        {$set:{name,channelId:channel.id,minimumChars,minimumMessages,activeDays}},
+        {guildId:interaction.guildId,nameKey},
+        {$set:{name,channelId:channel.id,minimumChars,minimumMessages,activeDays,activityPeriod}},
         {upsert:true,new:true,runValidators:true});
-      return interaction.editReply(`Saved **${name}** for <#${channel.id}>: ${minimumMessages} message(s) of ${minimumChars}+ characters on ${activeDays} different days per Wednesday–Wednesday week. Use watch-save again to edit it; other saved channels are unaffected.`);
+      return interaction.editReply(`Saved **${name}** for <#${channel.id}>: ${minimumMessages} message(s) of ${minimumChars}+ characters ${activityPeriod==="daily"?"on the previous Eastern calendar day":`on ${activeDays} day(s) in the previous Wednesday–Wednesday week`}. Other watches are unchanged.`);
     }
     if (operation === "watch-list") {
       const rules=await GiveawayWatchRule.find({guildId:interaction.guildId}).sort({nameKey:1}).limit(30).lean();
-      const lines=rules.map(rule=>`• **${String(rule.name).replace(/[@*_~|<>]/g,"")}** · <#${rule.channelId}> · ${rule.minimumMessages} message(s) / ${rule.activeDays} days · ${rule.minimumChars}+ chars`);
+      const lines=rules.map(rule=>`• **${String(rule.name).replace(/[@*_~|<>]/g,"")}** · <#${rule.channelId}> · ${rule.minimumMessages} message(s) / ${rule.activeDays} days · ${rule.minimumChars}+ chars · ${rule.activityPeriod||"weekly"}`);
       return interaction.editReply({content:rules.length
         ? ("**Saved watched channels**\n"+lines.join("\n")).slice(0,1900)
         : "No saved watches yet. Use /giveaway watch-save to create one.",allowedMentions:{parse:[]}});
@@ -181,13 +195,21 @@ export async function execute(interaction) {
       const type = saved?"channels":interaction.options.getString("type") || "general";
       const channels = saved?[{id:saved.channelId}]:[1,2,3,4,5].map(n => interaction.options.getChannel("channel_"+n)).filter(Boolean);
       if (type === "channels" && !channels.length) throw Error("Choose at least one channel.");
-      const checkedAt = new Date(), week = completedActivityWeek(checkedAt);
-      const startAt = new Date(week + "T12:00:00Z");
+      const checkedAt = new Date();
+      const period=interaction.options.getString("period") || saved?.activityPeriod || "weekly";
+      const periodKey=period==="daily"?previousActivityDay(checkedAt):completedActivityWeek(checkedAt);
+      const startAt=easternMidnight(periodKey);
+      const endAt=easternMidnight(shiftCalendarDay(periodKey,period==="daily"?1:7));
       const minimum = interaction.options.getInteger("minimum") ?? saved?.minimumMessages ?? 1;
-      const days = interaction.options.getInteger("days") ?? saved?.activeDays ?? 1;
+      const days = interaction.options.getInteger("days") ??
+        (period==="daily"?1:saved?.activeDays??1);
+      if(period==="daily" && days!==1)
+        throw Error("Daily activity checks only one day. Use days:1.");
       const minimumChars=interaction.options.getInteger("min_chars") ?? saved?.minimumChars ?? 1;
       const channelIds = [...new Set(channels.map(c=>c.id))];
-      const entrantIds = await qualifyingActivity({guildId:interaction.guildId,type,channelIds,minimum,days,minimumChars,week});
+      const entrantIds = await qualifyingActivity({guildId:interaction.guildId,type,
+        channelIds,minimum,days,minimumChars,
+        ...(period==="daily"?{day:periodKey}:{week:periodKey})});
       const scan = {entrantIds,channelIds};
       if (!scan.entrantIds.length) throw Error("Nobody qualified; giveaway was not created.");
       const endsAt = new Date(Date.now() + interaction.options.getInteger("minutes",true)*60000);
@@ -197,12 +219,13 @@ export async function execute(interaction) {
         winnerCount:interaction.options.getInteger("winners") || 1, endsAt, mode:"activity",
         status:"publishing", entrantIds:scan.entrantIds, activityType:type,
         activityChannelIds:scan.channelIds, activityMinimum:minimum, activityDays:days,activityMinChars:minimumChars,
+        activityPeriod:period,activityPeriodKey:periodKey,activityEndAt:endAt,
         claimWindowHours:interaction.options.getInteger("claim_hours")??48,autoRerollClaims:true,
         activityStartAt:startAt, activityCheckedAt:checkedAt,
       });
       await Giveaway.updateOne({_id:record._id},{$set:{status:"draft"}});
       return interaction.editReply({
-        content:`**Private activity giveaway preview**\nWeek: ${week} (Wednesday–Wednesday, Eastern)\nQualified: **${scan.entrantIds.length}**\nRequirement: ${minimum} message(s) of ${minimumChars}+ characters on ${days} different days\nAnnouncement: <t:${Math.floor(endsAt.getTime()/1000)}:F>\nConfirm to lock entries. Nothing will be posted until winners are drawn.`,
+        content:`**Private activity giveaway preview**\nActivity: ${period==="daily"?"Previous Eastern calendar day":"Completed Wednesday–Wednesday week"}: ${periodKey}\nQualified: **${scan.entrantIds.length}**\nRequirement: ${minimum} message(s) of ${minimumChars}+ characters on ${days} different days\nAnnouncement: <t:${Math.floor(endsAt.getTime()/1000)}:F>\nConfirm to lock entries. Nothing will be posted until winners are drawn.`,
         components:[new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId(`giveaway:confirm:${record._id}`).setLabel("Confirm & schedule").setStyle(ButtonStyle.Success),
           new ButtonBuilder().setCustomId(`giveaway:cancel:${record._id}`).setLabel("Cancel").setStyle(ButtonStyle.Secondary),
