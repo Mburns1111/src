@@ -1,6 +1,7 @@
 import GiveawayPlan, {planNameKey} from "../models/GiveawayPlan.js";
 import GiveawayWatchRule, {watchNameKey} from "../models/GiveawayWatchRule.js";
 import {parseEasternAnnouncement} from "../services/giveaway-plan-time.js";
+import {planRepeatMode} from "../services/giveaway-plans.js";
 import {getConfiguredTextChannelAndConfig} from "./shared.js";
 
 export const PLAN_OPERATIONS=new Set(["plan-create","plan-list","plan-view","plan-edit",
@@ -8,13 +9,19 @@ export const PLAN_OPERATIONS=new Set(["plan-create","plan-list","plan-view","pla
 
 export function addGiveawayPlanCommands(builder) {
  return builder
- .addSubcommand(c=>c.setName("plan-create").setDescription("Save a weekly or one-time activity giveaway")
+ .addSubcommand(c=>c.setName("plan-create").setDescription("Schedule an activity giveaway once, daily, weekly or at an interval")
    .addStringOption(o=>o.setName("name").setDescription("Unique saved plan name").setRequired(true).setMinLength(1).setMaxLength(60))
    .addStringOption(o=>o.setName("title").setDescription("Title for the announcement").setRequired(true).setMaxLength(100))
    .addStringOption(o=>o.setName("watch").setDescription("Saved watch rule name, or general for server-wide activity").setRequired(true).setMaxLength(60))
    .addStringOption(o=>o.setName("announce_at").setDescription("First winner announcement: YYYY-MM-DD HH:mm Eastern").setRequired(true))
    .addStringOption(o=>o.setName("prize").setDescription("First prize; add more with prize-add").setRequired(true).setMaxLength(1500))
-   .addBooleanOption(o=>o.setName("recurring").setDescription("Repeat every week at this Eastern time (default: no)"))
+   .addStringOption(o=>o.setName("repeat").setDescription("One-time, same Eastern time daily/weekly, or fixed elapsed interval")
+     .addChoices({name:"One time",value:"once"},{name:"Daily (same Eastern time)",value:"daily"},
+       {name:"Weekly (same Eastern day/time)",value:"weekly"},{name:"Every X hours",value:"interval"}))
+   .addStringOption(o=>o.setName("period").setDescription("Check the previous Eastern day or the last completed Wed–Wed week")
+     .addChoices({name:"Previous calendar day",value:"daily"},{name:"Previous Wed–Wed week",value:"weekly"}))
+   .addIntegerOption(o=>o.setName("interval_hours").setDescription("Only for Every X hours; minimum 24h daily / 168h weekly")
+     .setMinValue(1).setMaxValue(720))
    .addBooleanOption(o=>o.setName("repeat_prizes").setDescription("Loop through saved prizes when recurring (default: yes)"))
    .addIntegerOption(o=>o.setName("claim_hours").setDescription("Ticket claim period in hours (default 48)").setMinValue(1).setMaxValue(720))
    .addIntegerOption(o=>o.setName("winners").setDescription("Winners per drawing (default 1)").setMinValue(1).setMaxValue(10)))
@@ -26,7 +33,13 @@ export function addGiveawayPlanCommands(builder) {
    .addStringOption(o=>o.setName("title").setDescription("New announcement title").setMaxLength(100))
    .addStringOption(o=>o.setName("watch").setDescription("Saved watch name, or general"))
    .addStringOption(o=>o.setName("announce_at").setDescription("Next run: YYYY-MM-DD HH:mm Eastern"))
-   .addBooleanOption(o=>o.setName("recurring").setDescription("Repeat weekly"))
+   .addStringOption(o=>o.setName("repeat").setDescription("One-time, daily, weekly or repeat every X hours")
+     .addChoices({name:"One time",value:"once"},{name:"Daily (same Eastern time)",value:"daily"},
+       {name:"Weekly (same Eastern day/time)",value:"weekly"},{name:"Every X hours",value:"interval"}))
+   .addStringOption(o=>o.setName("period").setDescription("Activity window: prior Eastern day or prior Wed–Wed week")
+     .addChoices({name:"Previous calendar day",value:"daily"},{name:"Previous Wed–Wed week",value:"weekly"}))
+   .addIntegerOption(o=>o.setName("interval_hours").setDescription("Required for Every X hours; 24h+ daily or 168h+ weekly")
+     .setMinValue(1).setMaxValue(720))
    .addBooleanOption(o=>o.setName("repeat_prizes").setDescription("Cycle through the saved prize list"))
    .addBooleanOption(o=>o.setName("enabled").setDescription("Enable or pause the plan"))
    .addIntegerOption(o=>o.setName("claim_hours").setDescription("Hours to file ticket after each drawing").setMinValue(1).setMaxValue(720))
@@ -48,12 +61,27 @@ export function addGiveawayPlanCommands(builder) {
 }
 
 const unix=date=>Math.floor(new Date(date).getTime()/1000);
+export function validatePlanSchedule(mode,period,intervalHours) {
+  if(!["once","daily","weekly","interval"].includes(mode)) throw Error("Invalid repeat setting.");
+  if(!["daily","weekly"].includes(period)) throw Error("Invalid activity period.");
+  if(mode==="daily" && period==="weekly")
+    throw Error("A daily giveaway must check a daily activity window, not repeat the same weekly entries.");
+  if(mode==="interval") {
+    const minimum=period==="daily"?24:168;
+    if(!Number.isSafeInteger(intervalHours)||intervalHours<minimum||intervalHours>720)
+      throw Error(`For a ${period} activity window, repeat every ${minimum}–720 hours so the same period cannot be redrawn.`);
+  }else if(intervalHours!==null && intervalHours!==undefined)
+    throw Error("interval_hours is only used with repeat: Every X hours.");
+  return {repeatMode:mode,activityPeriod:period,
+    intervalMinutes:mode==="interval"?intervalHours*60:null,recurring:mode!=="once"};
+}
 function summary(plan,details=false) {
  const status=plan.status==="active"?"Active":plan.status==="paused"?"Paused":"Completed";
  const lines=[`**${plan.name} — ${status}**`,
    `Title: ${plan.title}`,
    `Activity: ${plan.watchNameKey==="general"?"General server activity":plan.watchNameKey}`,
-   `Recurring: ${plan.recurring?"Weekly":"One-time"} · Prize cycle: ${plan.repeatPrizes?"Repeat list":"Stop after final prize"}`,
+   `Repeat: ${planRepeatMode(plan)==="interval" ? `Every ${plan.intervalMinutes/60} hours` : ({once:"One-time",daily:"Daily at the same Eastern time",weekly:"Weekly at the same Eastern time"})[planRepeatMode(plan)]}`,
+   `Activity checked: ${(plan.activityPeriod||"weekly")==="daily" ? "Previous Eastern calendar day only" : "Previous Wednesday–Wednesday week"} · Prize cycle: ${plan.repeatPrizes?"Repeat list":"Stop after final prize"}`,
    `Next draw: <t:${unix(plan.nextRunAt)}:F> · Claim window: ${plan.claimWindowHours} hours · Winners: ${plan.winnerCount}`];
  if(details){
   lines.push("**Prize list**");
@@ -81,15 +109,20 @@ export async function executeGiveawayPlanAdmin(interaction) {
   const key=planNameKey(name);
   if(key==="general")throw Error("Choose a plan name other than general.");
   const watch=await ensureRule(interaction.guildId,interaction.options.getString("watch",true));
+  const watchedRule=watch==="general"?null:await GiveawayWatchRule.findOne({
+    guildId:interaction.guildId,nameKey:watch}).lean();
   const nextRunAt=parseEasternAnnouncement(interaction.options.getString("announce_at",true));
-  const recurring=interaction.options.getBoolean("recurring")??false;
+  const mode=interaction.options.getString("repeat") || "once";
+  const period=interaction.options.getString("period") ||
+    (mode==="daily"?"daily":watchedRule?.activityPeriod||"weekly");
+  const schedule=validatePlanSchedule(mode,period,interaction.options.getInteger("interval_hours"));
   const prize=interaction.options.getString("prize",true).trim();
   if(!prize)throw Error("Enter a prize.");
   const plan=await GiveawayPlan.create({
    guildId:interaction.guildId,name,nameKey:key,
    title:interaction.options.getString("title",true).trim(),watchNameKey:watch,
    creatorId:interaction.user.id,channelId:channel.id,
-   recurring,repeatPrizes:interaction.options.getBoolean("repeat_prizes")??true,
+   ...schedule,repeatPrizes:interaction.options.getBoolean("repeat_prizes")??true,
    nextRunAt,claimWindowHours:interaction.options.getInteger("claim_hours")??48,
    winnerCount:interaction.options.getInteger("winners")??1,prizes:[prize],
   }).catch(error=>{if(error.code===11000)throw Error("A plan with that name already exists. Use plan-edit instead.");throw error;});
@@ -98,7 +131,7 @@ export async function executeGiveawayPlanAdmin(interaction) {
  if(op==="plan-list"){
   const plans=await GiveawayPlan.find({guildId:interaction.guildId}).sort({nameKey:1}).limit(30).lean();
   return interaction.editReply({content:plans.length?plans.map(x=>
-    `• **${x.name}** (${x.status}, ${x.recurring?"weekly":"once"}) · ${x.watchNameKey} · <t:${unix(x.nextRunAt)}:F>`).join("\n").slice(0,1900)
+    `• **${x.name}** (${x.status}, ${planRepeatMode(x)}, ${x.activityPeriod||"weekly"} window) · ${x.watchNameKey} · <t:${unix(x.nextRunAt)}:F>`).join("\n").slice(0,1900)
     :"No saved plans. Use /giveaway plan-create.",allowedMentions:{parse:[]}});
  }
  const key=planNameKey(interaction.options.getString("name",true));
@@ -109,15 +142,26 @@ export async function executeGiveawayPlanAdmin(interaction) {
   throw Error("This plan is currently drawing. Retry the edit when its run completes.");
  if(op==="plan-edit") {
   let changed=false;
-  for(const [option,field] of [["title","title"],["recurring","recurring"],["repeat_prizes","repeatPrizes"],
+  for(const [option,field] of [["title","title"],["repeat_prizes","repeatPrizes"],
     ["claim_hours","claimWindowHours"],["winners","winnerCount"]]){
-   let value=option==="recurring"||option==="repeat_prizes"?interaction.options.getBoolean(option):
+   let value=option==="repeat_prizes"?interaction.options.getBoolean(option):
      option==="claim_hours"||option==="winners"?interaction.options.getInteger(option):
      interaction.options.getString(option);
    if(value!==null && value!==undefined){plan[field]=value;changed=true;}
   }
   const watch=interaction.options.getString("watch");
   if(watch!==null){plan.watchNameKey=await ensureRule(interaction.guildId,watch);changed=true;}
+  const mode=interaction.options.getString("repeat") || planRepeatMode(plan);
+  const period=interaction.options.getString("period") ||
+    (interaction.options.getString("repeat")==="daily"?"daily":plan.activityPeriod||"weekly");
+  const intervalHours=interaction.options.getInteger("interval_hours") ??
+    (mode==="interval"?plan.intervalMinutes/60:null);
+  const requestedSchedule=interaction.options.getString("repeat")!==null ||
+    interaction.options.getString("period")!==null || interaction.options.getInteger("interval_hours")!==null;
+  if(requestedSchedule){
+    Object.assign(plan,validatePlanSchedule(mode,period,intervalHours));
+    changed=true;
+  }
   const at=interaction.options.getString("announce_at");
   if(at){plan.nextRunAt=parseEasternAnnouncement(at);changed=true;}
   const enabled=interaction.options.getBoolean("enabled");
@@ -127,6 +171,10 @@ export async function executeGiveawayPlanAdmin(interaction) {
     plan.status=enabled?"active":"paused";changed=true;
   }
   if(!changed)throw Error("Choose at least one setting to change.");
+  // Disabled plans remain paused; completed one-time plans may only resume
+  // after staff explicitly set enabled:true and a future announcement.
+  if(plan.status==="active" && plan.nextRunAt<=new Date())
+    throw Error("Set a future announce_at for an active plan.");
   await plan.save();
  }else{
   const prizes=[...plan.prizes];
@@ -154,7 +202,7 @@ export async function executeGiveawayPlanAdmin(interaction) {
   }
   plan.prizes=prizes;
   if(!prizes.length) plan.status="paused";
-  if(plan.status==="paused" && prizes.length && plan.recurring && new Date(plan.nextRunAt)>new Date())
+  if(plan.status==="paused" && prizes.length && planRepeatMode(plan)!=="once" && new Date(plan.nextRunAt)>new Date())
     plan.status="active";
   await plan.save();
  }
