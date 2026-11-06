@@ -5,7 +5,7 @@
 ## Setup workflow
 
 1. Configure **three separate channels** with `/setup channels giveaways:#regular-giveaways activity_giveaway_list:#active-giveaways activity_winners:#activity-winners`. The first is for existing button-entry giveaways, the second is a member-visible directory, and the third is where automatic activity drawing results and ticket-claim buttons are announced.
-   - The public directory gets one live embed **per active scheduled activity plan or confirmed one-off activity giveaway**. It shows the current/upcoming prize, watched channel, qualifying message count/conditions, period, next winner announcement time and results channel. It does **not** reveal entrants or winners before the draw.
+   - Optional: `/setup channels activity_review:#private-giveaway-reviews` for staff approval. Review cards are never posted publicly.\n   - The public directory gets one live embed **per active scheduled activity plan or confirmed one-off activity giveaway**. It shows the current/upcoming prize, watched channel, qualifying message count/conditions, period, next winner announcement time and results channel. It does **not** reveal entrants or winners before the draw.
    - Recurring plans reuse/edit their own directory message each cycle; changing a plan/prize updates that listing. Paused, completed and concluded giveaways are cleared from the directory while finished results remain preserved in the **separate** winners channel.
    - The bot synchronizes directory posts automatically on startup and every giveaway sweep, including recovery after restarts. Ensure it can send/edit embeds and upload images in both channels.
    - Older standard giveaways and Court's Trials retain their existing assigned channels.
@@ -36,6 +36,51 @@
 - **Prize cycling**: `repeat_prizes` determines whether the ordered prize list cycles after the last prize (default true). No prize is consumed when a scheduled draw finds zero eligible members.
 
 All start times and day boundaries use `America/New_York` and handle daylight-saving changes. Daily and weekly same-clock-time recurrences keep the Eastern clock time; fixed-hour intervals may shift their Eastern clock time when DST changes. You may update the next announcement, schedule, or activity period later with `/giveaway plan-edit` without changing past drawings.
+
+## Optional staff approval, private member progress, role weights and custom windows
+
+The following settings are **per giveaway** and are not forced on all servers.
+
+### Staff-only approval before drawing
+
+- `/setup channels activity_review:#private-giveaway-reviews` configures a **separate private staff channel**. Restrict channel visibility for @everyone; the bot rejects a publicly visible review channel when it can inspect channel permissions.
+- `/giveaway plan-create ... review:true` or `/giveaway plan-edit name:... review:true` enables review; omission defaults **off** for newly created plans.
+- At the scheduled drawing time the bot **does not choose or announce winners yet**. It snapshots qualifying member IDs (one per member) and posts a staff review embed with the requirements, prize, eligible count, and qualifying member mentions, capped at a 20-member preview.
+- A staff member with **Manage Server** presses **Approve & Draw** to select distinct winners and announce them in the separate `activity_winners` channel; **Decline Drawing** cancels without using a prize. Only one approval can succeed.
+- The review request remains recoverable after restarts. The next schedule cycle begins when a reviewed result is finalized.
+- One-off `/giveaway activity ... review:true` supports the same option. Its existing creation confirmation is separate from this optional pre-draw staff review.
+
+### Member-only progress button (opt-in)
+
+- `/giveaway plan-create ... progress:true`, `plan-edit ... progress:true`, or `/giveaway activity ... progress:true`.
+- The public directory listing shows **Check My Progress** only when enabled. Each member privately sees their own `qualifying messages / target`, relevant active-day threshold, their provisional chances if qualified, and the current activity window. No one else's data is returned.
+- For recurring plans, the progress button checks the **current ongoing Eastern day/week**, not a previous drawn period. For one-time custom windows it checks activity from the configured start up through the current time or cutoff.
+
+### One-time custom activity start and cutoff
+
+- Add `starts_at:YYYY-MM-DD HH:mm` and `ends_at:YYYY-MM-DD HH:mm` to a one-time `plan-create` or `/giveaway activity`. Both are in Eastern time and use the exact minute.
+- The custom cutoff must be later than the start and no later than the scheduled winner announcement time. Custom windows are **one-time only**, to avoid repeating the same dates on daily or weekly plans.
+- `plan-edit` supports changing either endpoint (provided the full range remains valid), plus `clear_window:true` to revert to the default previous day/week.
+- A future custom window **collects entries until its cutoff**; creating the giveaway does not freeze an empty entrant list. Messages are counted using persisted per-minute counter summaries.
+- Record retention is 90 days. The selected start cannot be more than 89 days old. Counters do not backfill Discord chat that predates the new bot code running.
+
+### One entry per member, multiple role-based chances
+
+- All activity types (general messages, QOTD participation, special phrases, @member tags) **qualify the user at most once**. Five valid tags are not five entries; 50 valid chat messages merely meets a 50-message goal.
+- If staff want role advantages, register any number of separate bonus roles (up to 20) against a saved watch or a plan using the distinct staff-only command:
+  - `/giveaway-role bonus-add target:watch name:QOTD role:@VIP extra:2`
+  - `/giveaway-role bonus-add target:watch name:QOTD role:@Supporter extra:3`
+  - `/giveaway-role bonus-add target:plan name:Weekly-Activity role:@Contributor extra:1`
+  - `/giveaway-role bonus-list target:watch name:QOTD` and `/giveaway-role bonus-remove target:watch name:QOTD role:@VIP`
+- A qualified member has **one base chance**, plus every applicable unique bonus role's extra chances. For example, VIP +2 and Supporter +3 provides weight **6**, not six eligible-member records.
+- A plan can use bonuses inherited from its saved watch plus plan-specific bonuses; if the same role appears on both, the plan setting overrides the watch setting.
+- Weighted draws sample **distinct winners without replacement** and snapshot weights for fair rerolls. No member can win twice in one drawing, even with several roles.
+
+### Zero-qualifier result announcements
+
+- New scheduled plans default `announce_empty:true`: if no member qualifies, the bot posts a **no winner selected** result in the winners channel, keeps the prize in the rotation and advances to the next schedule.
+- Set `announce_empty:false` to keep zero-qualifier scheduled outcomes private instead (without consuming a prize).
+- One-time activity giveaways also report no qualifying members in their result rather than failing to create.
 
 ## Registered giveaway embed banners
 
