@@ -98,7 +98,7 @@ export async function executeGiveawayPlanAdmin(interaction) {
  if(op==="plan-list"){
   const plans=await GiveawayPlan.find({guildId:interaction.guildId}).sort({nameKey:1}).limit(30).lean();
   return interaction.editReply({content:plans.length?plans.map(x=>
-    `• **${x.name}** (${x.status}, ${x.recurring?"weekly":"once"}) · ${x.watchNameKey} · <t:${unix(x.nextRunAt)}:F>`).join("\n")
+    `• **${x.name}** (${x.status}, ${x.recurring?"weekly":"once"}) · ${x.watchNameKey} · <t:${unix(x.nextRunAt)}:F>`).join("\n").slice(0,1900)
     :"No saved plans. Use /giveaway plan-create.",allowedMentions:{parse:[]}});
  }
  const key=planNameKey(interaction.options.getString("name",true));
@@ -122,6 +122,7 @@ export async function executeGiveawayPlanAdmin(interaction) {
   if(at){plan.nextRunAt=parseEasternAnnouncement(at);changed=true;}
   const enabled=interaction.options.getBoolean("enabled");
   if(enabled!==null){
+    if(enabled && !plan.prizes.length) throw Error("Add at least one prize before enabling a plan.");
     if(enabled && new Date(plan.nextRunAt)<=new Date()) throw Error("Update announce_at to a future time before enabling.");
     plan.status=enabled?"active":"paused";changed=true;
   }
@@ -152,6 +153,7 @@ export async function executeGiveawayPlanAdmin(interaction) {
     plan.nextPrizeIndex=0;
   }
   plan.prizes=prizes;
+  if(!prizes.length) plan.status="paused";
   if(plan.status==="paused" && prizes.length && plan.recurring && new Date(plan.nextRunAt)>new Date())
     plan.status="active";
   await plan.save();
