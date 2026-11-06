@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {parseEasternAnnouncement,nextWeeklyAnnouncement} from "../services/giveaway-plan-time.js";
-import {nextGiveawayPlanCycle,runGiveawayPlan} from "../services/giveaway-plans.js";
+import {parseEasternAnnouncement,nextWeeklyAnnouncement,nextDailyAnnouncement,nextPlanAnnouncement,easternMidnight} from "../services/giveaway-plan-time.js";
+import {nextGiveawayPlanCycle,runGiveawayPlan,planActivityWindow} from "../services/giveaway-plans.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
-import {addGiveawayPlanCommands} from "../commands/giveaway-plans.js";
+import {addGiveawayPlanCommands,validatePlanSchedule} from "../commands/giveaway-plans.js";
 import {SlashCommandBuilder} from "discord.js";
 
 test("Eastern announcement timestamps accept future local times and reject invalid formats",()=>{
@@ -56,4 +56,43 @@ test("stale week-old plan does not publish a flood of outdated results",async()=
    assert.equal(result.drawn,false);
    assert.match(result.result,/Skipped an outdated drawing/);
  }finally{Giveaway.findOne=original;}
+});
+
+test("Tuesday QOTD messages count only in Wednesday drawing; Thursday draws only Wednesday",()=>{
+ const daily={activityPeriod:"daily"};
+ const wed=planActivityWindow(daily,new Date("2026-11-12T00:30:00Z")); // Wed 19:30 EST
+ const thu=planActivityWindow(daily,new Date("2026-11-13T00:30:00Z")); // Thu 19:30 EST
+ assert.equal(wed.key,"2026-11-10");
+ assert.equal(thu.key,"2026-11-11");
+ assert.equal(wed.endAt.toISOString(),thu.startAt.toISOString());
+ assert.equal(wed.startAt.toISOString(),"2026-11-10T05:00:00.000Z");
+ assert.equal(thu.startAt.toISOString(),"2026-11-11T05:00:00.000Z");
+ const weekly=planActivityWindow({activityPeriod:"weekly"},new Date("2026-11-12T00:30:00Z"));
+ assert.equal(weekly.key,"2026-11-04");
+ assert.equal(weekly.endAt.toISOString(),"2026-11-11T05:00:00.000Z");
+});
+test("daily Eastern midnight tracks 23-hour and 25-hour DST days",()=>{
+ const springMs=easternMidnight("2027-03-15")-easternMidnight("2027-03-14");
+ assert.equal(springMs,23*60*60*1000);
+ const fallMs=easternMidnight("2026-11-02")-easternMidnight("2026-11-01");
+ assert.equal(fallMs,25*60*60*1000);
+ const springBefore=parseEasternAnnouncement("2027-03-13 19:30",{now:new Date("2026-01-01T00:00:00Z")});
+ assert.equal(nextDailyAnnouncement(springBefore).toISOString(),"2027-03-14T23:30:00.000Z");
+ const fallBefore=parseEasternAnnouncement("2026-10-31 19:30",{now:new Date("2026-01-01T00:00:00Z")});
+ assert.equal(nextDailyAnnouncement(fallBefore).toISOString(),"2026-11-02T00:30:00.000Z");
+});
+test("repeat choices support fixed same-time Eastern schedules or fixed hour intervals",()=>{
+ const base={prizes:["Pet"],nextPrizeIndex:0,activityPeriod:"daily",repeatMode:"daily",nextRunAt:new Date("2026-11-01T23:00:00Z"),repeatPrizes:true};
+ const next=nextGiveawayPlanCycle(base,{drawn:true,result:"Awarded"},new Date("2026-11-01T23:05:00Z"));
+ assert.equal(next.nextRunAt.toISOString(),"2026-11-03T00:00:00.000Z");
+ assert.equal(next.status,"active");
+ assert.deepEqual(validatePlanSchedule("daily","daily",null),{
+   repeatMode:"daily",activityPeriod:"daily",intervalMinutes:null,recurring:true
+ });
+ assert.deepEqual(validatePlanSchedule("interval","daily",36).intervalMinutes,2160);
+ assert.throws(()=>validatePlanSchedule("interval","daily",12),/24/);
+ assert.throws(()=>validatePlanSchedule("interval","weekly",24),/168/);
+ assert.throws(()=>validatePlanSchedule("daily","weekly",null),/daily activity window/);
+ assert.equal(nextPlanAnnouncement(new Date("2026-11-11T12:00:00Z"),"interval",36*60).toISOString(),
+   "2026-11-13T00:00:00.000Z");
 });
