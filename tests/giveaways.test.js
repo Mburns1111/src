@@ -25,7 +25,7 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.equal(spec.name,"giveaway");
  assert.equal(spec.default_member_permissions, String(32)); // ManageGuild
  const opts=spec.options;
- assert.deepEqual(opts.map(x=>x.name),["start","end","reroll","list","entrants"]);
+ assert.deepEqual(opts.map(x=>x.name),["start","activity","end","reroll","list","entrants"]);
  const start=opts[0].options.map(x=>x.name);
  for(const name of ["title","prize","minutes","winners","rules","role","claim_hours","claim_instructions"])
    assert.ok(start.includes(name));

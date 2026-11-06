@@ -79,6 +79,7 @@ import {
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton } from "./commands/giveaway.js";
 import { reconcileGiveaways } from "./services/giveaways.js";
+import { recordGiveawayMessage } from "./services/giveaway-activity-counter.js";
 import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
 import { maybePublishActivityEgg } from "./services/card-automatic-drops.js";
@@ -206,6 +207,8 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // Messages are never stored or logged: only a short SHA-256 digest is kept to
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
+  if (message.guildId && !message.author?.bot && !message.webhookId)
+    void recordGiveawayMessage(message).catch(error => console.error("[Giveaways] Activity counter failed:", error));
   if (!message.guildId || message.author?.bot || !message.content) return;
   // Only commands typed in the assigned Hatchem text channel are parsed.
   // Ordinary chat and every other channel are ignored by this handler.
