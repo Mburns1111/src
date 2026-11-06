@@ -6,6 +6,8 @@ import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import { completedActivityWeek, previousActivityDay, qualifyingActivity, qualifyingWatchActivity } from "./giveaway-activity-counter.js";
 import { easternMidnight, shiftCalendarDay, nextPlanAnnouncement } from "./giveaway-plan-time.js";
 import { closeGiveaway, publishGiveawayResult } from "./giveaways.js";
+import {publishGiveawayReview} from "./giveaway-review.js";
+import {normalizeRoleBonuses} from "./giveaway-role-weights.js";
 
 export function planRepeatMode(plan) {
   return plan.repeatMode || (plan.recurring ? "weekly" : "once");
@@ -13,6 +15,11 @@ export function planRepeatMode(plan) {
 export function planActivityWindow(plan,runAt) {
   const period=plan.activityPeriod || "weekly";
   if(!["daily","weekly"].includes(period)) throw Error("Invalid activity window.");
+  if(plan.customActivityStartAt&&plan.customActivityEndAt){
+    const startAt=new Date(plan.customActivityStartAt),endAt=new Date(plan.customActivityEndAt);
+    if(startAt>=endAt||endAt>new Date(runAt))throw Error("Custom activity range must end before drawing.");
+    return {period,key:`custom:${startAt.toISOString()}-${endAt.toISOString()}`,startAt,endAt,custom:true};
+  }
   const key=period==="daily" ? previousActivityDay(runAt) : completedActivityWeek(runAt);
   return {period,key,startAt:easternMidnight(key),
     endAt:easternMidnight(shiftCalendarDay(key,period==="daily"?1:7))};
@@ -25,12 +32,20 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
   // drawing before any fresh activity scan. Never lose or redraw its winners.
   const existing=await Giveaway.findOne({scheduleId:plan._id,scheduleRunAt:runAt}).lean();
   if(existing){
+    if(existing.status==="pending_review"){
+      await publishGiveawayReview(client,existing);
+      return {result:"Awaiting staff review",pending:true,drawn:false,
+        activityPeriod:activityWindow.period,activityKey:activityWindow.key};
+    }
+    if(existing.status==="cancelled")
+      return {result:"Staff declined the drawing; prize retained.",drawn:false,
+        activityPeriod:activityWindow.period,activityKey:activityWindow.key};
     const restored=existing.status==="ended" ? existing
       : await closeGiveaway({id:existing._id,guildId:plan.guildId,now,client});
     if(restored?.status!=="ended") throw Error("Prior drawing could not yet be recovered.");
     try { await publishGiveawayResult(client,restored); }
     catch(error) { console.error("[Giveaways] Recovered drawing is waiting for Discord publish:",error); }
-    return {result:`Recovered saved drawing ${restored._id}`,drawn:true,
+    return {result:`Recovered saved drawing ${restored._id}`,drawn:(restored.winnerIds||[]).length>0,
       activityPeriod:activityWindow.period,activityKey:activityWindow.key};
   }
   const staleAfter=activityWindow.period==="daily"?24*60*60_000:7*24*60*60_000;
@@ -53,13 +68,17 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     : {type:"general",channelIds:[],minimum:1,days:1,minimumChars:1};
   const requirement={...qualification,days:activityWindow.period==="daily"?1:qualification.days};
   const minimumTotalMessages=plan.minimumTotalMessages??rule?.minimumTotalMessages??1;
+  const windowOptions=activityWindow.custom ?
+    {startAt:activityWindow.startAt,endAt:activityWindow.endAt}:
+    activityWindow.period==="daily"?{day:activityWindow.key}:{week:activityWindow.key};
   const entrants=rule ? await qualifyingWatchActivity({
       guildId:plan.guildId,rule,period:activityWindow.period,key:activityWindow.key,
-      minimum:requirement.minimum,days:requirement.days,
-      minimumChars:requirement.minimumChars,
-      minimumTotalMessages,
+      minimum:requirement.minimum,
+      days:activityWindow.custom?qualification.days:requirement.days,
+      minimumChars:requirement.minimumChars,minimumTotalMessages,
+      ...windowOptions,
     }) : await qualifyingActivity({guildId:plan.guildId,...requirement,minimumTotalMessages,
-      ...(activityWindow.period==="daily"?{day:activityWindow.key}:{week:activityWindow.key})});
+      ...windowOptions});
   const guild=await client.guilds.fetch(plan.guildId);
   const eligible=[];
   for(const id of [...new Set(entrants)]) {
@@ -70,14 +89,16 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
       if (error.code!==10007) throw error; // never discard a member on temporary Discord failures
     }
   }
-  if(!eligible.length) return {result:"No qualifying members; no giveaway posted.",
-    drawn:false,activityPeriod:activityWindow.period,activityKey:activityWindow.key};
   const prize=plan.prizes[plan.nextPrizeIndex];
   if (!prize) throw Error("No next prize configured.");
   const config=await GuildConfig.findOne({guildId:plan.guildId})
-    .select("activityGiveawayWinnersChannelId").lean();
+    .select("activityGiveawayWinnersChannelId activityGiveawayReviewChannelId").lean();
   if(!config?.activityGiveawayWinnersChannelId)
     throw Error("Configure /setup channels activity_winners before scheduled activity drawings.");
+  if(plan.requireStaffReview&&!config.activityGiveawayReviewChannelId)
+    throw Error("Configure a private /setup channels activity_review before using staff review.");
+  const roleBonuses=normalizeRoleBonuses([...new Map([...(rule?.roleBonuses||[]),
+    ...(plan.roleBonuses||[])].map(b=>[b.roleId,{roleId:b.roleId,extraEntries:b.extraEntries}])).values()]);
   let record=await Giveaway.findOne({scheduleId:plan._id,scheduleRunAt:runAt}).lean();
   if (!record) {
     try {
@@ -85,9 +106,13 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
         guildId:plan.guildId,channelId:config.activityGiveawayWinnersChannelId,
         creatorId:plan.creatorId,bannerNameKey:plan.bannerNameKey||"",
         title:plan.title,prize,winnerCount:plan.winnerCount,endsAt:runAt,
-        mode:"activity",status:"closing",entrantIds:eligible,activityVerifiedIds:eligible,
+        mode:"activity",status:plan.requireStaffReview?"pending_review":"closing",
+        requireStaffReview:Boolean(plan.requireStaffReview),progressEnabled:Boolean(plan.progressEnabled),
+        roleBonuses,customActivityStartAt:plan.customActivityStartAt||null,
+        customActivityEndAt:plan.customActivityEndAt||null,
+        entrantIds:eligible,activityVerifiedIds:eligible,
         activityType:qualification.type,activityChannelIds:qualification.channelIds,
-        activityMinimum:qualification.minimum,activityDays:requirement.days,
+        activityMinimum:qualification.minimum,activityDays:activityWindow.custom?qualification.days:requirement.days,
         activityMinChars:qualification.minimumChars,
         activityRequiredMentionUserId:rule?.requiredMentionUserId||"",
         activityRequiredPhrase:rule?.requiredPhrase||"",
@@ -111,13 +136,21 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
       }
     }
   }
+  if(record.status==="pending_review"){
+    await publishGiveawayReview(client,record);
+    return {result:"Awaiting staff approval",drawn:false,pending:true,
+      activityPeriod:activityWindow.period,activityKey:activityWindow.key};
+  }
   if(record.status!=="ended")
     record=await closeGiveaway({id:record._id,guildId:plan.guildId,now,client});
   if(record.status!=="ended") throw Error("Scheduled giveaway draw is not ready.");
   try { await publishGiveawayResult(client,record); }
   catch(error) { console.error("[Giveaways] Scheduled drawing saved but Discord post failed:",String(record._id),error); }
-  return {result:`Drawn: ${eligible.length} eligible entrants; giveaway ${record._id}.`,
-    drawn:true,activityPeriod:activityWindow.period,activityKey:activityWindow.key};
+  return {result:eligible.length?
+      `Drawn: ${eligible.length} eligible members; giveaway ${record._id}.`:
+      `No qualifying members — result posted with no winners; prize retained. Giveaway ${record._id}.`,
+    drawn:(record.winnerIds||[]).length>0,
+    activityPeriod:activityWindow.period,activityKey:activityWindow.key};
 }
 
 export function nextGiveawayPlanCycle(plan,outcome,now=new Date()) {
@@ -155,6 +188,11 @@ export async function reconcileGiveawayPlans(client,{now=new Date(),limit=10}={}
   try {
     const outcome=await runGiveawayPlan(client,owned,{now});
     if (outcome==="not-due") continue;
+    if(outcome.pending){
+      await GiveawayPlan.updateOne({_id:owned._id,leaseKey},
+        {$set:{leaseUntil:null,leaseKey:""}});
+      continue;
+    }
     await GiveawayPlan.updateOne({_id:owned._id,leaseKey},{$set:{
       ...nextGiveawayPlanCycle(owned,outcome,now),leaseUntil:null,leaseKey:"",
     }});
