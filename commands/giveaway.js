@@ -31,8 +31,8 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(c => c.setName("activity").setDescription("Schedule a surprise giveaway from completed weekly activity")
     .addStringOption(o => o.setName("title").setDescription("Title").setRequired(true))
     .addStringOption(o => o.setName("prize").setDescription("Prize").setRequired(true))
-    .addStringOption(o => o.setName("type").setDescription("Activity scope").setRequired(true).addChoices({name:"General server",value:"general"},{name:"Selected channels",value:"channels"}))
     .addIntegerOption(o => o.setName("minutes").setDescription("Minutes until winners announced").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
+    .addStringOption(o => o.setName("type").setDescription("Activity scope (default: general)").addChoices({name:"General server",value:"general"},{name:"Selected channels",value:"channels"}))
     .addIntegerOption(o => o.setName("minimum").setDescription("Messages required per active day (default 1)").setMinValue(1))
     .addIntegerOption(o => o.setName("days").setDescription("Distinct active days required (default 1, e.g. 3)").setMinValue(1).setMaxValue(7))
     .addIntegerOption(o => o.setName("winners").setDescription("Winners").setMinValue(1).setMaxValue(10))
@@ -177,7 +177,7 @@ export async function execute(interaction) {
       const watch=interaction.options.getString("watch");
       const saved=watch?await GiveawayWatchRule.findOne({guildId:interaction.guildId,nameKey:watchNameKey(watch)}).lean():null;
       if(watch && !saved)throw Error("Saved watched channel not found. Use watch-list.");
-      const type = saved?"channels":interaction.options.getString("type", true);
+      const type = saved?"channels":interaction.options.getString("type") || "general";
       const channels = saved?[{id:saved.channelId}]:[1,2,3,4,5].map(n => interaction.options.getChannel("channel_"+n)).filter(Boolean);
       if (type === "channels" && !channels.length) throw Error("Choose at least one channel.");
       const checkedAt = new Date(), week = completedActivityWeek(checkedAt);
