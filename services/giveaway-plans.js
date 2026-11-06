@@ -20,6 +20,9 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     catch(error) { console.error("[Giveaways] Recovered drawing is waiting for Discord publish:",error); }
     return {result:`Recovered saved drawing ${restored._id}`,drawn:true,week:completedActivityWeek(runAt)};
   }
+  if(now.getTime()-runAt.getTime()>=7*24*60*60_000)
+    return {result:"Skipped an outdated drawing after extended bot downtime; no prize consumed.",
+      drawn:false,week:completedActivityWeek(runAt)};
   const nameKey=plan.watchNameKey;
   const rule=nameKey==="general" ? null
     : await GiveawayWatchRule.findOne({guildId:plan.guildId,nameKey}).lean();
