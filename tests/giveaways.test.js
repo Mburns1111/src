@@ -149,7 +149,7 @@ test("reroll selects a new entrant without erasing earlier winner or reroll hist
   assert.deepEqual(result.winnerIds,[replacement]);
   assert.equal(result.status,"ended");
   assert.deepEqual([result.rerollHistory[0].previousId,result.rerollHistory[0].replacementId],[prior,replacement]);
-  await assert.rejects(()=>rerollGiveaway({id,guildId,staffId:prior,slot:0}),/no unused entrants/i);
+  await assert.rejects(()=>rerollGiveaway({id,guildId,staffId:prior,slot:0}),/no unused (entrants|current server members)/i);
  }finally{restore(old);}
 });
 
