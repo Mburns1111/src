@@ -3,6 +3,8 @@ const schema = new mongoose.Schema({
   guildId:{type:String,required:true}, userId:{type:String,required:true},
   channelId:{type:String,required:true}, day:{type:String,required:true},
   week:{type:String,required:true}, count:{type:Number,default:0},
+  // Histogram by actual character length, so a saved watch rule can change its threshold later.
+  lengths:{type:Map,of:Number,default:()=>new Map()},
 },{timestamps:true});
 schema.index({guildId:1,userId:1,channelId:1,day:1},{unique:true});
 schema.index({guildId:1,week:1,channelId:1});

@@ -2,6 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionF
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
 import { qualifyingActivity, completedActivityWeek } from "../services/giveaway-activity-counter.js";
+import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
   closeGiveaway, rerollGiveaway, publishGiveawayResult,
@@ -36,6 +37,15 @@ export const data = new SlashCommandBuilder()
     .addChannelOption(o => o.setName("channel_3").setDescription("Channel 3"))
     .addChannelOption(o => o.setName("channel_4").setDescription("Channel 4"))
     .addChannelOption(o => o.setName("channel_5").setDescription("Channel 5")))
+  .addSubcommand(c => c.setName("watch-save").setDescription("Save or update one named watched channel for weekly activity")
+    .addStringOption(o => o.setName("name").setDescription("Example: QOTD, Suggestions, Art").setRequired(true).setMinLength(1).setMaxLength(60))
+    .addChannelOption(o => o.setName("channel").setDescription("Channel whose messages count").setRequired(true))
+    .addIntegerOption(o => o.setName("min_chars").setDescription("Minimum characters per qualifying message (default 1)").setMinValue(0).setMaxValue(2000))
+    .addIntegerOption(o => o.setName("messages").setDescription("Messages needed per active day (default 1)").setMinValue(1).setMaxValue(50))
+    .addIntegerOption(o => o.setName("days").setDescription("Distinct active days each Wed–Wed week (default 3)").setMinValue(1).setMaxValue(7)))
+  .addSubcommand(c => c.setName("watch-list").setDescription("Review saved named activity channel rules"))
+  .addSubcommand(c => c.setName("watch-delete").setDescription("Remove a named watched channel rule")
+    .addStringOption(o => o.setName("name").setDescription("Saved rule name").setRequired(true)))
   .addSubcommand(c => c.setName("end").setDescription("End a normal giveaway early and retain its results")
     .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true)))
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
@@ -121,6 +131,30 @@ export async function execute(interaction) {
   const operation = interaction.options.getSubcommand();
   const survivalCommand = interaction.commandName === "trial";
   try {
+    if (operation === "watch-save") {
+      const name=interaction.options.getString("name",true).trim();
+      const channel=interaction.options.getChannel("channel",true);
+      if (!channel?.isTextBased?.() || !channel.messages?.fetch) throw Error("Choose a text channel whose messages the bot can read.");
+      const minimumChars=interaction.options.getInteger("min_chars") ?? 1;
+      const minimumMessages=interaction.options.getInteger("messages") ?? 1;
+      const activeDays=interaction.options.getInteger("days") ?? 3;
+      await GiveawayWatchRule.findOneAndUpdate(
+        {guildId:interaction.guildId,nameKey:watchNameKey(name)},
+        {$set:{name,channelId:channel.id,minimumChars,minimumMessages,activeDays}},
+        {upsert:true,new:true,runValidators:true});
+      return interaction.editReply(`Saved **${name}** for <#${channel.id}>: ${minimumMessages} message(s) of ${minimumChars}+ characters on ${activeDays} different days per Wednesday–Wednesday week. Use watch-save again to edit it; other saved channels are unaffected.`);
+    }
+    if (operation === "watch-list") {
+      const rules=await GiveawayWatchRule.find({guildId:interaction.guildId}).sort({nameKey:1}).limit(40).lean();
+      return interaction.editReply({content:rules.length
+        ? "**Saved watched channels**\\n"+rules.map(rule=>`• **${rule.name}** · <#${rule.channelId}> · ${rule.minimumMessages} message(s) / ${rule.activeDays} days · ${rule.minimumChars}+ chars`).join("\\n")
+        : "No saved watches yet. Use /giveaway watch-save to create one.",allowedMentions:{parse:[]}});
+    }
+    if (operation === "watch-delete") {
+      const name=interaction.options.getString("name",true);
+      const result=await GiveawayWatchRule.deleteOne({guildId:interaction.guildId,nameKey:watchNameKey(name)});
+      return interaction.editReply(result.deletedCount?"Watched channel rule removed. Existing giveaway records are unchanged.":"No rule exists under that name.");
+    }
     if (operation === "activity") {
       const { channel } = await getConfiguredTextChannelAndConfig(interaction, "giveawayChannelId", "giveaway");
       const type = interaction.options.getString("type", true);

@@ -14,3 +14,14 @@ test("Sunday and Tuesday are in the same Wednesday activity week", () => {
   assert.equal(activityWeek(new Date("2026-11-08T16:00:00Z")), "2026-11-04");
   assert.equal(activityWeek(new Date("2026-11-10T16:00:00Z")), "2026-11-04");
 });
+
+import { messageCharacterCount, qualifyingActivityPipeline } from "../services/giveaway-activity-counter.js";
+test("QOTD message thresholds exclude command text, bots, and short responses",()=>{
+ assert.equal(messageCharacterCount({content:"   Hello, world!  "}),13);
+ assert.equal(messageCharacterCount({content:"/giveaway activity"}),0);
+ assert.equal(messageCharacterCount({content:" .claim "}),0);
+ const pipeline=qualifyingActivityPipeline({guildId:"test",type:"channels",channelIds:["qotd"],minimumChars:20,minimum:1,days:3,week:"2026-11-04"});
+ assert.deepEqual(pipeline[0].$match.channelId,{$in:["qotd"]});
+ assert.equal(pipeline[1].$project.messages.$sum.$map.input.$filter.cond.$gte[1],20);
+ assert.equal(pipeline.at(-1).$match.activeDays.$gte,3);
+});
