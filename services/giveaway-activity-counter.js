@@ -16,6 +16,7 @@ export function activityWeek(date=new Date()) {
   midnight.setUTCDate(midnight.getUTCDate()-shift);
   return midnight.toISOString().slice(0,10);
 }
+export function currentActivityDay(date=new Date()) { return easternDay(date).day; }
 export function previousActivityDay(date=new Date()) {
   const {day}=easternDay(date);
   const noon=new Date(day+"T12:00:00Z");
