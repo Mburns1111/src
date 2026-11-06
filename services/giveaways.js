@@ -23,7 +23,9 @@ export function giveawayAnnouncement(record) {
   const ended = record.status === "ended" || record.status === "rerolling";
   const finishing = record.status === "closing";
   const endUnix = Math.floor(new Date(record.endsAt).getTime() / 1000);
-  const winners = (record.winnerIds || []).map((id, i) => `${i + 1}. <@${id}>`);
+  const winners = (record.winnerIds || []).map((id, i) => (record.claimResolvedSlots || []).includes(i)
+    ? `${i + 1}. Claim expired (originally <@${id}>) — no eligible replacement`
+    : `${i + 1}. <@${id}>`);
   const changed = (record.rerollHistory || []).slice(-8).map(item =>
     `#${item.slot + 1}: <@${item.previousId}> → <@${item.replacementId}>`);
   const activity = record.mode === "activity";
