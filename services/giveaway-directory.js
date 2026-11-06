@@ -11,7 +11,7 @@ const clean=(value,max=500)=>String(value||"").replace(/[@`*_~|<>]/g,"").slice(0
 const messageLink=(guildId,channelId,messageId)=>
   `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
 
-export function activityPlanListingEmbed(plan,rule) {
+export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
   const period=plan.activityPeriod||"weekly";
   const minimum=plan.minimumTotalMessages??rule?.minimumTotalMessages??1;
   const activityChannel=rule?.channelId?`<#${rule.channelId}>`:"Eligible server text channels";
@@ -31,6 +31,7 @@ export function activityPlanListingEmbed(plan,rule) {
     ...instruction,"",
     `**Winner announcement:** <t:${stamp(plan.nextRunAt)}:F> (<t:${stamp(plan.nextRunAt)}:R>)`,
     `**Winners:** ${plan.winnerCount||1}`,
+    ...(winnerChannelId?[`**Results will be posted in:** <#${winnerChannelId}>`]:[]),
     `**Repeats:** ${plan.repeatMode==="interval"?`Every ${plan.intervalMinutes/60} hours`:plan.repeatMode==="daily"?"Daily":plan.repeatMode==="weekly"||(!plan.repeatMode&&plan.recurring)?"Weekly":"One time"}`,
     "", "*Qualifying messages are tracked automatically. No entry button is needed.*",
   ].join("\n").slice(0,3900);
@@ -54,7 +55,7 @@ export function activityOneOffListingEmbed(record) {
   if(record.activityRequiredMentionUserId)parts.push(`**Must tag:** <@${record.activityRequiredMentionUserId}>`);
   if(record.activityRequiredPhrase)parts.push(`**Must include:** ${clean(record.activityRequiredPhrase,120)}`);
   parts.push("",`**Winner announcement:** <t:${stamp(record.endsAt)}:F> (<t:${stamp(record.endsAt)}:R>)`,
-    `**Winners:** ${record.winnerCount||1}`,"",
+    `**Winners:** ${record.winnerCount||1}`,`**Results will be posted in:** <#${record.channelId}>`,"",
     "*This giveaway has automatic, locked entries. No entry button is needed.*");
   return new EmbedBuilder().setColor(0xb47e99)
     .setTitle(`🎁 Activity Giveaway · ${clean(record.title,140)}`)
@@ -111,10 +112,12 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
     ?await GiveawayWatchRule.findOne({guildId:item.guildId,nameKey:item.watchNameKey}).lean()
     :null;
   const banner=await getGiveawayBanner(item.guildId,item.bannerNameKey);
-  const embed=isPlan?activityPlanListingEmbed(item,rule):activityOneOffListingEmbed(item);
+  const embed=isPlan ? activityPlanListingEmbed(item,rule,{
+    winnerChannelId:config.activityGiveawayWinnersChannelId,
+  }) : activityOneOffListingEmbed(item);
   const payload=attachGiveawayBanner({embeds:[embed],allowedMentions:{parse:[]},attachments:[]},banner);
   const fingerprint=createHash("sha256").update(JSON.stringify({
-    embed:embed.toJSON(),bannerUpdatedAt:banner?.updatedAt||null,
+    embed:embed.toJSON(),bannerNameKey:banner?.nameKey||"",bannerUpdatedAt:banner?.updatedAt||null,
     imageBytes:banner?.imageData?.length||0,channelId,
   })).digest("hex");
   const existing=await findListingMessage(channel,client,item,kind);
@@ -126,9 +129,11 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
   }else {
     if(item.listChannelId!==channel.id || item.listFingerprint!==fingerprint)
       await existing.edit(payload);
-    await Model.updateOne({_id:item._id},{$set:{
-      listMessageId:existing.id,listChannelId:channel.id,listFingerprint:fingerprint,
-    }});
+    if(item.listChannelId!==channel.id || item.listMessageId!==existing.id ||
+        item.listFingerprint!==fingerprint)
+      await Model.updateOne({_id:item._id},{$set:{
+        listMessageId:existing.id,listChannelId:channel.id,listFingerprint:fingerprint,
+      }});
   }
   if(item.listChannelId && item.listChannelId!==channel.id && item.listMessageId){
     // Directory moved: remove the old promotional post, never the actual result.
@@ -146,7 +151,7 @@ export async function publishActivityPlanListing(client,plan,{now=new Date()}={}
 export async function publishActivityOneOffListing(client,record,{now=new Date()}={}) {
   return syncListing(client,record,"one-off",{now});
 }
-export async function reconcileActivityGiveawayListings(client,{now=new Date(),limit=120}={}) {
+export async function reconcileActivityGiveawayListings(client,{now=new Date(),limit=0}={}) {
   const [plans,oneOff]=await Promise.all([
     GiveawayPlan.find({$or:[{status:"active"},{listMessageId:{$gt:""}}]}).limit(limit).lean(),
     Giveaway.find({mode:"activity",scheduleId:null,
