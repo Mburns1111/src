@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
-import { prizeClaimLines } from "./giveaway-claims.js";
+import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt } from "./giveaway-claims.js";
 import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
 export const GIVEAWAY_MAX_MINUTES = 60 * 24 * 14;
@@ -50,6 +50,21 @@ export function giveawayAnnouncement(record) {
   ];
   if (ended) {
     lines.push("", "**Winners**", ...(winners.length ? winners : ["No eligible entries — no winner was selected."]));
+    if (record.mode !== "survival" && (record.winnerIds || []).length) {
+      lines.push("", "**Winner ticket claims**");
+      for (let slot=0;slot<record.winnerIds.length;slot++) {
+        const userId=record.winnerIds[slot];
+        const claim=(record.winnerClaims || []).find(c=>c.slot===slot && c.userId===userId);
+        const deadline=winnerClaimDeadline(record,slot);
+        if (claim) {
+          const ticket=String(claim.ticketNumber||"").replace(/[^a-zA-Z0-9_# -]/g,"").slice(0,80);
+          const link=String(claim.ticketUrl||"");
+          lines.push(`#${slot+1} <@${userId}> — **Claim filed:** \`${ticket}\` · <${link}>`);
+        } else if ((record.claimResolvedSlots || []).includes(slot))
+          lines.push(`#${slot+1} <@${userId}> — Claim expired; no eligible replacements remain.`);
+        else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline ? ` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>` : ""}`);
+      }
+    }
     const claims = prizeClaimLines(record, { finished: true });
     if (claims.length) lines.push("", ...claims);
     if (changed.length) lines.push("", "**Reroll history**", ...changed);
@@ -61,7 +76,11 @@ export function giveawayAnnouncement(record) {
     .setTitle((ended ? "🦊 Heist Complete · " : "🦊 The Fox\u2019s Giveaway · ") + record.title.slice(0, 180))
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
-  const components = (!activity && !ended && !finishing && record.status === "open")
+  const components = ended && record.status === "ended" && record.mode !== "survival" && (record.winnerIds || []).length
+    ? [new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`giveaway:claim:${record._id}`).setLabel("File Ticket Claim").setStyle(ButtonStyle.Primary),
+      )]
+    : (!activity && !ended && !finishing && record.status === "open")
     ? [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`giveaway:enter:${record._id}`).setLabel("Enter Giveaway").setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`giveaway:leave:${record._id}`).setLabel("Leave").setStyle(ButtonStyle.Secondary),
@@ -120,13 +139,16 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   const winnerIds = chooseGiveawayWinners(eligible, item.winnerCount);
   const changed = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "closing" },
-    { $set: { status: "ended", winnerIds, ...(item.mode === "activity" ? {activityVerifiedIds:eligible} : {}), claimStartedAt: now, renderedAt: null }, $inc: { renderVersion: 1 } },
+    { $set: { status: "ended", winnerIds, ...(item.mode === "activity" ? {activityVerifiedIds:eligible} : {}),
+      claimStartedAt:now,winnerAssignedAt:winnerIds.map(()=>now),
+      claimCheckAt:nextClaimCheckAt({...item,status:"ended",winnerIds,claimStartedAt:now,winnerAssignedAt:winnerIds.map(()=>now)}),
+      renderedAt:null }, $inc: { renderVersion: 1 } },
     { returnDocument: "after" },
   ).lean();
   return changed || Giveaway.findOne({ _id: id, guildId }).lean();
 }
 
-export async function rerollGiveaway({ id, guildId, staffId, slot }) {
+export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "staff", now = new Date() }) {
   const item = await Giveaway.findOne({ _id: id, guildId, status: "ended" }).lean();
   if (!item) throw Error("That giveaway is not finished or does not exist.");
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
@@ -136,7 +158,8 @@ export async function rerollGiveaway({ id, guildId, staffId, slot }) {
     throw Error("There are no unused entrants left for a reroll.");
   const reserved = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "ended" },
-    { $set: { status: "rerolling", pendingRerollSlot: slot, pendingRerollStaffId: staffId, renderedAt: null } },
+    { $set: { status: "rerolling", pendingRerollSlot: slot, pendingRerollStaffId: staffId,
+      pendingRerollReason:reason,pendingRerollAt:now,renderedAt:null } },
     { returnDocument: "after" },
   ).lean();
   if (!reserved) throw Error("Another staff member is updating this giveaway. Try again.");
@@ -154,11 +177,16 @@ export async function finishPendingReroll(item) {
   const previousId = item.winnerIds[slot];
   const winnerIds = [...item.winnerIds];
   winnerIds[slot] = replacementId;
+  const winnerAssignedAt=[...(item.winnerAssignedAt || [])];
+  winnerAssignedAt[slot]=item.pendingRerollAt || new Date();
+  const reissued={...item,status:"ended",winnerIds,winnerAssignedAt};
   const changed = await Giveaway.findOneAndUpdate({
     _id: item._id, status: "rerolling", pendingRerollSlot: slot,
   }, {
-    $set: { winnerIds, status: "ended", pendingRerollSlot: null, pendingRerollStaffId: "", renderedAt: null },
-    $push: { rerollHistory: { slot, previousId, replacementId, staffId: item.pendingRerollStaffId, at: new Date() } },
+    $set: { winnerIds,winnerAssignedAt, status:"ended", pendingRerollSlot:null, pendingRerollStaffId:"",
+      pendingRerollReason:"",pendingRerollAt:null,claimCheckAt:nextClaimCheckAt(reissued),renderedAt:null },
+    $push: { rerollHistory: { slot,previousId,replacementId,staffId:item.pendingRerollStaffId,
+      reason:item.pendingRerollReason||"staff",at:item.pendingRerollAt||new Date() } },
     $inc: { renderVersion: 1 },
   }, { returnDocument: "after" }).lean();
   return changed || Giveaway.findById(item._id).lean();
@@ -183,7 +211,12 @@ export async function publishGiveawayResult(client, item) {
         m.embeds?.some(e => e.footer?.text?.includes(`Giveaway ID: ${item._id}`)));
     }
     if (!message) message = await channel.send(giveawayAnnouncement(item));
-    await Giveaway.updateOne({_id:item._id,status:"ended"},{$set:{messageId:message.id,renderedAt:new Date()}});
+    else {
+      if (message.author?.id !== client.user?.id) throw Error("Activity announcement does not belong to the bot.");
+      await message.edit(giveawayAnnouncement(item));
+    }
+    await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
+      {$set:{messageId:message.id,renderedAt:new Date()}});
     return true;
   }
   if (!item?.messageId || !["ended", "open"].includes(item.status)) return false;
