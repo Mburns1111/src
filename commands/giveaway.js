@@ -160,14 +160,15 @@ export async function execute(interaction) {
       return interaction.editReply(`Saved **${name}** for <#${channel.id}>: ${minimumMessages} message(s) of ${minimumChars}+ characters on ${activeDays} different days per Wednesday–Wednesday week. Use watch-save again to edit it; other saved channels are unaffected.`);
     }
     if (operation === "watch-list") {
-      const rules=await GiveawayWatchRule.find({guildId:interaction.guildId}).sort({nameKey:1}).limit(40).lean();
+      const rules=await GiveawayWatchRule.find({guildId:interaction.guildId}).sort({nameKey:1}).limit(30).lean();
+      const lines=rules.map(rule=>`• **${String(rule.name).replace(/[@`*_~|<>]/g,"")}** · <#${rule.channelId}> · ${rule.minimumMessages} message(s) / ${rule.activeDays} days · ${rule.minimumChars}+ chars`);
       return interaction.editReply({content:rules.length
-        ? "**Saved watched channels**\n"+rules.map(rule=>`• **${rule.name}** · <#${rule.channelId}> · ${rule.minimumMessages} message(s) / ${rule.activeDays} days · ${rule.minimumChars}+ chars`).join("\n")
+        ? ("**Saved watched channels**\\n"+lines.join("\\n")).slice(0,1900)
         : "No saved watches yet. Use /giveaway watch-save to create one.",allowedMentions:{parse:[]}});
     }
     if (operation === "watch-delete") {
       const name=interaction.options.getString("name",true);
-      const inUse=await GiveawayPlan.exists({guildId:interaction.guildId,watchNameKey:watchNameKey(name),status:"active"});
+      const inUse=await GiveawayPlan.exists({guildId:interaction.guildId,watchNameKey:watchNameKey(name),status:{$in:["active","paused"]}});
       if(inUse)throw Error("An active giveaway plan uses this watched channel. Pause or edit that plan first.");
       const result=await GiveawayWatchRule.deleteOne({guildId:interaction.guildId,nameKey:watchNameKey(name)});
       return interaction.editReply(result.deletedCount?"Watched channel rule removed. Existing giveaway records are unchanged.":"No rule exists under that name.");
