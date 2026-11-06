@@ -294,3 +294,31 @@ test("no configured ping role produces no mention and no role ping allowed", asy
     assert.deepEqual(payload.allowedMentions, { parse: [] });
   } finally { restore(patches); }
 });
+
+test("activity giveaway listing and winners can be saved independently from standard and trial channels",async()=>{
+ const changes=[],saved=[];
+ try {
+  stub(changes,GuildConfig,"findOne",()=>({
+   select:()=>({lean:async()=>({
+    giveawayChannelId:normalId,survivalTrialChannelId:trialId,
+    activityGiveawayListChannelId:"",activityGiveawayWinnersChannelId:"",
+   })}),
+  }));
+  stub(changes,GuildConfig,"findOneAndUpdate",async(_filter,update)=>saved.push(update.$set));
+  const listing={id:"678901234567890123",toString:()=>"<#678901234567890123>"};
+  const winners={id:"789012345678901234",toString:()=>"<#789012345678901234>"};
+  const interaction=setupInteraction({activity_giveaway_list:listing,activity_winners:winners});
+  await setupChannels(interaction);
+  assert.deepEqual(saved,[{
+    activityGiveawayListChannelId:listing.id,
+    activityGiveawayWinnersChannelId:winners.id,
+  }]);
+  assert.match(interaction.replies.at(-1).content,/Activity giveaway winner announcements/);
+  await assert.rejects(()=>setupChannels(setupInteraction({
+    activity_giveaway_list:{id:otherId},activity_winners:{id:otherId}
+  })),/different channels/i);
+  await assert.rejects(()=>setupChannels(setupInteraction({
+    activity_winners:{id:normalId}
+  })),/separate channels/i);
+ }finally{restore(changes);}
+});

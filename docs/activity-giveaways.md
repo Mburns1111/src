@@ -4,7 +4,11 @@
 
 ## Setup workflow
 
-1. Assign the public destination with `/setup channels giveaways:#giveaways`. This is where standard giveaway posts and automatic activity drawing results appear.
+1. Configure **three separate channels** with `/setup channels giveaways:#regular-giveaways activity_giveaway_list:#active-giveaways activity_winners:#activity-winners`. The first is for existing button-entry giveaways, the second is a member-visible directory, and the third is where automatic activity drawing results and ticket-claim buttons are announced.
+   - The public directory gets one live embed **per active scheduled activity plan or confirmed one-off activity giveaway**. It shows the current/upcoming prize, watched channel, qualifying message count/conditions, period, next winner announcement time and results channel. It does **not** reveal entrants or winners before the draw.
+   - Recurring plans reuse/edit their own directory message each cycle; changing a plan/prize updates that listing. Paused, completed and concluded giveaways are cleared from the directory while finished results remain preserved in the **separate** winners channel.
+   - The bot synchronizes directory posts automatically on startup and every giveaway sweep, including recovery after restarts. Ensure it can send/edit embeds and upload images in both channels.
+   - Older standard giveaways and Court's Trials retain their existing assigned channels.
 2. Save one watched channel at a time:
    - Daily QOTD: `/giveaway watch-save name:QOTD channel:#question-of-the-day period:daily min_chars:25 messages:1`
    - Weekly discussion: `/giveaway watch-save name:Discussion channel:#discussion period:weekly min_chars:20 messages:50`
@@ -32,6 +36,20 @@
 - **Prize cycling**: `repeat_prizes` determines whether the ordered prize list cycles after the last prize (default true). No prize is consumed when a scheduled draw finds zero eligible members.
 
 All start times and day boundaries use `America/New_York` and handle daylight-saving changes. Daily and weekly same-clock-time recurrences keep the Eastern clock time; fixed-hour intervals may shift their Eastern clock time when DST changes. You may update the next announcement, schedule, or activity period later with `/giveaway plan-edit` without changing past drawings.
+
+## Registered giveaway embed banners
+
+Use a one-time image upload to register a reusable banner; the bot stores the image in MongoDB rather than trusting a temporary signed upload URL.
+
+- `/giveaway banner-save name:Roses image:[upload PNG/JPG/WebP/GIF]` — register or replace a named banner (maximum 4 MB)
+- `/giveaway banner-list` — review registered images and the default selection
+- `/giveaway banner-default name:Roses` — select the server-wide default banner on standard and activity giveaway embeds
+- `/giveaway banner-clear` — remove the default while keeping saved assets
+- `/giveaway banner-remove name:Roses` — remove an unused asset (first change the default or any active plan using it)
+- On `/giveaway plan-create` or `plan-edit`, specify `banner:Roses` for a particular giveaway; on `plan-edit`, `banner:default` returns to the server default.
+- One-off `/giveaway activity` and ordinary `/giveaway start` accept an optional `banner` registered name. If omitted, they inherit the server default.
+
+The registered banner is displayed above the details as the embed image in both public directory listings and the final winners/results post. **Court's Trials are not changed.**
 
 ## Configurable activity counts and mention/phrase challenges
 
@@ -88,12 +106,12 @@ All watched-message counts are accumulated by the bot as messages arrive and che
 
 1. Pull the feature branch and run `npm test`.
 2. Run `node register-commands.js` to refresh the new subcommands; restart the Replit development bot.
-3. Save a daily QOTD watch and weekly discussion watch, list both, and update one. Verify both remain saved.
+3. Save a daily QOTD watch and weekly discussion watch, list both, and update one. Verify both remain saved. Confirm new plan listings appear only in `#active-giveaways`.
 4. Check the daily QOTD watch on Wednesday: it must include only Tuesday's qualifying messages. Check again Thursday: it must include only Wednesday's qualifying messages (not Tuesday's). Test messages just below/above the length threshold. Verify Eastern midnight and both DST transitions.
-5. Create a one-time plan, verify it draws automatically at its set Eastern time and keeps a permanent announcement.
+5. Register a banner, set it as default, create a one-time activity plan, and verify its banner appears in the public list. At draw time confirm the finished result posts only in `#activity-winners`, and the active list entry disappears.
 6. Create two recurring plans: daily QOTD and weekly discussion. Verify independent eligible entrants and rotating prizes; one day's entries must never accumulate into the next. Test a fixed-hour interval schedule and verify no activity period is drawn twice.
-7. Edit, reorder and remove future prizes; confirm prior finished drawing prizes and winners do not change.
-8. Create a short claim-window test. Submit ticket number and link as a winner; confirm the message updates, duplicate submission is blocked and no automatic reroll happens for that place.
+7. Edit, reorder and remove future prizes; confirm the public directory updates in place without creating duplicate posts. Check that past drawing prizes/winners are unchanged, and a completed plan is removed from the directory.
+8. Create a short claim-window test. Submit ticket number and link as a winner from the announcement in `#activity-winners`; confirm that winner post updates, duplicate submission is blocked, and no automatic reroll happens for that place.
 9. Let an unclaimed winning place expire, confirm a new eligible winner is chosen, prior winner is excluded and the replacement gets their own claim deadline.
 10. Test no available replacement, simultaneous submissions/rerolls, expired winner leaving Discord, bot restart during drawing, and a bot downtime gap over one week.
 11. Confirm ordinary button-entry giveaways, original prize/claim display, and Court's Trial functionality are not regressed.
