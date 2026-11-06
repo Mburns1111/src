@@ -34,7 +34,8 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("prize").setDescription("Prize").setRequired(true))
     .addIntegerOption(o => o.setName("minutes").setDescription("Minutes until winners announced").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
     .addStringOption(o => o.setName("type").setDescription("Activity scope (default: general)").addChoices({name:"General server",value:"general"},{name:"Selected channels",value:"channels"}))
-    .addIntegerOption(o => o.setName("minimum").setDescription("Messages required per active day (default 1)").setMinValue(1))
+    .addIntegerOption(o => o.setName("minimum").setDescription("Optional messages per active day (default 1)").setMinValue(1))
+    .addIntegerOption(o => o.setName("messages").setDescription("Total qualifying messages across the chosen activity period").setMinValue(1).setMaxValue(10000))
     .addIntegerOption(o => o.setName("days").setDescription("Distinct active days required (default 1, e.g. 3)").setMinValue(1).setMaxValue(7))
     .addIntegerOption(o => o.setName("winners").setDescription("Winners").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("watch").setDescription("Saved named watched-channel rule (optional)"))
@@ -52,14 +53,14 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("name").setDescription("Example: QOTD, Suggestions, Art").setRequired(true).setMinLength(1).setMaxLength(60))
     .addChannelOption(o => o.setName("channel").setDescription("Channel whose messages count").setRequired(true))
     .addIntegerOption(o => o.setName("min_chars").setDescription("Minimum characters per qualifying message (default 1)").setMinValue(0).setMaxValue(2000))
-    .addIntegerOption(o => o.setName("messages").setDescription("Messages needed per active day (default 1)").setMinValue(1).setMaxValue(50))
+    .addIntegerOption(o => o.setName("messages").setDescription("Total qualifying messages required during this daily/weekly period").setMinValue(1).setMaxValue(10000))
+    .addIntegerOption(o => o.setName("per_day").setDescription("Optional extra minimum messages per active day (default 1)").setMinValue(1).setMaxValue(50))
     .addIntegerOption(o => o.setName("days").setDescription("Required active days: 1 for daily, up to 7 weekly").setMinValue(1).setMaxValue(7))
     .addStringOption(o => o.setName("period").setDescription("Daily: prior calendar day; Weekly: prior Wednesday–Wednesday")
       .addChoices({name:"Daily — previous calendar day",value:"daily"},
         {name:"Weekly — Wednesday to Wednesday",value:"weekly"}))
     .addUserOption(o => o.setName("mention_member").setDescription("Require an explicit @mention of this member"))
     .addStringOption(o => o.setName("phrase").setDescription("Optional text/answer required in the message (case-insensitive)").setMinLength(1).setMaxLength(120))
-    .addIntegerOption(o => o.setName("total_messages").setDescription("Total qualifying messages per period (0 = no total requirement)").setMinValue(0).setMaxValue(10000))
     .addBooleanOption(o => o.setName("clear_mention").setDescription("Stop requiring a member mention"))
     .addBooleanOption(o => o.setName("clear_phrase").setDescription("Stop requiring a phrase")))
   .addSubcommand(c => c.setName("watch-list").setDescription("Review saved named activity channel rules"))
@@ -166,10 +167,11 @@ export async function execute(interaction) {
       const existing=await GiveawayWatchRule.findOne({guildId:interaction.guildId,nameKey}).lean();
       const activityPeriod=interaction.options.getString("period") || existing?.activityPeriod || "weekly";
       const minimumChars=interaction.options.getInteger("min_chars") ?? existing?.minimumChars ?? 1;
-      const minimumMessages=interaction.options.getInteger("messages") ?? existing?.minimumMessages ?? 1;
-      const periodChanged=existing?.activityPeriod && existing.activityPeriod!==activityPeriod;
+      const totalInput=interaction.options.getInteger("messages");
+      const minimumTotalMessages=totalInput ?? existing?.minimumTotalMessages ?? 1;
+      const minimumMessages=interaction.options.getInteger("per_day") ?? existing?.minimumMessages ?? 1;
       const activeDays=interaction.options.getInteger("days") ??
-        (activityPeriod==="daily"?1:(periodChanged?3:existing?.activeDays??3));
+        (activityPeriod==="daily" || totalInput!==null ? 1 : existing?.activeDays??1);
       if(activityPeriod==="daily" && activeDays!==1)
         throw Error("Daily watches check one calendar day; set days:1. Weekly watches can require multiple days.");
       const mentionUser=interaction.options.getUser("mention_member");
@@ -181,8 +183,6 @@ export async function execute(interaction) {
       if(mentionUser?.bot) throw Error("The mentioned target must be a real server member.");
       const requiredMentionUserId=clearMention?"":(mentionUser?.id || existing?.requiredMentionUserId || "");
       const requiredPhrase=clearPhrase?"":(phraseInput?.trim().replace(/\\s+/g," ") || existing?.requiredPhrase || "");
-      const minimumTotalMessages=interaction.options.getInteger("total_messages") ??
-        existing?.minimumTotalMessages ?? 0;
       // Increment only when message-matching conditions changed. Previously
       // matched messages are not reused under an incompatible challenge.
       const criteriaChanged=!existing || existing.channelId!==channel.id ||
@@ -197,16 +197,17 @@ export async function execute(interaction) {
         {upsert:true,new:true,runValidators:true});
       const matching=[requiredMentionUserId?`explicitly mention <@${requiredMentionUserId}>`:null,
         requiredPhrase?`include phrase "${requiredPhrase.replace(/[@`*_~|<>]/g,"")}"`:null].filter(Boolean);
-      const details=[`${minimumMessages} qualifying message(s)/active day`,
-        `${minimumChars}+ characters`,
-        minimumTotalMessages?`${minimumTotalMessages} messages total in the activity period`:null,
+      const details=[`${minimumTotalMessages} qualifying messages total in the ${activityPeriod} activity window`,
+        `${minimumChars}+ characters each`,
+        minimumMessages>1?`${minimumMessages} messages per active day`:null,
+        activeDays>1?`${activeDays} different days`:null,
         ...matching].filter(Boolean);
       return interaction.editReply({content:`Saved **${name}** for <#${channel.id}> (${activityPeriod}): ${details.join(" · ")}. Other watches are unchanged.`,
         allowedMentions:{parse:[]}});
     }
     if (operation === "watch-list") {
       const rules=await GiveawayWatchRule.find({guildId:interaction.guildId}).sort({nameKey:1}).limit(30).lean();
-      const lines=rules.map(rule=>`• **${String(rule.name).replace(/[@*_~|<>]/g,"")}** · <#${rule.channelId}> · ${rule.minimumMessages} msg/active day · ${rule.activeDays} day(s) · ${rule.minimumChars}+ chars · ${rule.activityPeriod||"weekly"}${rule.minimumTotalMessages?` · ${rule.minimumTotalMessages} total`:""}${rule.requiredMentionUserId?` · tag <@${rule.requiredMentionUserId}>`:""}${rule.requiredPhrase?` · phrase "${String(rule.requiredPhrase).replace(/[@`*_~|<>]/g,"").slice(0,35)}"`:""}`);
+      const lines=rules.map(rule=>`• **${String(rule.name).replace(/[@*_~|<>]/g,"")}** · <#${rule.channelId}> · ${rule.minimumTotalMessages||1} total msg · ${rule.activityPeriod||"weekly"} · ${rule.minimumChars}+ chars${rule.activeDays>1?` · ${rule.activeDays} active days`:""}${rule.minimumMessages>1?` · ${rule.minimumMessages}/day`:""}${rule.requiredMentionUserId?` · tag <@${rule.requiredMentionUserId}>`:""}${rule.requiredPhrase?` · phrase "${String(rule.requiredPhrase).replace(/[@*_~|<>]/g,"").slice(0,35)}"`:""}`);
       return interaction.editReply({content:rules.length
         ? ("**Saved watched channels**\n"+lines.join("\n")).slice(0,1900)
         : "No saved watches yet. Use /giveaway watch-save to create one.",allowedMentions:{parse:[]}});
@@ -231,18 +232,20 @@ export async function execute(interaction) {
       const periodKey=period==="daily"?previousActivityDay(checkedAt):completedActivityWeek(checkedAt);
       const startAt=easternMidnight(periodKey);
       const endAt=easternMidnight(shiftCalendarDay(periodKey,period==="daily"?1:7));
+      const totalInput=interaction.options.getInteger("messages");
+      const minimumTotalMessages=totalInput ?? saved?.minimumTotalMessages ?? 1;
       const minimum = interaction.options.getInteger("minimum") ?? saved?.minimumMessages ?? 1;
       const days = interaction.options.getInteger("days") ??
-        (period==="daily"?1:saved?.activeDays??1);
+        (period==="daily" || totalInput!==null ? 1 : saved?.activeDays??1);
       if(period==="daily" && days!==1)
         throw Error("Daily activity checks only one day. Use days:1.");
       const minimumChars=interaction.options.getInteger("min_chars") ?? saved?.minimumChars ?? 1;
       const channelIds = [...new Set(channels.map(c=>c.id))];
       const entrantIds = saved ? await qualifyingWatchActivity({
           guildId:interaction.guildId,rule:saved,period,key:periodKey,
-          minimum,days,minimumChars,minimumTotalMessages:saved.minimumTotalMessages||0,
+          minimum,days,minimumChars,minimumTotalMessages,
         }) : await qualifyingActivity({guildId:interaction.guildId,type,
-          channelIds,minimum,days,minimumChars,
+          channelIds,minimum,days,minimumChars,minimumTotalMessages,
           ...(period==="daily"?{day:periodKey}:{week:periodKey})});
       const scan = {entrantIds,channelIds};
       if (!scan.entrantIds.length) throw Error("Nobody qualified; giveaway was not created.");
@@ -255,14 +258,14 @@ export async function execute(interaction) {
         activityChannelIds:scan.channelIds, activityMinimum:minimum, activityDays:days,activityMinChars:minimumChars,
         activityRequiredMentionUserId:saved?.requiredMentionUserId||"",
         activityRequiredPhrase:saved?.requiredPhrase||"",
-        activityMinTotalMessages:saved?.minimumTotalMessages||0,
+        activityMinTotalMessages:minimumTotalMessages,
         activityPeriod:period,activityPeriodKey:periodKey,activityEndAt:endAt,
         claimWindowHours:interaction.options.getInteger("claim_hours")??48,autoRerollClaims:true,
         activityStartAt:startAt, activityCheckedAt:checkedAt,
       });
       await Giveaway.updateOne({_id:record._id},{$set:{status:"draft"}});
       return interaction.editReply({
-        content:`**Private activity giveaway preview**\nActivity: ${period==="daily"?"Previous Eastern calendar day":"Completed Wednesday–Wednesday week"}: ${periodKey}\nQualified: **${scan.entrantIds.length}**\nRequirement: ${minimum} message(s) of ${minimumChars}+ characters on ${days} different days\nAnnouncement: <t:${Math.floor(endsAt.getTime()/1000)}:F>\nConfirm to lock entries. Nothing will be posted until winners are drawn.`,
+        content:`**Private activity giveaway preview**\nActivity: ${period==="daily"?"Previous Eastern calendar day":"Completed Wednesday–Wednesday week"}: ${periodKey}\nQualified: **${scan.entrantIds.length}**\nRequirement: **${minimumTotalMessages} qualifying messages total** in this ${period} period, each ${minimumChars}+ characters${days>1?` on ${days} distinct days`:""}${minimum>1?` (minimum ${minimum} messages on each active day)`:""}\nAnnouncement: <t:${Math.floor(endsAt.getTime()/1000)}:F>\nConfirm to lock entries. Nothing will be posted until winners are drawn.`,
         components:[new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId(`giveaway:confirm:${record._id}`).setLabel("Confirm & schedule").setStyle(ButtonStyle.Success),
           new ButtonBuilder().setCustomId(`giveaway:cancel:${record._id}`).setLabel("Cancel").setStyle(ButtonStyle.Secondary),
