@@ -24,7 +24,7 @@ export async function reconcileGiveawayClaims(client, {now=new Date(),limit=30}=
             {$addToSet:{claimResolvedSlots:slot},$set:{renderedAt:null},$inc:{renderVersion:1}});
         } else {
           latest=await rerollGiveaway({id:latest._id,guildId:latest.guildId,staffId:"bot",slot,
-            reason:"claim-expired",now});
+            reason:"claim-expired",now,client});
         }
         latest=await Giveaway.findById(latest._id).lean();
         if (!latest || latest.status!=="ended") break;
