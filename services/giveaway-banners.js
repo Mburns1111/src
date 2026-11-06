@@ -1,7 +1,6 @@
 import { AttachmentBuilder } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import GiveawayBanner, { bannerNameKey } from "../models/GiveawayBanner.js";
-import { giveawayAnnouncement } from "./giveaways.js";
 
 export const MAX_GIVEAWAY_BANNER_BYTES=4*1024*1024;
 const EXTENSION={"image/png":"png","image/jpeg":"jpg","image/webp":"webp","image/gif":"gif"};
@@ -59,8 +58,4 @@ export function attachGiveawayBanner(payload,banner) {
   embed.setImage(`attachment://${filename}`);
   return {...payload,files:[new AttachmentBuilder(Buffer.from(banner.imageData),{name:filename})],
     attachments:[]};
-}
-export async function renderGiveawayAnnouncement(record) {
-  return attachGiveawayBanner(giveawayAnnouncement(record),
-    await getGiveawayBanner(record.guildId,record.bannerNameKey));
 }
