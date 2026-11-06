@@ -20,7 +20,13 @@ export async function handleActivityGiveawayProgress(interaction) {
     return interaction.editReply("Progress tracking is unavailable for this giveaway.");
   const rule=isPlan && item.watchNameKey!=="general"
     ? await GiveawayWatchRule.findOne({guildId:interaction.guildId,nameKey:item.watchNameKey}).lean()
-    :null;
+    :!isPlan && item.activityRuleId ? {
+      _id:item.activityRuleId,criteriaVersion:item.activityRuleCriteriaVersion||0,
+      channelId:item.activityChannelIds?.[0],
+      minimumChars:item.activityMinChars,minimumMessages:item.activityMinimum,
+      activeDays:item.activityDays,requiredMentionUserId:item.activityRequiredMentionUserId,
+      requiredPhrase:item.activityRequiredPhrase,roleBonuses:item.roleBonuses,
+    }:null;
   const period=isPlan?item.activityPeriod:item.activityPeriod;
   const customStart=isPlan?item.customActivityStartAt:item.customActivityStartAt;
   const customEnd=isPlan?item.customActivityEndAt:item.customActivityEndAt;
