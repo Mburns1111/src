@@ -81,6 +81,7 @@ import { data as giveawayCommand, trialData as trialCommand, execute as executeG
 import { reconcileGiveaways } from "./services/giveaways.js";
 import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
 import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
+import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
 import { recordGiveawayMessage } from "./services/giveaway-activity-counter.js";
 import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
@@ -408,7 +409,12 @@ client.once(Events.ClientReady, async (readyClient) => {
   const sweepGiveaways = async () => {
     if (giveawaySweepActive) return;
     giveawaySweepActive = true;
-    try { await reconcileGiveawayPlans(readyClient); await reconcileGiveaways(readyClient); await reconcileGiveawayClaims(readyClient); }
+    try {
+      await reconcileGiveawayPlans(readyClient);
+      await reconcileGiveaways(readyClient);
+      await reconcileGiveawayClaims(readyClient);
+      await reconcileActivityGiveawayListings(readyClient);
+    }
     catch (error) { console.error("[Giveaways] Cleanup sweep failed:", error); }
     finally { giveawaySweepActive = false; }
   };
