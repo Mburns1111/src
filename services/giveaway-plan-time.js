@@ -37,6 +37,22 @@ export function parseEasternAnnouncement(value,{now=new Date()}={}) {
  if(result<=now) throw Error("Choose an announcement time in the future.");
  return result;
 }
+export function parseEasternActivityTime(value){
+  // Accept an earlier start timestamp: this is a recording boundary, not a draw.
+  return parseEasternAnnouncement(value,{now:new Date("1970-01-01T00:00:00.000Z")});
+}
+export function validateCustomActivityWindow(startValue,endValue,{announceAt,now=new Date(),recurrence="once"}={}) {
+  if(!startValue && !endValue)return {startAt:null,endAt:null};
+  if(!startValue||!endValue)throw Error("Custom activity windows require both starts_at and ends_at.");
+  if(recurrence!=="once")throw Error("Custom start/end times require a one-time giveaway plan.");
+  const startAt=startValue instanceof Date?startValue:parseEasternActivityTime(startValue);
+  const endAt=endValue instanceof Date?endValue:parseEasternActivityTime(endValue);
+  if(startAt>=endAt)throw Error("Activity ends_at must be later than starts_at.");
+  if(announceAt && endAt>new Date(announceAt))throw Error("Activity must end before the winner drawing.");
+  if(startAt.getTime() < now.getTime()-89*86400_000)
+    throw Error("Activity windows cannot start more than 89 days ago because older counts expire.");
+  return {startAt,endAt};
+}
 export function nextWeeklyAnnouncement(previous) {
  const p=easternParts(new Date(previous));
  const nextDate=new Date(Date.UTC(p.y,p.m-1,p.d+7,12));
