@@ -14,6 +14,7 @@ const schema = new mongoose.Schema({
   requiredMentionUserId: { type: String, default: "" },
   requiredPhrase: { type: String, default: "", maxlength: 120 },
   minimumTotalMessages: { type: Number, default: 0, min: 0, max: 10000 },
+  roleBonuses:[{roleId:{type:String,required:true},extraEntries:{type:Number,min:1,max:20,required:true}}],
   // Increment on each edit: old mention/phrase matches cannot satisfy edited rules.
   criteriaVersion: { type: Number, default: 0 },
 }, { timestamps: true });

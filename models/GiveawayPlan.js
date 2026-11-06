@@ -15,6 +15,12 @@ const schema=new mongoose.Schema({
   listFingerprint:{type:String,default:""},
   bannerNameKey:{type:String,default:""},
   winnerCount:{type:Number,default:1,min:1,max:10},
+  requireStaffReview:{type:Boolean,default:false},
+  progressEnabled:{type:Boolean,default:false},
+  // A manually bounded one-time activity window, inclusive start / exclusive end.
+  customActivityStartAt:{type:Date,default:null},
+  customActivityEndAt:{type:Date,default:null},
+  roleBonuses:[{roleId:{type:String,required:true},extraEntries:{type:Number,min:1,max:20,required:true}}],
   // Optional per-plan override. Null inherits the named watch's total goal.
   minimumTotalMessages:{type:Number,default:null,min:1,max:10000},
   claimWindowHours:{type:Number,default:48,min:1,max:720},

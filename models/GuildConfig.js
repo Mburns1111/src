@@ -17,6 +17,7 @@ const guildConfigSchema = new mongoose.Schema(
     giveawayChannelId: { type: String, default: "" },
     activityGiveawayListChannelId: { type: String, default: "" },
     activityGiveawayWinnersChannelId: { type: String, default: "" },
+    activityGiveawayReviewChannelId: { type: String, default: "" },
     giveawayDefaultBannerNameKey: { type: String, default: "" },
     survivalTrialChannelId: { type: String, default: "" },
     giveawayPingRoleId: { type: String, default: "" },
