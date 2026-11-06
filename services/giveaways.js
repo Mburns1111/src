@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
+import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
 import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt } from "./giveaway-claims.js";
 import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
@@ -126,13 +127,13 @@ export async function leaveGiveaway({ id, guildId, userId, now = new Date() }) {
   return current.entrantIds?.includes(userId) ? "unavailable" : "not-entered";
 }
 
-async function verifyServerMembers(client,guildId,ids) {
+async function verifyServerMembers(client,guildId,ids,{includeMembers=false}={}) {
   const guild=await client.guilds.fetch(guildId);
   const verified=[];
   for(const id of [...new Set(ids)]) {
     try {
       const member=await guild.members.fetch({user:id,force:true});
-      if(member && !member.user?.bot)verified.push(id);
+      if(member && !member.user?.bot)verified.push(includeMembers?{...member,id:member.id||id}:id);
     }catch(error){
       if(error.code!==10007)throw error;
     }
@@ -151,11 +152,18 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   if (item.status === "ended") return item;
   let eligible = item.entrantIds || [];
   if (item.mode==="activity" && !client) throw Error("Discord client required to verify activity entrants.");
-  if(client) eligible=await verifyServerMembers(client,item.guildId,eligible);
-  const winnerIds = chooseGiveawayWinners(eligible, item.winnerCount);
+  let entries=[];
+  if(client && item.mode==="activity"){
+    const members=await verifyServerMembers(client,item.guildId,eligible,{includeMembers:true});
+    eligible=members.map(m=>m.id);
+    entries=weightEntriesForMembers(members,item.roleBonuses);
+  }else if(client)eligible=await verifyServerMembers(client,item.guildId,eligible);
+  const winnerIds = item.mode==="activity"
+    ?pickWeightedUnique(eligible,item.winnerCount,entries)
+    :chooseGiveawayWinners(eligible,item.winnerCount);
   const changed = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "closing" },
-    { $set: { status: "ended", winnerIds, ...(item.mode === "activity" ? {activityVerifiedIds:eligible} : {}),
+    { $set: { status: "ended", winnerIds, ...(item.mode === "activity" ? {activityVerifiedIds:eligible,entryWeights:entries} : {}),
       claimStartedAt:now,winnerAssignedAt:winnerIds.map(()=>now),
       claimCheckAt:nextClaimCheckAt({...item,status:"ended",winnerIds,claimStartedAt:now,winnerAssignedAt:winnerIds.map(()=>now)}),
       renderedAt:null }, $inc: { renderVersion: 1 } },
@@ -197,7 +205,11 @@ export async function finishPendingReroll(item) {
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Giveaway reroll state requires staff repair.");
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
-  const replacementId = chooseGiveawayWinners(item.pendingRerollEligibleIds?.length ? item.pendingRerollEligibleIds : (item.mode === "activity" ? item.activityVerifiedIds || [] : item.entrantIds || []), 1, used)[0];
+  const eligible=item.pendingRerollEligibleIds?.length ? item.pendingRerollEligibleIds :
+    (item.mode==="activity" ? item.activityVerifiedIds||[] : item.entrantIds||[]);
+  const replacementId=(item.mode==="activity"
+    ?pickWeightedUnique(eligible,1,item.entryWeights,used)
+    :chooseGiveawayWinners(eligible,1,used))[0];
   if (!replacementId) throw Error("No unused entrants remain.");
   const previousId = item.winnerIds[slot];
   const winnerIds = [...item.winnerIds];
