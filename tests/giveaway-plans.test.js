@@ -84,7 +84,7 @@ test("daily Eastern midnight tracks 23-hour and 25-hour DST days",()=>{
 test("repeat choices support fixed same-time Eastern schedules or fixed hour intervals",()=>{
  const base={prizes:["Pet"],nextPrizeIndex:0,activityPeriod:"daily",repeatMode:"daily",nextRunAt:new Date("2026-10-31T23:00:00Z"),repeatPrizes:true};
  const next=nextGiveawayPlanCycle(base,{drawn:true,result:"Awarded"},new Date("2026-10-31T23:05:00Z"));
- assert.equal(next.nextRunAt.toISOString(),"2026-11-03T00:00:00.000Z");
+ assert.equal(next.nextRunAt.toISOString(),"2026-11-02T00:00:00.000Z");
  assert.equal(next.status,"active");
  assert.deepEqual(validatePlanSchedule("daily","daily",null),{
    repeatMode:"daily",activityPeriod:"daily",intervalMinutes:null,recurring:true
