@@ -55,7 +55,8 @@ test("announcement remains on completion with details, winners and audit trail",
    winnerIds:[userId,"333333333333333333"],
    rerollHistory:[{slot:0,previousId:"444444444444444444",replacementId:userId}],
  }));
- assert.equal(finished.components.length,0,"no active entry controls remain");
+ assert.equal(finished.components.length,1,"entry buttons are replaced by the winner ticket form");
+ assert.equal(finished.components[0].components[0].data.label,"File Ticket Claim");
  const description=finished.embeds[0].data.description;
  assert.match(description,/Jester Dragon/);
  assert.match(description,/Reroll history/);
