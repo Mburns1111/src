@@ -10,6 +10,12 @@ const schema = new mongoose.Schema({
   minimumMessages: { type: Number, default: 1, min: 1, max: 50 },
   activeDays: { type: Number, default: 3, min: 1, max: 7 },
   activityPeriod: { type: String, enum: ["daily","weekly"], default: "weekly" },
+  // Optional challenge conditions. Both conditions must match when both are set.
+  requiredMentionUserId: { type: String, default: "" },
+  requiredPhrase: { type: String, default: "", maxlength: 120 },
+  minimumTotalMessages: { type: Number, default: 0, min: 0, max: 10000 },
+  // Increment on each edit: old mention/phrase matches cannot satisfy edited rules.
+  criteriaVersion: { type: Number, default: 0 },
 }, { timestamps: true });
 schema.index({ guildId: 1, nameKey: 1 }, { unique: true });
 export const watchNameKey = value => String(value || "").trim().toLocaleLowerCase("en-US");

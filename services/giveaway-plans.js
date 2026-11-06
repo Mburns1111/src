@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
-import { completedActivityWeek, previousActivityDay, qualifyingActivity } from "./giveaway-activity-counter.js";
+import { completedActivityWeek, previousActivityDay, qualifyingActivity, qualifyingWatchActivity } from "./giveaway-activity-counter.js";
 import { easternMidnight, shiftCalendarDay, nextPlanAnnouncement } from "./giveaway-plan-time.js";
 import { closeGiveaway, publishGiveawayResult } from "./giveaways.js";
 
@@ -51,8 +51,13 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     ? {type:"channels",channelIds:[rule.channelId],minimum:rule.minimumMessages,days:rule.activeDays,minimumChars:rule.minimumChars}
     : {type:"general",channelIds:[],minimum:1,days:1,minimumChars:1};
   const requirement={...qualification,days:activityWindow.period==="daily"?1:qualification.days};
-  const entrants=await qualifyingActivity({guildId:plan.guildId,...requirement,
-    ...(activityWindow.period==="daily"?{day:activityWindow.key}:{week:activityWindow.key})});
+  const entrants=rule ? await qualifyingWatchActivity({
+      guildId:plan.guildId,rule,period:activityWindow.period,key:activityWindow.key,
+      minimum:requirement.minimum,days:requirement.days,
+      minimumChars:requirement.minimumChars,
+      minimumTotalMessages:rule.minimumTotalMessages||0,
+    }) : await qualifyingActivity({guildId:plan.guildId,...requirement,
+      ...(activityWindow.period==="daily"?{day:activityWindow.key}:{week:activityWindow.key})});
   const guild=await client.guilds.fetch(plan.guildId);
   const eligible=[];
   for(const id of [...new Set(entrants)]) {
@@ -76,7 +81,11 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
         mode:"activity",status:"closing",entrantIds:eligible,activityVerifiedIds:eligible,
         activityType:qualification.type,activityChannelIds:qualification.channelIds,
         activityMinimum:qualification.minimum,activityDays:requirement.days,
-        activityMinChars:qualification.minimumChars,activityPeriod:activityWindow.period,
+        activityMinChars:qualification.minimumChars,
+        activityRequiredMentionUserId:rule?.requiredMentionUserId||"",
+        activityRequiredPhrase:rule?.requiredPhrase||"",
+        activityMinTotalMessages:rule?.minimumTotalMessages||0,
+        activityPeriod:activityWindow.period,
         activityPeriodKey:activityWindow.key,activityStartAt:activityWindow.startAt,
         activityEndAt:activityWindow.endAt,
         activityCheckedAt:now,claimWindowHours:plan.claimWindowHours,autoRerollClaims:true,

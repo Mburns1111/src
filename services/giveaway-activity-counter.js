@@ -1,4 +1,6 @@
 import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
+import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
+import GiveawayActivityRuleCount from "../models/GiveawayActivityRuleCount.js";
 
 const formatter = new Intl.DateTimeFormat("en-US", {timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",weekday:"short"});
 function easternDay(date) {
@@ -30,6 +32,30 @@ export function messageCharacterCount(message) {
   if (!content || /^[/.]/.test(content)) return 0;
   return Math.min(2000, [...content].length);
 }
+// Discord's explicit user-mention markup identifies actual @member tags.
+const TAG=/\u003c@!?\d{17,20}\u003e/g;
+export function giveawayMessageText(message) {
+  return String(message?.content || "").replace(TAG," ").replace(/\s+/g," ").trim();
+}
+export function messageMatchesGiveawayWatch(message,rule) {
+  if (!message?.guildId || !message?.author?.id || message.author.bot || message.webhookId)
+    return false;
+  const mentionId=String(rule?.requiredMentionUserId || "");
+  if(mentionId) {
+    if (!/^\d{17,20}$/.test(mentionId) || message.author.id===mentionId)
+      return false; // No self-mentions and no invalid target.
+    const raw=String(message.content||"");
+    if (!raw.includes(`<@${mentionId}>`) && !raw.includes(`<@!${mentionId}>`))
+      return false; // Replies, display names and role pings are not explicit member tags.
+    if (message.mentions?.users?.has && !message.mentions.users.has(mentionId))
+      return false;
+  }
+  const phrase=String(rule?.requiredPhrase||"").trim().replace(/\s+/g," ").toLocaleLowerCase("en-US");
+  const text=giveawayMessageText(message);
+  if (!text || /^[/.]/.test(text)) return false;
+  if (phrase && !text.replace(/\s+/g," ").toLocaleLowerCase("en-US").includes(phrase)) return false;
+  return [...text].length >= (rule?.minimumChars??1);
+}
 export async function recordGiveawayMessage(message) {
   if (!message.guildId || !message.author?.id || message.author.bot || message.webhookId ||
       !message.channelId || !message.channel?.isTextBased?.()) return;
@@ -37,11 +63,24 @@ export async function recordGiveawayMessage(message) {
   if (!length) return;
   const date=message.createdAt || new Date();
   const day=easternDay(date).day;
+  const week=activityWeek(date);
   await GiveawayActivityCount.updateOne(
     {guildId:message.guildId,userId:message.author.id,channelId:message.channelId,day},
-    {$inc:{count:1,[`lengths.${length}`]:1},$setOnInsert:{week:activityWeek(date)}},{upsert:true});
+    {$inc:{count:1,[`lengths.${length}`]:1},$setOnInsert:{week}},{upsert:true});
+  // Only targeted/phrase rules need content-aware matching. Ordinary message
+  // rules continue using the existing length histogram, with no extra writes.
+  const rules=await GiveawayWatchRule.find({
+    guildId:message.guildId,channelId:message.channelId,
+    $or:[{requiredMentionUserId:{$type:"string",$ne:""}},
+      {requiredPhrase:{$type:"string",$ne:""}}],
+  }).lean();
+  await Promise.all(rules.filter(rule=>messageMatchesGiveawayWatch(message,rule)).map(rule=>
+    GiveawayActivityRuleCount.updateOne(
+      {guildId:message.guildId,ruleId:rule._id,criteriaVersion:rule.criteriaVersion||0,
+        userId:message.author.id,day},
+      {$inc:{count:1},$setOnInsert:{week}},{upsert:true})));
 }
-export function qualifyingActivityPipeline({guildId,type,channelIds=[],minimum=1,days=1,minimumChars=0,week=completedActivityWeek(),day=null}) {
+export function qualifyingActivityPipeline({guildId,type,channelIds=[],minimum=1,days=1,minimumChars=0,minimumTotalMessages=0,week=completedActivityWeek(),day=null}) {
   if (!["channels","general"].includes(type)) throw Error("Invalid activity scope.");
   if (type==="channels" && !channelIds.length) throw Error("Choose a watched channel.");
   if (!Number.isInteger(minimumChars) || minimumChars < 0 || minimumChars > 2000) throw Error("Character count must be 0–2000.");
@@ -61,11 +100,45 @@ export function qualifyingActivityPipeline({guildId,type,channelIds=[],minimum=1
     {$match:match},
     {$project:{userId:1,day:1,messages}},
     {$group:{_id:{userId:"$userId",day:"$day"},messages:{$sum:"$messages"}}},
-    {$group:{_id:"$_id.userId",activeDays:{$sum:{$cond:[{$gte:["$messages",minimum]},1,0]}}}},
-    {$match:{activeDays:{$gte:days}}},
+    {$group:{_id:"$_id.userId",totalMessages:{$sum:"$messages"},
+      activeDays:{$sum:{$cond:[{$gte:["$messages",minimum]},1,0]}}}},
+    {$match:{activeDays:{$gte:days},
+      ...(minimumTotalMessages>0?{totalMessages:{$gte:minimumTotalMessages}}:{})}},
   ];
 }
 export async function qualifyingActivity(options) {
   const rows=await GiveawayActivityCount.aggregate(qualifyingActivityPipeline(options));
   return rows.map(r=>r._id);
+}
+
+/** Aggregate only messages matching a saved member-mention / phrase challenge.
+ * The daily and weekly scopes use the same boundaries as regular activity. */
+export function qualifyingWatchRulePipeline({guildId,rule,day=null,week=completedActivityWeek(),
+    minimum=rule.minimumMessages||1,days=rule.activeDays||1,
+    minimumTotalMessages=rule.minimumTotalMessages||0}) {
+  if(day!==null && days!==1) throw Error("Daily watches require a single active day.");
+  const match={guildId,ruleId:rule._id,criteriaVersion:rule.criteriaVersion||0,
+    ...(day!==null?{day}:{week})};
+  return [
+    {$match:match},
+    {$group:{_id:{userId:"$userId",day:"$day"},messages:{$sum:"$count"}}},
+    {$group:{_id:"$_id.userId",totalMessages:{$sum:"$messages"},
+      activeDays:{$sum:{$cond:[{$gte:["$messages",minimum]},1,0]}}}},
+    {$match:{activeDays:{$gte:days},
+      ...(minimumTotalMessages>0?{totalMessages:{$gte:minimumTotalMessages}}:{})}},
+  ];
+}
+export async function qualifyingWatchActivity({guildId,rule,period="weekly",
+    key,minimum=rule.minimumMessages||1,days=rule.activeDays||1,
+    minimumChars=rule.minimumChars??1,minimumTotalMessages=rule.minimumTotalMessages||0}) {
+  const params={guildId,type:"channels",channelIds:[rule.channelId],
+    minimum,days,minimumChars,minimumTotalMessages,
+    ...(period==="daily"?{day:key}:{week:key})};
+  if(!rule.requiredMentionUserId && !rule.requiredPhrase)
+    return qualifyingActivity(params);
+  const rows=await GiveawayActivityRuleCount.aggregate(qualifyingWatchRulePipeline({
+    guildId,rule,minimum,days,minimumTotalMessages,
+    ...(period==="daily"?{day:key}:{week:key}),
+  }));
+  return rows.map(row=>row._id);
 }
