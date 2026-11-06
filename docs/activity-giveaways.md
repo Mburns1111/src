@@ -14,7 +14,7 @@
    - Weekly: `/giveaway plan-create name:Weekly-Activity title:Weekly Activity Prize watch:Discussion announce_at:2026-11-11 19:00 prize:Copy Cat repeat:weekly period:weekly claim_hours:48`
    - Once at a specified time: `/giveaway plan-create name:Art-OneTime title:Art Prize watch:general announce_at:2026-11-14 19:00 prize:Art Prize repeat:once period:daily claim_hours:24`
    - Fixed elapsed intervals: `/giveaway plan-create name:Interval-QOTD title:QOTD Interval Prize watch:QOTD announce_at:2026-11-11 19:00 prize:Egg repeat:interval interval_hours:36 period:daily`
-   - For general activity use `watch:general`, which checks any eligible server channel.
+   - For general activity use `watch:general`, which checks any eligible server channel. Add `messages:50` to `plan-create` to require 50 total messages across the chosen period. Plan-specific message counts can be edited later without changing a saved watch.
 4. Maintain the prize list:
    - `/giveaway prize-add name:QOTD-Weekly prize:Copy Cat`
    - `/giveaway prize-edit name:QOTD-Weekly position:2 prize:Neon Cat`

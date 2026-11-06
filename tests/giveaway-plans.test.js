@@ -29,6 +29,7 @@ test("weekly recurrence preserves Eastern clock time across daylight saving",()=
 test("plan setup supports edit/reorder/status and does not alter existing giveaway records",()=>{
  assert.ok(GiveawayPlan.schema.path("nextRunAt"));
  assert.ok(GiveawayPlan.schema.path("repeatPrizes"));
+ assert.ok(GiveawayPlan.schema.path("minimumTotalMessages"));
  assert.ok(GiveawayPlan.schema.path("recurring"));
  const builder=addGiveawayPlanCommands(new SlashCommandBuilder().setName("check").setDescription("Check"));
  const subcommands=builder.toJSON().options.map(x=>x.name);
@@ -151,6 +152,11 @@ test("watch settings expose total messages for the chosen period, not forced per
  assert.ok(watch.options.find(o=>o.name==="mention_member"));
  assert.ok(watch.options.find(o=>o.name==="phrase"));
  assert.ok(watch.options.find(o=>o.name==="per_day"));
+ const plans=addGiveawayPlanCommands(new SlashCommandBuilder().setName("x").setDescription("X")).toJSON().options;
+ const create=plans.find(o=>o.name==="plan-create");
+ const edit=plans.find(o=>o.name==="plan-edit");
+ assert.ok(create.options.find(o=>o.name==="messages"));
+ assert.ok(edit.options.find(o=>o.name==="messages"));
  const manual=giveawayCommand.toJSON().options.find(o=>o.name==="activity");
  assert.ok(manual.options.find(o=>o.name==="messages"));
 });

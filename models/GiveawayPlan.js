@@ -11,6 +11,8 @@ const schema=new mongoose.Schema({
   creatorId:{type:String,required:true},
   channelId:{type:String,required:true},
   winnerCount:{type:Number,default:1,min:1,max:10},
+  // Optional per-plan override. Null inherits the named watch's total goal.
+  minimumTotalMessages:{type:Number,default:null,min:1,max:10000},
   claimWindowHours:{type:Number,default:48,min:1,max:720},
   prizes:{type:[String],default:[]},
   nextPrizeIndex:{type:Number,default:0,min:0},

@@ -24,7 +24,8 @@ export function addGiveawayPlanCommands(builder) {
      .setMinValue(1).setMaxValue(720))
    .addBooleanOption(o=>o.setName("repeat_prizes").setDescription("Loop through saved prizes when recurring (default: yes)"))
    .addIntegerOption(o=>o.setName("claim_hours").setDescription("Ticket claim period in hours (default 48)").setMinValue(1).setMaxValue(720))
-   .addIntegerOption(o=>o.setName("winners").setDescription("Winners per drawing (default 1)").setMinValue(1).setMaxValue(10)))
+   .addIntegerOption(o=>o.setName("winners").setDescription("Winners per drawing (default 1)").setMinValue(1).setMaxValue(10))
+   .addIntegerOption(o=>o.setName("messages").setDescription("Total messages required in the selected daily/weekly period").setMinValue(1).setMaxValue(10000)))
  .addSubcommand(c=>c.setName("plan-list").setDescription("Review saved giveaway schedules and recurrence"))
  .addSubcommand(c=>c.setName("plan-view").setDescription("View editable prize list and schedule details")
    .addStringOption(o=>o.setName("name").setDescription("Saved plan name").setRequired(true)))
@@ -43,7 +44,8 @@ export function addGiveawayPlanCommands(builder) {
    .addBooleanOption(o=>o.setName("repeat_prizes").setDescription("Cycle through the saved prize list"))
    .addBooleanOption(o=>o.setName("enabled").setDescription("Enable or pause the plan"))
    .addIntegerOption(o=>o.setName("claim_hours").setDescription("Hours to file ticket after each drawing").setMinValue(1).setMaxValue(720))
-   .addIntegerOption(o=>o.setName("winners").setDescription("Number of winners").setMinValue(1).setMaxValue(10)))
+   .addIntegerOption(o=>o.setName("winners").setDescription("Number of winners").setMinValue(1).setMaxValue(10))
+   .addIntegerOption(o=>o.setName("messages").setDescription("Override total messages needed per activity period").setMinValue(1).setMaxValue(10000)))
  .addSubcommand(c=>c.setName("prize-add").setDescription("Append an upcoming prize to a saved plan")
    .addStringOption(o=>o.setName("name").setDescription("Saved plan name").setRequired(true))
    .addStringOption(o=>o.setName("prize").setDescription("Prize details").setRequired(true).setMaxLength(1500)))
@@ -82,7 +84,8 @@ function summary(plan,details=false) {
    `Activity: ${plan.watchNameKey==="general"?"General server activity":plan.watchNameKey}`,
    `Repeat: ${planRepeatMode(plan)==="interval" ? `Every ${plan.intervalMinutes/60} hours` : ({once:"One-time",daily:"Daily at the same Eastern time",weekly:"Weekly at the same Eastern time"})[planRepeatMode(plan)]}`,
    `Activity checked: ${(plan.activityPeriod||"weekly")==="daily" ? "Previous Eastern calendar day only" : "Previous Wednesday–Wednesday week"} · Prize cycle: ${plan.repeatPrizes?"Repeat list":"Stop after final prize"}`,
-   `Next draw: <t:${unix(plan.nextRunAt)}:F> · Claim window: ${plan.claimWindowHours} hours · Winners: ${plan.winnerCount}`];
+   `Next draw: <t:${unix(plan.nextRunAt)}:F> · Claim window: ${plan.claimWindowHours} hours · Winners: ${plan.winnerCount}`,
+   `Required messages: ${plan.minimumTotalMessages??"from watched channel (1 for general activity)"} across selected activity period`];
  if(details){
   lines.push("**Prize list**");
   lines.push(...(plan.prizes.length ? plan.prizes.map((p,i)=>
@@ -124,7 +127,8 @@ export async function executeGiveawayPlanAdmin(interaction) {
    creatorId:interaction.user.id,channelId:channel.id,
    ...schedule,repeatPrizes:interaction.options.getBoolean("repeat_prizes")??true,
    nextRunAt,claimWindowHours:interaction.options.getInteger("claim_hours")??48,
-   winnerCount:interaction.options.getInteger("winners")??1,prizes:[prize],
+   winnerCount:interaction.options.getInteger("winners")??1,
+   minimumTotalMessages:interaction.options.getInteger("messages")??null,prizes:[prize],
   }).catch(error=>{if(error.code===11000)throw Error("A plan with that name already exists. Use plan-edit instead.");throw error;});
   return interaction.editReply({content:"Saved giveaway plan.\n"+summary(plan,true),allowedMentions:{parse:[]}});
  }
@@ -143,9 +147,9 @@ export async function executeGiveawayPlanAdmin(interaction) {
  if(op==="plan-edit") {
   let changed=false;
   for(const [option,field] of [["title","title"],["repeat_prizes","repeatPrizes"],
-    ["claim_hours","claimWindowHours"],["winners","winnerCount"]]){
+    ["claim_hours","claimWindowHours"],["winners","winnerCount"],["messages","minimumTotalMessages"]]){
    let value=option==="repeat_prizes"?interaction.options.getBoolean(option):
-     option==="claim_hours"||option==="winners"?interaction.options.getInteger(option):
+     option==="claim_hours"||option==="winners"||option==="messages"?interaction.options.getInteger(option):
      interaction.options.getString(option);
    if(value!==null && value!==undefined){plan[field]=value;changed=true;}
   }

@@ -51,12 +51,13 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     ? {type:"channels",channelIds:[rule.channelId],minimum:rule.minimumMessages,days:rule.activeDays,minimumChars:rule.minimumChars}
     : {type:"general",channelIds:[],minimum:1,days:1,minimumChars:1};
   const requirement={...qualification,days:activityWindow.period==="daily"?1:qualification.days};
+  const minimumTotalMessages=plan.minimumTotalMessages??rule?.minimumTotalMessages??1;
   const entrants=rule ? await qualifyingWatchActivity({
       guildId:plan.guildId,rule,period:activityWindow.period,key:activityWindow.key,
       minimum:requirement.minimum,days:requirement.days,
       minimumChars:requirement.minimumChars,
-      minimumTotalMessages:rule.minimumTotalMessages||0,
-    }) : await qualifyingActivity({guildId:plan.guildId,...requirement,
+      minimumTotalMessages,
+    }) : await qualifyingActivity({guildId:plan.guildId,...requirement,minimumTotalMessages,
       ...(activityWindow.period==="daily"?{day:activityWindow.key}:{week:activityWindow.key})});
   const guild=await client.guilds.fetch(plan.guildId);
   const eligible=[];
@@ -84,7 +85,7 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
         activityMinChars:qualification.minimumChars,
         activityRequiredMentionUserId:rule?.requiredMentionUserId||"",
         activityRequiredPhrase:rule?.requiredPhrase||"",
-        activityMinTotalMessages:rule?.minimumTotalMessages||0,
+        activityMinTotalMessages:minimumTotalMessages,
         activityPeriod:activityWindow.period,
         activityPeriodKey:activityWindow.key,activityStartAt:activityWindow.startAt,
         activityEndAt:activityWindow.endAt,
