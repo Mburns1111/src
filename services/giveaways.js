@@ -3,6 +3,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "disc
 import Giveaway from "../models/Giveaway.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
+import {qualifyingActivity,qualifyingWatchActivity} from "./giveaway-activity-counter.js";
 import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt } from "./giveaway-claims.js";
 import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
@@ -71,6 +72,8 @@ export function giveawayAnnouncement(record) {
     }
     const claims = prizeClaimLines(record, { finished: true });
     if (claims.length) lines.push("", ...claims);
+    if(record.mode==="activity" && !record.winnerIds?.length)
+      lines.push("", "**Outcome:** No qualifying members won this drawing.");
     if (changed.length) lines.push("", "**Reroll history**", ...changed);
     lines.push("", "*Prize delivery is handled by the giveaway host.*");
   }
@@ -271,6 +274,36 @@ export async function publishGiveawayResult(client, item) {
   return true;
 }
 
+async function refreshCustomOneOffEntries(record,now){
+  if(record.mode!=="activity"||record.scheduleId||
+     !record.customActivityStartAt||!record.customActivityEndAt)return record;
+  const window={startAt:record.customActivityStartAt,endAt:record.customActivityEndAt};
+  if(new Date(window.endAt)>now)throw Error("Activity collection has not reached its cutoff.");
+  const rule=record.activityRuleId?{
+    _id:record.activityRuleId,criteriaVersion:record.activityRuleCriteriaVersion||0,
+    channelId:record.activityChannelIds?.[0],minimumChars:record.activityMinChars,
+    minimumMessages:record.activityMinimum,activeDays:record.activityDays,
+    requiredMentionUserId:record.activityRequiredMentionUserId,
+    requiredPhrase:record.activityRequiredPhrase,
+  }:null;
+  const options={guildId:record.guildId,
+    minimum:record.activityMinimum,days:record.activityDays,
+    minimumChars:record.activityMinChars,minimumTotalMessages:record.activityMinTotalMessages,
+    ...window};
+  const entrants=rule?await qualifyingWatchActivity({...options,rule}):
+    await qualifyingActivity({...options,type:record.activityType,
+      channelIds:record.activityChannelIds||[]});
+  const distinct=[...new Set(entrants)];
+  const changed=await Giveaway.findOneAndUpdate({_id:record._id,status:"open"},
+    {$set:{entrantIds:distinct,activityCheckedAt:now}},
+    {returnDocument:"after"}).lean();
+  return changed||record;
+}
+async function stageOneOffForReview(record,now){
+  return Giveaway.findOneAndUpdate({_id:record._id,status:"open",mode:"activity"},
+    {$set:{status:"pending_review",activityCheckedAt:now}},
+    {returnDocument:"after"}).lean();
+}
 export async function reconcileGiveaways(client, { now = new Date(), limit = 30 } = {}) {
   const pending = await Giveaway.find({
     $or: [
@@ -286,6 +319,13 @@ export async function reconcileGiveaways(client, { now = new Date(), limit = 30 
     try {
       let latest = candidate;
       if (candidate.status === "rerolling") latest = await finishPendingReroll(candidate);
+      if(candidate.status==="open"&&candidate.mode==="activity"){
+        latest=await refreshCustomOneOffEntries(candidate,now);
+        if(latest.requireStaffReview){
+          latest=await stageOneOffForReview(latest,now);
+          continue; // Staff channel sweep posts an approval preview, not results.
+        }
+      }
       if (candidate.status === "open" || candidate.status === "closing")
         latest = await closeGiveaway({ id: candidate._id, guildId: candidate.guildId, now, client });
       if (["ended", "cancelled", "running"].includes(latest?.status) && !latest.renderedAt)
