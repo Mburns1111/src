@@ -31,10 +31,13 @@ const giveawaySchema = new mongoose.Schema({
   activityType: { type: String, default: "" },
   activityChannelIds: { type: [String], default: [] },
   activityMinimum: { type: Number, default: 1 },
+  activityMinChars: { type: Number, default: 0 },
   activityDays: { type: Number, default: 1 },
   activityStartAt: { type: Date, default: null },
   activityCheckedAt: { type: Date, default: null },
   activityVerifiedIds: { type: [String], default: [] },
+  scheduleId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  scheduleRunAt: { type: Date, default: null },
   speedSeconds: { type: Number, default: 5, min: 2, max: 5 },
   gameStartedAt: { type: Date, default: null },
   gameEndedAt: { type: Date, default: null },
@@ -69,6 +72,7 @@ giveawaySchema.index({ status: 1, claimCheckAt: 1 });
 giveawaySchema.index({ guildId: 1, mode: 1, entrantIds: 1 });
 giveawaySchema.index({ guildId: 1, mode: 1, originalChampionId: 1, status: 1 });
 giveawaySchema.index({ mode: 1, status: 1, nextEventAt: 1 });
+giveawaySchema.index({ scheduleId: 1, scheduleRunAt: 1 }, { unique: true, partialFilterExpression: { scheduleId: { $type: "objectId" } } });
 giveawaySchema.index({ guildId: 1, messageId: 1 }, {
   unique: true, partialFilterExpression: { messageId: { $type: "string" } },
 });
