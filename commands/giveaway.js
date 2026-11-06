@@ -324,7 +324,7 @@ export async function execute(interaction) {
     } else if (operation === "reroll") {
       updated = await rerollGiveaway({
         id: record._id, guildId: interaction.guildId, staffId: interaction.user.id,
-        slot: interaction.options.getInteger("winner", true) - 1,
+        slot: interaction.options.getInteger("winner", true) - 1, client: interaction.client,
       });
     } else throw Error("Unknown giveaway action.");
     if (!updated || updated.status !== "ended") throw Error("Giveaway is being finalized; please check again.");
