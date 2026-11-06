@@ -1,5 +1,5 @@
 import {createHash} from "node:crypto";
-import {EmbedBuilder} from "discord.js";
+import {EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import Giveaway from "../models/Giveaway.js";
@@ -26,6 +26,14 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
   if(rule?.requiredMentionUserId)instruction.push(`**Must tag:** <@${rule.requiredMentionUserId}>`);
   if(rule?.requiredPhrase)instruction.push(`**Must include:** ${clean(rule.requiredPhrase,120)}`);
   const prize=plan.prizes?.[plan.nextPrizeIndex]||"Prize to be announced";
+  const bonuses=[...new Map([...(rule?.roleBonuses||[]),...(plan.roleBonuses||[])].map(b=>[b.roleId,b])).values()];
+  const custom=plan.customActivityStartAt&&plan.customActivityEndAt;
+  if(custom){
+    instruction[1]=`**Activity window:** <t:${stamp(plan.customActivityStartAt)}:F> to <t:${stamp(plan.customActivityEndAt)}:F>`;
+  }
+  if(bonuses.length)instruction.push("**Bonus drawing chances:** "+
+    bonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(", ")+" (add together; unique winner)");
+  if(plan.requireStaffReview)instruction.push("**Winner publication:** After staff approval");
   const description=[
     `**Prize:** ${clean(prize,600)}`,"",
     ...instruction,"",
@@ -54,6 +62,11 @@ export function activityOneOffListingEmbed(record) {
   if(record.activityDays>1)parts.push(`**Active days required:** ${record.activityDays}`);
   if(record.activityRequiredMentionUserId)parts.push(`**Must tag:** <@${record.activityRequiredMentionUserId}>`);
   if(record.activityRequiredPhrase)parts.push(`**Must include:** ${clean(record.activityRequiredPhrase,120)}`);
+  if(record.customActivityStartAt&&record.customActivityEndAt)
+    parts[3]=`**Activity window:** <t:${stamp(record.customActivityStartAt)}:F> to <t:${stamp(record.customActivityEndAt)}:F>`;
+  if(record.roleBonuses?.length)
+    parts.push("**Bonus chances:** "+record.roleBonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(", "));
+  if(record.requireStaffReview)parts.push("**Winner publication:** After staff approval");
   parts.push("",`**Winner announcement:** <t:${stamp(record.endsAt)}:F> (<t:${stamp(record.endsAt)}:R>)`,
     `**Winners:** ${record.winnerCount||1}`,`**Results will be posted in:** <#${record.channelId}>`,"",
     "*This giveaway has automatic, locked entries. No entry button is needed.*");
@@ -116,9 +129,15 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
     winnerChannelId:config.activityGiveawayWinnersChannelId,
   }) : activityOneOffListingEmbed(item);
   const payload=attachGiveawayBanner({embeds:[embed],allowedMentions:{parse:[]},attachments:[]},banner);
+  if(item.progressEnabled && (isPlan||item.status==="open")){
+    payload.components=[new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`activity-progress:${isPlan?"plan":"event"}:${item._id}`)
+        .setLabel("Check My Progress").setStyle(ButtonStyle.Primary),
+    )];
+  }
   const fingerprint=createHash("sha256").update(JSON.stringify({
     embed:embed.toJSON(),bannerNameKey:banner?.nameKey||"",bannerUpdatedAt:banner?.updatedAt||null,
-    imageBytes:banner?.imageData?.length||0,channelId,
+    imageBytes:banner?.imageData?.length||0,channelId,progressEnabled:item.progressEnabled||false,
   })).digest("hex");
   const existing=await findListingMessage(channel,client,item,kind);
   if(!existing) {
