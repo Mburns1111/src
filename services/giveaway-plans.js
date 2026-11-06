@@ -2,13 +2,24 @@ import { randomUUID } from "node:crypto";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
-import { completedActivityWeek, qualifyingActivity } from "./giveaway-activity-counter.js";
-import { nextWeeklyAnnouncement } from "./giveaway-plan-time.js";
+import { completedActivityWeek, previousActivityDay, qualifyingActivity } from "./giveaway-activity-counter.js";
+import { easternMidnight, shiftCalendarDay, nextPlanAnnouncement } from "./giveaway-plan-time.js";
 import { closeGiveaway, publishGiveawayResult } from "./giveaways.js";
 
+export function planRepeatMode(plan) {
+  return plan.repeatMode || (plan.recurring ? "weekly" : "once");
+}
+export function planActivityWindow(plan,runAt) {
+  const period=plan.activityPeriod || "weekly";
+  if(!["daily","weekly"].includes(period)) throw Error("Invalid activity window.");
+  const key=period==="daily" ? previousActivityDay(runAt) : completedActivityWeek(runAt);
+  return {period,key,startAt:easternMidnight(key),
+    endAt:easternMidnight(shiftCalendarDay(key,period==="daily"?1:7))};
+}
 export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
   if (plan.status!=="active" || new Date(plan.nextRunAt)>now) return "not-due";
   const runAt=new Date(plan.nextRunAt);
+  const activityWindow=planActivityWindow(plan,runAt);
   // If a restart interrupted the plan after saving its drawing, reuse that
   // drawing before any fresh activity scan. Never lose or redraw its winners.
   const existing=await Giveaway.findOne({scheduleId:plan._id,scheduleRunAt:runAt}).lean();
@@ -18,11 +29,20 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     if(restored?.status!=="ended") throw Error("Prior drawing could not yet be recovered.");
     try { await publishGiveawayResult(client,restored); }
     catch(error) { console.error("[Giveaways] Recovered drawing is waiting for Discord publish:",error); }
-    return {result:`Recovered saved drawing ${restored._id}`,drawn:true,week:completedActivityWeek(runAt)};
+    return {result:`Recovered saved drawing ${restored._id}`,drawn:true,
+      activityPeriod:activityWindow.period,activityKey:activityWindow.key};
   }
-  if(now.getTime()-runAt.getTime()>=7*24*60*60_000)
+  const staleAfter=activityWindow.period==="daily"?24*60*60_000:7*24*60*60_000;
+  if(now.getTime()-runAt.getTime()>=staleAfter)
     return {result:"Skipped an outdated drawing after extended bot downtime; no prize consumed.",
-      drawn:false,week:completedActivityWeek(runAt)};
+      drawn:false,activityPeriod:activityWindow.period,activityKey:activityWindow.key};
+  // Editing a plan's time or running at a custom interval must never award the same
+  // named watched channel's prior day (or Wednesday-to-Wednesday week) twice.
+  const priorPeriod=await Giveaway.findOne({
+    scheduleId:plan._id,activityPeriodKey:activityWindow.key,
+  }).lean();
+  if(priorPeriod) return {result:"That activity period has already been drawn for this plan; no prize consumed.",
+    drawn:false,activityPeriod:activityWindow.period,activityKey:activityWindow.key};
   const nameKey=plan.watchNameKey;
   const rule=nameKey==="general" ? null
     : await GiveawayWatchRule.findOne({guildId:plan.guildId,nameKey}).lean();
@@ -30,8 +50,9 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
   const qualification=rule
     ? {type:"channels",channelIds:[rule.channelId],minimum:rule.minimumMessages,days:rule.activeDays,minimumChars:rule.minimumChars}
     : {type:"general",channelIds:[],minimum:1,days:1,minimumChars:1};
-  const week=completedActivityWeek(runAt);
-  const entrants=await qualifyingActivity({guildId:plan.guildId,week,...qualification});
+  const requirement={...qualification,days:activityWindow.period==="daily"?1:qualification.days};
+  const entrants=await qualifyingActivity({guildId:plan.guildId,...requirement,
+    ...(activityWindow.period==="daily"?{day:activityWindow.key}:{week:activityWindow.key})});
   const guild=await client.guilds.fetch(plan.guildId);
   const eligible=[];
   for(const id of [...new Set(entrants)]) {
@@ -42,7 +63,8 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
       if (error.code!==10007) throw error; // never discard a member on temporary Discord failures
     }
   }
-  if(!eligible.length) return {result:"No qualifying members; no giveaway posted.",drawn:false,week};
+  if(!eligible.length) return {result:"No qualifying members; no giveaway posted.",
+    drawn:false,activityPeriod:activityWindow.period,activityKey:activityWindow.key};
   const prize=plan.prizes[plan.nextPrizeIndex];
   if (!prize) throw Error("No next prize configured.");
   let record=await Giveaway.findOne({scheduleId:plan._id,scheduleRunAt:runAt}).lean();
@@ -53,8 +75,10 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
         title:plan.title,prize,winnerCount:plan.winnerCount,endsAt:runAt,
         mode:"activity",status:"closing",entrantIds:eligible,activityVerifiedIds:eligible,
         activityType:qualification.type,activityChannelIds:qualification.channelIds,
-        activityMinimum:qualification.minimum,activityDays:qualification.days,
-        activityMinChars:qualification.minimumChars,activityStartAt:new Date(week+"T12:00:00Z"),
+        activityMinimum:qualification.minimum,activityDays:requirement.days,
+        activityMinChars:qualification.minimumChars,activityPeriod:activityWindow.period,
+        activityPeriodKey:activityWindow.key,activityStartAt:activityWindow.startAt,
+        activityEndAt:activityWindow.endAt,
         activityCheckedAt:now,claimWindowHours:plan.claimWindowHours,autoRerollClaims:true,
         scheduleId:plan._id,scheduleRunAt:runAt,
       });
@@ -62,7 +86,13 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     } catch(error) {
       if(error.code!==11000) throw error;
       record=await Giveaway.findOne({scheduleId:plan._id,scheduleRunAt:runAt}).lean();
-      if(!record) throw error;
+      if(!record) {
+        const already=await Giveaway.findOne({scheduleId:plan._id,
+          activityPeriodKey:activityWindow.key}).lean();
+        if(already) return {result:"This activity period was already drawn; no prize consumed.",
+          drawn:false,activityPeriod:activityWindow.period,activityKey:activityWindow.key};
+        throw error;
+      }
     }
   }
   if(record.status!=="ended")
@@ -70,16 +100,27 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
   if(record.status!=="ended") throw Error("Scheduled giveaway draw is not ready.");
   try { await publishGiveawayResult(client,record); }
   catch(error) { console.error("[Giveaways] Scheduled drawing saved but Discord post failed:",String(record._id),error); }
-  return {result:`Drawn: ${eligible.length} eligible entrants; giveaway ${record._id}.`,drawn:true,week};
+  return {result:`Drawn: ${eligible.length} eligible entrants; giveaway ${record._id}.`,
+    drawn:true,activityPeriod:activityWindow.period,activityKey:activityWindow.key};
 }
 
 export function nextGiveawayPlanCycle(plan,outcome,now=new Date()) {
+ const mode=planRepeatMode(plan);
  const nextIndex=plan.nextPrizeIndex+(outcome.drawn?1:0);
  const finishedPrizes=nextIndex>=plan.prizes.length;
+ let nextRunAt=nextPlanAnnouncement(plan.nextRunAt,mode,plan.intervalMinutes);
+ // Never re-announce old windows after long downtime. Keep the original recurrence
+ // boundaries and Eastern wall-clock scheduling while skipping missed occurrences.
+ const staleMs=(plan.activityPeriod || "weekly")==="daily"?24*60*60_000:7*24*60*60_000;
+ let skipped=0;
+ while(mode!=="once" && new Date(nextRunAt).getTime()+staleMs<=new Date(now).getTime()
+       && skipped<20000) {
+   nextRunAt=nextPlanAnnouncement(nextRunAt,mode,plan.intervalMinutes);
+   skipped++;
+ }
  return {
-   status:!plan.recurring ? "completed" : (finishedPrizes && !plan.repeatPrizes ? "paused" : "active"),
-   nextRunAt:plan.recurring ? nextWeeklyAnnouncement(plan.nextRunAt) : plan.nextRunAt,
-   nextPrizeIndex:finishedPrizes && plan.repeatPrizes ? 0 : nextIndex,
+   status:mode==="once" ? "completed" : (finishedPrizes && !plan.repeatPrizes ? "paused" : "active"),
+   nextRunAt, nextPrizeIndex:finishedPrizes && plan.repeatPrizes ? 0 : nextIndex,
    lastRunAt:now,lastResult:outcome.result,
  };
 }
