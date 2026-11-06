@@ -57,7 +57,7 @@ export function achievementPages(rows,{detailed=false}={}){
   const reward=a.rewardGrantedAt?" · +"+(a.rewardGrabs||0)+" grabs / +"+(a.rewardDrops||0)+" drops":"";
   if(a.secret){
    // Secret name, condition and earned reward stay available *privately*.
-   return "✅ "+name+rank+date+"\n"+safe(a.description)+reward;
+   return "✅ 🔮 SECRET — "+name+rank+date+"\n"+safe(a.description)+reward;
   }
   return "✅ "+name+rank+date+reward+(detailed?"\n"+safe(a.description):"");
  });
