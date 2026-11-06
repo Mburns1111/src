@@ -100,3 +100,20 @@ export async function handleGiveawayReviewButton(interaction){
     return interaction.editReply("Couldn't complete that review. Check the bot logs and try again.");
   }
 }
+
+export async function reconcilePendingGiveawayReviews(client,{limit=50}={}){
+  const pending=await Giveaway.find({status:"pending_review",mode:"activity"}).limit(limit).lean();
+  for(const item of pending){
+    try{
+      if(!item.reviewMessageId)await publishGiveawayReview(client,item);
+      else {
+        const channel=await client.channels.fetch(item.reviewChannelId);
+        const message=await channel?.messages?.fetch(item.reviewMessageId).catch(e=>{
+          if(e.code===10008)return null;throw e;
+        });
+        if(!message)await publishGiveawayReview(client,{...item,reviewMessageId:""});
+      }
+    }catch(error){console.error("[Giveaways] Pending review recovery failed:",item._id,error);}
+  }
+  return pending.length;
+}
