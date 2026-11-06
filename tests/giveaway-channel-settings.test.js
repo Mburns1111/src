@@ -50,7 +50,11 @@ test("setup exposes two distinct optional giveaway channel selectors", () => {
   }
   assert.ok(GuildConfig.schema.path("giveawayPingRoleId"));
   assert.ok(GuildConfig.schema.path("survivalTrialPingRoleId"));
-  assert.equal(config.options.length, 16);
+  assert.equal(config.options.length, 18);
+  assert.ok(names.includes("activity_giveaway_list"));
+  assert.ok(names.includes("activity_winners"));
+  assert.ok(GuildConfig.schema.path("activityGiveawayListChannelId"));
+  assert.ok(GuildConfig.schema.path("activityGiveawayWinnersChannelId"));
   assert.ok(names.includes("party_games"), "Party Games has a dedicated channel selector.");
   assert.ok(names.includes("hatchem"), "Preserve Hatchem channel setup alongside the two giveaway channels.");
   for (const command of [giveawayCommand, trialCommand]) {

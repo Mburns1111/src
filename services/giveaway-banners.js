@@ -44,7 +44,7 @@ export async function ensureBannerRegistered(guildId,name) {
 export async function getGiveawayBanner(guildId,nameKey="") {
   let key=bannerNameKey(nameKey);
   if(!key){
-    const config=await GuildConfig.findOne({guildId}).select("giveawayDefaultBannerNameKey").lean();
+    const config=await GuildConfig.findOne({guildId});
     key=config?.giveawayDefaultBannerNameKey || "";
   }
   if(!key)return null;
