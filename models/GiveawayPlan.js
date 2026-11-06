@@ -9,7 +9,11 @@ const schema=new mongoose.Schema({
   title:{type:String,required:true,maxlength:100},
   watchNameKey:{type:String,required:true}, // 'general' or one saved GiveawayWatchRule
   creatorId:{type:String,required:true},
-  channelId:{type:String,required:true},
+  channelId:{type:String,required:true}, // result channel at creation; configured winners channel can override
+  listChannelId:{type:String,default:""},
+  listMessageId:{type:String,default:""},
+  listFingerprint:{type:String,default:""},
+  bannerNameKey:{type:String,default:""},
   winnerCount:{type:Number,default:1,min:1,max:10},
   // Optional per-plan override. Null inherits the named watch's total goal.
   minimumTotalMessages:{type:Number,default:null,min:1,max:10000},

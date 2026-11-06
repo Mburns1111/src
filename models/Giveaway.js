@@ -6,6 +6,10 @@ import mongoose from "mongoose";
 const giveawaySchema = new mongoose.Schema({
   guildId: { type: String, required: true, index: true },
   channelId: { type: String, required: true },
+  listChannelId: { type: String, default: "" },
+  listMessageId: { type: String, default: "" },
+  listFingerprint: { type: String, default: "" },
+  bannerNameKey: { type: String, default: "" },
   messageId: { type: String, default: null },
   creatorId: { type: String, required: true },
   title: { type: String, required: true },
