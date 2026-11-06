@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import Giveaway from "../models/Giveaway.js";
+import GuildConfig from "../models/GuildConfig.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import { completedActivityWeek, previousActivityDay, qualifyingActivity, qualifyingWatchActivity } from "./giveaway-activity-counter.js";
@@ -73,11 +74,16 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     drawn:false,activityPeriod:activityWindow.period,activityKey:activityWindow.key};
   const prize=plan.prizes[plan.nextPrizeIndex];
   if (!prize) throw Error("No next prize configured.");
+  const config=await GuildConfig.findOne({guildId:plan.guildId})
+    .select("activityGiveawayWinnersChannelId").lean();
+  if(!config?.activityGiveawayWinnersChannelId)
+    throw Error("Configure /setup channels activity_winners before scheduled activity drawings.");
   let record=await Giveaway.findOne({scheduleId:plan._id,scheduleRunAt:runAt}).lean();
   if (!record) {
     try {
       record=await Giveaway.create({
-        guildId:plan.guildId,channelId:plan.channelId,creatorId:plan.creatorId,
+        guildId:plan.guildId,channelId:config.activityGiveawayWinnersChannelId,
+        creatorId:plan.creatorId,bannerNameKey:plan.bannerNameKey||"",
         title:plan.title,prize,winnerCount:plan.winnerCount,endsAt:runAt,
         mode:"activity",status:"closing",entrantIds:eligible,activityVerifiedIds:eligible,
         activityType:qualification.type,activityChannelIds:qualification.channelIds,
