@@ -136,7 +136,7 @@ async function verifyServerMembers(client,guildId,ids,{includeMembers=false}={})
   for(const id of [...new Set(ids)]) {
     try {
       const member=await guild.members.fetch({user:id,force:true});
-      if(member && !member.user?.bot)verified.push(includeMembers?{...member,id:member.id||id}:id);
+      if(member && !member.user?.bot)verified.push(includeMembers?{id:member.id||id,user:member.user,roles:member.roles}:id);
     }catch(error){
       if(error.code!==10007)throw error;
     }
