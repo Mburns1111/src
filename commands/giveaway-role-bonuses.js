@@ -46,9 +46,9 @@ export async function executeGiveawayRoleBonusAdmin(interaction){
    throw Error("Role bonuses are locked after a one-time giveaway reaches its drawing cutoff.");
  const current=normalizeRoleBonuses(record.roleBonuses||[]);
  if(op==="bonus-list")return interaction.editReply({content:current.length?
-   `**${record.name} — role-based chances**\n`+current.map(b=>`• <@&${b.roleId}>: +${b.extraEntries} chances`).join("\n")+
+   `**${record.name||record.title} — role-based chances**\n`+current.map(b=>`• <@&${b.roleId}>: +${b.extraEntries} chances`).join("\n")+
    "\nEach qualifying member remains one unique entrant; bonuses stack on role matches."
-   :`No bonus roles for ${record.name}. Every qualifying member has one chance.`,
+   :`No bonus roles for ${record.name||record.title}. Every qualifying member has one chance.`,
    allowedMentions:{parse:[]}});
  const role=interaction.options.getRole("role",true);
  const updated=current.filter(b=>b.roleId!==role.id);
@@ -63,6 +63,6 @@ export async function executeGiveawayRoleBonusAdmin(interaction){
      else if(record.status==="open")await publishActivityOneOffListing(interaction.client,record);
    }catch(error){console.error("[Giveaways] Role update directory refresh will retry:",error);}
  }
- return interaction.editReply({content:`Updated **${record.name}**: ${record.roleBonuses.length} bonus role(s). Each qualified member can win only once; every role's extra chances add to their draw weight.`,
+ return interaction.editReply({content:`Updated **${record.name||record.title}**: ${record.roleBonuses.length} bonus role(s). Each qualified member can win only once; every role's extra chances add to their draw weight.`,
    allowedMentions:{parse:[]}});
 }
