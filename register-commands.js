@@ -13,6 +13,7 @@ import { data as setupCommand } from "./commands/setup.js";
 import { data as adminImportCommand } from "./commands/admin-import-listing.js";
 import { data as shopCommand } from "./commands/shop.js";
 import { data as giveawayCommand, trialData as trialCommand } from "./commands/giveaway.js";
+import {data as giveawayRoleCommand} from "./commands/giveaway-role-bonuses.js";
 import { data as cardsCommand,ownerCardOptions } from "./commands/cards.js";
 import { data as cardsAdminCommand } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand, cardsReleaseCommand, RELEASE_LIFECYCLE_SUBCOMMANDS } from "./commands/cards-owner.js";
@@ -54,6 +55,7 @@ const commands = [
   adminImportCommand,
   shopCommand,
   giveawayCommand,
+  giveawayRoleCommand,
   trialCommand,
   ...(process.env.ENABLE_TEST_POINTS === "1" ? [testPointsCommand] : []),
   pointsAdminCommand,
@@ -75,7 +77,7 @@ const { globalCommands, guildCommands } = planCommandScopes({
 await rest.put(Routes.applicationCommands(clientId), { body: globalCommands });
 
 console.log(
-  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, giveaway, trial, points-admin, help, party commands.",
+  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, giveaway, giveaway-role, trial, points-admin, help, party commands.",
 );
 
 if (guildId) {

@@ -50,7 +50,13 @@ test("setup exposes two distinct optional giveaway channel selectors", () => {
   }
   assert.ok(GuildConfig.schema.path("giveawayPingRoleId"));
   assert.ok(GuildConfig.schema.path("survivalTrialPingRoleId"));
-  assert.equal(config.options.length, 16);
+  assert.equal(config.options.length, 19);
+  assert.ok(names.includes("activity_review"));
+  assert.ok(names.includes("activity_giveaway_list"));
+  assert.ok(names.includes("activity_winners"));
+  assert.ok(GuildConfig.schema.path("activityGiveawayListChannelId"));
+  assert.ok(GuildConfig.schema.path("activityGiveawayWinnersChannelId"));
+  assert.ok(GuildConfig.schema.path("activityGiveawayReviewChannelId"));
   assert.ok(names.includes("party_games"), "Party Games has a dedicated channel selector.");
   assert.ok(names.includes("hatchem"), "Preserve Hatchem channel setup alongside the two giveaway channels.");
   for (const command of [giveawayCommand, trialCommand]) {
@@ -289,4 +295,32 @@ test("no configured ping role produces no mention and no role ping allowed", asy
     assert.equal(payload.content, undefined);
     assert.deepEqual(payload.allowedMentions, { parse: [] });
   } finally { restore(patches); }
+});
+
+test("activity giveaway listing and winners can be saved independently from standard and trial channels",async()=>{
+ const changes=[],saved=[];
+ try {
+  stub(changes,GuildConfig,"findOne",()=>({
+   select:()=>({lean:async()=>({
+    giveawayChannelId:normalId,survivalTrialChannelId:trialId,
+    activityGiveawayListChannelId:"",activityGiveawayWinnersChannelId:"",
+   })}),
+  }));
+  stub(changes,GuildConfig,"findOneAndUpdate",async(_filter,update)=>saved.push(update.$set));
+  const listing={id:"678901234567890123",toString:()=>"<#678901234567890123>"};
+  const winners={id:"789012345678901234",toString:()=>"<#789012345678901234>"};
+  const interaction=setupInteraction({activity_giveaway_list:listing,activity_winners:winners});
+  await setupChannels(interaction);
+  assert.deepEqual(saved,[{
+    activityGiveawayListChannelId:listing.id,
+    activityGiveawayWinnersChannelId:winners.id,
+  }]);
+  assert.match(interaction.replies.at(-1).content,/Activity giveaway winner announcements/);
+  await assert.rejects(()=>setupChannels(setupInteraction({
+    activity_giveaway_list:{id:otherId},activity_winners:{id:otherId}
+  })),/different channels/i);
+  await assert.rejects(()=>setupChannels(setupInteraction({
+    activity_winners:{id:normalId}
+  })),/separate channels/i);
+ }finally{restore(changes);}
 });

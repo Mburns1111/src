@@ -77,8 +77,15 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
-import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton } from "./commands/giveaway.js";
+import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton, handleGiveawayClaimModal } from "./commands/giveaway.js";
 import { reconcileGiveaways } from "./services/giveaways.js";
+import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
+import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
+import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
+import { handleActivityGiveawayProgress } from "./services/giveaway-progress.js";
+import { handleGiveawayReviewButton,reconcilePendingGiveawayReviews } from "./services/giveaway-review.js";
+import {data as giveawayRoleCommand,executeGiveawayRoleBonusAdmin} from "./commands/giveaway-role-bonuses.js";
+import { recordGiveawayMessage } from "./services/giveaway-activity-counter.js";
 import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
 import { maybePublishActivityEgg } from "./services/card-automatic-drops.js";
@@ -206,6 +213,8 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // Messages are never stored or logged: only a short SHA-256 digest is kept to
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
+  if (message.guildId && !message.author?.bot && !message.webhookId)
+    void recordGiveawayMessage(message).catch(error => console.error("[Giveaways] Activity counter failed:", error));
   if (!message.guildId || message.author?.bot || !message.content) return;
   // Only commands typed in the assigned Hatchem text channel are parsed.
   // Ordinary chat and every other channel are ignored by this handler.
@@ -312,6 +321,7 @@ const commandHandlers = new Map([
   [adminImportCommand.name, executeAdminImport],
   [shopCommand.name, executeShop],
   [giveawayCommand.name, executeGiveaway],
+  [giveawayRoleCommand.name,executeGiveawayRoleBonusAdmin],
   [trialCommand.name, executeGiveaway],
   [cardsCommand.name, executeCards],
   [cardsAdminCommand.name, executeCardsAdmin],
@@ -403,7 +413,13 @@ client.once(Events.ClientReady, async (readyClient) => {
   const sweepGiveaways = async () => {
     if (giveawaySweepActive) return;
     giveawaySweepActive = true;
-    try { await reconcileGiveaways(readyClient); }
+    try {
+      await reconcileGiveawayPlans(readyClient);
+      await reconcileGiveaways(readyClient);
+      await reconcilePendingGiveawayReviews(readyClient);
+      await reconcileGiveawayClaims(readyClient);
+      await reconcileActivityGiveawayListings(readyClient);
+    }
     catch (error) { console.error("[Giveaways] Cleanup sweep failed:", error); }
     finally { giveawaySweepActive = false; }
   };
@@ -585,6 +601,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("party:")) {
       await handlePartyInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("activity-progress:")) {
+      await handleActivityGiveawayProgress(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("giveaway-review:")) {
+      await handleGiveawayReviewButton(interaction);
+      return;
+    }
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("giveaway:ticket:")) {
+      await handleGiveawayClaimModal(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("giveaway:")) {
@@ -868,6 +896,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         pointsAdminCommand.name,
         pointsObserveCommand.name,
         partyCommand.name,
+        giveawayRoleCommand.name,
         profileCleanupCommand.name,
         profileRefreshCommand.name,
       ].includes(interaction.commandName)

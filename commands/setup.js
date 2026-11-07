@@ -93,6 +93,23 @@ export const data = new SlashCommandBuilder()
       )
       .addChannelOption((option) =>
         option
+          .setName("activity_giveaway_list")
+          .setDescription("Public directory of currently scheduled activity giveaways")
+          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+      )
+      .addChannelOption((option) =>
+        option
+          .setName("activity_winners")
+          .setDescription("Separate channel for automatic activity giveaway winner results")
+          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+      )
+      .addChannelOption((option) =>
+        option.setName("activity_review")
+          .setDescription("Private staff-only channel for optional approval before activity drawings")
+          .addChannelTypes(ChannelType.GuildText),
+      )
+      .addChannelOption((option) =>
+        option
           .setName("survival_trials")
           .setDescription("Separate channel for Court's Trial signups and eliminations")
           .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
@@ -128,6 +145,9 @@ export async function execute(interaction) {
   const hatchemChannel = interaction.options.getChannel("hatchem");
   const partyGamesChannel = interaction.options.getChannel("party_games");
   const giveawayChannel = interaction.options.getChannel("giveaways");
+  const activityGiveawayListChannel = interaction.options.getChannel("activity_giveaway_list");
+  const activityWinnersChannel = interaction.options.getChannel("activity_winners");
+  const activityReviewChannel = interaction.options.getChannel("activity_review");
   const survivalTrialChannel = interaction.options.getChannel("survival_trials");
   const giveawayPingRole = interaction.options.getRole("giveaway_ping");
   const trialPingRole = interaction.options.getRole("trial_ping");
@@ -149,6 +169,9 @@ export async function execute(interaction) {
     !hatchemChannel &&
     !partyGamesChannel &&
     !giveawayChannel &&
+    !activityGiveawayListChannel &&
+    !activityWinnersChannel &&
+    !activityReviewChannel &&
     !survivalTrialChannel &&
     !giveawayPingRole &&
     !trialPingRole &&
@@ -163,14 +186,29 @@ export async function execute(interaction) {
   }
   // The two event modes must never share an assigned channel. When only one
   // setting changes, compare it with the currently saved other channel.
-  if (giveawayChannel || survivalTrialChannel) {
+  if (activityReviewChannel && interaction.guild?.roles?.everyone) {
+    const everyone=interaction.guild.roles.everyone;
+    if(activityReviewChannel.permissionsFor?.(everyone)?.has(PermissionFlagsBits.ViewChannel))
+      throw new UserFacingError("The activity review channel must be hidden from @everyone. Restrict its View Channel permission first.");
+  }
+  if (giveawayChannel || survivalTrialChannel || activityGiveawayListChannel || activityWinnersChannel || activityReviewChannel) {
     const prior = await GuildConfig.findOne({ guildId: interaction.guildId })
-      .select("giveawayChannelId survivalTrialChannelId").lean();
+      .select("giveawayChannelId survivalTrialChannelId activityGiveawayListChannelId activityGiveawayWinnersChannelId activityGiveawayReviewChannelId").lean();
     const nextGiveaways = giveawayChannel?.id || prior?.giveawayChannelId || "";
     const nextTrials = survivalTrialChannel?.id || prior?.survivalTrialChannelId || "";
-    if (nextGiveaways && nextGiveaways === nextTrials) {
+    const nextList = activityGiveawayListChannel?.id || prior?.activityGiveawayListChannelId || "";
+    const nextWinners = activityWinnersChannel?.id || prior?.activityGiveawayWinnersChannelId || "";
+    const nextReview = activityReviewChannel?.id || prior?.activityGiveawayReviewChannelId || "";
+    if (nextGiveaways && nextGiveaways === nextTrials)
       throw new UserFacingError("Standard giveaways and Court's Trials need two different channels.");
-    }
+    if (nextList && nextWinners && nextList === nextWinners)
+      throw new UserFacingError("Activity giveaway listings and winner announcements need different channels.");
+    if ((nextList && nextList === nextGiveaways) || (nextWinners && nextWinners === nextGiveaways))
+      throw new UserFacingError("Use separate channels for standard giveaways, the activity directory, and activity winners.");
+    if(nextReview && [nextGiveaways,nextTrials,nextList,nextWinners].includes(nextReview))
+      throw new UserFacingError("The staff review channel must be separate from every public giveaway channel.");
+    if ((nextList && nextList === nextTrials) || (nextWinners && nextWinners === nextTrials))
+      throw new UserFacingError("Keep the activity directory and winners separate from Court's Trial announcements.");
   }
   const updates = {};
   if (commandsChannel) updates.commandChannelId = commandsChannel.id;
@@ -183,6 +221,9 @@ export async function execute(interaction) {
   if (hatchemChannel) updates.hatchemChannelId = hatchemChannel.id;
   if (partyGamesChannel) updates.partyGamesChannelId = partyGamesChannel.id;
   if (giveawayChannel) updates.giveawayChannelId = giveawayChannel.id;
+  if (activityGiveawayListChannel) updates.activityGiveawayListChannelId = activityGiveawayListChannel.id;
+  if (activityWinnersChannel) updates.activityGiveawayWinnersChannelId = activityWinnersChannel.id;
+  if (activityReviewChannel) updates.activityGiveawayReviewChannelId = activityReviewChannel.id;
   if (survivalTrialChannel) updates.survivalTrialChannelId = survivalTrialChannel.id;
   if (giveawayPingRole || clearGiveawayPing) updates.giveawayPingRoleId = clearGiveawayPing ? "" : giveawayPingRole.id;
   if (trialPingRole || clearTrialPing) updates.survivalTrialPingRoleId = clearTrialPing ? "" : trialPingRole.id;
@@ -246,6 +287,9 @@ export async function execute(interaction) {
   if (giveawayChannel) {
     configured.push(`Standard giveaways: ${giveawayChannel}`);
   }
+  if (activityGiveawayListChannel) configured.push(`Active activity giveaway directory: ${activityGiveawayListChannel}`);
+  if (activityWinnersChannel) configured.push(`Activity giveaway winner announcements: ${activityWinnersChannel}`);
+  if (activityReviewChannel) configured.push(`Private activity drawing approval: ${activityReviewChannel}`);
   if (survivalTrialChannel) {
     configured.push(`Court's Trial survival giveaways: ${survivalTrialChannel}`);
   }

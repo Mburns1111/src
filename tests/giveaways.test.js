@@ -25,7 +25,7 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.equal(spec.name,"giveaway");
  assert.equal(spec.default_member_permissions, String(32)); // ManageGuild
  const opts=spec.options;
- assert.deepEqual(opts.map(x=>x.name),["start","end","reroll","list","entrants"]);
+ assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","list","entrants","plan-create","plan-list","plan-view","plan-edit","prize-add","prize-edit","prize-remove","prize-move","banner-save","banner-list","banner-default","banner-clear","banner-remove"]);
  const start=opts[0].options.map(x=>x.name);
  for(const name of ["title","prize","minutes","winners","rules","role","claim_hours","claim_instructions"])
    assert.ok(start.includes(name));
@@ -55,7 +55,8 @@ test("announcement remains on completion with details, winners and audit trail",
    winnerIds:[userId,"333333333333333333"],
    rerollHistory:[{slot:0,previousId:"444444444444444444",replacementId:userId}],
  }));
- assert.equal(finished.components.length,0,"no active entry controls remain");
+ assert.equal(finished.components.length,1,"entry buttons are replaced by the winner ticket form");
+ assert.equal(finished.components[0].components[0].data.label,"File Ticket Claim");
  const description=finished.embeds[0].data.description;
  assert.match(description,/Jester Dragon/);
  assert.match(description,/Reroll history/);
@@ -148,7 +149,7 @@ test("reroll selects a new entrant without erasing earlier winner or reroll hist
   assert.deepEqual(result.winnerIds,[replacement]);
   assert.equal(result.status,"ended");
   assert.deepEqual([result.rerollHistory[0].previousId,result.rerollHistory[0].replacementId],[prior,replacement]);
-  await assert.rejects(()=>rerollGiveaway({id,guildId,staffId:prior,slot:0}),/no unused entrants/i);
+  await assert.rejects(()=>rerollGiveaway({id,guildId,staffId:prior,slot:0}),/no unused (entrants|current server members)/i);
  }finally{restore(old);}
 });
 

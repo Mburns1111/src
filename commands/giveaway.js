@@ -1,9 +1,19 @@
-import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
+import { submitGiveawayTicket } from "../services/giveaway-ticket-claims.js";
+import { winnerClaimDeadline, winnerHasClaim } from "../services/giveaway-claims.js";
+import { qualifyingActivity, qualifyingWatchActivity,countActivityParticipants, completedActivityWeek, previousActivityDay } from "../services/giveaway-activity-counter.js";
+import { easternMidnight, shiftCalendarDay, validateCustomActivityWindow } from "../services/giveaway-plan-time.js";
+import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js";
+import GiveawayPlan from "../models/GiveawayPlan.js";
+import {addGiveawayPlanCommands,executeGiveawayPlanAdmin,PLAN_OPERATIONS} from "./giveaway-plans.js";
+import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} from "./giveaway-banners.js";
+import {ensureBannerRegistered} from "../services/giveaway-banners.js";
+import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
-  closeGiveaway, rerollGiveaway, publishGiveawayResult,
+  closeGiveaway, rerollGiveaway, publishGiveawayResult, giveawayAnnouncementWithBanner,
 } from "../services/giveaways.js";
 import {
   TRIAL_SPEED_CHOICES, DEFAULT_TRIAL_SPEED_SECONDS, MAX_TRIAL_SIGNUP_MINUTES,
@@ -21,7 +31,53 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
     .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering"))
     .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (max 720)").setMinValue(1).setMaxValue(720))
-    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400)))
+    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400))
+    .addStringOption(o => o.setName("banner").setDescription("Optional registered banner image name").setMaxLength(60)))
+  .addSubcommand(c => c.setName("activity").setDescription("Schedule a surprise giveaway from the previous day or week")
+    .addStringOption(o => o.setName("title").setDescription("Title").setRequired(true))
+    .addStringOption(o => o.setName("prize").setDescription("Prize").setRequired(true))
+    .addIntegerOption(o => o.setName("minutes").setDescription("Minutes until winners announced").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
+    .addStringOption(o => o.setName("type").setDescription("Activity scope (default: general)").addChoices({name:"General server",value:"general"},{name:"Selected channels",value:"channels"}))
+    .addIntegerOption(o => o.setName("minimum").setDescription("Optional messages per active day (default 1)").setMinValue(1))
+    .addIntegerOption(o => o.setName("messages").setDescription("Total qualifying messages across the chosen activity period").setMinValue(1).setMaxValue(10000))
+    .addIntegerOption(o => o.setName("days").setDescription("Distinct active days required (default 1, e.g. 3)").setMinValue(1).setMaxValue(7))
+    .addIntegerOption(o => o.setName("winners").setDescription("Winners").setMinValue(1).setMaxValue(10))
+    .addStringOption(o => o.setName("watch").setDescription("Saved named watched-channel rule (optional)"))
+    .addStringOption(o => o.setName("period").setDescription("Select the previous day or previous Wed–Wed week")
+      .addChoices({name:"Previous Eastern calendar day",value:"daily"},
+        {name:"Previous Wednesday–Wednesday week",value:"weekly"}))
+    .addIntegerOption(o => o.setName("min_chars").setDescription("Minimum characters per message").setMinValue(0).setMaxValue(2000))
+    .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours to file ticket claim (default 48)").setMinValue(1).setMaxValue(720))
+    .addStringOption(o => o.setName("banner").setDescription("Optional registered banner for this giveaway").setMaxLength(60))
+    .addBooleanOption(o => o.setName("review").setDescription("Require staff approval before the result (default off)"))
+    .addBooleanOption(o => o.setName("progress").setDescription("Give members a private progress button (default off)"))
+    .addStringOption(o => o.setName("starts_at").setDescription("Optional activity start YYYY-MM-DD HH:mm Eastern"))
+    .addStringOption(o => o.setName("ends_at").setDescription("Optional activity cutoff YYYY-MM-DD HH:mm Eastern"))
+    .addChannelOption(o => o.setName("channel_1").setDescription("Channel 1"))
+    .addChannelOption(o => o.setName("channel_2").setDescription("Channel 2"))
+    .addChannelOption(o => o.setName("channel_3").setDescription("Channel 3"))
+    .addChannelOption(o => o.setName("channel_4").setDescription("Channel 4"))
+    .addChannelOption(o => o.setName("channel_5").setDescription("Channel 5")))
+  .addSubcommand(c => c.setName("watch-save").setDescription("Save a named channel watched daily or Wednesday–Wednesday")
+    .addStringOption(o => o.setName("name").setDescription("Example: QOTD, Suggestions, Art").setRequired(true).setMinLength(1).setMaxLength(60))
+    .addChannelOption(o => o.setName("channel").setDescription("Channel whose messages count").setRequired(true))
+    .addIntegerOption(o => o.setName("min_chars").setDescription("Minimum characters per qualifying message (default 1)").setMinValue(0).setMaxValue(2000))
+    .addIntegerOption(o => o.setName("messages").setDescription("Total qualifying messages required during this daily/weekly period").setMinValue(1).setMaxValue(10000))
+    .addIntegerOption(o => o.setName("per_day").setDescription("Optional extra minimum messages per active day (default 1)").setMinValue(1).setMaxValue(50))
+    .addIntegerOption(o => o.setName("days").setDescription("Required active days: 1 for daily, up to 7 weekly").setMinValue(1).setMaxValue(7))
+    .addStringOption(o => o.setName("period").setDescription("Daily: prior calendar day; Weekly: prior Wednesday–Wednesday")
+      .addChoices({name:"Daily — previous calendar day",value:"daily"},
+        {name:"Weekly — Wednesday to Wednesday",value:"weekly"}))
+    .addUserOption(o => o.setName("mention_member").setDescription("Require an explicit @mention of this member"))
+    .addStringOption(o => o.setName("phrase").setDescription("Optional text/answer required in the message (case-insensitive)").setMinLength(1).setMaxLength(120))
+    .addBooleanOption(o => o.setName("clear_mention").setDescription("Stop requiring a member mention"))
+    .addBooleanOption(o => o.setName("clear_phrase").setDescription("Stop requiring a phrase")))
+  .addSubcommand(c => c.setName("watch-list").setDescription("Review saved named activity channel rules"))
+  .addSubcommand(c => c.setName("watch-delete").setDescription("Remove a named watched channel rule")
+    .addStringOption(o => o.setName("name").setDescription("Saved rule name").setRequired(true)))
+  .addSubcommand(c => c.setName("edit-prize").setDescription("Update a giveaway's prize before winners are drawn")
+    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or existing message link").setRequired(true))
+    .addStringOption(o => o.setName("prize").setDescription("Updated prize details").setRequired(true).setMinLength(2).setMaxLength(1500)))
   .addSubcommand(c => c.setName("end").setDescription("End a normal giveaway early and retain its results")
     .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true)))
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
@@ -32,6 +88,9 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("id").setDescription("Giveaway or trial ID or message link").setRequired(true))
     .addIntegerOption(o => o.setName("page").setDescription("Page (25 entrants at a time)").setMinValue(1)));
 
+
+addGiveawayPlanCommands(data);
+addGiveawayBannerCommands(data);
 
 export const trialData = new SlashCommandBuilder()
   .setName("trial").setDescription("The Court's Trials: elimination competitions")
@@ -107,6 +166,147 @@ export async function execute(interaction) {
   const operation = interaction.options.getSubcommand();
   const survivalCommand = interaction.commandName === "trial";
   try {
+    if (!survivalCommand && PLAN_OPERATIONS.has(operation))
+      return await executeGiveawayPlanAdmin(interaction);
+    if (!survivalCommand && BANNER_OPERATIONS.has(operation))
+      return await executeGiveawayBannerAdmin(interaction);
+    if (operation === "watch-save") {
+      const name=interaction.options.getString("name",true).trim();
+      if (watchNameKey(name)==="general") throw Error("The name general is reserved for server-wide activity.");
+      const channel=interaction.options.getChannel("channel",true);
+      if (!channel?.isTextBased?.() || !channel.messages?.fetch) throw Error("Choose a text channel whose messages the bot can read.");
+      const nameKey=watchNameKey(name);
+      const existing=await GiveawayWatchRule.findOne({guildId:interaction.guildId,nameKey}).lean();
+      const activityPeriod=interaction.options.getString("period") || existing?.activityPeriod || "weekly";
+      const minimumChars=interaction.options.getInteger("min_chars") ?? existing?.minimumChars ?? 1;
+      const totalInput=interaction.options.getInteger("messages");
+      const minimumTotalMessages=totalInput ?? existing?.minimumTotalMessages ?? 1;
+      const minimumMessages=interaction.options.getInteger("per_day") ?? existing?.minimumMessages ?? 1;
+      const activeDays=interaction.options.getInteger("days") ??
+        (activityPeriod==="daily" || totalInput!==null ? 1 : existing?.activeDays??1);
+      if(activityPeriod==="daily" && activeDays!==1)
+        throw Error("Daily watches check one calendar day; set days:1. Weekly watches can require multiple days.");
+      const mentionUser=interaction.options.getUser("mention_member");
+      const phraseInput=interaction.options.getString("phrase");
+      const clearMention=interaction.options.getBoolean("clear_mention")===true;
+      const clearPhrase=interaction.options.getBoolean("clear_phrase")===true;
+      if((mentionUser && clearMention)||(phraseInput && clearPhrase))
+        throw Error("Choose either a new member/phrase or the corresponding clear option.");
+      if(mentionUser?.bot) throw Error("The mentioned target must be a real server member.");
+      const requiredMentionUserId=clearMention?"":(mentionUser?.id || existing?.requiredMentionUserId || "");
+      const requiredPhrase=clearPhrase?"":(phraseInput?.trim().replace(/\s+/g," ") || existing?.requiredPhrase || "");
+      // Increment only when message-matching conditions changed. Previously
+      // matched messages are not reused under an incompatible challenge.
+      const criteriaChanged=!existing || existing.channelId!==channel.id ||
+        existing.minimumChars!==minimumChars ||
+        (existing.requiredMentionUserId||"")!==requiredMentionUserId ||
+        (existing.requiredPhrase||"")!==requiredPhrase;
+      await GiveawayWatchRule.findOneAndUpdate(
+        {guildId:interaction.guildId,nameKey},
+        {$set:{name,channelId:channel.id,minimumChars,minimumMessages,activeDays,
+          activityPeriod,requiredMentionUserId,requiredPhrase,minimumTotalMessages},
+         ...(criteriaChanged?{$inc:{criteriaVersion:1}}:{})},
+        {upsert:true,new:true,runValidators:true});
+      const matching=[requiredMentionUserId?`explicitly mention <@${requiredMentionUserId}>`:null,
+        requiredPhrase?`include phrase "${requiredPhrase.replace(/[@`*_~|<>]/g,"")}"`:null].filter(Boolean);
+      const details=[`${minimumTotalMessages} qualifying messages total in the ${activityPeriod} activity window`,
+        `${minimumChars}+ characters each`,
+        minimumMessages>1?`${minimumMessages} messages per active day`:null,
+        activeDays>1?`${activeDays} different days`:null,
+        ...matching].filter(Boolean);
+      return interaction.editReply({content:`Saved **${name}** for <#${channel.id}> (${activityPeriod}): ${details.join(" · ")}. Other watches are unchanged.`,
+        allowedMentions:{parse:[]}});
+    }
+    if (operation === "watch-list") {
+      const rules=await GiveawayWatchRule.find({guildId:interaction.guildId}).sort({nameKey:1}).limit(30).lean();
+      const lines=rules.map(rule=>`• **${String(rule.name).replace(/[@*_~|<>]/g,"")}** · <#${rule.channelId}> · ${rule.minimumTotalMessages||1} total msg · ${rule.activityPeriod||"weekly"} · ${rule.minimumChars}+ chars${rule.activeDays>1?` · ${rule.activeDays} active days`:""}${rule.minimumMessages>1?` · ${rule.minimumMessages}/day`:""}${rule.requiredMentionUserId?` · tag <@${rule.requiredMentionUserId}>`:""}${rule.requiredPhrase?` · phrase "${String(rule.requiredPhrase).replace(/[@*_~|<>]/g,"").slice(0,35)}"`:""}`);
+      return interaction.editReply({content:rules.length
+        ? ("**Saved watched channels**\n"+lines.join("\n")).slice(0,1900)
+        : "No saved watches yet. Use /giveaway watch-save to create one.",allowedMentions:{parse:[]}});
+    }
+    if (operation === "watch-delete") {
+      const name=interaction.options.getString("name",true);
+      const inUse=await GiveawayPlan.exists({guildId:interaction.guildId,watchNameKey:watchNameKey(name),status:{$in:["active","paused"]}});
+      if(inUse)throw Error("An active giveaway plan uses this watched channel. Pause or edit that plan first.");
+      const result=await GiveawayWatchRule.deleteOne({guildId:interaction.guildId,nameKey:watchNameKey(name)});
+      return interaction.editReply(result.deletedCount?"Watched channel rule removed. Existing giveaway records are unchanged.":"No rule exists under that name.");
+    }
+    if (operation === "activity") {
+      await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayListChannelId","activity giveaway list");
+      const { channel } = await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayWinnersChannelId","activity giveaway winners");
+      const bannerNameKey=await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));
+      const watch=interaction.options.getString("watch");
+      const saved=watch?await GiveawayWatchRule.findOne({guildId:interaction.guildId,nameKey:watchNameKey(watch)}).lean():null;
+      if(watch && !saved)throw Error("Saved watched channel not found. Use watch-list.");
+      const type = saved?"channels":interaction.options.getString("type") || "general";
+      const channels = saved?[{id:saved.channelId}]:[1,2,3,4,5].map(n => interaction.options.getChannel("channel_"+n)).filter(Boolean);
+      if (type === "channels" && !channels.length) throw Error("Choose at least one channel.");
+      const checkedAt = new Date();
+      const endsAt = new Date(checkedAt.getTime()+interaction.options.getInteger("minutes",true)*60000);
+      const review=interaction.options.getBoolean("review")??false;
+      const progress=interaction.options.getBoolean("progress")??false;
+      if(review)await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayReviewChannelId","private staff review");
+      const custom=validateCustomActivityWindow(
+        interaction.options.getString("starts_at"),interaction.options.getString("ends_at"),
+        {announceAt:endsAt,now:checkedAt});
+      const period=interaction.options.getString("period") || saved?.activityPeriod || "weekly";
+      const periodKey=period==="daily"?previousActivityDay(checkedAt):completedActivityWeek(checkedAt);
+      const startAt=custom.startAt||easternMidnight(periodKey);
+      const endAt=custom.endAt||easternMidnight(shiftCalendarDay(periodKey,period==="daily"?1:7));
+      const totalInput=interaction.options.getInteger("messages");
+      const minimumTotalMessages=totalInput ?? saved?.minimumTotalMessages ?? 1;
+      const minimum = interaction.options.getInteger("minimum") ?? saved?.minimumMessages ?? 1;
+      const days = interaction.options.getInteger("days") ??
+        (period==="daily" || totalInput!==null ? 1 : saved?.activeDays??1);
+      if(period==="daily" && days!==1)
+        throw Error("Daily activity checks only one day. Use days:1.");
+      const minimumChars=interaction.options.getInteger("min_chars") ?? saved?.minimumChars ?? 1;
+      const channelIds = [...new Set(channels.map(c=>c.id))];
+      // For future custom windows, qualification is deliberately checked at
+      // cutoff rather than locking empty entries at setup time.
+      const window=custom.startAt?{startAt:custom.startAt,
+        endAt:new Date(Math.min(custom.endAt.getTime(),checkedAt.getTime()))}:
+        period==="daily"?{day:periodKey}:{week:periodKey};
+      const readable=!custom.startAt||window.endAt>window.startAt;
+      const entrantIds=!readable?[]:saved ? await qualifyingWatchActivity({
+          guildId:interaction.guildId,rule:saved,period,key:periodKey,
+          minimum,days,minimumChars,minimumTotalMessages,...window,
+        }) : await qualifyingActivity({guildId:interaction.guildId,type,
+          channelIds,minimum,days,minimumChars,minimumTotalMessages,...window});
+      const scan = {entrantIds,channelIds};
+      const candidateCount=review&&readable?await countActivityParticipants({
+        guildId:interaction.guildId,type,channelIds,period,key:periodKey,...window,
+      }):0;
+      // Zero entrants are allowed: final results will explicitly say no
+      // qualifying members, and no role or member earns duplicate entries.
+      const record = await Giveaway.create({
+        guildId:interaction.guildId, channelId:channel.id, creatorId:interaction.user.id,bannerNameKey,
+        title:interaction.options.getString("title",true), prize:interaction.options.getString("prize",true),
+        winnerCount:interaction.options.getInteger("winners") || 1, endsAt, mode:"activity",
+        status:"publishing", entrantIds:scan.entrantIds, activityType:type,
+        requireStaffReview:review,progressEnabled:progress,
+        customActivityStartAt:custom.startAt,customActivityEndAt:custom.endAt,
+        roleBonuses:saved?.roleBonuses||[],
+        activityWatchNameKey:watch?watchNameKey(watch):"",
+        activityRuleId:saved?._id||null,activityRuleCriteriaVersion:saved?.criteriaVersion||0,
+        activityChannelIds:scan.channelIds, activityMinimum:minimum, activityDays:days,activityMinChars:minimumChars,
+        activityRequiredMentionUserId:saved?.requiredMentionUserId||"",
+        activityRequiredPhrase:saved?.requiredPhrase||"",
+        activityMinTotalMessages:minimumTotalMessages,
+        activityPeriod:period,activityPeriodKey:periodKey,activityEndAt:endAt,
+        claimWindowHours:interaction.options.getInteger("claim_hours")??48,autoRerollClaims:true,
+        activityStartAt:startAt, activityCheckedAt:checkedAt,
+        activityCandidateCount:candidateCount,
+      });
+      await Giveaway.updateOne({_id:record._id},{$set:{status:"draft"}});
+      return interaction.editReply({
+        content:`**Private activity giveaway preview**\nActivity: ${custom.startAt?"Custom activity start/end":period==="daily"?"Previous Eastern calendar day":"Completed Wednesday–Wednesday week"}: ${custom.startAt?`<t:${Math.floor(startAt.getTime()/1000)}:F> to <t:${Math.floor(endAt.getTime()/1000)}:F>`:periodKey}\nCurrently qualified: **${scan.entrantIds.length}**${review?` / **${candidateCount}** active participants`:""}${custom.startAt?" (will recalculate at cutoff)":""}\nRequirement: **${minimumTotalMessages} qualifying messages total** in this ${period} period, each ${minimumChars}+ characters${days>1?` on ${days} distinct days`:""}${minimum>1?` (minimum ${minimum} messages on each active day)`:""}\nAnnouncement: <t:${Math.floor(endsAt.getTime()/1000)}:F>\nGiveaway ID: \`${record._id}\`\nConfirm to lock entries. Nothing will be posted until winners are drawn.`,
+        components:[new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`giveaway:confirm:${record._id}`).setLabel("Confirm & schedule").setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId(`giveaway:cancel:${record._id}`).setLabel("Cancel").setStyle(ButtonStyle.Secondary),
+        )],allowedMentions:{parse:[]},
+      });
+    }
     if (operation === "start") {
       const survival = survivalCommand;
       const { channel, config } = await getConfiguredTextChannelAndConfig(
@@ -115,17 +315,19 @@ export async function execute(interaction) {
         survival ? "Court's Trial survival giveaway" : "standard giveaway",
       );
       const pingRoleId = survival ? config?.survivalTrialPingRoleId : config?.giveawayPingRoleId;
+      const bannerNameKey=survival ? "" : await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));
       const minutes = survival
         ? (interaction.options.getInteger("signup_minutes") || 15)
         : interaction.options.getInteger("minutes", true);
       const winnerCount = interaction.options.getInteger("winners") || 1;
       const record = await Giveaway.create({
-        guildId: interaction.guildId, channelId: channel.id,
+        guildId: interaction.guildId, channelId: channel.id,bannerNameKey,
         creatorId: interaction.user.id,
         title: interaction.options.getString("title", true).trim(),
         prize: interaction.options.getString("prize", true).trim(),
         rules: interaction.options.getString("rules")?.trim() || "",
         claimWindowHours: survival ? null : (interaction.options.getInteger("claim_hours") || null),
+        autoRerollClaims: !survival && Boolean(interaction.options.getInteger("claim_hours")),
         claimWindowMinutes: survival ? (interaction.options.getInteger("claim_minutes") || null) : null,
         claimInstructions: interaction.options.getString("claim_instructions")?.trim() || "",
         requiredRoleId: interaction.options.getRole("role")?.id || "",
@@ -137,7 +339,8 @@ export async function execute(interaction) {
       });
       let message;
       try {
-        const announcement = giveawayAnnouncement({ ...record.toObject(), status: "open" });
+        const announcement = survival ? giveawayAnnouncement({ ...record.toObject(), status: "open" }) :
+          await giveawayAnnouncementWithBanner({ ...record.toObject(), status: "open" });
         // Only the creation message may ping the assigned notification role.
         // All later edits/results use no allowed mentions and never ping again.
         if (pingRoleId) {
@@ -173,6 +376,16 @@ export async function execute(interaction) {
     }
     const record = await findGiveaway(interaction.options.getString("id", true), interaction.guildId);
     if (!record) throw Error("Event not found in this server.");
+    if (operation === "edit-prize") {
+      if (record.mode==="survival" || !["draft","open"].includes(record.status))
+        throw Error("This prize can only be updated before the giveaway's drawing.");
+      const prize=interaction.options.getString("prize",true).trim();
+      const edited=await Giveaway.findOneAndUpdate({_id:record._id,guildId:interaction.guildId,status:{$in:["draft","open"]}},
+        {$set:{prize,renderedAt:null},$inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+      if (!edited)throw Error("The giveaway was already drawn. Its historical prize is unchanged.");
+      if (edited.messageId)await publishGiveawayResult(interaction.client,edited);
+      return interaction.editReply("Giveaway prize updated. Existing entries and past drawings were not changed.");
+    }
     if (operation === "entrants") {
       if (survivalCommand && record.mode !== "survival") {
         throw Error("Use /giveaway entrants for regular giveaways.");
@@ -206,12 +419,12 @@ export async function execute(interaction) {
     if (operation === "end") {
       if (record.mode === "survival") throw Error("Use the Start Trial (Staff) button to begin a trial, or /trial cancel to stop it.");
       if (record.status === "publishing" || record.status === "failed") throw Error("This giveaway was never published.");
-      updated = await closeGiveaway({ id: record._id, guildId: interaction.guildId });
+      updated = await closeGiveaway({ id: record._id, guildId: interaction.guildId, client: interaction.client });
       if (updated?.status === "rerolling") throw Error("Wait for the current reroll to finish.");
     } else if (operation === "reroll") {
       updated = await rerollGiveaway({
         id: record._id, guildId: interaction.guildId, staffId: interaction.user.id,
-        slot: interaction.options.getInteger("winner", true) - 1,
+        slot: interaction.options.getInteger("winner", true) - 1, client: interaction.client,
       });
     } else throw Error("Unknown giveaway action.");
     if (!updated || updated.status !== "ended") throw Error("Giveaway is being finalized; please check again.");
@@ -234,14 +447,46 @@ export async function execute(interaction) {
 export async function handleGiveawayButton(interaction) {
   if (!interaction.guildId || !interaction.guild || interaction.user.bot)
     return interaction.reply({ content: "Giveaway entries are only available to server members.", flags: MessageFlags.Ephemeral });
-  const match = /^giveaway:(enter|leave|count|launch):([0-9a-f]{24})$/.exec(interaction.customId);
+  const match = /^giveaway:(enter|leave|count|launch|confirm|cancel|claim):([0-9a-f]{24})$/.exec(interaction.customId);
   if (!match) return interaction.reply({ content: "Invalid giveaway button.", flags: MessageFlags.Ephemeral });
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const [, action, id] = match;
+  if (action!=="claim") await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const record = await Giveaway.findOne({ _id: id, guildId: interaction.guildId }).lean();
-    if (!record || record.messageId !== interaction.message?.id || record.channelId !== interaction.channelId)
-      return interaction.editReply("This giveaway announcement could not be verified.");
+    if (!record || (!["confirm","cancel"].includes(action) && (record.messageId !== interaction.message?.id || record.channelId !== interaction.channelId)))
+      return action==="claim"
+        ? interaction.reply({content:"This giveaway announcement could not be verified.",flags:MessageFlags.Ephemeral})
+        : interaction.editReply("This giveaway announcement could not be verified.");
+    if (action === "claim") {
+      if (record.mode==="survival" || record.status!=="ended" || !(record.winnerIds || []).includes(interaction.user.id))
+        return interaction.reply({content:"Only current winners can file ticket claims after the drawing.",flags:MessageFlags.Ephemeral});
+      const slot=record.winnerIds.indexOf(interaction.user.id);
+      if (winnerHasClaim(record,slot))
+        return interaction.reply({content:"You already filed a claim. Ask staff to correct it if necessary.",flags:MessageFlags.Ephemeral});
+      const deadline=winnerClaimDeadline(record,slot);
+      if (deadline && deadline<=new Date()) return interaction.reply({content:"Your ticket claim deadline has passed.",flags:MessageFlags.Ephemeral});
+      if ((record.claimResolvedSlots || []).includes(slot)) return interaction.reply({content:"This winning place has expired.",flags:MessageFlags.Ephemeral});
+      return interaction.showModal(new ModalBuilder().setCustomId(`giveaway:ticket:${id}`).setTitle("File your giveaway claim")
+        .addComponents(
+          new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_number").setLabel("Your ticket number").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80)),
+          new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_url").setLabel("Link to your ticket").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(500)),
+        ));
+    }
+    if (action === "confirm" || action === "cancel") {
+      if (record.mode !== "activity" || record.status !== "draft" || record.creatorId !== interaction.user.id ||
+          !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
+        return interaction.editReply("This preview is unavailable or belongs to another staff member.");
+      const updated = await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,status:"draft",creatorId:interaction.user.id},
+        {$set:{status:action==="confirm"?"open":"cancelled"}},{returnDocument:"after"}).lean();
+      if (!updated) return interaction.editReply("Already handled.");
+      if(action==="confirm"){
+        try {await publishActivityOneOffListing(interaction.client,updated);}
+        catch(error){console.error("[Giveaways] Scheduled activity listing will retry:",error);}
+      }
+      return interaction.editReply({content:action==="confirm"
+        ? `Surprise giveaway scheduled with **${updated.entrantIds.length}** locked entries. Announcement: <t:${Math.floor(new Date(updated.endsAt).getTime()/1000)}:F>. ID: \`${id}\``
+        : "Cancelled. Nothing was posted.",components:[]});
+    }
     if (action === "launch") {
       if (record.mode !== "survival") return interaction.editReply("This is not an elimination trial.");
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
@@ -273,6 +518,7 @@ export async function handleGiveawayButton(interaction) {
       }
       return interaction.editReply("⚔️ The Court’s Trial has begun! Watch this channel for each elimination.");
     }
+    if (record.mode === "activity" && action !== "count") return interaction.editReply("Entries are locked for activity giveaways.");
     if (action === "count") return interaction.editReply({
       content: `🥀 Current entries: **${record.entrantIds?.length || 0}** · Winners: **${record.winnerCount}**.`,
       allowedMentions: { parse: [] },
@@ -299,8 +545,29 @@ export async function handleGiveawayButton(interaction) {
     return interaction.editReply({ content: message, allowedMentions: { parse: [] } });
   } catch (error) {
     console.error("[Giveaways] Button action failed:", error);
+    if (action==="claim" && !interaction.replied && !interaction.deferred)
+      return interaction.reply({content:"I couldn't open your ticket form. Please try again.",flags:MessageFlags.Ephemeral});
     return interaction.editReply(action === "launch"
       ? "I couldn't start the trial. Check the Replit console for [Trials] or [Giveaways] errors."
       : "I couldn't update your entry. Please try again.");
+  }
+}
+
+export async function handleGiveawayClaimModal(interaction) {
+  const match=/^giveaway:ticket:([0-9a-f]{24})$/.exec(interaction.customId);
+  if (!match || !interaction.guildId || interaction.user.bot)
+    return interaction.reply({content:"Invalid ticket claim.",flags:MessageFlags.Ephemeral});
+  await interaction.deferReply({flags:MessageFlags.Ephemeral});
+  try {
+    const updated=await submitGiveawayTicket({
+      id:match[1],guildId:interaction.guildId,userId:interaction.user.id,
+      ticketNumber:interaction.fields.getTextInputValue("ticket_number"),
+      ticketUrl:interaction.fields.getTextInputValue("ticket_url"),
+    });
+    try { await publishGiveawayResult(interaction.client,updated); }
+    catch(error) { console.error("[Giveaways] Ticket saved but announcement refresh failed:",error); }
+    return interaction.editReply("Your ticket claim was saved. The giveaway announcement will show your ticket details.");
+  } catch(error) {
+    return interaction.editReply(error.message||"Unable to record your ticket claim.");
   }
 }

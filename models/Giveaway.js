@@ -6,6 +6,21 @@ import mongoose from "mongoose";
 const giveawaySchema = new mongoose.Schema({
   guildId: { type: String, required: true, index: true },
   channelId: { type: String, required: true },
+  listChannelId: { type: String, default: "" },
+  listMessageId: { type: String, default: "" },
+  listFingerprint: { type: String, default: "" },
+  bannerNameKey: { type: String, default: "" },
+  requireStaffReview:{type:Boolean,default:false},
+  progressEnabled:{type:Boolean,default:false},
+  announceEmptyResults:{type:Boolean,default:true},
+  reviewChannelId:{type:String,default:""},
+  reviewMessageId:{type:String,default:""},
+  reviewedBy:{type:String,default:""},
+  reviewedAt:{type:Date,default:null},
+  roleBonuses:[{roleId:String,extraEntries:Number}],
+  entryWeights:[{userId:String,weight:Number}],
+  customActivityStartAt:{type:Date,default:null},
+  customActivityEndAt:{type:Date,default:null},
   messageId: { type: String, default: null },
   creatorId: { type: String, required: true },
   title: { type: String, required: true },
@@ -16,12 +31,38 @@ const giveawaySchema = new mongoose.Schema({
   claimWindowMinutes: { type: Number, default: null, min: 1, max: 43200 },
   claimInstructions: { type: String, default: "", maxlength: 400 },
   claimStartedAt: { type: Date, default: null },
+  // Per-place ticket submissions and deadlines survive restarts and rerolls.
+  winnerClaims: [{ slot: Number, userId: String, ticketNumber: String, ticketUrl: String, submittedAt: Date }],
+  winnerAssignedAt: { type: [Date], default: [] },
+  claimResolvedSlots: { type: [Number], default: [] },
+  autoRerollClaims: { type: Boolean, default: false },
+  claimCheckAt: { type: Date, default: null },
   requiredRoleId: { type: String, default: "" },
   // Saved for audit: role notified once when this event was originally posted.
   announcementPingRoleId: { type: String, default: "" },
   winnerCount: { type: Number, required: true, min: 1, max: 10 },
   endsAt: { type: Date, required: true },
-  mode: { type: String, enum: ["standard", "survival"], default: "standard" },
+  mode: { type: String, enum: ["standard", "survival", "activity"], default: "standard" },
+  activityType: { type: String, default: "" },
+  activityChannelIds: { type: [String], default: [] },
+  activityMinimum: { type: Number, default: 1 },
+  activityMinChars: { type: Number, default: 0 },
+  activityWatchNameKey:{type:String,default:""},
+  activityRuleId:{type:mongoose.Schema.Types.ObjectId,default:null},
+  activityRuleCriteriaVersion:{type:Number,default:0},
+  activityRequiredMentionUserId: { type: String, default: "" },
+  activityRequiredPhrase: { type: String, default: "" },
+  activityMinTotalMessages: { type: Number, default: 0 },
+  activityPeriod: { type: String, enum: ["daily","weekly"], default: "weekly" },
+  activityPeriodKey: { type: String, default: "" },
+  activityEndAt: { type: Date, default: null },
+  activityDays: { type: Number, default: 1 },
+  activityStartAt: { type: Date, default: null },
+  activityCheckedAt: { type: Date, default: null },
+  activityCandidateCount:{type:Number,default:0},
+  activityVerifiedIds: { type: [String], default: [] },
+  scheduleId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  scheduleRunAt: { type: Date, default: null },
   speedSeconds: { type: Number, default: 5, min: 2, max: 5 },
   gameStartedAt: { type: Date, default: null },
   gameEndedAt: { type: Date, default: null },
@@ -36,23 +77,30 @@ const giveawaySchema = new mongoose.Schema({
   finaleMessageId: { type: String, default: "" },
   finaleLeaseKey: { type: String, default: "" },
   finaleLeaseUntil: { type: Date, default: null },
-  status: { type: String, enum: ["publishing", "open", "preparing", "running", "closing", "ended", "rerolling", "cancelled", "failed"], default: "publishing" },
+  status: { type: String, enum: ["draft", "publishing", "open", "pending_review", "preparing", "running", "closing", "ended", "rerolling", "cancelled", "failed"], default: "publishing" },
   entrantIds: { type: [String], default: [] },
   winnerIds: { type: [String], default: [] },
   rerollHistory: [{
     slot: Number, previousId: String, replacementId: String,
-    staffId: String, at: Date,
+    staffId: String, reason: String, at: Date,
   }],
   pendingRerollSlot: { type: Number, default: null },
   pendingRerollStaffId: { type: String, default: "" },
+  pendingRerollReason: { type: String, default: "" },
+  pendingRerollAt: { type: Date, default: null },
+  pendingRerollEligibleIds: { type: [String], default: [] },
   renderedAt: { type: Date, default: null },
   renderVersion: { type: Number, default: 0 },
 }, { timestamps: true });
 
 giveawaySchema.index({ guildId: 1, status: 1, endsAt: 1 });
+giveawaySchema.index({ status: 1, claimCheckAt: 1 });
 giveawaySchema.index({ guildId: 1, mode: 1, entrantIds: 1 });
 giveawaySchema.index({ guildId: 1, mode: 1, originalChampionId: 1, status: 1 });
 giveawaySchema.index({ mode: 1, status: 1, nextEventAt: 1 });
+giveawaySchema.index({ scheduleId: 1, scheduleRunAt: 1 }, { unique: true, partialFilterExpression: { scheduleId: { $type: "objectId" } } });
+// A plan cannot draw twice for the same daily or weekly activity period.
+giveawaySchema.index({ scheduleId: 1, activityPeriodKey: 1 }, { unique: true, partialFilterExpression: { scheduleId: { $type: "objectId" }, activityPeriodKey: { $type: "string", $gt: "" } } });
 giveawaySchema.index({ guildId: 1, messageId: 1 }, {
   unique: true, partialFilterExpression: { messageId: { $type: "string" } },
 });
