@@ -2,7 +2,8 @@ import {MessageFlags} from "discord.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
-import {memberActivityProgress,activityWeek,currentActivityDay} from "./giveaway-activity-counter.js";
+import {memberActivityProgress} from "./giveaway-activity-counter.js";
+import {planActivityWindow} from "./giveaway-plans.js";
 import {weightForMember} from "./giveaway-role-weights.js";
 
 export async function handleActivityGiveawayProgress(interaction) {
@@ -47,8 +48,9 @@ export async function handleActivityGiveawayProgress(interaction) {
     channelIds:item.activityChannelIds||[],
   };
   const endAt=custom?new Date(Math.min(new Date(customEnd).getTime(),now.getTime())):null;
+  const nextWindow=isPlan?planActivityWindow(item,item.nextRunAt):null;
   const window=custom ? {startAt:new Date(customStart),endAt} :
-    {period,key:isPlan?(period==="daily"?currentActivityDay(now):activityWeek(now)):item.activityPeriodKey};
+    {period,key:isPlan?nextWindow.key:item.activityPeriodKey};
   // Custom window has not opened yet. No activity can have been credited.
   let progress={messages:0,activeDays:0,target:settings.minimumTotalMessages,qualified:false};
   if(!custom||endAt>new Date(customStart))
@@ -70,7 +72,8 @@ export async function handleActivityGiveawayProgress(interaction) {
     `Status: ${qualifying}`,
     `Drawing weight if qualified: ${weight} chance${weight===1?"":"s"} (still one unique entrant)`,
     custom?`Activity ends: <t:${Math.floor(new Date(customEnd).getTime()/1000)}:F>`:
-      `Activity period: ${period==="daily"?"Eastern calendar day":"Eastern Wednesday–Wednesday week"}`,
+      isPlan?`Counting period for next drawing: <t:${Math.floor(nextWindow.startAt.getTime()/1000)}:F> to <t:${Math.floor(nextWindow.endAt.getTime()/1000)}:F>`:
+      `Activity period: ${period==="daily"?"Previous Eastern calendar day":"Eastern Wednesday–Wednesday week"}`,
    ].filter(Boolean).join("\n"),allowedMentions:{parse:[]}});
  }catch(error){
    console.error("[Giveaways] Progress check failed:",error);
