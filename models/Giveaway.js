@@ -59,6 +59,7 @@ const giveawaySchema = new mongoose.Schema({
   activityDays: { type: Number, default: 1 },
   activityStartAt: { type: Date, default: null },
   activityCheckedAt: { type: Date, default: null },
+  activityCandidateCount:{type:Number,default:0},
   activityVerifiedIds: { type: [String], default: [] },
   scheduleId: { type: mongoose.Schema.Types.ObjectId, default: null },
   scheduleRunAt: { type: Date, default: null },
