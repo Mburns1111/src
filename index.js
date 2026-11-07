@@ -896,6 +896,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         pointsAdminCommand.name,
         pointsObserveCommand.name,
         partyCommand.name,
+        giveawayRoleCommand.name,
         profileCleanupCommand.name,
         profileRefreshCommand.name,
       ].includes(interaction.commandName)

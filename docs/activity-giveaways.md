@@ -71,8 +71,8 @@ The following settings are **per giveaway** and are not forced on all servers.
   - `/giveaway-role bonus-add target:watch name:QOTD role:@VIP extra:2`
   - `/giveaway-role bonus-add target:watch name:QOTD role:@Supporter extra:3`
   - `/giveaway-role bonus-add target:plan name:Weekly-Activity role:@Contributor extra:1`
-  - `/giveaway-role bonus-list target:watch name:QOTD` and `/giveaway-role bonus-remove target:watch name:QOTD role:@VIP`
-- A qualified member has **one base chance**, plus every applicable unique bonus role's extra chances. For example, VIP +2 and Supporter +3 provides weight **6**, not six eligible-member records.
+  - `/giveaway-role bonus-list target:watch name:QOTD` and `/giveaway-role bonus-remove target:watch name:QOTD role:@VIP`\n  - `/giveaway-role bonus-add target:event name:<Giveaway ID> role:@VIP extra:2` — customize an individual **one-off activity giveaway** until its draw; the private setup preview shows its ID.
+- Each one-off drawing can also receive its own role bonuses using `target:event`; future rounds of named plans use `target:plan` or inherited `target:watch`.\n- A qualified member has **one base chance**, plus every applicable unique bonus role's extra chances. For example, VIP +2 and Supporter +3 provides weight **6**, not six eligible-member records.
 - A plan can use bonuses inherited from its saved watch plus plan-specific bonuses; if the same role appears on both, the plan setting overrides the watch setting.
 - Weighted draws sample **distinct winners without replacement** and snapshot weights for fair rerolls. No member can win twice in one drawing, even with several roles.
 

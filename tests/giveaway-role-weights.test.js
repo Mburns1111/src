@@ -11,6 +11,8 @@ test("staff can configure several roles separately with an explicit extra-chance
  assert.equal(cmd.name,"giveaway-role");
  assert.deepEqual(cmd.options.map(x=>x.name),["bonus-add","bonus-remove","bonus-list"]);
  assert.ok(cmd.options[0].options.some(x=>x.name==="extra"));
+ const targets=cmd.options[0].options.find(x=>x.name==="target").choices.map(x=>x.value);
+ assert.deepEqual(targets,["watch","plan","event"]);
  assert.throws(()=>normalizeRoleBonuses([{roleId:vip,extraEntries:0}]),/1–20/);
  assert.throws(()=>normalizeRoleBonuses([{roleId:vip,extraEntries:2},{roleId:vip,extraEntries:3}]),/unique/);
 });
