@@ -54,7 +54,7 @@ The following settings are **per giveaway** and are not forced on all servers.
 
 - `/giveaway plan-create ... progress:true`, `plan-edit ... progress:true`, or `/giveaway activity ... progress:true`.
 - The public directory listing shows **Check My Progress** only when enabled. Each member privately sees their own `qualifying messages / target`, relevant active-day threshold, their provisional chances if qualified, and the current activity window. No one else's data is returned.
-- For recurring plans, the progress button checks the **current ongoing Eastern day/week**, not a previous drawn period. For one-time custom windows it checks activity from the configured start up through the current time or cutoff.
+- For each saved plan, the progress button checks the **exact activity window associated with its next scheduled drawing**. This may be ongoing, already completed (for a drawing later today), or upcoming. The private reply shows the relevant window boundaries. For custom windows it checks activity from the configured start up through the current time or cutoff.
 
 ### One-time custom activity start and cutoff
 
