@@ -45,7 +45,7 @@ The following settings are **per giveaway** and are not forced on all servers.
 
 - `/setup channels activity_review:#private-giveaway-reviews` configures a **separate private staff channel**. Restrict channel visibility for @everyone; the bot rejects a publicly visible review channel when it can inspect channel permissions.
 - `/giveaway plan-create ... review:true` or `/giveaway plan-edit name:... review:true` enables review; omission defaults **off** for newly created plans.
-- At the scheduled drawing time the bot **does not choose or announce winners yet**. It snapshots qualifying member IDs (one per member) and posts a staff review embed with the requirements, prize, eligible count, and qualifying member mentions, capped at a 20-member preview.
+- At the scheduled drawing time the bot **does not choose or announce winners yet**. It snapshots qualifying member IDs (one per member) and posts a staff review embed with the requirements, prize, number of active members, number eligible/not eligible, and qualifying member mentions, capped at a 20-member preview. The ineligible count is based on distinct active participants; it can include people who have left the server.
 - A staff member with **Manage Server** presses **Approve & Draw** to select distinct winners and announce them in the separate `activity_winners` channel; **Decline Drawing** cancels without using a prize. Only one approval can succeed.
 - The review request remains recoverable after restarts. The next schedule cycle begins when a reviewed result is finalized.
 - One-off `/giveaway activity ... review:true` supports the same option. Its existing creation confirmation is separate from this optional pre-draw staff review.

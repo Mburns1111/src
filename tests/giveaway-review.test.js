@@ -14,6 +14,9 @@ const record={_id:"507f1f77bcf86cd799439011",guildId,status:"pending_review",
 test("review payload is private and staff action buttons never announce a winner",()=>{
  const payload=giveawayReviewPayload(record);
  assert.match(payload.embeds[0].toJSON().description,/Qualified members:.*1/);
+ const extended=giveawayReviewPayload({...record,activityCandidateCount:5});
+ assert.match(extended.embeds[0].toJSON().description,/Active members during window:.*5/);
+ assert.match(extended.embeds[0].toJSON().description,/Not eligible at review time:.*4/);
  assert.equal(payload.components[0].components[0].data.label,"Approve & Draw");
  assert.equal(payload.components[0].components[1].data.label,"Decline Drawing");
  assert.ok(!payload.embeds[0].toJSON().description.includes("Winner: <@"));

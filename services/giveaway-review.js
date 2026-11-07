@@ -11,7 +11,7 @@ export function giveawayReviewPayload(record){
     `**Prize:** ${String(record.prize||"").slice(0,500)}`,
     `**Active members during window:** ${candidateCount}`,
     `**Qualified members:** ${eligible.length}`,
-    `**Did not meet the requirements:** ${Math.max(0,candidateCount-eligible.length)}`,
+    `**Not eligible at review time:** ${Math.max(0,candidateCount-eligible.length)}`,
     `**Target:** ${record.activityMinTotalMessages||1} matching messages per member`,
     `**Period:** <t:${Math.floor(new Date(record.activityStartAt||record.customActivityStartAt).getTime()/1000)}:F> to <t:${Math.floor(new Date(record.activityEndAt||record.customActivityEndAt).getTime()/1000)}:F>`,
     `**Winner places:** ${record.winnerCount}`,
