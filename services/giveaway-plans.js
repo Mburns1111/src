@@ -3,7 +3,7 @@ import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
-import { completedActivityWeek, previousActivityDay, qualifyingActivity, qualifyingWatchActivity } from "./giveaway-activity-counter.js";
+import { completedActivityWeek, previousActivityDay, qualifyingActivity, qualifyingWatchActivity,countActivityParticipants } from "./giveaway-activity-counter.js";
 import { easternMidnight, shiftCalendarDay, nextPlanAnnouncement } from "./giveaway-plan-time.js";
 import { closeGiveaway, publishGiveawayResult } from "./giveaways.js";
 import {publishGiveawayReview} from "./giveaway-review.js";
@@ -100,6 +100,11 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     throw Error("Configure /setup channels activity_winners before scheduled activity drawings.");
   if(plan.requireStaffReview&&!config.activityGiveawayReviewChannelId)
     throw Error("Configure a private /setup channels activity_review before using staff review.");
+  const candidateCount=plan.requireStaffReview?await countActivityParticipants({
+    guildId:plan.guildId,type:qualification.type,channelIds:qualification.channelIds,
+    period:activityWindow.period,key:activityWindow.key,
+    ...(activityWindow.custom?{startAt:activityWindow.startAt,endAt:activityWindow.endAt}:{}),
+  }):0;
   const roleBonuses=normalizeRoleBonuses([...new Map([...(rule?.roleBonuses||[]),
     ...(plan.roleBonuses||[])].map(b=>[b.roleId,{roleId:b.roleId,extraEntries:b.extraEntries}])).values()]);
   let record=await Giveaway.findOne({scheduleId:plan._id,scheduleRunAt:runAt}).lean();
@@ -124,7 +129,8 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
         activityPeriod:activityWindow.period,
         activityPeriodKey:activityWindow.key,activityStartAt:activityWindow.startAt,
         activityEndAt:activityWindow.endAt,
-        activityCheckedAt:now,claimWindowHours:plan.claimWindowHours,autoRerollClaims:true,
+        activityCheckedAt:now,activityCandidateCount:candidateCount,
+        claimWindowHours:plan.claimWindowHours,autoRerollClaims:true,
         scheduleId:plan._id,scheduleRunAt:runAt,
       });
       record=record.toObject();

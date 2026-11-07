@@ -3,7 +3,7 @@ import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
 import { submitGiveawayTicket } from "../services/giveaway-ticket-claims.js";
 import { winnerClaimDeadline, winnerHasClaim } from "../services/giveaway-claims.js";
-import { qualifyingActivity, qualifyingWatchActivity, completedActivityWeek, previousActivityDay } from "../services/giveaway-activity-counter.js";
+import { qualifyingActivity, qualifyingWatchActivity,countActivityParticipants, completedActivityWeek, previousActivityDay } from "../services/giveaway-activity-counter.js";
 import { easternMidnight, shiftCalendarDay, validateCustomActivityWindow } from "../services/giveaway-plan-time.js";
 import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
@@ -274,6 +274,9 @@ export async function execute(interaction) {
         }) : await qualifyingActivity({guildId:interaction.guildId,type,
           channelIds,minimum,days,minimumChars,minimumTotalMessages,...window});
       const scan = {entrantIds,channelIds};
+      const candidateCount=review&&readable?await countActivityParticipants({
+        guildId:interaction.guildId,type,channelIds,period,key:periodKey,...window,
+      }):0;
       // Zero entrants are allowed: final results will explicitly say no
       // qualifying members, and no role or member earns duplicate entries.
       const record = await Giveaway.create({
@@ -293,10 +296,11 @@ export async function execute(interaction) {
         activityPeriod:period,activityPeriodKey:periodKey,activityEndAt:endAt,
         claimWindowHours:interaction.options.getInteger("claim_hours")??48,autoRerollClaims:true,
         activityStartAt:startAt, activityCheckedAt:checkedAt,
+        activityCandidateCount:candidateCount,
       });
       await Giveaway.updateOne({_id:record._id},{$set:{status:"draft"}});
       return interaction.editReply({
-        content:`**Private activity giveaway preview**\nActivity: ${custom.startAt?"Custom activity start/end":period==="daily"?"Previous Eastern calendar day":"Completed Wednesday–Wednesday week"}: ${custom.startAt?`<t:${Math.floor(startAt.getTime()/1000)}:F> to <t:${Math.floor(endAt.getTime()/1000)}:F>`:periodKey}\nCurrently qualified: **${scan.entrantIds.length}**${custom.startAt?" (will recalculate at cutoff)":""}\nRequirement: **${minimumTotalMessages} qualifying messages total** in this ${period} period, each ${minimumChars}+ characters${days>1?` on ${days} distinct days`:""}${minimum>1?` (minimum ${minimum} messages on each active day)`:""}\nAnnouncement: <t:${Math.floor(endsAt.getTime()/1000)}:F>\nGiveaway ID: \`${record._id}\`\nConfirm to lock entries. Nothing will be posted until winners are drawn.`,
+        content:`**Private activity giveaway preview**\nActivity: ${custom.startAt?"Custom activity start/end":period==="daily"?"Previous Eastern calendar day":"Completed Wednesday–Wednesday week"}: ${custom.startAt?`<t:${Math.floor(startAt.getTime()/1000)}:F> to <t:${Math.floor(endAt.getTime()/1000)}:F>`:periodKey}\nCurrently qualified: **${scan.entrantIds.length}**${review?` / **${candidateCount}** active participants`:""}${custom.startAt?" (will recalculate at cutoff)":""}\nRequirement: **${minimumTotalMessages} qualifying messages total** in this ${period} period, each ${minimumChars}+ characters${days>1?` on ${days} distinct days`:""}${minimum>1?` (minimum ${minimum} messages on each active day)`:""}\nAnnouncement: <t:${Math.floor(endsAt.getTime()/1000)}:F>\nGiveaway ID: \`${record._id}\`\nConfirm to lock entries. Nothing will be posted until winners are drawn.`,
         components:[new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId(`giveaway:confirm:${record._id}`).setLabel("Confirm & schedule").setStyle(ButtonStyle.Success),
           new ButtonBuilder().setCustomId(`giveaway:cancel:${record._id}`).setLabel("Cancel").setStyle(ButtonStyle.Secondary),

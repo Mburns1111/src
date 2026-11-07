@@ -3,7 +3,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "disc
 import Giveaway from "../models/Giveaway.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
-import {qualifyingActivity,qualifyingWatchActivity} from "./giveaway-activity-counter.js";
+import {qualifyingActivity,qualifyingWatchActivity,countActivityParticipants} from "./giveaway-activity-counter.js";
 import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt } from "./giveaway-claims.js";
 import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
@@ -294,8 +294,13 @@ async function refreshCustomOneOffEntries(record,now){
     await qualifyingActivity({...options,type:record.activityType,
       channelIds:record.activityChannelIds||[]});
   const distinct=[...new Set(entrants)];
+  const candidateCount=record.requireStaffReview?
+    await countActivityParticipants({
+      guildId:record.guildId,type:record.activityType,
+      channelIds:record.activityChannelIds||[],...window,
+    }):record.activityCandidateCount||0;
   const changed=await Giveaway.findOneAndUpdate({_id:record._id,status:"open"},
-    {$set:{entrantIds:distinct,activityCheckedAt:now}},
+    {$set:{entrantIds:distinct,activityCheckedAt:now,activityCandidateCount:candidateCount}},
     {returnDocument:"after"}).lean();
   return changed||record;
 }
