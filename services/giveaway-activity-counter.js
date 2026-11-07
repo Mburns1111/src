@@ -187,3 +187,17 @@ export async function memberActivityProgress({guildId,userId,rule=null,type="gen
     qualified:(progress?.totalMessages||0)>=minimumTotalMessages &&
       (progress?.activeDays||0)>=days};
 }
+
+/** Number of distinct members who posted in the checked scope, before staff
+ * requirements. Count summaries only; no message bodies are loaded. */
+export async function countActivityParticipants({guildId,type="general",channelIds=[],
+  period="weekly",key=null,startAt=null,endAt=null}){
+  const custom=startAt!==null && endAt!==null;
+  const window=custom?{minute:{$gte:new Date(startAt),$lt:new Date(endAt)}}:
+    period==="daily"?{day:key}:{week:key};
+  const match={guildId,...window,
+    ...(type==="channels"?{channelId:{$in:channelIds}}:{})};
+  const model=custom?GiveawayActivityMinuteCount:GiveawayActivityCount;
+  const ids=await model.distinct("userId",match);
+  return ids.length;
+}
