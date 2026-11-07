@@ -1,4 +1,4 @@
-import {SlashCommandBuilder,PermissionFlagsBits,MessageFlags} from "discord.js";
+import {SlashCommandBuilder,PermissionFlagsBits} from "discord.js";
 import GiveawayPlan,{planNameKey} from "../models/GiveawayPlan.js";
 import GiveawayWatchRule,{watchNameKey} from "../models/GiveawayWatchRule.js";
 import Giveaway from "../models/Giveaway.js";
@@ -29,8 +29,7 @@ export function addGiveawayRoleBonusCommands(builder){
 }
 export async function executeGiveawayRoleBonusAdmin(interaction){
  if(!interaction.guildId||!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-   return interaction.reply({content:"Only Manage Server staff can edit giveaway role bonuses.",flags:MessageFlags.Ephemeral});
- await interaction.deferReply({flags:MessageFlags.Ephemeral});
+   return interaction.editReply("Only Manage Server staff can edit giveaway role bonuses.");
  const op=interaction.options.getSubcommand();
  if(!ROLE_BONUS_OPERATIONS.has(op))throw Error("Unknown role bonus action.");
  const target=interaction.options.getString("target",true);
