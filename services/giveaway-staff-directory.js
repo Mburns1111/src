@@ -7,7 +7,7 @@ import GuildConfig from "../models/GuildConfig.js";
 // This directory lives in the existing *private* giveaway staff channel, not
 // a public channel, DM, or separate new setup field.
 export const STAFF_DIRECTORY_PAGE_SIZE=15;
-export const STAFF_DIRECTORY_BUMP_COOLDOWN_MS=3*60_000;
+export const STAFF_DIRECTORY_BUMP_COOLDOWN_MS=10*60_000;
 export const ACTIVE_GIVEAWAY_STATES=["open","pending_review","preparing","running","closing","rerolling"];
 const lastBumped=new Map();
 const inFlight=new Set();
