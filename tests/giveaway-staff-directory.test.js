@@ -75,18 +75,19 @@ test("directory is sent to the private staff channel, reused, then auto-bumped w
  const config={guildId:testGuild,activityGiveawayReviewChannelId:staff,
   giveawayStaffDirectoryMessageId:"",giveawayStaffDirectoryChannelId:"",giveawayStaffDirectoryFingerprint:""};
  const posted=[],deleted=[],edited=[],updates=[];
+ const messagesById=new Map();
  let current=null;
  const staffChannel={
    id:staff,lastMessageId:null,guild:{roles:{everyone:{id:"everyone"}}},
    permissionsFor:()=>({has:()=>false}),
-   messages:{fetch:async value=>typeof value==="string"?current:{
+   messages:{fetch:async value=>typeof value==="string"?messagesById.get(value):{
      first:()=>current
    }},
    send:async payload=>{
      const n=posted.length+1;
      const m={id:"70000000000000000"+n,author:{id:"bot"},
        delete:async()=>deleted.push(n),edit:async p=>edited.push(p)};
-     posted.push(payload);current=m;staffChannel.lastMessageId=m.id;
+     posted.push(payload);messagesById.set(m.id,m);current=m;staffChannel.lastMessageId=m.id;
      return m;
    },
  };
