@@ -5,6 +5,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import {startActivityGiveawaySetup,startRegularGiveawaySetup} from "./activity-giveaway-setup.js";
 import {startTrialGiveawaySetup} from "./trial-giveaway-setup.js";
 import {startGuidedGuildSetup} from "./general-card-setup.js";
@@ -71,8 +72,12 @@ export async function execute(interaction) {
   const trialPingRole = interaction.options.getRole("trial_ping");
   const clearGiveawayPing = interaction.options.getBoolean("clear_giveaway_ping") === true;
   const clearTrialPing = interaction.options.getBoolean("clear_trial_ping") === true;
-  if ((giveawayPingRole && clearGiveawayPing) || (trialPingRole && clearTrialPing)) {
-    throw new UserFacingError("Choose a ping role or clear it, not both for the same event type.");
+  // Old cached /setup channels interactions also update the *one* shared
+  // giveaway ping role. Conflicting legacy options cannot create split pings.
+  if ((giveawayPingRole && clearGiveawayPing) || (trialPingRole && clearTrialPing) ||
+      ((giveawayPingRole||trialPingRole)&&(clearGiveawayPing||clearTrialPing)) ||
+      (giveawayPingRole&&trialPingRole&&giveawayPingRole.id!==trialPingRole.id)) {
+    throw new UserFacingError("Choose one shared giveaway ping role or clear it, not different roles for giveaways and Trials.");
   }
 
   if (
@@ -146,11 +151,10 @@ export async function execute(interaction) {
   if (activityWinnersChannel) updates.activityGiveawayWinnersChannelId = activityWinnersChannel.id;
   if (activityReviewChannel) updates.activityGiveawayReviewChannelId = activityReviewChannel.id;
   if (survivalTrialChannel) updates.survivalTrialChannelId = survivalTrialChannel.id;
-  if (giveawayPingRole || clearGiveawayPing) {
-    updates.giveawayPingRoleId = clearGiveawayPing ? "" : giveawayPingRole.id;
-    updates.giveawayNotificationRoleIds = clearGiveawayPing ? [] : [giveawayPingRole.id];
+  if (giveawayPingRole || trialPingRole || clearGiveawayPing || clearTrialPing) {
+    Object.assign(updates,sharedGiveawayNotificationFields(
+      giveawayPingRole?.id||trialPingRole?.id||""));
   }
-  if (trialPingRole || clearTrialPing) updates.survivalTrialPingRoleId = clearTrialPing ? "" : trialPingRole.id;
 
   // Ensure the shop before updating channel settings so its existing message IDs
   // are checked against the previous channel when a shop is moved.
@@ -217,10 +221,10 @@ export async function execute(interaction) {
   if (survivalTrialChannel) {
     configured.push(`Court's Trial survival giveaways: ${survivalTrialChannel}`);
   }
-  if (giveawayPingRole) configured.push(`Regular giveaway notifications: <@&${giveawayPingRole.id}>`);
-  if (trialPingRole) configured.push(`Court's Trial notifications: <@&${trialPingRole.id}>`);
-  if (clearGiveawayPing) configured.push("Regular giveaway notifications: disabled");
-  if (clearTrialPing) configured.push("Court's Trial notifications: disabled");
+  if (giveawayPingRole || trialPingRole)
+    configured.push(`Shared giveaway & Trial notifications: <@&${giveawayPingRole?.id||trialPingRole?.id}>`);
+  if (clearGiveawayPing || clearTrialPing)
+    configured.push("Shared giveaway & Trial notifications: disabled");
   if (hatchemChannel) configured.push(`Hatchem card-game commands: ${hatchemChannel}`);
   if (partyGamesChannel) configured.push(`Party Games: ${partyGamesChannel}`);
 
