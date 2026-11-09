@@ -98,13 +98,13 @@ test("General setup allows a giveaway-only or cards-only guild with all optional
   assert.match(cards, /manual card drops available/i);
 });
 
-test("Trials use independent eligibility, role announcements, claims and preview", () => {
+test("Trials keep independent eligibility and claims but use one shared giveaway announcement role", () => {
   const summary = trialSetupSummary(settings);
   assert.match(summary, /30 minutes/);
   assert.match(summary, /2 per winning place/);
   assert.match(summary, /Pick up the role/);
   assert.match(summary, new RegExp(role));
-  assert.match(summary, new RegExp(secondRole));
+  assert.doesNotMatch(summary, new RegExp(secondRole),"only the first legacy notification role is recognized as shared");
   assert.match(summary, /only to new Trials/i);
   const preview = trialSetupPreview(settings, { userId: member });
   assert.match(preview.content, /PREVIEW/i);
