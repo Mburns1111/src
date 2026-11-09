@@ -4,7 +4,8 @@ import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "./survival-event-texts.js";
 import { HARVEST_SOLO_TRIAL_EVENTS, HARVEST_DUEL_TRIAL_EVENTS } from "./survival-harvest-event-texts.js";
 import { buildTrialEventPortrait } from "./trial-event-portraits.js";
-import { prizeClaimLines } from "./giveaway-claims.js";
+import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt } from "./giveaway-claims.js";
+import { attachGiveawayBanner, getGiveawayBanner } from "./giveaway-banners.js";
 
 export const MAX_TRIAL_ENTRANTS = 120;
 export const TRIAL_SPEED_CHOICES = [2, 3, 5];
@@ -81,7 +82,9 @@ export function survivalAnnouncement(record) {
       : running
         ? `**Trial in progress:** ${completed}/${events.length} eliminations · ${Math.max(0, events.length + 1 - completed)} remain`
         : cancelled ? "**Trial cancelled by staff.**" : "**Trial complete.**",
-    ...(record.requiredRoleId ? [`**Required role:** <@&${record.requiredRoleId}>`] : []),
+    ...(record.requiredRoleId ? [`**Required role:** <@&${record.requiredRoleId}>`,
+      ...(record.showRequiredRoleInstructions !== false && record.requiredRoleInstructions
+        ? ["**Where to get it:** " + record.requiredRoleInstructions] : [])] : []),
     ...(!ended && !cancelled ? prizeClaimLines(record) : []),
     ...(record.rules ? ["", "**Entry requirements**", record.rules.slice(0, 1000)] : []),
   ];
@@ -110,7 +113,11 @@ export function survivalAnnouncement(record) {
       new ButtonBuilder().setCustomId(`giveaway:launch:${record._id}`).setLabel("Start Trial (Staff)").setStyle(ButtonStyle.Primary),
     ),
   ] : [];
-  return { embeds: [embed], components, allowedMentions: { parse: [] } };
+  const notificationRoles = (record.announcementPingRoleIds?.length
+    ? record.announcementPingRoleIds : (record.announcementPingRoleId ? [record.announcementPingRoleId] : []));
+  return { content: notificationRoles.length
+    ? notificationRoles.map(id => "<@&" + id + ">").join(" ") : undefined,
+    embeds: [embed], components, allowedMentions: { parse: [] } };
 }
 
 export function survivalEventPayload(record, event, index, imageName = null) {
@@ -244,6 +251,15 @@ export function survivalFinalePayload(record, championRecord = null) {
     ...(prizeClaimLines(record, { finished: true }).length
       ? ["", ...prizeClaimLines(record, { finished: true })]
       : []),
+    ...(record.trialTicketClaimsEnabled ? ["", "**Ticket claim status**",
+      ...(record.winnerIds || []).map((id, slot) => {
+        if (winnerHasClaim(record, slot)) return "#" + (slot + 1) + " <@" + id + "> — **Claim submitted**";
+        if ((record.claimResolvedSlots || []).includes(slot))
+          return "#" + (slot + 1) + " <@" + id + "> — **Unclaimed / forfeited**";
+        const deadline = winnerClaimDeadline(record, slot);
+        return "#" + (slot + 1) + " <@" + id + "> — **Awaiting ticket info**" +
+          (deadline ? " · Due <t:" + Math.floor(deadline.getTime() / 1000) + ":R>" : "");
+      })] : []),
     "",
     "**The Roll of Honour**",
     ...(ranked.length ? ranked : ["No prize winners recorded."]),
@@ -261,7 +277,12 @@ export function survivalFinalePayload(record, championRecord = null) {
     .setTitle("👑 TRIAL COMPLETE · " + String(record.title).slice(0, 160))
     .setDescription(lines.join("\n").slice(0, 4000))
     .setFooter({ text: "♛ Trial " + record._id + " · Finale" });
-  return { embeds: [embed], allowedMentions: { parse: [] } };
+  const components = record.trialTicketClaimsEnabled && (record.winnerIds || []).length
+    ? [new ActionRowBuilder().addComponents(new ButtonBuilder()
+        .setCustomId("giveaway:claim:" + record._id)
+        .setLabel("Enter Ticket Claim info").setStyle(ButtonStyle.Primary))]
+    : [];
+  return { embeds: [embed], components, allowedMentions: { parse: [] } };
 }
 
 export async function publishSurvivalFinale(client, record, { now = new Date() } = {}) {
@@ -296,6 +317,8 @@ export async function publishSurvivalFinale(client, record, { now = new Date() }
     // rerolled prizes never turn a different member into a trial champion.
     const championRecord = await getTrialChampionRecord(record.guildId, record.originalChampionId);
     const payload = survivalFinalePayload(record, championRecord);
+    if (record.bannerNameKey)
+      attachGiveawayBanner(payload, await getGiveawayBanner(record.guildId, record.bannerNameKey));
     if (message) await message.edit(payload);
     else message = await channel.send(payload);
 
@@ -318,7 +341,10 @@ export async function publishSurvivalAnnouncement(client, record) {
   if (!channel?.messages?.fetch) throw Error("Cannot read the giveaway channel.");
   const message = await channel.messages.fetch(record.messageId);
   if (message.author?.id !== client.user?.id) throw Error("Cannot edit an announcement from another bot.");
-  await message.edit(survivalAnnouncement(record));
+  const payload = survivalAnnouncement(record);
+  if (record.bannerNameKey)
+    attachGiveawayBanner(payload, await getGiveawayBanner(record.guildId, record.bannerNameKey));
+  await message.edit(payload);
   if (record.status === "ended") await publishSurvivalFinale(client, record);
   if (["running", "ended", "cancelled"].includes(record.status)) {
     await Giveaway.updateOne(
@@ -385,12 +411,18 @@ export async function runSurvivalTrialStep(client, item, { now = new Date() } = 
       ? [record.originalChampionId, ...record.gameEvents.slice().reverse().map(x => x.victimId)]
           .slice(0, Math.min(record.winnerCount, record.entrantIds.length))
       : [];
+    const finishedAt = now;
+    const winnerAssignedAt = finishing ? winnerIds.map(() => finishedAt) : [];
+    const claimCheckAt = finishing ? nextClaimCheckAt({
+      ...record, status: "ended", winnerIds, winnerAssignedAt, claimStartedAt: finishedAt,
+    }) : null;
     const update = {
       $set: {
         nextEventIndex: index + 1,
         nextEventAt: new Date(Date.now() + (record.speedSeconds || DEFAULT_TRIAL_SPEED_SECONDS) * 1000),
         leaseUntil: new Date(0), leaseKey: "",
-        ...(finishing ? { status: "ended", winnerIds, gameEndedAt: new Date(), claimStartedAt: new Date(), renderedAt: null } : {}),
+        ...(finishing ? { status: "ended", winnerIds, gameEndedAt: finishedAt,
+          claimStartedAt: finishedAt, winnerAssignedAt, claimCheckAt, renderedAt: null } : {}),
       },
       $push: { eliminationMessages: { index, messageId: message.id, sentAt: new Date() } },
       ...(finishing ? { $inc: { renderVersion: 1 } } : {}),
