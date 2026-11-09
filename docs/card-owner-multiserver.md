@@ -23,7 +23,7 @@ Set `CARD_GAME_OWNER_DISCORD_ID` to the owner's numeric Discord **user ID** in R
 - `/cards-owner set-odds release:s1-r1 common:26 uncommon:26 rare:26 ultra_rare:14 legendary:8`: sets all rarity percentages; they must sum to 100.
 - `/cards-owner release-check release:s1-r1`: read-only readiness summary; missing enabled/approved cards and empty rarities are flagged.
 - Existing `/cards test-drop`, `/cards egg-art-upload`, `/cards art-upload`, `art-assign`, `art-list`, `art-info`, and `art-review` are now **owner-only**, not manager-only.
-- `/setup channels hatchem:#channel` remains available to local server managers as part of the existing channel configuration. No permission changes to unrelated profiles, listings, or Points commands.
+- `/setup cards` now configures the Hatchem channel and Collector role for local server managers; existing saved channel IDs continue to work. No permission changes to unrelated profiles, listings, or Points commands.
 
 These commands are currently registered only in the development test guild when `ENABLE_CARD_GAME_TEST=1`; this is not a production rollout. Draft release creation and editing are implemented in the development branch. **Release activation/retirement and player registration are not yet implemented**; no new real releases are published or made hatchable automatically.
 
