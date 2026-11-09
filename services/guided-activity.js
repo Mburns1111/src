@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import {DEFAULT_CLAIM_HOURS} from "./giveaway-claims.js";
@@ -214,7 +215,7 @@ export async function ensureStaffCard(client,event) {
 }
 export async function staffPreview(i) {
   await i.deferReply({flags:MessageFlags.Ephemeral});
-  if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild))return i.editReply("Only Manage Server staff can view activity.");
+  if(!await canManageGiveaways(i))return i.editReply(giveawayManagerPermissionMessage);
   const [,action,id,rawPage]=i.customId.split(":");
   const event=await Giveaway.findOne({_id:id,guildId:i.guildId,staffCardChannelId:i.channelId}).lean();
   if(!event)return i.editReply("This staff preview is unavailable.");
