@@ -15,11 +15,12 @@ import { DEFAULT_CLAIM_INSTRUCTIONS, MAX_TRIAL_CLAIM_MINUTES } from "../services
 const sessions = new Map();
 const SESSION_MS = 30 * 60_000;
 const STEPS = [
-  "channel", "staff", "requiredRole", "roleHelp", "roleHelpVisible",
+  "channel", "staff", "managerRole", "requiredRole", "roleHelp", "roleHelpVisible",
   "instructions", "minutes", "rerolls", "roles", "banner", "review",
 ];
 const STEP_NAMES = {
   channel: "Court's Trial channel", staff: "Private staff controls",
+  managerRole: "Giveaway Manager role",
   requiredRole: "Default required role", roleHelp: "How to obtain the role",
   roleHelpVisible: "Show role instructions", instructions: "Claim instructions",
   minutes: "Winner claim deadline", rerolls: "Automatic rerolls",
@@ -40,6 +41,7 @@ export function trialSetupSummary(settings) {
     "**The Court's Trial — Setup Review**",
     "⚔️ **Signup and eliminations:** " + shown(settings.survivalTrialChannelId),
     "🔒 **Private staff controls:** " + shown(settings.activityGiveawayReviewChannelId),
+    "🔑 **Giveaway Manager role:** " + roleShown(settings.giveawayManagerRoleId),
     "🎟️ **Default required role:** " + roleShown(settings.trialDefaultRequiredRoleId),
     "👁️ **Display role instructions:** " + (settings.trialShowRoleInstructions !== false ? "Yes" : "No"),
     "**Where to get that role:** " + (settings.trialRoleInstructions || "Not set"),
@@ -100,6 +102,13 @@ function layout(session) {
             [ChannelType.GuildText, ChannelType.GuildAnnouncement]),
         )));
     if (id) components.push(buttons(session, [["Keep selected channel", "keep"]]));
+  } else if (step === "managerRole") {
+    content = "Choose an optional **Giveaway Manager role**. It grants permission for /giveaway, /giveaway-role, /trial and their staff controls without Manage Server. It does not permit /setup or unrelated admin commands. Only staff with Manage Server may assign or clear this role.\n**Current:** " +
+      roleShown(s.giveawayManagerRoleId);
+    components.push(new ActionRowBuilder().addComponents(
+      new RoleSelectMenuBuilder().setCustomId(selectId(session, "chooseManagerRole"))
+        .setPlaceholder("Giveaway Manager role").setMinValues(1).setMaxValues(1)));
+    components.push(buttons(session, [["No manager role", "clearManagerRole"], ["Keep current", "keep"]]));
   } else if (step === "requiredRole") {
     content = "Choose the default role members must have to join a Trial. Each Trial may override or remove this requirement.\n**Current:** " + roleShown(s.trialDefaultRequiredRoleId);
     components.push(new ActionRowBuilder().addComponents(
@@ -251,6 +260,16 @@ async function process(session, action, value) {
     s[session.step === "staff" ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"] = value;
     return advance(session);
   }
+  if (session.step === "managerRole") {
+    if (action === "clearManagerRole") s.giveawayManagerRoleId = "";
+    else if (action === "chooseManagerRole") {
+      const role = await session.guild.roles.fetch(value).catch(() => null);
+      if (!role || role.id === session.guild.id || role.managed)
+        throw Error("Choose a real, assignable server role for Giveaway Managers.");
+      s.giveawayManagerRoleId = value;
+    } else throw Error("Choose a Giveaway Manager role or None.");
+    return advance(session);
+  }
   if (session.step === "requiredRole") {
     if (action === "clearRequiredRole") s.trialDefaultRequiredRoleId = "";
     else if (action === "chooseRequiredRole") {
@@ -335,6 +354,7 @@ export async function startTrialGiveawaySetup(interaction) {
   const s = {
     survivalTrialChannelId: config?.survivalTrialChannelId || "",
     activityGiveawayReviewChannelId: config?.activityGiveawayReviewChannelId || "",
+    giveawayManagerRoleId: config?.giveawayManagerRoleId || "",
     trialDefaultRequiredRoleId: config?.trialDefaultRequiredRoleId ?? config?.giveawayDefaultRequiredRoleId ?? "",
     trialRoleInstructions: config?.trialRoleInstructions ?? config?.giveawayRoleInstructions ?? "",
     trialShowRoleInstructions: config?.trialShowRoleInstructions ?? config?.giveawayShowRoleInstructions ?? true,
@@ -364,10 +384,10 @@ export async function handleTrialGiveawaySetupInteraction(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const action = match[2];
-    const selected = ["chooseChannel", "chooseRequiredRole", "chooseRoles", "edit"].includes(action)
+    const selected = ["chooseChannel", "chooseRequiredRole", "chooseManagerRole", "chooseRoles", "edit"].includes(action)
       ? interaction.values : null;
     await process(session, action,
-      ["chooseChannel", "chooseRequiredRole", "edit"].includes(action) ? selected?.[0] : selected);
+      ["chooseChannel", "chooseRequiredRole", "chooseManagerRole", "edit"].includes(action) ? selected?.[0] : selected);
     return interaction.editReply("Setup step updated.");
   } catch (error) {
     return interaction.editReply("Couldn't update Trial setup: " + String(error.message || error));
