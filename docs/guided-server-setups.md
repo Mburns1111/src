@@ -7,12 +7,12 @@ Source: `feature/trials-guided-setup` (draft PR #41). Based on the unmerged acti
 | Command | What it configures | Required fields |
 |---|---|---|
 | `/setup general` | Ordinary commands channel, then optional member profiles, houses, outfits, inventory, Trading Posts, trade voting, shop and party games | Commands channel **first** |
-| `/setup giveaways` | Standard giveaway posts, private staff records, role/help, claims, notification roles, rerolls and banner | Public giveaway channel and private staff channel |
-| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, role/help, claims, notifications, rerolls and banner | Three distinct channels |
+| `/setup giveaways` | Standard giveaway posts, private staff records, Giveaway Manager role, regular-only notification roles, role/help, claims, rerolls and banner | Public giveaway channel and private staff channel |
+| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, Giveaway Manager role, activity-only notification roles, role/help, claims, rerolls and banner | Three distinct channels |
 | `/setup trials` | Court's Trial signup/elimination channel, private staff records, default eligibility role/help, claim instructions and deadlines, notification roles, automatic rerolls, banner | Trial channel and private staff channel |
 | `/setup cards` | Hatchem game channel, Collector role, activity-based wild egg toggle | Requires General commands channel; Hatchem channel and manageable Collector role |
 
-The original `/setup channels` remains available as a **legacy/direct-edit compatibility** command. It does not enable all modules automatically. New servers should prefer the guided commands.
+`/setup channels` has been **retired from Discord's command menu**. Existing MongoDB channel IDs and notification settings are preserved; use the five guided options above to update them. Previously saved guild setups remain recognized without requiring reconfiguration.
 
 Guided flows send numbered messages in the invoking channel, require Manage Server, have Back/Cancel/Keep or Skip actions, support review and editing prior to Save, and store settings only on final Save. The administrator needs to use the configured commands channel for follow-up setup; a never-configured server can start `/setup general` from its initial administrative text channel.
 
