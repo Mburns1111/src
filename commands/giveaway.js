@@ -31,7 +31,7 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
     .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering"))
     .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (default 12, max 720)").setMinValue(1).setMaxValue(720))
-    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400))
+    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional custom prize collection instructions").setMaxLength(1000))
     .addStringOption(o => o.setName("banner").setDescription("Optional registered banner image name").setMaxLength(60)))
   .addSubcommand(c => c.setName("activity").setDescription("Create an activity giveaway with guided questions in the commands channel"))
   .addSubcommand(c => c.setName("watch-save").setDescription("Save a named channel watched daily or Wednesday–Wednesday")
@@ -82,7 +82,7 @@ export const trialData = new SlashCommandBuilder()
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
     .addRoleOption(o => o.setName("role").setDescription("Optional role required to enter"))
     .addIntegerOption(o => o.setName("claim_minutes").setDescription("Minutes winners have to claim after trial ends (default 12 hours)").setMinValue(1).setMaxValue(43200))
-    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400)))
+    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional custom prize collection instructions").setMaxLength(1000)))
   .addSubcommand(c => c.setName("cancel").setDescription("Cancel a trial without awarding winners; retain its record")
     .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
@@ -372,10 +372,10 @@ export async function handleGiveawayButton(interaction) {
       const deadline=winnerClaimDeadline(record,slot);
       if (deadline && deadline<=new Date()) return interaction.reply({content:"Your ticket claim deadline has passed.",flags:MessageFlags.Ephemeral});
       if ((record.claimResolvedSlots || []).includes(slot)) return interaction.reply({content:"This winning place has expired.",flags:MessageFlags.Ephemeral});
-      return interaction.showModal(new ModalBuilder().setCustomId(`giveaway:ticket:${id}`).setTitle("File your giveaway claim")
+      return interaction.showModal(new ModalBuilder().setCustomId(`giveaway:ticket:${id}`).setTitle("Enter Ticket Claim info")
         .addComponents(
-          new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_number").setLabel("Your ticket number").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80)),
-          new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_url").setLabel("Link to your ticket").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(500)),
+          new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_number").setLabel("Ticket number").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80)),
+          new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_url").setLabel("Discord ticket message link").setPlaceholder("https://discord.com/channels/...").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(500)),
         ));
     }
     if (action === "confirm" || action === "cancel") {
@@ -472,7 +472,7 @@ export async function handleGiveawayClaimModal(interaction) {
     });
     try { await publishGiveawayResult(interaction.client,updated); }
     catch(error) { console.error("[Giveaways] Ticket saved but announcement refresh failed:",error); }
-    return interaction.editReply("Your ticket claim was saved. The giveaway announcement will show your ticket details.");
+    return interaction.editReply("Your ticket number and full Discord message link were saved. The winner announcement will show your claim status and clickable ticket message.");
   } catch(error) {
     return interaction.editReply(error.message||"Unable to record your ticket claim.");
   }

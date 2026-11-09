@@ -5,7 +5,7 @@ import Giveaway from "../models/Giveaway.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
 import {qualifyingActivity,qualifyingWatchActivity,countActivityParticipants} from "./giveaway-activity-counter.js";
-import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt } from "./giveaway-claims.js";
+import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, automaticRerollLimit, automaticRerollsUsed } from "./giveaway-claims.js";
 import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
 export const GIVEAWAY_MAX_MINUTES = 60 * 24 * 14;
@@ -67,7 +67,7 @@ export function giveawayAnnouncement(record) {
         if (claim) {
           const ticket=String(claim.ticketNumber||"").replace(/[^a-zA-Z0-9_# -]/g,"").slice(0,80);
           const link=String(claim.ticketUrl||"");
-          lines.push(`#${slot+1} <@${userId}> — **Claim filed:** \`${ticket}\` · <${link}>`);
+          lines.push(`#${slot+1} <@${userId}> — **Claim submitted:** \`${ticket}\` (ticket message linked below)`);
         } else if ((record.claimResolvedSlots || []).includes(slot))
           lines.push(`#${slot+1} <@${userId}> — Claim expired; no eligible replacements remain.`);
         else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline ? ` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>` : ""}`);
@@ -86,9 +86,20 @@ export function giveawayAnnouncement(record) {
     .setTitle(ended ? "🦊 Heist Complete" : "🦊 The Fox’s Giveaway")
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
+  if(ended && record.status==="ended"){
+    for(let slot=0;slot<(record.winnerIds||[]).length;slot++){
+      const userId=record.winnerIds[slot];
+      const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===userId);
+      if(!claim)continue;
+      // The full Discord message link is in a field, outside the 4,000-character description.
+      embed.addFields({name:"Winner "+(slot+1)+" · Claim submitted",
+        value:"<@"+userId+"> · Ticket `"+claim.ticketNumber+"`\n**Ticket message:** <"+claim.ticketUrl+">",
+        inline:false});
+    }
+  }
   const components = ended && record.status === "ended" && record.mode !== "survival" && (record.winnerIds || []).length
     ? [new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`giveaway:claim:${record._id}`).setLabel("File Ticket Claim").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`giveaway:claim:${record._id}`).setLabel("Enter Ticket Claim info").setStyle(ButtonStyle.Primary),
       )]
     : (!activity && !ended && !finishing && record.status === "open")
     ? [new ActionRowBuilder().addComponents(
@@ -204,6 +215,8 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
     if (!item.autoRerollClaims || !deadline || deadline>now || winnerHasClaim(item,slot) ||
         (item.claimResolvedSlots||[]).includes(slot))
       throw Error("A ticket was filed or this place is not eligible for an automatic reroll.");
+    if(automaticRerollsUsed(item,slot)>=automaticRerollLimit(item))
+      throw Error("The maximum automatic rerolls for this winning place have already been used.");
   }
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
   const pool=(item.mode==="activity" ? item.activityVerifiedIds || [] : item.entrantIds || [])
@@ -252,6 +265,12 @@ export async function finishPendingReroll(item) {
 }
 
 export async function publishGiveawayResult(client, item) {
+  if(item?.mode==="activity" && item.status==="ended" && !item.winnerIds?.length &&
+     item.announceEmptyResults===false){
+    await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
+      {$set:{renderedAt:new Date()}});
+    return true;
+  }
   if (item?.mode === "survival") {
     if (!item?.messageId || !["ended", "cancelled", "running"].includes(item.status)) return false;
     await publishSurvivalAnnouncement(client, item);

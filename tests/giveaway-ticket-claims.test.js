@@ -10,9 +10,9 @@ const record={_id:"507f1f77bcf86cd799439011",guildId:"123456789012345678",mode:"
   claimWindowHours:24,claimStartedAt:new Date("2026-11-06T12:00:00Z"),autoRerollClaims:true,winnerClaims:[],
   claimResolvedSlots:[],rerollHistory:[]};
 test("ticket validation requires HTTPS and a safe ticket number",()=>{
- assert.equal(validateTicketClaim("ticket-123","https://discord.com/channels/1/2").ticketNumber,"ticket-123");
+ assert.equal(validateTicketClaim("ticket-123","https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890").ticketNumber,"ticket-123");
  assert.throws(()=>validateTicketClaim("<@everyone>","https://example.com"),/ticket number/);
- assert.throws(()=>validateTicketClaim("123","javascript:alert(1)"),/HTTPS/);
+ assert.throws(()=>validateTicketClaim("123","javascript:alert(1)"),/Discord message link/);
 });
 test("per-winner deadlines stop being checked once claims are filed",()=>{
  assert.equal(winnerClaimDeadline(record,0).toISOString(),"2026-11-07T12:00:00.000Z");
@@ -21,8 +21,8 @@ test("per-winner deadlines stop being checked once claims are filed",()=>{
  assert.equal(winnerHasClaim(claimed,0),true);
  const done={...claimed,winnerClaims:[...claimed.winnerClaims,{slot:1,userId:second,ticketNumber:"456",ticketUrl:"https://discord.com/channels/1/3"}]};
  assert.equal(nextClaimCheckAt(done),null);
- assert.match(giveawayAnnouncement(done).embeds[0].data.description,/Claim filed/);
- assert.equal(giveawayAnnouncement(done).components[0].components[0].data.label,"File Ticket Claim");
+ assert.match(giveawayAnnouncement(done).embeds[0].data.description,/Claim submitted/);
+ assert.equal(giveawayAnnouncement(done).components[0].components[0].data.label,"Enter Ticket Claim info");
 });
 test("rerolled winners receive new deadlines",()=>{
  const later={...record,winnerAssignedAt:[new Date("2026-11-08T12:00:00Z"),record.winnerAssignedAt[1]]};
