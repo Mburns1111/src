@@ -62,7 +62,7 @@ export function messageMatchesGiveawayWatch(message,rule) {
   if(phrase) {
     // Exact spelling and word order, case-insensitive. Substrings of longer
     // words and misspellings must not qualify.
-    const literal=phrase.replace(/[.*+?^$()|[\]\\]/g,"\\  if (phrase && !text.toLocaleLowerCase("en-US").includes(phrase)) return false;");
+    const literal=phrase.replace(/[.*+?^$()|[\]\\]/g, char=>"\\"+char);
     const exactPhrase=new RegExp("(^|[^\\p{L}\\p{N}_])"+literal+"(?=$|[^\\p{L}\\p{N}_])","u");
     if(!exactPhrase.test(text.toLocaleLowerCase("en-US")))return false;
   }
