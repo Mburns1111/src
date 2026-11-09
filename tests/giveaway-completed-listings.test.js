@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import { completedGiveawayCanDeleteListing } from "../services/giveaway-listing-lifecycle.js";
-import { giveawayStaffRecordPayload, handleGiveawayStaffAction } from "../services/giveaway-staff-records.js";
+import { giveawayStaffRecordPayload, handleGiveawayStaffAction, removeGiveawayPublicPosts } from "../services/giveaway-staff-records.js";
 
 const id="507f1f77bcf86cd799439011";
 const guildId="123456789012345678";
@@ -165,4 +165,60 @@ test("Delete Listing is a confirmed non-cancellation action; it removes public p
     Giveaway.updateOne=old.update;
     GuildConfig.findOne=old.config;
   }
+});
+
+test("completed activity Delete Listing removes only the activity-list post, preserving winner results",async()=>{
+  const old=Giveaway.updateOne;
+  const deleted=[],cleared=[];
+  const item=record({mode:"activity",publicListingRemovedAt:new Date(),
+    listChannelId:"123456789012345678",listMessageId:"234567890123456789",
+    channelId:"345678901234567890",messageId:"456789012345678901"});
+  try {
+    Giveaway.updateOne=async (_query,update)=>cleared.push(update.$set);
+    const client={user:{id:"bot"},channels:{fetch:async channelId=>{
+      if(channelId!==item.listChannelId)throw Error("Winner result channel must not be accessed.");
+      return {messages:{fetch:async()=>({author:{id:"bot"},delete:async()=>deleted.push("list")})}};
+    }}};
+    await removeGiveawayPublicPosts(client,item);
+    assert.deepEqual(deleted,["list"]);
+    assert.deepEqual(cleared,[{listChannelId:"",listMessageId:"",listFingerprint:""}]);
+    assert.equal(item.status,"ended");
+  }finally{Giveaway.updateOne=old;}
+});
+
+test("completed Trial Delete Listing removes the signup listing but preserves its Royal Verdict",async()=>{
+  const old=Giveaway.updateOne;
+  const deleted=[],cleared=[];
+  const item=record({mode:"survival",trialTicketClaimsEnabled:true,
+    publicListingRemovedAt:new Date(),finaleMessageId:"567890123456789012"});
+  try {
+    Giveaway.updateOne=async (_query,update)=>cleared.push(update.$set);
+    const client={user:{id:"bot"},channels:{fetch:async()=>({
+      messages:{fetch:async mid=>{
+        if(mid===item.finaleMessageId)throw Error("Final verdict should remain published.");
+        return {author:{id:"bot"},delete:async()=>deleted.push(mid)};
+      }}
+    })}};
+    await removeGiveawayPublicPosts(client,item);
+    assert.deepEqual(deleted,[item.messageId]);
+    assert.equal(cleared[0].messageId,null);
+    assert.equal(Object.hasOwn(cleared[0],"finaleMessageId"),false);
+    assert.equal(item.status,"ended");
+  }finally{Giveaway.updateOne=old;}
+});
+
+test("completed standard Delete Listing removes the original public giveaway post",async()=>{
+  const old=Giveaway.updateOne;
+  const deleted=[],cleared=[];
+  const item=record({publicListingRemovedAt:new Date()});
+  try {
+    Giveaway.updateOne=async (_query,update)=>cleared.push(update.$set);
+    const client={user:{id:"bot"},channels:{fetch:async()=>({
+      messages:{fetch:async()=>({author:{id:"bot"},delete:async()=>deleted.push("standard")})}
+    })}};
+    await removeGiveawayPublicPosts(client,item);
+    assert.deepEqual(deleted,["standard"]);
+    assert.equal(cleared[0].messageId,null);
+    assert.equal(item.status,"ended");
+  }finally{Giveaway.updateOne=old;}
 });
