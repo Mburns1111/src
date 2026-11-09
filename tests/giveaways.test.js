@@ -173,7 +173,8 @@ test("giveaway claim instructions announce a real Discord-local deadline and how
     claimWindowHours: 48, claimStartedAt: new Date("2026-11-01T12:00:00Z"),
     claimInstructions: "Please include your Roblox username.",
   }));
-  const body = ended.embeds[0].data.description;
+  const body = [ended.embeds[0].data.description,
+    ...(ended.embeds[0].data.fields||[]).map(field=>field.value)].join("\n");
   assert.match(body, /Claim deadline:/);
   assert.match(body, /<t:1793707200:F>/); // 48h after 2026-11-01 12:00 UTC
   assert.match(body, /Roblox username/);
