@@ -104,6 +104,15 @@ export function validateWebUrl(value, label) {
   }
 }
 
+// Guide staff to the correct current setup command rather than the
+// retired /setup channels shortcut.
+export function setupForChannel(field) {
+  if(field==="survivalTrialChannelId")return "/setup trials";
+  if(field==="giveawayChannelId")return "/setup giveaways";
+  if(field?.startsWith("activityGiveaway"))return "/setup activity-giveaways";
+  return "/setup general";
+}
+
 // Event announcements also need guild-level notification settings. This
 // returns the same channel and the saved configuration in one DB read.
 export async function getConfiguredTextChannelAndConfig(interaction, field, purpose) {
@@ -111,14 +120,14 @@ export async function getConfiguredTextChannelAndConfig(interaction, field, purp
   const channelId = config?.[field];
   if (!channelId) {
     throw new UserFacingError(
-      `An admin needs to configure the ${purpose} channel with \`${field === "survivalTrialChannelId" ? "/setup trials" : "/setup channels"}\` first.`,
+      `An admin needs to configure the ${purpose} channel with \`${setupForChannel(field)}\` first.`,
     );
   }
 
   const channel = await interaction.guild.channels.fetch(channelId);
   if (!channel?.isTextBased() || typeof channel.send !== "function") {
     throw new UserFacingError(
-      `The configured ${purpose} channel is unavailable. Ask an admin to run \`/setup channels\` again.`,
+      `The configured ${purpose} channel is unavailable. Ask an admin to run \`\${setupForChannel(field)}\` again.`,
     );
   }
   return { channel, config };
