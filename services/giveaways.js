@@ -90,7 +90,7 @@ export function giveawayAnnouncement(record) {
         (record.winnerIds||[]).length
           ? "*The claim deadline passed and no eligible replacement was available.*"
           : "*Nobody entered or qualified for this giveaway.*");
-    lines.push("", "**Results**", ...(winners.length ? winners : ["**No eligible winner** — no eligible entries."]));
+    lines.push("", "**Winners / Results**", ...(winners.length ? winners : ["**No eligible winner** — no eligible entries."]));
     if (record.mode !== "survival" && (record.winnerIds || []).length) {
       lines.push("", "**Winner ticket claims**");
       for (let slot=0;slot<record.winnerIds.length;slot++) {
