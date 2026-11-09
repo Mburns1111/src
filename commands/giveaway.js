@@ -9,7 +9,7 @@ import GiveawayPlan from "../models/GiveawayPlan.js";
 import {addGiveawayPlanCommands,executeGiveawayPlanAdmin,PLAN_OPERATIONS} from "./giveaway-plans.js";
 import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} from "./giveaway-banners.js";
 import {ensureBannerRegistered} from "../services/giveaway-banners.js";
-import {ensureGiveawayStaffRecord} from "../services/giveaway-staff-records.js";
+import {ensureGiveawayStaffRecord,requirePrivateGiveawayStaffChannel} from "../services/giveaway-staff-records.js";
 import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
@@ -219,6 +219,7 @@ export async function execute(interaction) {
         survival ? "survivalTrialChannelId" : "giveawayChannelId",
         survival ? "Court's Trial survival giveaway" : "standard giveaway",
       );
+      await requirePrivateGiveawayStaffChannel(interaction.guild,config);
       const pingRoleId = survival ? config?.survivalTrialPingRoleId : config?.giveawayPingRoleId;
       const bannerNameKey=survival ? "" : await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));
       const minutes = survival
