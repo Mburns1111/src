@@ -72,6 +72,15 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    }
    if(record.staffEndedEarly)lines.push("**Ended early by:** <@"+record.staffEndedBy+">");
  }
+ // Ticket message links are placed in dedicated fields so they are never
+ // truncated when a giveaway has multiple winners or a long staff timeline.
+ const claimFields=(record.winnerClaims||[]).slice(-20).map((claim,index)=>({
+   name:"Ticket claim · Place "+(Number(claim.slot)+1)+(record.winnerIds?.[claim.slot]!==claim.userId?" · earlier winner":""),
+   value:"**Winner:** <@"+claim.userId+">\n**Submitted:** "+when(claim.submittedAt)+
+     "\n**Ticket:** \`"+safe(claim.ticketNumber).replace(/\`/g,"")+"\`"+
+     "\n**Discord message:** <"+String(claim.ticketUrl||"").replace(/[<>]/g,"")+">",
+   inline:false
+ }));
  const controls=[];
  if(record.guidedSeries&&record.status!=="cancelled"){
    controls.push(btn("activitystaff:view:"+record._id+":0","Preview qualifying members"));
@@ -94,6 +103,7 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
   embeds:[new EmbedBuilder().setColor(cancelled?0x777777:0x896b88)
     .setTitle(cancelled?"📁 Cancelled giveaway · staff archive":"📋 Giveaway staff record")
     .setDescription(lines.join("\n").slice(0,4000))
+    .addFields(claimFields)
     .setFooter({text:staffRecordMarker(record)})],
   components,allowedMentions:{parse:[]}
  };
@@ -128,8 +138,10 @@ export async function ensureGiveawayStaffRecord(client,record){
    const before=existing?.description||"";
    const after=payload.embeds[0].data.description;
    const oldButtons=(message.components||[]).flatMap(row=>row.components||[]).map(b=>b.customId||b.data?.custom_id).join("|");
+   const oldFields=JSON.stringify(existing?.fields||[]);
+   const newFields=JSON.stringify(payload.embeds[0].data.fields||[]);
    const newButtons=payload.components.flatMap(row=>row.components).map(b=>b.data.custom_id).join("|");
-   if(before!==after||existing?.footer?.text!==staffRecordMarker(record)||oldButtons!==newButtons)
+   if(before!==after||oldFields!==newFields||existing?.footer?.text!==staffRecordMarker(record)||oldButtons!==newButtons)
      await message.edit(payload);
  }else{
    message=await channel.send(payload);
@@ -153,7 +165,14 @@ export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
    try{await ensureGiveawayStaffRecord(client,record);}
    catch(error){console.error("[Giveaways] Staff record sync failed:",String(record._id),error);}
  }
- return missing.length+active.length;
+  const cancelled=await Giveaway.find({status:"cancelled",
+    $or:[{messageId:{$type:"string",$ne:""}},{listMessageId:{$type:"string",$ne:""}}]
+  }).sort({updatedAt:-1}).limit(limit).lean();
+  for(const record of cancelled){
+    try{await ensureGiveawayStaffRecord(client,record);await removeGiveawayPublicPosts(client,record);}
+    catch(error){console.error("[Giveaways] Cancelled public post cleanup failed:",record._id,error);}
+  }
+ return missing.length+active.length+cancelled.length;
 }
 
 export async function removeGiveawayPublicPosts(client,record){
