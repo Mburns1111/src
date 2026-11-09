@@ -4,7 +4,7 @@
 
 ## Member workflow
 
-1. A server manager sets up the Hatchem channel with `/setup channels hatchem` and sets its local collector role with `/cards-admin setup-role role:@Card`. The bot needs `Manage Roles`, and its role must be above the selected Card role.
+1. A server manager chooses the Hatchem channel and local Collector role in `/setup cards`. The bot needs `Manage Roles`, and its role must be above the selected Card role.
 2. A member explicitly types `.register` in **that server's Hatchem channel**, or uses `/cards register` there. **No automatic registration or role assignment on member join**.
 3. The bot validates its role permissions, assigns the configured **local** Card role, and creates or upgrades the user's **global** `CardCollector` record. The registration event adds that server's ID to `registeredGuildIds` and sets `registeredAt` if it was previously unset.
 4. The member can use `.drop` (15-minute **global** cooldown), grab cards in that server (5-minute **per-server** cooldown), `.cooldowns`, and their existing global collection.
