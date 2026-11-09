@@ -194,7 +194,7 @@ export async function reconcileActivityGiveawayListings(client,{now=new Date(),l
   for(const record of oneOff){
     try{
       const publishers=[publishActivityOneOffListing(client,record,{now})];
-      if(record.guidedSeries && !record.staffCardId)publishers.push(ensureStaffCard(client,record));
+      if(record.guidedSeries)publishers.push(ensureStaffCard(client,record));
       for(const result of await Promise.allSettled(publishers))
         if(result.status==="rejected")console.error("[Giveaways] Activity channel post failed:",record._id,result.reason);
     }

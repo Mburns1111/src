@@ -1,5 +1,6 @@
 import { wizardButton, wizardReply } from "./commands/activity-wizard.js";
 import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
+import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
 import {initializeAchievements} from "./services/card-achievement-engine.js";
 import {deliverAchievementNotices} from "./services/card-achievements.js";
 
@@ -517,8 +518,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isButton() && interaction.customId.startsWith("activitysetup:"))
       return await wizardButton(interaction);
-    if (interaction.isButton() && interaction.customId.startsWith("activitystaff:"))
-      return await staffPreview(interaction);
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
+        interaction.customId.startsWith("activitystaff:")) {
+      if(interaction.isButton() && /^activitystaff:(view|pause):/.test(interaction.customId))
+        return await staffPreview(interaction);
+      return await handleGuidedStaffAction(interaction);
+    }
     if (interaction.isAutocomplete()) {
       if (interaction.commandName === cardsCommand.name) {
         const config = interaction.guildId

@@ -14,6 +14,7 @@ const seriesSchema = new mongoose.Schema({
 });
 seriesSchema.index({enabled:1, nextStart:1, guildId:1});
 const Series = mongoose.models.GuidedActivitySeries || mongoose.model("GuidedActivitySeries", seriesSchema);
+export const GuidedActivitySeries=Series;
 
 // A delivery ID makes Gateway retries harmless. Never retain the message body.
 const receiptSchema = new mongoose.Schema({
@@ -155,23 +156,64 @@ export async function activityRoster(event,user) {
   return rows.map(row=>({...row,qualified:qualifiesForGuidedActivity(row,event)}));
 }
 
-const btn=(id,label)=>new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(ButtonStyle.Secondary);
+const btn=(id,label,style=ButtonStyle.Secondary)=>
+  new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style);
+export function guidedStaffCardPayload(event,series=null) {
+  const marker="Activity staff preview · "+event._id;
+  const status=event.status==="open"?"Collecting activity":
+    event.status==="pending_review"?"Awaiting staff drawing approval":
+    event.status==="cancelled"?"Cancelled — no winners will be drawn":
+    event.status==="ended"?(event.staffEndedEarly?"Ended early":"Completed"):
+    event.status==="closing"?"Finalizing winner draw":String(event.status);
+  const controls=[btn("activitystaff:view:"+event._id+":0","Preview qualifying members")];
+  if(event.status==="open"){
+    controls.push(btn("activitystaff:edit:"+event._id,"Edit Giveaway",ButtonStyle.Primary));
+    controls.push(btn("activitystaff:end:"+event._id,"End Early",ButtonStyle.Success));
+    controls.push(btn("activitystaff:cancel:"+event._id,"Cancel Giveaway",ButtonStyle.Danger));
+  }
+  if(series?.enabled)controls.push(btn("activitystaff:pause:"+event._id,"Stop future repeats"));
+  const text="**"+String(event.title||"Giveaway").slice(0,180)+"**\n"+
+    String(event.prize||"").slice(0,800)+
+    (event.description?"\n**Giveaway Details:**\n"+String(event.description).slice(0,1000):"")+
+    "\n**Status:** "+status+
+    "\nStaff can check current activity here. Manual approval is "+
+    (event.requireStaffReview?"on.":"off.")+
+    (series?.enabled?" Future repeats are active.":"");
+  return {embeds:[{footer:{text:marker},description:text.slice(0,3900)}],
+    components:[new ActionRowBuilder().addComponents(controls)],
+    allowedMentions:{parse:[]}};
+}
 export async function ensureStaffCard(client,event) {
-  if(event.staffCardId)return;
   const config=await GuildConfig.findOne({guildId:event.guildId}).lean();
   const channel=await client.channels.fetch(config?.activityGiveawayReviewChannelId);
   if(!channel?.send || channel.permissionsFor(channel.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
     throw Error("Set a staff-only activity_review channel.");
-  const controls=[btn("activitystaff:view:"+event._id+":0","Preview qualifying members")];
   const series=await Series.findById(event.guidedSeries).lean();
-  if(series?.enabled)controls.push(btn("activitystaff:pause:"+event._id,"Stop future repeats"));
-  const marker="Activity staff preview · "+event._id;
-  const recent=await channel.messages.fetch({limit:50});
-  const existing=recent.find(m=>m.author.id===client.user.id && m.embeds.some(e=>e.footer?.text===marker));
-  const message=existing || await channel.send({embeds:[{footer:{text:marker},description:'**'+event.title+'**\n'+event.prize.slice(0,800)+(event.description?'\n**Giveaway Details:**\n'+event.description.slice(0,1000):'')+'\nStaff can check current activity here. Manual approval is '+(event.requireStaffReview?"on.":"off.")}],
-    components:[new ActionRowBuilder().addComponents(controls)],allowedMentions:{parse:[]},
-    nonce:event._id.toString(),enforceNonce:true});
-  await Giveaway.updateOne({_id:event._id},{$set:{staffCardId:message.id,staffCardChannelId:channel.id}});
+  const payload=guidedStaffCardPayload(event,series);
+  let message=event.staffCardChannelId===channel.id&&event.staffCardId?
+    await channel.messages.fetch(event.staffCardId).catch(error=>{
+      if(error.code===10008)return null;
+      throw error;
+    }):null;
+  if(!message){
+    const recent=await channel.messages.fetch({limit:50});
+    message=recent.find(m=>m.author?.id===client.user.id&&
+      m.embeds?.some(e=>e.footer?.text==="Activity staff preview · "+event._id))||null;
+  }
+  if(message){
+    const desired=payload.components.flatMap(r=>r.components).map(b=>b.data.custom_id);
+    const current=(message.components||[]).flatMap(r=>r.components||[])
+      .map(b=>b.customId||b.data?.custom_id);
+    if(message.embeds?.[0]?.description!==payload.embeds[0].description||
+       desired.join("|")!==current.join("|"))
+      await message.edit(payload);
+  }else{
+    message=await channel.send({...payload,nonce:event._id.toString(),enforceNonce:true});
+  }
+  if(event.staffCardId!==message.id||event.staffCardChannelId!==channel.id)
+    await Giveaway.updateOne({_id:event._id},{$set:{
+      staffCardId:message.id,staffCardChannelId:channel.id,
+    }});
 }
 export async function staffPreview(i) {
   await i.deferReply({flags:MessageFlags.Ephemeral});
@@ -181,6 +223,7 @@ export async function staffPreview(i) {
   if(!event)return i.editReply("This staff preview is unavailable.");
   if(action==="pause"){
     await Series.updateOne({_id:event.guidedSeries},{$set:{enabled:false,nextStart:null}});
+    await ensureStaffCard(i.client,event);
     return i.editReply("Future repeats stopped. The current activity will finish as scheduled.");
   }
   const rows=await activityRoster(event);

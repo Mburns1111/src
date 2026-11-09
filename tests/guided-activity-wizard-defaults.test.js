@@ -2,10 +2,25 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {DEFAULT_CLAIM_HOURS,claimDuration} from "../services/giveaway-claims.js";
-import {guidedActivityRequirements,qualifiesForGuidedActivity,guidedMessageMatches} from "../services/guided-activity.js";
+import {guidedActivityRequirements,qualifiesForGuidedActivity,guidedMessageMatches,guidedStaffCardPayload} from "../services/guided-activity.js";
 import {activityWizardPrompts,activityWizardInput,defaultActivityWizardSettings,describeActivityWizard} from "../commands/activity-wizard.js";
 import {activityOneOffListingEmbed} from "../services/giveaway-directory.js";
 
+test("staff cards offer secure activity controls while a giveaway is active",()=>{
+ const event={_id:"507f1f77bcf86cd799439011",status:"open",title:"Tell <@123456789012345678> in <#234567890123456789>",
+   prize:"Neon Pet",requireStaffReview:false};
+ const card=guidedStaffCardPayload(event,{enabled:true});
+ const ids=card.components[0].components.map(x=>x.data.custom_id);
+ assert.equal(ids.length,5);
+ for(const verb of ["view","edit","end","cancel","pause"])
+   assert.ok(ids.some(x=>x.startsWith("activitystaff:"+verb+":")));
+ assert.match(card.embeds[0].description,/<@123456789012345678>/);
+ assert.match(card.embeds[0].description,/<#234567890123456789>/);
+ assert.deepEqual(card.allowedMentions,{parse:[]});
+ const cancelled=guidedStaffCardPayload({...event,status:"cancelled"}, {enabled:true});
+ assert.equal(cancelled.components[0].components.some(b=>b.data.custom_id.includes(":edit:")),false);
+ assert.equal(cancelled.components[0].components.some(b=>b.data.custom_id.includes(":pause:")),true);
+});
 test("guided activity accepts a valid ping as a matching message",()=>{
  const target="123456789012345678",author="234567890123456789";
  const event={activityRequiredMentionUserId:target,activityRequiredPhrase:""};
