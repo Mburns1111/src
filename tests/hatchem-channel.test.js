@@ -3,11 +3,15 @@ import assert from "node:assert/strict";
 import GuildConfig from "../models/GuildConfig.js";
 import { parseHatchemText, HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { data as setup } from "../commands/setup.js";
+import {cardSetupFields} from "../commands/general-card-setup.js";
 
 test("Hatchem has dedicated configured channel in server setup", () => {
   assert.ok(GuildConfig.schema.path("hatchemChannelId"));
-  const channels = setup.toJSON().options.find(option => option.name === "channels");
-  assert.ok(channels.options.some(option => option.name === "hatchem"));
+  const names=setup.toJSON().options.map(x=>x.name);
+  assert.ok(names.includes("cards"),"/setup cards replaces legacy Hatchem channel setup");
+  assert.ok(!names.includes("channels"));
+  assert.ok(cardSetupFields.includes("hatchemChannelId"));
+  assert.ok(cardSetupFields.includes("cardRoleId"));
   assert.match(HATCHEM_GUIDE, /Hatchem/);
 });
 
