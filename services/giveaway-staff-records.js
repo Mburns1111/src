@@ -108,6 +108,21 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
   components,allowedMentions:{parse:[]}
  };
 }
+export async function requirePrivateGiveawayStaffChannel(guild,config){
+  const channelId=config?.activityGiveawayReviewChannelId;
+  if(!channelId)throw Error("Configure a private staff giveaway channel with /setup giveaways or /setup activity-giveaways before posting giveaways.");
+  const channel=await guild.channels.fetch(channelId).catch(()=>null);
+  if(!channel?.send||!channel?.messages?.fetch)
+    throw Error("The private giveaway staff channel is missing or the bot cannot send there.");
+  if(channel.permissionsFor?.(guild.roles?.everyone)?.has(PermissionFlagsBits.ViewChannel))
+    throw Error("The giveaway staff channel must be hidden from @everyone.");
+  const permissions=channel.permissionsFor?.(guild.members?.me);
+  for(const perm of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks]){
+    if(permissions&&!permissions.has(perm))
+      throw Error("The bot needs View Channel, Send Messages and Embed Links permissions in the private staff channel.");
+  }
+  return channel;
+}
 export async function ensureGiveawayStaffRecord(client,record){
  if(!record||["draft","publishing","failed"].includes(record.status))return false;
  const config=await GuildConfig.findOne({guildId:record.guildId})
