@@ -47,7 +47,7 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.ok(Giveaway.schema.path("claimStartedAt"));
  assert.ok(Giveaway.schema.path("claimWindowHours"),"guided regular giveaways keep hour-based claims");
  assert.ok(!start.options?.some(x=>x.name==="claim_minutes"));
- assert.equal(GIVEAWAY_MAX_MINUTES,20160);
+ assert.equal(GIVEAWAY_MAX_MINUTES,184*24*60,"absolute safe bound for six calendar months");
 });
 
 test("custom creator details are separate from prizes and requirements",()=>{
