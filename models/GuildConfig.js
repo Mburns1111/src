@@ -18,6 +18,10 @@ const guildConfigSchema = new mongoose.Schema(
     activityGiveawayListChannelId: { type: String, default: "" },
     activityGiveawayWinnersChannelId: { type: String, default: "" },
     activityGiveawayReviewChannelId: { type: String, default: "" },
+    // One auto-updating sticky directory in the configured private staff channel.
+    giveawayStaffDirectoryChannelId: { type: String, default: "" },
+    giveawayStaffDirectoryMessageId: { type: String, default: "" },
+    giveawayStaffDirectoryFingerprint: { type: String, default: "" },
     activityClaimInstructions:{type:String,default:"",maxlength:1000},
     giveawayRoleInstructions:{type:String,default:"",maxlength:500},
     giveawayDefaultRequiredRoleId:{type:String,default:""},
