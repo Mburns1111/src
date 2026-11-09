@@ -309,6 +309,10 @@ test("regular wizard shows saved role instructions and supports a per-giveaway o
     const customRole="Pick up the prize entry role in <#123456789012345680>.";
     const h=await harness({defaultRole:role,serverRoleInstructions:serverRole});
     await h.reachReview();
+    // reachReview intentionally chooses no required role; turn the server's
+    // required role back on so its guidance will appear in the final review.
+    await h.select("edit",["role"]);
+    await h.select("roleDefault");
     await h.select("edit",["roleHelp"]);
     assert.ok(h.prompt().content.includes(serverRole),"server role guidance must be visible");
     assert.ok(h.controls().some(c=>c.label==="Write Custom Instructions"));
