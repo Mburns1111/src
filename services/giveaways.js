@@ -56,7 +56,9 @@ export function giveawayAnnouncement(record) {
   const activity = record.mode === "activity";
   const foxStory = activity ? (ended ? "🥀 Activity giveaway concluded." : "🥀 Activity entries are locked; no manual entry.") : ended
     ? noEligibleWinner
-      ? `🦊 **The fox sighs:** "No one could claim this prize, so it stays tucked away for another day."`
+      ? ((record.winnerIds||[]).length
+        ? `🦊 **The fox sighs:** "No one could claim this prize, so it stays tucked away for another day."`
+        : `🦊 **The fox sighs:** "No accomplice showed up, so the prize stays tucked away for another day."`)
       : activeWinners.length === 1
         ? `🦊 **The fox cackles:** "My sneaky helper <@${activeWinners[0]}> distracted <@${record.creatorId}> while I swiped the prize straight from their pocket! What a marvelous heist!"`
       : activeWinners.length > 1
