@@ -127,7 +127,7 @@ export async function getConfiguredTextChannelAndConfig(interaction, field, purp
   const channel = await interaction.guild.channels.fetch(channelId);
   if (!channel?.isTextBased() || typeof channel.send !== "function") {
     throw new UserFacingError(
-      `The configured ${purpose} channel is unavailable. Ask an admin to run \`\${setupForChannel(field)}\` again.`,
+      `The configured ${purpose} channel is unavailable. Ask an admin to run \`${setupForChannel(field)}\` again.`,
     );
   }
   return { channel, config };
