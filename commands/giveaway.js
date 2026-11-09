@@ -12,6 +12,7 @@ import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} 
 import {ensureBannerRegistered} from "../services/giveaway-banners.js";
 import {ensureGiveawayStaffRecord,requirePrivateGiveawayStaffChannel} from "../services/giveaway-staff-records.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
+import {regularGiveawayNotificationRoleIds} from "../services/giveaway-notification-roles.js";
 import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
@@ -228,7 +229,7 @@ export async function execute(interaction) {
         ? [...new Set(config?.trialNotificationRoleIds?.length
           ? config.trialNotificationRoleIds
           : (config?.survivalTrialPingRoleId ? [config.survivalTrialPingRoleId] : []))].slice(0, 10)
-        : (config?.giveawayPingRoleId ? [config.giveawayPingRoleId] : []);
+        : regularGiveawayNotificationRoleIds(config);
       const pingRoleId = pingRoleIds[0] || "";
       const bannerNameKey = await ensureBannerRegistered(interaction.guildId,
         interaction.options.getString("banner") ||
