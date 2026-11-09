@@ -27,7 +27,7 @@ const button=(id,label,value,style=ButtonStyle.Secondary)=>new ButtonBuilder()
   .setCustomId("actconfig:"+id+":"+value).setLabel(label).setStyle(style);
 const row=(id,items)=>new ActionRowBuilder().addComponents(items.map(([label,value,style])=>button(id,label,value,style)));
 const shown=id=>id?"<#"+id+">":"Not set";
-const progress=session=>session.editing?"Editing "+(stepName[session.step]||"Default banner"):
+const progress=session=>(session.editing||session.fromReview)?"Editing "+(stepName[session.step]||"Default banner"):
   stepsFor(session).includes(session.step)?"Step "+(stepsFor(session).indexOf(session.step)+1)+" of "+stepsFor(session).length:
     "Banner · "+(session.step==="bannerUpload"?"Upload new banner":"Choose a saved banner");
 const mainSetting=session=>session.settings;
