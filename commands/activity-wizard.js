@@ -6,7 +6,7 @@ import {sharedGiveawayPingRoleId} from "../services/giveaway-notification-roles.
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
 import {parseEasternAnnouncement} from "../services/giveaway-plan-time.js";
 import {ensureBannerRegistered,saveGiveawayBanner} from "../services/giveaway-banners.js";
-import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,prizeClaimLines} from "../services/giveaway-claims.js";
+import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS,prizeClaimLines} from "../services/giveaway-claims.js";
 import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {shouldRequestMessageContent} from "../services/observation-intents.js";
 import {weekdays,windowEnd,nextOpening,maxActiveDays,repeatText,createGuidedActivity,ensureStaffCard} from "../services/guided-activity.js";
@@ -25,6 +25,10 @@ const hour=3600000;
 const stamp=date=>'<t:'+Math.floor(+date/1000)+':F>';
 const choice=(label,value=label)=>[label,value];
 const weekChoices=weekdays.map((day,n)=>choice(day,String(n)));
+const effectiveClaimInstructions=s=>String(s.claimInstructions||"").trim()||DEFAULT_CLAIM_INSTRUCTIONS;
+const claimSource=s=>s.claimInstructions?.trim()?
+  (s.claimInstructions===s.serverClaimInstructions?"Saved server instructions":"Custom for this giveaway"):
+  "Built-in default";
 export const activityWizardPrompts={
   scope:["Where should messages count?",[choice("All server channels","all"),choice("Watch a channel","channel")]],
   channel:["Reply with the watched channel mention or paste its Discord channel link."],
@@ -39,7 +43,9 @@ export const activityWizardPrompts={
   phrase:["Enter the **exact required word or phrase**. Members must use the **correct spelling and word order** for their messages to qualify. **Capital letters do not matter.**"],
   requiredRoleChoice:["Must members have a role **before their messages can count**?",[choice("Use Server Default","default"),choice("No required role","none"),choice("Choose Different Role","choose")]],
   roleHelpChoice:["Show members **where to get the required role**?",[
-    choice("Use Server Default","default"),choice("Show Instructions","show"),choice("Hide Instructions","hide")]],
+    choice("Use Server Default","default"),choice("Write Custom Role Instructions","roleCustom"),
+    choice("Show Instructions","show"),choice("Hide Instructions","hide")]],
+  roleHelpText:["Reply with your custom instructions for getting the required role (1–500 characters). You can mention a channel."],
   requiredRolePick:["Paste the required role mention or role ID. Only messages sent **while the member has this role** will be logged."],
   title:["What should the giveaway be called? Reply with the title."],
   prize:["What prize are you giving away? Reply with the prize details."],
@@ -129,7 +135,7 @@ export function describeActivityWizard(session){
     'Manual approval '+(s.approval?'on':'off')+' · Member progress '+(s.progress?'on':'off'),
     'Claim time · '+s.claimHours+' hours · Max automatic rerolls · '+s.maxAutoRerolls+
       ' · Banner · '+(s.banner||'Server default'),
-    'Claim instructions · '+(s.claimInstructions?'Custom instructions':'Server default'),
+    'Claim instructions ('+claimSource(s)+') · '+effectiveClaimInstructions(s).slice(0,800),
     'Shared giveaway ping role · '+(s.notificationRoleIds?.[0]?'<@&'+s.notificationRoleIds[0]+'>':'None')+' (managed in /setup giveaways, /setup activity-giveaways or /setup trials)',
     'No eligible members · '+(s.announceEmptyResults?'Announce no winners':'Do not post empty results'),
     s.bonuses.length?'Bonus roles · '+s.bonuses.map(b=>'<@&'+b.roleId+'> +'+b.extraEntries).join(', '):null,
@@ -153,6 +159,12 @@ async function show(session,step){
   if(step==="days")choices=[1,2,3,5,7].filter(x=>x<=maxActiveDays(new Date(),windowEnd(s,new Date())))
     .map(x=>choice(String(x)+" day"+(x===1?"":"s"),String(x)));
   if(step==="claim")choices=[12,24,48].map(x=>choice(String(x)+" hours",String(x)));
+  if(step==="claimChoice")content="Choose prize-collection instructions for this giveaway.\n"+
+    "**Current ("+claimSource(s)+"):**\n"+effectiveClaimInstructions(s)+
+    "\n\nThe bot will separately require ticket number, Discord message link, and a claim before the deadline.";
+  if(step==="roleHelpChoice")content="Choose whether to show members how to obtain the required role, or write a custom explanation.\n"+
+    "**Current role instructions:**\n"+(s.requiredRoleInstructions||"*Not configured*")+
+    "\n**Shown to members:** "+(s.showRequiredRoleInstructions?"Yes":"No");
   if(step==="claimPreview")content=['**Example Winner Announcement**',
     ...prizeClaimLines({mode:"activity",winnerIds:[session.owner],
       claimStartedAt:new Date(),claimWindowHours:s.claimHours,autoRerollClaims:true,
@@ -272,10 +284,17 @@ async function accept(session,input,client){
       else throw Error("Choose Use Server Default, No required role, or Choose Different Role.");
       break;
     case "roleHelpChoice":
-      if(v==="default")s.showRequiredRoleInstructions=s.serverShowRoleInstructions;
-      else if(v==="show")s.showRequiredRoleInstructions=true;
+      if(v==="roleCustom"){next="roleHelpText";break;}
+      if(v==="default"){
+        s.showRequiredRoleInstructions=s.serverShowRoleInstructions;
+        s.requiredRoleInstructions=s.serverRoleInstructions||"";
+      }else if(v==="show")s.showRequiredRoleInstructions=true;
       else if(v==="hide")s.showRequiredRoleInstructions=false;
-      else throw Error("Choose whether to show the role instructions.");
+      else throw Error("Choose whether to show or customize the role instructions.");
+      next=done("title");break;
+    case "roleHelpText":
+      s.requiredRoleInstructions=words(v,500);
+      s.showRequiredRoleInstructions=true;
       next=done("title");break;
     case "requiredRolePick":{
       const match=/^(?:<@&(\d{17,20})>|(\d{17,20}))$/.exec(v);
