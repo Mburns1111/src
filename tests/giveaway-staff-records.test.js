@@ -41,7 +41,8 @@ test("unclaimed winner staff record shows deadline and remaining rerolls",()=>{
  assert.match(description,/Reroll history/);
  const ids=staff.components.flatMap(r=>r.components).map(b=>b.data.custom_id);
  assert.ok(ids.includes("giveawaystaff:stop:"+id));
- assert.ok(ids.includes("giveawaystaff:cancel:"+id));
+ assert.ok(!ids.includes("giveawaystaff:cancel:"+id));
+ assert.ok(!ids.includes("giveawaystaff:remove:"+id), "unclaimed winner still has rerolls remaining");
 });
 
 test("claim number, exact message link and submission time are private",()=>{
@@ -76,7 +77,7 @@ test("cancel and delete requires a written reason and confirmation",async()=>{
  const previous=Giveaway.findOne;
  let modal;
  try{
-  Giveaway.findOne=()=>({lean:async()=>({...ended})});
+  Giveaway.findOne=()=>({lean:async()=>({...ended,status:"open",winnerIds:[]})});
   await handleGiveawayStaffAction({
     guildId,channelId:ended.staffCardChannelId,
     customId:"giveawaystaff:cancel:"+id,
@@ -92,13 +93,13 @@ test("cancel and delete requires a written reason and confirmation",async()=>{
 });
 
 
-test("cancelling an ended giveaway archives the reason and removes only its public post",async()=>{
+test("cancelling a live giveaway archives the reason and removes only its public post",async()=>{
  const GuildConfig=(await import("../models/GuildConfig.js")).default;
  const original={
    find:Giveaway.findOne,update:Giveaway.findOneAndUpdate,updateOne:Giveaway.updateOne,
    config:GuildConfig.findOne,
  };
- let stored={...ended,channelId:"101234567890123456",messageId:"112345678901234567",
+ let stored={...ended,status:"open",channelId:"101234567890123456",messageId:"112345678901234567",
    listChannelId:"",listMessageId:""};
  const updated=[],removed=[],staffEdits=[];
  const staffMessage={id:stored.staffCardId,author:{id:"bot"},
