@@ -53,6 +53,11 @@ test("custom creator details are separate from prizes and requirements",()=>{
  assert.match(text,/Jester Dragon/);
  assert.doesNotMatch(giveawayAnnouncement(snapshot({description:""})).embeds[0].data.description,/Giveaway Details/);
 });
+test("standard giveaway title preserves member and channel mentions",()=>{
+ const post=giveawayAnnouncement(snapshot({title:"Tell <@123456789012345678> in <#234567890123456789>"}));
+ assert.match(post.embeds[0].data.description,/<@123456789012345678>/);
+ assert.match(post.embeds[0].data.description,/<#234567890123456789>/);
+});
 test("announcement remains on completion with details, winners and audit trail",()=>{
  const open=giveawayAnnouncement(snapshot());
  assert.equal(open.components.length,1);

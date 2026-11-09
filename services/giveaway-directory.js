@@ -9,6 +9,8 @@ import {attachGiveawayBanner,getGiveawayBanner,giveawayBannerBytes} from "./give
 
 const stamp=date=>Math.floor(new Date(date).getTime()/1000);
 const clean=(value,max=500)=>String(value||"").replace(/[@`*_~|<>]/g,"").slice(0,max);
+// Embed titles cannot resolve Discord mentions; put user-written titles in embed descriptions.
+const displayTitle=value=>String(value||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180);
 const messageLink=(guildId,channelId,messageId)=>
   `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
 
@@ -36,6 +38,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
     bonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(", ")+" (add together; unique winner)");
   if(plan.requireStaffReview)instruction.push("**Winner publication:** After staff approval");
   const description=[
+    `**${displayTitle(plan.title)}**`,"",
     `**Prize:** ${clean(prize,600)}`,"",
     ...(plan.description?["**Giveaway Details:**",String(plan.description).slice(0,1000),""]:[]),
     ...instruction,"",
@@ -46,7 +49,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
     "", "*Qualifying messages are tracked automatically. No entry button is needed.*",
   ].join("\n").slice(0,3900);
   return new EmbedBuilder().setColor(0xb47e99)
-    .setTitle(`🎁 Activity Giveaway · ${clean(plan.title,140)}`)
+    .setTitle("🎁 Activity Giveaway")
     .setDescription(description)
     .setFooter({text:`Activity Giveaway Plan ID: ${plan._id}`});
 }
@@ -54,6 +57,7 @@ export function activityOneOffListingEmbed(record) {
   const daily=record.activityPeriod==="daily";
   const channels=(record.activityChannelIds||[]).map(id=>`<#${id}>`);
   const parts=[
+    `**${displayTitle(record.title)}**`,"",
     `**Prize:** ${clean(record.prize,650)}`,"",
     `**Watch:** ${channels.length?channels.join(", "):"Eligible server text channels"}`,
     `**Activity period:** ${daily?"Previous full Eastern calendar day":"Previous Wednesday–Wednesday week"}`,
@@ -78,7 +82,7 @@ export function activityOneOffListingEmbed(record) {
     `**Winners:** ${record.winnerCount||1}`,`**Results will be posted in:** <#${record.channelId}>`,"",
     "*This giveaway has automatic, locked entries. No entry button is needed.*");
   return new EmbedBuilder().setColor(0xb47e99)
-    .setTitle(`🎁 Activity Giveaway · ${clean(record.title,140)}`)
+    .setTitle("🎁 Activity Giveaway")
     .setDescription(parts.join("\n").slice(0,3900))
     .setFooter({text:`Activity Giveaway ID: ${record._id}`});
 }

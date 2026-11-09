@@ -19,6 +19,9 @@ const rule={channelId:"456789012345678901",minimumChars:25,
 
 test("public directory announces watch requirements, next draw and prize without showing entries or winners",()=>{
  const embed=activityPlanListingEmbed(plan,rule).toJSON();
+ const linked=activityPlanListingEmbed({...plan,title:"Ping <@123456789012345678> in <#234567890123456789>"},rule).toJSON();
+ assert.match(linked.description,/<@123456789012345678>/);
+ assert.match(linked.description,/<#234567890123456789>/);
  assert.match(embed.description,/50 qualifying messages total/);
  assert.match(embed.description,/Tell us about your favorite pet!/);
  assert.match(embed.description,/<#456789012345678901>/);
@@ -37,6 +40,13 @@ test("public directory announces watch requirements, next draw and prize without
   activityPeriod:"daily",activityMinTotalMessages:50,activityMinChars:10,
   description:"Giveaway details written by the host."});
  assert.doesNotMatch(oneOff.toJSON().description,/private-member/);
+ const linkedOneOff=activityOneOffListingEmbed({
+  _id:planId,title:"Ask <@123456789012345678> in <#234567890123456789>",
+  prize:"Pet",endsAt:new Date("2026-11-11T19:00:00Z"),activityChannelIds:[],
+  activityPeriod:"daily",activityMinTotalMessages:1,
+ }).toJSON();
+ assert.match(linkedOneOff.description,/<@123456789012345678>/);
+ assert.match(linkedOneOff.description,/<#234567890123456789>/);
  assert.match(oneOff.toJSON().description,/automatic, locked entries/);
  assert.match(oneOff.toJSON().description,/Giveaway details written by the host/);
 });

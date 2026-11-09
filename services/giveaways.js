@@ -41,6 +41,7 @@ export function giveawayAnnouncement(record) {
         : `🦊 **The fox sighs:** "No accomplice showed up, so the prize stays tucked in <@${record.creatorId}>'s pocket. Foiled again!"`
     : `🦊 **The fox whispers:** "Psst! I spotted something shiny in <@${record.creatorId}>'s pocket. Enter below and you might be the accomplice I need to swipe the prize!"`;
   const lines = [
+    `**${String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)}**`,"",
     foxStory,
     "",
     record.prize.slice(0, 1800),
@@ -82,7 +83,7 @@ export function giveawayAnnouncement(record) {
   const description = lines.join("\n").slice(0, 4000);
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x86738d : 0xb47e99)
-    .setTitle((ended ? "🦊 Heist Complete · " : "🦊 The Fox\u2019s Giveaway · ") + record.title.slice(0, 180))
+    .setTitle(ended ? "🦊 Heist Complete" : "🦊 The Fox’s Giveaway")
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
   const components = ended && record.status === "ended" && record.mode !== "survival" && (record.winnerIds || []).length
