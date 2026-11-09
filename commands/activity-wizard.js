@@ -71,6 +71,15 @@ function checkSchedule(s,start) {
 }
 function describe(session){
   const s=session.settings,start=new Date(),end=windowEnd(s,start);
+  const upcoming=[];
+  if(s.repeat!=="once"){
+    upcoming.push("**Upcoming giveaways if you create this activity now**");
+    let opening=start;
+    for(let n=1;n<=2;n++){
+      opening=nextOpening(s,opening);
+      upcoming.push("Repeat "+n+" · Starts "+stamp(opening)+" · Ends "+stamp(windowEnd(s,opening)));
+    }
+  }
   return [
     '**Review your activity giveaway**',s.title,'Prize · '+s.prize,
     'Count messages in '+(s.channel?'<#'+s.channel+'>':'all eligible server channels'),
@@ -83,7 +92,7 @@ function describe(session){
     'Claim time · '+s.claimHours+' hours · Banner · '+(s.banner||'Server default'),
     s.bonuses.length?'Bonus roles · '+s.bonuses.map(b=>'<@&'+b.roleId+'> +'+b.extraEntries).join(', '):null,
     'Repeat · '+repeatText(s),
-    s.repeat!=="once"?'Next counting window starts '+stamp(nextOpening(s,start)):null,
+    ...upcoming,
   ].filter(Boolean).join('\n');
 }
 async function show(session,step){
