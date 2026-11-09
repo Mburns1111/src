@@ -319,7 +319,7 @@ export async function publishSurvivalFinale(client, record, { now = new Date() }
     const payload = survivalFinalePayload(record, championRecord);
     if (record.bannerNameKey)
       attachGiveawayBanner(payload, await getGiveawayBanner(record.guildId, record.bannerNameKey));
-    if (message) await message.edit(payload);
+    if (message) await message.edit({ ...payload, attachments: [] });
     else message = await channel.send(payload);
 
     // Saving the ID guarantees a stable message for rerolls and restarts.
@@ -344,7 +344,7 @@ export async function publishSurvivalAnnouncement(client, record) {
   const payload = survivalAnnouncement(record);
   if (record.bannerNameKey)
     attachGiveawayBanner(payload, await getGiveawayBanner(record.guildId, record.bannerNameKey));
-  await message.edit(payload);
+  await message.edit({ ...payload, attachments: [] });
   if (record.status === "ended") await publishSurvivalFinale(client, record);
   if (["running", "ended", "cancelled"].includes(record.status)) {
     await Giveaway.updateOne(

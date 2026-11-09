@@ -506,6 +506,8 @@ export async function handleGiveawayClaimModal(interaction) {
     });
     try { await publishGiveawayResult(interaction.client,updated); }
     catch(error) { console.error("[Giveaways] Ticket saved but announcement refresh failed:",error); }
+    try { await ensureGiveawayStaffRecord(interaction.client, updated); }
+    catch(error) { console.error("[Giveaways] Ticket saved; staff record will be reconciled later:",error); }
     return interaction.editReply("Claim submitted successfully.");
   } catch(error) {
     return interaction.editReply(error.message||"Unable to record your ticket claim.");
