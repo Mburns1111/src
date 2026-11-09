@@ -30,6 +30,16 @@ The new Trial flow uses separate default eligibility role/instructions, role-ins
 
 New Trials use the regular giveaway claim ticket form after the final Royal Verdict: a winner submits a ticket number and exact Discord ticket message link before the deadline. Those details appear **only in staff records**, never in public result text. Automatic expiry rerolls follow the saved limit; staff can stop them. Existing old Trial records preserve their original staff-managed claim behavior. Prizes are still delivered manually by staff.
 
+## Giveaway Manager role (delegated staff permissions)
+
+Under **/setup giveaways**, **/setup activity-giveaways**, or **/setup trials**, a server manager with **Manage Server** may choose an optional **Giveaway Manager** role or clear it. The role is shared across regular giveaways, activity giveaways and Court's Trials; it is not a member-entry eligibility role or a notification/ping role.
+
+A member with this configured role may run `/giveaway`, `/giveaway-role` and `/trial` in their previously authorized channels. They may also use the associated staff controls: create activity giveaways, edit and end early, approve drawings, launch Trials, view qualifying-member previews and the sticky directory, reroll winners, disable automatic rerolls, cancel active giveaways and delete eligible completed listings. The permission check happens server-side on every command or staff interaction, so removing the member's role removes their ability to act.
+
+The new role **does not** grant `/setup`, access to other bot administrative features, or the Discord **Manage Server** permission. Only Manage Server staff can choose or clear the delegated role through guided setup. Giving a user the role does not bypass channel restrictions; **also grant the Giveaway Manager role View Channel access to the private staff giveaway channel in Discord's channel permissions**. A member with the role who lacks staff-channel access can still run authorized Trial commands in the configured Trial channel.
+
+Because Discord previously registered the giveaway and Trial slash commands as Manage Server–only, **re-register the slash commands on the development bot once after pulling** (`node register-commands.js`, using development token/client ID) so users with the new role can see and invoke them. Discord may list the commands to other members as well; the bot rejects anyone without the configured role or Manage Server before processing an action.
+
 ## Giveaway and Trial command channels
 
 Managers with **Manage Server** may use `/giveaway` and `/giveaway-role` in either the normal bot commands channel or the private staff giveaway channel configured under `/setup giveaways` or `/setup activity-giveaways`. This includes `/giveaway activity`: its interactive question-and-answer wizard now stays in whichever authorized channel the manager started it from.
