@@ -12,6 +12,14 @@ export function allowedCommandChannels(commandName,config){
 }
 
 export function commandChannelRestriction(commandName,channelId,config){
+  // Even when a server hasn't configured its commands channel yet, never
+  // treat the private giveaway records channel as an alternative.
+  if(config?.activityGiveawayReviewChannelId &&
+      channelId===config.activityGiveawayReviewChannelId &&
+      (giveawayNames.has(commandName)||commandName==="trial"))
+    return "The private giveaway staff channel is reserved for records and staff buttons. Use the commands channel"+
+      (config?.commandChannelId?" <#"+config.commandChannelId+">":" (set one with /setup general)")+
+      (commandName==="trial"&&config?.survivalTrialChannelId?" or Trial channel <#"+config.survivalTrialChannelId+">":"")+".";
   const allowed=allowedCommandChannels(commandName,config);
   if(!allowed.length||allowed.includes(channelId))return null;
   if(giveawayNames.has(commandName))
