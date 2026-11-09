@@ -8,6 +8,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import GiveawayBanner, { bannerNameKey } from "../models/GiveawayBanner.js";
 import { attachGiveawayBanner, ensureBannerRegistered } from "../services/giveaway-banners.js";
+import {registeredSetupBanners,bannerCatalogText,setupBannerOptions,registerSetupBanner} from "../services/giveaway-banner-setup.js";
 import { survivalFinalePayload } from "../services/survival-giveaways.js";
 import { DEFAULT_CLAIM_INSTRUCTIONS, MAX_TRIAL_CLAIM_MINUTES } from "../services/giveaway-claims.js";
 
@@ -79,12 +80,15 @@ export function trialSetupPreview(settings, { userId = "123456789012345678", ban
   return attachGiveawayBanner(payload, banner);
 }
 
-function layout(session) {
+function layout(session,banners=[]) {
   const s = session.settings, step = session.step;
   const index = STEPS.indexOf(step);
+  const label=STEP_NAMES[step]||(step==="bannerText"?"Saved banner name":
+    step==="bannerUpload"?"Upload new banner":step);
   const intro = "**⚔️ Court's Trial setup** · <@" + session.owner + ">\n" +
-    "**" + (session.fromReview ? "Editing " + STEP_NAMES[step] :
-      "Step " + (index + 1) + " of " + STEPS.length + " · " + (STEP_NAMES[step] || step)) + "**\n";
+    "**" + (session.fromReview ? "Editing " + label :
+      index>=0?"Step " + (index + 1) + " of " + STEPS.length + " · " + label:
+        "Banner · "+label) + "**\n";
   const components = [];
   let content = "";
   if (step === "channel" || step === "staff") {
@@ -147,9 +151,21 @@ function layout(session) {
         .setPlaceholder("Shared giveaway ping role").setMinValues(1).setMaxValues(1)));
     components.push(buttons(session, [["No giveaway ping role", "clearRoles"], ["Keep", "keep"]]));
   } else if (step === "banner") {
-    content = "Choose a saved giveaway banner for new Trial signups and Royal Verdicts. You can upload one using `/giveaway banner-save`.\n**Current:** " +
-      (s.trialDefaultBannerNameKey || "None");
-    components.push(buttons(session, [["Choose saved banner", "chooseBanner"], ["Clear default banner", "clearBanner"], ["Keep", "keep"]]));
+    content = "Choose a default banner for new Trial signups and Royal Verdicts. It remains reusable for all giveaway types.\n**Current:** " +
+      (s.trialDefaultBannerNameKey || "None") + "\n\n" + bannerCatalogText(banners);
+    if(banners.length)components.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId(selectId(session,"selectSavedBanner"))
+        .setPlaceholder("Choose a registered banner").addOptions(setupBannerOptions(banners))));
+    components.push(buttons(session,[
+      ...(banners.length?[["Type Banner Name","chooseBanner"]]:[]),
+      ["Upload New Banner","uploadBanner",ButtonStyle.Primary],
+      ["Clear Banner","clearBanner"],["Keep","keep"],
+    ]));
+  } else if (step === "bannerUpload") {
+    content = "Upload a **PNG, JPG, WebP or GIF (maximum 4 MB)** in this same channel.\n" +
+      "You may type the banner's name in the same message as the image. Without a caption, the filename becomes its name.\n" +
+      "The image will be registered for future giveaways and selected for this Trial setup. Uploading under an existing name replaces that banner's image.";
+    components.push(buttons(session,[["Back to Banner Choices","back"]]));
   } else if (step === "review") {
     content = trialSetupSummary(s);
     components.push(new ActionRowBuilder().addComponents(
@@ -164,7 +180,7 @@ function layout(session) {
       roleHelpText: "Reply in this command channel with up to 500 characters explaining how to obtain the required role.",
       instructionsText: "Reply here with custom claim instructions (1–1,000 characters). The bot adds the mandatory ticket and deadline warning.",
       minutesText: "Reply with a whole number from 1 through 43,200 minutes.",
-      bannerText: "Reply with the exact saved banner name.",
+      bannerText: "Reply with the exact saved banner name.\n\n"+bannerCatalogText(banners),
     }[step];
   }
   if (step !== "review") components.push(buttons(session, [["Back", "back"], ["Cancel setup", "cancel", ButtonStyle.Danger]]));
@@ -174,7 +190,9 @@ function layout(session) {
 async function show(session, step) {
   session.step = step;
   session.expiresAt = Date.now() + SESSION_MS;
-  const message = await session.channel.send(layout(session));
+  const banners=["banner","bannerText"].includes(step)?
+    await registeredSetupBanners(session.guild.id):[];
+  const message = await session.channel.send(layout(session,banners));
   session.messageId = message.id;
 }
 async function advance(session) {
@@ -218,9 +236,10 @@ async function process(session, action, value) {
   }
   if (action === "back") {
     const previous = { roleHelpText: "roleHelp", instructionsText: "instructions",
-      minutesText: "minutes", bannerText: "banner" }[session.step];
-    return show(session, session.fromReview ? "review" :
-      previous || STEPS[Math.max(0, STEPS.indexOf(session.step) - 1)]);
+      minutesText: "minutes", bannerText: "banner",bannerUpload:"banner" }[session.step];
+    if(previous)return show(session,previous);
+    if(session.fromReview){session.fromReview=false;return show(session,"review");}
+    return show(session,STEPS[Math.max(0,STEPS.indexOf(session.step)-1)]);
   }
   if (session.step === "review") {
     if (action === "preview") {
@@ -335,16 +354,22 @@ async function process(session, action, value) {
   }
   if (session.step === "banner") {
     if (action === "clearBanner") { s.trialDefaultBannerNameKey = ""; return advance(session); }
-    if (action === "chooseBanner") {
-      const saved = await GiveawayBanner.find({ guildId: session.guild.id }).select("name").limit(20).lean();
-      if (!saved.length) throw Error("Save a banner with /giveaway banner-save first.");
-      await session.channel.send({ content: "Saved banners: " +
-        saved.map(x => x.name).join(", ").slice(0, 1600), allowedMentions: { parse: [] } });
-      return show(session, "bannerText");
+    if (action === "selectSavedBanner") {
+      s.trialDefaultBannerNameKey = await ensureBannerRegistered(session.guild.id,value);
+      return advance(session);
     }
+    if (action === "chooseBanner") return show(session,"bannerText");
+    if (action === "uploadBanner") return show(session,"bannerUpload");
   }
   if (session.step === "bannerText" && action === "text") {
     s.trialDefaultBannerNameKey = await ensureBannerRegistered(session.guild.id, value);
+    // bannerText is a substep, not an entry in STEPS: never advance from -1.
+    session.step="banner";
+    return advance(session);
+  }
+  if (session.step === "bannerUpload" && action === "upload") {
+    s.trialDefaultBannerNameKey=await registerSetupBanner(session.guild.id,value);
+    session.step="banner";
     return advance(session);
   }
   throw Error("This action isn't available at this step.");
@@ -388,22 +413,24 @@ export async function handleTrialGiveawaySetupInteraction(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const action = match[2];
-    const selected = ["chooseChannel", "chooseRequiredRole", "chooseManagerRole", "chooseRoles", "edit"].includes(action)
+    const selected = ["chooseChannel", "chooseRequiredRole", "chooseManagerRole", "chooseRoles", "edit","selectSavedBanner"].includes(action)
       ? interaction.values : null;
     await process(session, action,
-      ["chooseChannel", "chooseRequiredRole", "chooseManagerRole", "edit"].includes(action) ? selected?.[0] : selected);
+      ["chooseChannel", "chooseRequiredRole", "chooseManagerRole", "edit","selectSavedBanner"].includes(action) ? selected?.[0] : selected);
     return interaction.editReply("Setup step updated.");
   } catch (error) {
     return interaction.editReply("Couldn't update Trial setup: " + String(error.message || error));
   }
 }
 export function trialGiveawaySetupReply(message) {
-  if (!message.guildId || message.author?.bot || !message.content) return false;
+  if (!message.guildId || message.author?.bot ||
+      (!message.content && !message.attachments?.size)) return false;
   const session = sessions.get(key(message.guildId, message.author.id));
   if (!session || session.channel.id !== message.channelId || session.expiresAt < Date.now() ||
-      !["roleHelpText", "instructionsText", "minutesText", "bannerText"].includes(session.step))
+      !["roleHelpText", "instructionsText", "minutesText", "bannerText","bannerUpload"].includes(session.step))
     return false;
-  void process(session, "text", message.content.trim()).catch(error =>
+  void process(session,session.step==="bannerUpload"?"upload":"text",
+    session.step==="bannerUpload"?message:String(message.content||"").trim()).catch(error =>
     session.channel.send({ content: "Trial setup error: " + String(error.message || error),
       allowedMentions: { parse: [] } }));
   return true;
