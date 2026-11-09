@@ -7,6 +7,7 @@ import {activityWizardPrompts,defaultActivityWizardSettings} from "../commands/a
 import {describeActivityGiveawaySetup,claimAnnouncementPreview,currentGiveawayClaimInstructions} from "../commands/activity-giveaway-setup.js";
 import {validateTicketClaim} from "../services/giveaway-ticket-claims.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
+import {giveawayStaffRecordPayload} from "../services/giveaway-staff-records.js";
 import {DEFAULT_CLAIM_INSTRUCTIONS,DEFAULT_MAX_AUTO_REROLLS,automaticRerollLimit,automaticRerollsUsed,
   prizeClaimLines} from "../services/giveaway-claims.js";
 import {GUIDED_EDIT_FIELDS,validateGuidedStaffEdit} from "../services/guided-staff-actions.js";
@@ -66,7 +67,7 @@ test("winner announcement preview attaches saved banner and matches actual regul
    },{mode,previewUserId:"234567890123456789",banner});
    const embed=preview.embeds[0].toJSON();
    assert.match(embed.description,/<@234567890123456789>/);
-   assert.match(embed.description,/Required to enter/);
+   assert.doesNotMatch(embed.description,/Required to enter/);
    assert.doesNotMatch(embed.description,/Get your role in/);
    assert.equal(embed.image.url,"attachment://giveaway-banner.png");
    assert.equal(preview.files[0].name,"giveaway-banner.png");
@@ -124,7 +125,11 @@ test("ticket number and exact Discord ticket message link are preserved",()=>{
  };
  const post=giveawayAnnouncement(giveaway);
  const fields=post.embeds[0].toJSON().fields;
- assert.ok(fields.some(f=>f.value.includes(ticketLink)),"the full ticket link is never truncated");
+ assert.ok(fields.every(f=>!f.value.includes(ticketLink)),"private ticket link must not be public");
+ assert.doesNotMatch(post.embeds[0].toJSON().description,/ticket-7/);
+ const privateRecord=giveawayStaffRecordPayload(giveaway);
+ assert.ok(privateRecord.embeds[0].toJSON().fields.some(f=>f.value.includes(ticketLink)),
+   "the private staff record keeps the full original ticket URL");
  assert.ok(fields.some(f=>/FORFEIT YOUR WIN/.test(f.value)),"mandatory warning stays visible in a field");
  assert.match(post.embeds[0].toJSON().description,/Claim submitted/);
  assert.equal(post.components[0].components[0].data.label,"Enter Ticket Claim info");
