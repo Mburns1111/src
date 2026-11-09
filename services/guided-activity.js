@@ -15,6 +15,7 @@ const seriesSchema = new mongoose.Schema({
 seriesSchema.index({enabled:1, nextStart:1, guildId:1});
 const Series = mongoose.models.GuidedActivitySeries || mongoose.model("GuidedActivitySeries", seriesSchema);
 export const GuidedActivitySeries=Series;
+export const GuidedActivitySeries=Series;
 
 // A delivery ID makes Gateway retries harmless. Never retain the message body.
 const receiptSchema = new mongoose.Schema({
