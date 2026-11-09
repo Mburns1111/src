@@ -38,12 +38,13 @@ test("directory includes live giveaways and running Trials, but excludes all fin
   assert.ok(entries.every(e=>e.url.startsWith("https://discord.com/channels/")));
 });
 
-test("activity listing links to the public activity list with a private staff fallback",()=>{
+test("activity directory links to staff records first and retains a public poster link",()=>{
  const publicLink=giveawayDirectoryEntries([giveaway({
    mode:"activity",listChannelId:"567890123456789012",listMessageId:"678901234567890123",
    staffCardChannelId:staff,staffCardId:"789012345678901234"
  })])[0];
- assert.match(publicLink.url,/567890123456789012\/678901234567890123/);
+ assert.match(publicLink.url,/234567890123456789\/789012345678901234/);
+ assert.match(publicLink.publicUrl,/567890123456789012\/678901234567890123/);
  const fallback=giveawayDirectoryEntries([giveaway({mode:"activity",messageId:"",
    staffCardChannelId:staff,staffCardId:"789012345678901234"})])[0];
  assert.match(fallback.url,/234567890123456789\/789012345678901234/);
