@@ -46,6 +46,33 @@ export function giveawayAnnouncement(record) {
   const finishing = record.status === "closing";
   const endUnix = Math.floor(new Date(record.endsAt).getTime() / 1000);
   const noEligibleWinner=giveawayHasNoEligibleWinner(record);
+  // A finished prize with no eligible winner needs a clear, compact public
+  // result, not the entry rules, old winner audit trail, ticket instructions,
+  // historical rerolls, and multiple contradictory outcome sections.
+  // Private staff records retain the full history.
+  if(noEligibleWinner){
+    const endedAt=new Date(record.endsAt);
+    const when=Number.isFinite(endedAt.getTime())
+      ? "<t:"+Math.floor(endedAt.getTime()/1000)+":F>":"";
+    const noEntries=!(record.winnerIds||[]).length;
+    const lines=[
+      "**"+String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)+"**",
+      "",
+      "🎁 **Prize:** "+String(record.prize||"").slice(0,800),
+      "",
+      "🏁 **Giveaway ended — No eligible winner.**",
+      noEntries?"No one entered or qualified.":
+        "The prize was not claimed and no eligible replacement was available.",
+      ...(when?["","**Ended:** "+when]:[]),
+    ];
+    return {
+      embeds:[new EmbedBuilder().setColor(0x86738d)
+        .setTitle("🏁 Giveaway Ended · No Eligible Winner")
+        .setDescription(lines.join("\n").slice(0,3900))
+        .setFooter({text:"Giveaway ID: "+record._id+" · This announcement is kept after the giveaway ends"})],
+      components:[],allowedMentions:{parse:[]},
+    };
+  }
   const activeWinners=(record.winnerIds||[]).filter((id,i)=>
     id && !(record.claimResolvedSlots||[]).includes(i));
   const winners = (record.winnerIds || []).map((id, i) => (record.claimResolvedSlots || []).includes(i)
