@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import GuildConfig from "../models/GuildConfig.js";
 import {
   data as giveawayData, trialData, execute as executeEvent,
   formatGiveawayEntrants, ENTRANTS_PER_PAGE,
@@ -28,7 +29,7 @@ test("staff can view any giveaway or Court's Trial entrants with 25-per-page ros
   assert.equal(ENTRANTS_PER_PAGE, 25);
   for (const command of [giveawayData, trialData]) {
     const spec = command.toJSON();
-    assert.equal(spec.default_member_permissions, "32");
+    assert.equal(spec.default_member_permissions, undefined, "the bot authorizes the assigned Giveaway Manager role");
     assert.ok(spec.options.some(o => o.name === "entrants"));
   }
   const page2 = formatGiveawayEntrants(sample(), 2);
@@ -44,11 +45,11 @@ test("staff can view any giveaway or Court's Trial entrants with 25-per-page ros
   assert.throws(() => formatGiveawayEntrants(sample(), 6), /page/i);
 });
 
-function interaction(commandName, reference = id, page = 1, canManage = true) {
+function interaction(commandName, reference = id, page = 1, canManage = true, roles = []) {
   let output;
   return {
     guild: { id: guildId }, guildId, commandName,
-    user: { id: admin },
+    user: { id: admin }, member: {roles},
     memberPermissions: { has: bit => canManage && bit === PermissionFlagsBits.ManageGuild },
     options: {
       getSubcommand: () => "entrants",
@@ -64,6 +65,9 @@ test("/giveaway entrants is restricted to staff and lists either type; /trial en
   const changes = [];
   let current = sample({ entrantIds: members.slice(0, 3) });
   try {
+    stub(changes, GuildConfig, "findOne", () => ({select:()=>({lean:async()=>({
+      giveawayManagerRoleId:"567890123456789012"
+    })})}));
     stub(changes, Giveaway, "findOne", query => ({
       lean: async () => {
         assert.equal(query.guildId, guildId);
@@ -72,7 +76,10 @@ test("/giveaway entrants is restricted to staff and lists either type; /trial en
     }));
     let user = interaction("giveaway", id, 1, false);
     await executeEvent(user);
-    assert.match(user.replyResult(), /Only members with Manage Server/);
+    assert.match(user.replyResult(), /Giveaway Manager/);
+    user=interaction("giveaway",id,1,false,["567890123456789012"]);
+    await executeEvent(user);
+    assert.match(user.replyResult().content,/Giveaway entrants/);
 
     user = interaction("giveaway");
     await executeEvent(user);
