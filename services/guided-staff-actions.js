@@ -30,7 +30,6 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Claim time",value:"claimWindowHours",description:"Hours a winner has to claim"},
   {label:"Claim instructions",value:"claimInstructions",description:"Replace or reset the prize collection message"},
   {label:"Maximum auto rerolls",value:"maxAutoRerolls",description:"0–10 replacements for each unclaimed winner"},
-  {label:"Notification roles",value:"notificationRoleIds",description:"Up to 10 roles, comma or space separated"},
   {label:"No eligible winners",value:"announceEmptyResults",description:"Announce an empty result: on or off"},
   {label:"Banner",value:"bannerNameKey",description:"Saved banner name, or default"},
   {label:"Watched channel",value:"activityChannelIds",description:"Change channel; resets prior activity"},
@@ -46,7 +45,7 @@ const inputMax={title:100,prize:1500,description:1000,winnerCount:2,
   roleBonuses:350,activityChannelIds:100,
   activityRequiredMentionUserId:100,activityRequiredPhrase:120,requiredRoleId:100,
   endsAt:16,activityEndAt:16,repeatSchedule:80,
-  claimInstructions:1000,maxAutoRerolls:2,notificationRoleIds:350,announceEmptyResults:3};
+  claimInstructions:1000,maxAutoRerolls:2,announceEmptyResults:3};
 const inputHint={
   description:"Leave empty to remove details",
   bannerNameKey:"Saved banner name or default",
@@ -63,7 +62,6 @@ const inputHint={
   repeatSchedule:"once, daily, weekly, every 3 hours",
   claimInstructions:"Enter custom instructions, or leave blank for server default",
   maxAutoRerolls:"0–10; default 2",
-  notificationRoleIds:"@role @role, or none",
   announceEmptyResults:"on or off",
 };
 
@@ -74,13 +72,6 @@ export function validateGuidedStaffEdit(field,raw,event,{now=new Date()}={}){
   if(field==="claimInstructions"){
     if(value.length>1000)throw Error("Claim instructions cannot exceed 1,000 characters.");
     return {claimInstructions:value};
-  }
-  if(field==="notificationRoleIds"){
-    if(!value || /^(none|clear|off)$/i.test(value))return {notificationRoleIds:[]};
-    const ids=[...value.matchAll(/(?:<@&(\d{17,20})>|(\d{17,20}))/g)].map(x=>x[1]||x[2]);
-    if(value.replace(/(?:<@&\d{17,20}>|\d{17,20})/g,"").replace(/[\s,]+/g,"") || !ids.length||ids.length>10)
-      throw Error("Enter up to 10 role mentions or IDs separated by spaces or commas, or none.");
-    return {notificationRoleIds:[...new Set(ids)]};
   }
   if(field==="description"){
     if(value.length>1000)throw Error("Giveaway Details cannot exceed 1,000 characters.");
@@ -197,7 +188,6 @@ function editModal(event,field){
  let old=event[field];
  if(field==="bannerNameKey")old=old||"default";
  if(["requireStaffReview","progressEnabled","announceEmptyResults","showRequiredRoleInstructions"].includes(field))old=old?"on":"off";
- if(field==="notificationRoleIds")old=(event.notificationRoleIds||[]).map(id=>"<@&"+id+">").join(" ");
  if(field==="activityChannelIds")old=event.activityChannelIds?.length?"<#"+event.activityChannelIds[0]+">":"all";
  if(field==="activityRequiredMentionUserId")old=old?"<@"+old+">":"none";
  if(field==="requiredRoleId")old=old?"<@&"+old+">":"none";
@@ -208,7 +198,7 @@ function editModal(event,field){
  const input=new TextInputBuilder().setCustomId("value")
    .setLabel(chosen.label.slice(0,45))
    .setStyle(["description","prize","claimInstructions"].includes(field)?TextInputStyle.Paragraph:TextInputStyle.Short)
-   .setRequired(!["description","bannerNameKey","activityRequiredPhrase","claimInstructions","notificationRoleIds"].includes(field))
+   .setRequired(!["description","bannerNameKey","activityRequiredPhrase","claimInstructions"].includes(field))
    .setMaxLength(inputMax[field]);
  if(inputHint[field])input.setPlaceholder(inputHint[field]);
  if(old!==null&&old!==undefined&&String(old).length)
@@ -236,7 +226,7 @@ export function describeGuidedStaffOptions(event){
    "*Exact phrases require correct spelling and word order; capitalization does not matter.*",
    "**Timing:** Activity cutoff · Winner announcement",
    "**Drawing:** Winners · Manual approval · Bonus roles · Claim time · Max rerolls · Member progress",
-   "**Claiming:** Claim instructions · Notification roles · No eligible winners behavior",
+   "**Claiming:** Claim instructions · No eligible winners behavior (shared giveaway ping role is set in /setup)",
    "**Future giveaways:** Repeat schedule (changes future starts only)",
    "",
    "**Current settings**",
@@ -316,12 +306,6 @@ export async function handleGuidedStaffAction(i){
      }
      if(field==="bannerNameKey"&&changes.bannerNameKey)
        changes.bannerNameKey=await ensureBannerRegistered(i.guildId,changes.bannerNameKey);
-     if(field==="notificationRoleIds"){
-       for(const id of changes.notificationRoleIds){
-         const role=await i.guild.roles.fetch(id).catch(()=>null);
-         if(!role||role.id===i.guildId)throw Error("A selected notification role is not on this server.");
-       }
-     }
      if(field==="requiredRoleId"&&changes.requiredRoleId==="__server_default__"){
        const cfg=await GuildConfig.findOne({guildId:i.guildId}).lean();
        changes.requiredRoleId=cfg?.giveawayDefaultRequiredRoleId||"";
