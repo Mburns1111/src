@@ -918,6 +918,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (!interaction.isChatInputCommand()) return;
 
+    // The private giveaway staff channel is a record/review area, not a
+    // slash-command or guided-setup workspace. Keep /setup out too after
+    // that private channel has been configured. First-time setup elsewhere
+    // remains unrestricted.
+    if(interaction.commandName===setupCommand.name && interaction.guildId){
+      const privateConfig=await GuildConfig.findOne({guildId:interaction.guildId})
+        .select("activityGiveawayReviewChannelId commandChannelId").lean();
+      if(privateConfig?.activityGiveawayReviewChannelId===interaction.channelId){
+        await interaction.editReply({
+          content:"Use /setup in the designated bot commands channel"+
+            (privateConfig.commandChannelId?" <#"+privateConfig.commandChannelId+">":"")+
+            ". The private giveaway staff channel is reserved for records, reviews and staff buttons.",
+          allowedMentions:{parse:[]}
+        });
+        return;
+      }
+    }
+
     console.log("Command received:", interaction.commandName);
     console.log("Available handlers:", [...commandHandlers.keys()]);
 
