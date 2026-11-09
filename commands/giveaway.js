@@ -12,7 +12,7 @@ import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} 
 import {ensureBannerRegistered} from "../services/giveaway-banners.js";
 import {ensureGiveawayStaffRecord,requirePrivateGiveawayStaffChannel} from "../services/giveaway-staff-records.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
-import {regularGiveawayNotificationRoleIds} from "../services/giveaway-notification-roles.js";
+import {sharedGiveawayPingRoleId} from "../services/giveaway-notification-roles.js";
 import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
@@ -225,12 +225,8 @@ export async function execute(interaction) {
         survival ? "Court's Trial survival giveaway" : "standard giveaway",
       );
       await requirePrivateGiveawayStaffChannel(interaction.guild,config);
-      const pingRoleIds = survival
-        ? [...new Set(config?.trialNotificationRoleIds?.length
-          ? config.trialNotificationRoleIds
-          : (config?.survivalTrialPingRoleId ? [config.survivalTrialPingRoleId] : []))].slice(0, 10)
-        : regularGiveawayNotificationRoleIds(config);
-      const pingRoleId = pingRoleIds[0] || "";
+      const pingRoleId = sharedGiveawayPingRoleId(config);
+      const pingRoleIds = pingRoleId?[pingRoleId]:[];
       const bannerNameKey = await ensureBannerRegistered(interaction.guildId,
         interaction.options.getString("banner") ||
           (survival ? config?.trialDefaultBannerNameKey : ""));
