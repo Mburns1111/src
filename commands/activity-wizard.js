@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import {ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags} from "discord.js";
 import GiveawayBanner from "../models/GiveawayBanner.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
 import {parseEasternAnnouncement} from "../services/giveaway-plan-time.js";
 import {ensureBannerRegistered,saveGiveawayBanner} from "../services/giveaway-banners.js";
 import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,prizeClaimLines} from "../services/giveaway-claims.js";
@@ -370,7 +371,7 @@ async function accept(session,input,client){
     case "summary":{
       if(v==="edit"){next="edit";break;}
       const host=await session.guild.members.fetch({user:session.owner,force:true});
-      if(!host.permissions.has(PermissionFlagsBits.ManageGuild))throw Error("Manage Server permission is required.");
+      if(!await canManageGiveaways({guild:session.guild,guildId:session.guild.id,user:host.user||{id:session.owner},member:host,memberPermissions:host.permissions}))throw Error(giveawayManagerPermissionMessage);
       await configFor(session.guild,session.channel.id);
       const start=new Date(),end=checkSchedule(s,start);
       s.delay=s.firstDraw?new Date(s.firstDraw)-end:0;
