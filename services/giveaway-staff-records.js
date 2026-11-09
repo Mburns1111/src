@@ -203,8 +203,10 @@ export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
     catch(error){console.error("[Giveaways] Cancelled public post cleanup failed:",record._id,error);}
   }
  const removed=await Giveaway.find({status:"ended",publicListingRemovedAt:{$ne:null},
-   $or:[{messageId:{$type:"string",$ne:""}},{listMessageId:{$type:"string",$ne:""}},
-     {finaleMessageId:{$type:"string",$ne:""}}]
+   // The separate activity winner announcement and Trial finale are preserved
+   // on completed listings, so they must not cause perpetual cleanup retries.
+   $or:[{listMessageId:{$type:"string",$ne:""}},
+     {mode:{$in:["standard","survival"]},messageId:{$type:"string",$ne:""}}]
  }).sort({updatedAt:-1}).limit(limit).lean();
  for(const record of removed){
    try{await removeGiveawayPublicPosts(client,record);}
@@ -216,10 +218,15 @@ export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
 export async function removeGiveawayPublicPosts(client,record){
  if(record.status!=="cancelled"&&!(record.status==="ended"&&record.publicListingRemovedAt))
    throw Error("Public posts can only be removed after a cancellation or authorized completed-listing deletion.");
+ const completed=record.status==="ended";
  const targets=[
    [record.listChannelId,record.listMessageId],
-   [record.channelId,record.messageId],
-   ...(record.mode==="survival"?[[record.channelId,record.finaleMessageId]]:[])
+   // Activity winners are announced in a different channel; that result
+   // message is not an activity-list entry. Preserve it when completed.
+   ...(!completed||record.mode!=="activity"?[[record.channelId,record.messageId]]:[]),
+   // The Court's Trial Royal Verdict is a separate result announcement and
+   // must remain accessible after its signup listing has been removed.
+   ...(!completed&&record.mode==="survival"?[[record.channelId,record.finaleMessageId]]:[])
  ];
  const unique=new Set();
  for(const [channelId,messageId] of targets){
@@ -242,8 +249,12 @@ export async function removeGiveawayPublicPosts(client,record){
    }
  }
  await Giveaway.updateOne({_id:record._id,status:record.status,
-   ...(record.status==="ended"?{publicListingRemovedAt:{$ne:null}}:{})},
-   {$set:{listChannelId:"",listMessageId:"",listFingerprint:"",messageId:null,finaleMessageId:""}});
+   ...(completed?{publicListingRemovedAt:{$ne:null}}:{})},
+   {$set:{
+     listChannelId:"",listMessageId:"",listFingerprint:"",
+     ...(!completed||record.mode!=="activity"?{messageId:null}:{}),
+     ...(!completed?{finaleMessageId:""}:{}),
+   }});
 }
 export async function handleGiveawayStaffAction(interaction){
  const ephemeral={flags:MessageFlags.Ephemeral};
