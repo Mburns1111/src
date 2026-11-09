@@ -8,7 +8,7 @@ import GiveawayBanner, {bannerNameKey} from "../models/GiveawayBanner.js";
 import {GuidedActivitySeries} from "../services/guided-activity.js";
 import {ensureBannerRegistered,attachGiveawayBanner} from "../services/giveaway-banners.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
-import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS} from "../services/giveaway-claims.js";
+import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaway-claims.js";
 
 const sessions=new Map();
 const expiry=30*60_000;
@@ -28,6 +28,10 @@ const shown=id=>id?"<#"+id+">":"Not set";
 const progress=session=>session.editing?"Editing "+stepName[session.step]:"Step "+(stepsFor(session).indexOf(session.step)+1)+" of "+stepsFor(session).length;
 const mainSetting=session=>session.settings;
 
+export function currentGiveawayClaimInstructions(settings){
+  return String(settings?.activityClaimInstructions||"").trim().slice(0,1000)
+    ||DEFAULT_CLAIM_INSTRUCTIONS;
+}
 export function describeActivityGiveawaySetup(settings,{updateExisting=false,mode="activity"}={}){
  return [
   "**"+(mode==="regular"?"Regular":"Activity")+" Giveaway Setup — Review**",
@@ -39,7 +43,7 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   "👁️ **Show role instructions publicly:** "+(settings.giveawayShowRoleInstructions!==false?"Yes":"No"),
   "🎟️ **Role acquisition instructions (saved):** "+(settings.giveawayRoleInstructions||"Not set"),
   "📝 **Claim instructions:** "+(settings.activityClaimInstructions?"Custom":"Server default"),
-  ...(settings.activityClaimInstructions?[settings.activityClaimInstructions.slice(0,400)]:[]),
+  ...(settings.activityClaimInstructions?[settings.activityClaimInstructions.slice(0,400)]:[DEFAULT_CLAIM_INSTRUCTIONS]),
   "⏰ **Default claim window:** "+settings.activityClaimWindowHours+" hours",
   "🔁 **Automatic rerolls:** "+settings.activityMaxAutoRerolls+" per winning place",
   "🔔 **Notification roles:** "+(settings.activityNotificationRoleIds?.length
@@ -125,7 +129,8 @@ function layout(session) {
  }else if(step==="instructions"){
    content="Write the default prize-collection instructions. You may completely replace the standard paragraph.\n"+
     "**Always shown by the bot:** winners must enter a ticket number and **Discord message link** before the deadline, or forfeit the win.\n"+
-    "Current: "+(s.activityClaimInstructions||"Default prize-collection instructions");
+    (s.activityClaimInstructions?"**Current custom instructions:**":"**Current built-in default instructions:**")+
+    "\n"+currentGiveawayClaimInstructions(s);
    components.push(row(session.id,[["Use Default","default"],["Write Custom","custom"],["Keep Current","keep"]]));
  }else if(step==="instructionsText"){
    content="Type your custom claim instructions in this commands channel (1–1,000 characters). "+
