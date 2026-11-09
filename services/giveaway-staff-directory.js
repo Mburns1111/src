@@ -3,6 +3,7 @@ import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,Per
 import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 
 // This directory lives in the existing *private* giveaway staff channel, not
 // a public channel, DM, or separate new setup field.
@@ -185,8 +186,8 @@ export async function reconcileGiveawayStaffDirectories(client){
 
 export async function handleGiveawayStaffDirectoryButton(interaction){
   const ephemeral={flags:MessageFlags.Ephemeral};
-  if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-    return interaction.reply({content:"Manage Server permission is required to view the staff giveaway directory.",...ephemeral});
+  if(!await canManageGiveaways(interaction))
+    return interaction.reply({content:giveawayManagerPermissionMessage,...ephemeral});
   const match=/^giveawaydir:page:(\d{1,6})$/.exec(interaction.customId);
   if(!match)return interaction.reply({content:"Unknown giveaway directory page.",...ephemeral});
   const config=await GuildConfig.findOne({guildId:interaction.guildId})
