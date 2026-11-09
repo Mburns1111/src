@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import {DEFAULT_CLAIM_HOURS} from "./giveaway-claims.js";
 import { currentActivityDay, messageCharacterCount, messageMatchesGiveawayWatch } from "./giveaway-activity-counter.js";
 import { easternMidnight, shiftCalendarDay, nextWeeklyAnnouncement } from "./giveaway-plan-time.js";
@@ -209,36 +210,7 @@ export function guidedStaffCardPayload(event,series=null) {
     allowedMentions:{parse:[]}};
 }
 export async function ensureStaffCard(client,event) {
-  const config=await GuildConfig.findOne({guildId:event.guildId}).lean();
-  const channel=await client.channels.fetch(config?.activityGiveawayReviewChannelId);
-  if(!channel?.send || channel.permissionsFor(channel.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
-    throw Error("Set a staff-only activity_review channel.");
-  const series=await Series.findById(event.guidedSeries).lean();
-  const payload=guidedStaffCardPayload(event,series);
-  let message=event.staffCardChannelId===channel.id&&event.staffCardId?
-    await channel.messages.fetch(event.staffCardId).catch(error=>{
-      if(error.code===10008)return null;
-      throw error;
-    }):null;
-  if(!message){
-    const recent=await channel.messages.fetch({limit:50});
-    message=recent.find(m=>m.author?.id===client.user.id&&
-      m.embeds?.some(e=>e.footer?.text==="Activity staff preview · "+event._id))||null;
-  }
-  if(message){
-    const desired=payload.components.flatMap(r=>r.components).map(b=>b.data.custom_id);
-    const current=(message.components||[]).flatMap(r=>r.components||[])
-      .map(b=>b.customId||b.data?.custom_id);
-    if(message.embeds?.[0]?.description!==payload.embeds[0].description||
-       desired.join("|")!==current.join("|"))
-      await message.edit(payload);
-  }else{
-    message=await channel.send({...payload,nonce:event._id.toString(),enforceNonce:true});
-  }
-  if(event.staffCardId!==message.id||event.staffCardChannelId!==channel.id)
-    await Giveaway.updateOne({_id:event._id},{$set:{
-      staffCardId:message.id,staffCardChannelId:channel.id,
-    }});
+  return ensureGiveawayStaffRecord(client,event);
 }
 export async function staffPreview(i) {
   await i.deferReply({flags:MessageFlags.Ephemeral});

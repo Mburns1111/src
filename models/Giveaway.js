@@ -55,6 +55,8 @@ const giveawaySchema = new mongoose.Schema({
   staffEndedEarly:{type:Boolean,default:false},
   staffEndedBy:{type:String,default:""},
   staffCancelledBy:{type:String,default:""},
+  staffCancelledAt:{type:Date,default:null},
+  staffCancelReason:{type:String,default:"",maxlength:500},
   activityResetAt:{type:Date,default:null},
   activityType: { type: String, default: "" },
   activityChannelIds: { type: [String], default: [] },

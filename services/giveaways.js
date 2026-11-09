@@ -2,6 +2,7 @@ import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
 import {qualifyingActivity,qualifyingWatchActivity,countActivityParticipants} from "./giveaway-activity-counter.js";
@@ -52,10 +53,10 @@ export function giveawayAnnouncement(record) {
     ended
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
-    ...(record.requiredRoleId ? [`**Required to enter:** <@&${record.requiredRoleId}>`,
+    ...(!ended&&record.requiredRoleId ? [`**Required to enter:** <@&${record.requiredRoleId}>`,
       ...(record.showRequiredRoleInstructions!==false&&record.requiredRoleInstructions?
         [`**How to get the role:** ${String(record.requiredRoleInstructions).slice(0,500)}`]:[])] : []),
-    ...(record.roleBonuses?.length?["**Bonus drawing chances:** "+record.roleBonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(" · ")]:[]),
+    ...(!ended&&record.roleBonuses?.length?["**Bonus drawing chances:** "+record.roleBonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(" · ")]:[]),
     ...(!ended ? prizeClaimLines(record) : []),
     ...(record.rules ? ["", "**Rules / Requirements:**", record.rules.slice(0, 1300)] : []),
   ];
@@ -68,9 +69,7 @@ export function giveawayAnnouncement(record) {
         const claim=(record.winnerClaims || []).find(c=>c.slot===slot && c.userId===userId);
         const deadline=winnerClaimDeadline(record,slot);
         if (claim) {
-          const ticket=String(claim.ticketNumber||"").replace(/[^a-zA-Z0-9_# -]/g,"").slice(0,80);
-          const link=String(claim.ticketUrl||"");
-          lines.push(`#${slot+1} <@${userId}> — **Claim submitted:** \`${ticket}\` (ticket message linked below)`);
+          lines.push(`#${slot+1} <@${userId}> — **Claim submitted successfully**`);
         } else if ((record.claimResolvedSlots || []).includes(slot))
           lines.push(`#${slot+1} <@${userId}> — Claim expired; no further automatic replacement.`);
         else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline ? ` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>` : ""}`);
@@ -97,15 +96,7 @@ export function giveawayAnnouncement(record) {
       embed.addFields({name:headings[index]||"Claim information",
         value:String(line).slice(0,1024),inline:false});
     }
-    for(let slot=0;slot<(record.winnerIds||[]).length;slot++){
-      const userId=record.winnerIds[slot];
-      const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===userId);
-      if(!claim)continue;
-      // The full Discord message link is in a field, outside the 4,000-character description.
-      embed.addFields({name:"Winner "+(slot+1)+" · Claim submitted",
-        value:"<@"+userId+"> · Ticket `"+claim.ticketNumber+"`\n**Ticket message:** <"+claim.ticketUrl+">",
-        inline:false});
-    }
+
   }
   const components = ended && record.status === "ended" && record.mode !== "survival" && (record.winnerIds || []).length
     ? [new ActionRowBuilder().addComponents(
@@ -276,6 +267,10 @@ export async function finishPendingReroll(item) {
 }
 
 export async function publishGiveawayResult(client, item) {
+  if(item && !["draft","publishing","failed"].includes(item.status)){
+    try{await ensureGiveawayStaffRecord(client,item);}
+    catch(error){console.error("[Giveaways] Private staff update failed:",item._id,error);}
+  }
   if(item?.mode==="activity" && item.status==="ended" && !item.winnerIds?.length &&
      item.announceEmptyResults===false){
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},

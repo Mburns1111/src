@@ -9,6 +9,7 @@ import GiveawayPlan from "../models/GiveawayPlan.js";
 import {addGiveawayPlanCommands,executeGiveawayPlanAdmin,PLAN_OPERATIONS} from "./giveaway-plans.js";
 import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} from "./giveaway-banners.js";
 import {ensureBannerRegistered} from "../services/giveaway-banners.js";
+import {ensureGiveawayStaffRecord} from "../services/giveaway-staff-records.js";
 import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
@@ -268,6 +269,8 @@ export async function execute(interaction) {
         if (message) await message.delete().catch(() => {});
         throw error;
       }
+      try{await ensureGiveawayStaffRecord(interaction.client,{...record.toObject(),status:"open",messageId:message.id});}
+      catch(error){console.error("[Giveaways] Staff record on creation failed:",error);}
       return interaction.editReply(`🥀 ${survival ? "Survival trial" : "Giveaway"} posted: ${message.url}\nSaved giveaway ID: \`${record._id}\`\n${survival ? "Members join using the buttons; staff click Start Trial when ready." : "The announcement and results will stay visible after it ends."}`);
     }
 
@@ -478,7 +481,7 @@ export async function handleGiveawayClaimModal(interaction) {
     });
     try { await publishGiveawayResult(interaction.client,updated); }
     catch(error) { console.error("[Giveaways] Ticket saved but announcement refresh failed:",error); }
-    return interaction.editReply("Your ticket number and full Discord message link were saved. The winner announcement will show your claim status and clickable ticket message.");
+    return interaction.editReply("Claim submitted successfully.");
   } catch(error) {
     return interaction.editReply(error.message||"Unable to record your ticket claim.");
   }

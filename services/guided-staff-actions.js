@@ -385,7 +385,9 @@ export async function handleGuidedStaffAction(i){
        "Counting restarted now; previous activity no longer qualifies. ":"Future repeats are unchanged. ")+
        (refreshed?"":"A Discord post may need the next refresh."));
    }
-   if(["end","cancel"].includes(action)){
+   if(action==="cancel"||action==="confirmcancel")
+     return i.editReply("Cancellation requires a reason. Use **Cancel & Remove Giveaway** on the staff record.");
+   if(action==="end"){
      if(event.status!=="open")return i.editReply("This giveaway is no longer collecting activity.");
      return i.editReply({content:action==="end"?
        "**End this giveaway early?** Counting will stop now and eligible members will be entered for the drawing. If manual approval is enabled, staff must approve before winners are announced. Future repeats will continue.":
@@ -395,15 +397,6 @@ export async function handleGuidedStaffAction(i){
    if(!["confirmend","confirmcancel"].includes(action))return i.editReply("Unsupported action.");
    if(event.status!=="open")return i.editReply("Another staff member has already finished or cancelled this activity.");
    const now=new Date();
-   if(action==="confirmcancel"){
-     const updated=await Giveaway.findOneAndUpdate({_id:event._id,guildId:i.guildId,status:"open"},
-       {$set:{status:"cancelled",endsAt:now,activityEndAt:now,customActivityEndAt:now,
-         staffCancelledBy:i.user.id}},{returnDocument:"after"}).lean();
-     if(!updated)return i.editReply("This giveaway has already been changed.");
-     const refreshed=await refreshPublished(i.client,updated);
-     return i.editReply("Cancelled the **current giveaway** without drawing winners. "+
-       "Future repeats are unchanged."+(refreshed?"":" The listing cleanup may need another refresh."));
-   }
    const roster=await activityRoster(event);
    const eligible=roster.filter(row=>row.qualified).map(row=>row._id);
    const updated=await Giveaway.findOneAndUpdate({_id:event._id,guildId:i.guildId,status:"open"},
