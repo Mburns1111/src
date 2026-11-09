@@ -25,7 +25,11 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.equal(spec.name,"giveaway");
  assert.equal(spec.default_member_permissions, undefined); // Discord permits the role; the bot gates staff actions
  const opts=spec.options;
- assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","list","entrants","banner-save","banner-list","banner-default","banner-clear","banner-remove"]);
+ assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","list","entrants","banner"]);
+ const banner=opts.find(x=>x.name==="banner");
+ assert.deepEqual(banner.options.map(x=>x.name),["save","list","default","clear","remove"]);
+ assert.equal(banner.type,2,"nested banner operations must be in a Discord subcommand group");
+ assert.ok(!opts.some(x=>x.name.startsWith("banner-")),"banner commands no longer clutter the top-level list");
  const start=opts[0];
  assert.deepEqual(start.options||[],[],"regular giveaway fields belong in the guided channel wizard");
  assert.match(start.description,/guided setup/i);
