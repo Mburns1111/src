@@ -163,11 +163,12 @@ async function show(session,step){
       .sort({nameKey:1}).limit(20).lean();
     session.bannerNames=banners.map(x=>x.name);
     choices=banners.slice(0,15).map((x,n)=>choice(x.name,"saved:"+n));
-    content+=banners.length?"\nChoose a button or type a registered banner name.":
-      "\nThere are no saved banners yet; use Back to banner choices to register one.";
+    content+=banners.length?"\nChoose a saved banner, type its name, or upload a new one.":
+      "\nThere are no saved banners yet; use Upload New Banner to register one now.";
   }
   if(step==="summary")content=describeActivityWizard(session);
   const controls=[...(choices||[])];
+  if(step==="bannerPick")controls.push(["Upload New Banner","bannerRegister"]);
   if(["bannerPick","bannerName","bannerUpload"].includes(step))
     controls.push(["Back to banner choices","bannerOptions"],["Back to preview","bannerBack"]);
   if(step!=="summary")controls.push(["Cancel setup","cancel"]);
@@ -319,6 +320,7 @@ async function accept(session,input,client){
       else if(v==="bannerRegister")next="bannerName";
       break;
     case "bannerPick":{
+      if(v==="bannerRegister"){next="bannerName";break;}
       const name=v.startsWith("saved:")?session.bannerNames?.[Number(v.slice(6))]:v;
       if(!name)throw Error("Select an existing banner or type its saved name.");
       s.banner=await ensureBannerRegistered(session.guild.id,name);
