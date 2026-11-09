@@ -1,6 +1,7 @@
 // Shared prize-claim presentation for ordinary giveaways and Court's Trials.
 // The bot never creates tickets, adjudicates availability, or forfeits prizes.
 export const MAX_CLAIM_HOURS = 24 * 30;
+export const DEFAULT_CLAIM_HOURS = 12;
 export const MAX_TRIAL_CLAIM_MINUTES = MAX_CLAIM_HOURS * 60;
 
 // New Court's Trials use minutes; regular giveaways continue using hours.

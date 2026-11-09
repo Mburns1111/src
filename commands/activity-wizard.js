@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import {ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags} from "discord.js";
+import GiveawayBanner from "../models/GiveawayBanner.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {parseEasternAnnouncement} from "../services/giveaway-plan-time.js";
-import {ensureBannerRegistered} from "../services/giveaway-banners.js";
+import {ensureBannerRegistered,saveGiveawayBanner} from "../services/giveaway-banners.js";
+import {DEFAULT_CLAIM_HOURS} from "../services/giveaway-claims.js";
 import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {shouldRequestMessageContent} from "../services/observation-intents.js";
 import {weekdays,windowEnd,nextOpening,maxActiveDays,repeatText,createGuidedActivity,ensureStaffCard} from "../services/guided-activity.js";
@@ -13,15 +15,15 @@ const hour=3600000;
 const stamp=date=>'<t:'+Math.floor(+date/1000)+':F>';
 const choice=(label,value=label)=>[label,value];
 const weekChoices=weekdays.map((day,n)=>choice(day,String(n)));
-const prompts={
+export const activityWizardPrompts={
   scope:["Where should messages count?",[choice("All server channels","all"),choice("Watch a channel","channel")]],
   channel:["Reply with the watched channel mention or paste its Discord channel link."],
   period:["How long should I count activity once you create the giveaway?",["24 hours","Weekly","Custom days","Custom hours"].map(x=>choice(x))],
   startDay:["Which weekday should a regular weekly window start at midnight Eastern?",weekChoices],
   endDay:["Which weekday should counting end at midnight Eastern? Choose the same weekday for a full week.",weekChoices],
   length:["Reply with a positive whole number for the duration."],
-  minimum:["How many qualifying messages must a member send per active day? Reply with a number, such as 1."],
-  days:["On how many different days must they meet that requirement? Reply with a whole number. The minimum is 1."],
+  minimum:["How many qualifying messages must a member send during the entire activity period? Reply with a number, such as 1."],
+  days:["On how many different days must they send at least one matching message? Reply with a number (minimum 1)."],
   filters:["Which messages should count?",["Any message","Member ping","Word or phrase","Ping and phrase"].map(x=>choice(x))],
   mention:["Which member must the message explicitly ping? Paste their member mention or Discord user ID."],
   phrase:["Which word or phrase must the message contain? Letter case does not matter."],
@@ -35,7 +37,16 @@ const prompts={
   role:["Paste a role mention or role ID for extra drawing chances."],
   bonus:["How many extra chances does this role add? Reply with a number from 1 to 20."],
   claim:["How many hours do winners have to claim? Reply with a number from 1 to 720."],
-  banner:["Reply with a registered banner name, or default for the server banner."],
+  banner:["Which banner should appear on this giveaway?",[
+    choice("Use server default","bannerDefault"),
+    choice("Choose saved banner","bannerPick"),
+    choice("Register new banner","bannerRegister"),
+    choice("Back to preview","bannerBack"),
+  ]],
+  bannerPick:["Select a saved banner below, or type its name."],
+  bannerName:["Name the new banner (up to 60 characters), or upload the image now to use its filename as the name."],
+  bannerUpload:["Attach the new banner image in this channel (PNG/JPG/WebP/GIF, max 4 MB)."],
+
   repeat:["How often should a new activity giveaway start?",[choice("One time","once"),choice("Every 24 hours","daily"),choice("Every week","weekly"),choice("Custom interval","custom")]],
   unit:["Which unit should I use for the repeat interval?",["Minutes","Hours","Days"].map(x=>choice(x))],
   amount:["How many units between the start of each giveaway? Reply with a positive whole number."],
@@ -85,7 +96,7 @@ function describe(session){
     'Count messages in '+(s.channel?'<#'+s.channel+'>':'all eligible server channels'),
     'Counting starts when you click Create activity. Estimated cutoff '+stamp(end),
     s.period==="weekly"?'Weekly boundaries · '+weekdays[s.startDay]+' to '+weekdays[s.endDay]+' at midnight Eastern':null,
-    'Requirement · '+s.minimum+' message(s) '+(end-start<=24*hour?'during the window':'per day on at least '+s.days+' different day(s)'),
+    'Requirement · '+s.minimum+' matching message(s) total during the activity period'+(s.days>1?' · at least one matching message on '+s.days+' different days':''),
     s.mention?'Required ping · <@'+s.mention+'>':null,s.phrase?'Required word or phrase · '+s.phrase:null,
     'Winners · '+s.winners+' · Draw '+stamp(s.firstDraw?new Date(s.firstDraw):end),
     'Manual approval '+(s.approval?'on':'off')+' · Member progress '+(s.progress?'on':'off'),
@@ -97,18 +108,30 @@ function describe(session){
 }
 async function show(session,step){
   const s=session.settings;
-  let [content,choices]=prompts[step];
+  let [content,choices]=activityWizardPrompts[step];
   if(step==="draw")content='When should I draw and announce the winners? If you create this activity now, counting ends '+stamp(windowEnd(s,new Date()))+'.';
-  if(step==="minimum" && windowEnd(s,new Date())-Date.now()<=24*hour)
-    content="How many qualifying messages must a member send during this activity? Reply with a number, such as 1.";
   if(step==="length")content='How many '+(s.period==="Custom days"?'days':'hours')+' should I count? Reply with a whole number.';
   if(step==="amount")content='How many '+s.unit+' between giveaway starts? Reply with a number, such as 3.';
   if(step==="extras")choices=[
     ['Manual approval '+(s.approval?'ON':'OFF'),'approval'],['Member progress '+(s.progress?'ON':'OFF'),'progress'],
     ['Add bonus role','role'],['Claim time','claim'],['Banner','banner'],['Done','done'],
   ];
+  if(step==="minimum")choices=[1,3,5,10,20].map(x=>choice(String(x)+" messages",String(x)));
+  if(step==="days")choices=[1,2,3,5,7].filter(x=>x<=maxActiveDays(new Date(),windowEnd(s,new Date())))
+    .map(x=>choice(String(x)+" day"+(x===1?"":"s"),String(x)));
+  if(step==="claim")choices=[12,24,48].map(x=>choice(String(x)+" hours",String(x)));
+  if(step==="bannerPick"){
+    const banners=await GiveawayBanner.find({guildId:session.guild.id}).select("name nameKey")
+      .sort({nameKey:1}).limit(20).lean();
+    session.bannerNames=banners.map(x=>x.name);
+    choices=banners.slice(0,15).map((x,n)=>choice(x.name,"saved:"+n));
+    content+=banners.length?"\nChoose a button or type a registered banner name.":
+      "\nThere are no saved banners yet; use Back to banner choices to register one.";
+  }
   if(step==="summary")content=describe(session);
   const controls=[...(choices||[])];
+  if(["bannerPick","bannerName","bannerUpload"].includes(step))
+    controls.push(["Back to banner choices","bannerOptions"],["Back to preview","bannerBack"]);
   if(step!=="summary")controls.push(["Cancel setup","cancel"]);
   const components=[];
   for(let n=0;n<controls.length;n+=5)components.push(new ActionRowBuilder().addComponents(
@@ -116,7 +139,9 @@ async function show(session,step){
       .setLabel(label).setStyle(value==="create"||value==="done"?ButtonStyle.Success:ButtonStyle.Secondary))));
   const payload=step==="summary"?{embeds:[{description:content}]}:{content};
   const message=await session.channel.send({...payload,content:'**Activity setup** · <@'+session.owner+'>\n'+(payload.content||""),components,allowedMentions:{parse:[]}});
-  Object.assign(session,{step,messageId:message.id,choices:controls.map(x=>x[1]),acceptText:!choices?.length,expires:Date.now()+30*60000});
+  Object.assign(session,{step,messageId:message.id,choices:controls.map(x=>x[1]),
+    acceptText:!choices?.length || ["minimum","days","claim","bannerPick"].includes(step),
+    expires:Date.now()+30*60000});
 }
 async function configFor(guild,channelId){
   const c=await GuildConfig.findOne({guildId:guild.id}).lean();
@@ -136,19 +161,23 @@ export async function startActivityWizard(i){
   const previous=sessions.get(key);
   if(previous && previous.expires>Date.now())return i.editReply("You already have an activity setup in this channel. Finish or cancel it here.");
   const session={id:new mongoose.Types.ObjectId().toString(),guild:i.guild,owner:i.user.id,key,channel:i.channel,
-    settings:{creator:i.user.id,days:1,approval:false,bonuses:[],progress:false,claimHours:48,repeat:"once"}};
+    settings:{creator:i.user.id,days:1,approval:false,bonuses:[],progress:false,claimHours:DEFAULT_CLAIM_HOURS,repeat:"once"}};
   await show(session,"scope");
   sessions.set(key,session);
   return i.editReply("Your activity setup is open in this channel.");
 }
 const finishGroup=(session,next)=>session.editing?(session.editing=false,"summary"):next;
-async function accept(session,v,client){
+async function accept(session,input,client){
+  const v=typeof input==="string"?input:input.content;
+  const attachment=typeof input==="string"?null:input.attachment;
   const s=session.settings,step=session.step,now=new Date();
   const done=next=>finishGroup(session,next);
   const dayStep=()=>windowEnd(s,now)-now>24*hour?"days":(s.days=1,done("filters"));
   if(/^cancel setup$/i.test(v)){
     sessions.delete(session.key); return session.channel.send("Setup cancelled.");
   }
+  if(v==="bannerBack"){session.editing=false;return show(session,"summary");}
+  if(v==="bannerOptions")return show(session,"banner");
   let next;
   switch(step){
     case "scope":s.channel="";next=v==="all"?done("period"):"channel";break;
@@ -190,7 +219,34 @@ async function accept(session,v,client){
       if(v==="approval"||v==="progress"){s[v]=!s[v];next="extras";}
       else next=v==="done"?done("repeat"):v;break;
     case "claim":s.claimHours=number(v,1,720);next="extras";break;
-    case "banner":s.banner=v.toLowerCase()==="default"?"":await ensureBannerRegistered(session.guild.id,v);next="extras";break;
+    case "banner":
+      if(v==="bannerDefault"){s.banner="";next=done("extras");}
+      else if(v==="bannerPick")next="bannerPick";
+      else if(v==="bannerRegister")next="bannerName";
+      break;
+    case "bannerPick":{
+      const name=v.startsWith("saved:")?session.bannerNames?.[Number(v.slice(6))]:v;
+      if(!name)throw Error("Select an existing banner or type its saved name.");
+      s.banner=await ensureBannerRegistered(session.guild.id,name);
+      next=done("extras");break;
+    }
+    case "bannerName":{
+      let name=v.trim();
+      if(!name && attachment?.name)
+        name=attachment.name.replace(/\.(png|jpe?g|webp|gif)$/i,"").trim().slice(0,60);
+      session.bannerName=words(name,60);
+      if(session.bannerName.toLowerCase()==="default")throw Error('Choose a banner name other than "default".');
+      if(attachment){
+        s.banner=await saveGiveawayBanner({guildId:session.guild.id,name:session.bannerName,attachment});
+        session.bannerName=null;
+        next=done("extras");
+      }else next="bannerUpload";
+      break;
+    }
+    case "bannerUpload":
+      if(!attachment)throw Error("Attach an image in your reply (PNG/JPG/WebP/GIF, up to 4 MB).");
+      s.banner=await saveGiveawayBanner({guildId:session.guild.id,name:session.bannerName,attachment});
+      session.bannerName=null;next=done("extras");break;
     case "role":{
       const match=/^(?:<@&(\d+)>|(\d{17,20}))$/.exec(v);
       const role=match && await session.guild.roles.fetch(match[1]||match[2]).catch(()=>null);
@@ -238,14 +294,19 @@ export async function wizardButton(i){
   if(value==="cancel"){sessions.delete(session.key);return session.channel.send("Setup cancelled.");}
   return respond(session,value,i.client);
 }
-// Route only the host's text at a text-input step in this channel.
+// Read attachment-only uploads for banner registration; other steps use the message text.
+export function activityWizardInput(message,step){
+  const content=String(message.content||"").trim();
+  return ["bannerName","bannerUpload"].includes(step)
+    ? {content,attachment:message.attachments?.first?.()||null}:content;
+}
 export function wizardReply(message){
   if(!message.guildId || message.author?.bot || message.webhookId)return false;
   const session=sessions.get(sessionKey(message.channelId,message.author.id));
   if(!session || !session.acceptText)return false;
   if(session.expires<Date.now()){sessions.delete(session.key);return false;}
   if(message.reference?.messageId && message.reference.messageId!==session.messageId)return false;
-  void respond(session,message.content.trim(),message.client)
+  void respond(session,activityWizardInput(message,session.step),message.client)
     .catch(error=>console.error("[Giveaways] Channel setup reply failed:",error));
   return true;
 }

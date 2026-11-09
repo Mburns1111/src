@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {DEFAULT_CLAIM_HOURS} from "./giveaway-claims.js";
 import { currentActivityDay, messageCharacterCount, messageMatchesGiveawayWatch } from "./giveaway-activity-counter.js";
 import { easternMidnight, shiftCalendarDay, nextWeeklyAnnouncement } from "./giveaway-plan-time.js";
 
@@ -56,6 +57,14 @@ export function maxActiveDays(start,end) {
   return end-start <= 24*hour ? 1 : 1 + Math.round((last-first)/(24*hour));
 }
 
+// Total messages are counted across the full window; active-day spread is separate.
+export function guidedActivityRequirements(settings){
+  return {activityMinimum:1,activityDays:settings.days,activityMinTotalMessages:settings.minimum};
+}
+export function qualifiesForGuidedActivity(row,event){
+  return row.days>=event.activityDays &&
+    row.messages>=(event.activityMinTotalMessages || event.activityMinimum*event.activityDays);
+}
 async function materialize(series,start,first=false) {
   const s = series.settings, end = windowEnd(s,start);
   const config = await GuildConfig.findOne({guildId:series.guildId}).lean();
@@ -67,11 +76,11 @@ async function materialize(series,start,first=false) {
       title:s.title, prize:s.prize, mode:"activity", status:"open", winnerCount:s.winners,
       activityType:s.channel?"channels":"general", activityChannelIds:s.channel?[s.channel]:[],
       activityStartAt:start, activityEndAt:end, customActivityStartAt:start,customActivityEndAt:end,
-      endsAt:new Date(end.getTime()+s.delay), activityDays:s.days, activityMinimum:s.minimum,
-      activityMinChars:1, activityMinTotalMessages:s.minimum*s.days,
+      endsAt:new Date(end.getTime()+s.delay), ...guidedActivityRequirements(s),
+      activityMinChars:1,
       activityRequiredMentionUserId:s.mention || "", activityRequiredPhrase:s.phrase || "",
       requireStaffReview:s.approval, roleBonuses:s.bonuses || [], progressEnabled:Boolean(s.progress),
-      claimWindowHours:s.claimHours || 48, autoRerollClaims:true, bannerNameKey:s.banner || "",
+      claimWindowHours:s.claimHours ?? DEFAULT_CLAIM_HOURS, autoRerollClaims:true, bannerNameKey:s.banner || "",
     }},{upsert:true,new:true}).lean();
   } catch(error) {
     if(error.code!==11000)throw error;
@@ -143,7 +152,7 @@ export async function activityRoster(event,user) {
     {$group:{_id:"$_id.user",messages:{$sum:"$matches"},days:{$sum:{$cond:[{$gte:["$matches",event.activityMinimum]},1,0]}}}},
     {$sort:{days:-1,messages:-1,_id:1}},
   ]);
-  return rows.map(row=>({...row,qualified:row.days>=event.activityDays}));
+  return rows.map(row=>({...row,qualified:qualifiesForGuidedActivity(row,event)}));
 }
 
 const btn=(id,label)=>new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(ButtonStyle.Secondary);
@@ -181,8 +190,8 @@ export async function staffPreview(i) {
   if((page+1)*12<rows.length)controls.push(btn('activitystaff:view:'+id+':'+(page+1),"Next"));
   const qualified=rows.filter(r=>r.qualified).length;
   const lines=rows.slice(page*12,page*12+12).map(r=>
-    (r.qualified?"Qualified":"Not yet qualified")+' · <@'+r._id+'> · '+r.messages+' matching message(s) · '+r.days+'/'+event.activityDays+' qualifying days');
-  return i.editReply({content:['**'+event.title+'**',qualified+' qualified · '+(rows.length-qualified)+' not yet qualified', 'Goal · '+event.activityMinimum+' matching message(s) '+(event.activityEndAt-event.activityStartAt<=24*hour?'during the window':'per day on '+event.activityDays+' different day(s)'),...lines,
+    (r.qualified?"Qualified":"Not yet qualified")+' · <@'+r._id+'> · '+r.messages+' matching message(s)'+(event.activityDays>1?' · '+r.days+'/'+event.activityDays+' active days':''));
+  return i.editReply({content:['**'+event.title+'**',qualified+' qualified · '+(rows.length-qualified)+' not yet qualified', 'Goal · '+(event.activityMinTotalMessages||event.activityMinimum)+' matching message(s) total during the activity period'+(event.activityDays>1?' · at least one on '+event.activityDays+' different days':''),...lines,
     rows.length?'Page '+(page+1)+' of '+Math.ceil(rows.length/12):"No members have posted in the watched channels during this activity."].join('\n'),
     allowedMentions:{parse:[]},components:controls.length?[new ActionRowBuilder().addComponents(controls)]:[]});
 }

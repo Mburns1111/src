@@ -1,4 +1,5 @@
 import GiveawayPlan, {planNameKey} from "../models/GiveawayPlan.js";
+import {DEFAULT_CLAIM_HOURS} from "../services/giveaway-claims.js";
 import GiveawayWatchRule, {watchNameKey} from "../models/GiveawayWatchRule.js";
 import {parseEasternAnnouncement,validateCustomActivityWindow} from "../services/giveaway-plan-time.js";
 import {planRepeatMode} from "../services/giveaway-plans.js";
@@ -25,7 +26,7 @@ export function addGiveawayPlanCommands(builder) {
    .addIntegerOption(o=>o.setName("interval_hours").setDescription("Only for Every X hours; minimum 24h daily / 168h weekly")
      .setMinValue(1).setMaxValue(720))
    .addBooleanOption(o=>o.setName("repeat_prizes").setDescription("Loop through saved prizes when recurring (default: yes)"))
-   .addIntegerOption(o=>o.setName("claim_hours").setDescription("Ticket claim period in hours (default 48)").setMinValue(1).setMaxValue(720))
+   .addIntegerOption(o=>o.setName("claim_hours").setDescription("Ticket claim period in hours (default 12)").setMinValue(1).setMaxValue(720))
    .addIntegerOption(o=>o.setName("winners").setDescription("Winners per drawing (default 1)").setMinValue(1).setMaxValue(10))
    .addIntegerOption(o=>o.setName("messages").setDescription("Total messages required in the selected daily/weekly period").setMinValue(1).setMaxValue(10000))
    .addStringOption(o=>o.setName("banner").setDescription("Optional registered banner name (inherits default otherwise)").setMaxLength(60))
@@ -156,7 +157,7 @@ export async function executeGiveawayPlanAdmin(interaction) {
    announceEmptyResults:interaction.options.getBoolean("announce_empty")??true,
    customActivityStartAt:custom.startAt,customActivityEndAt:custom.endAt,
    ...schedule,repeatPrizes:interaction.options.getBoolean("repeat_prizes")??true,
-   nextRunAt,claimWindowHours:interaction.options.getInteger("claim_hours")??48,
+   nextRunAt,claimWindowHours:interaction.options.getInteger("claim_hours")??DEFAULT_CLAIM_HOURS,
    winnerCount:interaction.options.getInteger("winners")??1,
    minimumTotalMessages:interaction.options.getInteger("messages")??null,prizes:[prize],
   }).catch(error=>{if(error.code===11000)throw Error("A plan with that name already exists. Use plan-edit instead.");throw error;});

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import {DEFAULT_CLAIM_HOURS} from "../services/giveaway-claims.js";
 
 // One configurable activity giveaway plan. Each planned drawing snapshots its prize,
 // watched-rule settings and eligible entrants into a permanent Giveaway record.
@@ -24,7 +25,7 @@ const schema=new mongoose.Schema({
   roleBonuses:[{roleId:{type:String,required:true},extraEntries:{type:Number,min:1,max:20,required:true}}],
   // Optional per-plan override. Null inherits the named watch's total goal.
   minimumTotalMessages:{type:Number,default:null,min:1,max:10000},
-  claimWindowHours:{type:Number,default:48,min:1,max:720},
+  claimWindowHours:{type:Number,default:DEFAULT_CLAIM_HOURS,min:1,max:720},
   prizes:{type:[String],default:[]},
   nextPrizeIndex:{type:Number,default:0,min:0},
   repeatPrizes:{type:Boolean,default:true},

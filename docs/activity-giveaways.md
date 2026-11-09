@@ -14,8 +14,8 @@
    - Weekly discussion: `/giveaway watch-save name:Discussion channel:#discussion period:weekly min_chars:20 messages:50`
    - `/giveaway watch-list` shows all saved rules. Reuse `watch-save` with the same name to edit **only** that rule. When editing an existing watch, omitted settings are preserved.
 3. Create an independent one-time or recurring drawing plan:
-   - Daily QOTD: `/giveaway plan-create name:QOTD-Daily title:QOTD Daily Prize watch:QOTD announce_at:2026-11-11 19:00 prize:Diamond Egg repeat:daily period:daily claim_hours:48 winners:1`
-   - Weekly: `/giveaway plan-create name:Weekly-Activity title:Weekly Activity Prize watch:Discussion announce_at:2026-11-11 19:00 prize:Copy Cat repeat:weekly period:weekly claim_hours:48`
+   - Daily QOTD: `/giveaway plan-create name:QOTD-Daily title:QOTD Daily Prize watch:QOTD announce_at:2026-11-11 19:00 prize:Diamond Egg repeat:daily period:daily claim_hours:12 winners:1`
+   - Weekly: `/giveaway plan-create name:Weekly-Activity title:Weekly Activity Prize watch:Discussion announce_at:2026-11-11 19:00 prize:Copy Cat repeat:weekly period:weekly claim_hours:12`
    - Once at a specified time: `/giveaway plan-create name:Art-OneTime title:Art Prize watch:general announce_at:2026-11-14 19:00 prize:Art Prize repeat:once period:daily claim_hours:24`
    - Fixed elapsed intervals: `/giveaway plan-create name:Interval-QOTD title:QOTD Interval Prize watch:QOTD announce_at:2026-11-11 19:00 prize:Egg repeat:interval interval_hours:36 period:daily`
    - For general activity use `watch:general`, which checks any eligible server channel. Add `messages:50` to `plan-create` to require 50 total messages across the chosen period. Plan-specific message counts can be edited later without changing a saved watch.
@@ -129,13 +129,15 @@ All watched-message counts are accumulated by the bot as messages arrive and che
 
 ## Winner tickets and claim deadlines
 
+In guided activity setup, staff can use a saved banner, register a new one directly, or return to the giveaway preview without losing settings. Upload PNG, JPG, WebP or GIF images (up to 4 MB) in the commands channel. Existing banners appear as quick-select buttons; the uploaded filename can autofill a new banner name. Once registered, the image is saved for reuse. Message targets are **totals for the activity period**, not daily quotas.
+
 - Winners **must create their normal server support ticket themselves**. The bot does not create support tickets or deliver Roblox prizes.
 - The finished giveaway shows **File Ticket Claim**. Only currently selected winners can use the button. The modal requests **ticket number** and **HTTPS link**.
 - Accepted ticket claims are recorded with the winning position, member ID, submission timestamp and link. The announcement displays the filed ticket details; this may make the ticket link visible even to members who cannot read the private ticket.
-- New standard giveaways with `claim_hours`, one-off `/giveaway activity`, and saved giveaway plans can enforce automatic claim rerolls. Plans default to **48 hours**, adjustable from 1 to 720 hours. Existing historical giveaways are **not retroactively switched** to automatic rerolling.
+- New standard giveaways, one-off `/giveaway activity`, and saved giveaway plans default to a **12-hour claim window** with automatic claim rerolls; an explicit `claim_hours` overrides the default. Plans default to **12 hours**, adjustable from 1 to 720 hours. Existing historical giveaways are **not retroactively switched** to automatic rerolling.
 - If the deadline expires without a ticket claim, an unused eligible entrant is selected as a replacement. Previously selected winners are excluded; the replacement gets a fresh claim window. If no unused entrants remain, that place is labeled expired.
 - Filing a ticket **prevents automatic reroll**, not manual host review. The bot only records claims; it does not verify that a ticket's contents are legitimate or that a prize was delivered.
-- Court's Trial (`/trial`) claim deadline and manual reroll behavior remain unchanged; automatic ticket claim enforcement is for standard and activity giveaways.
+- Court's Trial (`/trial`) also defaults to **12 hours** to claim, with an optional `claim_minutes` override. Trial deadlines are informational, and staff manage trial rerolls manually; automatic ticket-claim rerolls apply to standard and activity giveaways.
 
 ## Reliability and safety
 

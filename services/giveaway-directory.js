@@ -60,9 +60,8 @@ export function activityOneOffListingEmbed(record) {
     `**Length:** ${record.activityMinChars||1}+ characters`,
   ];
   if(record.guidedSeries) {
-    const short=record.activityEndAt-record.activityStartAt<=86400000;
-    parts[4]=short ? `**To qualify:** Send ${record.activityMinimum} matching message(s) during this activity.`
-      : `**To qualify:** Send at least ${record.activityMinimum} matching message(s) per day on ${record.activityDays} different day(s).`;
+    parts[4]=`**To qualify:** Send ${record.activityMinTotalMessages||record.activityMinimum} matching message(s) total during this activity.`;
+    if(record.activityDays>1)parts.push(`**Different active days:** At least one matching message on ${record.activityDays} days`);
   }
   if(!record.guidedSeries && record.activityMinimum>1)parts.push(`**Per active day:** ${record.activityMinimum} message(s)`);
   if(!record.guidedSeries && record.activityDays>1)parts.push(`**Active days required:** ${record.activityDays}`);

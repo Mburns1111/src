@@ -24,7 +24,8 @@ export async function handleActivityGiveawayProgress(interaction) {
     const [row]=await activityRoster(item,interaction.user.id);
     return interaction.editReply({content:[
       "**"+item.title+"** · "+(row?.qualified?"Qualified":"Not yet qualified"),
-      (row?.messages||0)+" matching message(s) · "+(row?.days||0)+"/"+item.activityDays+" qualifying day(s)",
+      (row?.messages||0)+" / "+(item.activityMinTotalMessages||item.activityMinimum)+" matching message(s) total"+
+        (item.activityDays>1?" · "+(row?.days||0)+"/"+item.activityDays+" active days":"")
     ].join("\n"),allowedMentions:{parse:[]}});
   }
   const rule=isPlan && item.watchNameKey!=="general"
