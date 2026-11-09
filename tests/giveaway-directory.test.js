@@ -64,7 +64,8 @@ test("active plan publishes a member-facing directory listing to list channel, n
  const sent=[],updates=[],fetched=[];
  try {
   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
-    activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId})})});
+    activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId,
+    giveawayPingRoleId:"567890123456789012"})})});
   GiveawayWatchRule.findOne=()=>({lean:async()=>rule});
   GiveawayPlan.updateOne=async (_query,update)=>{updates.push(update.$set);return {modifiedCount:1}};
   const channel={id:listId,messages:{fetch:async()=>({find:()=>null})},
@@ -73,6 +74,8 @@ test("active plan publishes a member-facing directory listing to list channel, n
   assert.equal(await publishActivityPlanListing(client,plan),true);
   assert.deepEqual(fetched,[listId]);
   assert.equal(sent.length,1);
+  assert.equal(sent[0].content,"<@&567890123456789012>");
+  assert.deepEqual(sent[0].allowedMentions,{parse:[],roles:["567890123456789012"]});
   assert.match(sent[0].embeds[0].toJSON().description,/50 qualifying messages/);
  assert.equal(sent[0].components[0].components[0].data.label,"Check My Progress");
  assert.equal(sent[0].components[0].components[0].data.custom_id,`activity-progress:plan:${planId}`);
@@ -166,4 +169,39 @@ test("ended one-off activity poster stays on public list until staff uses Delete
  }finally{
    GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;
  }
+});
+
+test("new one-off activity giveaway pings only the shared role, even when old event roles differ",async()=>{
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const sent=[],edits=[];
+ const role="567890123456789012";
+ const event={_id:"507f1f77bcf86cd799439030",guildId,
+   mode:"activity",status:"open",title:"Shared role event",prize:"Pet",winnerCount:1,
+   channelId:winnersId,endsAt:new Date("2026-11-12T19:00:00Z"),
+   notificationRoleIds:["678901234567890123","789012345678901234"],
+   listMessageId:"",listChannelId:"",progressEnabled:true,
+ };
+ try{
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+    activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId,
+    giveawayPingRoleId:role,activityNotificationRoleIds:["678901234567890123"],
+  })})});
+  Giveaway.updateOne=async()=>({});
+  const posted={id:"890123456789012345",author:{id:"bot"},edit:async payload=>edits.push(payload)};
+  const channel={id:listId,messages:{fetch:async v=>
+    typeof v==="string"?posted:{find:()=>null}},
+    send:async p=>{sent.push(p);return posted;}};
+  const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
+  assert.equal(await publishActivityOneOffListing(client,event),true);
+  assert.equal(sent.length,1);
+  assert.equal(sent[0].content,"<@&"+role+">");
+  assert.deepEqual(sent[0].allowedMentions,{parse:[],roles:[role]});
+  // Edits must never ping the role again, including a change in the shared role.
+  const existing={...event,listChannelId:listId,listMessageId:posted.id,listFingerprint:"old"};
+  assert.equal(await publishActivityOneOffListing(client,existing),true);
+  assert.equal(sent.length,1);
+  assert.equal(edits.length,1);
+  assert.equal(edits[0].content,undefined);
+  assert.deepEqual(edits[0].allowedMentions,{parse:[]});
+ }finally{GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;}
 });
