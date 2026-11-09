@@ -127,6 +127,10 @@ All watched-message counts are accumulated by the bot as messages arrive and che
 - Tracking starts when the updated bot is running. Earlier messages cannot be reconstructed from the counter, and older rows created before length tracking lack length details; do not assume they qualify for new length thresholds.
 - Staff set up saved watches separately. Creating a QOTD plan does not replace an Art plan. A plan referencing a deleted/missing watch cannot draw until it is repaired.
 
+## Giveaway details
+
+Creators can add an optional **Giveaway Details** description, separate from the title, prize and qualification rules (maximum 1,000 characters). The guided activity wizard asks after the prize whether to **Write giveaway details** or **Skip description**. To edit, use **Edit settings → Giveaway Details** in the final preview; the details are saved into each repeating giveaway. They appear on the public activity listing, staff preview and winner result. Other giveaway types can supply `description:` when using `/giveaway start`, `/trial start`, or `/giveaway plan-create`. Saved plans can be revised using `/giveaway plan-edit name:... description:...` or `clear_description:true`. Existing giveaways without descriptions display normally.
+
 ## Winner tickets and claim deadlines
 
 In guided activity setup, staff can use a saved banner, register a new one directly, or return to the giveaway preview without losing settings. Upload PNG, JPG, WebP or GIF images (up to 4 MB) in the commands channel. Existing banners appear as quick-select buttons; the uploaded filename can autofill a new banner name. Once registered, the image is saved for reuse. Message targets are **totals for the activity period**, not daily quotas.

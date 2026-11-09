@@ -27,7 +27,7 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  const opts=spec.options;
  assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","list","entrants","plan-create","plan-list","plan-view","plan-edit","prize-add","prize-edit","prize-remove","prize-move","banner-save","banner-list","banner-default","banner-clear","banner-remove"]);
  const start=opts[0].options.map(x=>x.name);
- for(const name of ["title","prize","minutes","winners","rules","role","claim_hours","claim_instructions"])
+ for(const name of ["title","prize","description","minutes","winners","rules","role","claim_hours","claim_instructions"])
    assert.ok(start.includes(name));
  assert.ok(!start.includes("channel"), "standard events use the configured channel");
  const speed=trialCommand.toJSON().options.find(option=>option.name==="start").options.map(x=>x.name);
@@ -35,6 +35,7 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.ok(speed.includes("claim_minutes"), "trials accept minute-based claim windows");
  assert.ok(!speed.includes("claim_hours"), "legacy hour input is no longer offered for new trials");
  assert.ok(speed.includes("claim_instructions"));
+ assert.ok(speed.includes("description"), "trials can include optional creator details");
  assert.ok(Giveaway.schema.path("claimWindowHours"));
  assert.ok(Giveaway.schema.path("claimWindowMinutes"));
  assert.ok(Giveaway.schema.path("claimInstructions"));
@@ -44,6 +45,14 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.equal(GIVEAWAY_MAX_MINUTES,20160);
 });
 
+test("custom creator details are separate from prizes and requirements",()=>{
+ const post=giveawayAnnouncement(snapshot({description:"Show us your favorite Adopt Me memory."}));
+ const text=post.embeds[0].data.description;
+ assert.match(text,/Giveaway Details/);
+ assert.match(text,/Show us your favorite Adopt Me memory/);
+ assert.match(text,/Jester Dragon/);
+ assert.doesNotMatch(giveawayAnnouncement(snapshot({description:""})).embeds[0].data.description,/Giveaway Details/);
+});
 test("announcement remains on completion with details, winners and audit trail",()=>{
  const open=giveawayAnnouncement(snapshot());
  assert.equal(open.components.length,1);

@@ -11,7 +11,8 @@ const planId="507f1f77bcf86cd799439011";
 const plan={_id:planId,guildId,status:"active",name:"QOTD",title:"QOTD Daily Drawing",
   watchNameKey:"qotd",bannerNameKey:"",
   prizes:["Copy Cat","Diamond Egg"],nextPrizeIndex:0,nextRunAt:new Date("2026-11-11T19:00:00Z"),
-  winnerCount:1,activityPeriod:"daily",repeatMode:"daily",repeatPrizes:true,progressEnabled:true};
+  winnerCount:1,activityPeriod:"daily",repeatMode:"daily",repeatPrizes:true,progressEnabled:true,
+  description:"Tell us about your favorite pet!"};
 const rule={channelId:"456789012345678901",minimumChars:25,
   minimumTotalMessages:50,minimumMessages:1,activeDays:1,
   requiredMentionUserId:"567890123456789012",requiredPhrase:"you are wonderful"};
@@ -19,6 +20,7 @@ const rule={channelId:"456789012345678901",minimumChars:25,
 test("public directory announces watch requirements, next draw and prize without showing entries or winners",()=>{
  const embed=activityPlanListingEmbed(plan,rule).toJSON();
  assert.match(embed.description,/50 qualifying messages total/);
+ assert.match(embed.description,/Tell us about your favorite pet!/);
  assert.match(embed.description,/<#456789012345678901>/);
  assert.match(embed.description,/<@567890123456789012>/);
  assert.match(embed.description,/you are wonderful/);
@@ -32,9 +34,11 @@ test("public directory announces watch requirements, next draw and prize without
  const oneOff=activityOneOffListingEmbed({_id:planId,status:"open",mode:"activity",
   title:"Special Event",prize:"Fancy Pet",endsAt:new Date("2026-11-11T19:00:00Z"),
   winnerCount:1,entrantIds:["private-member"],activityChannelIds:["456789012345678901"],
-  activityPeriod:"daily",activityMinTotalMessages:50,activityMinChars:10});
+  activityPeriod:"daily",activityMinTotalMessages:50,activityMinChars:10,
+  description:"Giveaway details written by the host."});
  assert.doesNotMatch(oneOff.toJSON().description,/private-member/);
  assert.match(oneOff.toJSON().description,/automatic, locked entries/);
+ assert.match(oneOff.toJSON().description,/Giveaway details written by the host/);
 });
 test("active plan publishes a member-facing directory listing to list channel, not winners channel",async()=>{
  const old=[GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne];

@@ -31,10 +31,13 @@ test("plan setup supports edit/reorder/status and does not alter existing giveaw
  assert.ok(GiveawayPlan.schema.path("nextRunAt"));
  assert.ok(GiveawayPlan.schema.path("repeatPrizes"));
  assert.ok(GiveawayPlan.schema.path("minimumTotalMessages"));
+ assert.ok(GiveawayPlan.schema.path("description"));
  assert.ok(GiveawayPlan.schema.path("recurring"));
  const builder=addGiveawayPlanCommands(new SlashCommandBuilder().setName("check").setDescription("Check"));
  const subcommands=builder.toJSON().options.map(x=>x.name);
  assert.deepEqual(subcommands,["plan-create","plan-list","plan-view","plan-edit","prize-add","prize-edit","prize-remove","prize-move"]);
+ assert.ok(builder.toJSON().options.find(o=>o.name==="plan-create").options.some(o=>o.name==="description"));
+ assert.ok(builder.toJSON().options.find(o=>o.name==="plan-edit").options.some(o=>o.name==="clear_description"));
 });
 
 test("independent prize list rotates weekly and never consumes a prize without eligible entrants",()=>{
