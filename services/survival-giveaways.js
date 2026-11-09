@@ -286,7 +286,7 @@ export function survivalFinalePayload(record, championRecord = null) {
 }
 
 export async function publishSurvivalFinale(client, record, { now = new Date() } = {}) {
-  if (record.status !== "ended") return false;
+  if (record.status !== "ended" || record.publicListingRemovedAt) return false;
   // Acquire a separate lease. Eliminations have their own lock; this one
   // prevents simultaneous recovery workers from posting two royal verdicts.
   const key = randomUUID();
@@ -337,6 +337,7 @@ export async function publishSurvivalFinale(client, record, { now = new Date() }
 }
 
 export async function publishSurvivalAnnouncement(client, record) {
+  if(record.publicListingRemovedAt)return false;
   const channel = await client.channels.fetch(record.channelId);
   if (!channel?.messages?.fetch) throw Error("Cannot read the giveaway channel.");
   const message = await channel.messages.fetch(record.messageId);

@@ -211,6 +211,7 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
 export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "staff", now = new Date(), client = null }) {
   const item = await Giveaway.findOne({ _id: id, guildId, status: "ended" }).lean();
   if (!item) throw Error("That giveaway is not finished or does not exist.");
+  if(item.publicListingRemovedAt) throw Error("This completed giveaway listing has already been deleted and cannot be rerolled.");
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Choose an existing winner number to reroll.");
   if (reason==="claim-expired") {
@@ -272,6 +273,7 @@ export async function publishGiveawayResult(client, item) {
     try{await ensureGiveawayStaffRecord(client,item);}
     catch(error){console.error("[Giveaways] Private staff update failed:",item._id,error);}
   }
+  if(item?.publicListingRemovedAt)return false; // Never republish a completed deleted listing.
   if(item?.mode==="activity" && item.status==="ended" && !item.winnerIds?.length &&
      item.announceEmptyResults===false){
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},

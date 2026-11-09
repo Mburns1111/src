@@ -60,6 +60,9 @@ const giveawaySchema = new mongoose.Schema({
   staffCancelledBy:{type:String,default:""},
   staffCancelledAt:{type:Date,default:null},
   staffCancelReason:{type:String,default:"",maxlength:500},
+  // A finished giveaway may be removed from public channels without cancellation.
+  publicListingRemovedAt:{type:Date,default:null},
+  publicListingRemovedBy:{type:String,default:""},
   activityResetAt:{type:Date,default:null},
   activityType: { type: String, default: "" },
   activityChannelIds: { type: [String], default: [] },

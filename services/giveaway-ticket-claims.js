@@ -20,7 +20,7 @@ export function validateTicketClaim(number, link) {
 }
 
 export async function submitGiveawayTicket({id,guildId,userId,ticketNumber,ticketUrl,now=new Date()}) {
-  const record=await Giveaway.findOne({_id:id,guildId,status:"ended",
+  const record=await Giveaway.findOne({_id:id,guildId,status:"ended",publicListingRemovedAt:null,
     $or:[{mode:{$ne:"survival"}},{mode:"survival",trialTicketClaimsEnabled:true}]}).lean();
   if (!record) throw Error("This giveaway is not accepting ticket claims.");
   const slot=record.winnerIds.indexOf(userId);
@@ -32,7 +32,7 @@ export async function submitGiveawayTicket({id,guildId,userId,ticketNumber,ticke
   if (deadline && now>=deadline) throw Error("Your claim deadline has passed. The bot will process the reroll.");
   const clean=validateTicketClaim(ticketNumber,ticketUrl);
   const updated=await Giveaway.findOneAndUpdate(
-    {_id:id,guildId,status:"ended",[`winnerIds.${slot}`]:userId,
+    {_id:id,guildId,status:"ended",publicListingRemovedAt:null,[`winnerIds.${slot}`]:userId,
       winnerClaims:{$not:{$elemMatch:{slot,userId}}},claimResolvedSlots:{$ne:slot}},
     {$push:{winnerClaims:{slot,userId,...clean,submittedAt:now}},
       $set:{renderedAt:null},$inc:{renderVersion:1}},

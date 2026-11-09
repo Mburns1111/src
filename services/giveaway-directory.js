@@ -175,7 +175,7 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
   const isPlan=kind==="plan";
   const Model=isPlan?GiveawayPlan:Giveaway;
   const visible=isPlan?item.status==="active":
-    item.mode==="activity"&&item.status==="open"&&new Date(item.endsAt)>now;
+    item.mode==="activity"&&!item.publicListingRemovedAt&&item.status==="open"&&new Date(item.endsAt)>now;
   if(!visible)return deleteListing(client,item,Model);
   const config=await GuildConfig.findOne({guildId:item.guildId})
     .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId").lean();
