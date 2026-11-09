@@ -492,14 +492,14 @@ async function ensureProfileCardOnce(guild, user, refresh) {
   const config = await GuildConfig.findOne({ guildId });
   if (!config?.profileChannelId) {
     throw new UserFacingError(
-      "A server admin needs to set the profiles channel with `/setup channels` before members can use bot commands.",
+      "A server admin needs to set the profiles channel with `/setup general` before members can use bot commands.",
     );
   }
 
   const channel = await guild.channels.fetch(config.profileChannelId);
   if (!channel?.isTextBased() || typeof channel.send !== "function") {
     throw new UserFacingError(
-      "The configured profiles channel is unavailable. Ask an admin to update it with `/setup channels`.",
+      "The configured profiles channel is unavailable. Ask an admin to update it with `/setup general`.",
     );
   }
 
