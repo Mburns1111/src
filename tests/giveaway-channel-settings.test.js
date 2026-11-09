@@ -4,6 +4,9 @@ import { PermissionFlagsBits } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import { data as setupCommand, execute as setupChannels } from "../commands/setup.js";
+import {generalSetupFields} from "../commands/general-card-setup.js";
+import {describeActivityGiveawaySetup,giveawaySetupNotificationRoleIds,giveawaySetupNotificationFields} from "../commands/activity-giveaway-setup.js";
+import {regularGiveawayNotificationRoleIds} from "../services/giveaway-notification-roles.js";
 import { data as giveawayCommand, trialData as trialCommand, execute as postGiveaway } from "../commands/giveaway.js";
 
 const guildId = "123456789012345678";
@@ -27,6 +30,9 @@ function setupInteraction(channels, roles = {}, clears = {}) {
     inGuild: () => true,
     guildId, guild: { id: guildId },
     options: {
+      // Older cached Discord interactions may still arrive during rollout;
+      // the retired subcommand is no longer included in new registrations.
+      getSubcommand: () => "channels",
       getChannel: name => channels[name] || null,
       getRole: name => roles[name] || null,
       getBoolean: name => clears[name] || null,
@@ -38,32 +44,21 @@ function setupInteraction(channels, roles = {}, clears = {}) {
   };
 }
 
-test("setup exposes two distinct optional giveaway channel selectors", () => {
-  const config = setupCommand.toJSON().options.find(o => o.name === "channels");
-  const names = config.options.map(o => o.name);
-  assert.ok(names.includes("giveaways"));
-  assert.ok(names.includes("survival_trials"));
-  assert.notEqual(names.indexOf("giveaways"), names.indexOf("survival_trials"));
-  assert.ok(GuildConfig.schema.path("giveawayChannelId"));
-  assert.ok(GuildConfig.schema.path("survivalTrialChannelId"));
-  for (const field of ["giveaway_ping", "trial_ping", "clear_giveaway_ping", "clear_trial_ping"]) {
-    assert.ok(names.includes(field), "server setup exposes " + field);
-  }
-  assert.ok(GuildConfig.schema.path("giveawayPingRoleId"));
-  assert.ok(GuildConfig.schema.path("survivalTrialPingRoleId"));
-  assert.equal(config.options.length, 19);
-  assert.ok(names.includes("activity_review"));
-  assert.ok(names.includes("activity_giveaway_list"));
-  assert.ok(names.includes("activity_winners"));
-  assert.ok(GuildConfig.schema.path("activityGiveawayListChannelId"));
-  assert.ok(GuildConfig.schema.path("activityGiveawayWinnersChannelId"));
-  assert.ok(GuildConfig.schema.path("activityGiveawayReviewChannelId"));
-  assert.ok(names.includes("party_games"), "Party Games has a dedicated channel selector.");
-  assert.ok(names.includes("hatchem"), "Preserve Hatchem channel setup alongside the two giveaway channels.");
+test("guided setup replaces legacy /setup channels without dropping saved settings", () => {
+  const names=setupCommand.toJSON().options.map(x=>x.name);
+  assert.deepEqual(names,["activity-giveaways","giveaways","trials","cards","general"]);
+  assert.equal(names.includes("channels"),false,"retired legacy subcommand is absent from Discord registration");
+  for(const field of ["commandChannelId","partyGamesChannelId"])
+    assert.ok(generalSetupFields.includes(field),field+" is set with /setup general");
+  for(const field of ["giveawayChannelId","survivalTrialChannelId",
+    "activityGiveawayListChannelId","activityGiveawayWinnersChannelId",
+    "activityGiveawayReviewChannelId","giveawayPingRoleId","survivalTrialPingRoleId",
+    "giveawayNotificationRoleIds","activityNotificationRoleIds"])
+    assert.ok(GuildConfig.schema.path(field),field+" is preserved");
   for (const command of [giveawayCommand, trialCommand]) {
-    const operation = command.toJSON().options.find(o => o.name === "start");
-    assert.ok(!operation.options.some(o => o.name === "channel"),
-      command.toJSON().name + " cannot override its assigned channel");
+    const operation=command.toJSON().options.find(o=>o.name==="start");
+    assert.ok(!operation.options.some(o=>o.name==="channel"),
+      command.toJSON().name+" cannot override its configured public channel");
   }
 });
 
@@ -210,7 +205,7 @@ test("an unconfigured dedicated channel never falls back to the command channel"
     const interaction = postingInteraction("start", guild);
     await postGiveaway(interaction);
     assert.match(interaction.getReply().content, /configure the standard giveaway channel/i);
-    assert.match(interaction.getReply().content, /setup channels/i);
+    assert.match(interaction.getReply().content, /setup giveaways/i);
   } finally { restore(changes); }
 });
 
@@ -228,6 +223,7 @@ test("admins can assign and clear each event ping role without changing saved ch
     await setupChannels(first);
     assert.deepEqual(updates[0], {
       giveawayPingRoleId: "135791357913579135",
+      giveawayNotificationRoleIds:["135791357913579135"],
       survivalTrialPingRoleId: "246802468024680246",
     });
     assert.match(first.replies.at(-1).content, /Giveaway notifications|giveaway notifications/i);
@@ -236,7 +232,7 @@ test("admins can assign and clear each event ping role without changing saved ch
     assert.deepEqual(updates[1], { survivalTrialPingRoleId: "" });
     const third = setupInteraction({}, {}, { clear_giveaway_ping: true });
     await setupChannels(third);
-    assert.deepEqual(updates[2], { giveawayPingRoleId: "" });
+    assert.deepEqual(updates[2], { giveawayPingRoleId: "",giveawayNotificationRoleIds:[] });
     assert.equal(updates.some(update => Object.hasOwn(update, "giveawayChannelId")), false);
     await assert.rejects(
       () => setupChannels(setupInteraction({}, { giveaway_ping: { id: "123" } }, { clear_giveaway_ping: true })),
