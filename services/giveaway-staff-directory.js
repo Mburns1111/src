@@ -159,14 +159,15 @@ export async function ensureGiveawayStaffDirectory(client,config,{now=new Date()
 
     // Send the replacement first. Never leave the staff channel without its
     // current directory if Discord rejects the new message.
+    const oldChannelId=config.giveawayStaffDirectoryChannelId;
+    const oldMessageId=config.giveawayStaffDirectoryMessageId;
     const created=await channel.send(payload);
     await GuildConfig.updateOne({guildId,activityGiveawayReviewChannelId:channelId},
       {$set:{giveawayStaffDirectoryChannelId:channelId,
         giveawayStaffDirectoryMessageId:created.id,
         giveawayStaffDirectoryFingerprint:fingerprint}});
     lastBumped.set(guildId,now.getTime());
-    await removeOld(client,config.giveawayStaffDirectoryChannelId,
-      config.giveawayStaffDirectoryMessageId,channelId,created.id);
+    await removeOld(client,oldChannelId,oldMessageId,channelId,created.id);
     return true;
   }finally{inFlight.delete(guildId);}
 }
