@@ -15,7 +15,7 @@ Give the development bot **View Channel, Send Messages, Embed Links, Attach File
 
 ## Commands
 
-- `/giveaway start title:<title> prize:<prize> minutes:<1–20160> winners:<1–10> rules:<optional> role:<optional> claim_hours:<optional 1–720> claim_instructions:<optional>`
+- `/giveaway start` — opens the regular giveaway creation wizard in the commands or staff channel. Answer the prompts for title, prize, optional description/rules, duration, winners, role requirements, claims and banner. Review and preview before pressing **Post Giveaway**.
 - `/giveaway list` — recent **standard** giveaway IDs, status, and direct message links
 - `/giveaway entrants id:<ID-or-message-link> page:<optional>` — private staff roster of anyone entered in a giveaway **or trial**, 25 users per page
 - `/trial entrants id:<ID-or-message-link> page:<optional>` — private staff roster of trial contestants only
@@ -32,7 +32,7 @@ For any event with winners, its finished results also instruct members to **open
 
 ## Expected behavior
 
-First configure the public and private staff channels through `/setup giveaways` and `/setup trials`. Run `/giveaway start` from the commands channel or private giveaway staff channel and verify the post appears in the saved standard-giveaway channel, not the command channel. Then run `/trial start` and verify the signup and elimination messages go to the separate trial channel. Confirm an unset channel produces a clear setup error rather than posting elsewhere.
+First configure the public and private staff channels through `/setup giveaways` and `/setup trials`. Run `/giveaway start` from the commands channel or private giveaway staff channel, complete the guided wizard, and verify the post appears in the saved standard-giveaway channel, not the command channel. Then run `/trial start` and verify the signup and elimination messages go to the separate trial channel. Confirm an unset channel produces a clear setup error rather than posting elsewhere.
 
 1. Start a giveaway in the assigned regular-giveaway channel. The bot posts one announcement with title, prize, rules, host, ending time and an **Enter**, **Leave**, **Entry Count** control. If a regular-giveaway ping role is configured, only that role is mentioned in the **initial** message.
 2. Try entering twice. Both attempts must produce a private response, but only one entry must be saved. Joining costs no Points.
