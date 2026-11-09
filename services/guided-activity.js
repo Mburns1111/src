@@ -82,6 +82,8 @@ async function materialize(series,start,first=false) {
       activityRequiredMentionUserId:s.mention || "", activityRequiredPhrase:s.phrase || "",
       requireStaffReview:s.approval, roleBonuses:s.bonuses || [], progressEnabled:Boolean(s.progress),
       claimWindowHours:s.claimHours ?? DEFAULT_CLAIM_HOURS, autoRerollClaims:true, bannerNameKey:s.banner || "",
+      claimInstructions:s.claimInstructions||"",maxAutoRerolls:s.maxAutoRerolls??2,
+      notificationRoleIds:s.notificationRoleIds||[],announceEmptyResults:s.announceEmptyResults!==false,
     }},{upsert:true,new:true}).lean();
   } catch(error) {
     if(error.code!==11000)throw error;

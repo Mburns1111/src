@@ -4,7 +4,7 @@ import GiveawayBanner from "../models/GiveawayBanner.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {parseEasternAnnouncement} from "../services/giveaway-plan-time.js";
 import {ensureBannerRegistered,saveGiveawayBanner} from "../services/giveaway-banners.js";
-import {DEFAULT_CLAIM_HOURS} from "../services/giveaway-claims.js";
+import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,prizeClaimLines} from "../services/giveaway-claims.js";
 import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {shouldRequestMessageContent} from "../services/observation-intents.js";
 import {weekdays,windowEnd,nextOpening,maxActiveDays,repeatText,createGuidedActivity,ensureStaffCard} from "../services/guided-activity.js";
@@ -12,7 +12,9 @@ import {weekdays,windowEnd,nextOpening,maxActiveDays,repeatText,createGuidedActi
 const sessions=new Map();
 export const defaultActivityWizardSettings=creator=>({
   creator,days:1,approval:false,bonuses:[],progress:true,description:"",
-  claimHours:DEFAULT_CLAIM_HOURS,repeat:"once",
+  claimHours:DEFAULT_CLAIM_HOURS,claimInstructions:"",serverClaimInstructions:"",
+  maxAutoRerolls:DEFAULT_MAX_AUTO_REROLLS,notificationRoleIds:[],announceEmptyResults:true,
+  repeat:"once",
 });
 const sessionKey=(channelId,userId)=>channelId+":"+userId;
 const hour=3600000;
@@ -44,6 +46,14 @@ export const activityWizardPrompts={
   role:["Paste a role mention or role ID for extra drawing chances."],
   bonus:["How many extra chances does this role add? Reply with a number from 1 to 20."],
   claim:["How many hours do winners have to claim? Reply with a number from 1 to 720."],
+  claimChoice:["Choose prize collection instructions for this giveaway.",[
+    choice("Use server default","claimDefault"),choice("Write custom instructions","claimCustom"),
+    choice("Preview winner announcement","claimPreview"),choice("Back","extras")]],
+  claimText:["Reply with your custom prize-collection instructions, up to 1,000 characters. The mandatory claim forfeiture warning is added automatically."],
+  claimPreview:["Winner announcement preview",[choice("Back to claim settings","claimChoice"),choice("Back to options","extras")]],
+  rerollsChoice:["How many automatic rerolls may this giveaway make for each unclaimed winner?",[0,1,2,3,5,10].map(n=>choice(n+" rerolls",String(n)))],
+  notifyRoles:["Paste up to 10 notification role mentions or role IDs separated by spaces or commas. Reply none to disable notifications."],
+  emptyResults:["If nobody qualifies, announce no winners?",[choice("Announce no winners","announce"),choice("Skip empty announcement","silent")]],
   banner:["Which banner should appear on this giveaway?",[
     choice("Use server default","bannerDefault"),
     choice("Choose saved banner","bannerPick"),
@@ -108,7 +118,11 @@ export function describeActivityWizard(session){
     s.mention?'Required ping · <@'+s.mention+'>':null,s.phrase?'Required word or phrase · '+s.phrase:null,
     'Winners · '+s.winners+' · Draw '+stamp(s.firstDraw?new Date(s.firstDraw):end),
     'Manual approval '+(s.approval?'on':'off')+' · Member progress '+(s.progress?'on':'off'),
-    'Claim time · '+s.claimHours+' hours · Banner · '+(s.banner||'Server default'),
+    'Claim time · '+s.claimHours+' hours · Max automatic rerolls · '+s.maxAutoRerolls+
+      ' · Banner · '+(s.banner||'Server default'),
+    'Claim instructions · '+(s.claimInstructions?'Custom instructions':'Server default'),
+    'Notification roles · '+(s.notificationRoleIds?.length?s.notificationRoleIds.map(id=>'<@&'+id+'>').join(', '):'None'),
+    'No eligible members · '+(s.announceEmptyResults?'Announce no winners':'Do not post empty results'),
     s.bonuses.length?'Bonus roles · '+s.bonuses.map(b=>'<@&'+b.roleId+'> +'+b.extraEntries).join(', '):null,
     'Repeat · '+repeatText(s),
     ...upcoming,
@@ -122,12 +136,19 @@ async function show(session,step){
   if(step==="amount")content='How many '+s.unit+' between giveaway starts? Reply with a number, such as 3.';
   if(step==="extras")choices=[
     ['Manual approval '+(s.approval?'ON':'OFF'),'approval'],['Member progress '+(s.progress?'ON':'OFF'),'progress'],
-    ['Add bonus role','role'],['Claim time','claim'],['Banner','banner'],['Done','done'],
+    ['Add bonus role','role'],['Claim time','claim'],['Claim instructions','claimChoice'],
+    ['Max rerolls','rerollsChoice'],['Notification roles','notifyRoles'],
+    ['No eligible winners','emptyResults'],['Banner','banner'],['Done','done'],
   ];
   if(step==="minimum")choices=[1,3,5,10,20].map(x=>choice(String(x)+" messages",String(x)));
   if(step==="days")choices=[1,2,3,5,7].filter(x=>x<=maxActiveDays(new Date(),windowEnd(s,new Date())))
     .map(x=>choice(String(x)+" day"+(x===1?"":"s"),String(x)));
   if(step==="claim")choices=[12,24,48].map(x=>choice(String(x)+" hours",String(x)));
+  if(step==="claimPreview")content=['**Example Winner Announcement**',
+    ...prizeClaimLines({mode:"activity",winnerIds:[session.owner],
+      claimStartedAt:new Date(),claimWindowHours:s.claimHours,autoRerollClaims:true,
+      claimInstructions:s.claimInstructions,maxAutoRerolls:s.maxAutoRerolls},{finished:true}),
+    '*Example only; no prize has been awarded.*'].join('\n');
   if(step==="bannerPick"){
     const banners=await GiveawayBanner.find({guildId:session.guild.id}).select("name nameKey")
       .sort({nameKey:1}).limit(20).lean();
@@ -157,19 +178,27 @@ async function configFor(guild,channelId){
   if(c.commandChannelId!==channelId)throw Error("Start /giveaway activity in <#"+c.commandChannelId+">.");
   for(const [field,label] of [["activityGiveawayListChannelId","activity_giveaway_list"],["activityGiveawayWinnersChannelId","activity_winners"],["activityGiveawayReviewChannelId","activity_review"]]){
     const channel=c?.[field]&&await guild.channels.fetch(c[field]);
-    if(!channel?.send)throw Error("Use /setup channels to set "+label+" first.");
+    if(!channel?.send)throw Error("Use /setup activity-giveaways to set the "+label+" channel first.");
     if(label==="activity_review" && channel.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
       throw Error("Choose a private staff channel for activity_review.");
   }
+  return c;
 }
 export async function startActivityWizard(i){
   if(!shouldRequestMessageContent())throw Error("Enable Message Content Intent and set ENABLE_MESSAGE_CONTENT_INTENT=1 to count activity.");
-  await configFor(i.guild,i.channelId);
+  const config=await configFor(i.guild,i.channelId);
   const key=sessionKey(i.channelId,i.user.id);
   const previous=sessions.get(key);
   if(previous && previous.expires>Date.now())return i.editReply("You already have an activity setup in this channel. Finish or cancel it here.");
   const session={id:new mongoose.Types.ObjectId().toString(),guild:i.guild,owner:i.user.id,key,channel:i.channel,
-    settings:defaultActivityWizardSettings(i.user.id)};
+    settings:{...defaultActivityWizardSettings(i.user.id),
+      claimHours:config.activityClaimWindowHours??DEFAULT_CLAIM_HOURS,
+      claimInstructions:config.activityClaimInstructions||"",
+      serverClaimInstructions:config.activityClaimInstructions||"",
+      maxAutoRerolls:config.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
+      notificationRoleIds:[...(config.activityNotificationRoleIds||[])],
+      announceEmptyResults:config.activityAnnounceEmptyResults!==false,
+    }};
   await show(session,"scope");
   sessions.set(key,session);
   return i.editReply("Your activity setup is open in this channel.");
@@ -232,6 +261,26 @@ async function accept(session,input,client){
       if(v==="approval"||v==="progress"){s[v]=!s[v];next="extras";}
       else next=v==="done"?done("repeat"):v;break;
     case "claim":s.claimHours=number(v,1,720);next="extras";break;
+    case "claimChoice":
+      if(v==="claimDefault"){s.claimInstructions=s.serverClaimInstructions||"";next="extras";}
+      else if(v==="claimCustom")next="claimText";
+      else next=v;
+      break;
+    case "claimText":s.claimInstructions=words(v,1000);next="extras";break;
+    case "claimPreview":next=v;break;
+    case "rerollsChoice":s.maxAutoRerolls=number(v,0,10);next="extras";break;
+    case "emptyResults":s.announceEmptyResults=v==="announce";next="extras";break;
+    case "notifyRoles":{
+      if(/^(none|off|clear)$/i.test(v)){s.notificationRoleIds=[];next="extras";break;}
+      const ids=[...v.matchAll(/(?:<@&(\d{17,20})>|(\d{17,20}))/g)].map(x=>x[1]||x[2]);
+      if(v.replace(/(?:<@&\d{17,20}>|\d{17,20})/g,"").replace(/[\s,]+/g,"")||!ids.length||ids.length>10)
+        throw Error("Enter up to 10 valid role mentions or IDs, separated by spaces or commas; or reply none.");
+      for(const id of ids){
+        const role=await session.guild.roles.fetch(id).catch(()=>null);
+        if(!role||role.id===session.guild.id)throw Error("Role "+id+" does not exist in this server.");
+      }
+      s.notificationRoleIds=[...new Set(ids)];next="extras";break;
+    }
     case "banner":
       if(v==="bannerDefault"){s.banner="";next=done("extras");}
       else if(v==="bannerPick")next="bannerPick";

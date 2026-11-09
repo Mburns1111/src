@@ -201,6 +201,12 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
   })).digest("hex");
   const existing=await findListingMessage(channel,client,item,kind);
   if(!existing) {
+    // Notify each chosen role only on the initial post; updates never repeat pings.
+    const roles=[...new Set(item.notificationRoleIds||[])].slice(0,10);
+    if(roles.length){
+      payload.content=roles.map(id=>"<@&"+id+">").join(" ");
+      payload.allowedMentions={parse:[],roles};
+    }
     const message=await channel.send(payload);
     await Model.updateOne({_id:item._id},{$set:{
       listMessageId:message.id,listChannelId:channel.id,listFingerprint:fingerprint,
