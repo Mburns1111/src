@@ -9,7 +9,7 @@ import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js"
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {startRegularGiveawayWizard} from "./regular-giveaway-wizard.js";
 import {createRegularGiveaway} from "../services/regular-giveaway-creation.js";
-import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} from "./giveaway-banners.js";
+import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,resolveGiveawayBannerOperation} from "./giveaway-banners.js";
 import {ensureBannerRegistered} from "../services/giveaway-banners.js";
 import {ensureGiveawayStaffRecord,requirePrivateGiveawayStaffChannel} from "../services/giveaway-staff-records.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
@@ -139,7 +139,7 @@ export async function execute(interaction) {
   const operation = interaction.options.getSubcommand();
   const survivalCommand = interaction.commandName === "trial";
   try {
-    if (!survivalCommand && BANNER_OPERATIONS.has(operation))
+    if (!survivalCommand && resolveGiveawayBannerOperation(interaction))
       return await executeGiveawayBannerAdmin(interaction);
     // Older Discord clients can retain cached slash definitions briefly after
     // re-registration. Show a clear migration hint rather than trying to treat
