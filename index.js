@@ -534,7 +534,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .select("initialSetupCompletedAt commandChannelId").lean();
       if (!guildSetupComplete(saved)) {
         await interaction.reply({
-          content: "Bot commands are not enabled yet. A server manager must complete **/setup channels** (choose a commands channel), **/setup giveaways**, **/setup activity-giveaways**, or **/setup trials** first.",
+          content: "Bot commands are not enabled yet. A server manager must complete **/setup general** (choose a commands channel), **/setup giveaways**, **/setup activity-giveaways**, or **/setup trials** first.",
           flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] },
         });
         return;
