@@ -252,27 +252,82 @@ export async function handleGuidedStaffAction(i){
      return i.reply({content:"Use the current staff activity card for this action.",...ephemeral});
    if(action==="select"){
      if(event.status!=="open")return i.reply({content:"Only an active giveaway can be edited.",...ephemeral});
-     return i.showModal(editModal(event,i.values?.[0]));
+     const selected=i.values?.[0];
+     if(selected==="activityStartAt")
+       return i.reply({content:"Counting already started. You cannot backdate its start. To change the watched channel or filters, choose that setting and confirm RESET to start a new counting window.",...ephemeral});
+     return i.showModal(editModal(event,selected));
    }
    await i.deferReply(ephemeral);
    if(action==="abort")return i.editReply("No changes made. The giveaway remains as it was.");
    if(action==="edit"){
      if(event.status!=="open")return i.editReply("Only an active giveaway can be edited.");
-     return i.editReply({content:"Edit **this giveaway only**. Future repeats keep their original settings. Ping/phrase filters are intentionally locked because previous messages cannot be rechecked.",
+     return i.editReply({content:describeGuidedStaffOptions(event),
        components:[editMenu(id)],allowedMentions:{parse:[]}});
    }
    if(action==="save"){
      if(event.status!=="open")return i.editReply("The giveaway already ended or was cancelled.");
      const changes=validateGuidedStaffEdit(field,i.fields.getTextInputValue("value"),event);
+     if(field==="repeatSchedule"){
+       const plan=await updateGuidedRepeatSchedule(event,changes);
+       await ensureStaffCard(i.client,event);
+       return i.editReply(plan.enabled?
+         "Future repeats updated. Next activity starts <t:"+Math.floor(+new Date(plan.nextStart)/1000)+":F>. This giveaway is unchanged.":
+         "Future repeats stopped. This giveaway will continue until its current cutoff.");
+     }
      if(field==="bannerNameKey"&&changes.bannerNameKey)
        changes.bannerNameKey=await ensureBannerRegistered(i.guildId,changes.bannerNameKey);
-     const updated=await Giveaway.findOneAndUpdate({_id:event._id,guildId:i.guildId,status:"open"},
-       {$set:changes},{returnDocument:"after"}).lean();
-     if(!updated)return i.editReply("Another staff member already ended this giveaway.");
+     if(field==="roleBonuses"){
+       const entered=String(i.fields.getTextInputValue("value"));
+       if(!/^clear$/i.test(entered)){
+         const match=/^(?:<@&(\d{17,20})>|(\d{17,20}))\s+/.exec(entered);
+         const role=match&&await i.guild.roles.fetch(match[1]||match[2]).catch(()=>null);
+         if(!role && !/remove$/i.test(entered))
+           throw Error("That bonus role isn't available in this server.");
+       }
+     }
+     if(field==="activityChannelIds" && changes.activityChannelIds.length){
+       const channel=await i.guild.channels.fetch(changes.activityChannelIds[0]).catch(()=>null);
+       if(!channel?.isTextBased() ||
+           !channel.permissionsFor(i.guild.members.me)?.has(PermissionFlagsBits.ViewChannel))
+         throw Error("Choose a text channel that the bot can read.");
+     }
+     if(field==="activityRequiredMentionUserId"&&changes.activityRequiredMentionUserId){
+       const member=await i.guild.members.fetch(changes.activityRequiredMentionUserId).catch(()=>null);
+       if(!member||member.user?.bot)throw Error("Choose a real member of this server.");
+     }
+     let updated;
+     if(criteriaFields.has(field)){
+       if(i.fields.getTextInputValue("reset")!=="RESET")
+         throw Error('Type RESET to restart tracking; previous message counts cannot be carried over.');
+       // An unchanged filter doesn't require throwing away valid activity.
+       const before=field==="activityChannelIds"?JSON.stringify(event.activityChannelIds||[]):
+         String(event[field]||"");
+       const after=field==="activityChannelIds"?JSON.stringify(changes.activityChannelIds):
+         String(changes[field]||"");
+       if(before===after)return i.editReply("That rule is already set. No activity counts were reset.");
+       updated=await resetGuidedActivityCriteria(event,changes);
+       if(!updated)return i.editReply("This activity is no longer open.");
+     }else{
+       if(field==="activityEndAt"){
+         const nextCutoff=new Date(changes.activityEndAt);
+         const series=await GuidedActivitySeries.findOne({_id:event.guidedSeries,guildId:i.guildId}).lean();
+         if(series?.enabled&&series.nextStart&&nextCutoff>new Date(series.nextStart))
+           throw Error("Counting cannot extend into the next scheduled giveaway. Edit future repeats first.");
+         if(event.activityDays>maxActiveDays(new Date(event.activityStartAt),nextCutoff))
+           throw Error("There are not enough days in that window for the required active-day goal.");
+         const lag=Math.max(0,new Date(event.endsAt)-new Date(event.activityEndAt));
+         changes.customActivityEndAt=nextCutoff;
+         changes.endsAt=new Date(+nextCutoff+lag);
+       }
+       updated=await Giveaway.findOneAndUpdate({_id:event._id,guildId:i.guildId,status:"open"},
+         {$set:changes},{returnDocument:"after"}).lean();
+       if(!updated)return i.editReply("Another staff member already ended this giveaway.");
+     }
      const refreshed=await refreshPublished(i.client,updated);
      return i.editReply("Updated **"+GUIDED_EDIT_FIELDS.find(x=>x.value===field).label+
-       "** for this activity. Future repeats are unchanged."+
-       (refreshed?"":" A Discord post may need the next refresh."));
+       "** for this activity. "+(criteriaFields.has(field)?
+       "Counting restarted now; previous activity no longer qualifies. ":"Future repeats are unchanged. ")+
+       (refreshed?"":"A Discord post may need the next refresh."));
    }
    if(["end","cancel"].includes(action)){
      if(event.status!=="open")return i.editReply("This giveaway is no longer collecting activity.");
