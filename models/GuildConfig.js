@@ -34,6 +34,9 @@ const guildConfigSchema = new mongoose.Schema(
     activityAnnounceEmptyResults:{type:Boolean,default:true},
     giveawayDefaultBannerNameKey: { type: String, default: "" },
     survivalTrialChannelId: { type: String, default: "" },
+    // Regular giveaway role notifications. Legacy singular giveawayPingRoleId
+    // remains readable so old server settings continue to work unchanged.
+    giveawayNotificationRoleIds: { type: [String], default: [] },
     giveawayPingRoleId: { type: String, default: "" },
     survivalTrialPingRoleId: { type: String, default: "" },
     // A completed /setup channels or guided setup unlocks commands for this guild.
