@@ -9,7 +9,24 @@ import {qualifyingActivity,qualifyingWatchActivity,countActivityParticipants} fr
 import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, automaticRerollLimit, automaticRerollsUsed } from "./giveaway-claims.js";
 import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
-export const GIVEAWAY_MAX_MINUTES = 60 * 24 * 14;
+// Six calendar months (rather than a fixed 180 days) varies with the start date.
+export const GIVEAWAY_MAX_MINUTES = 60 * 24 * 184;
+export function sixCalendarMonthsAfter(value=new Date()){
+  const start=new Date(value);
+  if(!Number.isFinite(start.getTime()))throw Error("Invalid giveaway start date.");
+  const monthIndex=start.getUTCFullYear()*12+start.getUTCMonth()+6;
+  const year=Math.floor(monthIndex/12),month=monthIndex%12;
+  const lastDay=new Date(Date.UTC(year,month+1,0)).getUTCDate();
+  return new Date(Date.UTC(year,month,Math.min(start.getUTCDate(),lastDay),
+    start.getUTCHours(),start.getUTCMinutes(),
+    start.getUTCSeconds(),start.getUTCMilliseconds()));
+}
+export function maxRegularGiveawayMinutes(start=new Date()){
+  const from=new Date(start);
+  return Math.min(GIVEAWAY_MAX_MINUTES,
+    Math.floor((sixCalendarMonthsAfter(from)-from)/60000));
+}
+
 export const GIVEAWAY_MAX_WINNERS = 10;
 
 export function chooseGiveawayWinners(entrantIds, count, excluded = []) {
