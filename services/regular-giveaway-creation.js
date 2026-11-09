@@ -3,7 +3,7 @@ import {getConfiguredTextChannelAndConfig} from "../commands/shared.js";
 import {requirePrivateGiveawayStaffChannel,ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import {sharedGiveawayPingRoleId} from "./giveaway-notification-roles.js";
 import {ensureBannerRegistered} from "./giveaway-banners.js";
-import {giveawayAnnouncementWithBanner,GIVEAWAY_MAX_MINUTES} from "./giveaways.js";
+import {giveawayAnnouncementWithBanner,maxRegularGiveawayMinutes} from "./giveaways.js";
 import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS} from "./giveaway-claims.js";
 
 const nonempty=(value,label,max,min=1)=>{
@@ -30,7 +30,7 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
   const rules=String(settings.rules||"").trim();
   if(description.length>1000)throw Error("Giveaway description must be 1,000 characters or fewer.");
   if(rules.length>1200)throw Error("Giveaway rules must be 1,200 characters or fewer.");
-  const minutes=integer(settings.minutes,"Giveaway duration",1,GIVEAWAY_MAX_MINUTES);
+  const minutes=integer(settings.minutes,"Giveaway duration",1,maxRegularGiveawayMinutes());
   const winners=integer(settings.winners??1,"Winner count",1,10);
   const {channel,config}=await getConfiguredTextChannelAndConfig(
     {guild,guildId},"giveawayChannelId","standard giveaway");
