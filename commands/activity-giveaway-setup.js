@@ -4,11 +4,11 @@ import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ChannelSelectMenuBuilder,Role
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
-import GiveawayBanner from "../models/GiveawayBanner.js";
+import GiveawayBanner, {bannerNameKey} from "../models/GiveawayBanner.js";
 import {GuidedActivitySeries} from "../services/guided-activity.js";
-import {ensureBannerRegistered} from "../services/giveaway-banners.js";
-import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS,
-  prizeClaimLines} from "../services/giveaway-claims.js";
+import {ensureBannerRegistered,attachGiveawayBanner} from "../services/giveaway-banners.js";
+import {giveawayAnnouncement} from "../services/giveaways.js";
+import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS} from "../services/giveaway-claims.js";
 
 const sessions=new Map();
 const expiry=30*60_000;
@@ -51,20 +51,32 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   "*Changing the default claim window or reroll maximum here does not change deadlines that are already running.*",
  ].join("\n");
 }
-export function claimAnnouncementPreview(settings){
- return [
-  "**Winner Announcement Preview**",
-  "🏆 **Winner:** <@123456789012345678>",
-  "🎁 **Prize:** Example prize",
-  ...prizeClaimLines({
-    mode:"activity",winnerIds:["123456789012345678"],claimStartedAt:new Date(),
-    claimWindowHours:settings.activityClaimWindowHours,
-    claimInstructions:settings.activityClaimInstructions,
-    maxAutoRerolls:settings.activityMaxAutoRerolls,autoRerollClaims:true,
-  },{finished:true}),
-  "",
-  "*Preview only — no giveaway has been created or modified.*",
- ].join("\n");
+export function claimAnnouncementPreview(settings,{
+ mode="activity",previewUserId="123456789012345678",now=new Date(),banner=null
+}={}){
+ // Build the preview from the live winner announcement renderer, not a
+ // separate text template. Never persist a simulated giveaway.
+ const sample={
+  _id:"PREVIEW",mode:mode==="regular"?"standard":"activity",
+  status:"ended",title:"Example Giveaway",prize:"Example prize",
+  creatorId:previewUserId,winnerCount:1,
+  winnerIds:[previewUserId],entrantIds:[previewUserId],
+  endsAt:now,claimStartedAt:now,winnerAssignedAt:[now],
+  claimWindowHours:settings.activityClaimWindowHours??DEFAULT_CLAIM_HOURS,
+  claimInstructions:settings.activityClaimInstructions||"",
+  maxAutoRerolls:settings.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
+  autoRerollClaims:true,
+  requiredRoleId:settings.giveawayDefaultRequiredRoleId||"",
+  requiredRoleInstructions:settings.giveawayRoleInstructions||"",
+  showRequiredRoleInstructions:settings.giveawayShowRoleInstructions!==false,
+ };
+ const payload=giveawayAnnouncement(sample);
+ payload.embeds[0].setFooter({text:"PREVIEW ONLY · No giveaway created or modified"});
+ for(const actionRow of payload.components){
+  for(const control of actionRow.components)control.setDisabled(true);
+ }
+ payload.content="👁️ **Winner Announcement Preview** — example only; no giveaway was created.";
+ return attachGiveawayBanner(payload,banner);
 }
 const bind=(session,value)=>"actconfig:"+session.id+":"+value;
 function layout(session) {
@@ -198,7 +210,12 @@ async function apply(session,verb,value){
  }
  if(session.step==="review"){
    if(verb==="preview"){
-     await session.channel.send({content:claimAnnouncementPreview(s).slice(0,1900),allowedMentions:{parse:[]}});
+     const nameKey=bannerNameKey(s.giveawayDefaultBannerNameKey);
+     const banner=nameKey?await GiveawayBanner.findOne({guildId:session.guild.id,nameKey}).lean():null;
+     if(nameKey&&!banner)throw Error("The selected default banner is no longer registered. Select another banner before previewing.");
+     await session.channel.send(claimAnnouncementPreview(s,{
+       mode:session.mode,previewUserId:session.owner,banner
+     }));
      return;
    }
    if(verb==="toggleExisting"){session.updateExisting=!session.updateExisting;await show(session,"review");return;}
