@@ -8,12 +8,12 @@ const trial="345678901234567890";
 const general="456789012345678901";
 const settings={commandChannelId:command,activityGiveawayReviewChannelId:staff,survivalTrialChannelId:trial};
 
-test("giveaway and giveaway-role run in the commands channel and private staff giveaway channel",()=>{
+test("giveaway and giveaway-role run only in commands channel, never private staff channel",()=>{
   for(const name of ["giveaway","giveaway-role"]){
-    assert.deepEqual(allowedCommandChannels(name,settings),[command,staff]);
+    assert.deepEqual(allowedCommandChannels(name,settings),[command]);
     assert.equal(commandChannelRestriction(name,command,settings),null);
-    assert.equal(commandChannelRestriction(name,staff,settings),null);
-    assert.match(commandChannelRestriction(name,trial,settings),new RegExp(staff));
+    assert.match(commandChannelRestriction(name,staff,settings),/reserved for records and staff buttons/);
+    assert.match(commandChannelRestriction(name,trial,settings),new RegExp(command));
     assert.match(commandChannelRestriction(name,general,settings),new RegExp(command));
   }
 });
@@ -22,7 +22,7 @@ test("Court's Trial commands run in the Trial channel and existing commands chan
   assert.deepEqual(allowedCommandChannels("trial",settings),[command,trial]);
   assert.equal(commandChannelRestriction("trial",command,settings),null);
   assert.equal(commandChannelRestriction("trial",trial,settings),null);
-  assert.match(commandChannelRestriction("trial",staff,settings),/Court's Trial/);
+  assert.match(commandChannelRestriction("trial",staff,settings),/reserved for records and staff buttons/);
   assert.match(commandChannelRestriction("trial",staff,settings),new RegExp(trial));
 });
 
@@ -35,10 +35,10 @@ test("unrelated bot commands remain limited to the configured bot commands chann
   }
 });
 
-test("a guild with only a staff giveaway channel can run giveaway commands there",()=>{
+test("a guild with only a staff giveaway channel cannot run giveaway commands there",()=>{
   const config={activityGiveawayReviewChannelId:staff};
-  assert.equal(commandChannelRestriction("giveaway",staff,config),null);
-  assert.match(commandChannelRestriction("giveaway",trial,config),new RegExp(staff));
+  assert.match(commandChannelRestriction("giveaway",staff,config),/reserved for records and staff buttons/);
+  assert.match(commandChannelRestriction("giveaway",staff,config),/setup general/);
 });
 
 test("a guild with only a Trial channel can run Trial commands there",()=>{
@@ -52,6 +52,7 @@ test("shared channel IDs are not duplicated, and unchanged unset-channel behavio
   assert.deepEqual(allowedCommandChannels("giveaway",duplicate),[command]);
   assert.deepEqual(allowedCommandChannels("trial",duplicate),[command]);
   assert.equal(commandChannelRestriction("giveaway",general,{}),null);
+  assert.match(commandChannelRestriction("giveaway",command,duplicate),/reserved for records/);
   assert.equal(commandChannelRestriction("trial",general,{}),null);
   assert.equal(commandChannelRestriction("shop",general,{}),null);
 });
