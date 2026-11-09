@@ -1,5 +1,6 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ModalBuilder,TextInputBuilder,TextInputStyle,StringSelectMenuBuilder,MessageFlags,PermissionFlagsBits} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import GuildConfig from "../models/GuildConfig.js";
 import {activityRoster,ensureStaffCard,maxActiveDays} from "./guided-activity.js";
 import {closeGiveaway,publishGiveawayResult} from "./giveaways.js";
 import {publishGiveawayReview,refreshGiveawayReviewMessage} from "./giveaway-review.js";
@@ -23,6 +24,7 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Manual approval",value:"requireStaffReview",description:"On or off: staff approve winners"},
   {label:"Check My Progress",value:"progressEnabled",description:"On or off: members see private progress"},
   {label:"Bonus roles",value:"roleBonuses",description:"Add, change or clear bonus chances"},
+  {label:"Required role",value:"requiredRoleId",description:"Check role before logging; resetting prior activity"},
   {label:"Claim time",value:"claimWindowHours",description:"Hours a winner has to claim"},
   {label:"Claim instructions",value:"claimInstructions",description:"Replace or reset the prize collection message"},
   {label:"Maximum auto rerolls",value:"maxAutoRerolls",description:"0–10 replacements for each unclaimed winner"},
@@ -35,11 +37,11 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Future repeats",value:"repeatSchedule",description:"Edit next cycles, not the current one"},
   {label:"Counting start",value:"activityStartAt",description:"Started already; cannot backdate counts"},
 ];
-const criteriaFields=new Set(["activityChannelIds","activityRequiredMentionUserId","activityRequiredPhrase"]);
+const criteriaFields=new Set(["activityChannelIds","activityRequiredMentionUserId","activityRequiredPhrase","requiredRoleId"]);
 const inputMax={title:100,prize:1500,description:1000,winnerCount:2,
   activityMinTotalMessages:5,activityDays:3,claimWindowHours:3,bannerNameKey:60,
   requireStaffReview:3,progressEnabled:3,roleBonuses:350,activityChannelIds:100,
-  activityRequiredMentionUserId:100,activityRequiredPhrase:120,
+  activityRequiredMentionUserId:100,activityRequiredPhrase:120,requiredRoleId:100,
   endsAt:16,activityEndAt:16,repeatSchedule:80,
   claimInstructions:1000,maxAutoRerolls:2,notificationRoleIds:350,announceEmptyResults:3};
 const inputHint={
@@ -50,6 +52,7 @@ const inputHint={
   roleBonuses:"@role 2  /  @role remove  /  clear",
   activityChannelIds:"#channel, channel ID, or all",
   activityRequiredMentionUserId:"@member, user ID, or none",
+  requiredRoleId:"@role, role ID, or none; resets counting",
   activityRequiredPhrase:"Exact spelling and word order; capitals ignored",
   activityEndAt:"YYYY-MM-DD HH:mm Eastern",
   endsAt:"YYYY-MM-DD HH:mm Eastern",
@@ -97,6 +100,12 @@ export function validateGuidedStaffEdit(field,raw,event,{now=new Date()}={}){
     const match=/^(?:<#(\d{17,20})>|(\d{17,20}))$/.exec(value);
     if(!match)throw Error("Enter #channel, a channel ID, or all.");
     return {activityChannelIds:[match[1]||match[2]],activityType:"channels"};
+  }
+  if(field==="requiredRoleId"){
+    if(/^(none|clear|off)$/i.test(value))return {requiredRoleId:"",requiredRoleInstructions:""};
+    const match=/^(?:<@&(\d{17,20})>|(\d{17,20}))$/.exec(value);
+    if(!match)throw Error("Enter @role, a role ID, or none.");
+    return {requiredRoleId:match[1]||match[2]};
   }
   if(field==="activityRequiredMentionUserId"){
     if(/^(none|clear|off)$/i.test(value))return {activityRequiredMentionUserId:""};
@@ -186,6 +195,7 @@ function editModal(event,field){
  if(field==="notificationRoleIds")old=(event.notificationRoleIds||[]).map(id=>"<@&"+id+">").join(" ");
  if(field==="activityChannelIds")old=event.activityChannelIds?.length?"<#"+event.activityChannelIds[0]+">":"all";
  if(field==="activityRequiredMentionUserId")old=old?"<@"+old+">":"none";
+ if(field==="requiredRoleId")old=old?"<@&"+old+">":"none";
  if(field==="activityRequiredPhrase")old=old||"";
  // These fields have custom syntax or Eastern time inputs. Do not prefill
  // them with UTC timestamps or stringified MongoDB objects.
@@ -217,7 +227,7 @@ export function describeGuidedStaffOptions(event){
  return [
    "**Edit this activity giveaway**",
    "**Giveaway post:** Title · Prize · Giveaway Details · Banner",
-   "**Qualification:** Total message goal · Active days · Watched channel · Member ping · Required phrase",
+   "**Qualification:** Total message goal · Active days · Watched channel · Member ping · Required phrase · Required role",
    "*Exact phrases require correct spelling and word order; capitalization does not matter.*",
    "**Timing:** Activity cutoff · Winner announcement",
    "**Drawing:** Winners · Manual approval · Bonus roles · Claim time · Max rerolls · Member progress",
@@ -226,6 +236,7 @@ export function describeGuidedStaffOptions(event){
    "",
    "**Current settings**",
    "Watch: "+channel+" · Goal: "+(event.activityMinTotalMessages||1)+" total message(s)",
+   "Required role: "+(event.requiredRoleId?"<@&"+event.requiredRoleId+"> · "+event.requiredRoleInstructions:"None"),
    "Counting ends: "+fmt(event.activityEndAt)+" · Draws: "+fmt(event.endsAt),
    "Approval: "+(event.requireStaffReview?"On":"Off")+" · Progress: "+(event.progressEnabled?"On":"Off"),
    "",
@@ -305,7 +316,15 @@ export async function handleGuidedStaffAction(i){
          if(!role||role.id===i.guildId)throw Error("A selected notification role is not on this server.");
        }
      }
-     if(field==="roleBonuses"){
+     if(field==="requiredRoleId"&&changes.requiredRoleId){
+        const role=await i.guild.roles.fetch(changes.requiredRoleId).catch(()=>null);
+        if(!role||role.id===i.guild.id)throw Error("Choose an existing server role.");
+        const config=await GuildConfig.findOne({guildId:i.guildId}).lean();
+        if(!config?.giveawayRoleInstructions)
+          throw Error("Set where members obtain the role in /setup activity-giveaways first.");
+        changes.requiredRoleInstructions=config.giveawayRoleInstructions;
+      }
+      if(field==="roleBonuses"){
        const entered=String(i.fields.getTextInputValue("value"));
        if(!/^clear$/i.test(entered)){
          const match=/^(?:<@&(\d{17,20})>|(\d{17,20}))\s+/.exec(entered);
