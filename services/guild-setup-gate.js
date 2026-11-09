@@ -8,3 +8,8 @@ export function trialSetupComplete(config) {
   return guildSetupComplete(config) &&
     Boolean(config?.trialSetupCompletedAt || config?.survivalTrialChannelId);
 }
+
+export function cardSetupComplete(config) {
+  return guildSetupComplete(config) &&
+    Boolean(config?.hatchemChannelId && config?.cardRoleId);
+}

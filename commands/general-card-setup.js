@@ -202,7 +202,7 @@ async function saveCards(session) {
   let guide = session.original?.hatchemChannelId === channel.id &&
     session.original?.hatchemGuideMessageId
       ? await channel.messages.fetch(session.original.hatchemGuideMessageId).catch(() => null) : null;
-  if (guide?.author?.id !== session.guild.members.me?.client?.user?.id) guide = null;
+  if (guide?.author?.id !== session.guild.client.user?.id) guide = null;
   if (guide) await guide.edit({
     content: HATCHEM_GUIDE, components: [hatchemTutorialEntryRow()],
     allowedMentions: { parse: [] },

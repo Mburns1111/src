@@ -118,6 +118,7 @@ export async function maybePublishActivityEgg(client, message, {
     guildId: message.guildId,
     hatchemChannelId: { $type: "string", $ne: "" },
     cardRoleId: { $type: "string", $ne: "" },
+    hatchemAutoDropsEnabled: { $ne: false },
     hatchemLastAutoDropAt: lastEggIsOldEnough(now),
     hatchemNextActivityDropAt: { $not: { $gt: now } },
   }, { $set: {

@@ -1,7 +1,8 @@
 import { wizardButton, wizardReply } from "./commands/activity-wizard.js";
 import {handleActivityGiveawaySetupInteraction,activityGiveawaySetupReply} from "./commands/activity-giveaway-setup.js";
 import {handleTrialGiveawaySetupInteraction,trialGiveawaySetupReply} from "./commands/trial-giveaway-setup.js";
-import {guildSetupComplete} from "./services/guild-setup-gate.js";
+import {guildSetupComplete, cardSetupComplete} from "./services/guild-setup-gate.js";
+import {handleGuidedGuildSetupInteraction} from "./commands/general-card-setup.js";
 import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
 import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
 import {handleGiveawayStaffAction,reconcileGiveawayStaffRecords} from "./services/giveaway-staff-records.js";
@@ -236,8 +237,8 @@ client.on(Events.MessageCreate, message => {
   if (parsed) {
     void (async () => {
       const config = await GuildConfig.findOne({ guildId: message.guildId })
-        .select("hatchemChannelId").lean();
-      if (config?.hatchemChannelId && message.channelId === config.hatchemChannelId) {
+        .select("hatchemChannelId cardRoleId cardSetupCompletedAt initialSetupCompletedAt commandChannelId").lean();
+      if (cardSetupComplete(config) && message.channelId === config.hatchemChannelId) {
         await runHatchemText(message, parsed);
       }
     })().catch(error => console.error("[Hatchem] Text routing failed:", error));
@@ -535,6 +536,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
     }
+    if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
+         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("guildconfig:"))
+      return await handleGuidedGuildSetupInteraction(interaction);
     if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
          interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("trialconfig:"))
@@ -915,6 +920,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
           content: `Use Hatchem commands in <#${hatchemConfig.hatchemChannelId}>.`,
           allowedMentions: { parse: [] },
         });
+        return;
+      }
+    }
+    if (interaction.commandName === cardsCommand.name && interaction.guildId) {
+      const cardConfig = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("hatchemChannelId cardRoleId cardSetupCompletedAt initialSetupCompletedAt commandChannelId").lean();
+      if (!cardSetupComplete(cardConfig)) {
+        await interaction.editReply("Hatchem is not configured in this server. Ask a server manager to run /setup cards after /setup general.");
         return;
       }
     }

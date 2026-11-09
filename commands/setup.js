@@ -7,6 +7,7 @@ import {
 import GuildConfig from "../models/GuildConfig.js";
 import {startActivityGiveawaySetup,startRegularGiveawaySetup} from "./activity-giveaway-setup.js";
 import {startTrialGiveawaySetup} from "./trial-giveaway-setup.js";
+import {startGuidedGuildSetup} from "./general-card-setup.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
 import { requireGuild } from "./shared.js";
@@ -26,7 +27,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((command) =>
     command
       .setName("channels")
-      .setDescription("Choose where commands and server posts should go")
+      .setDescription("Legacy direct channel edit (use /setup general or per-feature setup)")
       .addChannelOption((option) =>
         option
           .setName("commands")
@@ -138,10 +139,18 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(command=>command.setName("giveaways")
     .setDescription("Guided setup for regular giveaway channels and shared defaults"))
   .addSubcommand(command=>command.setName("trials")
-    .setDescription("Guided setup for Court\'s Trial channels, prizes and claim defaults"));
+    .setDescription("Guided setup for Court\'s Trial channels, prizes and claim defaults"))
+  .addSubcommand(command=>command.setName("cards")
+    .setDescription("Guided setup for Hatchem\'s dedicated channel, Collector role and wild eggs"))
+  .addSubcommand(command=>command.setName("general")
+    .setDescription("Guided setup: commands channel first, other features optional"));
 
 export async function execute(interaction) {
   requireGuild(interaction);
+  if(interaction.options.getSubcommand?.()==="general")
+    return startGuidedGuildSetup(interaction,"general");
+  if(interaction.options.getSubcommand?.()==="cards")
+    return startGuidedGuildSetup(interaction,"cards");
   if(interaction.options.getSubcommand?.()==="giveaways")
     return startRegularGiveawaySetup(interaction);
   if(interaction.options.getSubcommand?.()==="activity-giveaways")
