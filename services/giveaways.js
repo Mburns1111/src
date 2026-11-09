@@ -49,7 +49,7 @@ export function giveawayAnnouncement(record) {
     ...(record.description ? ["", "**Giveaway Details:**", String(record.description).slice(0,1000)] : []),
     "",
     `**Hosted by:** <@${record.creatorId}>`,
-    ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : activity ? `**Locked entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
+    ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Winners:** ${winners.length}` : activity ? `**Locked entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
     ended
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
@@ -80,7 +80,7 @@ export function giveawayAnnouncement(record) {
     if(record.mode==="activity" && !record.winnerIds?.length)
       lines.push("", "**Outcome:** No qualifying members won this drawing.");
     if (changed.length) lines.push("", "**Reroll history**", ...changed);
-    lines.push("", "*Prize delivery is handled by the giveaway host.*");
+    if (winners.length) lines.push("", "*Prize delivery is handled by the giveaway host.*");
   }
   const description = lines.join("\n").slice(0, 4000);
   const embed = new EmbedBuilder()

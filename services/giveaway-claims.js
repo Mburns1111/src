@@ -59,6 +59,7 @@ export function prizeClaimDeadline(record) {
 
 export const DEFAULT_CLAIM_INSTRUCTIONS="Open a support ticket in this server to arrange prize delivery. Keep its ticket number and copy the Discord message link from the ticket. You may share available collection times with staff.";
 export function prizeClaimLines(record,{finished=false}={}){
+  if (finished && !record.winnerIds?.length) return [];
   const duration=claimDuration(record);
   const instructions=String(record.claimInstructions||"").trim().slice(0,1000)||DEFAULT_CLAIM_INSTRUCTIONS;
   const lines=[];
