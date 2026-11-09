@@ -141,6 +141,12 @@ export async function execute(interaction) {
   try {
     if (!survivalCommand && BANNER_OPERATIONS.has(operation))
       return await executeGiveawayBannerAdmin(interaction);
+    // Older Discord clients can retain cached slash definitions briefly after
+    // re-registration. Show a clear migration hint rather than trying to treat
+    // retired /giveaway plan-* and prize-* fields as a giveaway record ID.
+    if (!survivalCommand && ["plan-create","plan-list","plan-view","plan-edit",
+      "prize-add","prize-edit","prize-remove","prize-move"].includes(operation))
+      return interaction.editReply("The old Giveaway Plan commands have been retired from /giveaway. Use /giveaway activity for recurring activity giveaways or /giveaway start for regular giveaways. Previously saved schedules are not deleted.");
     if (operation === "watch-save") {
       const name=interaction.options.getString("name",true).trim();
       if (watchNameKey(name)==="general") throw Error("The name general is reserved for server-wide activity.");
@@ -198,7 +204,7 @@ export async function execute(interaction) {
     if (operation === "watch-delete") {
       const name=interaction.options.getString("name",true);
       const inUse=await GiveawayPlan.exists({guildId:interaction.guildId,watchNameKey:watchNameKey(name),status:{$in:["active","paused"]}});
-      if(inUse)throw Error("An active giveaway plan uses this watched channel. Pause or edit that plan first.");
+      if(inUse)throw Error("An existing saved giveaway schedule still uses this watched channel. The schedule is preserved and its watch cannot be deleted while it is active or paused.");
       const result=await GiveawayWatchRule.deleteOne({guildId:interaction.guildId,nameKey:watchNameKey(name)});
       return interaction.editReply(result.deletedCount?"Watched channel rule removed. Existing giveaway records are unchanged.":"No rule exists under that name.");
     }
