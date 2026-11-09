@@ -14,7 +14,7 @@ Use a development bot token, development MongoDB database and test Discord serve
 2. Check out the development branch and run tests.
 3. Run the existing **register-commands.js** to register /party with the *development* Discord application only. The script replaces the application command lists; confirm the token, application ID, and guild ID first.
 4. Restart the test bot.
-5. Create a Discord text channel for games, then run /setup channels party_games:#your-channel. As staff with Manage Server, use **/party start** or **/party host**. Both commands offer a game option; if left blank, a private **Choose your Party Game** dropdown appears. Select Court of Chaos to create the signup lobby. /party host also accepts optional category and rewards settings. Neither command launches Round 1.
+5. Create a Discord text channel for games, then run `/setup general` and select the Party Games channel. As staff with Manage Server, use **/party start** or **/party host**. Both commands offer a game option; if left blank, a private **Choose your Party Game** dropdown appears. Select Court of Chaos to create the signup lobby. /party host also accepts optional category and rewards settings. Neither command launches Round 1.
 6. Have 1–20 accounts use Join; Leave and rejoin; try the 21st account. Test separate 1-, 2- and 3-player games.
 7. Only after members have joined, the **staff member who created the lobby** clicks **Start Party** beside Join and Leave to begin Round 1. **/party start creates the signup lobby; it never skips signup.** Other admins and members cannot start somebody else's lobby, and at least one player must have joined. Every player then gets **two different prompts per round** through My Prompts & Answers and submits each answer with its own button/modal. Submitting from a modal should **edit the same private two-question panel** to show **Saved for Round 1**, the submitted answer, and the saved/unsaved status of both questions. It must **not** send an additional ephemeral confirmation that leaves the earlier panel stale. Staff can use /party status to see the number of saved submissions without viewing private answers.
 8. After the **full 90-second answer period**, with 2+ players, each question is shown individually with **30 seconds to read and vote**. With one player, both prompts are revealed without voting. The timer does NOT end early when all answers have been submitted.
@@ -23,7 +23,7 @@ Use a development bot token, development MongoDB database and test Discord serve
 
 ## Staff controls
 
-- /setup channels party_games:#your-channel: save the dedicated Party Games channel, without changing the other channels
+- `/setup general`: select the dedicated Party Games channel. Use **Keep current** for other configured channels
 - /party start with game selection: opens a **private game-selection menu** if no game is specified, or creates the selected game's signup lobby directly. The game option is optional only because the private picker provides the alternative. Court of Chaos is the only available choice. It never starts the answering timer.
 - /party status: phase, players and remaining time
 - /party next: staff starts the next round after the 10-second break; also available as a staff-only button in the Party Games message
