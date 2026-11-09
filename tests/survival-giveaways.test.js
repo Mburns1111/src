@@ -654,9 +654,9 @@ test("Court's Trial uses minute-based claim windows and Discord-local deadlines"
   const body = finale.embeds[0].data.description;
   assert.match(body, /Claim deadline:/);
   assert.match(body, /<t:1793564100:F>/, "15 minutes after the trial's actual finish time");
-  assert.match(body, /hammertime\.cyou/);
-  assert.match(body, /Open a support ticket/);
   assert.match(body, /Roblox username/);
+  assert.match(body, /staff/i);
+  assert.doesNotMatch(body, /FORFEIT YOUR WIN/, "Court's Trial does not automatically reroll claims");
   assert.deepEqual(finale.allowedMentions, { parse: [] });
   assert.equal(finale.embeds[0].data.footer.text, "♛ Trial " + id + " · Finale");
 

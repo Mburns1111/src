@@ -176,10 +176,12 @@ test("giveaway claim instructions announce a real Discord-local deadline and how
   const body = ended.embeds[0].data.description;
   assert.match(body, /Claim deadline:/);
   assert.match(body, /<t:1793707200:F>/); // 48h after 2026-11-01 12:00 UTC
-  assert.match(body, /https:\/\/hammertime\.cyou/);
-  assert.match(body, /Open a support ticket/i);
-  assert.match(body, /2–3 dates\/times/);
   assert.match(body, /Roblox username/);
+  assert.match(body, /Enter Ticket Claim info/);
+  assert.match(body, /ticket number/);
+  assert.match(body, /Discord message link/);
+  assert.match(body, /FORFEIT YOUR WIN/);
+  assert.doesNotMatch(body, /hammertime\.cyou/, "custom instructions replace the old template");
   assert.deepEqual(ended.allowedMentions, { parse: [] });
   const signup = giveawayAnnouncement(snapshot({ claimWindowHours: 48, claimInstructions: "Include Roblox name" }));
   assert.match(signup.embeds[0].data.description, /Claim window:.*48 hours/);

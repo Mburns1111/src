@@ -137,7 +137,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   requireGuild(interaction);
-  if(interaction.options.getSubcommand()==="activity-giveaways")
+  if(interaction.options.getSubcommand?.()==="activity-giveaways")
     return startActivityGiveawaySetup(interaction);
   const commandsChannel = interaction.options.getChannel("commands");
   const houseListings = interaction.options.getChannel("house_listings");
