@@ -79,6 +79,22 @@ test("actual member pings with an optional phrase, not plain names or reply ment
  assert.equal(messageMatchesGiveawayWatch({...message,author:{id:member,bot:true}},rule),false);
  assert.equal(messageMatchesGiveawayWatch({...message,webhookId:"hook"},rule),false);
 });
+test("exact phrase ignores capitalization but requires spelling and word order",()=>{
+ const source={guildId:"g",author:{id:"234567890123456789",bot:false},webhookId:null};
+ const match=(content,phrase)=>messageMatchesGiveawayWatch({...source,content},
+   {requiredPhrase:phrase,minimumChars:1});
+ assert.equal(match("Thank You for joining!","thank you"),true);
+ assert.equal(match("THANK   YOU!","thank you"),true);
+ assert.equal(match("thank you","ThAnK YoU"),true);
+ assert.equal(match("I said thank yoo","thank you"),false);
+ assert.equal(match("you thank, everyone!","thank you"),false);
+ assert.equal(match("thankyou!","thank you"),false);
+ assert.equal(match("thank youuuu","thank you"),false);
+ assert.equal(match("catalog","cat"),false);
+ assert.equal(match("My CAT!","cat"),true);
+ assert.equal(match("not a purrfect match","perfect"),false);
+ assert.equal(match("Say: (I love cats!)","I love cats"),true);
+});
 test("mention challenge accumulates only matching messages within the chosen day/week",()=>{
  const rule={_id:"rule",criteriaVersion:2,minimumMessages:1,activeDays:1,minimumTotalMessages:3};
  const day=qualifyingWatchRulePipeline({guildId:"g",rule,day:"2026-11-10"});

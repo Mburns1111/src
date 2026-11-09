@@ -59,7 +59,13 @@ export function messageMatchesGiveawayWatch(message,rule) {
   // is required. The ping is stripped before the ordinary character count.
   if (!text) return Boolean(mentionId) && !phrase && (rule?.minimumChars??1)<=1;
   if (/^[/.]/.test(text)) return false;
-  if (phrase && !text.toLocaleLowerCase("en-US").includes(phrase)) return false;
+  if(phrase) {
+    // Exact spelling and word order, case-insensitive. Substrings of longer
+    // words and misspellings must not qualify.
+    const literal=phrase.replace(/[.*+?^$()|[\]\\]/g,"\\  if (phrase && !text.toLocaleLowerCase("en-US").includes(phrase)) return false;");
+    const exactPhrase=new RegExp("(^|[^\\p{L}\\p{N}_])"+literal+"(?=$|[^\\p{L}\\p{N}_])","u");
+    if(!exactPhrase.test(text.toLocaleLowerCase("en-US")))return false;
+  }
   return [...text].length >= (rule?.minimumChars??1);
 }
 export async function recordGiveawayMessage(message) {

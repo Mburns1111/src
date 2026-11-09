@@ -32,7 +32,7 @@ export const activityWizardPrompts={
   days:["On how many different days must they send at least one matching message? Reply with a number (minimum 1)."],
   filters:["Which messages should count?",["Any message","Member ping","Word or phrase","Ping and phrase"].map(x=>choice(x))],
   mention:["Which member must the message explicitly ping? Paste their member mention or Discord user ID."],
-  phrase:["Which word or phrase must the message contain? Letter case does not matter."],
+  phrase:["Enter the **exact required word or phrase**. Members must use the **correct spelling and word order** for their messages to qualify. **Capital letters do not matter.**"],
   title:["What should the giveaway be called? Reply with the title."],
   prize:["What prize are you giving away? Reply with the prize details."],
   detailsChoice:["Would you like to add your own giveaway description?",[choice("Write giveaway details","write"),choice("Skip description","skip")]],
@@ -115,7 +115,7 @@ export function describeActivityWizard(session){
     'Counting starts when you click Create activity. Estimated cutoff '+stamp(end),
     s.period==="weekly"?'Weekly boundaries · '+weekdays[s.startDay]+' to '+weekdays[s.endDay]+' at midnight Eastern':null,
     'Requirement · '+s.minimum+' matching message(s) total during the activity period'+(s.days>1?' · at least one matching message on '+s.days+' different days':''),
-    s.mention?'Required ping · <@'+s.mention+'>':null,s.phrase?'Required word or phrase · '+s.phrase:null,
+    s.mention?'Required ping · <@'+s.mention+'>':null,s.phrase?'Required exact phrase · '+s.phrase+' (correct spelling and word order; capitalization does not matter)':null,
     'Winners · '+s.winners+' · Draw '+stamp(s.firstDraw?new Date(s.firstDraw):end),
     'Manual approval '+(s.approval?'on':'off')+' · Member progress '+(s.progress?'on':'off'),
     'Claim time · '+s.claimHours+' hours · Max automatic rerolls · '+s.maxAutoRerolls+

@@ -43,7 +43,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
   if(rule?.minimumMessages>1)qualifier.push("• Send at least **"+rule.minimumMessages+" messages** on each qualifying day.");
   if(period==="weekly"&&rule?.activeDays>1)qualifier.push("• Be active on **"+rule.activeDays+" different days**.");
   if(rule?.requiredMentionUserId)qualifier.push("• Tag <@"+rule.requiredMentionUserId+">.");
-  if(rule?.requiredPhrase)qualifier.push("• Include the phrase **"+memberSafeText(rule.requiredPhrase,120)+"**.");
+  if(rule?.requiredPhrase)qualifier.push("• Include the exact phrase **"+memberSafeText(rule.requiredPhrase,120)+"**. **Spelling and word order must match; capitals do not matter.**");
   if(bonus.length)qualifier.push("• Bonus chances: "+
     bonus.map(b=>"<@&"+b.roleId+"> +"+b.extraEntries).join(", ")+".");
   const custom=plan.customActivityStartAt&&plan.customActivityEndAt;
@@ -89,7 +89,7 @@ export function activityOneOffListingEmbed(record) {
   if(record.activityRequiredMentionUserId)
     qualifier.push("• Tag <@"+record.activityRequiredMentionUserId+">.");
   if(record.activityRequiredPhrase)
-    qualifier.push("• Include the phrase **"+memberSafeText(record.activityRequiredPhrase,120)+"**.");
+    qualifier.push("• Include the exact phrase **"+memberSafeText(record.activityRequiredPhrase,120)+"**. **Spelling and word order must match; capitals do not matter.**");
   if(record.roleBonuses?.length)
     qualifier.push("• Bonus chances: "+record.roleBonuses.map(b=>"<@&"+b.roleId+"> +"+b.extraEntries).join(", ")+".");
   const start=record.activityStartAt||record.customActivityStartAt;

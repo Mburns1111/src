@@ -47,6 +47,8 @@ test("guided activity uses period-wide message totals separate from optional act
 });
 test("guided wizard supports quick choices, banner registration and image-only Discord uploads",()=>{
   assert.match(activityWizardPrompts.minimum[0],/entire activity period/);
+  assert.match(activityWizardPrompts.phrase[0],/correct spelling and word order/);
+  assert.match(activityWizardPrompts.phrase[0],/Capital letters do not matter/);
   assert.doesNotMatch(activityWizardPrompts.minimum[0],/per active day/);
   assert.ok(activityWizardPrompts.banner[1].some(x=>x[1]==="bannerRegister"));
   assert.ok(activityWizardPrompts.banner[1].some(x=>x[1]==="bannerBack"));

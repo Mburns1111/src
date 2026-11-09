@@ -45,7 +45,7 @@ export const data = new SlashCommandBuilder()
       .addChoices({name:"Daily — previous calendar day",value:"daily"},
         {name:"Weekly — Wednesday to Wednesday",value:"weekly"}))
     .addUserOption(o => o.setName("mention_member").setDescription("Require an explicit @mention of this member"))
-    .addStringOption(o => o.setName("phrase").setDescription("Optional text/answer required in the message (case-insensitive)").setMinLength(1).setMaxLength(120))
+    .addStringOption(o => o.setName("phrase").setDescription("Exact spelling and word order required; capitalization ignored").setMinLength(1).setMaxLength(120))
     .addBooleanOption(o => o.setName("clear_mention").setDescription("Stop requiring a member mention"))
     .addBooleanOption(o => o.setName("clear_phrase").setDescription("Stop requiring a phrase")))
   .addSubcommand(c => c.setName("watch-list").setDescription("Review saved named activity channel rules"))
@@ -185,7 +185,7 @@ export async function execute(interaction) {
          ...(criteriaChanged?{$inc:{criteriaVersion:1}}:{})},
         {upsert:true,new:true,runValidators:true});
       const matching=[requiredMentionUserId?`explicitly mention <@${requiredMentionUserId}>`:null,
-        requiredPhrase?`include phrase "${requiredPhrase.replace(/[@`*_~|<>]/g,"")}"`:null].filter(Boolean);
+        requiredPhrase?`include exact phrase "${requiredPhrase.replace(/[@`*_~|<>]/g,"")}" (correct spelling and word order; case-insensitive)`:null].filter(Boolean);
       const details=[`${minimumTotalMessages} qualifying messages total in the ${activityPeriod} activity window`,
         `${minimumChars}+ characters each`,
         minimumMessages>1?`${minimumMessages} messages per active day`:null,
