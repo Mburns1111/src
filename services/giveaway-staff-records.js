@@ -5,6 +5,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline} from "./giveaway-claims.js";
 import {completedGiveawayCanDeleteListing} from "./giveaway-listing-lifecycle.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
+import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 
 const idText=id=>String(id||"");
 const unix=date=>Math.floor(new Date(date).getTime()/1000);
@@ -259,8 +260,8 @@ export async function removeGiveawayPublicPosts(client,record){
 export async function handleGiveawayStaffAction(interaction){
  const ephemeral={flags:MessageFlags.Ephemeral};
  try{
-   if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-     return interaction.reply({content:"Manage Server permission is required.",...ephemeral});
+   if(!await canManageGiveaways(interaction))
+     return interaction.reply({content:giveawayManagerPermissionMessage,...ephemeral});
    const match=/^giveawaystaff:(stop|cancel|confirmcancel|remove|confirmremove):([0-9a-f]{24})$/.exec(interaction.customId);
    if(!match)return interaction.reply({content:"Unknown staff action.",...ephemeral});
    const [,action,id]=match;
