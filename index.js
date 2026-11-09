@@ -1,4 +1,5 @@
 import { wizardButton, wizardReply } from "./commands/activity-wizard.js";
+import {handleActivityGiveawaySetupInteraction,activityGiveawaySetupReply} from "./commands/activity-giveaway-setup.js";
 import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
 import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
 import {initializeAchievements} from "./services/card-achievement-engine.js";
@@ -216,7 +217,7 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // Messages are never stored or logged: only a short SHA-256 digest is kept to
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
-  if (wizardReply(message)) return;
+  if (wizardReply(message) || activityGiveawaySetupReply(message)) return;
   if (message.guildId && !message.author?.bot && !message.webhookId) {
     void recordGuidedMessage(message).catch(error => console.error("[Giveaways] Guided activity count failed:",error));
   }
@@ -516,6 +517,9 @@ client.once(Events.ClientReady, async (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    if ((interaction.isButton() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("actconfig:"))
+      return await handleActivityGiveawaySetupInteraction(interaction);
     if (interaction.isButton() && interaction.customId.startsWith("activitysetup:"))
       return await wizardButton(interaction);
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
