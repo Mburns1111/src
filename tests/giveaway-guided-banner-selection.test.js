@@ -28,7 +28,7 @@ async function harness(mode,{banners=[]}={}){
   const values=banners.map(x=>({...x}));
   const sessionInfo={id:guildId,roles:{everyone:{id:guildId}}};
   const channel={id:channelId,send:async payload=>{
-    const id=String(900000000000000000+records.length+1);
+    const id=String(900000000000000000n+BigInt(records.length+1));
     const message={id,...payload};
     records.push(message);return message;
   }};
@@ -60,7 +60,7 @@ async function harness(mode,{banners=[]}={}){
     editReply:async value=>responses.push(value)};
   await starter(identity);
   const current=()=>records.at(-1);
-  const controls=()=>current().components.flatMap(row=>row.components.map(x=>x.data));
+  const controls=()=>current().components.flatMap(row=>row.components.map(x=>x.toJSON()));
   const getSessionId=()=>controls()[0].custom_id.split(":")[1];
   const sessionId=getSessionId();
   const step=async(action,valuesForSelect=[])=>{
