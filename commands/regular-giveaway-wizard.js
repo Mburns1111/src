@@ -422,6 +422,10 @@ export async function startRegularGiveawayWizard(interaction){
   const config=await GuildConfig.findOne({guildId:interaction.guildId}).lean();
   if(!config?.giveawayChannelId)
     throw Error("Configure the regular giveaway channel with /setup giveaways first.");
+  if(!config?.commandChannelId)
+    throw Error("Configure the commands channel with /setup general first.");
+  if(interaction.channelId!==config.commandChannelId)
+    throw Error("Run /giveaway start in <#"+config.commandChannelId+"> instead of the private giveaway staff channel.");
   await requirePrivateGiveawayStaffChannel(interaction.guild,config);
   const sessionKey=key(interaction.guildId,interaction.channelId,interaction.user.id);
   const existing=sessions.get(sessionKey);
