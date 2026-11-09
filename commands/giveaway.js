@@ -11,6 +11,7 @@ import {addGiveawayPlanCommands,executeGiveawayPlanAdmin,PLAN_OPERATIONS} from "
 import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} from "./giveaway-banners.js";
 import {ensureBannerRegistered} from "../services/giveaway-banners.js";
 import {ensureGiveawayStaffRecord,requirePrivateGiveawayStaffChannel} from "../services/giveaway-staff-records.js";
+import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
 import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
@@ -23,7 +24,6 @@ import {
 
 export const data = new SlashCommandBuilder()
   .setName("giveaway").setDescription("Host giveaways that retain their winners and prize details")
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand(c => c.setName("start").setDescription("Post a new button-entry giveaway")
     .addStringOption(o => o.setName("title").setDescription("Giveaway title").setRequired(true).setMinLength(2).setMaxLength(100))
     .addStringOption(o => o.setName("prize").setDescription("Prize details, including multiple ranked prizes").setRequired(true).setMinLength(2).setMaxLength(1500))
@@ -74,7 +74,6 @@ addGiveawayBannerCommands(data);
 
 export const trialData = new SlashCommandBuilder()
   .setName("trial").setDescription("The Court's Trials: elimination competitions")
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand(c => c.setName("start").setDescription("Open a live Court's Trial with one-by-one eliminations")
     .addStringOption(o => o.setName("title").setDescription("Trial title").setRequired(true).setMinLength(2).setMaxLength(100))
     .addStringOption(o => o.setName("prize").setDescription("Prize details (include ranked prizes if needed)").setRequired(true).setMinLength(2).setMaxLength(1500))
@@ -146,9 +145,8 @@ async function findGiveaway(reference, guildId) {
 }
 
 export async function execute(interaction) {
-  if (!interaction.guild || !interaction.guildId ||
-      !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-    return interaction.editReply("Only members with Manage Server can manage giveaways.");
+  if (!interaction.guild || !interaction.guildId || !await canManageGiveaways(interaction))
+    return interaction.editReply(giveawayManagerPermissionMessage);
   const operation = interaction.options.getSubcommand();
   const survivalCommand = interaction.commandName === "trial";
   try {
@@ -414,8 +412,8 @@ export async function handleGiveawayButton(interaction) {
     }
     if (action === "confirm" || action === "cancel") {
       if (record.mode !== "activity" || record.status !== "draft" || record.creatorId !== interaction.user.id ||
-          !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-        return interaction.editReply("This preview is unavailable or belongs to another staff member.");
+          !await canManageGiveaways(interaction))
+        return interaction.editReply("This preview is unavailable or belongs to another authorized giveaway manager.");
       const updated = await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,status:"draft",creatorId:interaction.user.id},
         {$set:{status:action==="confirm"?"open":"cancelled"}},{returnDocument:"after"}).lean();
       if (!updated) return interaction.editReply("Already handled.");
@@ -429,8 +427,8 @@ export async function handleGiveawayButton(interaction) {
     }
     if (action === "launch") {
       if (record.mode !== "survival") return interaction.editReply("This is not an elimination trial.");
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-        return interaction.editReply("Only staff with Manage Server permission can start a trial.");
+      if (!await canManageGiveaways(interaction))
+        return interaction.editReply(giveawayManagerPermissionMessage);
       // Show actionable errors on the actual button rather than a generic
       // "couldn't update your entry" message intended for regular entrants.
       if (record.status !== "open") {
