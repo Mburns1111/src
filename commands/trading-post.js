@@ -318,7 +318,7 @@ export async function refreshTradingPostCard(guild, ownerId) {
 
   if (!config?.tradingPostChannelId) {
     throw new UserFacingError(
-      "The Trading Post channel is not configured. Ask an admin to run `/setup channels`.",
+      "The Trading Post channel is not configured. Ask an admin to run `/setup general`.",
     );
   }
 
