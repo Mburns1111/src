@@ -41,17 +41,20 @@ export function giveawayDirectoryEntries(giveaways=[],plans=[]){
     const isActivity=record.mode==="activity";
     // For activities, link to the member-facing list when possible. During
     // a draw awaiting approval, staff can use their private record instead.
-    const url=isActivity?
-      link(record.guildId,record.listChannelId,record.listMessageId)||
-      link(record.guildId,record.staffCardChannelId,record.staffCardId)||
-      link(record.guildId,record.channelId,record.messageId):
-      link(record.guildId,record.channelId,record.messageId)||
-      link(record.guildId,record.staffCardChannelId,record.staffCardId);
+    const staffUrl=link(record.guildId,record.staffCardChannelId,record.staffCardId);
+    const publicUrl=isActivity?
+      (link(record.guildId,record.listChannelId,record.listMessageId)||
+        link(record.guildId,record.channelId,record.messageId)):
+      link(record.guildId,record.channelId,record.messageId);
+    // This is a private staff directory: open the staff record first so the
+    // View Entrants and claim controls are one click away. Keep public link.
+    const url=staffUrl||publicUrl;
     const label=record.mode==="survival"?"Court's Trial":isActivity?"Activity":"Regular";
     const end=record.status==="open"?discordTime(record.endsAt):"";
     entries.push({
       key:"giveaway:"+record._id,title:shortTitle(record.title),
-      url,label,status:statusLabels[record.status]||record.status,
+      url,publicUrl:staffUrl&&publicUrl&&publicUrl!==staffUrl?publicUrl:"",
+      label,status:statusLabels[record.status]||record.status,
       detail:end?"Ends "+end:"",
       timestamp:new Date(record.endsAt||0).getTime()||0,
     });
@@ -77,6 +80,7 @@ export function giveawayStaffDirectoryPayload(guildId,entries,{page=0}={}){
   const rows=shown.map((entry,i)=>
     `**${begin+i+1}.** ${entry.url?`[${entry.title}](${entry.url})`:`**${entry.title}**`}`+
     ` · ${entry.label}\n${entry.status}${entry.detail?" · "+entry.detail:""}`+
+    (entry.publicUrl?" · [Public post]("+entry.publicUrl+")":"")+
     (entry.url?"":" · *Link pending*")
   );
   const description=entries.length
