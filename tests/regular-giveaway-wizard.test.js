@@ -217,3 +217,36 @@ test("banner upload is available with empty catalog, saved by caption, and retur
     await h.select("cancel");
   }finally{restore();}
 });
+
+test("custom days changes giveaway duration in review and the published record",async()=>{
+  try{
+    const h=await harness();
+    await h.reachReview();
+    await h.select("edit",["minutes"]);
+    assert.ok(h.controls().some(x=>x.label==="Custom Days"));
+    await h.select("customDays");
+    assert.match(h.prompt().content,/whole number of days/);
+    assert.match(h.prompt().content,/Six calendar months/);
+    await h.type("60");
+    assert.match(h.prompt().content,/Review regular giveaway before posting/);
+    assert.match(h.prompt().content,/60 day\(s\)/);
+    await h.select("post");
+    assert.equal(h.writes.length,1);
+    const ms=new Date(h.writes[0].endsAt).getTime()-Date.now();
+    assert.ok(Math.abs(ms-(60*24*60*60*1000))<60_000,
+      "published giveaway should end approximately 60 full days after posting");
+  }finally{restore();}
+});
+
+test("custom minutes supports a duration greater than 14 days",async()=>{
+  try{
+    const h=await harness();
+    await h.reachReview();
+    await h.select("edit",["minutes"]);
+    await h.select("customMinutes");
+    await h.type("24000");
+    assert.match(h.prompt().content,/Review regular giveaway before posting/);
+    assert.match(h.prompt().content,/24000 minutes/);
+    await h.select("cancel");
+  }finally{restore();}
+});
