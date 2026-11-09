@@ -8,7 +8,7 @@ import {data as giveawayCommand,execute as giveawayExecute} from "../commands/gi
 import {regularGiveawayWizardInteraction,regularGiveawayWizardReply}
   from "../commands/regular-giveaway-wizard.js";
 
-const guildId="123456789012345678",commandsId="234567890123456789",
+const guildId="123456789012345678",
   publicId="345678901234567890",staffId="456789012345678901",
   owner="567890123456789012",pingId="678901234567890123";
 const recordId="507f1f77bcf86cd799439999";
@@ -28,6 +28,9 @@ function restore(){
 }
 let nonce=0;
 async function harness({defaultRole="",storedBanners=[]}={}){
+  // Different invocation channel per test prevents a failed test leaving a
+  // previously open wizard session for later tests.
+  const commandsId=String(230000000000000000n+BigInt(++nonce));
   process.env.ENABLE_MESSAGE_CONTENT_INTENT="1";
   const prompts=[],publicPosts=[],staffPosts=[],writes=[],replies=[];
   const banners=storedBanners.slice();
@@ -105,7 +108,12 @@ async function harness({defaultRole="",storedBanners=[]}={}){
     }),true);
     for(let i=0;i<250&&prompts.length===before;i++)
       await new Promise(resolve=>setImmediate(resolve));
-    assert.ok(prompts.length>before,"input should show the next prompt");
+    assert.ok(prompts.length>before,
+      "input should show the next prompt; last messages: "+
+      prompts.slice(-3).map(m=>m.content?.slice(0,100)).join(" | "));
+    // The channel send is published before the async wizard finally clears
+    // its busy flag. Yield once so the next typed answer is not discarded.
+    await new Promise(resolve=>setImmediate(resolve));
   };
   async function reachReview(){
     await type("TEST R1 — Regular");
