@@ -204,11 +204,14 @@ export async function removeGiveawayPublicPosts(client,record){
    if(unique.has(key))continue;unique.add(key);
    try{
      const channel=await client.channels.fetch(channelId);
-     const msg=await channel?.messages?.fetch(messageId).catch(err=>{
+     if(!channel?.messages?.fetch)throw Error("The public giveaway channel could not be accessed.");
+     const msg=await channel.messages.fetch(messageId).catch(err=>{
        if(err.code===10008)return null;
        throw err;
      });
-     if(msg?.author?.id===client.user?.id)await msg.delete();
+     if(msg&&msg.author?.id!==client.user?.id)
+       throw Error("The public giveaway post belongs to another user or bot.");
+     if(msg)await msg.delete();
    }catch(error){
      console.error("[Giveaways] Couldn't remove public cancelled post:",key,error);
      throw error;
