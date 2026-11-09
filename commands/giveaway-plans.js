@@ -31,7 +31,7 @@ export function addGiveawayPlanCommands(builder) {
    .addIntegerOption(o=>o.setName("messages").setDescription("Total messages required in the selected daily/weekly period").setMinValue(1).setMaxValue(10000))
    .addStringOption(o=>o.setName("banner").setDescription("Optional registered banner name (inherits default otherwise)").setMaxLength(60))
    .addBooleanOption(o=>o.setName("review").setDescription("Require private staff approval before each drawing (default off)"))
-   .addBooleanOption(o=>o.setName("progress").setDescription("Show members a private Check My Progress button (default off)"))
+   .addBooleanOption(o=>o.setName("progress").setDescription("Allow any member to check their own progress privately (default on)"))
    .addBooleanOption(o=>o.setName("announce_empty").setDescription("Announce no winner when no members qualify (default on)"))
    .addStringOption(o=>o.setName("starts_at").setDescription("One-time custom activity start: YYYY-MM-DD HH:mm Eastern"))
    .addStringOption(o=>o.setName("ends_at").setDescription("One-time custom activity cutoff: YYYY-MM-DD HH:mm Eastern")))
@@ -144,7 +144,7 @@ export async function executeGiveawayPlanAdmin(interaction) {
     interaction.options.getString("starts_at"),interaction.options.getString("ends_at"),
     {announceAt:nextRunAt,recurrence:mode});
   const review=interaction.options.getBoolean("review")??false;
-  const progress=interaction.options.getBoolean("progress")??false;
+  const progress=interaction.options.getBoolean("progress")??true;
   if(review)await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayReviewChannelId","private staff review");
   const prize=interaction.options.getString("prize",true).trim();
   const bannerNameKey=await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));

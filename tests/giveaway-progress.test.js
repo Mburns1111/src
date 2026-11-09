@@ -35,6 +35,28 @@ test("opt-in progress button privately counts only the caller's activity for nex
   assert.doesNotMatch(response.content,/<@234567890123456789>/);
  }finally{[GiveawayPlan.findOne,GiveawayActivityCount.aggregate]=saved;}
 });
+test("any member, including one with zero activity, can check private progress",async()=>{
+ const originals=[GiveawayPlan.findOne,GiveawayActivityCount.aggregate];
+ try{
+  GiveawayPlan.findOne=()=>({lean:async()=>({
+   _id:planId,guildId,title:"Weekly Challenge",progressEnabled:true,status:"active",
+   listMessageId,listChannelId,watchNameKey:"general",activityPeriod:"daily",
+   minimumTotalMessages:5,nextRunAt:new Date("2026-11-12T00:30:00Z"),
+  })});
+  GiveawayActivityCount.aggregate=async()=>[];
+  let response,deferred;
+  await handleActivityGiveawayProgress({
+   guildId,channelId:listChannelId,message:{id:listMessageId},
+   customId:`activity-progress:plan:${planId}`,user:{id:userId},
+   // No staff permission, registration, or qualifying messages.
+   deferReply:async options=>{deferred=options;},
+   editReply:async content=>{response=content;},
+  });
+  assert.ok(deferred.flags,"progress reply is private");
+  assert.match(response.content,/0 \/ 5 qualifying messages/);
+  assert.match(response.content,/Not qualified yet/);
+ }finally{[GiveawayPlan.findOne,GiveawayActivityCount.aggregate]=originals;}
+});
 test("disabled progress setting refuses any request, even for a known listed plan",async()=>{
  const old=GiveawayPlan.findOne;
  try {

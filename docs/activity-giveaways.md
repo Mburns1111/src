@@ -50,10 +50,10 @@ The following settings are **per giveaway** and are not forced on all servers.
 - The review request remains recoverable after restarts. The next schedule cycle begins when a reviewed result is finalized.
 - One-off `/giveaway activity ... review:true` supports the same option. Its existing creation confirmation is separate from this optional pre-draw staff review.
 
-### Member-only progress button (opt-in)
+### Member progress button (on by default)
 
-- `/giveaway plan-create ... progress:true`, `plan-edit ... progress:true`, or `/giveaway activity ... progress:true`.
-- The public directory listing shows **Check My Progress** only when enabled. Each member privately sees their own `qualifying messages / target`, relevant active-day threshold, their provisional chances if qualified, and the current activity window. No one else's data is returned.
+- New guided activity giveaways and saved plans turn on **Check My Progress by default**. Staff can turn it off in the guided setup with **Member progress**, or specify `progress:false` in `plan-create` / `plan-edit`. Existing saved giveaways keep their previous setting unless edited.
+- Any server member may click **Check My Progress**, including members who have posted zero messages. No staff role or prior qualification is required. Each person privately sees only their own `qualifying messages / target`, relevant active-day threshold, provisional chances if qualified, and the current activity window. No one else's data is returned.
 - For each saved plan, the progress button checks the **exact activity window associated with its next scheduled drawing**. This may be ongoing, already completed (for a drawing later today), or upcoming. The private reply shows the relevant window boundaries. For custom windows it checks activity from the configured start up through the current time or cutoff.
 
 ### One-time custom activity start and cutoff

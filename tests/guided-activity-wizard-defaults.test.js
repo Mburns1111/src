@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {DEFAULT_CLAIM_HOURS,claimDuration} from "../services/giveaway-claims.js";
 import {guidedActivityRequirements,qualifiesForGuidedActivity} from "../services/guided-activity.js";
-import {activityWizardPrompts,activityWizardInput} from "../commands/activity-wizard.js";
+import {activityWizardPrompts,activityWizardInput,defaultActivityWizardSettings} from "../commands/activity-wizard.js";
 import {activityOneOffListingEmbed} from "../services/giveaway-directory.js";
 
 test("guided activity uses period-wide message totals separate from optional active days",()=>{
@@ -31,6 +31,16 @@ test("guided wizard supports quick choices, banner registration and image-only D
   assert.deepEqual(activityWizardInput({content:"",attachments:{first:()=>image}},"bannerName"),
     {content:"",attachment:image});
   assert.equal(activityWizardInput({content:"  8 ",attachments:{first:()=>image}},"minimum"),"8");
+});
+test("progress defaults on for guided activity and scheduled plans",()=>{
+  const guided=defaultActivityWizardSettings("123456789012345678");
+  assert.equal(guided.progress,true);
+  assert.equal(guided.claimHours,12);
+  const plan=new GiveawayPlan({guildId:"123456789012345678",name:"Progress",
+    nameKey:"progress",title:"Progress",watchNameKey:"general",
+    creatorId:"123456789012345678",channelId:"123456789012345678",
+    nextRunAt:new Date()});
+  assert.equal(plan.progressEnabled,true);
 });
 test("all new giveaway types default to a 12-hour claim window",()=>{
   assert.equal(DEFAULT_CLAIM_HOURS,12);

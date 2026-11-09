@@ -10,6 +10,10 @@ import {shouldRequestMessageContent} from "../services/observation-intents.js";
 import {weekdays,windowEnd,nextOpening,maxActiveDays,repeatText,createGuidedActivity,ensureStaffCard} from "../services/guided-activity.js";
 
 const sessions=new Map();
+export const defaultActivityWizardSettings=creator=>({
+  creator,days:1,approval:false,bonuses:[],progress:true,
+  claimHours:DEFAULT_CLAIM_HOURS,repeat:"once",
+});
 const sessionKey=(channelId,userId)=>channelId+":"+userId;
 const hour=3600000;
 const stamp=date=>'<t:'+Math.floor(+date/1000)+':F>';
@@ -161,7 +165,7 @@ export async function startActivityWizard(i){
   const previous=sessions.get(key);
   if(previous && previous.expires>Date.now())return i.editReply("You already have an activity setup in this channel. Finish or cancel it here.");
   const session={id:new mongoose.Types.ObjectId().toString(),guild:i.guild,owner:i.user.id,key,channel:i.channel,
-    settings:{creator:i.user.id,days:1,approval:false,bonuses:[],progress:false,claimHours:DEFAULT_CLAIM_HOURS,repeat:"once"}};
+    settings:defaultActivityWizardSettings(i.user.id)};
   await show(session,"scope");
   sessions.set(key,session);
   return i.editReply("Your activity setup is open in this channel.");

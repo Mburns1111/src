@@ -11,7 +11,7 @@ const planId="507f1f77bcf86cd799439011";
 const plan={_id:planId,guildId,status:"active",name:"QOTD",title:"QOTD Daily Drawing",
   watchNameKey:"qotd",bannerNameKey:"",
   prizes:["Copy Cat","Diamond Egg"],nextPrizeIndex:0,nextRunAt:new Date("2026-11-11T19:00:00Z"),
-  winnerCount:1,activityPeriod:"daily",repeatMode:"daily",repeatPrizes:true};
+  winnerCount:1,activityPeriod:"daily",repeatMode:"daily",repeatPrizes:true,progressEnabled:true};
 const rule={channelId:"456789012345678901",minimumChars:25,
   minimumTotalMessages:50,minimumMessages:1,activeDays:1,
   requiredMentionUserId:"567890123456789012",requiredPhrase:"you are wonderful"};
@@ -51,6 +51,8 @@ test("active plan publishes a member-facing directory listing to list channel, n
   assert.deepEqual(fetched,[listId]);
   assert.equal(sent.length,1);
   assert.match(sent[0].embeds[0].toJSON().description,/50 qualifying messages total/);
+ assert.equal(sent[0].components[0].components[0].data.label,"Check My Progress");
+ assert.equal(sent[0].components[0].components[0].data.custom_id,`activity-progress:plan:${planId}`);
   assert.equal(updates[0].listChannelId,listId);
   assert.equal(updates[0].listMessageId,"678901234567890123");
  }finally{

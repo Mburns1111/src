@@ -9,6 +9,7 @@ import GiveawayPlan from "../models/GiveawayPlan.js";
 import {addGiveawayPlanCommands,validatePlanSchedule} from "../commands/giveaway-plans.js";
 import {SlashCommandBuilder} from "discord.js";
 import {data as giveawayCommand} from "../commands/giveaway.js";
+import {activityWizardPrompts} from "../commands/activity-wizard.js";
 
 test("Eastern announcement timestamps accept future local times and reject invalid formats",()=>{
  const before=new Date("2026-11-06T05:00:00Z");
@@ -158,5 +159,7 @@ test("watch settings expose total messages for the chosen period, not forced per
  assert.ok(create.options.find(o=>o.name==="messages"));
  assert.ok(edit.options.find(o=>o.name==="messages"));
  const manual=giveawayCommand.toJSON().options.find(o=>o.name==="activity");
- assert.ok(manual.options.find(o=>o.name==="messages"));
+ assert.ok(manual, "guided activity setup is available");
+ assert.match(activityWizardPrompts.minimum[0],/entire activity period/);
+ assert.doesNotMatch(activityWizardPrompts.minimum[0],/per active day/);
 });
