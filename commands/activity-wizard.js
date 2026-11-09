@@ -12,6 +12,7 @@ import {weekdays,windowEnd,nextOpening,maxActiveDays,repeatText,createGuidedActi
 const sessions=new Map();
 export const defaultActivityWizardSettings=creator=>({
   creator,days:1,approval:false,bonuses:[],progress:true,description:"",
+  requiredRoleId:"",requiredRoleInstructions:"",serverRoleInstructions:"",
   claimHours:DEFAULT_CLAIM_HOURS,claimInstructions:"",serverClaimInstructions:"",
   maxAutoRerolls:DEFAULT_MAX_AUTO_REROLLS,notificationRoleIds:[],announceEmptyResults:true,
   repeat:"once",
@@ -33,6 +34,8 @@ export const activityWizardPrompts={
   filters:["Which messages should count?",["Any message","Member ping","Word or phrase","Ping and phrase"].map(x=>choice(x))],
   mention:["Which member must the message explicitly ping? Paste their member mention or Discord user ID."],
   phrase:["Enter the **exact required word or phrase**. Members must use the **correct spelling and word order** for their messages to qualify. **Capital letters do not matter.**"],
+  requiredRoleChoice:["Must members have a role **before their messages can count**?",[choice("No required role","none"),choice("Require a role","choose")]],
+  requiredRolePick:["Paste the required role mention or role ID. Only messages sent **while the member has this role** will be logged."],
   title:["What should the giveaway be called? Reply with the title."],
   prize:["What prize are you giving away? Reply with the prize details."],
   detailsChoice:["Would you like to add your own giveaway description?",[choice("Write giveaway details","write"),choice("Skip description","skip")]],
@@ -69,7 +72,7 @@ export const activityWizardPrompts={
   amount:["How many units between the start of each giveaway? Reply with a positive whole number."],
   summary:["",[choice("Create activity","create"),choice("Edit settings","edit"),choice("Cancel","cancel")]],
   edit:["Which setting would you like to edit?",[
-    ["Watched channel","scope"],["Counting period","period"],["Message goal","minimum"],["Ping or phrase","filters"],
+    ["Watched channel","scope"],["Counting period","period"],["Message goal","minimum"],["Ping or phrase","filters"],["Required role","requiredRoleChoice"],
     ["Title","title"],["Prize","prize"],["Giveaway Details","detailsChoice"],["Winners","winners"],["Draw time","draw"],["Optional settings","extras"],["Repeat schedule","repeat"],
   ]],
 };
@@ -115,6 +118,7 @@ export function describeActivityWizard(session){
     'Counting starts when you click Create activity. Estimated cutoff '+stamp(end),
     s.period==="weekly"?'Weekly boundaries · '+weekdays[s.startDay]+' to '+weekdays[s.endDay]+' at midnight Eastern':null,
     'Requirement · '+s.minimum+' matching message(s) total during the activity period'+(s.days>1?' · at least one matching message on '+s.days+' different days':''),
+    s.requiredRoleId?'Required role · <@&'+s.requiredRoleId+'> · Get it: '+s.requiredRoleInstructions:null,
     s.mention?'Required ping · <@'+s.mention+'>':null,s.phrase?'Required exact phrase · '+s.phrase+' (correct spelling and word order; capitalization does not matter)':null,
     'Winners · '+s.winners+' · Draw '+stamp(s.firstDraw?new Date(s.firstDraw):end),
     'Manual approval '+(s.approval?'on':'off')+' · Member progress '+(s.progress?'on':'off'),
@@ -192,6 +196,7 @@ export async function startActivityWizard(i){
   if(previous && previous.expires>Date.now())return i.editReply("You already have an activity setup in this channel. Finish or cancel it here.");
   const session={id:new mongoose.Types.ObjectId().toString(),guild:i.guild,owner:i.user.id,key,channel:i.channel,
     settings:{...defaultActivityWizardSettings(i.user.id),
+      serverRoleInstructions:config.giveawayRoleInstructions||"",
       claimHours:config.activityClaimWindowHours??DEFAULT_CLAIM_HOURS,
       claimInstructions:config.activityClaimInstructions||"",
       serverClaimInstructions:config.activityClaimInstructions||"",
@@ -234,14 +239,29 @@ async function accept(session,input,client){
     case "length":s.hours=number(v,1,s.period==="Custom days"?365:8760)*(s.period==="Custom days"?24:1);next="minimum";break;
     case "minimum":s.minimum=number(v,1,10000);next=dayStep();break;
     case "days":s.days=number(v,1,maxActiveDays(now,windowEnd(s,now)));next=done("filters");break;
-    case "filters":s.mention="";s.phrase="";s.both=v==="Ping and phrase";next=s.both||v==="Member ping"?"mention":v==="Word or phrase"?"phrase":done("title");break;
+    case "filters":s.mention="";s.phrase="";s.both=v==="Ping and phrase";next=s.both||v==="Member ping"?"mention":v==="Word or phrase"?"phrase":done("requiredRoleChoice");break;
     case "mention":{
       const id=/^(?:<@!?(\d{17,20})>|(\d{17,20}))$/.exec(v);
       const member=id&&await session.guild.members.fetch(id[1]||id[2]).catch(()=>null);
       if(!member||member.user.bot)throw Error("Paste a mention or user ID for a member of this server.");
-      s.mention=member.id;next=s.both?"phrase":done("title");break;
+      s.mention=member.id;next=s.both?"phrase":done("requiredRoleChoice");break;
     }
-    case "phrase":s.phrase=words(v,120);next=done("title");break;
+    case "phrase":s.phrase=words(v,120);next=done("requiredRoleChoice");break;
+    case "requiredRoleChoice":
+      if(v==="none"){s.requiredRoleId="";s.requiredRoleInstructions="";next=done("title");}
+      else if(v==="choose")next="requiredRolePick";
+      else throw Error("Choose No required role or Require a role.");
+      break;
+    case "requiredRolePick":{
+      const match=/^(?:<@&(\d{17,20})>|(\d{17,20}))$/.exec(v);
+      const role=match&&await session.guild.roles.fetch(match[1]||match[2]).catch(()=>null);
+      if(!role||role.id===session.guild.id)throw Error("Paste a valid server role mention or ID.");
+      if(!s.serverRoleInstructions)
+        throw Error("Set the server's Where to get required roles instructions in /setup activity-giveaways before requiring a role.");
+      s.requiredRoleId=role.id;
+      s.requiredRoleInstructions=s.serverRoleInstructions;
+      next=done("title");break;
+    }
     case "title":s.title=words(v,100);next=done("prize");break;
     case "prize":s.prize=words(v,1500);next=done("detailsChoice");break;
     case "detailsChoice":next=v==="write"?"details":done("winners");break;
