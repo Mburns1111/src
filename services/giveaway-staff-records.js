@@ -2,7 +2,7 @@ import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,ModalBuilder,
   TextInputBuilder,TextInputStyle,MessageFlags,PermissionFlagsBits} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
-import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline} from "./giveaway-claims.js";
+import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
 import {completedGiveawayCanDeleteListing} from "./giveaway-listing-lifecycle.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
@@ -30,7 +30,7 @@ function claimStatus(record,slot){
    rerolls
  ].join("\n");
  return [
-   title+" — "+((record.claimResolvedSlots||[]).includes(slot)?"**Forfeited / no replacement**":"**Not claimed**"),
+   title+" — "+((record.claimResolvedSlots||[]).includes(slot)?"**No eligible winner — forfeited / no replacement**":"**Not claimed**"),
    "Claim deadline: "+(deadline?when(deadline)+" (<t:"+unix(deadline)+":R>)":"Not applicable"),
    rerolls
  ].join("\n");
@@ -64,12 +64,17 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
      "**Reason:** "+safe(record.staffCancelReason||"Reason unavailable for older cancellation"));
  }else{
    if(record.status==="open")lines.push("**Entries:** "+(record.entrantIds?.length||0));
+   if(giveawayHasNoEligibleWinner(record))
+     lines.push("","🏁 **Final outcome: No eligible winner.**",
+       (record.winnerIds||[]).length
+         ? "*The claim window expired and no eligible replacement remained.*"
+         : "*No eligible members entered or qualified.*",
+       "*The public result remains visible until staff explicitly use Delete Listing.*");
    if(record.winnerIds?.length){
      lines.push("",record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Court\'s Trial winners — staff-managed prize claims**":"**Current winners and ticket claims**");
      for(let slot=0;slot<record.winnerIds.length;slot++)
        lines.push(record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Place "+(slot+1)+"** · <@"+record.winnerIds[slot]+"> — delivery coordinated by staff":claimStatus(record,slot));
-   }else if(["ended","rerolling"].includes(record.status))
-     lines.push("","**No eligible winners were selected.**");
+   }
    if(record.mode!=="survival"||record.trialTicketClaimsEnabled)
      lines.push("","**Automatic rerolls:** "+(record.autoRerollClaims?"Enabled":"Disabled")+
        " · Maximum "+automaticRerollLimit(record)+" per winning place");
