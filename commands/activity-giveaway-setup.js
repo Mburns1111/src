@@ -430,7 +430,7 @@ export async function handleActivityGiveawaySetupInteraction(interaction){
  await interaction.deferReply({flags:MessageFlags.Ephemeral});
  try{
    const verb=match[2],value=["channel","roles","requiredRole","managerRole","edit","selectSavedBanner"].includes(verb)?interaction.values:null;
-   await apply(session,verb,["channel","selectSavedBanner"].includes(verb)?value?.[0]:value);
+   await apply(session,verb,["channel","selectSavedBanner","edit"].includes(verb)?value?.[0]:value);
    return interaction.editReply("Updated setup step.");
  }catch(error){return interaction.editReply("Couldn't save that choice: "+String(error.message||error));}
 }
