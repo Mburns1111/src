@@ -25,11 +25,12 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.equal(spec.name,"giveaway");
  assert.equal(spec.default_member_permissions, undefined); // Discord permits the role; the bot gates staff actions
  const opts=spec.options;
- assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","list","entrants","plan-create","plan-list","plan-view","plan-edit","prize-add","prize-edit","prize-remove","prize-move","banner-save","banner-list","banner-default","banner-clear","banner-remove"]);
- const start=opts[0].options.map(x=>x.name);
- for(const name of ["title","prize","description","minutes","winners","rules","role","claim_hours","claim_instructions"])
-   assert.ok(start.includes(name));
- assert.ok(!start.includes("channel"), "standard events use the configured channel");
+ assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","list","entrants","banner-save","banner-list","banner-default","banner-clear","banner-remove"]);
+ const start=opts[0];
+ assert.deepEqual(start.options||[],[],"regular giveaway fields belong in the guided channel wizard");
+ assert.match(start.description,/guided setup/i);
+ assert.ok(!opts.some(x=>/^plan-|^prize-(add|edit|remove|move)$/.test(x.name)),
+   "old plan/prize editing subcommands must not clutter /giveaway");
  const speed=trialCommand.toJSON().options.find(option=>option.name==="start").options.map(x=>x.name);
  assert.ok(!speed.includes("channel"), "survival trials use their own configured channel");
  assert.ok(speed.includes("claim_minutes"), "trials accept minute-based claim windows");
@@ -40,8 +41,8 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.ok(Giveaway.schema.path("claimWindowMinutes"));
  assert.ok(Giveaway.schema.path("claimInstructions"));
  assert.ok(Giveaway.schema.path("claimStartedAt"));
- assert.ok(start.includes("claim_hours"), "regular giveaways still use hours");
- assert.ok(!start.includes("claim_minutes"));
+ assert.ok(Giveaway.schema.path("claimWindowHours"),"guided regular giveaways keep hour-based claims");
+ assert.ok(!start.options?.some(x=>x.name==="claim_minutes"));
  assert.equal(GIVEAWAY_MAX_MINUTES,20160);
 });
 
