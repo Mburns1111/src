@@ -4,12 +4,12 @@ Development branch: `feature/permanent-giveaways`. This is a separate, general A
 
 ## Assigned channels (set once per server)
 
-Use `/setup channels giveaways:#giveaways survival_trials:#court-trials` to save **two different** Discord channels:
+Use **`/setup giveaways`** and **`/setup trials`** to select separate public event channels and a shared private staff channel:
 
 - **giveaways**: all standard `/giveaway start` announcements, entry buttons, winner results and rerolls.
 - **survival_trials**: `/trial start` signups, every live elimination post, final winners and rerolls.
 
-Both fields are optional when updating other server settings, but you must configure the corresponding channel before starting that kind of event. Use `/setup channels giveaway_ping:@YourGiveawayRole trial_ping:@YourTrialRole` to assign **two persistent notification roles** (you can use different roles for each). You can set both roles without changing the saved channels. `clear_giveaway_ping:true` or `clear_trial_ping:true` disables only that role notification. The default role is separate from any entry eligibility requirement. The other channel's assignment remains unchanged if you change only one. The bot refuses to assign the same channel to both types. Running an event command in another channel does not change the destination; no per-event channel override is offered. Changing an assignment affects **new events only**; existing giveaways and their history remain in the channels where they were created.
+Both event types need their own public channel before hosting. Each guided setup includes a **notification-role picker** (up to 10 roles, and separate choices for regular giveaways and Trials). Clearing the picker disables those notifications. Previously configured single-role notification settings are still recognized until changed in guided setup. The default role is separate from any entry eligibility requirement. The other channel's assignment remains unchanged if you change only one. The bot refuses to assign the same channel to both types. Running an event command in another channel does not change the destination; no per-event channel override is offered. Changing an assignment affects **new events only**; existing giveaways and their history remain in the channels where they were created.
 
 Give the development bot **View Channel, Send Messages, Embed Links, Attach Files, Read Message History** in each assigned channel. Announcement channels are supported alongside ordinary text channels. Re-register slash commands after pulling this change.
 
@@ -22,7 +22,7 @@ Give the development bot **View Channel, Send Messages, Embed Links, Attach File
 - `/giveaway end id:<giveaway-ID-or-message-link>` — finish now
 - `/giveaway reroll id:<giveaway-ID-or-message-link> winner:<1-based-position>` — replace one winner
 
-**Notifications:** The bot pings **only** the saved role for the event type, **once** in the original signup/announcement message. Results, rerolls, button clicks and each individual elimination do not ping the role again. For a real ping, the role must be mentionable or the bot must have **Mention @everyone, @here, and All Roles** permission; otherwise Discord can show the tag without sending notifications. Never use `@everyone` or `@here` as event roles. Staff must have Manage Server. The bot needs permission to View Channel, Send Messages, Embed Links, Read Message History, and edit its own announcements. Entrants need no commands or special permissions, unless a required role is configured.
+**Notifications:** The bot pings **only** the selected role(s) for the event type, **once** in the original signup/announcement message. Results, rerolls, button clicks and each individual elimination do not ping the role again. For a real ping, the role must be mentionable or the bot must have **Mention @everyone, @here, and All Roles** permission; otherwise Discord can show the tag without sending notifications. Never use `@everyone` or `@here` as event roles. Staff must have **Manage Server** or the configured **Giveaway Manager** role for giveaway commands and staff controls. The bot needs permission to View Channel, Send Messages, Embed Links, Read Message History, and edit its own announcements. Entrants need no commands or special permissions, unless a required role is configured.
 
 ## Claim windows, tickets and time conversion
 
@@ -32,7 +32,7 @@ For any event with winners, its finished results also instruct members to **open
 
 ## Expected behavior
 
-First assign the two channels with `/setup channels`. Run `/giveaway start` from a **different** command channel and verify the post appears in the saved standard-giveaway channel, not the command channel. Then run `/trial start` and verify the signup and elimination messages go to the separate trial channel. Confirm an unset channel produces a clear setup error rather than posting elsewhere.
+First configure the public and private staff channels through `/setup giveaways` and `/setup trials`. Run `/giveaway start` from the commands channel or private giveaway staff channel and verify the post appears in the saved standard-giveaway channel, not the command channel. Then run `/trial start` and verify the signup and elimination messages go to the separate trial channel. Confirm an unset channel produces a clear setup error rather than posting elsewhere.
 
 1. Start a giveaway in the assigned regular-giveaway channel. The bot posts one announcement with title, prize, rules, host, ending time and an **Enter**, **Leave**, **Entry Count** control. If a regular-giveaway ping role is configured, only that role is mentioned in the **initial** message.
 2. Try entering twice. Both attempts must produce a private response, but only one entry must be saved. Joining costs no Points.
