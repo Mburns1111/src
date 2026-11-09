@@ -13,7 +13,7 @@ import {registeredSetupBanners,bannerCatalogText,setupBannerOptions,registerSetu
   from "../services/giveaway-banner-setup.js";
 import {ensureBannerRegistered,getGiveawayBanner,attachGiveawayBanner}
   from "../services/giveaway-banners.js";
-import {giveawayAnnouncement,GIVEAWAY_MAX_MINUTES} from "../services/giveaways.js";
+import {giveawayAnnouncement,maxRegularGiveawayMinutes} from "../services/giveaways.js";
 import {createRegularGiveaway} from "../services/regular-giveaway-creation.js";
 import {DEFAULT_CLAIM_HOURS} from "../services/giveaway-claims.js";
 
@@ -34,13 +34,14 @@ const parents={descriptionText:"description",minutesText:"minutes",daysText:"min
 const textSteps=new Set(["title","prize","descriptionText","minutesText","daysText","winnerText",
   "rulesText","claimHoursText","claimText","bannerText","bannerUpload"]);
 const key=(guildId,channelId,userId)=>guildId+":"+channelId+":"+userId;
-// The existing giveaway record stores minutes, so day selections must still
-// resolve to whole minutes and never exceed the 14-day maximum.
-export const REGULAR_GIVEAWAY_MAX_DAYS=GIVEAWAY_MAX_MINUTES/(24*60);
-export function regularGiveawayDaysToMinutes(value){
+// Both custom minutes and custom days respect the actual six-calendar-month
+// cutoff for the day the giveaway is created (not a fixed 180-day estimate).
+export function regularGiveawayDaysToMinutes(value,start=new Date()){
+  const maximum=Math.floor(maxRegularGiveawayMinutes(start)/(24*60));
   if(!/^\d+$/.test(String(value))||!Number.isSafeInteger(Number(value))||
-      Number(value)<1||Number(value)>REGULAR_GIVEAWAY_MAX_DAYS)
-    throw Error("Duration must be a whole number of days from 1 to "+REGULAR_GIVEAWAY_MAX_DAYS+".");
+      Number(value)<1||Number(value)>maximum)
+    throw Error("Duration must be a whole number of days from 1 to "+maximum+
+      " (no more than six calendar months).");
   return Number(value)*24*60;
 }
 export function regularGiveawayDurationLabel(minutes){
@@ -113,8 +114,11 @@ function layout(session,banners=[]){
       ["15 min","minutes:15"],["1 hour","minutes:60"],["1 day","minutes:1440"]]));
     components.push(buttons(session,[["Custom Minutes","customMinutes"],["Custom Days","customDays"],["Keep Current","keep"]]));
   }
-  if(step==="minutesText")content="Type a whole number from 1 to "+GIVEAWAY_MAX_MINUTES+" minutes.";
-  if(step==="daysText")content="Type a whole number of days from 1 to "+REGULAR_GIVEAWAY_MAX_DAYS+". The giveaway will stay open for that many full 24-hour periods.";
+  if(step==="minutesText")content="Type a whole number from 1 to "+
+    maxRegularGiveawayMinutes()+" minutes (up to six calendar months).";
+  if(step==="daysText")content="Type a whole number of days from 1 to "+
+    Math.floor(maxRegularGiveawayMinutes()/(24*60))+
+    ". Six calendar months is the maximum; the exact number of days depends on the start date.";
   if(step==="winners"){
     content="How many winners should be drawn?\nCurrent: "+s.winners;
     components.push(buttons(session,[["1 winner","winners:1"],["2 winners","winners:2"],
@@ -316,12 +320,12 @@ async function apply(session,action,value,client){
     if(action==="customMinutes")return show(session,"minutesText");
     if(action==="customDays")return show(session,"daysText");
     if(action.startsWith("minutes:")){
-      s.minutes=int(action.slice(8),1,GIVEAWAY_MAX_MINUTES,"Duration");
+      s.minutes=int(action.slice(8),1,maxRegularGiveawayMinutes(),"Duration");
       return finishStep(session);
     }
   }
   if(step==="minutesText"&&action==="text"){
-    s.minutes=int(value,1,GIVEAWAY_MAX_MINUTES,"Duration");return finishStep(session);
+    s.minutes=int(value,1,maxRegularGiveawayMinutes(),"Duration");return finishStep(session);
   }
   if(step==="daysText"&&action==="text"){
     s.minutes=regularGiveawayDaysToMinutes(value);return finishStep(session);
