@@ -22,118 +22,8 @@ import { ensureShopEntry } from "./shop.js";
 
 export const data = new SlashCommandBuilder()
   .setName("setup")
-  .setDescription("Configure the server's command and showcase channels")
+  .setDescription("Guided setup for server channels, giveaways, Trials and cards")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-  .addSubcommand((command) =>
-    command
-      .setName("channels")
-      .setDescription("Legacy direct channel edit (use /setup general or per-feature setup)")
-      .addChannelOption((option) =>
-        option
-          .setName("commands")
-          .setDescription("Channel where members can use bot slash commands")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("house_listings")
-          .setDescription("Channel for house ads")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("outfit_listings")
-          .setDescription("Channel for outfit listings")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("inventory_showcase")
-          .setDescription("Channel for member inventory albums and video links")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("profiles")
-          .setDescription("Channel where member profile cards are kept")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("trade_voting")
-          .setDescription("Dedicated channel for trade posts and votes")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("trading_post")
-          .setDescription("Channel for permanent member Trading Post cards")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("hatchem")
-          .setDescription("Hatchem collectible-card game channel")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("party_games")
-          .setDescription("Dedicated channel for staff-hosted Party Games")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("shop")
-          .setDescription("Channel for the permanent shop catalog")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("giveaways")
-          .setDescription("Permanent channel for standard giveaways and winners")
-          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("activity_giveaway_list")
-          .setDescription("Public directory of currently scheduled activity giveaways")
-          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("activity_winners")
-          .setDescription("Separate channel for automatic activity giveaway winner results")
-          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-      )
-      .addChannelOption((option) =>
-        option.setName("activity_review")
-          .setDescription("Private staff channel for activity progress previews and manual drawing approval")
-          .addChannelTypes(ChannelType.GuildText),
-      )
-      .addChannelOption((option) =>
-        option
-          .setName("survival_trials")
-          .setDescription("Separate channel for Court's Trial signups and eliminations")
-          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-      )
-      .addRoleOption((option) =>
-        option.setName("giveaway_ping")
-          .setDescription("Role to notify when a regular giveaway is first posted"),
-      )
-      .addRoleOption((option) =>
-        option.setName("trial_ping")
-          .setDescription("Role to notify when a Court's Trial signup is first posted"),
-      )
-      .addBooleanOption((option) =>
-        option.setName("clear_giveaway_ping")
-          .setDescription("Disable the regular giveaway notification role"),
-      )
-      .addBooleanOption((option) =>
-        option.setName("clear_trial_ping")
-          .setDescription("Disable the Court's Trial notification role"),
-      ),
-  )
   .addSubcommand(command=>command.setName("activity-giveaways")
     .setDescription("Guided setup for activity giveaway channels, claim instructions and defaults"))
   .addSubcommand(command=>command.setName("giveaways")
@@ -157,6 +47,11 @@ export async function execute(interaction) {
     return startActivityGiveawaySetup(interaction);
   if(interaction.options.getSubcommand?.()==="trials")
     return startTrialGiveawaySetup(interaction);
+  // Compatibility for already-queued legacy slash interactions during
+  // deployment. /setup channels is no longer registered or advertised;
+  // previously saved channel IDs remain valid and untouched.
+  if(interaction.options.getSubcommand?.()!=="channels")
+    throw new UserFacingError("Use a guided setup option: /setup general, /setup giveaways, /setup activity-giveaways, /setup trials, or /setup cards.");
   const commandsChannel = interaction.options.getChannel("commands");
   const houseListings = interaction.options.getChannel("house_listings");
   const outfitListings = interaction.options.getChannel("outfit_listings");
@@ -251,7 +146,10 @@ export async function execute(interaction) {
   if (activityWinnersChannel) updates.activityGiveawayWinnersChannelId = activityWinnersChannel.id;
   if (activityReviewChannel) updates.activityGiveawayReviewChannelId = activityReviewChannel.id;
   if (survivalTrialChannel) updates.survivalTrialChannelId = survivalTrialChannel.id;
-  if (giveawayPingRole || clearGiveawayPing) updates.giveawayPingRoleId = clearGiveawayPing ? "" : giveawayPingRole.id;
+  if (giveawayPingRole || clearGiveawayPing) {
+    updates.giveawayPingRoleId = clearGiveawayPing ? "" : giveawayPingRole.id;
+    updates.giveawayNotificationRoleIds = clearGiveawayPing ? [] : [giveawayPingRole.id];
+  }
   if (trialPingRole || clearTrialPing) updates.survivalTrialPingRoleId = clearTrialPing ? "" : trialPingRole.id;
 
   // Ensure the shop before updating channel settings so its existing message IDs
