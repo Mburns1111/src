@@ -90,15 +90,17 @@ test("regular and activity setup display the actual default claim message when n
   assert.equal(currentGiveawayClaimInstructions(claimSettings),claimSettings.activityClaimInstructions);
   assert.equal(currentGiveawayClaimInstructions({...claimSettings,activityClaimInstructions:"  Custom ticket steps  "}),"Custom ticket steps");
 });
-test("every guided activity can override server claim settings and role notification options",()=>{
+test("guided activity can override claim settings but shares one server-wide giveaway ping role",()=>{
  const defaults=defaultActivityWizardSettings("host");
  assert.equal(defaults.maxAutoRerolls,2);
  assert.equal(defaults.announceEmptyResults,true);
  assert.deepEqual(defaults.notificationRoleIds,[]);
- for(const key of ["claimChoice","claimText","claimPreview","rerollsChoice","notifyRoles","emptyResults"])
+ assert.equal(activityWizardPrompts.notifyRoles,undefined);
+ assert.ok(!GUIDED_EDIT_FIELDS.some(field=>field.value==="notificationRoleIds"),"staff edits cannot override shared ping role");
+ for(const key of ["claimChoice","claimText","claimPreview","rerollsChoice","emptyResults"])
    assert.ok(activityWizardPrompts[key],key);
  const fields=GUIDED_EDIT_FIELDS.map(x=>x.value);
- for(const name of ["claimWindowHours","claimInstructions","maxAutoRerolls","notificationRoleIds","announceEmptyResults"])
+ for(const name of ["claimWindowHours","claimInstructions","maxAutoRerolls","announceEmptyResults"])
    assert.ok(fields.includes(name),name);
  const event={activityStartAt:new Date("2026-11-08T00:00:00Z"),activityEndAt:new Date("2026-11-11T00:00:00Z")};
  assert.deepEqual(validateGuidedStaffEdit("maxAutoRerolls","2",event),{maxAutoRerolls:2});
