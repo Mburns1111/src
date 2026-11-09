@@ -331,15 +331,15 @@ export async function handleGiveawayStaffAction(interaction){
      return interaction.reply({content:"Use the current staff record for this giveaway.",...ephemeral});
    if(action==="entrants"){
      const page=Number(pageText);
-     const firstPage=page===0;
-     // First click must originate on the current private staff record. Later
-     // clicks must be on this bot's ephemeral page controls.
-     if(firstPage && record.staffCardId!==interaction.message?.id)
-       return interaction.reply({content:"Use the current staff record for this giveaway.",...ephemeral});
-     if(!firstPage && interaction.message?.author?.id!==interaction.client.user?.id)
-       return interaction.reply({content:"Use the staff-only entrant buttons.",...ephemeral});
+     const fromStaffRecord=record.staffCardId===interaction.message?.id;
+     const fromEphemeral=interaction.message?.flags?.has?.(MessageFlags.Ephemeral)===true &&
+       interaction.message?.author?.id===interaction.client?.user?.id;
+     if(!fromStaffRecord&&!fromEphemeral)
+       return interaction.reply({content:"Use the current staff record or its private entrant pages.",...ephemeral});
+     if(fromStaffRecord&&page!==0)
+       return interaction.reply({content:"Open the entrant list from its first page.",...ephemeral});
      const payload=giveawayStaffEntrantsPage(record,page);
-     return firstPage?interaction.reply({...payload,...ephemeral}):
+     return fromStaffRecord?interaction.reply({...payload,...ephemeral}):
        interaction.update(payload);
    }
    if(action==="cancel"){
