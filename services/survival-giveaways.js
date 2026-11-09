@@ -4,7 +4,7 @@ import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "./survival-event-texts.js";
 import { HARVEST_SOLO_TRIAL_EVENTS, HARVEST_DUEL_TRIAL_EVENTS } from "./survival-harvest-event-texts.js";
 import { buildTrialEventPortrait } from "./trial-event-portraits.js";
-import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, hasOutstandingTicketClaims } from "./giveaway-claims.js";
+import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, hasOutstandingTicketClaims,giveawayHasNoEligibleWinner } from "./giveaway-claims.js";
 import { attachGiveawayBanner, getGiveawayBanner } from "./giveaway-banners.js";
 
 export const MAX_TRIAL_ENTRANTS = 120;
@@ -228,7 +228,9 @@ export async function getTrialChampionRecord(guildId, championId) {
 export function survivalFinalePayload(record, championRecord = null) {
   const championId = record.originalChampionId || record.winnerIds?.[0];
   const ranked = (record.winnerIds || []).slice(0, 10)
-    .map((id, index) => (index + 1) + ". <@" + id + ">");
+    .map((id, index) => (record.claimResolvedSlots||[]).includes(index)
+      ? (index+1)+". **No eligible winner** — <@"+id+"> forfeited; no replacement available"
+      : (index+1)+". <@"+id+">");
   const changes = (record.rerollHistory || []).slice(-8)
     .map(item => "#" + (item.slot + 1) + " · <@" + item.previousId + "> → <@" + item.replacementId + ">");
   const lines = [
@@ -247,6 +249,13 @@ export function survivalFinalePayload(record, championRecord = null) {
     "",
     "**Royal Prize:**",
     record.prize.slice(0, 1300),
+    ...(giveawayHasNoEligibleWinner(record)?[
+      "", "🏁 **Prize outcome: No eligible winner.**",
+      (record.winnerIds||[]).length
+        ? "*The claim deadline passed and no eligible replacement was available.*"
+        : "*No eligible prize winner was selected.*",
+      "*This verdict remains visible until staff explicitly remove the listing.*",
+    ]:[]),
     ...(record.description?["", "**Giveaway Details:**", String(record.description).slice(0,1000)]:[]),
     ...(prizeClaimLines(record, { finished: true }).length
       ? ["", ...prizeClaimLines(record, { finished: true })]
@@ -255,7 +264,7 @@ export function survivalFinalePayload(record, championRecord = null) {
       ...(record.winnerIds || []).map((id, slot) => {
         if (winnerHasClaim(record, slot)) return "#" + (slot + 1) + " <@" + id + "> — **Claim submitted**";
         if ((record.claimResolvedSlots || []).includes(slot))
-          return "#" + (slot + 1) + " <@" + id + "> — **Unclaimed / forfeited**";
+          return "#" + (slot + 1) + " <@" + id + "> — **No eligible winner** (claim forfeited; no replacement)";
         const deadline = winnerClaimDeadline(record, slot);
         return "#" + (slot + 1) + " <@" + id + "> — **Awaiting ticket info**" +
           (deadline ? " · Due <t:" + Math.floor(deadline.getTime() / 1000) + ":R>" : "");
