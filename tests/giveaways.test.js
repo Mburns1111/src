@@ -23,7 +23,7 @@ const restore=records=>{for(const [model,key,fn] of records.reverse())model[key]
 test("giveaway commands have staff gate and flexible prize, role, channel, and reroll controls",()=>{
  const spec=giveawayCommand.toJSON();
  assert.equal(spec.name,"giveaway");
- assert.equal(spec.default_member_permissions, String(32)); // ManageGuild
+ assert.equal(spec.default_member_permissions, undefined); // Discord permits the role; the bot gates staff actions
  const opts=spec.options;
  assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","list","entrants","plan-create","plan-list","plan-view","plan-edit","prize-add","prize-edit","prize-remove","prize-move","banner-save","banner-list","banner-default","banner-clear","banner-remove"]);
  const start=opts[0].options.map(x=>x.name);
