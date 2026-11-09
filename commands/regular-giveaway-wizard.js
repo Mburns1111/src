@@ -159,10 +159,6 @@ function layout(session,banners=[]){
   }
   if(step==="roleHelpText")
     content="Type your custom instructions for obtaining the required entry role (1–500 characters). Include a channel mention or link if helpful.";
-  if(step==="roleHelpText"&&action==="text"){
-    s.roleInstructions=entered(value,1,500,"Role instructions");
-    return finishStep(session);
-  }
   if(step==="rules"){
     content="Optional rules or entry requirements displayed on the giveaway. They are informational; staff must verify external requirements.\n"+
       "Current: "+(s.rules?safe(s.rules).slice(0,220):"None");
@@ -379,6 +375,10 @@ async function apply(session,action,value,client){
       }else s.showRequiredRoleInstructions=action==="roleHelpShow";
       return finishStep(session);
     }
+  }
+  if(step==="roleHelpText"&&action==="text"){
+    s.roleInstructions=entered(value,1,500,"Role instructions");
+    return finishStep(session);
   }
   if(step==="rules"){
     if(action==="writeRules")return show(session,"rulesText");
