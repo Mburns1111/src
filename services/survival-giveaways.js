@@ -4,7 +4,7 @@ import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "./survival-event-texts.js";
 import { HARVEST_SOLO_TRIAL_EVENTS, HARVEST_DUEL_TRIAL_EVENTS } from "./survival-harvest-event-texts.js";
 import { buildTrialEventPortrait } from "./trial-event-portraits.js";
-import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt } from "./giveaway-claims.js";
+import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, hasOutstandingTicketClaims } from "./giveaway-claims.js";
 import { attachGiveawayBanner, getGiveawayBanner } from "./giveaway-banners.js";
 
 export const MAX_TRIAL_ENTRANTS = 120;
@@ -277,7 +277,7 @@ export function survivalFinalePayload(record, championRecord = null) {
     .setTitle("👑 TRIAL COMPLETE · " + String(record.title).slice(0, 160))
     .setDescription(lines.join("\n").slice(0, 4000))
     .setFooter({ text: "♛ Trial " + record._id + " · Finale" });
-  const components = record.trialTicketClaimsEnabled && (record.winnerIds || []).length
+  const components = record.trialTicketClaimsEnabled && hasOutstandingTicketClaims(record)
     ? [new ActionRowBuilder().addComponents(new ButtonBuilder()
         .setCustomId("giveaway:claim:" + record._id)
         .setLabel("Enter Ticket Claim info").setStyle(ButtonStyle.Primary))]
