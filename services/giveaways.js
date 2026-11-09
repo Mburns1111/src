@@ -130,8 +130,9 @@ export async function refreshActiveStandardGiveawayBanners(client,guildId) {
 }
 export async function giveawayAnnouncementWithBanner(record) {
   const announcement=giveawayAnnouncement(record);
-  if(record.mode==="survival")return announcement;
-  const banner=await getGiveawayBanner(record.guildId,record.bannerNameKey);
+  // Trial art is independent from the regular giveaway default banner.
+  const banner=record.mode==="survival" && !record.bannerNameKey ? null :
+    await getGiveawayBanner(record.guildId,record.bannerNameKey);
   return attachGiveawayBanner(announcement,banner);
 }
 

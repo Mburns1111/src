@@ -41,7 +41,7 @@ export function automaticRerollsUsed(record,slot) {
   return (record.rerollHistory||[]).filter(r=>r.slot===slot && r.reason==="claim-expired").length;
 }
 export function nextClaimCheckAt(record) {
-  if (!record.autoRerollClaims || record.mode === "survival" || record.status !== "ended") return null;
+  if (!record.autoRerollClaims || record.status !== "ended") return null;
   const deadlines=(record.winnerIds || []).map((_,slot)=>({
     slot,deadline:winnerClaimDeadline(record,slot),
   })).filter(({slot,deadline})=>deadline && !winnerHasClaim(record,slot) && !(record.claimResolvedSlots||[]).includes(slot));
@@ -77,7 +77,7 @@ export function prizeClaimLines(record,{finished=false}={}){
   }
   if(!(record.winnerIds||[]).length)return lines;
   lines.push("**How to claim:** "+instructions);
-  if(record.mode!=="survival"){
+  if(record.mode!=="survival" || record.trialTicketClaimsEnabled){
     lines.push("**Submit your claim:** Press **Enter Ticket Claim info** and provide your **ticket number** and the **Discord message link** from your ticket. Creating a support ticket alone does not register your claim with the bot.");
     lines.push("⚠️ **IMPORTANT — CLAIM BEFORE THE DEADLINE OR FORFEIT YOUR WIN.** If your ticket number and message link are not entered into the bot before the claim window closes, your winning place is forfeited."+
       (record.autoRerollClaims?" The bot can choose another eligible winner (up to "+automaticRerollLimit(record)+" automatic rerolls per place).":""));

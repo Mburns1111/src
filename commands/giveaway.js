@@ -257,6 +257,7 @@ export async function execute(interaction) {
           ? (interaction.options.getInteger("claim_minutes") ?? config?.trialClaimWindowMinutes ?? 720) : null,
         autoRerollClaims: survival
           ? interaction.options.getBoolean("disable_auto_rerolls") !== true : true,
+        trialTicketClaimsEnabled: survival,
         maxAutoRerolls: survival
           ? (interaction.options.getInteger("rerolls") ?? config?.trialMaxAutoRerolls ?? 2)
           : (config?.activityMaxAutoRerolls ?? 2),
@@ -401,7 +402,8 @@ export async function handleGiveawayButton(interaction) {
         ? interaction.reply({content:"This giveaway announcement could not be verified.",flags:MessageFlags.Ephemeral})
         : interaction.editReply("This giveaway announcement could not be verified.");
     if (action === "claim") {
-      if (record.status!=="ended" || !(record.winnerIds || []).includes(interaction.user.id))
+      if (record.status!=="ended" || (record.mode === "survival" && !record.trialTicketClaimsEnabled) ||
+          !(record.winnerIds || []).includes(interaction.user.id))
         return interaction.reply({content:"Only current winners can file ticket claims after the drawing.",flags:MessageFlags.Ephemeral});
       const slot=record.winnerIds.indexOf(interaction.user.id);
       if (winnerHasClaim(record,slot))

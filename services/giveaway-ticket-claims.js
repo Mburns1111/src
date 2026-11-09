@@ -20,7 +20,8 @@ export function validateTicketClaim(number, link) {
 }
 
 export async function submitGiveawayTicket({id,guildId,userId,ticketNumber,ticketUrl,now=new Date()}) {
-  const record=await Giveaway.findOne({_id:id,guildId,status:"ended",mode:{$ne:"survival"}}).lean();
+  const record=await Giveaway.findOne({_id:id,guildId,status:"ended",
+    $or:[{mode:{$ne:"survival"}},{mode:"survival",trialTicketClaimsEnabled:true}]}).lean();
   if (!record) throw Error("This giveaway is not accepting ticket claims.");
   const slot=record.winnerIds.indexOf(userId);
   if (slot<0) throw Error("Only a current winner may file a ticket claim.");

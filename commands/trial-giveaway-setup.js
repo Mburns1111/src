@@ -66,7 +66,8 @@ export function trialSetupPreview(settings, { userId = "123456789012345678", ban
     claimStartedAt: now, winnerAssignedAt: [now], gameEndedAt: now,
     claimWindowMinutes: settings.trialClaimWindowMinutes,
     claimInstructions: settings.trialClaimInstructions,
-    autoRerollClaims: true, maxAutoRerolls: settings.trialMaxAutoRerolls,
+    autoRerollClaims: true, trialTicketClaimsEnabled: true,
+    maxAutoRerolls: settings.trialMaxAutoRerolls,
   };
   const payload = survivalFinalePayload(record, { entered: 1, won: 1 });
   payload.content = "👁️ **Royal Verdict Preview** — No Trial has been created.";

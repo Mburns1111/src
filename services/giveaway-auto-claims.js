@@ -6,7 +6,7 @@ import { winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, automaticRerollL
 // Older records with informational claim windows are never retroactively rerolled.
 export async function reconcileGiveawayClaims(client, {now=new Date(),limit=30}={}) {
   const records=await Giveaway.find({
-    status:"ended",mode:{$in:["standard","activity"]},
+    status:"ended",mode:{$in:["standard","activity","survival"]},
     autoRerollClaims:true,claimCheckAt:{$lte:now,$ne:null},
   }).sort({claimCheckAt:1}).limit(limit).lean();
   for (const candidate of records) {

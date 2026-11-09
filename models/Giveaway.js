@@ -40,6 +40,8 @@ const giveawaySchema = new mongoose.Schema({
   winnerAssignedAt: { type: [Date], default: [] },
   claimResolvedSlots: { type: [Number], default: [] },
   autoRerollClaims: { type: Boolean, default: false },
+  // Old Court\'s Trials keep their staff-managed claims; new ones use tickets.
+  trialTicketClaimsEnabled: { type: Boolean, default: false },
   claimCheckAt: { type: Date, default: null },
   requiredRoleId: { type: String, default: "" },
   requiredRoleInstructions:{type:String,default:"",maxlength:500},
