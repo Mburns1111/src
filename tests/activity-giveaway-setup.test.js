@@ -38,7 +38,7 @@ test("separate activity setup exposes channels, editable summary and preview",()
  assert.match(description,/Open #tickets/);
  assert.match(description,/456789012345678901/);
  assert.match(description,/Apply new claim instructions/);
- assert.match(description,/Future giveaways/);
+ assert.match(description,/existing giveaways/);
  const preview=claimAnnouncementPreview(claimSettings);
  assert.match(preview,/Enter Ticket Claim info/);
  assert.match(preview,/ticket number/);
@@ -81,8 +81,9 @@ test("ticket number and exact Discord ticket message link are preserved",()=>{
    entrantIds:[winner],winnerClaims:[{slot:0,userId:winner,...clean}],
  };
  const post=giveawayAnnouncement(giveaway);
- assert.match(post.embeds[0].toJSON().fields[0].value,/https:\/\/discord\.com\/channels\//);
- assert.ok(post.embeds[0].toJSON().fields[0].value.includes(ticketLink),"no link truncation");
+ const fields=post.embeds[0].toJSON().fields;
+ assert.ok(fields.some(f=>f.value.includes(ticketLink)),"the full ticket link is never truncated");
+ assert.ok(fields.some(f=>/FORFEIT YOUR WIN/.test(f.value)),"mandatory warning stays visible in a field");
  assert.match(post.embeds[0].toJSON().description,/Claim submitted/);
  assert.equal(post.components[0].components[0].data.label,"Enter Ticket Claim info");
 });
