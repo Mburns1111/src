@@ -8,7 +8,7 @@ import GiveawayBanner, {bannerNameKey} from "../models/GiveawayBanner.js";
 import {GuidedActivitySeries} from "../services/guided-activity.js";
 import {ensureBannerRegistered,attachGiveawayBanner} from "../services/giveaway-banners.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
-import {regularGiveawayNotificationRoleIds,regularGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
+import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaway-claims.js";
 
 const sessions=new Map();
@@ -21,20 +21,20 @@ const stepName={list:"Public giveaway listings",winners:"Winner announcements",s
   regularChannel:"Regular giveaway posts",managerRole:"Giveaway Manager role",
   requiredRole:"Default required role",roleHelp:"Where to get required roles",
   roleHelpVisible:"Show role instructions",instructions:"Claim instructions",hours:"Claim deadline",rerolls:"Automatic rerolls",
-  roles:"Notification roles",empty:"No eligible winners",banner:"Default banner"};
+  roles:"Shared giveaway ping role",empty:"No eligible winners",banner:"Default banner"};
 const button=(id,label,value,style=ButtonStyle.Secondary)=>new ButtonBuilder()
   .setCustomId("actconfig:"+id+":"+value).setLabel(label).setStyle(style);
 const row=(id,items)=>new ActionRowBuilder().addComponents(items.map(([label,value,style])=>button(id,label,value,style)));
 const shown=id=>id?"<#"+id+">":"Not set";
 const progress=session=>session.editing?"Editing "+stepName[session.step]:"Step "+(stepsFor(session).indexOf(session.step)+1)+" of "+stepsFor(session).length;
 const mainSetting=session=>session.settings;
-const notificationField=session=>session.mode==="regular"?"giveawayNotificationRoleIds":"activityNotificationRoleIds";
-// The regular and activity guides edit different notification defaults.
-export const giveawaySetupNotificationRoleIds=(settings,mode="activity")=>
-  mode==="regular"?regularGiveawayNotificationRoleIds(settings):(settings?.activityNotificationRoleIds||[]);
-export const giveawaySetupNotificationFields=(settings,mode="activity")=>
-  mode==="regular"?regularGiveawayNotificationFields(regularGiveawayNotificationRoleIds(settings)):
-    {activityNotificationRoleIds:settings?.activityNotificationRoleIds||[]};
+// Both guided giveaway setups configure the same single announcement role.
+export const giveawaySetupNotificationRoleIds=(settings,_mode="activity")=>{
+  const role=sharedGiveawayPingRoleId(settings);
+  return role?[role]:[];
+};
+export const giveawaySetupNotificationFields=(settings,_mode="activity")=>
+  sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(settings));
 
 export function currentGiveawayClaimInstructions(settings){
   return String(settings?.activityClaimInstructions||"").trim().slice(0,1000)
@@ -55,8 +55,7 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   ...(settings.activityClaimInstructions?[settings.activityClaimInstructions.slice(0,400)]:[DEFAULT_CLAIM_INSTRUCTIONS]),
   "⏰ **Default claim window:** "+settings.activityClaimWindowHours+" hours",
   "🔁 **Automatic rerolls:** "+settings.activityMaxAutoRerolls+" per winning place",
-  "🔔 **Notification roles:** "+(giveawaySetupNotificationRoleIds(settings,mode).length
-    ?giveawaySetupNotificationRoleIds(settings,mode).map(id=>"<@&"+id+">").join(", "):"None"),
+  "🔔 **Shared giveaway ping role (all giveaways and Trials):** "+(sharedGiveawayPingRoleId(settings)?"<@&"+sharedGiveawayPingRoleId(settings)+">":"None"),
   "🥀 **No eligible members:** "+(settings.activityAnnounceEmptyResults?"Announce no winners":"Don't post an empty result"),
   "🖼️ **Default banner:** "+(settings.giveawayDefaultBannerNameKey||"None"),
   "",
@@ -161,13 +160,12 @@ function layout(session) {
    components.push(row(session.id,[0,1,2,3,5].map(x=>[String(x)+" reroll"+(x===1?"":"s"),"reroll"+x])));
    components.push(row(session.id,[["10 rerolls","reroll10"],["Keep Current","keep"]]));
  }else if(step==="roles"){
-   const ids=giveawaySetupNotificationRoleIds(s,session.mode);
-   content="Optional: select **up to 10 notification roles**. Each role is mentioned **once** when a new "+(session.mode==="regular"?"regular":"activity")+" giveaway is posted, never on later edits.\n"+
-     "Selected: "+(ids.length?ids.map(id=>"<@&"+id+">").join(", "):"None")+
-     "\nThe bot needs permission to mention roles that aren't otherwise mentionable.";
+   content="Choose **one shared notification role** to ping when any regular giveaway, activity giveaway, or Court's Trial is first announced. It is not the Giveaway Manager role or an entry requirement.\n"+
+     "Current: "+(sharedGiveawayPingRoleId(s)?"<@&"+sharedGiveawayPingRoleId(s)+">":"None")+
+     "\nThis role will not be pinged on routine edits, rerolls, or winner updates.";
    components.push(new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
-     .setCustomId(bind(session,"roles")).setPlaceholder("Choose notification roles").setMinValues(1).setMaxValues(10)));
-   components.push(row(session.id,[["No notification roles","none"],["Keep Current","keep"]]));
+     .setCustomId(bind(session,"roles")).setPlaceholder("Choose giveaway ping role").setMinValues(1).setMaxValues(1)));
+   components.push(row(session.id,[["No giveaway ping role","none"],["Keep Current","keep"]]));
  }else if(step==="empty"){
    content="If nobody qualifies, should the bot announce that no winners were selected, or simply record the result without a public announcement?";
    components.push(row(session.id,[["Announce no winners","announce"],["Do not announce","silent"],["Keep Current","keep"]]));
@@ -330,11 +328,12 @@ async function apply(session,verb,value){
    s.activityMaxAutoRerolls=Number(verb.slice(6));return next();
  }
  if(session.step==="roles"){
-   const field=notificationField(session);
-   if(verb==="none"){s[field]=[];return next();}
+   if(verb==="none"){Object.assign(s,sharedGiveawayNotificationFields(""));return next();}
    if(verb==="roles"){
-     if(!Array.isArray(value)||!value.length||value.length>10)throw Error("Select 1–10 notification roles.");
-     s[field]=[...new Set(value)];return next();
+     if(!Array.isArray(value)||value.length!==1)throw Error("Select exactly one shared giveaway ping role.");
+     const role=await session.guild.roles.fetch(value[0]).catch(()=>null);
+     if(!role||role.id===session.guild.id)throw Error("Choose an existing server role.");
+     Object.assign(s,sharedGiveawayNotificationFields(role.id));return next();
    }
  }
  if(session.step==="empty"&&["announce","silent"].includes(verb)){
@@ -374,8 +373,7 @@ async function startGiveawaySetup(interaction,mode="activity"){
    activityClaimInstructions:config?.activityClaimInstructions||"",
    activityClaimWindowHours:config?.activityClaimWindowHours??DEFAULT_CLAIM_HOURS,
    activityMaxAutoRerolls:config?.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
-   activityNotificationRoleIds:config?.activityNotificationRoleIds||[],
-   giveawayNotificationRoleIds:regularGiveawayNotificationRoleIds(config),
+   ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(config)),
    activityAnnounceEmptyResults:config?.activityAnnounceEmptyResults!==false,
    giveawayDefaultBannerNameKey:config?.giveawayDefaultBannerNameKey||"",
  };
