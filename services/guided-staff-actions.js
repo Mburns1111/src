@@ -50,7 +50,7 @@ const inputHint={
   endsAt:"YYYY-MM-DD HH:mm Eastern",
   repeatSchedule:"once, daily, weekly, every 3 hours",
 };
-const dateInput=value=>new Date(value).toISOString().slice(0,16).replace("T"," ");
+
 export function validateGuidedStaffEdit(field,raw,event,{now=new Date()}={}){
   const value=String(raw??"").trim();
   if(!GUIDED_EDIT_FIELDS.some(x=>x.value===field)||field==="activityStartAt")
@@ -158,20 +158,84 @@ function editMenu(id){
 
 function editModal(event,field){
  const chosen=GUIDED_EDIT_FIELDS.find(x=>x.value===field);
- if(!chosen)throw Error("That giveaway setting is unavailable.");
+ if(!chosen || field==="activityStartAt")
+   throw Error("Counting has already started; the start cannot be backdated.");
  let old=event[field];
  if(field==="bannerNameKey")old=old||"default";
- if(field==="progressEnabled")old=old?"on":"off";
+ if(["requireStaffReview","progressEnabled"].includes(field))old=old?"on":"off";
+ if(field==="activityChannelIds")old=event.activityChannelIds?.length?"<#"+event.activityChannelIds[0]+">":"all";
+ if(field==="activityRequiredMentionUserId")old=old?"<@"+old+">":"none";
+ if(field==="activityRequiredPhrase")old=old||"";
+ // These fields have custom syntax or Eastern time inputs. Do not prefill
+ // them with UTC timestamps or stringified MongoDB objects.
+ if(["activityEndAt","endsAt","roleBonuses","repeatSchedule"].includes(field))old="";
  const input=new TextInputBuilder().setCustomId("value")
    .setLabel(chosen.label.slice(0,45))
    .setStyle(["description","prize"].includes(field)?TextInputStyle.Paragraph:TextInputStyle.Short)
-   .setRequired(!["description","bannerNameKey"].includes(field))
+   .setRequired(!["description","bannerNameKey","activityRequiredPhrase"].includes(field))
    .setMaxLength(inputMax[field]);
  if(inputHint[field])input.setPlaceholder(inputHint[field]);
- if(old!==null&&old!==undefined&&String(old).length)input.setValue(String(old).slice(0,inputMax[field]));
- return new ModalBuilder().setCustomId("activitystaff:save:"+event._id+":"+field)
+ if(old!==null&&old!==undefined&&String(old).length)
+   input.setValue(String(old).slice(0,inputMax[field]));
+ const modal=new ModalBuilder().setCustomId("activitystaff:save:"+event._id+":"+field)
    .setTitle("Edit: "+chosen.label)
    .addComponents(new ActionRowBuilder().addComponents(input));
+ if(criteriaFields.has(field)){
+   const reset=new TextInputBuilder().setCustomId("reset")
+     .setLabel("Type RESET to restart activity tracking")
+     .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(5)
+     .setPlaceholder("RESET: previous messages will not qualify");
+   modal.addComponents(new ActionRowBuilder().addComponents(reset));
+ }
+ return modal;
+}
+export function describeGuidedStaffOptions(event){
+ const channel=event.activityChannelIds?.length?"<#"+event.activityChannelIds[0]+">":"All eligible channels";
+ const fmt=date=>date&&Number.isFinite(new Date(date).getTime())
+   ?"<t:"+Math.floor(new Date(date).getTime()/1000)+":F>":"Not set";
+ return [
+   "**Edit this activity giveaway**",
+   "**Giveaway post:** Title · Prize · Giveaway Details · Banner",
+   "**Qualification:** Total message goal · Active days · Watched channel · Member ping · Required phrase",
+   "**Timing:** Activity cutoff · Winner announcement",
+   "**Drawing:** Winners · Manual approval · Bonus roles · Claim time · Member progress",
+   "**Future giveaways:** Repeat schedule (changes future starts only)",
+   "",
+   "**Current settings**",
+   "Watch: "+channel+" · Goal: "+(event.activityMinTotalMessages||1)+" total message(s)",
+   "Counting ends: "+fmt(event.activityEndAt)+" · Draws: "+fmt(event.endsAt),
+   "Approval: "+(event.requireStaffReview?"On":"Off")+" · Progress: "+(event.progressEnabled?"On":"Off"),
+   "",
+   "*Changing the watched channel, ping, or phrase restarts counting from the edit. Old messages are never backfilled. The modal requires RESET confirmation.*",
+   "*Counting start cannot be backdated. Other edits affect only this giveaway unless you choose Future repeats.*",
+ ].join("\n");
+}
+
+export async function updateGuidedRepeatSchedule(event,change,{now=new Date()}={}){
+ const series=await GuidedActivitySeries.findOne({_id:event.guidedSeries,guildId:event.guildId}).lean();
+ if(!series)throw Error("The repeating giveaway setup could not be found.");
+ const settings={...series.settings,...change};
+ if(settings.repeat==="once"){
+   await GuidedActivitySeries.updateOne({_id:series._id,guildId:event.guildId},
+     {$set:{settings,enabled:false,nextStart:null}});
+   return {enabled:false,nextStart:null};
+ }
+ const first=new Date(event.activityStartAt);
+ let next=nextOpening(settings,first);
+ const activeLength=windowEnd(settings,first)-first;
+ if(!Number.isFinite(+next)||next<=first || next-first<activeLength)
+   throw Error("The repeat interval is shorter than the activity period. Choose a longer interval.");
+ if(next<new Date(event.activityEndAt))
+   throw Error("That repeat would start before the current giveaway finishes.");
+ for(let n=0;next<=now&&n<525600;n++){
+   const advanced=nextOpening(settings,next);
+   if(advanced<=next)throw Error("The repeat interval must move forward in time.");
+   next=advanced;
+ }
+ if(next<=now)throw Error("Unable to determine a valid upcoming repeat.");
+ await GuidedActivitySeries.updateOne({_id:series._id,guildId:event.guildId},
+   {$set:{settings,enabled:true,nextStart:next}});
+ return {enabled:true,nextStart:next};
 }
 
 export async function handleGuidedStaffAction(i){
