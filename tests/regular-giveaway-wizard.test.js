@@ -27,7 +27,8 @@ function restore(){
   else process.env.ENABLE_MESSAGE_CONTENT_INTENT=old.intent;
 }
 let nonce=0;
-async function harness({defaultRole="",storedBanners=[]}={}){
+async function harness({defaultRole="",storedBanners=[],
+  serverClaimInstructions="",serverRoleInstructions=""}={}){
   // Different invocation channel per test prevents a failed test leaving a
   // previously open wizard session for later tests.
   const commandsId=String(230000000000000000n+BigInt(++nonce));
@@ -51,6 +52,8 @@ async function harness({defaultRole="",storedBanners=[]}={}){
     activityGiveawayReviewChannelId:staffId,
     giveawayPingRoleId:pingId,giveawayDefaultRequiredRoleId:defaultRole,
     giveawayDefaultBannerNameKey:"",activityClaimWindowHours:12,activityMaxAutoRerolls:2,
+    activityClaimInstructions:serverClaimInstructions,
+    giveawayRoleInstructions:serverRoleInstructions,
   };
   GuildConfig.findOne=()=>({
     then:(resolve,reject)=>Promise.resolve(config).then(resolve,reject),
@@ -248,5 +251,74 @@ test("custom minutes supports a duration greater than 14 days",async()=>{
     assert.match(h.prompt().content,/Review regular giveaway before posting/);
     assert.match(h.prompt().content,/24000 minutes/);
     await h.select("cancel");
+  }finally{restore();}
+});
+
+test("regular wizard shows actual built-in instructions, even when no server custom instructions exist",async()=>{
+  try{
+    const h=await harness();
+    await h.reachReview();
+    await h.select("edit",["claimInstructions"]);
+    assert.match(h.prompt().content,/Built-in default/);
+    assert.match(h.prompt().content,/Open a support ticket in this server to arrange prize delivery/);
+    assert.ok(h.controls().some(c=>c.label==="Write Custom Instructions"));
+    await h.select("claimDefault");
+    assert.match(h.prompt().content,/Review regular giveaway before posting/);
+    assert.match(h.prompt().content,/Open a support ticket in this server/);
+    await h.select("cancel");
+  }finally{restore();}
+});
+
+test("regular wizard shows saved server prize-claim instructions and uses them on posting",async()=>{
+  try{
+    const saved="Create a help ticket in #claims and include your Roblox username.";
+    const h=await harness({serverClaimInstructions:saved});
+    await h.reachReview();
+    await h.select("edit",["claimInstructions"]);
+    assert.match(h.prompt().content,/Saved server default/);
+    assert.ok(h.prompt().content.includes(saved));
+    await h.select("claimDefault");
+    assert.ok(h.prompt().content.includes(saved),"review should show the actual server default wording");
+    await h.select("post");
+    assert.equal(h.writes[0].claimInstructions,saved,"posted giveaway must use saved instructions");
+  }finally{restore();}
+});
+
+test("regular wizard custom prize-claim instructions override server settings without changing the server default",async()=>{
+  try{
+    const saved="Use #server-prizes for standard claims.";
+    const custom="Open a ticket in #special-prizes and include your Roblox username.";
+    const h=await harness({serverClaimInstructions:saved});
+    await h.reachReview();
+    await h.select("edit",["claimInstructions"]);
+    await h.select("writeClaim");
+    assert.match(h.prompt().content,/Type your custom prize-collection instructions/);
+    await h.type(custom);
+    assert.match(h.prompt().content,/Review regular giveaway before posting/);
+    assert.ok(h.prompt().content.includes(custom));
+    await h.select("post");
+    assert.equal(h.writes[0].claimInstructions,custom);
+    assert.equal(h.writes[0].mode,"standard");
+  }finally{restore();}
+});
+
+test("regular wizard shows saved role instructions and supports a per-giveaway override",async()=>{
+  try{
+    const role="876543210987654321";
+    const serverRole="Get your role in <#123456789012345679>.";
+    const customRole="Pick up the prize entry role in <#123456789012345680>.";
+    const h=await harness({defaultRole:role,serverRoleInstructions:serverRole});
+    await h.reachReview();
+    await h.select("edit",["roleHelp"]);
+    assert.ok(h.prompt().content.includes(serverRole),"server role guidance must be visible");
+    assert.ok(h.controls().some(c=>c.label==="Write Custom Instructions"));
+    await h.select("roleHelpCustom");
+    await h.type(customRole);
+    assert.match(h.prompt().content,/Review regular giveaway before posting/);
+    assert.ok(h.prompt().content.includes(customRole));
+    await h.select("post");
+    assert.equal(h.writes[0].requiredRoleId,role);
+    assert.equal(h.writes[0].requiredRoleInstructions,customRole);
+    assert.ok(h.publicPosts[0].embeds[0].toJSON().description.includes(customRole));
   }finally{restore();}
 });
