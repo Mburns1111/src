@@ -153,6 +153,24 @@ for(const mode of ["trial","regular","activity"]){
       await h.step("cancel");
     }finally{restore();}
   });
+  test(mode+" setup Back from banner upload returns to banner choices (including from review edit)",async()=>{
+    try{
+      const h=await harness(mode,{banners:roses});
+      await h.goToBanner();
+      await h.step("uploadBanner");
+      assert.match(h.current().content,/4 MB/);
+      await h.step("back");
+      assert.match(h.current().content,/Pink Roses/);
+      await h.step("selectSavedBanner",["moonlight"]);
+      assertReview(h,"moonlight");
+      await h.step("edit",["banner"]);
+      assert.match(h.current().content,/Editing Default banner/);
+      await h.step("uploadBanner");
+      await h.sendReply({content:"Trial Night",attachment});
+      assertReview(h,"trial night");
+      await h.step("cancel");
+    }finally{restore();}
+  });
   test(mode+" setup accepts a typed saved name and returns to review, not step one",async()=>{
     try{
       const h=await harness(mode,{banners:roses});
