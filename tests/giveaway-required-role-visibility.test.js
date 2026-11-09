@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import {data as giveawayCommand} from "../commands/giveaway.js";
+import {startRegularGiveawayWizard} from "../commands/regular-giveaway-wizard.js";
 import {activityWizardPrompts,defaultActivityWizardSettings} from "../commands/activity-wizard.js";
 import {GUIDED_EDIT_FIELDS,validateGuidedStaffEdit} from "../services/guided-staff-actions.js";
 import {activityOneOffListingEmbed} from "../services/giveaway-directory.js";
@@ -30,8 +31,9 @@ test("server setup and new records support optional default required role and ro
   assert.ok(activityWizardPrompts.requiredRoleChoice[1].some(x=>x[1]==="default"));
   assert.ok(activityWizardPrompts.roleHelpChoice[1].some(x=>x[1]==="hide"));
   const regular=giveawayCommand.toJSON().options.find(x=>x.name==="start");
-  assert.ok(regular.options.some(o=>o.name==="show_role_help"));
-  assert.ok(regular.options.some(o=>o.name==="no_required_role"));
+  assert.deepEqual(regular.options||[],[],
+    "regular giveaways now choose required role and visibility in the guided wizard");
+  assert.equal(typeof startRegularGiveawayWizard,"function");
 });
 test("hidden role help stays private, but role requirement remains visible and enforced by its own field",()=>{
   const hidden={...event,showRequiredRoleInstructions:false};
