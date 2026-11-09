@@ -40,13 +40,42 @@ test("separate activity setup exposes channels, editable summary and preview",()
  assert.match(description,/Apply new claim instructions/);
  assert.match(description,/existing giveaways/);
  const preview=claimAnnouncementPreview(claimSettings);
- assert.match(preview,/Enter Ticket Claim info/);
- assert.match(preview,/ticket number/);
- assert.match(preview,/Discord message link/);
- assert.match(preview,/FORFEIT YOUR WIN/);
- assert.match(preview,/2 automatic rerolls/);
+ const embed=preview.embeds[0].toJSON();
+ assert.equal(embed.title,"🦊 Heist Complete");
+ assert.match(preview.content,/Winner Announcement Preview/);
+ assert.match(embed.footer.text,/PREVIEW ONLY/);
+ const rendered=[embed.description,...(embed.fields||[]).map(field=>field.value)].join("\n");
+ assert.match(rendered,/Enter Ticket Claim info/);
+ assert.match(rendered,/ticket number/);
+ assert.match(rendered,/Discord message link/);
+ assert.match(rendered,/FORFEIT YOUR WIN/);
+ assert.match(rendered,/2 automatic rerolls/);
+ assert.equal(preview.components[0].components[0].data.disabled,true);
+ assert.equal(preview.components[0].components[0].data.label,"Enter Ticket Claim info");
+ assert.deepEqual(preview.allowedMentions,{parse:[]});
+ assert.equal(preview.files,undefined);
 });
 
+test("winner announcement preview attaches saved banner and matches actual regular/activity layouts",()=>{
+ const banner={nameKey:"clover",mimeType:"image/png",imageData:Buffer.from([1,2,3,4])};
+ for(const mode of ["regular","activity"]){
+   const preview=claimAnnouncementPreview({...claimSettings,
+     giveawayDefaultRequiredRoleId:"456789012345678901",
+     giveawayRoleInstructions:"Get your role in <#234567890123456789>",
+     giveawayShowRoleInstructions:false,
+   },{mode,previewUserId:"234567890123456789",banner});
+   const embed=preview.embeds[0].toJSON();
+   assert.match(embed.description,/<@234567890123456789>/);
+   assert.match(embed.description,/Required to enter/);
+   assert.doesNotMatch(embed.description,/Get your role in/);
+   assert.equal(embed.image.url,"attachment://giveaway-banner.png");
+   assert.equal(preview.files[0].name,"giveaway-banner.png");
+   assert.equal(preview.components[0].components[0].data.disabled,true);
+   assert.match(embed.footer.text,/PREVIEW ONLY/);
+   if(mode==="activity")assert.match(embed.description,/Activity giveaway concluded/);
+   else assert.match(embed.description,/fox cackles/);
+ }
+});
 test("every guided activity can override server claim settings and role notification options",()=>{
  const defaults=defaultActivityWizardSettings("host");
  assert.equal(defaults.maxAutoRerolls,2);
