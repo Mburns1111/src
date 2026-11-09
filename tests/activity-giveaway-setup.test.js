@@ -4,10 +4,10 @@ import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import {data as setupCommand} from "../commands/setup.js";
 import {activityWizardPrompts,defaultActivityWizardSettings} from "../commands/activity-wizard.js";
-import {describeActivityGiveawaySetup,claimAnnouncementPreview} from "../commands/activity-giveaway-setup.js";
+import {describeActivityGiveawaySetup,claimAnnouncementPreview,currentGiveawayClaimInstructions} from "../commands/activity-giveaway-setup.js";
 import {validateTicketClaim} from "../services/giveaway-ticket-claims.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
-import {DEFAULT_MAX_AUTO_REROLLS,automaticRerollLimit,automaticRerollsUsed,
+import {DEFAULT_CLAIM_INSTRUCTIONS,DEFAULT_MAX_AUTO_REROLLS,automaticRerollLimit,automaticRerollsUsed,
   prizeClaimLines} from "../services/giveaway-claims.js";
 import {GUIDED_EDIT_FIELDS,validateGuidedStaffEdit} from "../services/guided-staff-actions.js";
 
@@ -75,6 +75,19 @@ test("winner announcement preview attaches saved banner and matches actual regul
    if(mode==="activity")assert.match(embed.description,/Activity giveaway concluded/);
    else assert.match(embed.description,/fox cackles/);
  }
+});
+test("regular and activity setup display the actual default claim message when no custom instructions are saved",()=>{
+  for(const mode of ["regular","activity"]){
+    const settings={...claimSettings,activityClaimInstructions:""};
+    const current=currentGiveawayClaimInstructions(settings);
+    assert.equal(current,DEFAULT_CLAIM_INSTRUCTIONS);
+    assert.match(current,/Open a support ticket/);
+    assert.match(current,/Discord message link/);
+    const summary=describeActivityGiveawaySetup(settings,{mode});
+    assert.match(summary,new RegExp(DEFAULT_CLAIM_INSTRUCTIONS.replace(/[.*+?^$()|[\]\\]/g,"\\test("every guided activity can override server claim settings and role notification options",()=>{")));
+  }
+  assert.equal(currentGiveawayClaimInstructions(claimSettings),claimSettings.activityClaimInstructions);
+  assert.equal(currentGiveawayClaimInstructions({...claimSettings,activityClaimInstructions:"  Custom ticket steps  "}),"Custom ticket steps");
 });
 test("every guided activity can override server claim settings and role notification options",()=>{
  const defaults=defaultActivityWizardSettings("host");
