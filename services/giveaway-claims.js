@@ -37,6 +37,17 @@ export function winnerHasClaim(record, slot) {
 // ticket-submission and forfeiture directions once every *current* prize place
 // has a valid claim or is resolved. Claimed winners never need to see a
 // deadline again; other winners must retain their instructions until done.
+// A prize place can be historically assigned to a member but no longer
+// have an eligible winner after a missed deadline and exhausted replacements.
+// Keep winnerIds for the audit record; use this helper for the public outcome.
+export function hasUnforfeitedWinner(record) {
+  return (record?.winnerIds || []).some((id,slot)=>
+    Boolean(id) && !(record.claimResolvedSlots || []).includes(slot));
+}
+export function giveawayHasNoEligibleWinner(record) {
+  return ["ended","rerolling"].includes(record?.status) && !hasUnforfeitedWinner(record);
+}
+
 export function hasOutstandingTicketClaims(record) {
   return (record?.winnerIds || []).some((id,slot)=>
     Boolean(id) && !winnerHasClaim(record,slot) &&
