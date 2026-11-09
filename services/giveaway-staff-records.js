@@ -56,8 +56,9 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
  }else{
    if(record.status==="open")lines.push("**Entries:** "+(record.entrantIds?.length||0));
    if(record.winnerIds?.length){
-     lines.push("","**Current winners and ticket claims**");
-     for(let slot=0;slot<record.winnerIds.length;slot++)lines.push(claimStatus(record,slot));
+     lines.push("",record.mode==="survival"?"**Court\'s Trial winners — staff-managed prize claims**":"**Current winners and ticket claims**");
+     for(let slot=0;slot<record.winnerIds.length;slot++)
+       lines.push(record.mode==="survival"?"**Place "+(slot+1)+"** · <@"+record.winnerIds[slot]+"> — delivery coordinated by staff":claimStatus(record,slot));
    }else if(["ended","rerolling"].includes(record.status))
      lines.push("","**No eligible winners were selected.**");
    if(record.mode!=="survival")
