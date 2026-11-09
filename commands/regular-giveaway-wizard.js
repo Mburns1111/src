@@ -65,7 +65,7 @@ const summary=(session)=>{
     "",
     "The preview does not publish the giveaway or notify members.",
     "Choose Post Giveaway only after checking the settings."
-  ].filter(Boolean).join("\n").slice(0,1960);
+  ].filter(Boolean).join("\n").slice(0,1800);
 };
 const button=(s,label,action,style=ButtonStyle.Secondary)=>
   new ButtonBuilder().setCustomId("regularstart:"+s.id+":"+action)
@@ -374,7 +374,15 @@ async function apply(session,action,value,client){
   throw Error("That choice isn't available at the current step.");
 }
 async function respond(session,action,value,client){
-  if(session.busy)return;
+  if(session.busy){
+    // Replies can arrive while the previous prompt is still being sent.
+    // Never silently swallow a staff member's message.
+    await session.channel.send({
+      content:"Still processing your previous giveaway choice. Please resend your answer after the next prompt appears.",
+      allowedMentions:{parse:[]}
+    });
+    return;
+  }
   session.busy=true;
   try{
     await apply(session,action,value,client);
