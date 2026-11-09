@@ -5,11 +5,18 @@ export function validateTicketClaim(number, link) {
   const ticketNumber=String(number || "").trim();
   if (!/^[a-zA-Z0-9_# -]{1,80}$/.test(ticketNumber))
     throw Error("Enter a ticket number using letters, numbers, spaces, #, - or _ (up to 80 characters).");
+  const exactLink=String(link||"").trim();
+  if(exactLink.length>500)throw Error("The message link cannot exceed 500 characters.");
   let url;
-  try { url=new URL(String(link || "").trim()); } catch { throw Error("Enter a valid HTTPS ticket link."); }
-  if (url.protocol !== "https:" || url.username || url.password || url.toString().length > 500)
-    throw Error("The ticket link must be a valid HTTPS URL (500 characters maximum).");
-  return {ticketNumber,ticketUrl:url.toString()};
+  try {url=new URL(exactLink);}catch {throw Error("Paste the Discord message link from your ticket.");}
+  const host=url.hostname.toLowerCase();
+  if(url.protocol!=="https:" || url.username || url.password || url.port ||
+    !/^(?:(?:canary|ptb)\.)?discord(?:app)?\.com$/.test(host) ||
+    !/^\/channels\/\d{17,20}\/\d{17,20}\/\d{17,20}\/?$/.test(url.pathname) ||
+    url.hash || /[<>\s]/.test(exactLink))
+    throw Error("Copy the Discord message link from your ticket (server/channel/message link).");
+  // Keep the original link exactly, including any query parameters.
+  return {ticketNumber,ticketUrl:exactLink};
 }
 
 export async function submitGiveawayTicket({id,guildId,userId,ticketNumber,ticketUrl,now=new Date()}) {

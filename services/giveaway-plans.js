@@ -131,6 +131,8 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
         activityEndAt:activityWindow.endAt,
         activityCheckedAt:now,activityCandidateCount:candidateCount,
         claimWindowHours:plan.claimWindowHours,autoRerollClaims:true,
+        claimInstructions:plan.claimInstructions||"",maxAutoRerolls:plan.maxAutoRerolls??2,
+        notificationRoleIds:plan.notificationRoleIds||[],announceEmptyResults:plan.announceEmptyResults!==false,
         scheduleId:plan._id,scheduleRunAt:runAt,
       });
       record=record.toObject();

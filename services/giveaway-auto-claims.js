@@ -1,6 +1,6 @@
 import Giveaway from "../models/Giveaway.js";
 import { chooseGiveawayWinners, rerollGiveaway, publishGiveawayResult } from "./giveaways.js";
-import { winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt } from "./giveaway-claims.js";
+import { winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, automaticRerollLimit, automaticRerollsUsed } from "./giveaway-claims.js";
 
 // Reroll only when automatic enforcement was explicitly enabled on the giveaway.
 // Older records with informational claim windows are never retroactively rerolled.
@@ -18,7 +18,7 @@ export async function reconcileGiveawayClaims(client, {now=new Date(),limit=30}=
             (latest.claimResolvedSlots || []).includes(slot)) continue;
         const prior=[...latest.winnerIds,...(latest.rerollHistory || []).flatMap(x=>[x.previousId,x.replacementId])];
         const pool=latest.mode==="activity" ? latest.activityVerifiedIds||[] : latest.entrantIds||[];
-        if (!chooseGiveawayWinners(pool,1,prior).length) {
+        if (automaticRerollsUsed(latest,slot)>=automaticRerollLimit(latest) || !chooseGiveawayWinners(pool,1,prior).length) {
           await Giveaway.updateOne(
             {_id:latest._id,status:"ended",[`winnerIds.${slot}`]:latest.winnerIds[slot]},
             {$addToSet:{claimResolvedSlots:slot},$set:{renderedAt:null},$inc:{renderVersion:1}});

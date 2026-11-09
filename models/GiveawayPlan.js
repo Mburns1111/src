@@ -27,6 +27,10 @@ const schema=new mongoose.Schema({
   // Optional per-plan override. Null inherits the named watch's total goal.
   minimumTotalMessages:{type:Number,default:null,min:1,max:10000},
   claimWindowHours:{type:Number,default:DEFAULT_CLAIM_HOURS,min:1,max:720},
+  claimInstructions:{type:String,default:"",maxlength:1000},
+  maxAutoRerolls:{type:Number,default:2,min:0,max:10},
+  notificationRoleIds:{type:[String],default:[]},
+  announceEmptyResults:{type:Boolean,default:true},
   prizes:{type:[String],default:[]},
   nextPrizeIndex:{type:Number,default:0,min:0},
   repeatPrizes:{type:Boolean,default:true},

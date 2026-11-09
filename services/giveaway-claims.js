@@ -2,6 +2,8 @@
 // The bot never creates tickets, adjudicates availability, or forfeits prizes.
 export const MAX_CLAIM_HOURS = 24 * 30;
 export const DEFAULT_CLAIM_HOURS = 12;
+export const DEFAULT_MAX_AUTO_REROLLS = 2;
+export const MAX_AUTO_REROLLS = 10;
 export const MAX_TRIAL_CLAIM_MINUTES = MAX_CLAIM_HOURS * 60;
 
 // New Court's Trials use minutes; regular giveaways continue using hours.
@@ -31,6 +33,13 @@ export function winnerClaimDeadline(record, slot) {
 export function winnerHasClaim(record, slot) {
   return (record.winnerClaims || []).some(c => c.slot === slot && c.userId === record.winnerIds?.[slot]);
 }
+export function automaticRerollLimit(record) {
+  const n=record.maxAutoRerolls;
+  return Number.isSafeInteger(n)&&n>=0&&n<=MAX_AUTO_REROLLS?n:DEFAULT_MAX_AUTO_REROLLS;
+}
+export function automaticRerollsUsed(record,slot) {
+  return (record.rerollHistory||[]).filter(r=>r.slot===slot && r.reason==="claim-expired").length;
+}
 export function nextClaimCheckAt(record) {
   if (!record.autoRerollClaims || record.mode === "survival" || record.status !== "ended") return null;
   const deadlines=(record.winnerIds || []).map((_,slot)=>({
@@ -48,33 +57,30 @@ export function prizeClaimDeadline(record) {
   return Math.floor((timestamp + duration.milliseconds) / 1000);
 }
 
-export function prizeClaimLines(record, { finished = false } = {}) {
-  const duration = claimDuration(record);
-  const instructions = String(record.claimInstructions || "").trim().slice(0, 400);
-  const lines = [];
-  if (duration) {
-    const deadline = finished ? prizeClaimDeadline(record) : null;
-    if (deadline) {
-      const label=record.mode!=="survival" && (record.rerollHistory || []).length ? "Original claim deadline" : "Claim deadline";
-      lines.push("**" + label + ":** <t:" + deadline + ":F> (<t:" + deadline + ":R>)");
-    } else {
-      lines.push("**Claim window:** " + duration.count + " " + duration.unit +
-        (duration.count === 1 ? "" : "s") + " after winners are announced");
+export const DEFAULT_CLAIM_INSTRUCTIONS="Open a support ticket in this server to arrange prize delivery. Keep its ticket number and copy the Discord message link from the ticket. You may share available collection times with staff.";
+export function prizeClaimLines(record,{finished=false}={}){
+  const duration=claimDuration(record);
+  const instructions=String(record.claimInstructions||"").trim().slice(0,1000)||DEFAULT_CLAIM_INSTRUCTIONS;
+  const lines=[];
+  if(duration){
+    const deadline=finished?prizeClaimDeadline(record):null;
+    if(deadline){
+      const label=record.mode!=="survival"&&(record.rerollHistory||[]).length?"Original claim deadline":"Claim deadline";
+      lines.push("**"+label+":** <t:"+deadline+":F> (<t:"+deadline+":R>)");
+    }else{
+      lines.push("**Claim window:** "+duration.count+" "+duration.unit+(duration.count===1?"":"s")+" after winners are announced");
     }
   }
-  // A saved custom note may also be useful before joining.
-  if (!finished) {
-    if (instructions) lines.push("**Claim notes:** " + instructions);
+  if(!finished){
+    lines.push("**Prize collection:** "+instructions);
     return lines;
   }
-
-  if ((record.winnerIds || []).length) {
-    lines.push("**How to claim:** Open a support ticket in this server and include 2–3 dates/times you're available to collect your prize. Generate Discord timestamps at https://hammertime.cyou and paste them into your ticket; everyone sees the times in their own time zone.");
-    if (instructions) lines.push("**Host's claim instructions:** " + instructions);
-    if (record.mode !== "survival") {
-      lines.push("**How to report a claim:** Winners press **File Ticket Claim** below and provide the ticket number and URL. Staff still deliver prizes.");
-      if (record.autoRerollClaims) lines.push("*The bot rerolls a winning place when the deadline passes with no submitted ticket claim, if another eligible entrant remains.*");
-    } else lines.push("*Staff arrange delivery manually. Trial claim deadlines are informational; no automatic ticket creation occurs.*");
-  }
+  if(!(record.winnerIds||[]).length)return lines;
+  lines.push("**How to claim:** "+instructions);
+  if(record.mode!=="survival"){
+    lines.push("**Submit your claim:** Press **Enter Ticket Claim info** and provide your **ticket number** and the **Discord message link** from your ticket. Creating a support ticket alone does not register your claim with the bot.");
+    lines.push("⚠️ **IMPORTANT — CLAIM BEFORE THE DEADLINE OR FORFEIT YOUR WIN.** If your ticket number and message link are not entered into the bot before the claim window closes, your winning place is forfeited."+
+      (record.autoRerollClaims?" The bot can choose another eligible winner (up to "+automaticRerollLimit(record)+" automatic rerolls per place).":""));
+  }else lines.push("*Court's Trial claims are coordinated by staff; these deadlines do not trigger automated rerolls.*");
   return lines;
 }

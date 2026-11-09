@@ -30,7 +30,10 @@ const giveawaySchema = new mongoose.Schema({
   claimWindowHours: { type: Number, default: null, min: 1, max: 720 },
   // Court\'s Trial claim windows are set in minutes; old saved trial hour values stay valid.
   claimWindowMinutes: { type: Number, default: null, min: 1, max: 43200 },
-  claimInstructions: { type: String, default: "", maxlength: 400 },
+  claimInstructions: { type: String, default: "", maxlength: 1000 },
+  maxAutoRerolls:{type:Number,default:2,min:0,max:10},
+  notificationRoleIds:{type:[String],default:[]},
+  announceEmptyResults:{type:Boolean,default:true},
   claimStartedAt: { type: Date, default: null },
   // Per-place ticket submissions and deadlines survive restarts and rerolls.
   winnerClaims: [{ slot: Number, userId: String, ticketNumber: String, ticketUrl: String, submittedAt: Date }],
