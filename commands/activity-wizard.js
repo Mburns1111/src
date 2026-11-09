@@ -182,8 +182,12 @@ async function show(session,step){
 }
 async function configFor(guild,channelId){
   const c=await GuildConfig.findOne({guildId:guild.id}).lean();
-  if(!c?.commandChannelId)throw Error("Use /setup channels to choose the commands channel first.");
-  if(c.commandChannelId!==channelId)throw Error("Start /giveaway activity in <#"+c.commandChannelId+">.");
+  // The guided text-and-button wizard must allow the staff channel too.
+  // Otherwise /giveaway activity would pass slash routing then fail here.
+  const allowed=[...new Set([c?.commandChannelId,c?.activityGiveawayReviewChannelId].filter(Boolean))];
+  if(!allowed.length)throw Error("Configure a commands channel or private giveaway staff channel in /setup first.");
+  if(!allowed.includes(channelId))
+    throw Error("Start /giveaway activity in "+allowed.map(id=>"<#"+id+">").join(" or ")+".");
   for(const [field,label] of [["activityGiveawayListChannelId","activity_giveaway_list"],["activityGiveawayWinnersChannelId","activity_winners"],["activityGiveawayReviewChannelId","activity_review"]]){
     const channel=c?.[field]&&await guild.channels.fetch(c[field]);
     if(!channel?.send)throw Error("Use /setup activity-giveaways to set the "+label+" channel first.");
