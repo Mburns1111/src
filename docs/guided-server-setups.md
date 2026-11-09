@@ -66,7 +66,7 @@ Staff with Manage Server or the configured Giveaway Manager role run `/giveaway`
 
 Staff with Manage Server or the configured Giveaway Manager role may use `/trial` in the bot commands channel or the separate Court's Trial channel configured under `/setup trials`, but **never** in the private giveaway staff channel. All unrelated commands keep their existing channel limits.
 
-Commands started in the staff or Trial channel still publish actual giveaway and Trial announcements to their configured public channels. No permissions are loosened for non-staff members.
+Giveaway commands and setup wizards stay in the commands channel; Trial slash commands can also run in the separate Trial channel. The private staff giveaway channel is for records, reviews, and action buttons—not slash commands or typed setup prompts. Public giveaway and Trial announcements still publish to their configured channels. No permissions are loosened for non-staff members.
 
 ## Private staff giveaway directory (automatic sticky)
 
