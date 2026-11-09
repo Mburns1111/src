@@ -1,5 +1,7 @@
 import { wizardButton, wizardReply } from "./commands/activity-wizard.js";
 import {handleActivityGiveawaySetupInteraction,activityGiveawaySetupReply} from "./commands/activity-giveaway-setup.js";
+import {handleTrialGiveawaySetupInteraction,trialGiveawaySetupReply} from "./commands/trial-giveaway-setup.js";
+import {guildSetupComplete} from "./services/guild-setup-gate.js";
 import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
 import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
 import {handleGiveawayStaffAction,reconcileGiveawayStaffRecords} from "./services/giveaway-staff-records.js";
@@ -218,7 +220,7 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // Messages are never stored or logged: only a short SHA-256 digest is kept to
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
-  if (wizardReply(message) || activityGiveawaySetupReply(message)) return;
+  if (wizardReply(message) || activityGiveawaySetupReply(message) || trialGiveawaySetupReply(message)) return;
   if (message.guildId && !message.author?.bot && !message.webhookId) {
     void recordGuidedMessage(message).catch(error => console.error("[Giveaways] Guided activity count failed:",error));
   }
@@ -519,6 +521,24 @@ client.once(Events.ClientReady, async (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    // A GuildConfig document alone does not prove that setup was completed.
+    // Check before deferring commands (admin-import opens a modal immediately).
+    if (interaction.isChatInputCommand() && interaction.guildId &&
+        interaction.commandName !== setupCommand.name) {
+      const saved = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("initialSetupCompletedAt commandChannelId").lean();
+      if (!guildSetupComplete(saved)) {
+        await interaction.reply({
+          content: "Bot commands are not enabled yet. A server manager must complete **/setup channels** (choose a commands channel), **/setup giveaways**, **/setup activity-giveaways**, or **/setup trials** first.",
+          flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] },
+        });
+        return;
+      }
+    }
+    if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
+         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("trialconfig:"))
+      return await handleTrialGiveawaySetupInteraction(interaction);
     if ((interaction.isButton() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("actconfig:"))
       return await handleActivityGiveawaySetupInteraction(interaction);
