@@ -1,0 +1,56 @@
+# Guided server setup (development only)
+
+Source: `feature/trials-guided-setup` (draft PR #41). Based on the unmerged activity-giveaway branch. Never deploy Wispbyte or merge to main without approval.
+
+## Setup commands
+
+| Command | What it configures | Required fields |
+|---|---|---|
+| `/setup general` | Ordinary commands channel, then optional member profiles, houses, outfits, inventory, Trading Posts, trade voting, shop and party games | Commands channel **first** |
+| `/setup giveaways` | Standard giveaway posts, private staff records, role/help, claims, notification roles, rerolls and banner | Public giveaway channel and private staff channel |
+| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, role/help, claims, notifications, rerolls and banner | Three distinct channels |
+| `/setup trials` | Court's Trial signup/elimination channel, private staff records, default eligibility role/help, claim instructions and deadlines, notification roles, automatic rerolls, banner | Trial channel and private staff channel |
+| `/setup cards` | Hatchem game channel, Collector role, activity-based wild egg toggle | Requires General commands channel; Hatchem channel and manageable Collector role |
+
+The original `/setup channels` remains available as a **legacy/direct-edit compatibility** command. It does not enable all modules automatically. New servers should prefer the guided commands.
+
+Guided flows send numbered messages in the invoking channel, require Manage Server, have Back/Cancel/Keep or Skip actions, support review and editing prior to Save, and store settings only on final Save. The administrator needs to use the configured commands channel for follow-up setup; a never-configured server can start `/setup general` from its initial administrative text channel.
+
+## Optional features and Skip behavior
+
+After the mandatory **commands channel** in General setup, every step is optional. **Skip / disable this feature** saves an empty channel assignment so that feature is not configured; **Keep current** preserves an already configured channel. Disabling a feature does not erase profiles, purchases, claims, member inventories or past Discord messages. Staff can return to `/setup general` later to configure or move a feature. For an existing server, a previously posted button in an old channel can remain visible; it is not deleted simply because a feature is skipped.
+
+Giveaways, activity giveaways, Trials and Hatchem use **separate** setup commands and are not required for a General-only server. A giveaway-only server may skip every General optional step, then run `/setup giveaways` or `/setup activity-giveaways`. A card-only server may do the same, then run `/setup cards`. General does not force profiles, the shop or the other game modules.
+
+Slash commands other than `/setup` are blocked before initial setup. The bot also recognizes legacy servers with an existing commands channel. Hatchem player commands require both its local channel and Card role. Auto eggs additionally honor the saved **Enable wild activity eggs** switch; turning it off does not disable manual `.drop` actions. Hatch odds and activity thresholds remain the existing global values.
+
+## Court's Trial defaults
+
+The new Trial flow uses separate default eligibility role/instructions, role-instruction visibility, announcement notification roles (up to 10, pinged at signup only), minute-based claim window (1–43,200 minutes), staff ticket instructions, rerolls (0–10), and saved banner artwork. Each `/trial start` may override supported defaults. Configuring Trials does **not** change default values for regular/activity giveaways.
+
+New Trials use the regular giveaway claim ticket form after the final Royal Verdict: a winner submits a ticket number and exact Discord ticket message link before the deadline. Those details appear **only in staff records**, never in public result text. Automatic expiry rerolls follow the saved limit; staff can stop them. Existing old Trial records preserve their original staff-managed claim behavior. Prizes are still delivered manually by staff.
+
+## Replit test workflow
+
+Stop the test bot before switching code:
+
+```bash
+git fetch origin
+git switch feature/trials-guided-setup
+git pull --ff-only origin feature/trials-guided-setup
+npm test
+node register-commands.js
+npm start
+```
+
+**Warning:** `node register-commands.js` replaces the target Discord application's command list. Verify you are using the development bot's token, client ID and test guild before re-registering. For Hatchem game testing, the existing test mode and message-content intent requirements still apply.
+
+Discord checklist:
+
+1. In a new test guild, try a non-setup slash command. It must direct staff to initial setup.
+2. Run `/setup general`. Verify the first step requires a commands channel, every later step can be skipped, and the saved setup summary has the intended channels. Confirm unconfigured features do not post their entry panels.
+3. Run `/setup cards`. Choose a manageable Collector role beneath the bot, assign a Hatchem channel, and try both disabled/enabled wild eggs. Register in Hatchem, use `.drop`, and confirm old global cooldowns and owned cards are unchanged.
+4. Run `/setup trials`. Pick a separate Trial channel and private staff channel; choose role, claims, notification roles, and rerolls; preview the Royal Verdict and save. Verify notifications occur only once. The minimum of two trial contestants is unchanged.
+5. Create a short Trial and let it finish. The winner's ticket form must accept only their claim and privately display it to staff. A second member cannot submit on their behalf. Verify automatic replacement (when enabled), saved history, and a Trial without remaining eligible replacements.
+6. Re-open each setup and change one setting; verify unrelated features and historical giveaway/Trial records are unchanged.
+7. Test restart recovery. Do not merge or deploy to production without explicit authorization.
