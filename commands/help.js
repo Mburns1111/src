@@ -66,7 +66,7 @@ const TOPIC_CONTENT = Object.freeze({
     title: "AM Isa — Registered commands",
     description: "The commands below are read from Discord for this server. Some options are restricted to administrators.",
     fields: [
-      ["Server tools", "Administrators can use **/setup channels** to configure entry channels. Maintenance commands such as **/profile-refresh** and **/profile-cleanup** are intended for server managers."],
+      ["Server tools", "Administrators can use **/setup general** to configure entry channels; giveaways, Trials, and Hatchem have their own guided **/setup** options. Maintenance commands such as **/profile-refresh** and **/profile-cleanup** are intended for server managers."],
     ],
   },
 });
