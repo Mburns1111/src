@@ -251,6 +251,7 @@ test("new event posts ping their configured role only at creation, not a require
   const ids = { normal: "135791357913579135", trial: "246802468024680246" };
   const channel = id => ({
     id, guildId, isTextBased: () => true,
+    messages:{fetch:async()=>null},permissionsFor:target=>({has:()=>target?.id!=="everyone"}),
     send: async payload => {
       notifications.push({ channel: id, payload });
       return { id: "678901234567890123", url: "https://discord.com/channels/example" };
@@ -258,7 +259,7 @@ test("new event posts ping their configured role only at creation, not a require
   });
   try {
     stub(patches, GuildConfig, "findOne", async () => ({
-      giveawayChannelId: normalId, survivalTrialChannelId: trialId,
+      giveawayChannelId: normalId, survivalTrialChannelId: trialId,activityGiveawayReviewChannelId:staffId,
       giveawayPingRoleId: ids.normal, survivalTrialPingRoleId: ids.trial,
     }));
     const saved = [];
@@ -267,7 +268,7 @@ test("new event posts ping their configured role only at creation, not a require
       return { ...values, _id: giveawayId, toObject: () => ({ ...values, _id: giveawayId }) };
     });
     stub(patches, Giveaway, "updateOne", async () => ({ modifiedCount: 1 }));
-    const guild = { id: guildId, channels: { fetch: async id => channel(id) } };
+    const guild = { id: guildId,roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}},channels: { fetch: async id => channel(id) } };
     await postGiveaway(postingInteraction("start", guild));
     await postGiveaway(postingInteraction("start", guild, "trial"));
     assert.deepEqual(saved.map(item => item.announcementPingRoleId), [ids.normal, ids.trial]);
@@ -285,14 +286,15 @@ test("no configured ping role produces no mention and no role ping allowed", asy
   let payload;
   try {
     stub(patches, GuildConfig, "findOne", async () => ({
-      giveawayChannelId: normalId, giveawayPingRoleId: "",
+      giveawayChannelId: normalId, giveawayPingRoleId: "",activityGiveawayReviewChannelId:staffId,
     }));
     stub(patches, Giveaway, "create", async values => ({
       ...values, _id: giveawayId, toObject: () => ({ ...values, _id: giveawayId }),
     }));
     stub(patches, Giveaway, "updateOne", async () => ({ modifiedCount: 1 }));
-    const guild = { id: guildId, channels: { fetch: async () => ({
+    const guild = { id: guildId,roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}},channels: { fetch: async () => ({
       id: normalId, isTextBased: () => true,
+       messages:{fetch:async()=>null},permissionsFor:target=>({has:()=>target?.id!=="everyone"}),
       send: async data => {
         payload = data;
         return { id: "678901234567890123", url: "https://discord.com/channels/example" };
