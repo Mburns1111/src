@@ -8,7 +8,7 @@
 
 - [ ] Stop the old bot process in Replit, pull the development branch, run `npm test`, re-register slash commands, then start only one bot process.
 - [ ] Confirm `ENABLE_CARD_GAME_TEST=1`, `DISCORD_GUILD_ID=908522799285538817`, and `CARD_GAME_OWNER_DISCORD_ID` is your numeric user ID, not the bot ID.
-- [ ] Configure one Hatchem channel using `/setup channels hatchem`, and one local safe Card role using `/cards-admin setup-role`. The bot has Manage Roles and its role is higher than the Card role.
+- [ ] Configure one Hatchem channel and one local safe Collector role using `/setup cards`. The bot has Manage Roles and its role is higher than the Card role.
 - [ ] Both Discord accounts can use the configured Hatchem channel. Give test Account B enough cards to trade through legitimate test drops before starting trade tests.
 - [ ] Record the commit SHA, command, account, observed response, and any screenshots for failed cases.
 
