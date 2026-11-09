@@ -90,3 +90,61 @@ test("cancel and delete requires a written reason and confirmation",async()=>{
   assert.equal(modal.components[1].components[0].custom_id,"confirm");
  }finally{Giveaway.findOne=previous;}
 });
+
+
+test("cancelling an ended giveaway archives the reason and removes only its public post",async()=>{
+ const GuildConfig=(await import("../models/GuildConfig.js")).default;
+ const original={
+   find:Giveaway.findOne,update:Giveaway.findOneAndUpdate,updateOne:Giveaway.updateOne,
+   config:GuildConfig.findOne,
+ };
+ let stored={...ended,channelId:"101234567890123456",messageId:"112345678901234567",
+   listChannelId:"",listMessageId:""};
+ const updated=[],removed=[],staffEdits=[];
+ const staffMessage={id:stored.staffCardId,author:{id:"bot"},
+   embeds:[{description:"old staff card",footer:{text:"old"}}],
+   components:[],edit:async p=>staffEdits.push(p)};
+ const publicMessage={author:{id:"bot"},delete:async()=>removed.push("public")};
+ const staffChannel={
+   id:stored.staffCardChannelId,guild:{roles:{everyone:{id:"everyone"}}},
+   permissionsFor:()=>({has:()=>false}),
+   send:async()=>{throw Error("Should reuse existing private staff record");},
+   messages:{fetch:async id=>id===staffMessage.id?staffMessage:[]},
+ };
+ const publicChannel={messages:{fetch:async()=>publicMessage}};
+ const client={user:{id:"bot"},channels:{fetch:async id=>
+   id===staffChannel.id?staffChannel:publicChannel}};
+ const replies=[];
+ try{
+   Giveaway.findOne=()=>({lean:async()=>stored});
+   Giveaway.findOneAndUpdate=(_q,update)=>({lean:async()=>{
+     stored={...stored,...update.$set};updated.push(update.$set);return stored;
+   }});
+   Giveaway.updateOne=async(_q,update)=>{updated.push(update.$set);};
+   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+     activityGiveawayReviewChannelId:staffChannel.id
+   })})});
+   await handleGiveawayStaffAction({
+     client,guildId,channelId:staffChannel.id,customId:"giveawaystaff:confirmcancel:"+id,
+     user:{id:"999999999999999999"},
+     memberPermissions:{has:()=>true},
+     fields:{getTextInputValue:key=>key==="reason"?"Prize delivery unavailable":"CANCEL"},
+     deferReply:async()=>{},editReply:async message=>{replies.push(message);}
+   });
+   assert.equal(stored.status,"cancelled");
+   assert.equal(stored.staffCancelledBy,"999999999999999999");
+   assert.equal(stored.staffCancelReason,"Prize delivery unavailable");
+   assert.ok(stored.staffCancelledAt instanceof Date);
+   assert.equal(stored.autoRerollClaims,false);
+   assert.deepEqual(removed,["public"]);
+   assert.match(staffEdits[0].embeds[0].data.description,/Prize delivery unavailable/);
+   assert.equal(staffMessage.id,ended.staffCardId);
+   assert.match(replies[0],/cancelled and removed/i);
+   assert.ok(updated.some(x=>x.messageId===null),"record keeps audit but clears deleted public message");
+ }finally{
+   Giveaway.findOne=original.find;
+   Giveaway.findOneAndUpdate=original.update;
+   Giveaway.updateOne=original.updateOne;
+   GuildConfig.findOne=original.config;
+ }
+});
