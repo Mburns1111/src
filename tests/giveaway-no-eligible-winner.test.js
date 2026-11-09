@@ -114,7 +114,8 @@ test("one entrant misses claim: no second eligible member means No Eligible Winn
     const rendered=edits[0];
     assert.match(rendered.embeds[0].toJSON().title,/No Eligible Winner/);
     assert.match(rendered.embeds[0].toJSON().description,/No eligible winner/);
-    assert.match(rendered.embeds[0].toJSON().description,/forfeit/i);
+    assert.match(rendered.embeds[0].toJSON().description,/no eligible replacement/i);
+    assert.doesNotMatch(rendered.embeds[0].toJSON().description,/Ticket claim|Claim deadline|Reroll history|How to claim/i);
     assert.deepEqual(rendered.embeds[0].toJSON().fields||[],[]);
     assert.equal(rendered.components.length,0);
     assert.equal(completedGiveawayCanDeleteListing(stored,{now}),true);
