@@ -205,3 +205,22 @@ test("new one-off activity giveaway pings only the shared role, even when old ev
   assert.deepEqual(edits[0].allowedMentions,{parse:[]});
  }finally{GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;}
 });
+
+test("ended activity poster stays published as No Eligible Winner for zero entrants or all forfeited claims",()=>{
+  const shared={
+    _id:planId,guildId,mode:"activity",status:"ended",title:"Unclaimed activity",
+    prize:"Test-only pet",winnerCount:1,entrantIds:["234567890123456789"],
+    activityPeriod:"daily",activityMinTotalMessages:1,activityChannelIds:[],
+    endsAt:new Date("2026-11-09T19:00:00Z"),
+    channelId:winnersId,listChannelId:listId,listMessageId:"567890123456789012",
+  };
+  const empty=activityOneOffListingEmbed({...shared,entrantIds:[],winnerIds:[]}).toJSON();
+  assert.match(empty.description,/No eligible winner/i);
+  assert.match(empty.description,/stays visible until staff choose Delete Listing/i);
+  const forfeited=activityOneOffListingEmbed({...shared,
+    winnerIds:["234567890123456789"],claimResolvedSlots:[0]}).toJSON();
+  assert.match(forfeited.description,/No eligible winner/i);
+  const pending=activityOneOffListingEmbed({...shared,
+    winnerIds:["234567890123456789"],claimResolvedSlots:[]}).toJSON();
+  assert.doesNotMatch(pending.description,/No eligible winner/i);
+});
