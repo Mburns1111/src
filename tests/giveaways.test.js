@@ -90,8 +90,9 @@ test("announcement remains on completion with details, winners and audit trail",
  assert.match(oneWinner.embeds[0].data.description,new RegExp(userId));
  assert.match(oneWinner.embeds[0].data.description,/sneaky helper/i);
  const nobody = giveawayAnnouncement(snapshot({status:"ended",winnerIds:[]}));
- assert.match(nobody.embeds[0].data.description,/no accomplice/i);
- assert.match(nobody.embeds[0].data.description,/no eligible entries/i);
+ assert.match(nobody.embeds[0].data.description,/No eligible winner/i);
+ assert.match(nobody.embeds[0].data.description,/No one entered or qualified/i);
+ assert.ok(nobody.embeds[0].data.description.length<450);
 });
 
 test("random selection chooses distinct entrants, excludes past winners, and never overdraws",()=>{
