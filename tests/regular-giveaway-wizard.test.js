@@ -138,7 +138,8 @@ test("regular giveaway start has no old slash fields or plan editing subcommands
   assert.deepEqual(options.find(x=>x.name==="start").options||[],[]);
   assert.ok(options.some(x=>x.name==="activity"));
   assert.ok(!options.some(x=>/^plan-|^prize-(add|edit|remove|move)$/.test(x.name)));
-  assert.ok(options.some(x=>x.name==="banner-save"));
+  assert.deepEqual(options.find(x=>x.name==="banner").options.map(x=>x.name),
+    ["save","list","default","clear","remove"]);
 });
 
 test("guided regular giveaway posts only after review and produces regular entry buttons",async()=>{
