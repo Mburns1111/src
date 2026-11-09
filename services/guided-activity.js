@@ -3,6 +3,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionF
 import Giveaway from "../models/Giveaway.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {sharedGiveawayPingRoleId} from "./giveaway-notification-roles.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import {DEFAULT_CLAIM_HOURS} from "./giveaway-claims.js";
 import { currentActivityDay, messageCharacterCount, messageMatchesGiveawayWatch } from "./giveaway-activity-counter.js";
@@ -71,7 +72,7 @@ export function qualifiesForGuidedActivity(row,event){
 async function materialize(series,start,first=false) {
   const s = series.settings, end = windowEnd(s,start);
   const config = await GuildConfig.findOne({guildId:series.guildId}).lean();
-  if (!config?.activityGiveawayWinnersChannelId) throw Error("Set the activity winners channel in /setup channels.");
+  if (!config?.activityGiveawayWinnersChannelId) throw Error("Set the activity winners channel in /setup activity-giveaways.");
   const query = first ? {_id:series._id} : {guidedSeries:series._id,activityStartAt:start};
   try {
     return await Giveaway.findOneAndUpdate(query, {$setOnInsert:{
@@ -87,7 +88,7 @@ async function materialize(series,start,first=false) {
       showRequiredRoleInstructions:s.showRequiredRoleInstructions!==false,
       claimWindowHours:s.claimHours ?? DEFAULT_CLAIM_HOURS, autoRerollClaims:true, bannerNameKey:s.banner || "",
       claimInstructions:s.claimInstructions||"",maxAutoRerolls:s.maxAutoRerolls??2,
-      notificationRoleIds:s.notificationRoleIds||[],announceEmptyResults:s.announceEmptyResults!==false,
+      notificationRoleIds:sharedGiveawayPingRoleId(config)?[sharedGiveawayPingRoleId(config)]:[],announceEmptyResults:s.announceEmptyResults!==false,
     }},{upsert:true,new:true}).lean();
   } catch(error) {
     if(error.code!==11000)throw error;
