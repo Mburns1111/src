@@ -9,6 +9,7 @@ import { data as giveawayCommand, trialData as trialCommand, execute as postGive
 const guildId = "123456789012345678";
 const normalId = "234567890123456789";
 const trialId = "345678901234567890";
+const staffId = "901234567890123456";
 const otherId = "456789012345678901";
 const ownerId = "567890123456789012";
 const giveawayId = "507f1f77bcf86cd799439011";
@@ -140,15 +141,20 @@ test("starts always publish to their own assigned channels", async () => {
       return { id: "678901234567890123", url: "https://discord.com/channels/example" };
     },
   }]));
+  channels.set(staffId,{
+    id:staffId,messages:{fetch:async()=>null},
+    send:async()=>({id:"staff"}),
+    permissionsFor:target=>({has:()=>target?.id!=="everyone"})
+  });
   try {
     stub(changes, GuildConfig, "findOne", async () => ({
-      giveawayChannelId: normalId, survivalTrialChannelId: trialId,
+      giveawayChannelId: normalId, survivalTrialChannelId: trialId, activityGiveawayReviewChannelId:staffId,
     }));
     stub(changes, Giveaway, "create", async values => ({
       ...values, _id: giveawayId, toObject: () => ({ ...values, _id: giveawayId }),
     }));
     stub(changes, Giveaway, "updateOne", async () => ({ matchedCount: 1, modifiedCount: 1 }));
-    const guild = { id: guildId, channels: {
+    const guild = { id: guildId, roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}}, channels: {
       fetch: async id => channels.get(id) || null,
     } };
     const normal = postingInteraction("start", guild);
@@ -167,15 +173,16 @@ test("trial start saves claim minutes, while regular start saves claim hours", a
   try {
     stub(changes, GuildConfig, "findOne", async () => ({
       giveawayChannelId: normalId,
-      survivalTrialChannelId: trialId,
+      survivalTrialChannelId: trialId,activityGiveawayReviewChannelId:staffId,
     }));
     stub(changes, Giveaway, "create", async values => {
       created.push(values);
       return { ...values, _id: giveawayId, toObject: () => ({ ...values, _id: giveawayId }) };
     });
     stub(changes, Giveaway, "updateOne", async () => ({ modifiedCount: 1 }));
-    const guild = { id: guildId, channels: { fetch: async id => ({
+    const guild = { id: guildId,roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}},channels: { fetch: async id => ({
       id, guildId, isTextBased: () => true,
+      messages:{fetch:async()=>null},permissionsFor:target=>({has:()=>target?.id!=="everyone"}),
       send: async () => ({ id: "678901234567890123", url: "https://discord.com/channels/example" }),
     }) } };
     const giveaway = postingInteraction("start", guild);
