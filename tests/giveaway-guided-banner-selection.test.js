@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import GuildConfig from "../models/GuildConfig.js";
+import {DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaway-claims.js";
 import GiveawayBanner from "../models/GiveawayBanner.js";
 import {startTrialGiveawaySetup,handleTrialGiveawaySetupInteraction,trialGiveawaySetupReply} from "../commands/trial-giveaway-setup.js";
 import {startRegularGiveawaySetup,startActivityGiveawaySetup,
@@ -196,3 +197,28 @@ test("upload name can come from same-message caption and invalid files stay reje
  assert.throws(()=>bannerUploadFromMessage({content:"x".repeat(61),
    attachments:{first:()=>attachment}}),/1–60/);
 });
+
+for(const mode of ["regular","activity","trial"]){
+  test(mode+" server setup shows current built-in claim instructions and exposes direct editing from review",async()=>{
+    try{
+      const h=await harness(mode);
+      await h.goToBanner();
+      await h.step("keep");
+      assert.match(h.current().content,/Setup Review|Setup — Review/);
+      assert.ok(h.current().content.includes(DEFAULT_CLAIM_INSTRUCTIONS),
+        "review should show the exact built-in default claim instructions");
+      assert.ok(h.controls().some(c=>c.label==="Edit Claim Instructions"));
+      await h.step("editClaims");
+      assert.match(h.current().content,/Built-in default/i);
+      assert.ok(h.current().content.includes(DEFAULT_CLAIM_INSTRUCTIONS));
+      assert.ok(h.controls().some(c=>/Write \/ Edit .*Instructions/.test(c.label)),
+        "there should be an explicit action to type custom server instructions");
+      await h.step(mode==="trial"?"writeInstructions":"custom");
+      assert.match(h.current().content,/custom claim instructions/i);
+      await h.sendReply({content:"Create a private ticket in #claim-here and provide your Roblox username."});
+      assert.match(h.current().content,/Setup Review|Setup — Review/);
+      assert.match(h.current().content,/Create a private ticket in #claim-here/);
+      await h.step("cancel");
+    }finally{restore();}
+  });
+}
