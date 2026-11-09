@@ -2,6 +2,7 @@ import {ensureStaffCard} from "./guided-activity.js";
 import {createHash} from "node:crypto";
 import {EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {sharedGiveawayPingRoleId} from "./giveaway-notification-roles.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
@@ -193,7 +194,7 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
       (item.status==="ended"&&Boolean(item.listMessageId)));
   if(!visible)return deleteListing(client,item,Model);
   const config=await GuildConfig.findOne({guildId:item.guildId})
-    .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId").lean();
+    .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId giveawayPingRoleId giveawayNotificationRoleIds activityNotificationRoleIds trialNotificationRoleIds survivalTrialPingRoleId").lean();
   const channelId=config?.activityGiveawayListChannelId;
   if(!channelId)return false;
   if(!config?.activityGiveawayWinnersChannelId)return false;
@@ -221,8 +222,11 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
   })).digest("hex");
   const existing=await findListingMessage(channel,client,item,kind);
   if(!existing) {
-    // Notify each chosen role only on the initial post; updates never repeat pings.
-    const roles=[...new Set(item.notificationRoleIds||[])].slice(0,10);
+    // One server-wide giveaway role for every new regular, activity, and Trial
+    // announcement. Old per-event role lists must never cause extra pings.
+    // Changes/edits to the directory do not ping again.
+    const roleId=sharedGiveawayPingRoleId(config);
+    const roles=roleId?[roleId]:[];
     if(roles.length){
       payload.content=roles.map(id=>"<@&"+id+">").join(" ");
       payload.allowedMentions={parse:[],roles};
