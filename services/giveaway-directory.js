@@ -14,82 +14,130 @@ const displayTitle=value=>String(value||"Giveaway").replace(/[\r\n]+/g," ").slic
 const messageLink=(guildId,channelId,messageId)=>
   `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
 
+// The activity list is a public giveaway poster, not a debug/status report.
+// Keep the host's title in the description so Discord user/channel mentions resolve.
+const winnerLabel=count=>count===1?"1 winner":String(count)+" winners";
+const shortRef=id=>"#"+String(id||"").slice(-8);
+const humanRepeat=plan=>{
+  const mode=plan.repeatMode || (plan.recurring?"weekly":"once");
+  if(mode==="interval")return "Every "+(plan.intervalMinutes/60)+" hours";
+  if(mode==="daily")return "Every day";
+  if(mode==="weekly")return "Every week";
+  return "";
+};
+const qualifyChannel=channels=>channels.length?channels.join(", "):"any eligible server channel";
+const giveawayDetails=value=>value?["",String(value).slice(0,1000)]:[];
+const memberSafeText=(value,max=180)=>String(value||"").replace(/[\r\n]+/g," ").slice(0,max);
+
 export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
   const period=plan.activityPeriod||"weekly";
   const minimum=plan.minimumTotalMessages??rule?.minimumTotalMessages??1;
-  const activityChannel=rule?.channelId?`<#${rule.channelId}>`:"Eligible server text channels";
-  const instruction=[
-    `**Watch:** ${activityChannel}`,
-    `**Activity window:** ${period==="daily"?"Previous full calendar day (Eastern)":"Previous Wednesday–Wednesday week (Eastern)"}`,
-    `**Requirement:** ${minimum} qualifying message${minimum===1?"":"s"} total`,
-    `**Message length:** ${rule?.minimumChars??1}+ characters`,
-  ];
-  if(rule?.minimumMessages>1)instruction.push(`**Messages per active day:** ${rule.minimumMessages}`);
-  if(period==="weekly" && rule?.activeDays>1)instruction.push(`**Different active days:** ${rule.activeDays}`);
-  if(rule?.requiredMentionUserId)instruction.push(`**Must tag:** <@${rule.requiredMentionUserId}>`);
-  if(rule?.requiredPhrase)instruction.push(`**Must include:** ${clean(rule.requiredPhrase,120)}`);
+  const channel=rule?.channelId?"<#"+rule.channelId+">":"any eligible server channel";
   const prize=plan.prizes?.[plan.nextPrizeIndex]||"Prize to be announced";
-  const bonuses=[...new Map([...(rule?.roleBonuses||[]),...(plan.roleBonuses||[])].map(b=>[b.roleId,b])).values()];
+  const bonus=[...new Map([...(rule?.roleBonuses||[]),...(plan.roleBonuses||[])]
+    .map(b=>[b.roleId,b])).values()];
+  const qualifier=[
+    "• Send **"+minimum+" qualifying "+(minimum===1?"message":"messages")+"** in "+channel+".",
+  ];
+  if(rule?.minimumChars>1)qualifier.push("• Each message must have at least **"+rule.minimumChars+" characters**.");
+  if(rule?.minimumMessages>1)qualifier.push("• Send at least **"+rule.minimumMessages+" messages** on each qualifying day.");
+  if(period==="weekly"&&rule?.activeDays>1)qualifier.push("• Be active on **"+rule.activeDays+" different days**.");
+  if(rule?.requiredMentionUserId)qualifier.push("• Tag <@"+rule.requiredMentionUserId+">.");
+  if(rule?.requiredPhrase)qualifier.push("• Include the phrase **"+memberSafeText(rule.requiredPhrase,120)+"**.");
+  if(bonus.length)qualifier.push("• Bonus chances: "+
+    bonus.map(b=>"<@&"+b.roleId+"> +"+b.extraEntries).join(", ")+".");
   const custom=plan.customActivityStartAt&&plan.customActivityEndAt;
-  if(custom){
-    instruction[1]=`**Activity window:** <t:${stamp(plan.customActivityStartAt)}:F> to <t:${stamp(plan.customActivityEndAt)}:F>`;
-  }
-  if(bonuses.length)instruction.push("**Bonus drawing chances:** "+
-    bonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(", ")+" (add together; unique winner)");
-  if(plan.requireStaffReview)instruction.push("**Winner publication:** After staff approval");
-  const description=[
-    `**${displayTitle(plan.title)}**`,"",
-    `**Prize:** ${clean(prize,600)}`,"",
-    ...(plan.description?["**Giveaway Details:**",String(plan.description).slice(0,1000),""]:[]),
-    ...instruction,"",
-    `**Winner announcement:** <t:${stamp(plan.nextRunAt)}:F> (<t:${stamp(plan.nextRunAt)}:R>)`,
-    `**Winners:** ${plan.winnerCount||1}`,
-    ...(winnerChannelId?[`**Results will be posted in:** <#${winnerChannelId}>`]:[]),
-    `**Repeats:** ${plan.repeatMode==="interval"?`Every ${plan.intervalMinutes/60} hours`:plan.repeatMode==="daily"?"Daily":plan.repeatMode==="weekly"||(!plan.repeatMode&&plan.recurring)?"Weekly":"One time"}`,
-    "", "*Qualifying messages are tracked automatically. No entry button is needed.*",
+  const activity=custom
+    ? "From <t:"+stamp(plan.customActivityStartAt)+":f> until <t:"+stamp(plan.customActivityEndAt)+":f>"
+    : period==="daily"?"Previous calendar day (Eastern)":"Previous Wednesday–Wednesday week (Eastern)";
+  const repeat=humanRepeat(plan);
+  const text=[
+    "**"+displayTitle(plan.title)+"**",
+    "",
+    "🎁 **Prize**",
+    String(prize).slice(0,650),
+    ...giveawayDetails(plan.description),
+    "",
+    "✨ **How to qualify**",
+    ...qualifier,
+    "🗓️ **Activity period:** "+activity,
+    "",
+    "🏆 **"+winnerLabel(plan.winnerCount||1)+"** · Draws <t:"+stamp(plan.nextRunAt)+":F> (<t:"+stamp(plan.nextRunAt)+":R>)",
+    ...(repeat?["🔁 **Repeats:** "+repeat]:[]),
+    ...(winnerChannelId?["📣 **Winners announced in:** <#"+winnerChannelId+">"]:[]),
+    ...(plan.requireStaffReview?["*Winners are confirmed after staff review.*"]:[]),
+    "",
+    "*Qualify automatically — no entry button needed.*",
   ].join("\n").slice(0,3900);
   return new EmbedBuilder().setColor(0xb47e99)
-    .setTitle("🎁 Activity Giveaway")
-    .setDescription(description)
-    .setFooter({text:`Activity Giveaway Plan ID: ${plan._id}`});
+    .setTitle("🎁 Giveaway")
+    .setDescription(text)
+    .setFooter({text:"✦ Automatic entry · "+shortRef(plan._id)});
 }
 export function activityOneOffListingEmbed(record) {
-  const daily=record.activityPeriod==="daily";
-  const channels=(record.activityChannelIds||[]).map(id=>`<#${id}>`);
-  const parts=[
-    `**${displayTitle(record.title)}**`,"",
-    `**Prize:** ${clean(record.prize,650)}`,"",
-    `**Watch:** ${channels.length?channels.join(", "):"Eligible server text channels"}`,
-    `**Activity period:** ${daily?"Previous full Eastern calendar day":"Previous Wednesday–Wednesday week"}`,
-    `**Requirement:** ${record.activityMinTotalMessages||1} qualifying message(s) total`,
-    `**Length:** ${record.activityMinChars||1}+ characters`,
+  const guided=Boolean(record.guidedSeries);
+  const minimum=record.activityMinTotalMessages||record.activityMinimum||1;
+  const channels=(record.activityChannelIds||[]).map(id=>"<#"+id+">");
+  const qualifier=[
+    "• Send **"+minimum+" matching "+(minimum===1?"message":"messages")+"** in "+
+      qualifyChannel(channels)+" during this activity.",
   ];
-  if(record.guidedSeries) {
-    parts[4]=`**To qualify:** Send ${record.activityMinTotalMessages||record.activityMinimum} matching message(s) total during this activity.`;
-    if(record.activityDays>1)parts.push(`**Different active days:** At least one matching message on ${record.activityDays} days`);
-  }
-  if(!record.guidedSeries && record.activityMinimum>1)parts.push(`**Per active day:** ${record.activityMinimum} message(s)`);
-  if(!record.guidedSeries && record.activityDays>1)parts.push(`**Active days required:** ${record.activityDays}`);
-  if(record.activityRequiredMentionUserId)parts.push(`**Must tag:** <@${record.activityRequiredMentionUserId}>`);
-  if(record.activityRequiredPhrase)parts.push(`**Must include:** ${clean(record.activityRequiredPhrase,120)}`);
-  if(record.customActivityStartAt&&record.customActivityEndAt)
-    parts[3]=`**Activity window:** <t:${stamp(record.customActivityStartAt)}:F> to <t:${stamp(record.customActivityEndAt)}:F>`;
-  if(record.description)parts.splice(2,0,"**Giveaway Details:**",String(record.description).slice(0,1000),"");
+  if(record.activityMinChars>1)qualifier.push("• Each message must have at least **"+record.activityMinChars+" characters**.");
+  if(!guided&&record.activityMinimum>1)
+    qualifier.push("• At least **"+record.activityMinimum+" messages** on each qualifying day.");
+  if(record.activityDays>1)qualifier.push("• Be active on **"+record.activityDays+" different days**.");
+  if(record.activityRequiredMentionUserId)
+    qualifier.push("• Tag <@"+record.activityRequiredMentionUserId+">.");
+  if(record.activityRequiredPhrase)
+    qualifier.push("• Include the phrase **"+memberSafeText(record.activityRequiredPhrase,120)+"**.");
   if(record.roleBonuses?.length)
-    parts.push("**Bonus chances:** "+record.roleBonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(", "));
-  if(record.requireStaffReview)parts.push("**Winner publication:** After staff approval");
-  parts.push("",`**Winner announcement:** <t:${stamp(record.endsAt)}:F> (<t:${stamp(record.endsAt)}:R>)`,
-    `**Winners:** ${record.winnerCount||1}`,`**Results will be posted in:** <#${record.channelId}>`,"",
-    "*This giveaway has automatic, locked entries. No entry button is needed.*");
+    qualifier.push("• Bonus chances: "+record.roleBonuses.map(b=>"<@&"+b.roleId+"> +"+b.extraEntries).join(", ")+".");
+  const start=record.activityStartAt||record.customActivityStartAt;
+  const close=record.activityEndAt||record.customActivityEndAt;
+  const draw=record.endsAt;
+  const validStart=start&&Number.isFinite(new Date(start).getTime());
+  const validClose=close&&Number.isFinite(new Date(close).getTime());
+  const validDraw=draw&&Number.isFinite(new Date(draw).getTime());
+  const sameTime=validClose&&validDraw&&+new Date(close)===+new Date(draw);
+  const lines=[
+    "**"+displayTitle(record.title)+"**",
+    "",
+    "🎁 **Prize**",
+    String(record.prize||"Prize to be announced").slice(0,650),
+    ...giveawayDetails(record.description),
+    "",
+    "✨ **How to qualify**",
+    ...qualifier,
+    "",
+    ...(validStart&&validClose?[
+      "🗓️ **Activity:** <t:"+stamp(start)+":f> – <t:"+stamp(close)+":f>",
+    ]:[]),
+    ...(sameTime?[
+      "🏆 **"+winnerLabel(record.winnerCount||1)+"** · Ends and draws <t:"+stamp(draw)+":F> (<t:"+stamp(draw)+":R>)",
+    ]:validDraw?[
+      "🏆 **"+winnerLabel(record.winnerCount||1)+"** · Draws <t:"+stamp(draw)+":F> (<t:"+stamp(draw)+":R>)",
+    ]:[]),
+    ...(record.channelId?["📣 **Winners announced in:** <#"+record.channelId+">"]:[]),
+    ...(record.requireStaffReview?["*Winners are confirmed after staff review.*"]:[]),
+    "",
+    "*Qualify automatically — no entry button needed.*",
+  ];
   return new EmbedBuilder().setColor(0xb47e99)
-    .setTitle("🎁 Activity Giveaway")
-    .setDescription(parts.join("\n").slice(0,3900))
-    .setFooter({text:`Activity Giveaway ID: ${record._id}`});
+    .setTitle("🎁 Giveaway")
+    .setDescription(lines.join("\n").slice(0,3900))
+    .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)});
 }
 
+// Footer carries only a short reference for members; the full identifier stays
+// in the database and button custom ID. Reconciliation also recognizes legacy
+// footers when recovering posts sent immediately before a crash.
 function matchingFooter(kind,id){
-  return kind==="plan"?`Activity Giveaway Plan ID: ${id}`:`Activity Giveaway ID: ${id}`;
+  return shortRef(id);
 }
+function oldMatchingFooter(kind,id){
+  return kind==="plan"?"Activity Giveaway Plan ID: "+id:"Activity Giveaway ID: "+id;
+}
+
 async function findListingMessage(channel,client,item,kind) {
   if(item.listChannelId===channel.id && item.listMessageId){
     const existing=await channel.messages.fetch(item.listMessageId).catch(error=>{
@@ -101,7 +149,8 @@ async function findListingMessage(channel,client,item,kind) {
   // A retry after a crash may have posted before the saved Mongo message ID.
   const recent=await channel.messages.fetch({limit:100});
   return recent.find(m=>m.author?.id===client.user.id &&
-    m.embeds?.some(e=>e.footer?.text?.includes(matchingFooter(kind,item._id))))||null;
+    m.embeds?.some(e=>e.footer?.text?.includes(matchingFooter(kind,item._id)) ||
+      e.footer?.text?.includes(oldMatchingFooter(kind,item._id))))||null;
 }
 async function deleteListing(client,item,Model) {
   if(!item.listMessageId || !item.listChannelId)return false;
