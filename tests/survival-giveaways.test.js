@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import GuildConfig from "../models/GuildConfig.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "../services/survival-event-texts.js";
 import { HARVEST_SOLO_TRIAL_EVENTS, HARVEST_DUEL_TRIAL_EVENTS } from "../services/survival-harvest-event-texts.js";
 import { trialData as trialCommand, handleGiveawayButton } from "../commands/giveaway.js";
@@ -527,12 +528,13 @@ test("Start Trial (Staff) button starts a real saved trial and rejects non-staff
   let saved = record({ status: "open", entrantIds: contestants.slice(0, 3) });
   const messages = [];
   let applied = 0;
-  const makeButton = (canManage = true) => {
+  const makeButton = (canManage = true, roles = []) => {
     let output;
     return {
       customId: "giveaway:launch:" + id,
       guildId, guild: { id: guildId }, channelId: saved.channelId,
       message: { id: saved.messageId }, user: { id: contestants[0], bot: false },
+      member:{roles},
       memberPermissions: { has: () => canManage },
       deferReply: async () => {},
       editReply: async value => { output = value; },
@@ -546,6 +548,9 @@ test("Start Trial (Staff) button starts a real saved trial and rejects non-staff
     };
   };
   try {
+    patch(changes, GuildConfig, "findOne",()=>({select:()=>({lean:async()=>({
+      giveawayManagerRoleId:"888888888888888888"
+    })})}));
     patch(changes, Giveaway, "findOne", query => ({ lean: async () => {
       assert.equal(query.guildId, guildId);
       return { ...saved };
@@ -559,9 +564,9 @@ test("Start Trial (Staff) button starts a real saved trial and rejects non-staff
     patch(changes, Giveaway, "updateOne", async () => ({ modifiedCount: 1 }));
     const ordinary = makeButton(false);
     await handleGiveawayButton(ordinary);
-    assert.match(ordinary.replyOutput(), /Only staff/);
+    assert.match(ordinary.replyOutput(), /Giveaway Manager/);
     assert.equal(applied, 0);
-    const staff = makeButton(true);
+    const staff = makeButton(false,["888888888888888888"]);
     await handleGiveawayButton(staff);
     assert.equal(saved.status, "running");
     assert.equal(applied, 2, "button froze entrants then planned trial");
