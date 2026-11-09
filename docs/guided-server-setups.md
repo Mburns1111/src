@@ -30,6 +30,18 @@ The new Trial flow uses separate default eligibility role/instructions, role-ins
 
 New Trials use the regular giveaway claim ticket form after the final Royal Verdict: a winner submits a ticket number and exact Discord ticket message link before the deadline. Those details appear **only in staff records**, never in public result text. Automatic expiry rerolls follow the saved limit; staff can stop them. Existing old Trial records preserve their original staff-managed claim behavior. Prizes are still delivered manually by staff.
 
+## Completed giveaways — Delete Listing, not cancellation
+
+The private staff record shows **Cancel & Remove Giveaway** only while a giveaway is still live. A completed event (`status: ended`) instead receives **Delete Listing** when every prize place has reached a terminal state:
+
+- Nobody was selected as a winner, **or**
+- Every current winner has submitted their ticket number and Discord ticket message link, **or**
+- Every remaining unclaimed place is past its claim deadline and has **no rerolls left** (the configured limit was exhausted, set to zero, or the bot confirmed no eligible replacements remained). Mixed claimed/exhausted places also qualify.
+
+A place with an open claim window or remaining replacement chances keeps the listing protected. If a reroll changes the winner, an earlier winner's ticket does not count for the replacement.
+
+Delete Listing has a separate **DELETE** confirmation. It removes the public giveaway posts, keeps the database record and private staff archive, records who deleted the listing and when, and leaves the event marked **ended** — **never cancelled**. Cleanup retries after temporary Discord failures. No future claim rerolls or announcements are triggered for a deleted completed listing.
+
 ## Replit test workflow
 
 Stop the test bot before switching code:
