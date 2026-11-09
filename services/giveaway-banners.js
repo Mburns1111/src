@@ -50,12 +50,31 @@ export async function getGiveawayBanner(guildId,nameKey="") {
   if(!key)return null;
   return GiveawayBanner.findOne({guildId,nameKey:key}).lean();
 }
+// MongoDB can return a BSON Binary from .lean() instead of a Node Buffer.
+// Treat both as stored image bytes; otherwise a perfectly valid saved banner
+// silently disappears from the Discord post.
+export function giveawayBannerBytes(banner) {
+  const data=banner?.imageData;
+  if(Buffer.isBuffer(data))return data;
+  if(data instanceof Uint8Array)return Buffer.from(data);
+  if(typeof data?.value==="function"){
+    const value=data.value(true);
+    if(Buffer.isBuffer(value))return value;
+    if(value instanceof Uint8Array)return Buffer.from(value);
+  }
+  if(data?.buffer instanceof Uint8Array){
+    const end=Number.isSafeInteger(data.position)?data.position:data.buffer.length;
+    return Buffer.from(data.buffer.subarray(0,end));
+  }
+  return null;
+}
 export function attachGiveawayBanner(payload,banner) {
-  if(!banner?.imageData?.length || !EXTENSION[banner.mimeType])return payload;
+  const bytes=giveawayBannerBytes(banner);
+  if(!bytes?.length || !EXTENSION[banner?.mimeType])return payload;
   const filename=`giveaway-banner.${EXTENSION[banner.mimeType]}`;
   const embed=payload.embeds?.[0];
   if(!embed) return payload;
   embed.setImage(`attachment://${filename}`);
-  return {...payload,files:[new AttachmentBuilder(Buffer.from(banner.imageData),{name:filename})],
+  return {...payload,files:[new AttachmentBuilder(bytes,{name:filename})],
     attachments:[]};
 }

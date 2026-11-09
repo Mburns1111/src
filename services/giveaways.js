@@ -99,6 +99,22 @@ export function giveawayAnnouncement(record) {
   return { embeds: [embed], components, allowedMentions: { parse: [] } };
 }
 
+// Changing the default banner also refreshes current button-entry giveaways.
+export async function refreshActiveStandardGiveawayBanners(client,guildId) {
+  const posts=await Giveaway.find({guildId,mode:"standard",status:"open",
+    bannerNameKey:"",messageId:{$type:"string",$ne:""}}).limit(100).lean();
+  let refreshed=0;
+  for(const post of posts){
+    try {
+      const channel=await client.channels.fetch(post.channelId);
+      const message=await channel?.messages?.fetch(post.messageId);
+      if(message?.author?.id!==client.user.id)continue;
+      await message.edit(await giveawayAnnouncementWithBanner(post));
+      refreshed++;
+    }catch(error){console.error("[Giveaways] Default banner refresh failed:",String(post._id),error);}
+  }
+  return refreshed;
+}
 export async function giveawayAnnouncementWithBanner(record) {
   const announcement=giveawayAnnouncement(record);
   if(record.mode==="survival")return announcement;

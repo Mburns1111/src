@@ -120,6 +120,13 @@ export async function openDueActivities(now=new Date(),guildId) {
     await Series.updateOne({_id:series._id,nextStart:series.nextStart},{$set:{nextStart,enabled:Boolean(nextStart)}});
   }
 }
+export function guidedMessageMatches(event,message) {
+  return messageMatchesGiveawayWatch(message,{
+    requiredMentionUserId:event.activityRequiredMentionUserId,
+    requiredPhrase:event.activityRequiredPhrase,
+    minimumChars:event.activityRequiredMentionUserId && !event.activityRequiredPhrase ? 0 : 1,
+  });
+}
 export async function recordGuidedMessage(message) {
   if(!message.guildId || message.author?.bot || message.webhookId || !messageCharacterCount(message))return;
   const time=message.createdAt;
@@ -130,14 +137,7 @@ export async function recordGuidedMessage(message) {
     $or:[{activityType:"general"},{activityChannelIds:message.channelId}],
   }).lean();
   for(const event of events){
-    const matches=messageMatchesGiveawayWatch(message,{
-      requiredMentionUserId:event.activityRequiredMentionUserId,requiredPhrase:event.activityRequiredPhrase,
-      minimumChars:event.activityRequiredMentionUserId && !event.activityRequiredPhrase ? 0 : 1,
-    }) || (event.activityRequiredMentionUserId && !event.activityRequiredPhrase &&
-      message.author.id!==event.activityRequiredMentionUserId &&
-      message.mentions.users.has(event.activityRequiredMentionUserId) &&
-      new RegExp('<@!?'+event.activityRequiredMentionUserId+'>').test(message.content) &&
-      /^<@!?\d+>$/.test(message.content.trim()));
+    const matches=guidedMessageMatches(event,message);
     await Receipt.updateOne({_id:event._id+":"+message.id},{$setOnInsert:{
       event:event._id,user:message.author.id,day:currentActivityDay(time),matches:Boolean(matches),
       expires:new Date(+event.endsAt+90*24*hour),

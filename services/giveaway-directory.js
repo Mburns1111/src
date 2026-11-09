@@ -5,7 +5,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
-import {attachGiveawayBanner,getGiveawayBanner} from "./giveaway-banners.js";
+import {attachGiveawayBanner,getGiveawayBanner,giveawayBannerBytes} from "./giveaway-banners.js";
 
 const stamp=date=>Math.floor(new Date(date).getTime()/1000);
 const clean=(value,max=500)=>String(value||"").replace(/[@`*_~|<>]/g,"").slice(0,max);
@@ -144,7 +144,7 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
   }
   const fingerprint=createHash("sha256").update(JSON.stringify({
     embed:embed.toJSON(),bannerNameKey:banner?.nameKey||"",bannerUpdatedAt:banner?.updatedAt||null,
-    imageBytes:banner?.imageData?.length||0,channelId,progressEnabled:item.progressEnabled||false,
+    imageBytes:giveawayBannerBytes(banner)?.length||0,channelId,progressEnabled:item.progressEnabled||false,
   })).digest("hex");
   const existing=await findListingMessage(channel,client,item,kind);
   if(!existing) {
@@ -177,10 +177,10 @@ export async function publishActivityPlanListing(client,plan,{now=new Date()}={}
 export async function publishActivityOneOffListing(client,record,{now=new Date()}={}) {
   return syncListing(client,record,"one-off",{now});
 }
-export async function reconcileActivityGiveawayListings(client,{now=new Date(),limit=0}={}) {
+export async function reconcileActivityGiveawayListings(client,{now=new Date(),limit=0,guildId=null}={}) {
   const [plans,oneOff]=await Promise.all([
-    GiveawayPlan.find({$or:[{status:"active"},{listMessageId:{$gt:""}}]}).limit(limit).lean(),
-    Giveaway.find({mode:"activity",scheduleId:null,
+    GiveawayPlan.find({...(guildId?{guildId}:{}),$or:[{status:"active"},{listMessageId:{$gt:""}}]}).limit(limit).lean(),
+    Giveaway.find({...(guildId?{guildId}:{}),mode:"activity",scheduleId:null,
       $or:[{status:"open"},{listMessageId:{$gt:""}}]}).limit(limit).lean(),
   ]);
   for(const plan of plans) {

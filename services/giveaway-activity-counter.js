@@ -55,8 +55,11 @@ export function messageMatchesGiveawayWatch(message,rule) {
   }
   const phrase=String(rule?.requiredPhrase||"").trim().replace(/\s+/g," ").toLocaleLowerCase("en-US");
   const text=giveawayMessageText(message);
-  if (!text || /^[/.]/.test(text)) return false;
-  if (phrase && !text.replace(/\s+/g," ").toLocaleLowerCase("en-US").includes(phrase)) return false;
+  // An explicit member ping is itself a qualifying message when no other text
+  // is required. The ping is stripped before the ordinary character count.
+  if (!text) return Boolean(mentionId) && !phrase && (rule?.minimumChars??1)<=1;
+  if (/^[/.]/.test(text)) return false;
+  if (phrase && !text.toLocaleLowerCase("en-US").includes(phrase)) return false;
   return [...text].length >= (rule?.minimumChars??1);
 }
 export async function recordGiveawayMessage(message) {

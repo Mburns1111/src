@@ -50,6 +50,19 @@ test("manually set message goal counts all messages in the period, without daily
  assert.deepEqual(daily[0].$match,{guildId:"server",day:"2026-11-10",channelId:{$in:["general"]}});
  assert.equal(daily.at(-1).$match.totalMessages.$gte,50);
 });
+test("a stand-alone explicit user ping counts as one message, not a daily quota",()=>{
+ const target="123456789012345678",author="234567890123456789";
+ const message={guildId:"g",channelId:"c",author:{id:author,bot:false},
+   content:`<@${target}>`,mentions:{users:{has:id=>id===target}}};
+ const matcher={requiredMentionUserId:target,minimumChars:1};
+ assert.equal(messageMatchesGiveawayWatch(message,matcher),true);
+ assert.equal(messageMatchesGiveawayWatch({...message,content:`<@!${target}>`},matcher),true);
+ assert.equal(messageMatchesGiveawayWatch({...message,content:"Pinged you!"},matcher),false);
+ assert.equal(messageMatchesGiveawayWatch({...message,author:{id:target,bot:false}},matcher),false);
+ assert.equal(messageMatchesGiveawayWatch({...message,mentions:{users:{has:()=>false}}},matcher),false);
+ assert.equal(messageMatchesGiveawayWatch(message,{...matcher,requiredPhrase:"hello"}),false);
+ assert.equal(messageMatchesGiveawayWatch(message,{...matcher,minimumChars:3}),false);
+});
 test("actual member pings with an optional phrase, not plain names or reply mentions",()=>{
  const tina="123456789012345678",member="234567890123456789";
  const rule={requiredMentionUserId:tina,requiredPhrase:"you are wonderful",minimumChars:5};

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {EmbedBuilder} from "discord.js";
 import GiveawayBanner from "../models/GiveawayBanner.js";
-import {validateBannerUpload,saveGiveawayBanner,attachGiveawayBanner,
+import {validateBannerUpload,saveGiveawayBanner,attachGiveawayBanner,giveawayBannerBytes,
   MAX_GIVEAWAY_BANNER_BYTES} from "../services/giveaway-banners.js";
 
 const attachment={url:"https://cdn.discordapp.com/attachments/123/456/flowers.png",
@@ -25,6 +25,17 @@ test("saving a named banner persists reusable bytes with a guild-scoped key",asy
   assert.equal(saved.update.$set.mimeType,"image/png");
   assert.deepEqual([...saved.update.$set.imageData],[1,2,3,4,5]);
  }finally{GiveawayBanner.findOneAndUpdate=old;}
+});
+test("BSON Binary returned by lean MongoDB queries is attachable as an image",()=>{
+ const bytes=Buffer.from([11,22,33,44]);
+ const bson={value:()=>bytes};
+ const banner={nameKey:"clover",mimeType:"image/png",imageData:bson};
+ assert.deepEqual(giveawayBannerBytes(banner),bytes);
+ const payload=attachGiveawayBanner({embeds:[new EmbedBuilder().setTitle("Clover")],allowedMentions:{parse:[]}},banner);
+ assert.equal(payload.embeds[0].toJSON().image.url,"attachment://giveaway-banner.png");
+ assert.equal(payload.files[0].attachment.length,4);
+ const other={imageData:{buffer:bytes,position:3}};
+ assert.deepEqual(giveawayBannerBytes(other),Buffer.from([11,22,33]));
 });
 test("embed banner is an attached image, retained on resend and editable results",()=>{
  const payload=attachGiveawayBanner({embeds:[new EmbedBuilder().setTitle("Giveaway")],allowedMentions:{parse:[]}},

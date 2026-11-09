@@ -2,10 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {DEFAULT_CLAIM_HOURS,claimDuration} from "../services/giveaway-claims.js";
-import {guidedActivityRequirements,qualifiesForGuidedActivity} from "../services/guided-activity.js";
+import {guidedActivityRequirements,qualifiesForGuidedActivity,guidedMessageMatches} from "../services/guided-activity.js";
 import {activityWizardPrompts,activityWizardInput,defaultActivityWizardSettings,describeActivityWizard} from "../commands/activity-wizard.js";
 import {activityOneOffListingEmbed} from "../services/giveaway-directory.js";
 
+test("guided activity accepts a valid ping as a matching message",()=>{
+ const target="123456789012345678",author="234567890123456789";
+ const event={activityRequiredMentionUserId:target,activityRequiredPhrase:""};
+ const message={guildId:"g",author:{id:author,bot:false},content:`<@${target}>`,
+   mentions:{users:{has:id=>id===target}}};
+ assert.equal(guidedMessageMatches(event,message),true);
+ assert.equal(guidedMessageMatches({...event,activityRequiredPhrase:"thanks"},message),false);
+ assert.equal(guidedMessageMatches(event,{...message,author:{id:target,bot:false}}),false);
+});
 test("guided activity uses period-wide message totals separate from optional active days",()=>{
   const goals=guidedActivityRequirements({minimum:10,days:3});
   assert.deepEqual(goals,{activityMinimum:1,activityDays:3,activityMinTotalMessages:10});
@@ -40,7 +49,7 @@ test("optional giveaway details appear in the guided review and can be skipped",
   const settings={...defaultActivityWizardSettings("host"),title:"Art event",
     prize:"Neon pet",description:"Share your favorite creation!",period:"24 hours",
     hours:24,minimum:3,winners:1};
-  assert.match(describeActivityWizard({settings}),/Giveaway Details:\\*\\*\\nShare your favorite creation!/);
+  assert.match(describeActivityWizard({settings}),/\*\*Giveaway Details:\*\*\nShare your favorite creation!/);
   assert.doesNotMatch(describeActivityWizard({settings:{...settings,description:""}}),/Giveaway Details/);
   const event={_id:"507f1f77bcf86cd799439011",guidedSeries:"507f1f77bcf86cd799439012",
     title:settings.title,prize:settings.prize,description:settings.description,

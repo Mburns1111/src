@@ -2,6 +2,8 @@ import GuildConfig from "../models/GuildConfig.js";
 import GiveawayBanner, {bannerNameKey} from "../models/GiveawayBanner.js";
 import {ensureBannerRegistered,saveGiveawayBanner} from "../services/giveaway-banners.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
+import {reconcileActivityGiveawayListings} from "../services/giveaway-directory.js";
+import {refreshActiveStandardGiveawayBanners} from "../services/giveaways.js";
 
 export const BANNER_OPERATIONS=new Set(["banner-save","banner-list","banner-default","banner-clear","banner-remove"]);
 
@@ -16,6 +18,15 @@ export function addGiveawayBannerCommands(builder) {
     .addSubcommand(c=>c.setName("banner-clear").setDescription("Remove the default banner (saved images remain registered)"))
     .addSubcommand(c=>c.setName("banner-remove").setDescription("Delete a saved banner that no active plan uses")
       .addStringOption(o=>o.setName("name").setDescription("Registered banner name").setRequired(true)));
+}
+async function refreshCurrentBannerPosts(interaction){
+  if(!interaction.client)return;
+  const results=await Promise.allSettled([
+    reconcileActivityGiveawayListings(interaction.client,{guildId:interaction.guildId}),
+    refreshActiveStandardGiveawayBanners(interaction.client,interaction.guildId),
+  ]);
+  for(const r of results)if(r.status==="rejected")
+    console.error("[Giveaways] Banner post refresh failed:",r.reason);
 }
 export async function executeGiveawayBannerAdmin(interaction) {
   const op=interaction.options.getSubcommand();
@@ -41,11 +52,13 @@ export async function executeGiveawayBannerAdmin(interaction) {
     const key=await ensureBannerRegistered(guildId,name);
     await GuildConfig.findOneAndUpdate({guildId},{$set:{giveawayDefaultBannerNameKey:key}},
       {upsert:true,returnDocument:"after"});
-    return interaction.editReply("Default giveaway banner updated. New and refreshed giveaway embeds will use it.");
+    await refreshCurrentBannerPosts(interaction);
+    return interaction.editReply("Default giveaway banner updated. Active activity listings and regular giveaway posts have been refreshed where accessible.");
   }
   if(op==="banner-clear"){
     await GuildConfig.updateOne({guildId},{$set:{giveawayDefaultBannerNameKey:""}});
-    return interaction.editReply("Default banner cleared. Saved named banners and plan-specific selections remain.");
+    await refreshCurrentBannerPosts(interaction);
+    return interaction.editReply("Default banner cleared. Active posts have been refreshed where accessible; saved named banners remain available.");
   }
   const name=interaction.options.getString("name",true);
   const key=bannerNameKey(name);
