@@ -6,6 +6,7 @@ import {handleGuidedGuildSetupInteraction} from "./commands/general-card-setup.j
 import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
 import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
 import {handleGiveawayStaffAction,reconcileGiveawayStaffRecords} from "./services/giveaway-staff-records.js";
+import {commandChannelRestriction} from "./services/command-channel-routing.js";
 import {handleGiveawayStaffDirectoryButton,reconcileGiveawayStaffDirectories} from "./services/giveaway-staff-directory.js";
 import {initializeAchievements} from "./services/card-achievement-engine.js";
 import {deliverAchievementNotices} from "./services/card-achievements.js";
@@ -983,12 +984,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name, cardsReleaseCommand.name, partyCommand.name].includes(interaction.commandName) && interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
-      if (
-        config?.commandChannelId &&
-        interaction.channelId !== config.commandChannelId
-      ) {
+      const restriction=commandChannelRestriction(interaction.commandName,interaction.channelId,config);
+      if (restriction) {
         const response = {
-          content: `Please use bot commands in <#${config.commandChannelId}>.`,
+          content: restriction,
           allowedMentions: { parse: [] },
         };
         if (interaction.deferred) {
