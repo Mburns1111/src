@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import {ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags} from "discord.js";
 import GiveawayBanner from "../models/GiveawayBanner.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {sharedGiveawayPingRoleId} from "../services/giveaway-notification-roles.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
 import {parseEasternAnnouncement} from "../services/giveaway-plan-time.js";
 import {ensureBannerRegistered,saveGiveawayBanner} from "../services/giveaway-banners.js";
@@ -59,7 +60,6 @@ export const activityWizardPrompts={
   claimText:["Reply with your custom prize-collection instructions, up to 1,000 characters. The mandatory claim forfeiture warning is added automatically."],
   claimPreview:["Winner announcement preview",[choice("Back to claim settings","claimChoice"),choice("Back to options","extras")]],
   rerollsChoice:["How many automatic rerolls may this giveaway make for each unclaimed winner?",[0,1,2,3,5,10].map(n=>choice(n+" rerolls",String(n)))],
-  notifyRoles:["Paste up to 10 notification role mentions or role IDs separated by spaces or commas. Reply none to disable notifications."],
   emptyResults:["If nobody qualifies, announce no winners?",[choice("Announce no winners","announce"),choice("Skip empty announcement","silent")]],
   banner:["Which banner should appear on this giveaway?",[
     choice("Use server default","bannerDefault"),
@@ -130,7 +130,7 @@ export function describeActivityWizard(session){
     'Claim time · '+s.claimHours+' hours · Max automatic rerolls · '+s.maxAutoRerolls+
       ' · Banner · '+(s.banner||'Server default'),
     'Claim instructions · '+(s.claimInstructions?'Custom instructions':'Server default'),
-    'Notification roles · '+(s.notificationRoleIds?.length?s.notificationRoleIds.map(id=>'<@&'+id+'>').join(', '):'None'),
+    'Shared giveaway ping role · '+(s.notificationRoleIds?.[0]?'<@&'+s.notificationRoleIds[0]+'>':'None')+' (managed in /setup giveaways, /setup activity-giveaways or /setup trials)',
     'No eligible members · '+(s.announceEmptyResults?'Announce no winners':'Do not post empty results'),
     s.bonuses.length?'Bonus roles · '+s.bonuses.map(b=>'<@&'+b.roleId+'> +'+b.extraEntries).join(', '):null,
     'Repeat · '+repeatText(s),
@@ -146,7 +146,7 @@ async function show(session,step){
   if(step==="extras")choices=[
     ['Manual approval '+(s.approval?'ON':'OFF'),'approval'],['Member progress '+(s.progress?'ON':'OFF'),'progress'],
     ['Add bonus role','role'],['Claim time','claim'],['Claim instructions','claimChoice'],
-    ['Max rerolls','rerollsChoice'],['Notification roles','notifyRoles'],
+    ['Max rerolls','rerollsChoice'],
     ['No eligible winners','emptyResults'],['Banner','banner'],['Done','done'],
   ];
   if(step==="minimum")choices=[1,3,5,10,20].map(x=>choice(String(x)+" messages",String(x)));
@@ -215,7 +215,7 @@ export async function startActivityWizard(i){
       claimInstructions:config.activityClaimInstructions||"",
       serverClaimInstructions:config.activityClaimInstructions||"",
       maxAutoRerolls:config.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
-      notificationRoleIds:[...(config.activityNotificationRoleIds||[])],
+      notificationRoleIds:sharedGiveawayPingRoleId(config)?[sharedGiveawayPingRoleId(config)]:[],
       announceEmptyResults:config.activityAnnounceEmptyResults!==false,
     }};
   await show(session,"scope");
@@ -313,17 +313,6 @@ async function accept(session,input,client){
     case "claimPreview":next=v;break;
     case "rerollsChoice":s.maxAutoRerolls=number(v,0,10);next="extras";break;
     case "emptyResults":s.announceEmptyResults=v==="announce";next="extras";break;
-    case "notifyRoles":{
-      if(/^(none|off|clear)$/i.test(v)){s.notificationRoleIds=[];next="extras";break;}
-      const ids=[...v.matchAll(/(?:<@&(\d{17,20})>|(\d{17,20}))/g)].map(x=>x[1]||x[2]);
-      if(v.replace(/(?:<@&\d{17,20}>|\d{17,20})/g,"").replace(/[\s,]+/g,"")||!ids.length||ids.length>10)
-        throw Error("Enter up to 10 valid role mentions or IDs, separated by spaces or commas; or reply none.");
-      for(const id of ids){
-        const role=await session.guild.roles.fetch(id).catch(()=>null);
-        if(!role||role.id===session.guild.id)throw Error("Role "+id+" does not exist in this server.");
-      }
-      s.notificationRoleIds=[...new Set(ids)];next="extras";break;
-    }
     case "banner":
       if(v==="bannerDefault"){s.banner="";next=done("extras");}
       else if(v==="bannerPick")next="bannerPick";
