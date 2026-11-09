@@ -24,7 +24,8 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Manual approval",value:"requireStaffReview",description:"On or off: staff approve winners"},
   {label:"Check My Progress",value:"progressEnabled",description:"On or off: members see private progress"},
   {label:"Bonus roles",value:"roleBonuses",description:"Add, change or clear bonus chances"},
-  {label:"Required role",value:"requiredRoleId",description:"Check role before logging; resetting prior activity"},
+  {label:"Required role",value:"requiredRoleId",description:"Role required before counting; resets activity"},
+  {label:"Show role instructions",value:"showRequiredRoleInstructions",description:"On/off: show where to get the role"},
   {label:"Claim time",value:"claimWindowHours",description:"Hours a winner has to claim"},
   {label:"Claim instructions",value:"claimInstructions",description:"Replace or reset the prize collection message"},
   {label:"Maximum auto rerolls",value:"maxAutoRerolls",description:"0–10 replacements for each unclaimed winner"},
@@ -40,7 +41,8 @@ export const GUIDED_EDIT_FIELDS=[
 const criteriaFields=new Set(["activityChannelIds","activityRequiredMentionUserId","activityRequiredPhrase","requiredRoleId"]);
 const inputMax={title:100,prize:1500,description:1000,winnerCount:2,
   activityMinTotalMessages:5,activityDays:3,claimWindowHours:3,bannerNameKey:60,
-  requireStaffReview:3,progressEnabled:3,roleBonuses:350,activityChannelIds:100,
+  requireStaffReview:3,progressEnabled:3,showRequiredRoleInstructions:3,
+  roleBonuses:350,activityChannelIds:100,
   activityRequiredMentionUserId:100,activityRequiredPhrase:120,requiredRoleId:100,
   endsAt:16,activityEndAt:16,repeatSchedule:80,
   claimInstructions:1000,maxAutoRerolls:2,notificationRoleIds:350,announceEmptyResults:3};
@@ -49,10 +51,11 @@ const inputHint={
   bannerNameKey:"Saved banner name or default",
   requireStaffReview:"on or off",
   progressEnabled:"on or off",
+  showRequiredRoleInstructions:"on or off (hide for restricted giveaways)",
   roleBonuses:"@role 2  /  @role remove  /  clear",
   activityChannelIds:"#channel, channel ID, or all",
   activityRequiredMentionUserId:"@member, user ID, or none",
-  requiredRoleId:"@role, role ID, or none; resets counting",
+  requiredRoleId:"@role, role ID, default, or none; resets counting",
   activityRequiredPhrase:"Exact spelling and word order; capitals ignored",
   activityEndAt:"YYYY-MM-DD HH:mm Eastern",
   endsAt:"YYYY-MM-DD HH:mm Eastern",
@@ -86,7 +89,7 @@ export function validateGuidedStaffEdit(field,raw,event,{now=new Date()}={}){
     if(value.length>60)throw Error("Banner name cannot exceed 60 characters.");
     return {bannerNameKey:/^(default|none|clear)$/i.test(value)?"":value};
   }
-  if(["requireStaffReview","progressEnabled","announceEmptyResults"].includes(field)){
+  if(["requireStaffReview","progressEnabled","announceEmptyResults","showRequiredRoleInstructions"].includes(field)){
     if(!/^(on|off)$/i.test(value))throw Error('Enter "on" or "off".');
     return {[field]:value.toLowerCase()==="on"};
   }
@@ -103,6 +106,7 @@ export function validateGuidedStaffEdit(field,raw,event,{now=new Date()}={}){
   }
   if(field==="requiredRoleId"){
     if(/^(none|clear|off)$/i.test(value))return {requiredRoleId:"",requiredRoleInstructions:""};
+    if(/^default$/i.test(value))return {requiredRoleId:"__server_default__"};
     const match=/^(?:<@&(\d{17,20})>|(\d{17,20}))$/.exec(value);
     if(!match)throw Error("Enter @role, a role ID, or none.");
     return {requiredRoleId:match[1]||match[2]};
@@ -191,7 +195,7 @@ function editModal(event,field){
    throw Error("Counting has already started; the start cannot be backdated.");
  let old=event[field];
  if(field==="bannerNameKey")old=old||"default";
- if(["requireStaffReview","progressEnabled","announceEmptyResults"].includes(field))old=old?"on":"off";
+ if(["requireStaffReview","progressEnabled","announceEmptyResults","showRequiredRoleInstructions"].includes(field))old=old?"on":"off";
  if(field==="notificationRoleIds")old=(event.notificationRoleIds||[]).map(id=>"<@&"+id+">").join(" ");
  if(field==="activityChannelIds")old=event.activityChannelIds?.length?"<#"+event.activityChannelIds[0]+">":"all";
  if(field==="activityRequiredMentionUserId")old=old?"<@"+old+">":"none";
@@ -227,7 +231,7 @@ export function describeGuidedStaffOptions(event){
  return [
    "**Edit this activity giveaway**",
    "**Giveaway post:** Title · Prize · Giveaway Details · Banner",
-   "**Qualification:** Total message goal · Active days · Watched channel · Member ping · Required phrase · Required role",
+   "**Qualification:** Total message goal · Active days · Watched channel · Member ping · Required phrase · Required role · Role instructions visibility",
    "*Exact phrases require correct spelling and word order; capitalization does not matter.*",
    "**Timing:** Activity cutoff · Winner announcement",
    "**Drawing:** Winners · Manual approval · Bonus roles · Claim time · Max rerolls · Member progress",
@@ -236,7 +240,8 @@ export function describeGuidedStaffOptions(event){
    "",
    "**Current settings**",
    "Watch: "+channel+" · Goal: "+(event.activityMinTotalMessages||1)+" total message(s)",
-   "Required role: "+(event.requiredRoleId?"<@&"+event.requiredRoleId+"> · "+event.requiredRoleInstructions:"None"),
+   "Required role: "+(event.requiredRoleId?"<@&"+event.requiredRoleId+">":"None")+
+     " · Acquisition instructions: "+(event.showRequiredRoleInstructions!==false?"Shown to members":"Hidden from members"),
    "Counting ends: "+fmt(event.activityEndAt)+" · Draws: "+fmt(event.endsAt),
    "Approval: "+(event.requireStaffReview?"On":"Off")+" · Progress: "+(event.progressEnabled?"On":"Off"),
    "",
@@ -316,13 +321,16 @@ export async function handleGuidedStaffAction(i){
          if(!role||role.id===i.guildId)throw Error("A selected notification role is not on this server.");
        }
      }
+     if(field==="requiredRoleId"&&changes.requiredRoleId==="__server_default__"){
+       const cfg=await GuildConfig.findOne({guildId:i.guildId}).lean();
+       changes.requiredRoleId=cfg?.giveawayDefaultRequiredRoleId||"";
+       changes.requiredRoleInstructions=changes.requiredRoleId?cfg?.giveawayRoleInstructions||"":"";
+     }
      if(field==="requiredRoleId"&&changes.requiredRoleId){
         const role=await i.guild.roles.fetch(changes.requiredRoleId).catch(()=>null);
         if(!role||role.id===i.guild.id)throw Error("Choose an existing server role.");
         const config=await GuildConfig.findOne({guildId:i.guildId}).lean();
-        if(!config?.giveawayRoleInstructions)
-          throw Error("Set where members obtain the role in /setup activity-giveaways first.");
-        changes.requiredRoleInstructions=config.giveawayRoleInstructions;
+        changes.requiredRoleInstructions=config?.giveawayRoleInstructions||"";
       }
       if(field==="roleBonuses"){
        const entered=String(i.fields.getTextInputValue("value"));
