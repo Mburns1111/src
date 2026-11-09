@@ -682,3 +682,54 @@ test("previously saved trials with hour claim windows retain the original units 
   assert.match(signup.embeds[0].data.description, /Claim window:.*24 hours/);
 });
 
+
+test("Court's Trial Royal Verdict removes claim details after a submitted ticket, but preserves the winner",()=>{
+ const trial=record({
+   status:"ended",winnerIds:[contestants[0]],winnerCount:1,
+   originalChampionId:contestants[0],trialTicketClaimsEnabled:true,
+   claimWindowMinutes:15,claimStartedAt:new Date("2026-11-01T20:00:00Z"),
+   winnerClaims:[],claimResolvedSlots:[],
+ });
+ const before=survivalFinalePayload(trial);
+ assert.match(before.embeds[0].toJSON().description,/Claim deadline:|How to claim:|Submit your claim:|FORFEIT YOUR WIN/);
+ assert.equal(before.components.length,1);
+ const after=survivalFinalePayload({...trial,winnerClaims:[
+   {slot:0,userId:contestants[0],ticketNumber:"TEST001",submittedAt:new Date()}]});
+ const text=after.embeds[0].toJSON().description;
+ assert.match(text,/Claim submitted/);
+ assert.match(text,/The Last Survivor/);
+ assert.match(text,/Royal Prize/);
+ assert.doesNotMatch(text,/Claim deadline:|How to claim:|Submit your claim:|FORFEIT YOUR WIN|Claiming your prize/);
+ assert.equal(after.components.length,0);
+});
+
+test("Court's Trial keeps claim instructions for another pending winner and restores them after a reroll",()=>{
+ const trial=record({
+   status:"ended",winnerIds:[contestants[0],contestants[1]],winnerCount:2,
+   originalChampionId:contestants[0],trialTicketClaimsEnabled:true,
+   claimWindowMinutes:15,claimStartedAt:new Date("2026-11-01T20:00:00Z"),
+   winnerClaims:[{slot:0,userId:contestants[0],ticketNumber:"TEST001"}],
+   claimResolvedSlots:[],
+ });
+ const partial=survivalFinalePayload(trial);
+ assert.match(partial.embeds[0].toJSON().description,/Claim deadline/);
+ assert.match(partial.embeds[0].toJSON().description,/#1 .*Claim submitted/);
+ assert.match(partial.embeds[0].toJSON().description,/#2 .*Awaiting ticket info/);
+ assert.equal(partial.components.length,1);
+ const finished={...trial,winnerClaims:[...trial.winnerClaims,
+   {slot:1,userId:contestants[1],ticketNumber:"TEST002"}]};
+ assert.doesNotMatch(survivalFinalePayload(finished).embeds[0].toJSON().description,/How to claim:|Submit your claim:|FORFEIT YOUR WIN|Claim deadline:/);
+ assert.equal(survivalFinalePayload(finished).components.length,0);
+ const rerolled={...finished,winnerIds:[contestants[0],contestants[2]]};
+ assert.match(survivalFinalePayload(rerolled).embeds[0].toJSON().description,/Claim deadline:/);
+ assert.equal(survivalFinalePayload(rerolled).components.length,1);
+});
+
+test("legacy staff-managed Court's Trials retain their existing collection directions",()=>{
+ const legacy=record({status:"ended",winnerIds:[contestants[0]],
+   trialTicketClaimsEnabled:false,claimWindowHours:24,
+   claimStartedAt:new Date("2026-11-01T20:00:00Z")});
+ const finale=survivalFinalePayload(legacy);
+ assert.match(finale.embeds[0].toJSON().description,/Court's Trial claims are coordinated by staff/);
+ assert.equal(finale.components.length,0);
+});
