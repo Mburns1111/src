@@ -329,3 +329,77 @@ test("activity giveaway listing and winners can be saved independently from stan
   })),/separate channels/i);
  }finally{restore(changes);}
 });
+
+test("regular and activity guided setup keep separate notification-role selections",()=>{
+  const settings={
+    giveawayNotificationRoleIds:["135791357913579135","246802468024680246"],
+    activityNotificationRoleIds:["357913579135791357"],
+    giveawayPingRoleId:"135791357913579135",
+  };
+  assert.deepEqual(giveawaySetupNotificationRoleIds(settings,"regular"),settings.giveawayNotificationRoleIds);
+  assert.deepEqual(giveawaySetupNotificationRoleIds(settings,"activity"),settings.activityNotificationRoleIds);
+  const regular=giveawaySetupNotificationFields(settings,"regular");
+  assert.deepEqual(regular,{giveawayNotificationRoleIds:settings.giveawayNotificationRoleIds,
+    giveawayPingRoleId:settings.giveawayNotificationRoleIds[0]});
+  assert.equal(Object.hasOwn(regular,"activityNotificationRoleIds"),false,
+    "regular setup must not modify active activity giveaway notifications");
+  const activity=giveawaySetupNotificationFields(settings,"activity");
+  assert.deepEqual(activity,{activityNotificationRoleIds:settings.activityNotificationRoleIds});
+  assert.equal(Object.hasOwn(activity,"giveawayNotificationRoleIds"),false,
+    "activity setup must not overwrite regular giveaway notifications");
+  const summary=describeActivityGiveawaySetup(settings,{mode:"regular"});
+  assert.match(summary,/135791357913579135/);
+  assert.doesNotMatch(summary,/357913579135791357/);
+  const activitySummary=describeActivityGiveawaySetup(settings,{mode:"activity"});
+  assert.match(activitySummary,/357913579135791357/);
+  assert.doesNotMatch(activitySummary,/246802468024680246/);
+});
+
+test("legacy single regular giveaway ping role remains effective until changed through guided setup",()=>{
+  const legacy={giveawayPingRoleId:"135791357913579135",giveawayNotificationRoleIds:[]};
+  assert.deepEqual(regularGiveawayNotificationRoleIds(legacy),["135791357913579135"]);
+  assert.deepEqual(giveawaySetupNotificationRoleIds(legacy,"regular"),["135791357913579135"]);
+  assert.deepEqual(giveawaySetupNotificationFields(legacy,"regular"),{
+    giveawayNotificationRoleIds:["135791357913579135"],
+    giveawayPingRoleId:"135791357913579135",
+  });
+  const cleared={giveawayNotificationRoleIds:[],giveawayPingRoleId:""};
+  assert.deepEqual(giveawaySetupNotificationFields(cleared,"regular"),{
+    giveawayNotificationRoleIds:[],giveawayPingRoleId:"",
+  });
+  assert.deepEqual(regularGiveawayNotificationRoleIds({
+    ...legacy,giveawayNotificationRoleIds:["246802468024680246"],
+  }),["246802468024680246"],"new guided roles take precedence over the old singular value");
+});
+
+test("regular giveaway announcements ping multiple selected roles once on creation",async()=>{
+  const changes=[],records=[],announcements=[];
+  const selected=["135791357913579135","246802468024680246"];
+  try {
+    stub(changes,GuildConfig,"findOne",async()=>({
+      giveawayChannelId:normalId,activityGiveawayReviewChannelId:staffId,
+      giveawayNotificationRoleIds:selected,giveawayPingRoleId:selected[0],
+    }));
+    stub(changes,Giveaway,"create",async values=>{
+      records.push(values);
+      return {...values,_id:giveawayId,toObject:()=>({...values,_id:giveawayId})};
+    });
+    stub(changes,Giveaway,"updateOne",async()=>({modifiedCount:1}));
+    const guild={id:guildId,roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}},
+      channels:{fetch:async id=>({
+        id,isTextBased:()=>true,messages:{fetch:async()=>null},
+        permissionsFor:target=>({has:()=>target?.id!=="everyone"}),
+        send:async payload=>{
+          if(id===normalId)announcements.push(payload);
+          return {id:"678901234567890123",url:"https://discord.com/channels/example"};
+        },
+      })}};
+    await postGiveaway(postingInteraction("start",guild));
+    assert.equal(records.length,1);
+    assert.deepEqual(records[0].announcementPingRoleIds,selected);
+    assert.equal(records[0].announcementPingRoleId,selected[0]);
+    assert.equal(announcements.length,1);
+    assert.equal(announcements[0].content,selected.map(id=>"<@&"+id+">").join(" "));
+    assert.deepEqual(announcements[0].allowedMentions,{parse:[],roles:selected});
+  }finally{restore(changes);}
+});
