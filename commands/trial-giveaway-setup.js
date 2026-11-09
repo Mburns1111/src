@@ -165,7 +165,7 @@ function layout(session,banners=[]) {
     content = "Upload a **PNG, JPG, WebP or GIF (maximum 4 MB)** in this same channel.\n" +
       "You may type the banner's name in the same message as the image. Without a caption, the filename becomes its name.\n" +
       "The image will be registered for future giveaways and selected for this Trial setup. Uploading under an existing name replaces that banner's image.";
-    components.push(buttons(session,[["Back to Banner Choices","back"]]));
+
   } else if (step === "review") {
     content = trialSetupSummary(s);
     components.push(new ActionRowBuilder().addComponents(
