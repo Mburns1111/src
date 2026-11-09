@@ -1,6 +1,7 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,PermissionFlagsBits} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
+import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import {closeGiveaway,publishGiveawayResult} from "./giveaways.js";
 
 export function giveawayReviewPayload(record){
@@ -67,8 +68,8 @@ export async function refreshGiveawayReviewMessage(client,record,result){
 export async function handleGiveawayReviewButton(interaction){
   await interaction.deferReply({flags:MessageFlags.Ephemeral});
   try{
-    if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-      return interaction.editReply("Only staff with Manage Server can approve activity giveaways.");
+    if(!await canManageGiveaways(interaction))
+      return interaction.editReply(giveawayManagerPermissionMessage);
     const match=/^giveaway-review:(approve|decline):([0-9a-f]{24})$/.exec(interaction.customId);
     if(!match)return interaction.editReply("Invalid review action.");
     const [,action,id]=match;
