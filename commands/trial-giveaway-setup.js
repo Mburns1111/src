@@ -290,7 +290,7 @@ async function process(session, action, value) {
     }
   }
   if (session.step === "minutesText" && action === "text") {
-    if (!/^\\d+$/.test(value) || +value < 1 || +value > MAX_TRIAL_CLAIM_MINUTES)
+    if (!/^\d+$/.test(value) || +value < 1 || +value > MAX_TRIAL_CLAIM_MINUTES)
       throw Error("Enter 1–43,200 whole minutes.");
     s.trialClaimWindowMinutes = Number(value);
     return session.fromReview ? advance(session) : show(session, "rerolls");
@@ -367,7 +367,7 @@ export async function handleTrialGiveawaySetupInteraction(interaction) {
     const selected = ["chooseChannel", "chooseRequiredRole", "chooseRoles", "edit"].includes(action)
       ? interaction.values : null;
     await process(session, action,
-      ["chooseChannel", "chooseRequiredRole"].includes(action) ? selected?.[0] : selected);
+      ["chooseChannel", "chooseRequiredRole", "edit"].includes(action) ? selected?.[0] : selected);
     return interaction.editReply("Setup step updated.");
   } catch (error) {
     return interaction.editReply("Couldn't update Trial setup: " + String(error.message || error));
