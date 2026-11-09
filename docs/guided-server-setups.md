@@ -7,8 +7,8 @@ Source: `feature/trials-guided-setup` (draft PR #41). Based on the unmerged acti
 | Command | What it configures | Required fields |
 |---|---|---|
 | `/setup general` | Ordinary commands channel, then optional member profiles, houses, outfits, inventory, Trading Posts, trade voting, shop and party games | Commands channel **first** |
-| `/setup giveaways` | Standard giveaway posts, private staff records, Giveaway Manager role, regular-only notification roles, role/help, claims, rerolls and banner | Public giveaway channel and private staff channel |
-| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, Giveaway Manager role, activity-only notification roles, role/help, claims, rerolls and banner | Three distinct channels |
+| `/setup giveaways` | Standard giveaway posts, private staff records, Giveaway Manager role, one shared giveaway notification role, role/help, claims, rerolls and banner | Public giveaway channel and private staff channel |
+| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, Giveaway Manager role, the same shared giveaway notification role, role/help, claims, rerolls and banner | Three distinct channels |
 | `/setup trials` | Court's Trial signup/elimination channel, private staff records, default eligibility role/help, claim instructions and deadlines, notification roles, automatic rerolls, banner | Trial channel and private staff channel |
 | `/setup cards` | Hatchem game channel, Collector role, activity-based wild egg toggle | Requires General commands channel; Hatchem channel and manageable Collector role |
 
@@ -26,7 +26,7 @@ Slash commands other than `/setup` are blocked before initial setup. The bot als
 
 ## Court's Trial defaults
 
-The new Trial flow uses separate default eligibility role/instructions, role-instruction visibility, announcement notification roles (up to 10, pinged at signup only), minute-based claim window (1–43,200 minutes), staff ticket instructions, rerolls (0–10), and saved banner artwork. Each `/trial start` may override supported defaults. Configuring Trials does **not** change default values for regular/activity giveaways.
+The new Trial flow uses separate default eligibility role/instructions, role-instruction visibility, the shared giveaway notification role (pinged at signup only), minute-based claim window (1–43,200 minutes), staff ticket instructions, rerolls (0–10), and saved banner artwork. Each `/trial start` may override supported defaults. Configuring Trials does not change regular/activity claim and eligibility defaults, but the single shared giveaway ping role is intentionally updated for every giveaway type.
 
 New Trials use the regular giveaway claim ticket form after the final Royal Verdict: a winner submits a ticket number and exact Discord ticket message link before the deadline. Those details appear **only in staff records**, never in public result text. Automatic expiry rerolls follow the saved limit; staff can stop them. Existing old Trial records preserve their original staff-managed claim behavior. Prizes are still delivered manually by staff.
 
@@ -91,7 +91,7 @@ Discord checklist:
 1. In a new test guild, try a non-setup slash command. It must direct staff to initial setup.
 2. Run `/setup general`. Verify the first step requires a commands channel, every later step can be skipped, and the saved setup summary has the intended channels. Confirm unconfigured features do not post their entry panels.
 3. Run `/setup cards`. Choose a manageable Collector role beneath the bot, assign a Hatchem channel, and try both disabled/enabled wild eggs. Register in Hatchem, use `.drop`, and confirm old global cooldowns and owned cards are unchanged.
-4. Run `/setup trials`. Pick a separate Trial channel and private staff channel; choose role, claims, notification roles, and rerolls; preview the Royal Verdict and save. Verify notifications occur only once. The minimum of two trial contestants is unchanged.
+4. Run `/setup trials`. Pick a separate Trial channel and private staff channel; choose the shared giveaway ping role, claims, and rerolls; preview the Royal Verdict and save. Verify notifications occur only once. The minimum of two trial contestants is unchanged.
 5. Create a short Trial and let it finish. The winner's ticket form must accept only their claim and privately display it to staff. A second member cannot submit on their behalf. Verify automatic replacement (when enabled), saved history, and a Trial without remaining eligible replacements.
 6. Re-open each setup and change one setting; verify unrelated features and historical giveaway/Trial records are unchanged.
 7. Test restart recovery. Do not merge or deploy to production without explicit authorization.
