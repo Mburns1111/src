@@ -6,7 +6,7 @@ import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
 import {qualifyingActivity,qualifyingWatchActivity,countActivityParticipants} from "./giveaway-activity-counter.js";
-import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, automaticRerollLimit, automaticRerollsUsed } from "./giveaway-claims.js";
+import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, hasOutstandingTicketClaims, automaticRerollLimit, automaticRerollsUsed } from "./giveaway-claims.js";
 import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
 // Six calendar months (rather than a fixed 180 days) varies with the start date.
@@ -115,7 +115,7 @@ export function giveawayAnnouncement(record) {
     }
 
   }
-  const components = ended && record.status === "ended" && record.mode !== "survival" && (record.winnerIds || []).length
+  const components = ended && record.status === "ended" && record.mode !== "survival" && hasOutstandingTicketClaims(record)
     ? [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`giveaway:claim:${record._id}`).setLabel("Enter Ticket Claim info").setStyle(ButtonStyle.Primary),
       )]
