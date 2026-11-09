@@ -30,6 +30,14 @@ The new Trial flow uses separate default eligibility role/instructions, role-ins
 
 New Trials use the regular giveaway claim ticket form after the final Royal Verdict: a winner submits a ticket number and exact Discord ticket message link before the deadline. Those details appear **only in staff records**, never in public result text. Automatic expiry rerolls follow the saved limit; staff can stop them. Existing old Trial records preserve their original staff-managed claim behavior. Prizes are still delivered manually by staff.
 
+## Giveaway and Trial command channels
+
+Managers with **Manage Server** may use `/giveaway` and `/giveaway-role` in either the normal bot commands channel or the private staff giveaway channel configured under `/setup giveaways` or `/setup activity-giveaways`. This includes `/giveaway activity`: its interactive question-and-answer wizard now stays in whichever authorized channel the manager started it from.
+
+Managers may use `/trial` in either the normal bot commands channel or the Court's Trial channel configured under `/setup trials`. Trial commands are **not** automatically permitted in the private giveaway staff channel. All unrelated commands keep their existing channel limits.
+
+Commands started in the staff or Trial channel still publish actual giveaway and Trial announcements to their configured public channels. No permissions are loosened for non-staff members.
+
 ## Private staff giveaway directory (automatic sticky)
 
 The existing **private staff giveaway channel** selected by `/setup giveaways` or `/setup activity-giveaways` automatically receives an **Active Giveaway Directory**. There is no extra setup command or separate channel to configure.
