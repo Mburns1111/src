@@ -6,6 +6,7 @@ import {handleGuidedGuildSetupInteraction} from "./commands/general-card-setup.j
 import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
 import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
 import {handleGiveawayStaffAction,reconcileGiveawayStaffRecords} from "./services/giveaway-staff-records.js";
+import {handleGiveawayStaffDirectoryButton,reconcileGiveawayStaffDirectories} from "./services/giveaway-staff-directory.js";
 import {initializeAchievements} from "./services/card-achievement-engine.js";
 import {deliverAchievementNotices} from "./services/card-achievements.js";
 
@@ -433,6 +434,8 @@ client.once(Events.ClientReady, async (readyClient) => {
       await reconcileGiveawayClaims(readyClient);
       await reconcileActivityGiveawayListings(readyClient);
       await reconcileGiveawayStaffRecords(readyClient);
+      // Run last so the sticky directory follows newly posted staff records.
+      await reconcileGiveawayStaffDirectories(readyClient);
     }
     catch (error) { console.error("[Giveaways] Cleanup sweep failed:", error); }
     finally { giveawaySweepActive = false; }
@@ -549,6 +552,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return await handleActivityGiveawaySetupInteraction(interaction);
     if ((interaction.isButton()||interaction.isModalSubmit()) && interaction.customId.startsWith("giveawaystaff:"))
       return await handleGiveawayStaffAction(interaction);
+    if (interaction.isButton() && interaction.customId.startsWith("giveawaydir:"))
+      return await handleGiveawayStaffDirectoryButton(interaction);
     if (interaction.isButton() && interaction.customId.startsWith("activitysetup:"))
       return await wizardButton(interaction);
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
