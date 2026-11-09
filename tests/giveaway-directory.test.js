@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import GuildConfig from "../models/GuildConfig.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
+import Giveaway from "../models/Giveaway.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import {activityPlanListingEmbed,activityOneOffListingEmbed,
-  publishActivityPlanListing} from "../services/giveaway-directory.js";
+  publishActivityPlanListing,publishActivityOneOffListing} from "../services/giveaway-directory.js";
 
 const guildId="123456789012345678",listId="234567890123456789",winnersId="345678901234567890";
 const planId="507f1f77bcf86cd799439011";
@@ -129,4 +130,40 @@ test("public cards hide internal details while keeping real entry requirements",
  assert.match(advanced.description,/25 characters/);
  assert.match(advanced.description,/thank you/);
  assert.doesNotMatch(advanced.description,/per active day/);
+});
+
+test("ended one-off activity poster stays on public list until staff uses Delete Listing",async()=>{
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const edits=[],deleted=[],updates=[];
+ const event={
+   _id:planId,guildId,mode:"activity",status:"ended",
+   title:"Finished activity",prize:"Special pet",winnerCount:1,
+   winnerIds:["456789012345678901"],channelId:winnersId,
+   endsAt:new Date("2026-11-08T18:00:00Z"),
+   listChannelId:listId,listMessageId:"567890123456789012",
+   listFingerprint:"previous",progressEnabled:true,
+ };
+ try{
+   GuildConfig.findOne=()=>({
+     giveawayDefaultBannerNameKey:"",
+     select:()=>({lean:async()=>({
+       activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId,
+     })}),
+   });
+   Giveaway.updateOne=async (_query,change)=>updates.push(change.$set);
+   const existing={author:{id:"bot"},id:event.listMessageId,
+     embeds:[{footer:{text:"#99439011"}}],edit:async p=>edits.push(p),
+     delete:async()=>deleted.push("activity-list")};
+   const channel={id:listId,messages:{fetch:async()=>existing},send:async()=>{throw Error("Should edit existing completed listing");}};
+   const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
+   assert.equal(await publishActivityOneOffListing(client,event,{now:new Date("2026-11-09T14:00:00Z")}),true);
+   assert.deepEqual(deleted,[],"ending must not automatically remove the public list entry");
+   assert.equal(edits.length,1);
+   assert.match(edits[0].embeds[0].data.description,/Giveaway ended/);
+   assert.doesNotMatch(edits[0].embeds[0].data.description,/Qualify automatically|Draws <t:/);
+   assert.equal(edits[0].components,undefined,"there must be no activity-progress button on a completed listing");
+   assert.ok(updates.some(x=>x.listMessageId===event.listMessageId));
+ }finally{
+   GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;
+ }
 });
