@@ -11,7 +11,7 @@ export function normalizeRoleBonuses(bonuses=[]) {
     if(!/^\d{17,20}$/.test(roleId) || !Number.isSafeInteger(extraEntries) ||
        extraEntries<1 || extraEntries>20 || seen.has(roleId))
       throw Error("Each bonus requires a unique Discord role and 1–20 extra chances.");
-    if(result.length>=20)throw Error("Set at most 20 bonus roles per activity giveaway.");
+    if(result.length>=20)throw Error("Set at most 20 bonus roles per giveaway.");
     result.push({roleId,extraEntries});
     seen.add(roleId);
   }

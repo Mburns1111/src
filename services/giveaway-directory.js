@@ -82,6 +82,8 @@ export function activityOneOffListingEmbed(record) {
     "• Send **"+minimum+" matching "+(minimum===1?"message":"messages")+"** in "+
       qualifyChannel(channels)+" during this activity.",
   ];
+  if(record.requiredRoleId)qualifier.push("• **Required role:** <@&"+record.requiredRoleId+">. "+
+    (record.requiredRoleInstructions?"**Where to get it:** "+String(record.requiredRoleInstructions).slice(0,500):"Ask staff how to obtain this role."));
   if(record.activityMinChars>1)qualifier.push("• Each message must have at least **"+record.activityMinChars+" characters**.");
   if(!guided&&record.activityMinimum>1)
     qualifier.push("• At least **"+record.activityMinimum+" messages** on each qualifying day.");

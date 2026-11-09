@@ -19,6 +19,7 @@ const guildConfigSchema = new mongoose.Schema(
     activityGiveawayWinnersChannelId: { type: String, default: "" },
     activityGiveawayReviewChannelId: { type: String, default: "" },
     activityClaimInstructions:{type:String,default:"",maxlength:1000},
+    giveawayRoleInstructions:{type:String,default:"",maxlength:500},
     activityClaimWindowHours:{type:Number,default:12,min:1,max:720},
     activityMaxAutoRerolls:{type:Number,default:2,min:0,max:10},
     activityNotificationRoleIds:{type:[String],default:[]},

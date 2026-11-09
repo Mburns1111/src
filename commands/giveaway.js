@@ -236,6 +236,7 @@ export async function execute(interaction) {
         claimWindowMinutes: survival ? (interaction.options.getInteger("claim_minutes") ?? null) : null,
         claimInstructions: interaction.options.getString("claim_instructions")?.trim() || "",
         requiredRoleId: interaction.options.getRole("role")?.id || "",
+        requiredRoleInstructions:config?.giveawayRoleInstructions||"",
         announcementPingRoleId: pingRoleId || "",
         winnerCount, endsAt: new Date(Date.now() + minutes * 60_000),
         mode: survival ? "survival" : "standard",
@@ -434,7 +435,7 @@ export async function handleGiveawayButton(interaction) {
     if (action === "enter" && record.requiredRoleId) {
       const member = await interaction.guild.members.fetch({ user: interaction.user.id, force: true }).catch(() => null);
       if (!member?.roles?.cache?.has(record.requiredRoleId))
-        return interaction.editReply(`You need the <@&${record.requiredRoleId}> role to join this giveaway.`);
+        return interaction.editReply(`You need the <@&${record.requiredRoleId}> role to join this giveaway.${record.requiredRoleInstructions?"\n**Where to get it:** "+record.requiredRoleInstructions:""}`);
     }
     const result = action === "enter"
       ? await joinGiveaway({ id, guildId: interaction.guildId, userId: interaction.user.id, mode: record.mode })

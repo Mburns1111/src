@@ -21,6 +21,12 @@ export async function handleActivityGiveawayProgress(interaction) {
      (isPlan?item.status!=="active":item.status!=="open"))
     return interaction.editReply("Progress tracking is unavailable for this giveaway.");
   if(item.guidedSeries){
+    if(item.requiredRoleId){
+      const member=await interaction.guild.members.fetch({user:interaction.user.id,force:true}).catch(()=>null);
+      if(!member?.roles?.cache?.has(item.requiredRoleId))
+        return interaction.editReply({content:"**Required role:** <@&"+item.requiredRoleId+">\n"+
+          (item.requiredRoleInstructions||"Ask staff how to get this role.")+"\nActivity messages do not count until you hold this role.",allowedMentions:{parse:[]}});
+    }
     const [row]=await activityRoster(item,interaction.user.id);
     return interaction.editReply({content:[
       "**"+item.title+"** · "+(row?.qualified?"Qualified":"Not yet qualified"),

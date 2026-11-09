@@ -52,7 +52,9 @@ export function giveawayAnnouncement(record) {
     ended
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
-    ...(record.requiredRoleId ? [`**Required role:** <@&${record.requiredRoleId}>`] : []),
+    ...(record.requiredRoleId ? [`**Required to enter:** <@&${record.requiredRoleId}>`,
+      ...(record.requiredRoleInstructions?[`**How to get the role:** ${String(record.requiredRoleInstructions).slice(0,500)}`]:[])] : []),
+    ...(record.roleBonuses?.length?["**Bonus drawing chances:** "+record.roleBonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(" · ")]:[]),
     ...(!ended ? prizeClaimLines(record) : []),
     ...(record.rules ? ["", "**Rules / Requirements:**", record.rules.slice(0, 1300)] : []),
   ];
@@ -193,17 +195,18 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   let eligible = item.entrantIds || [];
   if (item.mode==="activity" && !client) throw Error("Discord client required to verify activity entrants.");
   let entries=[];
-  if(client && item.mode==="activity"){
+  if(client){
     const members=await verifyServerMembers(client,item.guildId,eligible,{includeMembers:true});
-    eligible=members.map(m=>m.id);
-    entries=weightEntriesForMembers(members,item.roleBonuses);
-  }else if(client)eligible=await verifyServerMembers(client,item.guildId,eligible);
-  const winnerIds = item.mode==="activity"
+    const permitted=members.filter(m=>!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId));
+    eligible=permitted.map(m=>m.id);
+    entries=weightEntriesForMembers(permitted,item.roleBonuses);
+  }
+  const winnerIds=client||item.roleBonuses?.length
     ?pickWeightedUnique(eligible,item.winnerCount,entries)
     :chooseGiveawayWinners(eligible,item.winnerCount);
   const changed = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "closing" },
-    { $set: { status: "ended", winnerIds, ...(item.mode === "activity" ? {activityVerifiedIds:eligible,entryWeights:entries} : {}),
+    { $set: { status: "ended", winnerIds, activityVerifiedIds:eligible,entryWeights:entries,
       claimStartedAt:now,winnerAssignedAt:winnerIds.map(()=>now),
       claimCheckAt:nextClaimCheckAt({...item,status:"ended",winnerIds,claimStartedAt:now,winnerAssignedAt:winnerIds.map(()=>now)}),
       renderedAt:null }, $inc: { renderVersion: 1 } },
@@ -226,9 +229,11 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
       throw Error("The maximum automatic rerolls for this winning place have already been used.");
   }
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
-  const pool=(item.mode==="activity" ? item.activityVerifiedIds || [] : item.entrantIds || [])
+  const pool=(item.activityVerifiedIds?.length ? item.activityVerifiedIds : item.entrantIds || [])
     .filter(id=>!used.includes(id));
-  const verified=client ? await verifyServerMembers(client,item.guildId,pool) : [...new Set(pool)];
+  const members=client?await verifyServerMembers(client,item.guildId,pool,{includeMembers:true}):null;
+  const verified=members?members.filter(m=>!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId)).map(m=>m.id):
+    [...new Set(pool)];
   if (!verified.length) throw Error("There are no unused current server members left for a reroll.");
   const reserved = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "ended",
@@ -248,10 +253,8 @@ export async function finishPendingReroll(item) {
     throw Error("Giveaway reroll state requires staff repair.");
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
   const eligible=item.pendingRerollEligibleIds?.length ? item.pendingRerollEligibleIds :
-    (item.mode==="activity" ? item.activityVerifiedIds||[] : item.entrantIds||[]);
-  const replacementId=(item.mode==="activity"
-    ?pickWeightedUnique(eligible,1,item.entryWeights,used)
-    :chooseGiveawayWinners(eligible,1,used))[0];
+    (item.activityVerifiedIds?.length ? item.activityVerifiedIds : item.entrantIds||[]);
+  const replacementId=pickWeightedUnique(eligible,1,item.entryWeights,used)[0];
   if (!replacementId) throw Error("No unused entrants remain.");
   const previousId = item.winnerIds[slot];
   const winnerIds = [...item.winnerIds];

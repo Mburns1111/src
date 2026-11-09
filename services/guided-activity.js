@@ -81,6 +81,7 @@ async function materialize(series,start,first=false) {
       activityMinChars:1,
       activityRequiredMentionUserId:s.mention || "", activityRequiredPhrase:s.phrase || "",
       requireStaffReview:s.approval, roleBonuses:s.bonuses || [], progressEnabled:Boolean(s.progress),
+      requiredRoleId:s.requiredRoleId||"",requiredRoleInstructions:s.requiredRoleInstructions||"",
       claimWindowHours:s.claimHours ?? DEFAULT_CLAIM_HOURS, autoRerollClaims:true, bannerNameKey:s.banner || "",
       claimInstructions:s.claimInstructions||"",maxAutoRerolls:s.maxAutoRerolls??2,
       notificationRoleIds:s.notificationRoleIds||[],announceEmptyResults:s.announceEmptyResults!==false,
@@ -139,7 +140,14 @@ export async function recordGuidedMessage(message) {
     activityStartAt:{$lte:time},activityEndAt:{$gt:time},
     $or:[{activityType:"general"},{activityChannelIds:message.channelId}],
   }).lean();
+  let roleMember;
   for(const event of events){
+    // Required role: check membership before creating activity receipts.
+    if(event.requiredRoleId){
+      if(roleMember===undefined)
+        roleMember=await message.guild?.members.fetch({user:message.author.id,force:true}).catch(()=>null) || null;
+      if(!roleMember?.roles?.cache?.has(event.requiredRoleId))continue;
+    }
     const matches=guidedMessageMatches(event,message);
     await Receipt.updateOne({_id:event._id+":"+message.id},{$setOnInsert:{
       event:event._id,user:message.author.id,day:currentActivityDay(time),matches:Boolean(matches),at:time,
