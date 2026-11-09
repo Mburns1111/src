@@ -47,7 +47,8 @@ export function trialSetupSummary(settings) {
     "🎟️ **Default required role:** " + roleShown(settings.trialDefaultRequiredRoleId),
     "👁️ **Display role instructions:** " + (settings.trialShowRoleInstructions !== false ? "Yes" : "No"),
     "**Where to get that role:** " + (settings.trialRoleInstructions || "Not set"),
-    "📝 **Claim instructions:** " + (settings.trialClaimInstructions || DEFAULT_CLAIM_INSTRUCTIONS),
+    "📝 **Current prize-claim instructions (" + (settings.trialClaimInstructions?"Saved Trial custom":"Built-in default") + "):**",
+    (settings.trialClaimInstructions || DEFAULT_CLAIM_INSTRUCTIONS),
     "⏰ **Claim deadline:** " + settings.trialClaimWindowMinutes + " minutes after the verdict",
     "🔁 **Automatic unclaimed-prize rerolls:** " + settings.trialMaxAutoRerolls + " per winning place",
     "🔔 **Shared giveaway ping role (all giveaways and Trials):** " +
@@ -127,9 +128,13 @@ function layout(session,banners=[]) {
       (s.trialShowRoleInstructions ? "Show" : "Hide");
     components.push(buttons(session, [["Show", "showHelp"], ["Hide", "hideHelp"], ["Keep", "keep"]]));
   } else if (step === "instructions") {
-    content = "Set the default prize-claim instructions (can include ticket-channel links). Every verdict also requires a **ticket number and Discord ticket message link**, with a bold forfeiture warning.\n**Current:** " +
-      (s.trialClaimInstructions || DEFAULT_CLAIM_INSTRUCTIONS);
-    components.push(buttons(session, [["Use built-in default", "clearInstructions"], ["Write custom", "writeInstructions"], ["Keep", "keep"]]));
+    content = "Set the saved default prize-claim instructions for Court's Trials.\n"+
+      "**Current ("+(s.trialClaimInstructions?"Saved Trial custom":"Built-in default")+"):**\n"+
+      (s.trialClaimInstructions || DEFAULT_CLAIM_INSTRUCTIONS)+
+      "\nThe bot separately requires a ticket number and Discord message link before the claim deadline, or the prize is forfeited.\n"+
+      "Choose **Write / Edit Trial Instructions** to type your text, then Save Trial Setup on the final review.";
+    components.push(buttons(session, [["Use Built-in Default", "clearInstructions"],
+      ["Write / Edit Trial Instructions", "writeInstructions"], ["Keep Saved", "keep"]]));
   } else if (step === "minutes") {
     content = "How long does each winner have to submit the ticket number and message link after the Royal Verdict? The old Trial interface uses **minutes**.\n**Current:** " +
       s.trialClaimWindowMinutes + " minutes (1–43,200 allowed).";
@@ -172,7 +177,8 @@ function layout(session,banners=[]) {
       new StringSelectMenuBuilder().setCustomId(selectId(session, "edit"))
         .setPlaceholder("Edit a setup setting")
         .addOptions(STEPS.filter(x => x !== "review").map(x => ({ label: STEP_NAMES[x], value: x })))));
-    components.push(buttons(session, [["Preview Royal Verdict", "preview"]]));
+    components.push(buttons(session, [["Preview Royal Verdict", "preview"],
+      ["Edit Claim Instructions", "editClaims"]]));
     components.push(buttons(session, [["Save Trial Setup", "save", ButtonStyle.Success],
       ["Cancel", "cancel", ButtonStyle.Danger]]));
   } else if (["roleHelpText", "instructionsText", "minutesText", "bannerText"].includes(step)) {
@@ -242,6 +248,10 @@ async function process(session, action, value) {
     return show(session,STEPS[Math.max(0,STEPS.indexOf(session.step)-1)]);
   }
   if (session.step === "review") {
+    if (action === "editClaims") {
+      session.fromReview=true;
+      return show(session,"instructions");
+    }
     if (action === "preview") {
       const banner = s.trialDefaultBannerNameKey
         ? await GiveawayBanner.findOne({ guildId: session.guild.id,
