@@ -52,7 +52,7 @@ test("claim number, exact message link and submission time are private",()=>{
  assert.ok(fields.some(f=>f.value.includes(ticketLink)));
  assert.ok(fields.some(f=>f.value.includes("123-ABC")));
  assert.match(staff.embeds[0].toJSON().description,/Claim submitted/);
- assert.match(staff.embeds[0].toJSON().description,/Submitted/);
+ assert.match(staff.embeds[0].toJSON().description,/Claim submitted.*<t:\\d+:F>/i);
  const publicPost=giveawayAnnouncement(claimed).embeds[0].toJSON();
  const publicText=publicPost.description+JSON.stringify(publicPost.fields||[]);
  assert.match(publicText,/Claim submitted successfully/);
