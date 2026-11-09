@@ -56,7 +56,7 @@ test("speed giveaways are staff-managed, configurable and distinct from timed gi
   assert.equal(DEFAULT_TRIAL_SPEED_SECONDS, 5);
   assert.equal(Giveaway.schema.path("speedSeconds").defaultValue, 5);
   assert.match(speed.options.find(option => option.name === "pace").description, /default 5/i);
-  assert.equal(spec.default_member_permissions, "32");
+  assert.equal(spec.default_member_permissions, undefined); // Giveaway Managers can invoke Trial commands
 });
 
 test("120 unique original scenarios are available with correct contestant placeholders", () => {
