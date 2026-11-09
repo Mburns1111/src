@@ -28,12 +28,26 @@ const name={
   claimHours:"Claim deadline",claimInstructions:"Prize collection instructions",
   banner:"Banner",review:"Review and post"
 };
-const parents={descriptionText:"description",minutesText:"minutes",winnerText:"winners",
+const parents={descriptionText:"description",minutesText:"minutes",daysText:"minutes",winnerText:"winners",
   rulesText:"rules",claimHoursText:"claimHours",claimText:"claimInstructions",
   bannerText:"banner",bannerUpload:"banner"};
-const textSteps=new Set(["title","prize","descriptionText","minutesText","winnerText",
+const textSteps=new Set(["title","prize","descriptionText","minutesText","daysText","winnerText",
   "rulesText","claimHoursText","claimText","bannerText","bannerUpload"]);
 const key=(guildId,channelId,userId)=>guildId+":"+channelId+":"+userId;
+// The existing giveaway record stores minutes, so day selections must still
+// resolve to whole minutes and never exceed the 14-day maximum.
+export const REGULAR_GIVEAWAY_MAX_DAYS=GIVEAWAY_MAX_MINUTES/(24*60);
+export function regularGiveawayDaysToMinutes(value){
+  if(!/^\d+$/.test(String(value))||!Number.isSafeInteger(Number(value))||
+      Number(value)<1||Number(value)>REGULAR_GIVEAWAY_MAX_DAYS)
+    throw Error("Duration must be a whole number of days from 1 to "+REGULAR_GIVEAWAY_MAX_DAYS+".");
+  return Number(value)*24*60;
+}
+export function regularGiveawayDurationLabel(minutes){
+  return Number.isSafeInteger(minutes)&&minutes>=1440&&minutes%1440===0?
+    (minutes/1440)+" day(s) ("+minutes+" minutes)":
+    minutes+" minutes";
+}
 const safe=value=>String(value||"").replace(/@/g,"＠").replace(/[\r\n]/g," ").trim();
 const mention=id=>id?"<@&"+id+">":"None";
 const roleId=s=>s.requiredRoleMode==="none"?"":s.requiredRoleMode==="custom"?
@@ -52,7 +66,7 @@ const summary=(session)=>{
     "**Title:** "+safe(s.title),
     "**Prize:** "+safe(s.prize).slice(0,240),
     "**Giveaway Details:** "+(s.description?safe(s.description).slice(0,150):"None"),
-    "**Duration:** "+s.minutes+" minute(s) · Ends approximately <t:"+Math.floor(+ending/1000)+":F>",
+    "**Duration:** "+regularGiveawayDurationLabel(s.minutes)+" · Ends approximately <t:"+Math.floor(+ending/1000)+":F>",
     "**Winners:** "+s.winners,
     "**Required role:** "+roleDescription(s),
     role?"**Show where to get role:** "+(roleVisible(s)?"Yes":"No"):"",
@@ -94,12 +108,13 @@ function layout(session,banners=[]){
   }
   if(step==="descriptionText")content="Type the giveaway description (1–1,000 characters).";
   if(step==="minutes"){
-    content="How long should members be able to enter? This is the **total giveaway duration**, not a daily requirement.\nCurrent: "+s.minutes+" minutes";
+    content="How long should members be able to enter? This is the **total giveaway duration**, not a daily requirement.\nCurrent: "+regularGiveawayDurationLabel(s.minutes);
     components.push(buttons(session,[["2 min","minutes:2"],["5 min","minutes:5"],
       ["15 min","minutes:15"],["1 hour","minutes:60"],["1 day","minutes:1440"]]));
-    components.push(buttons(session,[["Custom Minutes","customMinutes"],["Keep Current","keep"]]));
+    components.push(buttons(session,[["Custom Minutes","customMinutes"],["Custom Days","customDays"],["Keep Current","keep"]]));
   }
   if(step==="minutesText")content="Type a whole number from 1 to "+GIVEAWAY_MAX_MINUTES+" minutes.";
+  if(step==="daysText")content="Type a whole number of days from 1 to "+REGULAR_GIVEAWAY_MAX_DAYS+". The giveaway will stay open for that many full 24-hour periods.";
   if(step==="winners"){
     content="How many winners should be drawn?\nCurrent: "+s.winners;
     components.push(buttons(session,[["1 winner","winners:1"],["2 winners","winners:2"],
@@ -299,6 +314,7 @@ async function apply(session,action,value,client){
   }
   if(step==="minutes"){
     if(action==="customMinutes")return show(session,"minutesText");
+    if(action==="customDays")return show(session,"daysText");
     if(action.startsWith("minutes:")){
       s.minutes=int(action.slice(8),1,GIVEAWAY_MAX_MINUTES,"Duration");
       return finishStep(session);
@@ -306,6 +322,9 @@ async function apply(session,action,value,client){
   }
   if(step==="minutesText"&&action==="text"){
     s.minutes=int(value,1,GIVEAWAY_MAX_MINUTES,"Duration");return finishStep(session);
+  }
+  if(step==="daysText"&&action==="text"){
+    s.minutes=regularGiveawayDaysToMinutes(value);return finishStep(session);
   }
   if(step==="winners"){
     if(action==="customWinners")return show(session,"winnerText");
