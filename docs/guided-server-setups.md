@@ -48,6 +48,18 @@ The new role **does not** grant `/setup`, access to other bot administrative fea
 
 Because Discord previously registered the giveaway and Trial slash commands as Manage Server–only, **re-register the slash commands on the development bot once after pulling** (`node register-commands.js`, using development token/client ID) so users with the new role can see and invoke them. Discord may list the commands to other members as well; the bot rejects anyone without the configured role or Manage Server before processing an action.
 
+## Guided regular giveaway creation and simplified command menu
+
+`/giveaway start` now opens a **guided, channel-based wizard**, the same basic interaction style as `/giveaway activity`. Staff with Manage Server or the configured Giveaway Manager role may start it in the configured commands channel or the private giveaway staff channel. It requires the development bot's **Message Content Intent** (including `ENABLE_MESSAGE_CONTENT_INTENT=1`) to receive typed answers and banner uploads.
+
+The wizard collects: giveaway title, prize text, optional details, entry duration (preset or custom minutes, up to 14 days), winner count (1–10), required entry role (server default / none / chosen role), role instruction visibility, optional rules, claim deadline (1–720 hours), custom/default ticket instructions, and a saved or uploaded banner. The shared giveaway notification role is inherited from server setup and is never selected independently for an individual giveaway.
+
+Before posting, **Review** displays all choices, offers an **Edit** menu, and offers **Preview Announcement** in the current command channel. The preview has disabled entry buttons and does not ping anyone or create a giveaway. **Post Giveaway** re-checks staff permission, creates the regular giveaway in the configured public channel, sends the shared role notification once and creates a private staff record; **Cancel** does not post anything. The wizard expires after 30 minutes of inactivity; it never uses DMs.
+
+The eight older `/giveaway plan-*` and `/giveaway prize-*` editing commands have been removed from the public slash-command menu. **Use `/giveaway activity` for one-time and repeating activity giveaways.** The existing scheduling engine, saved schedules and previous giveaway records are intentionally retained, not deleted or silently disabled. Old cached plan slash interactions display a migration hint. Retiring those commands does not automatically migrate old plans or remove watched channel rules.
+
+Because both the `/giveaway start` options and available subcommands changed, run `node register-commands.js` with the development bot's token and client ID **once after pulling the branch**, then restart Replit. Do not run it using the production bot's credentials.
+
 ## Giveaway and Trial command channels
 
 Managers with **Manage Server** may use `/giveaway` and `/giveaway-role` in either the normal bot commands channel or the private staff giveaway channel configured under `/setup giveaways` or `/setup activity-giveaways`. This includes `/giveaway activity`: its interactive question-and-answer wizard now stays in whichever authorized channel the manager started it from.
