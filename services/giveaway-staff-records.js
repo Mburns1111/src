@@ -250,16 +250,16 @@ export async function handleGiveawayStaffAction(interaction){
  try{
    if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
      return interaction.reply({content:"Manage Server permission is required.",...ephemeral});
-   const match=/^giveawaystaff:(stop|cancel|confirmcancel):([0-9a-f]{24})$/.exec(interaction.customId);
+   const match=/^giveawaystaff:(stop|cancel|confirmcancel|remove|confirmremove):([0-9a-f]{24})$/.exec(interaction.customId);
    if(!match)return interaction.reply({content:"Unknown staff action.",...ephemeral});
    const [,action,id]=match;
    const record=await Giveaway.findOne({_id:id,guildId:interaction.guildId,
      staffCardChannelId:interaction.channelId}).lean();
    if(!record)return interaction.reply({content:"This staff record was not found.",...ephemeral});
-   if(action!=="confirmcancel" && record.staffCardId!==interaction.message?.id)
+   if(!["confirmcancel","confirmremove"].includes(action) && record.staffCardId!==interaction.message?.id)
      return interaction.reply({content:"Use the current staff record for this giveaway.",...ephemeral});
    if(action==="cancel"){
-     if(!["open","pending_review","ended","running"].includes(record.status))
+     if(!["open","pending_review","running"].includes(record.status))
        return interaction.reply({content:"This giveaway is not eligible for cancellation.",...ephemeral});
      return interaction.showModal(new ModalBuilder()
        .setCustomId("giveawaystaff:confirmcancel:"+id)
@@ -273,24 +273,57 @@ export async function handleGiveawayStaffAction(interaction){
            .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(6))
        ));
    }
+   if(action==="remove"){
+     if(!completedGiveawayCanDeleteListing(record))
+       return interaction.reply({content:"A completed giveaway can only be removed if no winners were selected or every current winner submitted their ticket claim.",...ephemeral});
+     return interaction.showModal(new ModalBuilder()
+       .setCustomId("giveawaystaff:confirmremove:"+id)
+       .setTitle("Delete completed giveaway listing")
+       .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
+         .setCustomId("confirm").setLabel("Type DELETE to remove public posts")
+         .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(6))));
+   }
    await interaction.deferReply(ephemeral);
+   if(action==="confirmremove"){
+     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="DELETE")
+       return interaction.editReply("Listing deletion not confirmed. Type DELETE to proceed.");
+     if(!completedGiveawayCanDeleteListing(record))
+       return interaction.editReply("Cannot delete listing: all current winners must have submitted their ticket claims, or no winners must have been selected.");
+     const archived=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
+       status:"ended",publicListingRemovedAt:null,renderVersion:record.renderVersion??0},
+       {$set:{publicListingRemovedAt:new Date(),publicListingRemovedBy:interaction.user.id,
+         claimCheckAt:null,renderedAt:new Date()},
+        $inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+     if(!archived)
+       return interaction.editReply("The giveaway changed or was already removed. Refresh the staff record.");
+     let cleanupError=null;
+     try{await removeGiveawayPublicPosts(interaction.client,archived);}
+     catch(error){cleanupError=error;}
+     try{await ensureGiveawayStaffRecord(interaction.client,archived);}
+     catch(error){console.error("[Giveaways] Completed listing staff record refresh failed:",error);}
+     return interaction.editReply(cleanupError
+       ?"The giveaway ended and was archived (not cancelled), but some public posts could not be deleted. The bot will retry; check its permissions."
+       :"Completed giveaway listing deleted from public channels. The giveaway remains **ended** with winners and claims preserved in the staff archive; it was not cancelled.");
+   }
    if(action==="stop"){
-     if((record.mode==="survival"&&!record.trialTicketClaimsEnabled)||record.status!=="ended"||!record.autoRerollClaims)
+     if(record.publicListingRemovedAt||(record.mode==="survival"&&!record.trialTicketClaimsEnabled)||record.status!=="ended"||!record.autoRerollClaims)
        return interaction.editReply("Automatic claim rerolls are not active on this giveaway.");
      const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
-       status:"ended",autoRerollClaims:true},
+       status:"ended",autoRerollClaims:true,publicListingRemovedAt:null},
        {$set:{autoRerollClaims:false,claimCheckAt:null,renderedAt:null},$inc:{renderVersion:1}},
        {returnDocument:"after"}).lean();
      if(!updated)return interaction.editReply("Another staff member already changed this giveaway.");
      await ensureGiveawayStaffRecord(interaction.client,updated);
      return interaction.editReply("Further automatic claim rerolls have been disabled. Current submitted claims remain saved.");
    }
+   if(!["open","pending_review","running"].includes(record.status))
+     return interaction.editReply("Only active giveaways may be cancelled. Completed giveaways use Delete Listing after claims are submitted.");
    if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="CANCEL")
      return interaction.editReply("Cancellation not confirmed. Type CANCEL to proceed.");
    const reason=interaction.fields.getTextInputValue("reason").trim();
    if(reason.length<3)return interaction.editReply("A cancellation reason of at least three characters is required.");
    const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
-     status:{$in:["open","pending_review","ended","running"]}},
+     status:{$in:["open","pending_review","running"]}},
      {$set:{status:"cancelled",staffCancelledBy:interaction.user.id,
        staffCancelledAt:new Date(),staffCancelReason:reason,
        autoRerollClaims:false,claimCheckAt:null,renderedAt:new Date()},
