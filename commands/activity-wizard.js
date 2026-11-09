@@ -287,7 +287,8 @@ async function respond(session,input,client){
 }
 export async function wizardButton(i){
   const session=sessions.get(sessionKey(i.channelId,i.user.id));
-  const [,id,value]=i.customId.split(":");
+  const [,id,...valueParts]=i.customId.split(":");
+  const value=valueParts.join(":");
   if(!session || session.expires<Date.now() || session.id!==id || session.messageId!==i.message.id || !session.choices.includes(value))
     return i.reply({content:"Only the staff member who started this setup can use its current prompt.",flags:MessageFlags.Ephemeral});
   await i.deferUpdate();
