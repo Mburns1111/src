@@ -79,6 +79,25 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
 export function activityOneOffListingEmbed(record) {
   const guided=Boolean(record.guidedSeries);
   const completed=record.status==="ended";
+  if(completed && giveawayHasNoEligibleWinner(record)){
+    const end=record.endsAt&&Number.isFinite(new Date(record.endsAt).getTime())
+      ? "<t:"+stamp(record.endsAt)+":F>":"";
+    const text=[
+      "**"+displayTitle(record.title)+"**",
+      "",
+      "🎁 **Prize:** "+String(record.prize||"Prize to be announced").slice(0,650),
+      "",
+      "🏁 **Giveaway ended — No eligible winner.**",
+      (record.winnerIds||[]).length
+        ?"The prize was not claimed; no eligible replacement remained."
+        :"Nobody qualified during the activity period.",
+      ...(end?["","**Ended:** "+end]:[]),
+    ].join("\n");
+    return new EmbedBuilder().setColor(0x86738d)
+      .setTitle("🏁 Activity Giveaway Ended · No Eligible Winner")
+      .setDescription(text.slice(0,3900))
+      .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)});
+  }
   const settling=["pending_review","closing","rerolling"].includes(record.status);
   const minimum=record.activityMinTotalMessages||record.activityMinimum||1;
   const channels=(record.activityChannelIds||[]).map(id=>"<#"+id+">");
