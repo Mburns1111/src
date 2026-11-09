@@ -71,7 +71,7 @@ test("staff cancellation archive retains staff identity and reason without contr
  assert.match(body,/Host cannot deliver prize/);
  assert.match(body,/<t:\d+:F>/);
  assert.deepEqual(staff.components.flatMap(r=>r.components).map(b=>b.data.custom_id),
-   ["giveawaystaff:entrants:"+id],"cancelled archives retain read-only entrant access without cancel/delete actions");
+   ["giveawaystaff:entrants:"+id+":0"],"cancelled archives retain read-only entrant access without cancel/delete actions");
 });
 
 test("cancel and delete requires a written reason and confirmation",async()=>{
