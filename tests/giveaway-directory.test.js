@@ -216,7 +216,7 @@ test("ended activity poster stays published as No Eligible Winner for zero entra
   };
   const empty=activityOneOffListingEmbed({...shared,entrantIds:[],winnerIds:[]}).toJSON();
   assert.match(empty.description,/No eligible winner/i);
-  assert.match(empty.description,/stays visible until staff choose Delete Listing/i);
+  assert.doesNotMatch(empty.description,/How to qualify|Activity:|Required role|Check My Progress/i);
   const forfeited=activityOneOffListingEmbed({...shared,
     winnerIds:["234567890123456789"],claimResolvedSlots:[0]}).toJSON();
   assert.match(forfeited.description,/No eligible winner/i);
