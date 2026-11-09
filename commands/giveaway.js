@@ -1,8 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
-import GuildConfig from "../models/GuildConfig.js";
-import { trialSetupComplete } from "../services/guild-setup-gate.js";
+
 import { submitGiveawayTicket } from "../services/giveaway-ticket-claims.js";
 import { winnerClaimDeadline, winnerHasClaim, DEFAULT_CLAIM_HOURS } from "../services/giveaway-claims.js";
 import { startActivityWizard } from "./activity-wizard.js";
@@ -153,10 +152,6 @@ export async function execute(interaction) {
   const operation = interaction.options.getSubcommand();
   const survivalCommand = interaction.commandName === "trial";
   try {
-    if (survivalCommand) {
-      const setup = await GuildConfig.findOne({ guildId: interaction.guildId }).lean();
-      if (!trialSetupComplete(setup)) throw Error("A server manager must complete /setup trials before using Trial commands.");
-    }
     if (!survivalCommand && PLAN_OPERATIONS.has(operation))
       return await executeGiveawayPlanAdmin(interaction);
     if (!survivalCommand && BANNER_OPERATIONS.has(operation))
@@ -256,18 +251,18 @@ export async function execute(interaction) {
         claimWindowMinutes: survival
           ? (interaction.options.getInteger("claim_minutes") ?? config?.trialClaimWindowMinutes ?? 720) : null,
         autoRerollClaims: survival
-          ? interaction.options.getBoolean("disable_auto_rerolls") !== true : true,
+          ? interaction.options.getBoolean?.("disable_auto_rerolls") !== true : true,
         trialTicketClaimsEnabled: survival,
         maxAutoRerolls: survival
           ? (interaction.options.getInteger("rerolls") ?? config?.trialMaxAutoRerolls ?? 2)
           : (config?.activityMaxAutoRerolls ?? 2),
         claimInstructions: interaction.options.getString("claim_instructions")?.trim() ||
           (survival ? config?.trialClaimInstructions : config?.activityClaimInstructions) || "",
-        requiredRoleId: interaction.options.getBoolean("no_required_role") === true ? "" :
+        requiredRoleId: interaction.options.getBoolean?.("no_required_role") === true ? "" :
           (interaction.options.getRole("role")?.id ||
             (survival ? config?.trialDefaultRequiredRoleId : config?.giveawayDefaultRequiredRoleId) || ""),
         requiredRoleInstructions: (survival ? config?.trialRoleInstructions : config?.giveawayRoleInstructions) || "",
-        showRequiredRoleInstructions: interaction.options.getBoolean("show_role_help") ??
+        showRequiredRoleInstructions: interaction.options.getBoolean?.("show_role_help") ??
           (survival ? config?.trialShowRoleInstructions !== false : config?.giveawayShowRoleInstructions !== false),
         announcementPingRoleId: pingRoleId,
         announcementPingRoleIds: pingRoleIds,

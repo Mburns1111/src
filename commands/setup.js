@@ -233,8 +233,11 @@ export async function execute(interaction) {
     if ((nextList && nextList === nextTrials) || (nextWinners && nextWinners === nextTrials))
       throw new UserFacingError("Keep the activity directory and winners separate from Court's Trial announcements.");
   }
-  const updates = { initialSetupCompletedAt: new Date() };
-  if (commandsChannel) updates.commandChannelId = commandsChannel.id;
+  const updates = {};
+  if (commandsChannel) {
+    updates.commandChannelId = commandsChannel.id;
+    updates.initialSetupCompletedAt = new Date();
+  }
   if (houseListings) updates.houseChannelId = houseListings.id;
   if (outfitListings) updates.outfitChannelId = outfitListings.id;
   if (inventoryShowcase) updates.inventoryChannelId = inventoryShowcase.id;
@@ -250,12 +253,6 @@ export async function execute(interaction) {
   if (survivalTrialChannel) updates.survivalTrialChannelId = survivalTrialChannel.id;
   if (giveawayPingRole || clearGiveawayPing) updates.giveawayPingRoleId = clearGiveawayPing ? "" : giveawayPingRole.id;
   if (trialPingRole || clearTrialPing) updates.survivalTrialPingRoleId = clearTrialPing ? "" : trialPingRole.id;
-
-  const previousSetup = await GuildConfig.findOne({ guildId: interaction.guildId })
-    .select("commandChannelId").lean();
-  if (!commandsChannel && !previousSetup?.commandChannelId) {
-    throw new UserFacingError("First configure the commands channel with `/setup channels commands:#your-commands`. Other commands stay disabled until initial setup is saved.");
-  }
 
   // Ensure the shop before updating channel settings so its existing message IDs
   // are checked against the previous channel when a shop is moved.
