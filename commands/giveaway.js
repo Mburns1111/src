@@ -7,7 +7,8 @@ import { winnerClaimDeadline, winnerHasClaim, DEFAULT_CLAIM_HOURS } from "../ser
 import { startActivityWizard } from "./activity-wizard.js";
 import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
-import {addGiveawayPlanCommands,executeGiveawayPlanAdmin,PLAN_OPERATIONS} from "./giveaway-plans.js";
+import {startRegularGiveawayWizard} from "./regular-giveaway-wizard.js";
+import {createRegularGiveaway} from "../services/regular-giveaway-creation.js";
 import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} from "./giveaway-banners.js";
 import {ensureBannerRegistered} from "../services/giveaway-banners.js";
 import {ensureGiveawayStaffRecord,requirePrivateGiveawayStaffChannel} from "../services/giveaway-staff-records.js";
@@ -25,19 +26,7 @@ import {
 
 export const data = new SlashCommandBuilder()
   .setName("giveaway").setDescription("Host giveaways that retain their winners and prize details")
-  .addSubcommand(c => c.setName("start").setDescription("Post a new button-entry giveaway")
-    .addStringOption(o => o.setName("title").setDescription("Giveaway title").setRequired(true).setMinLength(2).setMaxLength(100))
-    .addStringOption(o => o.setName("prize").setDescription("Prize details, including multiple ranked prizes").setRequired(true).setMinLength(2).setMaxLength(1500))
-    .addIntegerOption(o => o.setName("minutes").setDescription("How many minutes it stays open (up to 14 days)").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
-    .addStringOption(o => o.setName("description").setDescription("Optional custom giveaway description").setMaxLength(1000))
-    .addIntegerOption(o => o.setName("winners").setDescription("Number of winners (default 1)").setMinValue(1).setMaxValue(10))
-    .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
-    .addRoleOption(o => o.setName("role").setDescription("Override the default required role"))
-    .addBooleanOption(o => o.setName("no_required_role").setDescription("Allow entry without a required role"))
-    .addBooleanOption(o => o.setName("show_role_help").setDescription("Show instructions on where to get the required role"))
-    .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (default 12, max 720)").setMinValue(1).setMaxValue(720))
-    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional custom prize collection instructions").setMaxLength(1000))
-    .addStringOption(o => o.setName("banner").setDescription("Optional registered banner image name").setMaxLength(60)))
+  .addSubcommand(c => c.setName("start").setDescription("Create a regular giveaway with a guided setup and preview"))
   .addSubcommand(c => c.setName("activity").setDescription("Create an activity giveaway with guided questions in the current allowed channel"))
   .addSubcommand(c => c.setName("watch-save").setDescription("Save a named channel watched daily or Wednesday–Wednesday")
     .addStringOption(o => o.setName("name").setDescription("Example: QOTD, Suggestions, Art").setRequired(true).setMinLength(1).setMaxLength(60))
@@ -70,7 +59,6 @@ export const data = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("page").setDescription("Page (25 entrants at a time)").setMinValue(1)));
 
 
-addGiveawayPlanCommands(data);
 addGiveawayBannerCommands(data);
 
 export const trialData = new SlashCommandBuilder()
@@ -151,8 +139,6 @@ export async function execute(interaction) {
   const operation = interaction.options.getSubcommand();
   const survivalCommand = interaction.commandName === "trial";
   try {
-    if (!survivalCommand && PLAN_OPERATIONS.has(operation))
-      return await executeGiveawayPlanAdmin(interaction);
     if (!survivalCommand && BANNER_OPERATIONS.has(operation))
       return await executeGiveawayBannerAdmin(interaction);
     if (operation === "watch-save") {
@@ -217,6 +203,33 @@ export async function execute(interaction) {
       return interaction.editReply(result.deletedCount?"Watched channel rule removed. Existing giveaway records are unchanged.":"No rule exists under that name.");
     }
     if (operation === "activity") return await startActivityWizard(interaction);
+    if (operation === "start" && !survivalCommand) {
+      // New command definition has no slash fields: use the same guided
+      // channel workflow as /giveaway activity. The direct option path stays
+      // temporarily readable for already-cached Discord slash registrations.
+      if(!interaction.options.getString("title"))
+        return startRegularGiveawayWizard(interaction);
+      const role=interaction.options.getRole?.("role");
+      const result=await createRegularGiveaway({
+        guild:interaction.guild,client:interaction.client,guildId:interaction.guildId,
+        creatorId:interaction.user.id,
+        settings:{
+          title:interaction.options.getString("title",true),
+          prize:interaction.options.getString("prize",true),
+          minutes:interaction.options.getInteger("minutes",true),
+          description:interaction.options.getString("description")||"",
+          winners:interaction.options.getInteger("winners")||1,
+          rules:interaction.options.getString("rules")||"",
+          requiredRoleMode:interaction.options.getBoolean?.("no_required_role")===true?"none":role?"custom":"default",
+          requiredRoleId:role?.id||"",
+          showRequiredRoleInstructions:interaction.options.getBoolean?.("show_role_help")??null,
+          claimHours:interaction.options.getInteger("claim_hours"),
+          claimInstructions:interaction.options.getString("claim_instructions")||null,
+          bannerNameKey:interaction.options.getString("banner")||"",
+        },
+      });
+      return interaction.editReply(`🥀 Giveaway posted: ${result.message.url}\nSaved giveaway ID: \`${result.record._id}\`\nThe announcement and results will stay visible after it ends.`);
+    }
     if (operation === "start") {
       const survival = survivalCommand;
       const { channel, config } = await getConfiguredTextChannelAndConfig(
