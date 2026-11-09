@@ -70,7 +70,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
     "*Qualify automatically — no entry button needed.*",
   ].join("\n").slice(0,3900);
   return new EmbedBuilder().setColor(0xb47e99)
-    .setTitle("🎁 Giveaway")
+    .setTitle("🎁 Giveaway alert!")
     .setDescription(text)
     .setFooter({text:"✦ Automatic entry · "+shortRef(plan._id)});
 }
@@ -123,7 +123,7 @@ export function activityOneOffListingEmbed(record) {
     "*Qualify automatically — no entry button needed.*",
   ];
   return new EmbedBuilder().setColor(0xb47e99)
-    .setTitle("🎁 Giveaway")
+    .setTitle("🎁 Giveaway alert!")
     .setDescription(lines.join("\n").slice(0,3900))
     .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)});
 }
