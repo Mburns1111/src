@@ -8,6 +8,7 @@ import GiveawayBanner, {bannerNameKey} from "../models/GiveawayBanner.js";
 import {GuidedActivitySeries} from "../services/guided-activity.js";
 import {ensureBannerRegistered,attachGiveawayBanner} from "../services/giveaway-banners.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
+import {regularGiveawayNotificationRoleIds,regularGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaway-claims.js";
 
 const sessions=new Map();
@@ -27,6 +28,13 @@ const row=(id,items)=>new ActionRowBuilder().addComponents(items.map(([label,val
 const shown=id=>id?"<#"+id+">":"Not set";
 const progress=session=>session.editing?"Editing "+stepName[session.step]:"Step "+(stepsFor(session).indexOf(session.step)+1)+" of "+stepsFor(session).length;
 const mainSetting=session=>session.settings;
+const notificationField=session=>session.mode==="regular"?"giveawayNotificationRoleIds":"activityNotificationRoleIds";
+// The regular and activity guides edit different notification defaults.
+export const giveawaySetupNotificationRoleIds=(settings,mode="activity")=>
+  mode==="regular"?regularGiveawayNotificationRoleIds(settings):(settings?.activityNotificationRoleIds||[]);
+export const giveawaySetupNotificationFields=(settings,mode="activity")=>
+  mode==="regular"?regularGiveawayNotificationFields(regularGiveawayNotificationRoleIds(settings)):
+    {activityNotificationRoleIds:settings?.activityNotificationRoleIds||[]};
 
 export function currentGiveawayClaimInstructions(settings){
   return String(settings?.activityClaimInstructions||"").trim().slice(0,1000)
@@ -47,8 +55,8 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   ...(settings.activityClaimInstructions?[settings.activityClaimInstructions.slice(0,400)]:[DEFAULT_CLAIM_INSTRUCTIONS]),
   "⏰ **Default claim window:** "+settings.activityClaimWindowHours+" hours",
   "🔁 **Automatic rerolls:** "+settings.activityMaxAutoRerolls+" per winning place",
-  "🔔 **Notification roles:** "+(settings.activityNotificationRoleIds?.length
-    ?settings.activityNotificationRoleIds.map(id=>"<@&"+id+">").join(", "):"None"),
+  "🔔 **Notification roles:** "+(giveawaySetupNotificationRoleIds(settings,mode).length
+    ?giveawaySetupNotificationRoleIds(settings,mode).map(id=>"<@&"+id+">").join(", "):"None"),
   "🥀 **No eligible members:** "+(settings.activityAnnounceEmptyResults?"Announce no winners":"Don't post an empty result"),
   "🖼️ **Default banner:** "+(settings.giveawayDefaultBannerNameKey||"None"),
   "",
@@ -153,8 +161,9 @@ function layout(session) {
    components.push(row(session.id,[0,1,2,3,5].map(x=>[String(x)+" reroll"+(x===1?"":"s"),"reroll"+x])));
    components.push(row(session.id,[["10 rerolls","reroll10"],["Keep Current","keep"]]));
  }else if(step==="roles"){
-   content="Optional: select **up to 10 notification roles**. Each role is mentioned **once** when a new activity giveaway is posted, never on later edits.\n"+
-     "Selected: "+(s.activityNotificationRoleIds?.length?s.activityNotificationRoleIds.map(id=>"<@&"+id+">").join(", "):"None")+
+   const ids=giveawaySetupNotificationRoleIds(s,session.mode);
+   content="Optional: select **up to 10 notification roles**. Each role is mentioned **once** when a new "+(session.mode==="regular"?"regular":"activity")+" giveaway is posted, never on later edits.\n"+
+     "Selected: "+(ids.length?ids.map(id=>"<@&"+id+">").join(", "):"None")+
      "\nThe bot needs permission to mention roles that aren't otherwise mentionable.";
    components.push(new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
      .setCustomId(bind(session,"roles")).setPlaceholder("Choose notification roles").setMinValues(1).setMaxValues(10)));
@@ -244,8 +253,9 @@ async function apply(session,verb,value){
       "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId","giveawayChannelId",
       "giveawayManagerRoleId","giveawayDefaultRequiredRoleId","giveawayShowRoleInstructions",
       "giveawayRoleInstructions","activityClaimInstructions","activityClaimWindowHours","activityMaxAutoRerolls",
-      "activityNotificationRoleIds","activityAnnounceEmptyResults","giveawayDefaultBannerNameKey"
+      "activityAnnounceEmptyResults","giveawayDefaultBannerNameKey"
      ].map(field=>[field,s[field]])),
+     ...giveawaySetupNotificationFields(s,session.mode),
      commandChannelId:previous?.commandChannelId||session.channel.id,
    };
    await GuildConfig.findOneAndUpdate({guildId:session.guild.id},{$set:settings},
@@ -320,10 +330,11 @@ async function apply(session,verb,value){
    s.activityMaxAutoRerolls=Number(verb.slice(6));return next();
  }
  if(session.step==="roles"){
-   if(verb==="none"){s.activityNotificationRoleIds=[];return next();}
+   const field=notificationField(session);
+   if(verb==="none"){s[field]=[];return next();}
    if(verb==="roles"){
      if(!Array.isArray(value)||!value.length||value.length>10)throw Error("Select 1–10 notification roles.");
-     s.activityNotificationRoleIds=[...new Set(value)];return next();
+     s[field]=[...new Set(value)];return next();
    }
  }
  if(session.step==="empty"&&["announce","silent"].includes(verb)){
@@ -364,6 +375,7 @@ async function startGiveawaySetup(interaction,mode="activity"){
    activityClaimWindowHours:config?.activityClaimWindowHours??DEFAULT_CLAIM_HOURS,
    activityMaxAutoRerolls:config?.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
    activityNotificationRoleIds:config?.activityNotificationRoleIds||[],
+   giveawayNotificationRoleIds:regularGiveawayNotificationRoleIds(config),
    activityAnnounceEmptyResults:config?.activityAnnounceEmptyResults!==false,
    giveawayDefaultBannerNameKey:config?.giveawayDefaultBannerNameKey||"",
  };
