@@ -13,15 +13,15 @@ import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS,
 const sessions=new Map();
 const expiry=30*60_000;
 const key=(channel,user)=>channel+":"+user;
-const steps=["list","winners","staff","instructions","hours","rerolls","roles","empty","banner","review"];
+const steps=["list","winners","staff","roleHelp","instructions","hours","rerolls","roles","empty","banner","review"];
 const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",
-  instructions:"Claim instructions",hours:"Claim deadline",rerolls:"Automatic rerolls",
+  roleHelp:"Where to get required roles",instructions:"Claim instructions",hours:"Claim deadline",rerolls:"Automatic rerolls",
   roles:"Notification roles",empty:"No eligible winners",banner:"Default banner"};
 const button=(id,label,value,style=ButtonStyle.Secondary)=>new ButtonBuilder()
   .setCustomId("actconfig:"+id+":"+value).setLabel(label).setStyle(style);
 const row=(id,items)=>new ActionRowBuilder().addComponents(items.map(([label,value,style])=>button(id,label,value,style)));
 const shown=id=>id?"<#"+id+">":"Not set";
-const progress=session=>session.editing?"Editing "+stepName[session.step]:"Step "+(steps.indexOf(session.step)+1)+" of 10";
+const progress=session=>session.editing?"Editing "+stepName[session.step]:"Step "+(steps.indexOf(session.step)+1)+" of "+steps.length;
 const mainSetting=session=>session.settings;
 
 export function describeActivityGiveawaySetup(settings,{updateExisting=false}={}){
@@ -30,6 +30,7 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false}={}
   "📋 **Activity list:** "+shown(settings.activityGiveawayListChannelId),
   "🏆 **Winners:** "+shown(settings.activityGiveawayWinnersChannelId),
   "🔒 **Staff controls:** "+shown(settings.activityGiveawayReviewChannelId),
+  "🎟️ **How to obtain the required role:** "+(settings.giveawayRoleInstructions||"Not set"),
   "📝 **Claim instructions:** "+(settings.activityClaimInstructions?"Custom":"Server default"),
   ...(settings.activityClaimInstructions?[settings.activityClaimInstructions.slice(0,400)]:[]),
   "⏰ **Default claim window:** "+settings.activityClaimWindowHours+" hours",
@@ -78,6 +79,14 @@ function layout(session) {
       [ChannelType.GuildText,ChannelType.GuildAnnouncement]));
    components.push(new ActionRowBuilder().addComponents(selector));
    if(s[field])components.push(row(session.id,[["Keep selected channel","keep"]]));
+ }else if(step==="roleHelp"){
+   content="Tell members where to find or request a role required for giveaways. "+
+     "Staff choose the exact required role per giveaway. Your explanation will appear on "+
+     "every public giveaway that requires a role. Discord channel links are supported.\n"+
+     "**Current:** "+(s.giveawayRoleInstructions||"Not set");
+   components.push(row(session.id,[["Write instructions","writeRoleHelp"],["Keep Current","keep"],["Clear","clearRoleHelp"]]));
+ }else if(step==="roleHelpText"){
+   content="Reply with the instructions (maximum 500 characters), including the channel where members can obtain the role.";
  }else if(step==="instructions"){
    content="Write the default prize-collection instructions. You may completely replace the standard paragraph.\n"+
     "**Always shown by the bot:** winners must enter a ticket number and **Discord message link** before the deadline, or forfeit the win.\n"+
@@ -160,7 +169,7 @@ async function apply(session,verb,value){
  if(verb==="cancel"){sessions.delete(session.key);await session.channel.send("Activity giveaway setup cancelled.");return;}
  if(verb==="back"){
    const index=steps.indexOf(session.step);
-   const back=step=>({instructionsText:"instructions",hoursText:"hours",bannerText:"banner"})[step]||steps[Math.max(0,index-1)];
+   const back=step=>({roleHelpText:"roleHelp",instructionsText:"instructions",hoursText:"hours",bannerText:"banner"})[step]||steps[Math.max(0,index-1)];
    await show(session,session.fromReview?"review":back(session.step));return;
  }
  if(session.step==="review"){
@@ -179,7 +188,7 @@ async function apply(session,verb,value){
    const settings={
      ...Object.fromEntries([
       "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId",
-      "activityClaimInstructions","activityClaimWindowHours","activityMaxAutoRerolls",
+      "giveawayRoleInstructions","activityClaimInstructions","activityClaimWindowHours","activityMaxAutoRerolls",
       "activityNotificationRoleIds","activityAnnounceEmptyResults","giveawayDefaultBannerNameKey"
      ].map(field=>[field,s[field]])),
      commandChannelId:previous?.commandChannelId||session.channel.id,
@@ -197,6 +206,14 @@ async function apply(session,verb,value){
    return;
  }
  if(verb==="keep")return next();
+ if(session.step==="roleHelp"){
+   if(verb==="clearRoleHelp"){s.giveawayRoleInstructions="";return next();}
+   if(verb==="writeRoleHelp"){await show(session,"roleHelpText");return;}
+ }
+ if(session.step==="roleHelpText"&&verb==="text"){
+   if(!value||value.length>500)throw Error("Enter 1–500 characters explaining where to obtain the role.");
+   s.giveawayRoleInstructions=value;return after(session,"instructions");
+ }
  const fields={list:"activityGiveawayListChannelId",winners:"activityGiveawayWinnersChannelId",staff:"activityGiveawayReviewChannelId"};
  if(fields[session.step]){
    if(verb!=="channel")throw Error("Choose a channel from the picker.");
@@ -259,6 +276,7 @@ export async function startActivityGiveawaySetup(interaction){
    activityGiveawayListChannelId:config?.activityGiveawayListChannelId||"",
    activityGiveawayWinnersChannelId:config?.activityGiveawayWinnersChannelId||"",
    activityGiveawayReviewChannelId:config?.activityGiveawayReviewChannelId||"",
+   giveawayRoleInstructions:config?.giveawayRoleInstructions||"",
    activityClaimInstructions:config?.activityClaimInstructions||"",
    activityClaimWindowHours:config?.activityClaimWindowHours??DEFAULT_CLAIM_HOURS,
    activityMaxAutoRerolls:config?.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
@@ -290,7 +308,7 @@ export async function handleActivityGiveawaySetupInteraction(interaction){
 export function activityGiveawaySetupReply(message){
  if(!message.guildId||message.author?.bot||!message.content)return false;
  const session=sessions.get(key(message.channelId,message.author.id));
- if(!session||session.expires<Date.now()||!["instructionsText","hoursText","bannerText"].includes(session.step))
+ if(!session||session.expires<Date.now()||!["roleHelpText","instructionsText","hoursText","bannerText"].includes(session.step))
    return false;
  void apply(session,"text",message.content.trim()).catch(error=>
    session.channel.send({content:"Setup error: "+String(error.message||error),allowedMentions:{parse:[]}}));
