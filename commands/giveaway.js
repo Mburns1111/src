@@ -237,10 +237,10 @@ export async function execute(interaction) {
         autoRerollClaims: !survival,
         claimWindowMinutes: survival ? (interaction.options.getInteger("claim_minutes") ?? null) : null,
         claimInstructions: interaction.options.getString("claim_instructions")?.trim() || "",
-        requiredRoleId: interaction.options.getBoolean("no_required_role")===true?"":
+        requiredRoleId: interaction.options.getBoolean?.("no_required_role")===true?"":
           (interaction.options.getRole("role")?.id||config?.giveawayDefaultRequiredRoleId||""),
         requiredRoleInstructions:config?.giveawayRoleInstructions||"",
-        showRequiredRoleInstructions:interaction.options.getBoolean("show_role_help")??
+        showRequiredRoleInstructions:interaction.options.getBoolean?.("show_role_help")??
           (config?.giveawayShowRoleInstructions!==false),
         announcementPingRoleId: pingRoleId || "",
         winnerCount, endsAt: new Date(Date.now() + minutes * 60_000),
