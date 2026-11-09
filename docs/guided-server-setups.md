@@ -30,6 +30,17 @@ The new Trial flow uses separate default eligibility role/instructions, role-ins
 
 New Trials use the regular giveaway claim ticket form after the final Royal Verdict: a winner submits a ticket number and exact Discord ticket message link before the deadline. Those details appear **only in staff records**, never in public result text. Automatic expiry rerolls follow the saved limit; staff can stop them. Existing old Trial records preserve their original staff-managed claim behavior. Prizes are still delivered manually by staff.
 
+## Private staff giveaway directory (automatic sticky)
+
+The existing **private staff giveaway channel** selected by `/setup giveaways` or `/setup activity-giveaways` automatically receives an **Active Giveaway Directory**. There is no extra setup command or separate channel to configure.
+
+- It includes regular giveaways, activity giveaways, Court's Trials and active recurring activity giveaway schedules.
+- Each item shows the giveaway title, type, status and a direct Discord message link. Activity giveaways link to their public activity listing when available, falling back to the private staff record during approval. Recurring plans link to their public schedule poster.
+- Finished and cancelled giveaways are removed from this **active directory** automatically, but their individual staff records and public completed giveaway listings are not deleted by this change. **Delete Listing** remains a separate manual action.
+- The directory is refreshed by the normal giveaway sweep (approximately every 30 seconds). It edits in place on status changes and reposts near the bottom after additional staff messages, with a three-minute repost cooldown; old directory messages are deleted after the new one is safely sent.
+- A directory with more than 15 items shows **Next page**. Staff use the private, ephemeral pagination buttons without changing the main sticky message. When there are no active giveaways, the directory clearly says so.
+- The bot never pings staff while updating this directory and refuses to post to a staff channel visible to @everyone.
+
 ## Completed giveaways — Delete Listing, not cancellation
 
 The private staff record shows **Cancel & Remove Giveaway** only while a giveaway is still live. A completed event (`status: ended`) instead receives **Delete Listing** when every prize place has reached a terminal state:
