@@ -1,6 +1,8 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
+import GuildConfig from "../models/GuildConfig.js";
+import { trialSetupComplete } from "../services/guild-setup-gate.js";
 import { submitGiveawayTicket } from "../services/giveaway-ticket-claims.js";
 import { winnerClaimDeadline, winnerHasClaim, DEFAULT_CLAIM_HOURS } from "../services/giveaway-claims.js";
 import { startActivityWizard } from "./activity-wizard.js";
@@ -83,7 +85,12 @@ export const trialData = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("signup_minutes").setDescription("Minutes to accept entries (default 15, max 1440)").setMinValue(1).setMaxValue(MAX_TRIAL_SIGNUP_MINUTES))
     .addIntegerOption(o => o.setName("winners").setDescription("Number of ranked prize winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
-    .addRoleOption(o => o.setName("role").setDescription("Optional role required to enter"))
+    .addRoleOption(o => o.setName("role").setDescription("Override the default required role"))
+    .addBooleanOption(o => o.setName("no_required_role").setDescription("Do not require an eligibility role for this Trial"))
+    .addBooleanOption(o => o.setName("show_role_help").setDescription("Override whether role instructions are shown"))
+    .addStringOption(o => o.setName("banner").setDescription("Override the saved default Trial banner").setMaxLength(60))
+    .addIntegerOption(o => o.setName("rerolls").setDescription("Override automatic rerolls (0–10)").setMinValue(0).setMaxValue(10))
+    .addBooleanOption(o => o.setName("disable_auto_rerolls").setDescription("Turn off automatic unclaimed-prize rerolls"))
     .addIntegerOption(o => o.setName("claim_minutes").setDescription("Minutes winners have to claim after trial ends (default 12 hours)").setMinValue(1).setMaxValue(43200))
     .addStringOption(o => o.setName("claim_instructions").setDescription("Optional custom prize collection instructions").setMaxLength(1000)))
   .addSubcommand(c => c.setName("cancel").setDescription("Cancel a trial without awarding winners; retain its record")
@@ -146,6 +153,10 @@ export async function execute(interaction) {
   const operation = interaction.options.getSubcommand();
   const survivalCommand = interaction.commandName === "trial";
   try {
+    if (survivalCommand) {
+      const setup = await GuildConfig.findOne({ guildId: interaction.guildId }).lean();
+      if (!trialSetupComplete(setup)) throw Error("A server manager must complete /setup trials before using Trial commands.");
+    }
     if (!survivalCommand && PLAN_OPERATIONS.has(operation))
       return await executeGiveawayPlanAdmin(interaction);
     if (!survivalCommand && BANNER_OPERATIONS.has(operation))
@@ -220,8 +231,15 @@ export async function execute(interaction) {
         survival ? "Court's Trial survival giveaway" : "standard giveaway",
       );
       await requirePrivateGiveawayStaffChannel(interaction.guild,config);
-      const pingRoleId = survival ? config?.survivalTrialPingRoleId : config?.giveawayPingRoleId;
-      const bannerNameKey=survival ? "" : await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));
+      const pingRoleIds = survival
+        ? [...new Set(config?.trialNotificationRoleIds?.length
+          ? config.trialNotificationRoleIds
+          : (config?.survivalTrialPingRoleId ? [config.survivalTrialPingRoleId] : []))].slice(0, 10)
+        : (config?.giveawayPingRoleId ? [config.giveawayPingRoleId] : []);
+      const pingRoleId = pingRoleIds[0] || "";
+      const bannerNameKey = await ensureBannerRegistered(interaction.guildId,
+        interaction.options.getString("banner") ||
+          (survival ? config?.trialDefaultBannerNameKey : ""));
       const minutes = survival
         ? (interaction.options.getInteger("signup_minutes") || 15)
         : interaction.options.getInteger("minutes", true);
@@ -233,18 +251,25 @@ export async function execute(interaction) {
         prize: interaction.options.getString("prize", true).trim(),
         description: interaction.options.getString("description")?.trim() || "",
         rules: interaction.options.getString("rules")?.trim() || "",
-        claimWindowHours: survival
-          ? (interaction.options.getInteger("claim_minutes")==null ? DEFAULT_CLAIM_HOURS : null)
-          : (interaction.options.getInteger("claim_hours") ?? DEFAULT_CLAIM_HOURS),
-        autoRerollClaims: !survival,
-        claimWindowMinutes: survival ? (interaction.options.getInteger("claim_minutes") ?? null) : null,
-        claimInstructions: interaction.options.getString("claim_instructions")?.trim() || "",
-        requiredRoleId: interaction.options.getBoolean?.("no_required_role")===true?"":
-          (interaction.options.getRole("role")?.id||config?.giveawayDefaultRequiredRoleId||""),
-        requiredRoleInstructions:config?.giveawayRoleInstructions||"",
-        showRequiredRoleInstructions:interaction.options.getBoolean?.("show_role_help")??
-          (config?.giveawayShowRoleInstructions!==false),
-        announcementPingRoleId: pingRoleId || "",
+        claimWindowHours: survival ? null
+          : (interaction.options.getInteger("claim_hours") ?? config?.activityClaimWindowHours ?? DEFAULT_CLAIM_HOURS),
+        claimWindowMinutes: survival
+          ? (interaction.options.getInteger("claim_minutes") ?? config?.trialClaimWindowMinutes ?? 720) : null,
+        autoRerollClaims: survival
+          ? interaction.options.getBoolean("disable_auto_rerolls") !== true : true,
+        maxAutoRerolls: survival
+          ? (interaction.options.getInteger("rerolls") ?? config?.trialMaxAutoRerolls ?? 2)
+          : (config?.activityMaxAutoRerolls ?? 2),
+        claimInstructions: interaction.options.getString("claim_instructions")?.trim() ||
+          (survival ? config?.trialClaimInstructions : config?.activityClaimInstructions) || "",
+        requiredRoleId: interaction.options.getBoolean("no_required_role") === true ? "" :
+          (interaction.options.getRole("role")?.id ||
+            (survival ? config?.trialDefaultRequiredRoleId : config?.giveawayDefaultRequiredRoleId) || ""),
+        requiredRoleInstructions: (survival ? config?.trialRoleInstructions : config?.giveawayRoleInstructions) || "",
+        showRequiredRoleInstructions: interaction.options.getBoolean("show_role_help") ??
+          (survival ? config?.trialShowRoleInstructions !== false : config?.giveawayShowRoleInstructions !== false),
+        announcementPingRoleId: pingRoleId,
+        announcementPingRoleIds: pingRoleIds,
         winnerCount, endsAt: new Date(Date.now() + minutes * 60_000),
         mode: survival ? "survival" : "standard",
         speedSeconds: survival ? (interaction.options.getInteger("pace") || DEFAULT_TRIAL_SPEED_SECONDS) : DEFAULT_TRIAL_SPEED_SECONDS,
@@ -252,13 +277,12 @@ export async function execute(interaction) {
       });
       let message;
       try {
-        const announcement = survival ? giveawayAnnouncement({ ...record.toObject(), status: "open" }) :
-          await giveawayAnnouncementWithBanner({ ...record.toObject(), status: "open" });
+        const announcement = await giveawayAnnouncementWithBanner({ ...record.toObject(), status: "open" });
         // Only the creation message may ping the assigned notification role.
         // All later edits/results use no allowed mentions and never ping again.
-        if (pingRoleId) {
-          announcement.content = `<@&${pingRoleId}>`;
-          announcement.allowedMentions = { parse: [], roles: [pingRoleId] };
+        if (pingRoleIds.length) {
+          announcement.content = pingRoleIds.map(id => `<@&${id}>`).join(" ");
+          announcement.allowedMentions = { parse: [], roles: pingRoleIds };
         }
         message = await channel.send(announcement);
         await Giveaway.updateOne(
@@ -369,12 +393,15 @@ export async function handleGiveawayButton(interaction) {
   if (action!=="claim") await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const record = await Giveaway.findOne({ _id: id, guildId: interaction.guildId }).lean();
-    if (!record || (!["confirm","cancel"].includes(action) && (record.messageId !== interaction.message?.id || record.channelId !== interaction.channelId)))
+    const validSignupPost = record?.messageId === interaction.message?.id && record?.channelId === interaction.channelId;
+    const validTrialVerdict = action === "claim" && record?.mode === "survival" &&
+      record?.finaleMessageId === interaction.message?.id && record?.channelId === interaction.channelId;
+    if (!record || (!["confirm","cancel"].includes(action) && !validSignupPost && !validTrialVerdict))
       return action==="claim"
         ? interaction.reply({content:"This giveaway announcement could not be verified.",flags:MessageFlags.Ephemeral})
         : interaction.editReply("This giveaway announcement could not be verified.");
     if (action === "claim") {
-      if (record.mode==="survival" || record.status!=="ended" || !(record.winnerIds || []).includes(interaction.user.id))
+      if (record.status!=="ended" || !(record.winnerIds || []).includes(interaction.user.id))
         return interaction.reply({content:"Only current winners can file ticket claims after the drawing.",flags:MessageFlags.Ephemeral});
       const slot=record.winnerIds.indexOf(interaction.user.id);
       if (winnerHasClaim(record,slot))
