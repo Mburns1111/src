@@ -82,6 +82,7 @@ async function materialize(series,start,first=false) {
       activityRequiredMentionUserId:s.mention || "", activityRequiredPhrase:s.phrase || "",
       requireStaffReview:s.approval, roleBonuses:s.bonuses || [], progressEnabled:Boolean(s.progress),
       requiredRoleId:s.requiredRoleId||"",requiredRoleInstructions:s.requiredRoleInstructions||"",
+      showRequiredRoleInstructions:s.showRequiredRoleInstructions!==false,
       claimWindowHours:s.claimHours ?? DEFAULT_CLAIM_HOURS, autoRerollClaims:true, bannerNameKey:s.banner || "",
       claimInstructions:s.claimInstructions||"",maxAutoRerolls:s.maxAutoRerolls??2,
       notificationRoleIds:s.notificationRoleIds||[],announceEmptyResults:s.announceEmptyResults!==false,

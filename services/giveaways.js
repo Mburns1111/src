@@ -53,7 +53,8 @@ export function giveawayAnnouncement(record) {
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
     ...(record.requiredRoleId ? [`**Required to enter:** <@&${record.requiredRoleId}>`,
-      ...(record.requiredRoleInstructions?[`**How to get the role:** ${String(record.requiredRoleInstructions).slice(0,500)}`]:[])] : []),
+      ...(record.showRequiredRoleInstructions!==false&&record.requiredRoleInstructions?
+        [`**How to get the role:** ${String(record.requiredRoleInstructions).slice(0,500)}`]:[])] : []),
     ...(record.roleBonuses?.length?["**Bonus drawing chances:** "+record.roleBonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(" · ")]:[]),
     ...(!ended ? prizeClaimLines(record) : []),
     ...(record.rules ? ["", "**Rules / Requirements:**", record.rules.slice(0, 1300)] : []),

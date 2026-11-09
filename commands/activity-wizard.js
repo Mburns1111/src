@@ -13,6 +13,7 @@ const sessions=new Map();
 export const defaultActivityWizardSettings=creator=>({
   creator,days:1,approval:false,bonuses:[],progress:true,description:"",
   requiredRoleId:"",requiredRoleInstructions:"",serverRoleInstructions:"",
+  serverDefaultRequiredRoleId:"",serverShowRoleInstructions:true,showRequiredRoleInstructions:true,
   claimHours:DEFAULT_CLAIM_HOURS,claimInstructions:"",serverClaimInstructions:"",
   maxAutoRerolls:DEFAULT_MAX_AUTO_REROLLS,notificationRoleIds:[],announceEmptyResults:true,
   repeat:"once",
@@ -34,7 +35,9 @@ export const activityWizardPrompts={
   filters:["Which messages should count?",["Any message","Member ping","Word or phrase","Ping and phrase"].map(x=>choice(x))],
   mention:["Which member must the message explicitly ping? Paste their member mention or Discord user ID."],
   phrase:["Enter the **exact required word or phrase**. Members must use the **correct spelling and word order** for their messages to qualify. **Capital letters do not matter.**"],
-  requiredRoleChoice:["Must members have a role **before their messages can count**?",[choice("No required role","none"),choice("Require a role","choose")]],
+  requiredRoleChoice:["Must members have a role **before their messages can count**?",[choice("Use Server Default","default"),choice("No required role","none"),choice("Choose Different Role","choose")]],
+  roleHelpChoice:["Show members **where to get the required role**?",[
+    choice("Use Server Default","default"),choice("Show Instructions","show"),choice("Hide Instructions","hide")]],
   requiredRolePick:["Paste the required role mention or role ID. Only messages sent **while the member has this role** will be logged."],
   title:["What should the giveaway be called? Reply with the title."],
   prize:["What prize are you giving away? Reply with the prize details."],
@@ -118,7 +121,8 @@ export function describeActivityWizard(session){
     'Counting starts when you click Create activity. Estimated cutoff '+stamp(end),
     s.period==="weekly"?'Weekly boundaries · '+weekdays[s.startDay]+' to '+weekdays[s.endDay]+' at midnight Eastern':null,
     'Requirement · '+s.minimum+' matching message(s) total during the activity period'+(s.days>1?' · at least one matching message on '+s.days+' different days':''),
-    s.requiredRoleId?'Required role · <@&'+s.requiredRoleId+'> · Get it: '+s.requiredRoleInstructions:null,
+    s.requiredRoleId?'Required role · <@&'+s.requiredRoleId+'>':null,
+    s.requiredRoleId?'Show where to get role · '+(s.showRequiredRoleInstructions?'Yes'+(s.requiredRoleInstructions?' · '+s.requiredRoleInstructions:''):'No (restricted)'):null,
     s.mention?'Required ping · <@'+s.mention+'>':null,s.phrase?'Required exact phrase · '+s.phrase+' (correct spelling and word order; capitalization does not matter)':null,
     'Winners · '+s.winners+' · Draw '+stamp(s.firstDraw?new Date(s.firstDraw):end),
     'Manual approval '+(s.approval?'on':'off')+' · Member progress '+(s.progress?'on':'off'),
@@ -197,6 +201,11 @@ export async function startActivityWizard(i){
   const session={id:new mongoose.Types.ObjectId().toString(),guild:i.guild,owner:i.user.id,key,channel:i.channel,
     settings:{...defaultActivityWizardSettings(i.user.id),
       serverRoleInstructions:config.giveawayRoleInstructions||"",
+      serverDefaultRequiredRoleId:config.giveawayDefaultRequiredRoleId||"",
+      serverShowRoleInstructions:config.giveawayShowRoleInstructions!==false,
+      requiredRoleId:config.giveawayDefaultRequiredRoleId||"",
+      requiredRoleInstructions:config.giveawayDefaultRequiredRoleId?config.giveawayRoleInstructions||"":"",
+      showRequiredRoleInstructions:config.giveawayShowRoleInstructions!==false,
       claimHours:config.activityClaimWindowHours??DEFAULT_CLAIM_HOURS,
       claimInstructions:config.activityClaimInstructions||"",
       serverClaimInstructions:config.activityClaimInstructions||"",
@@ -248,19 +257,28 @@ async function accept(session,input,client){
     }
     case "phrase":s.phrase=words(v,120);next=done("requiredRoleChoice");break;
     case "requiredRoleChoice":
-      if(v==="none"){s.requiredRoleId="";s.requiredRoleInstructions="";next=done("title");}
-      else if(v==="choose")next="requiredRolePick";
-      else throw Error("Choose No required role or Require a role.");
+      if(v==="default"){
+        s.requiredRoleId=s.serverDefaultRequiredRoleId||"";
+        s.requiredRoleInstructions=s.requiredRoleId?s.serverRoleInstructions:"";
+        next=s.requiredRoleId?"roleHelpChoice":done("title");
+      }else if(v==="none"){
+        s.requiredRoleId="";s.requiredRoleInstructions="";next=done("title");
+      }else if(v==="choose")next="requiredRolePick";
+      else throw Error("Choose Use Server Default, No required role, or Choose Different Role.");
       break;
+    case "roleHelpChoice":
+      if(v==="default")s.showRequiredRoleInstructions=s.serverShowRoleInstructions;
+      else if(v==="show")s.showRequiredRoleInstructions=true;
+      else if(v==="hide")s.showRequiredRoleInstructions=false;
+      else throw Error("Choose whether to show the role instructions.");
+      next=done("title");break;
     case "requiredRolePick":{
       const match=/^(?:<@&(\d{17,20})>|(\d{17,20}))$/.exec(v);
       const role=match&&await session.guild.roles.fetch(match[1]||match[2]).catch(()=>null);
       if(!role||role.id===session.guild.id)throw Error("Paste a valid server role mention or ID.");
-      if(!s.serverRoleInstructions)
-        throw Error("Set the server's Where to get required roles instructions in /setup activity-giveaways before requiring a role.");
       s.requiredRoleId=role.id;
       s.requiredRoleInstructions=s.serverRoleInstructions;
-      next=done("title");break;
+      next="roleHelpChoice";break;
     }
     case "title":s.title=words(v,100);next=done("prize");break;
     case "prize":s.prize=words(v,1500);next=done("detailsChoice");break;

@@ -25,7 +25,9 @@ export async function handleActivityGiveawayProgress(interaction) {
       const member=await interaction.guild.members.fetch({user:interaction.user.id,force:true}).catch(()=>null);
       if(!member?.roles?.cache?.has(item.requiredRoleId))
         return interaction.editReply({content:"**Required role:** <@&"+item.requiredRoleId+">\n"+
-          (item.requiredRoleInstructions||"Ask staff how to get this role.")+"\nActivity messages do not count until you hold this role.",allowedMentions:{parse:[]}});
+          (item.showRequiredRoleInstructions!==false&&item.requiredRoleInstructions?
+            "**Where to get it:** "+item.requiredRoleInstructions+"\n":"")+
+          "Activity messages do not count until you hold this role.",allowedMentions:{parse:[]}});
     }
     const [row]=await activityRoster(item,interaction.user.id);
     return interaction.editReply({content:[

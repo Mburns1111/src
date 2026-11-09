@@ -29,7 +29,9 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("description").setDescription("Optional custom giveaway description").setMaxLength(1000))
     .addIntegerOption(o => o.setName("winners").setDescription("Number of winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
-    .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering"))
+    .addRoleOption(o => o.setName("role").setDescription("Override the default required role"))
+    .addBooleanOption(o => o.setName("no_required_role").setDescription("Allow entry without a required role"))
+    .addBooleanOption(o => o.setName("show_role_help").setDescription("Show instructions on where to get the required role"))
     .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (default 12, max 720)").setMinValue(1).setMaxValue(720))
     .addStringOption(o => o.setName("claim_instructions").setDescription("Optional custom prize collection instructions").setMaxLength(1000))
     .addStringOption(o => o.setName("banner").setDescription("Optional registered banner image name").setMaxLength(60)))
@@ -235,8 +237,11 @@ export async function execute(interaction) {
         autoRerollClaims: !survival,
         claimWindowMinutes: survival ? (interaction.options.getInteger("claim_minutes") ?? null) : null,
         claimInstructions: interaction.options.getString("claim_instructions")?.trim() || "",
-        requiredRoleId: interaction.options.getRole("role")?.id || "",
+        requiredRoleId: interaction.options.getBoolean("no_required_role")===true?"":
+          (interaction.options.getRole("role")?.id||config?.giveawayDefaultRequiredRoleId||""),
         requiredRoleInstructions:config?.giveawayRoleInstructions||"",
+        showRequiredRoleInstructions:interaction.options.getBoolean("show_role_help")??
+          (config?.giveawayShowRoleInstructions!==false),
         announcementPingRoleId: pingRoleId || "",
         winnerCount, endsAt: new Date(Date.now() + minutes * 60_000),
         mode: survival ? "survival" : "standard",
@@ -435,7 +440,7 @@ export async function handleGiveawayButton(interaction) {
     if (action === "enter" && record.requiredRoleId) {
       const member = await interaction.guild.members.fetch({ user: interaction.user.id, force: true }).catch(() => null);
       if (!member?.roles?.cache?.has(record.requiredRoleId))
-        return interaction.editReply(`You need the <@&${record.requiredRoleId}> role to join this giveaway.${record.requiredRoleInstructions?"\n**Where to get it:** "+record.requiredRoleInstructions:""}`);
+        return interaction.editReply(`You need the <@&${record.requiredRoleId}> role to join this giveaway.${record.showRequiredRoleInstructions!==false&&record.requiredRoleInstructions?"\n**Where to get it:** "+record.requiredRoleInstructions:""}`);
     }
     const result = action === "enter"
       ? await joinGiveaway({ id, guildId: interaction.guildId, userId: interaction.user.id, mode: record.mode })
