@@ -7,7 +7,7 @@
 1. In the Discord Developer Portal, open the development bot under **Bot** and enable **Message Content Intent** (privileged gateway intent).
 2. In Replit Secrets, set `ENABLE_MESSAGE_CONTENT_INTENT=1` and keep `ENABLE_CARD_GAME_TEST=1`. Without both, typed Hatchem messages will not be received/processed. Restart the bot after changing Secrets.
 3. Pull the dev branch, run `npm test`, `node register-commands.js`, and `npm start`.
-4. Use `/setup channels hatchem:#your-hatchem-channel` as a server manager. The existing setup command saves the chosen channel and posts a short Hatchem help guide. Run setup again to move the channel.
+4. Use `/setup cards` as a server manager to select the Hatchem channel and Collector role (and optionally enable wild activity eggs). Run `/setup cards` again if you need to move the channel.
 
 **Scope:** Only messages starting with a dot (`.`) in the configured channel process Hatchem typed commands. Normal chat is ignored without a database command lookup. Slash `/cards` commands are redirected to Hatchem if a channel is configured. Other existing profile/shop/listing commands retain their own routing. Typing a Hatchem command in another channel does nothing. Unprefixed words such as `drop` or `collection` are ordinary chat and will not be treated as commands.
 
