@@ -13,12 +13,13 @@ import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS,
 const sessions=new Map();
 const expiry=30*60_000;
 const key=(channel,user)=>channel+":"+user;
-const steps=["list","winners","staff","roleHelp","instructions","hours","rerolls","roles","empty","banner","review"];
-const regularSteps=["regularChannel","staff","roleHelp","instructions","hours","rerolls","roles","empty","banner","review"];
+const steps=["list","winners","staff","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
+const regularSteps=["regularChannel","staff","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
 const stepsFor=session=>session.mode==="regular"?regularSteps:steps;
 const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",
   regularChannel:"Regular giveaway posts",
-  roleHelp:"Where to get required roles",instructions:"Claim instructions",hours:"Claim deadline",rerolls:"Automatic rerolls",
+  requiredRole:"Default required role",roleHelp:"Where to get required roles",
+  roleHelpVisible:"Show role instructions",instructions:"Claim instructions",hours:"Claim deadline",rerolls:"Automatic rerolls",
   roles:"Notification roles",empty:"No eligible winners",banner:"Default banner"};
 const button=(id,label,value,style=ButtonStyle.Secondary)=>new ButtonBuilder()
   .setCustomId("actconfig:"+id+":"+value).setLabel(label).setStyle(style);
@@ -34,7 +35,9 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   ...(mode==="activity"?["📋 **Activity list:** "+shown(settings.activityGiveawayListChannelId),
      "🏆 **Winners:** "+shown(settings.activityGiveawayWinnersChannelId)]:[]),
   "🔒 **Staff controls:** "+shown(settings.activityGiveawayReviewChannelId),
-  "🎟️ **How to obtain the required role:** "+(settings.giveawayRoleInstructions||"Not set"),
+  "🎟️ **Default required role:** "+(settings.giveawayDefaultRequiredRoleId?"<@&"+settings.giveawayDefaultRequiredRoleId+">":"None"),
+  "👁️ **Show role instructions publicly:** "+(settings.giveawayShowRoleInstructions!==false?"Yes":"No"),
+  "🎟️ **Role acquisition instructions (saved):** "+(settings.giveawayRoleInstructions||"Not set"),
   "📝 **Claim instructions:** "+(settings.activityClaimInstructions?"Custom":"Server default"),
   ...(settings.activityClaimInstructions?[settings.activityClaimInstructions.slice(0,400)]:[]),
   "⏰ **Default claim window:** "+settings.activityClaimWindowHours+" hours",
@@ -84,14 +87,29 @@ function layout(session) {
       [ChannelType.GuildText,ChannelType.GuildAnnouncement]));
    components.push(new ActionRowBuilder().addComponents(selector));
    if(s[field])components.push(row(session.id,[["Keep selected channel","keep"]]));
+ }else if(step==="requiredRole"){
+   content="Choose a **default required role** for regular and activity giveaways. "+
+     "Staff can keep this default, choose a different role, or disable the role requirement for each giveaway.\n"+
+     "Current: "+(s.giveawayDefaultRequiredRoleId?"<@&"+s.giveawayDefaultRequiredRoleId+">":"None");
+   components.push(new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
+     .setCustomId(bind(session,"requiredRole")).setPlaceholder("Choose default required role")
+     .setMinValues(1).setMaxValues(1)));
+   components.push(row(session.id,[["No Default Required Role","noneRequiredRole"],["Keep Current","keep"]]));
  }else if(step==="roleHelp"){
-   content="Tell members where to find or request a role required for giveaways. "+
-     "Staff choose the exact required role per giveaway. Your explanation will appear on "+
-     "every public giveaway that requires a role. Discord channel links are supported.\n"+
+   content="Save instructions on where members can get the required role. "+
+     "This can include Discord channel links. The next step controls whether "+
+     "these instructions are shown publicly; restricted giveaways may keep them hidden.\n"+
      "**Current:** "+(s.giveawayRoleInstructions||"Not set");
    components.push(row(session.id,[["Write instructions","writeRoleHelp"],["Keep Current","keep"],["Clear","clearRoleHelp"]]));
  }else if(step==="roleHelpText"){
    content="Reply with the instructions (maximum 500 characters), including the channel where members can obtain the role.";
+ }else if(step==="roleHelpVisible"){
+   content="Show members **where to get the required role**? "+
+     "Turn this OFF for invitation-only or restricted giveaways. "+
+     "**The role itself is still required**; only the instructions are hidden.\n"+
+     "Current default: "+(s.giveawayShowRoleInstructions!==false?"Show instructions":"Hide instructions");
+   components.push(row(session.id,[["Show Instructions","showHelp"],
+     ["Hide Instructions","hideHelp"],["Keep Current","keep"]]));
  }else if(step==="instructions"){
    content="Write the default prize-collection instructions. You may completely replace the standard paragraph.\n"+
     "**Always shown by the bot:** winners must enter a ticket number and **Discord message link** before the deadline, or forfeit the win.\n"+
@@ -194,6 +212,7 @@ async function apply(session,verb,value){
    const settings={
      ...Object.fromEntries([
       "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId","giveawayChannelId",
+      "giveawayDefaultRequiredRoleId","giveawayShowRoleInstructions",
       "giveawayRoleInstructions","activityClaimInstructions","activityClaimWindowHours","activityMaxAutoRerolls",
       "activityNotificationRoleIds","activityAnnounceEmptyResults","giveawayDefaultBannerNameKey"
      ].map(field=>[field,s[field]])),
@@ -212,6 +231,20 @@ async function apply(session,verb,value){
    return;
  }
  if(verb==="keep")return next();
+ if(session.step==="requiredRole"){
+   if(verb==="noneRequiredRole"){s.giveawayDefaultRequiredRoleId="";return next();}
+   if(verb==="requiredRole"){
+     const id=Array.isArray(value)?value[0]:value;
+     const role=await session.guild.roles.fetch(id).catch(()=>null);
+     if(!role||role.id===session.guild.id)throw Error("Choose an existing server role.");
+     s.giveawayDefaultRequiredRoleId=id;return next();
+   }
+ }
+ if(session.step==="roleHelpVisible"){
+   if(verb==="showHelp"||verb==="hideHelp"){
+     s.giveawayShowRoleInstructions=verb==="showHelp";return next();
+   }
+ }
  if(session.step==="roleHelp"){
    if(verb==="clearRoleHelp"){s.giveawayRoleInstructions="";return next();}
    if(verb==="writeRoleHelp"){await show(session,"roleHelpText");return;}
@@ -283,6 +316,8 @@ async function startGiveawaySetup(interaction,mode="activity"){
     activityGiveawayListChannelId:config?.activityGiveawayListChannelId||"",
    activityGiveawayWinnersChannelId:config?.activityGiveawayWinnersChannelId||"",
    activityGiveawayReviewChannelId:config?.activityGiveawayReviewChannelId||"",
+   giveawayDefaultRequiredRoleId:config?.giveawayDefaultRequiredRoleId||"",
+   giveawayShowRoleInstructions:config?.giveawayShowRoleInstructions!==false,
    giveawayRoleInstructions:config?.giveawayRoleInstructions||"",
    activityClaimInstructions:config?.activityClaimInstructions||"",
    activityClaimWindowHours:config?.activityClaimWindowHours??DEFAULT_CLAIM_HOURS,
@@ -309,7 +344,7 @@ export async function handleActivityGiveawaySetupInteraction(interaction){
    return interaction.reply({content:"Manage Server permission is required.",flags:MessageFlags.Ephemeral});
  await interaction.deferReply({flags:MessageFlags.Ephemeral});
  try{
-   const verb=match[2],value=["channel","roles","edit"].includes(verb)?interaction.values:null;
+   const verb=match[2],value=["channel","roles","requiredRole","edit"].includes(verb)?interaction.values:null;
    await apply(session,verb,verb==="channel"?value?.[0]:value);
    return interaction.editReply("Updated setup step.");
  }catch(error){return interaction.editReply("Couldn't save that choice: "+String(error.message||error));}
