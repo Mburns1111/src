@@ -263,6 +263,9 @@ export async function finishPendingReroll(item) {
       pendingRerollReason:"",pendingRerollAt:null,pendingRerollEligibleIds:[],claimCheckAt:nextClaimCheckAt(reissued),renderedAt:null },
     $push: { rerollHistory: { slot,previousId,replacementId,staffId:item.pendingRerollStaffId,
       reason:item.pendingRerollReason||"staff",at:item.pendingRerollAt||new Date() } },
+    // A replacement receives its own claim window. Do not carry forward a
+    // previous winner's exhausted/no-candidates flag to this prize place.
+    $pull: { claimResolvedSlots: slot },
     $inc: { renderVersion: 1 },
   }, { returnDocument: "after" }).lean();
   return changed || Giveaway.findById(item._id).lean();
