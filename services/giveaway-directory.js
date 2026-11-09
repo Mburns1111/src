@@ -76,6 +76,8 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
 }
 export function activityOneOffListingEmbed(record) {
   const guided=Boolean(record.guidedSeries);
+  const completed=record.status==="ended";
+  const settling=["pending_review","closing","rerolling"].includes(record.status);
   const minimum=record.activityMinTotalMessages||record.activityMinimum||1;
   const channels=(record.activityChannelIds||[]).map(id=>"<#"+id+">");
   const qualifier=[
@@ -117,15 +119,23 @@ export function activityOneOffListingEmbed(record) {
     ...(validStart&&validClose?[
       "🗓️ **Activity:** <t:"+stamp(start)+":f> – <t:"+stamp(close)+":f>",
     ]:[]),
-    ...(sameTime?[
+    ...(completed?[
+      "🏁 **Giveaway ended** · "+(record.winnerIds?.length
+        ?(record.winnerIds.length===1?"1 winner selected":"Winners selected")
+        :"No eligible winners selected"),
+    ]:settling?[
+      "🏆 **Entries closed** · Winner selection is being finalized",
+    ]:sameTime?[
       "🏆 **"+winnerLabel(record.winnerCount||1)+"** · Ends and draws <t:"+stamp(draw)+":F> (<t:"+stamp(draw)+":R>)",
     ]:validDraw?[
       "🏆 **"+winnerLabel(record.winnerCount||1)+"** · Draws <t:"+stamp(draw)+":F> (<t:"+stamp(draw)+":R>)",
     ]:[]),
     ...(record.channelId?["📣 **Winners announced in:** <#"+record.channelId+">"]:[]),
-    ...(record.requireStaffReview?["*Winners are confirmed after staff review.*"]:[]),
+    ...(!completed&&record.requireStaffReview?["*Winners are confirmed after staff review.*"]:[]),
     "",
-    "*Qualify automatically — no entry button needed.*",
+    ...(completed?["*Entries are closed. Staff will remove this listing after claims are settled.*"]
+      :settling?["*Entries are closed while winner selection is finalized.*"]
+      :["*Qualify automatically — no entry button needed.*"]),
   ];
   return new EmbedBuilder().setColor(0xb47e99)
     .setTitle("🎁 Giveaway alert!")
@@ -174,8 +184,13 @@ async function deleteListing(client,item,Model) {
 async function syncListing(client,item,kind,{now=new Date()}={}) {
   const isPlan=kind==="plan";
   const Model=isPlan?GiveawayPlan:Giveaway;
+  // Keep existing ended one-off listings visible until staff deliberately
+  // choose Delete Listing. Previously the directory sweep deleted them
+  // immediately after their draw, making the staff button ineffective.
   const visible=isPlan?item.status==="active":
-    item.mode==="activity"&&!item.publicListingRemovedAt&&item.status==="open"&&new Date(item.endsAt)>now;
+    item.mode==="activity"&&!item.publicListingRemovedAt&&(
+      ["open","pending_review","closing","rerolling"].includes(item.status)||
+      (item.status==="ended"&&Boolean(item.listMessageId)));
   if(!visible)return deleteListing(client,item,Model);
   const config=await GuildConfig.findOne({guildId:item.guildId})
     .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId").lean();
