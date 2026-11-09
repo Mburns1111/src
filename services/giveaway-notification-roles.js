@@ -1,18 +1,35 @@
-// Regular and activity giveaways have independent notification-role defaults.
-// giveawayPingRoleId is the earlier single-role field. Keep reading it for
-// existing guilds that configured notifications before the guided setup.
-export function regularGiveawayNotificationRoleIds(config){
-  const saved=Array.isArray(config?.giveawayNotificationRoleIds)
-    ?config.giveawayNotificationRoleIds:[];
-  if(saved.length)return [...new Set(saved.filter(Boolean))].slice(0,10);
-  return config?.giveawayPingRoleId?[String(config.giveawayPingRoleId)]:[];
+// One shared giveaway announcement role across regular giveaways, activity
+// giveaways (including recurring plans) and Court's Trials.
+//
+// Read old fields for existing guilds so deployments never require resetting
+// configuration. The historical regular giveaway role wins if older settings
+// contain different roles; administrators can change it in any guided setup.
+export function sharedGiveawayPingRoleId(config){
+  if(config?.giveawayPingRoleId)return String(config.giveawayPingRoleId);
+  for(const roles of [config?.giveawayNotificationRoleIds,
+    config?.activityNotificationRoleIds,config?.trialNotificationRoleIds]){
+    if(Array.isArray(roles)&&roles.find(Boolean))return String(roles.find(Boolean));
+  }
+  return config?.survivalTrialPingRoleId?String(config.survivalTrialPingRoleId):"";
 }
 
-export function regularGiveawayNotificationFields(roles){
-  const normalized=[...new Set((roles||[]).filter(Boolean))].slice(0,10);
+export function sharedGiveawayNotificationFields(roleId){
+  const id=String(roleId||"");
+  const roles=id?[id]:[];
   return {
-    giveawayNotificationRoleIds:normalized,
-    // Update the old field too, so older consumers/records still see the first role.
-    giveawayPingRoleId:normalized[0]||"",
+    giveawayPingRoleId:id,
+    giveawayNotificationRoleIds:roles,
+    activityNotificationRoleIds:roles,
+    trialNotificationRoleIds:roles,
+    survivalTrialPingRoleId:id,
   };
+}
+
+// Maintained as an alias for existing imports, but never returns >1 role.
+export function regularGiveawayNotificationRoleIds(config){
+  const role=sharedGiveawayPingRoleId(config);
+  return role?[role]:[];
+}
+export function regularGiveawayNotificationFields(roles){
+  return sharedGiveawayNotificationFields(Array.isArray(roles)?roles[0]:roles);
 }
