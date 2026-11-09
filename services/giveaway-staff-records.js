@@ -2,7 +2,7 @@ import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,ModalBuilder,
   TextInputBuilder,TextInputStyle,MessageFlags,PermissionFlagsBits} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
-import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
+import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline,winnerHasClaim,hasOutstandingTicketClaims,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
 import {completedGiveawayCanDeleteListing} from "./giveaway-listing-lifecycle.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
@@ -13,6 +13,54 @@ const when=date=>date&&Number.isFinite(+new Date(date))?"<t:"+unix(date)+":F>":"
 const safe=s=>String(s||"").replace(/@everyone|@here/g,"[mention]").slice(0,900);
 const btn=(id,label,style=ButtonStyle.Secondary)=>new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style);
 export const staffRecordMarker=record=>"Giveaway staff record · "+idText(record._id);
+
+export const STAFF_ENTRANTS_PER_PAGE=25;
+export function giveawayStaffEntrantsPage(record,page=0){
+  if(!Number.isSafeInteger(page)||page<0)throw Error("Invalid entrant page.");
+  const entrants=[...new Set((record.entrantIds||[]).filter(Boolean).map(String))];
+  const totalPages=Math.max(1,Math.ceil(entrants.length/STAFF_ENTRANTS_PER_PAGE));
+  if(page>=totalPages)throw Error("That entrant page is no longer available.");
+  const first=page*STAFF_ENTRANTS_PER_PAGE;
+  const rows=entrants.slice(first,first+STAFF_ENTRANTS_PER_PAGE)
+    .map((id,i)=>(first+i+1)+". <@"+id+"> (\`"+id+"\`)");
+  const title=record.mode==="survival"?"Court's Trial contestants":
+    record.mode==="activity"?"Activity giveaway entrants":"Regular giveaway entrants";
+  const note=record.mode==="activity"&&record.status==="open"
+    ?"Activity entries are computed when counting ends. Use **Preview qualifying members** on the staff record to see current progress."
+    :"";
+  const content=[
+    "**"+title+" — "+safe(record.title||"Giveaway").slice(0,120)+"**",
+    "**Total:** "+entrants.length+" · **Page:** "+(page+1)+"/"+totalPages+
+      " · **Status:** "+record.status,
+    "",
+    ...(rows.length?rows:["No members have entered or been selected as entrants."]),
+    ...(note?["",note]:[]),
+  ].join("\n").slice(0,1900);
+  const controls=[];
+  if(page>0)controls.push(btn("giveawaystaff:entrants:"+record._id+":"+(page-1),"Previous"));
+  if(page+1<totalPages)controls.push(btn("giveawaystaff:entrants:"+record._id+":"+(page+1),"Next"));
+  return {
+    content,components:controls.length?
+      [new ActionRowBuilder().addComponents(controls)]:[],
+    allowedMentions:{parse:[]},
+  };
+}
+
+// Make the staff record immediately scannable. Only finished prize/claim states
+// get a marker; live giveaways remain unmarked.
+export function giveawayStaffStatusMarker(record){
+  if(!["ended","rerolling"].includes(record.status))return null;
+  if(giveawayHasNoEligibleWinner(record))
+    return {text:"🟥 **ENDED — NO ELIGIBLE WINNER** 🟥",title:"🟥 NO ELIGIBLE WINNER · Giveaway staff record",color:0xE74C3C};
+  if(record.mode==="survival"&&!record.trialTicketClaimsEnabled)
+    return {text:"🟨 **ENDED — STAFF PRIZE FOLLOW-UP REQUIRED** 🟨",title:"🟨 STAFF CLAIM FOLLOW-UP · Giveaway staff record",color:0xF1C40F};
+  if(hasOutstandingTicketClaims(record)||record.status==="rerolling")
+    return {text:"🟨 **WINNER CLAIM PENDING** 🟨",title:"🟨 CLAIM PENDING · Giveaway staff record",color:0xF1C40F};
+  if((record.winnerIds||[]).some((id,slot)=>id&&winnerHasClaim(record,slot)))
+    return {text:"🟩 **CLAIM COMPLETED** 🟩",title:"🟩 CLAIM COMPLETED · Giveaway staff record",color:0x2ECC71};
+  return null;
+}
+
 
 function claimStatus(record,slot){
  const id=record.winnerIds?.[slot];
@@ -39,10 +87,12 @@ function claimStatus(record,slot){
 export function giveawayStaffRecordPayload(record,{series=null}={}){
  const cancelled=record.status==="cancelled";
  const completedAndRemoved=record.status==="ended"&&Boolean(record.publicListingRemovedAt);
+ const statusMarker=giveawayStaffStatusMarker(record);
  const statuses={open:"Open",pending_review:"Awaiting staff approval",closing:"Selecting winners",
    ended:"Ended — claims being tracked",rerolling:"Replacing a winner",running:"Trial running",
    preparing:"Trial preparing",cancelled:"Cancelled · public post removed"};
  const lines=[
+   ...(statusMarker?[statusMarker.text,""]:[]),
    "**"+safe(record.title||"Giveaway").slice(0,170)+"**",
    "**Type:** "+(record.mode==="survival"?"Court's Trial":record.mode==="activity"?"Activity giveaway":"Regular giveaway"),
    "**Prize:** "+safe(record.prize||"").slice(0,500),
@@ -100,6 +150,8 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    inline:false
  }));
  const controls=[];
+ controls.push(btn("giveawaystaff:entrants:"+record._id+":0",
+   record.mode==="survival"?"View Contestants":"View Entrants",ButtonStyle.Primary));
  if(record.guidedSeries&&record.status!=="cancelled"){
    controls.push(btn("activitystaff:view:"+record._id+":0","Preview qualifying members"));
    if(record.status==="open"){
@@ -121,8 +173,8 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
  for(let i=0;i<controls.length;i+=5)
    components.push(new ActionRowBuilder().addComponents(controls.slice(i,i+5)));
  return {
-  embeds:[new EmbedBuilder().setColor(cancelled?0x777777:0x896b88)
-    .setTitle(cancelled?"📁 Cancelled giveaway · staff archive":"📋 Giveaway staff record")
+  embeds:[new EmbedBuilder().setColor(statusMarker?.color??(cancelled?0x777777:0x896b88))
+    .setTitle(statusMarker?.title||(cancelled?"📁 Cancelled giveaway · staff archive":"📋 Giveaway staff record"))
     .setDescription(lines.join("\n").slice(0,4000))
     .addFields(claimFields)
     .setFooter({text:staffRecordMarker(record)})],
@@ -177,7 +229,9 @@ export async function ensureGiveawayStaffRecord(client,record){
    const oldFields=JSON.stringify(existing?.fields||[]);
    const newFields=JSON.stringify(payload.embeds[0].data.fields||[]);
    const newButtons=payload.components.flatMap(row=>row.components).map(b=>b.data.custom_id).join("|");
-   if(before!==after||oldFields!==newFields||existing?.footer?.text!==staffRecordMarker(record)||oldButtons!==newButtons)
+   if(before!==after||oldFields!==newFields||existing?.title!==payload.embeds[0].data.title||
+      existing?.color!==payload.embeds[0].data.color||
+      existing?.footer?.text!==staffRecordMarker(record)||oldButtons!==newButtons)
      await message.edit(payload);
  }else{
    message=await channel.send(payload);
@@ -267,14 +321,27 @@ export async function handleGiveawayStaffAction(interaction){
  try{
    if(!await canManageGiveaways(interaction))
      return interaction.reply({content:giveawayManagerPermissionMessage,...ephemeral});
-   const match=/^giveawaystaff:(stop|cancel|confirmcancel|remove|confirmremove):([0-9a-f]{24})$/.exec(interaction.customId);
+   const match=/^giveawaystaff:(stop|cancel|confirmcancel|remove|confirmremove|entrants):([0-9a-f]{24})(?::(\d+))?$/.exec(interaction.customId);
    if(!match)return interaction.reply({content:"Unknown staff action.",...ephemeral});
-   const [,action,id]=match;
+   const [,action,id,pageText]=match;
    const record=await Giveaway.findOne({_id:id,guildId:interaction.guildId,
      staffCardChannelId:interaction.channelId}).lean();
    if(!record)return interaction.reply({content:"This staff record was not found.",...ephemeral});
-   if(!["confirmcancel","confirmremove"].includes(action) && record.staffCardId!==interaction.message?.id)
+   if(!["confirmcancel","confirmremove","entrants"].includes(action) && record.staffCardId!==interaction.message?.id)
      return interaction.reply({content:"Use the current staff record for this giveaway.",...ephemeral});
+   if(action==="entrants"){
+     const page=Number(pageText);
+     const firstPage=page===0;
+     // First click must originate on the current private staff record. Later
+     // clicks must be on this bot's ephemeral page controls.
+     if(firstPage && record.staffCardId!==interaction.message?.id)
+       return interaction.reply({content:"Use the current staff record for this giveaway.",...ephemeral});
+     if(!firstPage && interaction.message?.author?.id!==interaction.client.user?.id)
+       return interaction.reply({content:"Use the staff-only entrant buttons.",...ephemeral});
+     const payload=giveawayStaffEntrantsPage(record,page);
+     return firstPage?interaction.reply({...payload,...ephemeral}):
+       interaction.update(payload);
+   }
    if(action==="cancel"){
      if(!["open","pending_review","running"].includes(record.status))
        return interaction.reply({content:"This giveaway is not eligible for cancellation.",...ephemeral});
