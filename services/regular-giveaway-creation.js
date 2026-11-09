@@ -67,7 +67,8 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
     maxAutoRerolls:config?.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
     claimInstructions,
     requiredRoleId:roleId,
-    requiredRoleInstructions:config?.giveawayRoleInstructions||"",
+    requiredRoleInstructions:settings.roleInstructions==null?
+      (config?.giveawayRoleInstructions||""):String(settings.roleInstructions).slice(0,500),
     showRequiredRoleInstructions:showRoleInstructions,
     announcementPingRoleId:pingRoleId,announcementPingRoleIds:pingRoleIds,
     bannerNameKey,mode:"standard",status:"publishing",
