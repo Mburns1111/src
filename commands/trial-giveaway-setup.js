@@ -1,0 +1,385 @@
+import mongoose from "mongoose";
+import {
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder,
+  ChannelType, MessageFlags, PermissionFlagsBits, RoleSelectMenuBuilder,
+  StringSelectMenuBuilder,
+} from "discord.js";
+import GuildConfig from "../models/GuildConfig.js";
+import GiveawayBanner, { bannerNameKey } from "../models/GiveawayBanner.js";
+import { attachGiveawayBanner, ensureBannerRegistered } from "../services/giveaway-banners.js";
+import { survivalFinalePayload } from "../services/survival-giveaways.js";
+import { DEFAULT_CLAIM_INSTRUCTIONS, MAX_TRIAL_CLAIM_MINUTES } from "../services/giveaway-claims.js";
+
+// Keep this editor independent from the regular/activity giveaway editor. Trial
+// defaults must never silently rewrite active or scheduled standard giveaways.
+const sessions = new Map();
+const SESSION_MS = 30 * 60_000;
+const STEPS = [
+  "channel", "staff", "requiredRole", "roleHelp", "roleHelpVisible",
+  "instructions", "minutes", "rerolls", "roles", "banner", "review",
+];
+const STEP_NAMES = {
+  channel: "Court's Trial channel", staff: "Private staff controls",
+  requiredRole: "Default required role", roleHelp: "How to obtain the role",
+  roleHelpVisible: "Show role instructions", instructions: "Claim instructions",
+  minutes: "Winner claim deadline", rerolls: "Automatic rerolls",
+  roles: "Notification roles", banner: "Default banner", review: "Review & save",
+};
+const key = (guildId, userId) => guildId + ":" + userId;
+const shown = id => id ? "<#" + id + ">" : "Not selected";
+const roleShown = id => id ? "<@&" + id + ">" : "None";
+const button = (session, label, action, style = ButtonStyle.Secondary) =>
+  new ButtonBuilder().setCustomId("trialconfig:" + session.id + ":" + action)
+    .setLabel(label).setStyle(style);
+const buttons = (session, items) => new ActionRowBuilder()
+  .addComponents(items.map(([label, action, style]) => button(session, label, action, style)));
+const selectId = (session, action) => "trialconfig:" + session.id + ":" + action;
+
+export function trialSetupSummary(settings) {
+  return [
+    "**The Court's Trial — Setup Review**",
+    "⚔️ **Signup and eliminations:** " + shown(settings.survivalTrialChannelId),
+    "🔒 **Private staff controls:** " + shown(settings.activityGiveawayReviewChannelId),
+    "🎟️ **Default required role:** " + roleShown(settings.trialDefaultRequiredRoleId),
+    "👁️ **Display role instructions:** " + (settings.trialShowRoleInstructions !== false ? "Yes" : "No"),
+    "**Where to get that role:** " + (settings.trialRoleInstructions || "Not set"),
+    "📝 **Claim instructions:** " + (settings.trialClaimInstructions || DEFAULT_CLAIM_INSTRUCTIONS),
+    "⏰ **Claim deadline:** " + settings.trialClaimWindowMinutes + " minutes after the verdict",
+    "🔁 **Automatic unclaimed-prize rerolls:** " + settings.trialMaxAutoRerolls + " per winning place",
+    "🔔 **Notification roles (ping once at signup):** " +
+      (settings.trialNotificationRoleIds?.length
+        ? settings.trialNotificationRoleIds.map(roleShown).join(", ") : "None"),
+    "🖼️ **Default banner:** " + (settings.trialDefaultBannerNameKey || "None"),
+    "",
+    "**Changes apply only to new Trials.** Existing entrants, winners, claim deadlines and historical Trial records are not changed.",
+    "The Royal Verdict stays in the Trial channel. Claims and ticket links are saved privately for staff; no prize is delivered automatically.",
+  ].join("\n");
+}
+
+export function trialSetupPreview(settings, { userId = "123456789012345678", banner = null, now = new Date() } = {}) {
+  const record = {
+    _id: "PREVIEW", mode: "survival", status: "ended",
+    title: "Example Court's Trial", prize: "Example prize",
+    description: "Preview only", creatorId: userId, originalChampionId: userId,
+    winnerIds: [userId], entrantIds: [userId, "234567890123456789"],
+    winnerCount: 1, gameEvents: [{}], nextEventIndex: 1,
+    claimStartedAt: now, winnerAssignedAt: [now], gameEndedAt: now,
+    claimWindowMinutes: settings.trialClaimWindowMinutes,
+    claimInstructions: settings.trialClaimInstructions,
+    autoRerollClaims: true, maxAutoRerolls: settings.trialMaxAutoRerolls,
+  };
+  const payload = survivalFinalePayload(record, { entered: 1, won: 1 });
+  payload.content = "👁️ **Royal Verdict Preview** — No Trial has been created.";
+  payload.embeds[0].setFooter({ text: "PREVIEW ONLY · No Trial created or changed" });
+  for (const row of payload.components || [])
+    for (const control of row.components) control.setDisabled(true);
+  return attachGiveawayBanner(payload, banner);
+}
+
+function layout(session) {
+  const s = session.settings, step = session.step;
+  const index = STEPS.indexOf(step);
+  const intro = "**⚔️ Court's Trial setup** · <@" + session.owner + ">\n" +
+    "**" + (session.fromReview ? "Editing " + STEP_NAMES[step] :
+      "Step " + (index + 1) + " of " + STEPS.length + " · " + (STEP_NAMES[step] || step)) + "**\n";
+  const components = [];
+  let content = "";
+  if (step === "channel" || step === "staff") {
+    const staff = step === "staff";
+    content = staff
+      ? "Select the **private staff channel** for live Trials, winner claims and administrative controls. This channel is shared with regular and activity giveaway staff records. It must be hidden from @everyone."
+      : "Select the channel where Court's Trial signups, eliminations and the final Royal Verdict are published. It must be different from regular and activity giveaway channels.";
+    const id = s[staff ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"];
+    content += "\n**Current:** " + shown(id);
+    components.push(new ActionRowBuilder().addComponents(
+      new ChannelSelectMenuBuilder().setCustomId(selectId(session, "chooseChannel"))
+        .setPlaceholder(staff ? "Private staff channel" : "Court's Trial channel")
+        .setMinValues(1).setMaxValues(1).addChannelTypes(
+          ...(staff ? [ChannelType.GuildText] :
+            [ChannelType.GuildText, ChannelType.GuildAnnouncement]),
+        )));
+    if (id) components.push(buttons(session, [["Keep selected channel", "keep"]]));
+  } else if (step === "requiredRole") {
+    content = "Choose the default role members must have to join a Trial. Each Trial may override or remove this requirement.\n**Current:** " + roleShown(s.trialDefaultRequiredRoleId);
+    components.push(new ActionRowBuilder().addComponents(
+      new RoleSelectMenuBuilder().setCustomId(selectId(session, "chooseRequiredRole"))
+        .setPlaceholder("Choose required role").setMinValues(1).setMaxValues(1)));
+    components.push(buttons(session, [["No required role", "clearRequiredRole"], ["Keep current", "keep"]]));
+  } else if (step === "roleHelp") {
+    content = "Save where members can obtain the required role. Channel links are allowed.\n**Current:** " + (s.trialRoleInstructions || "Not set");
+    components.push(buttons(session, [["Write instructions", "writeRoleHelp"], ["Clear", "clearRoleHelp"], ["Keep", "keep"]]));
+  } else if (step === "roleHelpVisible") {
+    content = "Should members see these role-acquisition instructions when they are not eligible? The role itself remains required.\n**Current:** " +
+      (s.trialShowRoleInstructions ? "Show" : "Hide");
+    components.push(buttons(session, [["Show", "showHelp"], ["Hide", "hideHelp"], ["Keep", "keep"]]));
+  } else if (step === "instructions") {
+    content = "Set the default prize-claim instructions (can include ticket-channel links). Every verdict also requires a **ticket number and Discord ticket message link**, with a bold forfeiture warning.\n**Current:** " +
+      (s.trialClaimInstructions || DEFAULT_CLAIM_INSTRUCTIONS);
+    components.push(buttons(session, [["Use built-in default", "clearInstructions"], ["Write custom", "writeInstructions"], ["Keep", "keep"]]));
+  } else if (step === "minutes") {
+    content = "How long does each winner have to submit the ticket number and message link after the Royal Verdict? The old Trial interface uses **minutes**.\n**Current:** " +
+      s.trialClaimWindowMinutes + " minutes (1–43,200 allowed).";
+    components.push(buttons(session, [
+      ["15 min", "minutes15"], ["60 min", "minutes60"], ["12 hours", "minutes720"],
+      ["24 hours", "minutes1440"], ["Custom", "customMinutes"],
+    ]));
+    components.push(buttons(session, [["Keep", "keep"]]));
+  } else if (step === "rerolls") {
+    content = "How many times may the bot replace a winner who does not submit the ticket information before the deadline? **Default 2**. Setting 0 means a win is forfeited without replacement. Staff may still reroll manually.\n**Current:** " +
+      s.trialMaxAutoRerolls;
+    components.push(buttons(session, [0, 1, 2, 3, 5].map(n => [String(n) + " rerolls", "reroll" + n])));
+    components.push(buttons(session, [["10 rerolls", "reroll10"], ["Keep", "keep"]]));
+  } else if (step === "roles") {
+    content = "Optionally select **up to 10 roles** to ping **once when a new Trial signup appears**. They are notification roles, not required eligibility roles.\n**Current:** " +
+      (s.trialNotificationRoleIds?.length ? s.trialNotificationRoleIds.map(roleShown).join(", ") : "None");
+    components.push(new ActionRowBuilder().addComponents(
+      new RoleSelectMenuBuilder().setCustomId(selectId(session, "chooseRoles"))
+        .setPlaceholder("Choose notification roles").setMinValues(1).setMaxValues(10)));
+    components.push(buttons(session, [["No notification roles", "clearRoles"], ["Keep", "keep"]]));
+  } else if (step === "banner") {
+    content = "Choose a saved giveaway banner for new Trial signups and Royal Verdicts. You can upload one using `/giveaway banner-save`.\n**Current:** " +
+      (s.trialDefaultBannerNameKey || "None");
+    components.push(buttons(session, [["Choose saved banner", "chooseBanner"], ["Clear default banner", "clearBanner"], ["Keep", "keep"]]));
+  } else if (step === "review") {
+    content = trialSetupSummary(s);
+    components.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId(selectId(session, "edit"))
+        .setPlaceholder("Edit a setup setting")
+        .addOptions(STEPS.filter(x => x !== "review").map(x => ({ label: STEP_NAMES[x], value: x })))));
+    components.push(buttons(session, [["Preview Royal Verdict", "preview"]]));
+    components.push(buttons(session, [["Save Trial Setup", "save", ButtonStyle.Success],
+      ["Cancel", "cancel", ButtonStyle.Danger]]));
+  } else if (["roleHelpText", "instructionsText", "minutesText", "bannerText"].includes(step)) {
+    content = {
+      roleHelpText: "Reply in this command channel with up to 500 characters explaining how to obtain the required role.",
+      instructionsText: "Reply here with custom claim instructions (1–1,000 characters). The bot adds the mandatory ticket and deadline warning.",
+      minutesText: "Reply with a whole number from 1 through 43,200 minutes.",
+      bannerText: "Reply with the exact saved banner name.",
+    }[step];
+  }
+  if (step !== "review") components.push(buttons(session, [["Back", "back"], ["Cancel setup", "cancel", ButtonStyle.Danger]]));
+  return { content: intro + content, components, allowedMentions: { parse: [] } };
+}
+
+async function show(session, step) {
+  session.step = step;
+  session.expiresAt = Date.now() + SESSION_MS;
+  const message = await session.channel.send(layout(session));
+  session.messageId = message.id;
+}
+async function advance(session) {
+  if (session.fromReview) {
+    session.fromReview = false;
+    return show(session, "review");
+  }
+  const position = STEPS.indexOf(session.step);
+  return show(session, STEPS[Math.min(position + 1, STEPS.length - 1)]);
+}
+async function validateChannels(session) {
+  const s = session.settings;
+  const ids = [s.survivalTrialChannelId, s.activityGiveawayReviewChannelId];
+  if (ids.some(id => !id) || ids[0] === ids[1])
+    throw Error("Select different public Trial and private staff channels.");
+  const config = await GuildConfig.findOne({ guildId: session.guild.id }).lean();
+  if ([config?.giveawayChannelId, config?.activityGiveawayListChannelId,
+    config?.activityGiveawayWinnersChannelId].includes(ids[0]))
+    throw Error("Court's Trials must use a different channel from regular or activity giveaways.");
+  if ([config?.giveawayChannelId, config?.activityGiveawayListChannelId,
+    config?.activityGiveawayWinnersChannelId].includes(ids[1]))
+    throw Error("Staff controls need a private channel separate from the public giveaway channels.");
+  for (const [index, id] of ids.entries()) {
+    const channel = await session.guild.channels.fetch(id).catch(() => null);
+    if (!channel?.send || !channel?.permissionsFor)
+      throw Error("Cannot send messages in <#" + id + ">.");
+    const perms = channel.permissionsFor(session.guild.members.me);
+    for (const permission of [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])
+      if (!perms?.has(permission))
+        throw Error("Bot needs View Channel, Send Messages, Embed Links in <#" + id + ">.");
+    if (index === 1 && channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
+      throw Error("The staff channel must be hidden from @everyone before saving.");
+  }
+}
+async function process(session, action, value) {
+  const s = session.settings;
+  if (action === "cancel") {
+    sessions.delete(session.key);
+    await session.channel.send("Court's Trial setup cancelled. Nothing was saved.");
+    return;
+  }
+  if (action === "back") {
+    const previous = { roleHelpText: "roleHelp", instructionsText: "instructions",
+      minutesText: "minutes", bannerText: "banner" }[session.step];
+    return show(session, session.fromReview ? "review" :
+      previous || STEPS[Math.max(0, STEPS.indexOf(session.step) - 1)]);
+  }
+  if (session.step === "review") {
+    if (action === "preview") {
+      const banner = s.trialDefaultBannerNameKey
+        ? await GiveawayBanner.findOne({ guildId: session.guild.id,
+          nameKey: bannerNameKey(s.trialDefaultBannerNameKey) }).lean() : null;
+      if (s.trialDefaultBannerNameKey && !banner) throw Error("The saved banner is no longer available.");
+      await session.channel.send(trialSetupPreview(s, { userId: session.owner, banner }));
+      return;
+    }
+    if (action === "edit") {
+      if (!STEPS.includes(value) || value === "review") throw Error("Choose a setup setting.");
+      session.fromReview = true;
+      return show(session, value);
+    }
+    if (action !== "save") throw Error("Choose Save, Preview, or Edit.");
+    await validateChannels(session);
+    const previous = await GuildConfig.findOne({ guildId: session.guild.id }).lean();
+    await GuildConfig.findOneAndUpdate({ guildId: session.guild.id }, { $set: {
+      ...s,
+      survivalTrialPingRoleId: s.trialNotificationRoleIds[0] || "",
+      trialSetupCompletedAt: new Date(),
+      initialSetupCompletedAt: previous?.initialSetupCompletedAt || new Date(),
+      commandChannelId: previous?.commandChannelId || session.channel.id,
+    } }, { upsert: true, new: true, runValidators: true });
+    sessions.delete(session.key);
+    await session.channel.send({
+      content: "**Court's Trial setup saved.** New Trials will use these defaults; existing events, deadlines, prizes and history are unchanged.\n" +
+        "Create a Trial with **/trial start** in the configured commands channel.",
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
+  if (action === "keep") return advance(session);
+  if (session.step === "channel" || session.step === "staff") {
+    if (action !== "chooseChannel") throw Error("Choose a channel from the selector.");
+    s[session.step === "staff" ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"] = value;
+    return advance(session);
+  }
+  if (session.step === "requiredRole") {
+    if (action === "clearRequiredRole") s.trialDefaultRequiredRoleId = "";
+    else if (action === "chooseRequiredRole") {
+      const role = await session.guild.roles.fetch(value).catch(() => null);
+      if (!role || role.id === session.guild.id) throw Error("Choose a real server role.");
+      s.trialDefaultRequiredRoleId = value;
+    } else throw Error("Choose a required role or None.");
+    return advance(session);
+  }
+  if (session.step === "roleHelp") {
+    if (action === "clearRoleHelp") { s.trialRoleInstructions = ""; return advance(session); }
+    if (action === "writeRoleHelp") return show(session, "roleHelpText");
+  }
+  if (session.step === "roleHelpText" && action === "text") {
+    if (!value || value.length > 500) throw Error("Use 1–500 characters.");
+    s.trialRoleInstructions = value;
+    return session.fromReview ? advance(session) : show(session, "roleHelpVisible");
+  }
+  if (session.step === "roleHelpVisible" && ["showHelp", "hideHelp"].includes(action)) {
+    s.trialShowRoleInstructions = action === "showHelp";
+    return advance(session);
+  }
+  if (session.step === "instructions") {
+    if (action === "clearInstructions") { s.trialClaimInstructions = ""; return advance(session); }
+    if (action === "writeInstructions") return show(session, "instructionsText");
+  }
+  if (session.step === "instructionsText" && action === "text") {
+    if (!value || value.length > 1000) throw Error("Use 1–1,000 characters.");
+    s.trialClaimInstructions = value;
+    return session.fromReview ? advance(session) : show(session, "minutes");
+  }
+  if (session.step === "minutes") {
+    if (action === "customMinutes") return show(session, "minutesText");
+    if (/^minutes(15|60|720|1440)$/.test(action)) {
+      s.trialClaimWindowMinutes = Number(action.slice(7));
+      return advance(session);
+    }
+  }
+  if (session.step === "minutesText" && action === "text") {
+    if (!/^\\d+$/.test(value) || +value < 1 || +value > MAX_TRIAL_CLAIM_MINUTES)
+      throw Error("Enter 1–43,200 whole minutes.");
+    s.trialClaimWindowMinutes = Number(value);
+    return session.fromReview ? advance(session) : show(session, "rerolls");
+  }
+  if (session.step === "rerolls" && /^reroll(0|1|2|3|5|10)$/.test(action)) {
+    s.trialMaxAutoRerolls = Number(action.slice(6));
+    return advance(session);
+  }
+  if (session.step === "roles") {
+    if (action === "clearRoles") { s.trialNotificationRoleIds = []; return advance(session); }
+    if (action === "chooseRoles") {
+      if (!Array.isArray(value) || !value.length || value.length > 10)
+        throw Error("Choose 1–10 notification roles.");
+      s.trialNotificationRoleIds = [...new Set(value)];
+      return advance(session);
+    }
+  }
+  if (session.step === "banner") {
+    if (action === "clearBanner") { s.trialDefaultBannerNameKey = ""; return advance(session); }
+    if (action === "chooseBanner") {
+      const saved = await GiveawayBanner.find({ guildId: session.guild.id }).select("name").limit(20).lean();
+      if (!saved.length) throw Error("Save a banner with /giveaway banner-save first.");
+      await session.channel.send({ content: "Saved banners: " +
+        saved.map(x => x.name).join(", ").slice(0, 1600), allowedMentions: { parse: [] } });
+      return show(session, "bannerText");
+    }
+  }
+  if (session.step === "bannerText" && action === "text") {
+    s.trialDefaultBannerNameKey = await ensureBannerRegistered(session.guild.id, value);
+    return advance(session);
+  }
+  throw Error("This action isn't available at this step.");
+}
+
+export async function startTrialGiveawaySetup(interaction) {
+  const config = await GuildConfig.findOne({ guildId: interaction.guildId }).lean();
+  if (config?.commandChannelId && config.commandChannelId !== interaction.channelId)
+    throw Error("Run /setup trials in <#" + config.commandChannelId + ">.");
+  const sessionKey = key(interaction.guildId, interaction.user.id);
+  if (sessions.get(sessionKey)?.expiresAt > Date.now())
+    return interaction.editReply("Your Court's Trial setup is already active in this channel.");
+  const s = {
+    survivalTrialChannelId: config?.survivalTrialChannelId || "",
+    activityGiveawayReviewChannelId: config?.activityGiveawayReviewChannelId || "",
+    trialDefaultRequiredRoleId: config?.trialDefaultRequiredRoleId ?? config?.giveawayDefaultRequiredRoleId ?? "",
+    trialRoleInstructions: config?.trialRoleInstructions ?? config?.giveawayRoleInstructions ?? "",
+    trialShowRoleInstructions: config?.trialShowRoleInstructions ?? config?.giveawayShowRoleInstructions ?? true,
+    trialClaimInstructions: config?.trialClaimInstructions ?? config?.activityClaimInstructions ?? "",
+    trialClaimWindowMinutes: config?.trialClaimWindowMinutes ?? 720,
+    trialMaxAutoRerolls: config?.trialMaxAutoRerolls ?? 2,
+    trialNotificationRoleIds: config?.trialNotificationRoleIds?.length
+      ? config.trialNotificationRoleIds
+      : (config?.survivalTrialPingRoleId ? [config.survivalTrialPingRoleId] : []),
+    trialDefaultBannerNameKey: config?.trialDefaultBannerNameKey || "",
+  };
+  const session = { id: new mongoose.Types.ObjectId().toString(), key: sessionKey,
+    channel: interaction.channel, guild: interaction.guild, owner: interaction.user.id,
+    fromReview: false, settings: s };
+  sessions.set(sessionKey, session);
+  await show(session, "channel");
+  return interaction.editReply("Court's Trial setup opened in this commands channel. Complete the steps, preview, then save.");
+}
+export async function handleTrialGiveawaySetupInteraction(interaction) {
+  const match = /^trialconfig:([0-9a-f]{24}):(.+)$/.exec(interaction.customId);
+  const session = match && sessions.get(key(interaction.guildId, interaction.user.id));
+  if (!session || session.id !== match[1] || session.expiresAt < Date.now() ||
+      session.messageId !== interaction.message?.id)
+    return interaction.reply({ content: "That Trial setup prompt has expired or belongs to someone else.", flags: MessageFlags.Ephemeral });
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
+    return interaction.reply({ content: "Manage Server permission is required.", flags: MessageFlags.Ephemeral });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    const action = match[2];
+    const selected = ["chooseChannel", "chooseRequiredRole", "chooseRoles", "edit"].includes(action)
+      ? interaction.values : null;
+    await process(session, action,
+      ["chooseChannel", "chooseRequiredRole"].includes(action) ? selected?.[0] : selected);
+    return interaction.editReply("Setup step updated.");
+  } catch (error) {
+    return interaction.editReply("Couldn't update Trial setup: " + String(error.message || error));
+  }
+}
+export function trialGiveawaySetupReply(message) {
+  if (!message.guildId || message.author?.bot || !message.content) return false;
+  const session = sessions.get(key(message.guildId, message.author.id));
+  if (!session || session.channel.id !== message.channelId || session.expiresAt < Date.now() ||
+      !["roleHelpText", "instructionsText", "minutesText", "bannerText"].includes(session.step))
+    return false;
+  void process(session, "text", message.content.trim()).catch(error =>
+    session.channel.send({ content: "Trial setup error: " + String(error.message || error),
+      allowedMentions: { parse: [] } }));
+  return true;
+}
