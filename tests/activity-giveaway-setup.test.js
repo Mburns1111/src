@@ -126,15 +126,16 @@ test("ticket number and exact Discord ticket message link are preserved",()=>{
    entrantIds:[winner],winnerClaims:[{slot:0,userId:winner,...clean}],
  };
  const post=giveawayAnnouncement(giveaway);
- const fields=post.embeds[0].toJSON().fields;
+ const fields=post.embeds[0].toJSON().fields||[];
  assert.ok(fields.every(f=>!f.value.includes(ticketLink)),"private ticket link must not be public");
  assert.doesNotMatch(post.embeds[0].toJSON().description,/ticket-7/);
  const privateRecord=giveawayStaffRecordPayload(giveaway);
  assert.ok(privateRecord.embeds[0].toJSON().fields.some(f=>f.value.includes(ticketLink)),
    "the private staff record keeps the full original ticket URL");
- assert.ok(fields.some(f=>/FORFEIT YOUR WIN/.test(f.value)),"mandatory warning stays visible in a field");
+ assert.equal(fields.length,0,"after the only winner claims, public deadline and forfeiture fields are removed");
  assert.match(post.embeds[0].toJSON().description,/Claim submitted/);
- assert.equal(post.components[0].components[0].data.label,"Enter Ticket Claim info");
+ assert.doesNotMatch(post.embeds[0].toJSON().description,/Claiming your prize|How to claim|FORFEIT YOUR WIN/);
+ assert.equal(post.components.length,0,"claim form button disappears when every winner has claimed");
 });
 
 test("two automatic rerolls per winner by default; no changes to manual rerolls",()=>{
