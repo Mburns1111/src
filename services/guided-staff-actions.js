@@ -1,5 +1,6 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ModalBuilder,TextInputBuilder,TextInputStyle,StringSelectMenuBuilder,MessageFlags,PermissionFlagsBits} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {activityRoster,ensureStaffCard,maxActiveDays} from "./guided-activity.js";
 import {closeGiveaway,publishGiveawayResult} from "./giveaways.js";
@@ -280,8 +281,8 @@ export async function updateGuidedRepeatSchedule(event,change,{now=new Date()}={
 export async function handleGuidedStaffAction(i){
  const ephemeral={flags:MessageFlags.Ephemeral};
  try{
-   if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-     return i.reply({content:"Only staff with Manage Server can edit activity giveaways.",...ephemeral});
+   if(!await canManageGiveaways(i))
+     return i.reply({content:giveawayManagerPermissionMessage,...ephemeral});
    const match=/^activitystaff:(end|cancel|edit|select|save|confirmend|confirmcancel|abort):([0-9a-f]{24})(?::([A-Za-z]+))?$/.exec(i.customId);
    if(!match)return i.reply({content:"Unknown activity staff action.",...ephemeral});
    const [,action,id,field]=match;
