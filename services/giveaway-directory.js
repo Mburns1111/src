@@ -3,6 +3,7 @@ import {createHash} from "node:crypto";
 import {EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {sharedGiveawayPingRoleId} from "./giveaway-notification-roles.js";
+import {giveawayHasNoEligibleWinner,hasUnforfeitedWinner} from "./giveaway-claims.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
@@ -121,9 +122,9 @@ export function activityOneOffListingEmbed(record) {
       "🗓️ **Activity:** <t:"+stamp(start)+":f> – <t:"+stamp(close)+":f>",
     ]:[]),
     ...(completed?[
-      "🏁 **Giveaway ended** · "+(record.winnerIds?.length
-        ?(record.winnerIds.length===1?"1 winner selected":"Winners selected")
-        :"No eligible winners selected"),
+      "🏁 **Giveaway ended** · "+(giveawayHasNoEligibleWinner(record)
+        ?"**No eligible winner**"
+        :hasUnforfeitedWinner(record)?"Winner(s) selected":"No eligible winner"),
     ]:settling?[
       "🏆 **Entries closed** · Winner selection is being finalized",
     ]:sameTime?[
@@ -134,7 +135,7 @@ export function activityOneOffListingEmbed(record) {
     ...(record.channelId?["📣 **Winners announced in:** <#"+record.channelId+">"]:[]),
     ...(!completed&&record.requireStaffReview?["*Winners are confirmed after staff review.*"]:[]),
     "",
-    ...(completed?["*Entries are closed. Staff will remove this listing after claims are settled.*"]
+    ...(completed?["*Entries are closed. This listing stays visible until staff choose Delete Listing.*"]
       :settling?["*Entries are closed while winner selection is finalized.*"]
       :["*Qualify automatically — no entry button needed.*"]),
   ];
