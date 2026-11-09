@@ -31,7 +31,7 @@ test("public directory announces watch requirements, next draw and prize without
  assert.match(embed.description,/Previous calendar day/);
  assert.match(embed.description,/<t:1794423600:F>/);
  assert.doesNotMatch(embed.description,/\b(entrantIds|winnerIds|locked entries)\b/);
- assert.match(embed.footer.text,/Automatic entry.*#799439011/);
+ assert.match(embed.footer.text,/Automatic entry.*#99439011/);
  const directed=activityPlanListingEmbed(plan,rule,{winnerChannelId:winnersId}).toJSON();
  assert.ok(directed.description.includes(`<#${winnersId}>`));
  const oneOff=activityOneOffListingEmbed({_id:planId,status:"open",mode:"activity",

@@ -167,3 +167,12 @@ In guided activity setup, staff can use a saved banner, register a new one direc
 10. Test no available replacement, simultaneous submissions/rerolls, expired winner leaving Discord, bot restart during drawing, and a bot downtime gap over one week.
 11. Confirm ordinary button-entry giveaways, original prize/claim display, and Court's Trial functionality are not regressed.
 12. **Do not merge or deploy** until Discord tests are confirmed by the owner.
+
+
+## Public activity giveaway presentation
+
+The public activity directory is a member-facing giveaway card. The embed shows the creator's title (Discord member/channel mentions remain clickable), prize, optional **Giveaway Details**, the actual entry requirements, activity period, winner count, draw time, recurring cadence when relevant, and the channel where results appear. Minimum character counts and active-day requirements are shown only when greater than the baseline. Staff-only configuration, raw IDs, locked-entry explanations, and other internal details are omitted. A short reference remains in the footer so reconciliations can recognize existing posts. The **Check My Progress** button stays available when progress is enabled; saved artwork remains the embed banner. Current public listings are edited in place by the normal reconciliation sweep.
+
+## Guided activity staff controls
+
+The staff-only preview cards have **Preview qualifying members**, **Edit Giveaway**, **End Early**, and **Cancel Giveaway**, with **Stop future repeats** shown when a recurring series is active. Staff must hold **Manage Server**. End Early and Cancel require confirmation; editing is a private dropdown/modal workflow. All three actions affect only the current giveaway, not future cycles. Ending early closes activity tracking and draws qualified members (or queues manual review); cancellation draws no winners and removes the public listing. Ending, cancelling, and editing refresh the private staff card. Previously posted staff cards gain these controls through reconciliation after an update.
