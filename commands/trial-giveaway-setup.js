@@ -5,6 +5,7 @@ import {
   StringSelectMenuBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import GiveawayBanner, { bannerNameKey } from "../models/GiveawayBanner.js";
 import { attachGiveawayBanner, ensureBannerRegistered } from "../services/giveaway-banners.js";
 import { survivalFinalePayload } from "../services/survival-giveaways.js";
@@ -24,7 +25,7 @@ const STEP_NAMES = {
   requiredRole: "Default required role", roleHelp: "How to obtain the role",
   roleHelpVisible: "Show role instructions", instructions: "Claim instructions",
   minutes: "Winner claim deadline", rerolls: "Automatic rerolls",
-  roles: "Notification roles", banner: "Default banner", review: "Review & save",
+  roles: "Shared giveaway ping role", banner: "Default banner", review: "Review & save",
 };
 const key = (guildId, userId) => guildId + ":" + userId;
 const shown = id => id ? "<#" + id + ">" : "Not selected";
@@ -48,9 +49,8 @@ export function trialSetupSummary(settings) {
     "📝 **Claim instructions:** " + (settings.trialClaimInstructions || DEFAULT_CLAIM_INSTRUCTIONS),
     "⏰ **Claim deadline:** " + settings.trialClaimWindowMinutes + " minutes after the verdict",
     "🔁 **Automatic unclaimed-prize rerolls:** " + settings.trialMaxAutoRerolls + " per winning place",
-    "🔔 **Notification roles (ping once at signup):** " +
-      (settings.trialNotificationRoleIds?.length
-        ? settings.trialNotificationRoleIds.map(roleShown).join(", ") : "None"),
+    "🔔 **Shared giveaway ping role (all giveaways and Trials):** " +
+      roleShown(sharedGiveawayPingRoleId(settings)),
     "🖼️ **Default banner:** " + (settings.trialDefaultBannerNameKey || "None"),
     "",
     "**Changes apply only to new Trials.** Existing entrants, winners, claim deadlines and historical Trial records are not changed.",
@@ -140,12 +140,12 @@ function layout(session) {
     components.push(buttons(session, [0, 1, 2, 3, 5].map(n => [String(n) + " rerolls", "reroll" + n])));
     components.push(buttons(session, [["10 rerolls", "reroll10"], ["Keep", "keep"]]));
   } else if (step === "roles") {
-    content = "Optionally select **up to 10 roles** to ping **once when a new Trial signup appears**. They are notification roles, not required eligibility roles.\n**Current:** " +
-      (s.trialNotificationRoleIds?.length ? s.trialNotificationRoleIds.map(roleShown).join(", ") : "None");
+    content = "Select **one shared giveaway ping role**. It gets mentioned when a regular giveaway, activity giveaway, or Court's Trial is first posted. It is separate from the Giveaway Manager role and the required entry role.\n**Current:** " +
+      roleShown(sharedGiveawayPingRoleId(s));
     components.push(new ActionRowBuilder().addComponents(
       new RoleSelectMenuBuilder().setCustomId(selectId(session, "chooseRoles"))
-        .setPlaceholder("Choose notification roles").setMinValues(1).setMaxValues(10)));
-    components.push(buttons(session, [["No notification roles", "clearRoles"], ["Keep", "keep"]]));
+        .setPlaceholder("Shared giveaway ping role").setMinValues(1).setMaxValues(1)));
+    components.push(buttons(session, [["No giveaway ping role", "clearRoles"], ["Keep", "keep"]]));
   } else if (step === "banner") {
     content = "Choose a saved giveaway banner for new Trial signups and Royal Verdicts. You can upload one using `/giveaway banner-save`.\n**Current:** " +
       (s.trialDefaultBannerNameKey || "None");
@@ -241,7 +241,7 @@ async function process(session, action, value) {
     const previous = await GuildConfig.findOne({ guildId: session.guild.id }).lean();
     await GuildConfig.findOneAndUpdate({ guildId: session.guild.id }, { $set: {
       ...s,
-      survivalTrialPingRoleId: s.trialNotificationRoleIds[0] || "",
+      ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(s)),
       trialSetupCompletedAt: new Date(),
       initialSetupCompletedAt: previous?.initialSetupCompletedAt || new Date(),
       commandChannelId: previous?.commandChannelId || session.channel.id,
@@ -319,11 +319,17 @@ async function process(session, action, value) {
     return advance(session);
   }
   if (session.step === "roles") {
-    if (action === "clearRoles") { s.trialNotificationRoleIds = []; return advance(session); }
+    if (action === "clearRoles") {
+      Object.assign(s,sharedGiveawayNotificationFields(""));
+      return advance(session);
+    }
     if (action === "chooseRoles") {
-      if (!Array.isArray(value) || !value.length || value.length > 10)
-        throw Error("Choose 1–10 notification roles.");
-      s.trialNotificationRoleIds = [...new Set(value)];
+      if (!Array.isArray(value) || value.length !== 1)
+        throw Error("Choose exactly one giveaway ping role.");
+      const role=await session.guild.roles.fetch(value[0]).catch(()=>null);
+      if(!role||role.id===session.guild.id)
+        throw Error("Choose a real server role.");
+      Object.assign(s,sharedGiveawayNotificationFields(role.id));
       return advance(session);
     }
   }
@@ -361,9 +367,7 @@ export async function startTrialGiveawaySetup(interaction) {
     trialClaimInstructions: config?.trialClaimInstructions ?? config?.activityClaimInstructions ?? "",
     trialClaimWindowMinutes: config?.trialClaimWindowMinutes ?? 720,
     trialMaxAutoRerolls: config?.trialMaxAutoRerolls ?? 2,
-    trialNotificationRoleIds: config?.trialNotificationRoleIds?.length
-      ? config.trialNotificationRoleIds
-      : (config?.survivalTrialPingRoleId ? [config.survivalTrialPingRoleId] : []),
+    ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(config)),
     trialDefaultBannerNameKey: config?.trialDefaultBannerNameKey || "",
   };
   const session = { id: new mongoose.Types.ObjectId().toString(), key: sessionKey,
