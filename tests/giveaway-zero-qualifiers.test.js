@@ -42,7 +42,8 @@ test("zero qualifying members generate an explicit empty-result winner announcem
   assert.equal(result.drawn,false);
   assert.equal(sent,1);
   assert.equal(record.entrantIds.length,0);
-  assert.match(announcement.embeds[0].toJSON().description,/No qualifying members/);
+  assert.match(announcement.embeds[0].toJSON().description,/No eligible winner/);
+  assert.doesNotMatch(announcement.embeds[0].toJSON().description,/How to claim|Winner ticket claims|How to qualify/);
  }finally{
   [Giveaway.findOne,Giveaway.findOneAndUpdate,Giveaway.create,Giveaway.updateOne,
    GuildConfig.findOne,GiveawayActivityCount.aggregate]=original;
