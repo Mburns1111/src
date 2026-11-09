@@ -146,8 +146,14 @@ export async function ensureGiveawayStaffDirectory(client,config,{now=new Date()
     const recentlyBumped=now.getTime()-(lastBumped.get(guildId)||0)<STAFF_DIRECTORY_BUMP_COOLDOWN_MS;
     const bump=shifted&&!recentlyBumped;
     if(message&&!bump){
-      if(config.giveawayStaffDirectoryFingerprint!==fingerprint)
+      if(config.giveawayStaffDirectoryFingerprint!==fingerprint){
         await message.edit(payload);
+        // Persist the new fingerprint so the 30-second sweep does not
+        // repeatedly edit the same message after a single status change.
+        await GuildConfig.updateOne({guildId,activityGiveawayReviewChannelId:channelId,
+          giveawayStaffDirectoryMessageId:message.id},
+          {$set:{giveawayStaffDirectoryFingerprint:fingerprint}});
+      }
       return true;
     }
 
