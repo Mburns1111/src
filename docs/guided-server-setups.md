@@ -40,7 +40,7 @@ The private staff record shows **Cancel & Remove Giveaway** only while a giveawa
 
 A place with an open claim window or remaining replacement chances keeps the listing protected. If a reroll changes the winner, an earlier winner's ticket does not count for the replacement.
 
-Delete Listing has a separate **DELETE** confirmation. It removes the public giveaway posts, keeps the database record and private staff archive, records who deleted the listing and when, and leaves the event marked **ended** — **never cancelled**. Cleanup retries after temporary Discord failures. No future claim rerolls or announcements are triggered for a deleted completed listing.
+Delete Listing has a separate **DELETE** confirmation. It removes the giveaway's original public listing, keeps the database record and private staff archive, records who deleted the listing and when, and leaves the event marked **ended** — **never cancelled**. For activity giveaways it removes the activity-directory listing **without removing the separate winner announcement**. For Court's Trials it removes the signup announcement **without removing the separate Royal Verdict**. The activity-directory sweep now keeps ended one-off listings visible until staff deletes them. Cleanup retries after temporary Discord failures. No future claim rerolls or announcements are triggered for a deleted completed listing.
 
 ## Replit test workflow
 
