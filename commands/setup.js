@@ -6,6 +6,7 @@ import {
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {startActivityGiveawaySetup,startRegularGiveawaySetup} from "./activity-giveaway-setup.js";
+import {startTrialGiveawaySetup} from "./trial-giveaway-setup.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
 import { requireGuild } from "./shared.js";
@@ -135,7 +136,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(command=>command.setName("activity-giveaways")
     .setDescription("Guided setup for activity giveaway channels, claim instructions and defaults"))
   .addSubcommand(command=>command.setName("giveaways")
-    .setDescription("Guided setup for regular giveaway channels and shared defaults"));
+    .setDescription("Guided setup for regular giveaway channels and shared defaults"))
+  .addSubcommand(command=>command.setName("trials")
+    .setDescription("Guided setup for Court\'s Trial channels, prizes and claim defaults"));
 
 export async function execute(interaction) {
   requireGuild(interaction);
@@ -143,6 +146,8 @@ export async function execute(interaction) {
     return startRegularGiveawaySetup(interaction);
   if(interaction.options.getSubcommand?.()==="activity-giveaways")
     return startActivityGiveawaySetup(interaction);
+  if(interaction.options.getSubcommand?.()==="trials")
+    return startTrialGiveawaySetup(interaction);
   const commandsChannel = interaction.options.getChannel("commands");
   const houseListings = interaction.options.getChannel("house_listings");
   const outfitListings = interaction.options.getChannel("outfit_listings");
@@ -219,7 +224,7 @@ export async function execute(interaction) {
     if ((nextList && nextList === nextTrials) || (nextWinners && nextWinners === nextTrials))
       throw new UserFacingError("Keep the activity directory and winners separate from Court's Trial announcements.");
   }
-  const updates = {};
+  const updates = { initialSetupCompletedAt: new Date() };
   if (commandsChannel) updates.commandChannelId = commandsChannel.id;
   if (houseListings) updates.houseChannelId = houseListings.id;
   if (outfitListings) updates.outfitChannelId = outfitListings.id;
@@ -236,6 +241,12 @@ export async function execute(interaction) {
   if (survivalTrialChannel) updates.survivalTrialChannelId = survivalTrialChannel.id;
   if (giveawayPingRole || clearGiveawayPing) updates.giveawayPingRoleId = clearGiveawayPing ? "" : giveawayPingRole.id;
   if (trialPingRole || clearTrialPing) updates.survivalTrialPingRoleId = clearTrialPing ? "" : trialPingRole.id;
+
+  const previousSetup = await GuildConfig.findOne({ guildId: interaction.guildId })
+    .select("commandChannelId").lean();
+  if (!commandsChannel && !previousSetup?.commandChannelId) {
+    throw new UserFacingError("First configure the commands channel with `/setup channels commands:#your-commands`. Other commands stay disabled until initial setup is saved.");
+  }
 
   // Ensure the shop before updating channel settings so its existing message IDs
   // are checked against the previous channel when a shop is moved.

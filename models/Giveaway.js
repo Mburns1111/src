@@ -46,6 +46,7 @@ const giveawaySchema = new mongoose.Schema({
   showRequiredRoleInstructions:{type:Boolean,default:true},
   // Saved for audit: role notified once when this event was originally posted.
   announcementPingRoleId: { type: String, default: "" },
+  announcementPingRoleIds: { type: [String], default: [] },
   winnerCount: { type: Number, required: true, min: 1, max: 10 },
   endsAt: { type: Date, required: true },
   mode: { type: String, enum: ["standard", "survival", "activity"], default: "standard" },

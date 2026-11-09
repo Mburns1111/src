@@ -111,7 +111,7 @@ export async function getConfiguredTextChannelAndConfig(interaction, field, purp
   const channelId = config?.[field];
   if (!channelId) {
     throw new UserFacingError(
-      `An admin needs to configure the ${purpose} channel with \`/setup channels\` first.`,
+      `An admin needs to configure the ${purpose} channel with \`${field === "survivalTrialChannelId" ? "/setup trials" : "/setup channels"}\` first.`,
     );
   }
 

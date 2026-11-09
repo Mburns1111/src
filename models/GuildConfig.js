@@ -30,6 +30,18 @@ const guildConfigSchema = new mongoose.Schema(
     survivalTrialChannelId: { type: String, default: "" },
     giveawayPingRoleId: { type: String, default: "" },
     survivalTrialPingRoleId: { type: String, default: "" },
+    // A completed /setup channels or guided setup unlocks commands for this guild.
+    // Existing guilds with a command channel are also treated as already set up.
+    initialSetupCompletedAt: { type: Date, default: null },
+    trialSetupCompletedAt: { type: Date, default: null },
+    trialDefaultRequiredRoleId: { type: String, default: "" },
+    trialRoleInstructions: { type: String, default: "", maxlength: 500 },
+    trialShowRoleInstructions: { type: Boolean, default: true },
+    trialClaimInstructions: { type: String, default: "", maxlength: 1000 },
+    trialClaimWindowMinutes: { type: Number, default: 720, min: 1, max: 43200 },
+    trialMaxAutoRerolls: { type: Number, default: 2, min: 0, max: 10 },
+    trialNotificationRoleIds: { type: [String], default: [] },
+    trialDefaultBannerNameKey: { type: String, default: "" },
     tradeVoteChannelId: { type: String, default: "" },
     tradeVoteEntryChannelId: { type: String, default: "" },
     tradeVoteEntryMessageId: { type: String, default: "" },
