@@ -105,7 +105,7 @@ export const data = new SlashCommandBuilder()
       )
       .addChannelOption((option) =>
         option.setName("activity_review")
-          .setDescription("Private staff-only channel for optional approval before activity drawings")
+          .setDescription("Private staff channel for activity progress previews and manual drawing approval")
           .addChannelTypes(ChannelType.GuildText),
       )
       .addChannelOption((option) =>

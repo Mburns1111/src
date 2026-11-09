@@ -1,3 +1,4 @@
+import {ensureStaffCard} from "./guided-activity.js";
 import {createHash} from "node:crypto";
 import {EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
@@ -58,8 +59,13 @@ export function activityOneOffListingEmbed(record) {
     `**Requirement:** ${record.activityMinTotalMessages||1} qualifying message(s) total`,
     `**Length:** ${record.activityMinChars||1}+ characters`,
   ];
-  if(record.activityMinimum>1)parts.push(`**Per active day:** ${record.activityMinimum} message(s)`);
-  if(record.activityDays>1)parts.push(`**Active days required:** ${record.activityDays}`);
+  if(record.guidedSeries) {
+    const short=record.activityEndAt-record.activityStartAt<=86400000;
+    parts[4]=short ? `**To qualify:** Send ${record.activityMinimum} matching message(s) during this activity.`
+      : `**To qualify:** Send at least ${record.activityMinimum} matching message(s) per day on ${record.activityDays} different day(s).`;
+  }
+  if(!record.guidedSeries && record.activityMinimum>1)parts.push(`**Per active day:** ${record.activityMinimum} message(s)`);
+  if(!record.guidedSeries && record.activityDays>1)parts.push(`**Active days required:** ${record.activityDays}`);
   if(record.activityRequiredMentionUserId)parts.push(`**Must tag:** <@${record.activityRequiredMentionUserId}>`);
   if(record.activityRequiredPhrase)parts.push(`**Must include:** ${clean(record.activityRequiredPhrase,120)}`);
   if(record.customActivityStartAt&&record.customActivityEndAt)
@@ -181,7 +187,12 @@ export async function reconcileActivityGiveawayListings(client,{now=new Date(),l
     catch(error){console.error("[Giveaways] Activity plan directory sync failed:",plan.name,error);}
   }
   for(const record of oneOff){
-    try{await publishActivityOneOffListing(client,record,{now});}
+    try{
+      const publishers=[publishActivityOneOffListing(client,record,{now})];
+      if(record.guidedSeries && !record.staffCardId)publishers.push(ensureStaffCard(client,record));
+      for(const result of await Promise.allSettled(publishers))
+        if(result.status==="rejected")console.error("[Giveaways] Activity channel post failed:",record._id,result.reason);
+    }
     catch(error){console.error("[Giveaways] One-time activity directory sync failed:",String(record._id),error);}
   }
   return plans.length+oneOff.length;

@@ -43,6 +43,9 @@ const giveawaySchema = new mongoose.Schema({
   winnerCount: { type: Number, required: true, min: 1, max: 10 },
   endsAt: { type: Date, required: true },
   mode: { type: String, enum: ["standard", "survival", "activity"], default: "standard" },
+  guidedSeries: {type:mongoose.Schema.Types.ObjectId,default:null},
+  staffCardId: {type:String,default:""},
+  staffCardChannelId: {type:String,default:""},
   activityType: { type: String, default: "" },
   activityChannelIds: { type: [String], default: [] },
   activityMinimum: { type: Number, default: 1 },
@@ -93,6 +96,8 @@ const giveawaySchema = new mongoose.Schema({
   renderVersion: { type: Number, default: 0 },
 }, { timestamps: true });
 
+giveawaySchema.index({guidedSeries:1,activityStartAt:1}, {unique:true,
+  partialFilterExpression:{guidedSeries:{$type:"objectId"}}});
 giveawaySchema.index({ guildId: 1, status: 1, endsAt: 1 });
 giveawaySchema.index({ status: 1, claimCheckAt: 1 });
 giveawaySchema.index({ guildId: 1, mode: 1, entrantIds: 1 });

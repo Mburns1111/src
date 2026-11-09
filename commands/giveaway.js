@@ -3,8 +3,7 @@ import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
 import { submitGiveawayTicket } from "../services/giveaway-ticket-claims.js";
 import { winnerClaimDeadline, winnerHasClaim } from "../services/giveaway-claims.js";
-import { qualifyingActivity, qualifyingWatchActivity,countActivityParticipants, completedActivityWeek, previousActivityDay } from "../services/giveaway-activity-counter.js";
-import { easternMidnight, shiftCalendarDay, validateCustomActivityWindow } from "../services/giveaway-plan-time.js";
+import { startActivityWizard } from "./activity-wizard.js";
 import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {addGiveawayPlanCommands,executeGiveawayPlanAdmin,PLAN_OPERATIONS} from "./giveaway-plans.js";
@@ -33,31 +32,7 @@ export const data = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (max 720)").setMinValue(1).setMaxValue(720))
     .addStringOption(o => o.setName("claim_instructions").setDescription("Optional extra ticket or prize collection instructions").setMaxLength(400))
     .addStringOption(o => o.setName("banner").setDescription("Optional registered banner image name").setMaxLength(60)))
-  .addSubcommand(c => c.setName("activity").setDescription("Schedule a surprise giveaway from the previous day or week")
-    .addStringOption(o => o.setName("title").setDescription("Title").setRequired(true))
-    .addStringOption(o => o.setName("prize").setDescription("Prize").setRequired(true))
-    .addIntegerOption(o => o.setName("minutes").setDescription("Minutes until winners announced").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
-    .addStringOption(o => o.setName("type").setDescription("Activity scope (default: general)").addChoices({name:"General server",value:"general"},{name:"Selected channels",value:"channels"}))
-    .addIntegerOption(o => o.setName("minimum").setDescription("Optional messages per active day (default 1)").setMinValue(1))
-    .addIntegerOption(o => o.setName("messages").setDescription("Total qualifying messages across the chosen activity period").setMinValue(1).setMaxValue(10000))
-    .addIntegerOption(o => o.setName("days").setDescription("Distinct active days required (default 1, e.g. 3)").setMinValue(1).setMaxValue(7))
-    .addIntegerOption(o => o.setName("winners").setDescription("Winners").setMinValue(1).setMaxValue(10))
-    .addStringOption(o => o.setName("watch").setDescription("Saved named watched-channel rule (optional)"))
-    .addStringOption(o => o.setName("period").setDescription("Select the previous day or previous Wed–Wed week")
-      .addChoices({name:"Previous Eastern calendar day",value:"daily"},
-        {name:"Previous Wednesday–Wednesday week",value:"weekly"}))
-    .addIntegerOption(o => o.setName("min_chars").setDescription("Minimum characters per message").setMinValue(0).setMaxValue(2000))
-    .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours to file ticket claim (default 48)").setMinValue(1).setMaxValue(720))
-    .addStringOption(o => o.setName("banner").setDescription("Optional registered banner for this giveaway").setMaxLength(60))
-    .addBooleanOption(o => o.setName("review").setDescription("Require staff approval before the result (default off)"))
-    .addBooleanOption(o => o.setName("progress").setDescription("Give members a private progress button (default off)"))
-    .addStringOption(o => o.setName("starts_at").setDescription("Optional activity start YYYY-MM-DD HH:mm Eastern"))
-    .addStringOption(o => o.setName("ends_at").setDescription("Optional activity cutoff YYYY-MM-DD HH:mm Eastern"))
-    .addChannelOption(o => o.setName("channel_1").setDescription("Channel 1"))
-    .addChannelOption(o => o.setName("channel_2").setDescription("Channel 2"))
-    .addChannelOption(o => o.setName("channel_3").setDescription("Channel 3"))
-    .addChannelOption(o => o.setName("channel_4").setDescription("Channel 4"))
-    .addChannelOption(o => o.setName("channel_5").setDescription("Channel 5")))
+  .addSubcommand(c => c.setName("activity").setDescription("Create an activity giveaway with guided questions in your DMs"))
   .addSubcommand(c => c.setName("watch-save").setDescription("Save a named channel watched daily or Wednesday–Wednesday")
     .addStringOption(o => o.setName("name").setDescription("Example: QOTD, Suggestions, Art").setRequired(true).setMinLength(1).setMaxLength(60))
     .addChannelOption(o => o.setName("channel").setDescription("Channel whose messages count").setRequired(true))
@@ -231,82 +206,7 @@ export async function execute(interaction) {
       const result=await GiveawayWatchRule.deleteOne({guildId:interaction.guildId,nameKey:watchNameKey(name)});
       return interaction.editReply(result.deletedCount?"Watched channel rule removed. Existing giveaway records are unchanged.":"No rule exists under that name.");
     }
-    if (operation === "activity") {
-      await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayListChannelId","activity giveaway list");
-      const { channel } = await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayWinnersChannelId","activity giveaway winners");
-      const bannerNameKey=await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));
-      const watch=interaction.options.getString("watch");
-      const saved=watch?await GiveawayWatchRule.findOne({guildId:interaction.guildId,nameKey:watchNameKey(watch)}).lean():null;
-      if(watch && !saved)throw Error("Saved watched channel not found. Use watch-list.");
-      const type = saved?"channels":interaction.options.getString("type") || "general";
-      const channels = saved?[{id:saved.channelId}]:[1,2,3,4,5].map(n => interaction.options.getChannel("channel_"+n)).filter(Boolean);
-      if (type === "channels" && !channels.length) throw Error("Choose at least one channel.");
-      const checkedAt = new Date();
-      const endsAt = new Date(checkedAt.getTime()+interaction.options.getInteger("minutes",true)*60000);
-      const review=interaction.options.getBoolean("review")??false;
-      const progress=interaction.options.getBoolean("progress")??false;
-      if(review)await getConfiguredTextChannelAndConfig(interaction,"activityGiveawayReviewChannelId","private staff review");
-      const custom=validateCustomActivityWindow(
-        interaction.options.getString("starts_at"),interaction.options.getString("ends_at"),
-        {announceAt:endsAt,now:checkedAt});
-      const period=interaction.options.getString("period") || saved?.activityPeriod || "weekly";
-      const periodKey=period==="daily"?previousActivityDay(checkedAt):completedActivityWeek(checkedAt);
-      const startAt=custom.startAt||easternMidnight(periodKey);
-      const endAt=custom.endAt||easternMidnight(shiftCalendarDay(periodKey,period==="daily"?1:7));
-      const totalInput=interaction.options.getInteger("messages");
-      const minimumTotalMessages=totalInput ?? saved?.minimumTotalMessages ?? 1;
-      const minimum = interaction.options.getInteger("minimum") ?? saved?.minimumMessages ?? 1;
-      const days = interaction.options.getInteger("days") ??
-        (period==="daily" || totalInput!==null ? 1 : saved?.activeDays??1);
-      if(period==="daily" && days!==1)
-        throw Error("Daily activity checks only one day. Use days:1.");
-      const minimumChars=interaction.options.getInteger("min_chars") ?? saved?.minimumChars ?? 1;
-      const channelIds = [...new Set(channels.map(c=>c.id))];
-      // For future custom windows, qualification is deliberately checked at
-      // cutoff rather than locking empty entries at setup time.
-      const window=custom.startAt?{startAt:custom.startAt,
-        endAt:new Date(Math.min(custom.endAt.getTime(),checkedAt.getTime()))}:
-        period==="daily"?{day:periodKey}:{week:periodKey};
-      const readable=!custom.startAt||window.endAt>window.startAt;
-      const entrantIds=!readable?[]:saved ? await qualifyingWatchActivity({
-          guildId:interaction.guildId,rule:saved,period,key:periodKey,
-          minimum,days,minimumChars,minimumTotalMessages,...window,
-        }) : await qualifyingActivity({guildId:interaction.guildId,type,
-          channelIds,minimum,days,minimumChars,minimumTotalMessages,...window});
-      const scan = {entrantIds,channelIds};
-      const candidateCount=review&&readable?await countActivityParticipants({
-        guildId:interaction.guildId,type,channelIds,period,key:periodKey,...window,
-      }):0;
-      // Zero entrants are allowed: final results will explicitly say no
-      // qualifying members, and no role or member earns duplicate entries.
-      const record = await Giveaway.create({
-        guildId:interaction.guildId, channelId:channel.id, creatorId:interaction.user.id,bannerNameKey,
-        title:interaction.options.getString("title",true), prize:interaction.options.getString("prize",true),
-        winnerCount:interaction.options.getInteger("winners") || 1, endsAt, mode:"activity",
-        status:"publishing", entrantIds:scan.entrantIds, activityType:type,
-        requireStaffReview:review,progressEnabled:progress,
-        customActivityStartAt:custom.startAt,customActivityEndAt:custom.endAt,
-        roleBonuses:saved?.roleBonuses||[],
-        activityWatchNameKey:watch?watchNameKey(watch):"",
-        activityRuleId:saved?._id||null,activityRuleCriteriaVersion:saved?.criteriaVersion||0,
-        activityChannelIds:scan.channelIds, activityMinimum:minimum, activityDays:days,activityMinChars:minimumChars,
-        activityRequiredMentionUserId:saved?.requiredMentionUserId||"",
-        activityRequiredPhrase:saved?.requiredPhrase||"",
-        activityMinTotalMessages:minimumTotalMessages,
-        activityPeriod:period,activityPeriodKey:periodKey,activityEndAt:endAt,
-        claimWindowHours:interaction.options.getInteger("claim_hours")??48,autoRerollClaims:true,
-        activityStartAt:startAt, activityCheckedAt:checkedAt,
-        activityCandidateCount:candidateCount,
-      });
-      await Giveaway.updateOne({_id:record._id},{$set:{status:"draft"}});
-      return interaction.editReply({
-        content:`**Private activity giveaway preview**\nActivity: ${custom.startAt?"Custom activity start/end":period==="daily"?"Previous Eastern calendar day":"Completed Wednesday–Wednesday week"}: ${custom.startAt?`<t:${Math.floor(startAt.getTime()/1000)}:F> to <t:${Math.floor(endAt.getTime()/1000)}:F>`:periodKey}\nCurrently qualified: **${scan.entrantIds.length}**${review?` / **${candidateCount}** active participants`:""}${custom.startAt?" (will recalculate at cutoff)":""}\nRequirement: **${minimumTotalMessages} qualifying messages total** in this ${period} period, each ${minimumChars}+ characters${days>1?` on ${days} distinct days`:""}${minimum>1?` (minimum ${minimum} messages on each active day)`:""}\nAnnouncement: <t:${Math.floor(endsAt.getTime()/1000)}:F>\nGiveaway ID: \`${record._id}\`\nConfirm to lock entries. Nothing will be posted until winners are drawn.`,
-        components:[new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`giveaway:confirm:${record._id}`).setLabel("Confirm & schedule").setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId(`giveaway:cancel:${record._id}`).setLabel("Cancel").setStyle(ButtonStyle.Secondary),
-        )],allowedMentions:{parse:[]},
-      });
-    }
+    if (operation === "activity") return await startActivityWizard(interaction);
     if (operation === "start") {
       const survival = survivalCommand;
       const { channel, config } = await getConfiguredTextChannelAndConfig(
@@ -369,7 +269,7 @@ export async function execute(interaction) {
       return interaction.editReply({
         content: records.length
           ? (survivalCommand ? "**Recent Court's Trials**\n" : "**Recent Giveaways**\n") + records.map(record =>
-              `• **${record.title.replace(/[@*_`~|<>]/g, "")}** · ${record.mode === "survival" ? "trial" : "standard"} · ${record.status} · \`${record._id}\` ${record.messageId ? linkTo(record) : "(pending)"}`).join("\n")
+              `• **${record.title.replace(/[@*_`~|<>]/g, "")}** · ${record.mode === "survival" ? "trial" : record.mode} · ${record.status} · \`${record._id}\` ${record.messageId ? linkTo(record) : "(pending)"}`).join("\n")
           : (survivalCommand ? "No Court's Trials have been created yet." : "No giveaways have been created yet."),
         allowedMentions: { parse: [] },
       });
@@ -417,6 +317,7 @@ export async function execute(interaction) {
       });
     }
     if (operation === "end") {
+      if(record.guidedSeries) throw Error("This activity draws at the configured time and follows its manual approval setting.");
       if (record.mode === "survival") throw Error("Use the Start Trial (Staff) button to begin a trial, or /trial cancel to stop it.");
       if (record.status === "publishing" || record.status === "failed") throw Error("This giveaway was never published.");
       updated = await closeGiveaway({ id: record._id, guildId: interaction.guildId, client: interaction.client });

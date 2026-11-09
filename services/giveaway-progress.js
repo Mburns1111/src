@@ -1,3 +1,4 @@
+import {activityRoster} from "./guided-activity.js";
 import {MessageFlags} from "discord.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import Giveaway from "../models/Giveaway.js";
@@ -19,6 +20,13 @@ export async function handleActivityGiveawayProgress(interaction) {
      item.listChannelId!==interaction.channelId ||
      (isPlan?item.status!=="active":item.status!=="open"))
     return interaction.editReply("Progress tracking is unavailable for this giveaway.");
+  if(item.guidedSeries){
+    const [row]=await activityRoster(item,interaction.user.id);
+    return interaction.editReply({content:[
+      "**"+item.title+"** · "+(row?.qualified?"Qualified":"Not yet qualified"),
+      (row?.messages||0)+" matching message(s) · "+(row?.days||0)+"/"+item.activityDays+" qualifying day(s)",
+    ].join("\n"),allowedMentions:{parse:[]}});
+  }
   const rule=isPlan && item.watchNameKey!=="general"
     ? await GiveawayWatchRule.findOne({guildId:interaction.guildId,nameKey:item.watchNameKey}).lean()
     :!isPlan && item.activityRuleId ? {

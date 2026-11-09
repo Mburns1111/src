@@ -1,3 +1,5 @@
+import { wizardButton, wizardReply } from "./commands/activity-wizard.js";
+import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
 import {initializeAchievements} from "./services/card-achievement-engine.js";
 import {deliverAchievementNotices} from "./services/card-achievements.js";
 
@@ -213,6 +215,12 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // Messages are never stored or logged: only a short SHA-256 digest is kept to
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
+  if (!message.guildId && !message.author?.bot) {
+    void wizardReply(message).catch(error => console.error("[Giveaways] Setup DM failed:",error));
+  }
+  if (message.guildId && !message.author?.bot && !message.webhookId) {
+    void recordGuidedMessage(message).catch(error => console.error("[Giveaways] Guided activity count failed:",error));
+  }
   if (message.guildId && !message.author?.bot && !message.webhookId)
     void recordGiveawayMessage(message).catch(error => console.error("[Giveaways] Activity counter failed:", error));
   if (!message.guildId || message.author?.bot || !message.content) return;
@@ -414,6 +422,7 @@ client.once(Events.ClientReady, async (readyClient) => {
     if (giveawaySweepActive) return;
     giveawaySweepActive = true;
     try {
+      await openDueActivities();
       await reconcileGiveawayPlans(readyClient);
       await reconcileGiveaways(readyClient);
       await reconcilePendingGiveawayReviews(readyClient);
@@ -508,6 +517,10 @@ client.once(Events.ClientReady, async (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    if (interaction.isButton() && interaction.customId.startsWith("activitysetup:"))
+      return await wizardButton(interaction);
+    if (interaction.isButton() && interaction.customId.startsWith("activitystaff:"))
+      return await staffPreview(interaction);
     if (interaction.isAutocomplete()) {
       if (interaction.commandName === cardsCommand.name) {
         const config = interaction.guildId

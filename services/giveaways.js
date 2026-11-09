@@ -1,3 +1,4 @@
+import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
@@ -275,6 +276,13 @@ export async function publishGiveawayResult(client, item) {
 }
 
 async function refreshCustomOneOffEntries(record,now){
+  if(record.guidedSeries){
+    const roster=await activityRoster(record);
+    const entrantIds=roster.filter(row=>row.qualified).map(row=>row._id);
+    return await Giveaway.findOneAndUpdate({_id:record._id,status:"open"},
+      {$set:{entrantIds,activityCheckedAt:now,activityCandidateCount:roster.length}},
+      {returnDocument:"after"}).lean() || record;
+  }
   if(record.mode!=="activity"||record.scheduleId||
      !record.customActivityStartAt||!record.customActivityEndAt)return record;
   const window={startAt:record.customActivityStartAt,endAt:record.customActivityEndAt};
