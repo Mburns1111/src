@@ -26,6 +26,7 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o.setName("title").setDescription("Giveaway title").setRequired(true).setMinLength(2).setMaxLength(100))
     .addStringOption(o => o.setName("prize").setDescription("Prize details, including multiple ranked prizes").setRequired(true).setMinLength(2).setMaxLength(1500))
     .addIntegerOption(o => o.setName("minutes").setDescription("How many minutes it stays open (up to 14 days)").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
+    .addStringOption(o => o.setName("description").setDescription("Optional custom giveaway description").setMaxLength(1000))
     .addIntegerOption(o => o.setName("winners").setDescription("Number of winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
     .addRoleOption(o => o.setName("role").setDescription("Optional required role for members entering"))
@@ -73,6 +74,7 @@ export const trialData = new SlashCommandBuilder()
   .addSubcommand(c => c.setName("start").setDescription("Open a live Court's Trial with one-by-one eliminations")
     .addStringOption(o => o.setName("title").setDescription("Trial title").setRequired(true).setMinLength(2).setMaxLength(100))
     .addStringOption(o => o.setName("prize").setDescription("Prize details (include ranked prizes if needed)").setRequired(true).setMinLength(2).setMaxLength(1500))
+    .addStringOption(o => o.setName("description").setDescription("Optional custom trial description").setMaxLength(1000))
     .addIntegerOption(o => o.setName("pace").setDescription("Seconds between elimination posts (default 5)")
       .addChoices(...TRIAL_SPEED_CHOICES.map(value => ({ name: `${value} seconds`, value }))))
     .addIntegerOption(o => o.setName("signup_minutes").setDescription("Minutes to accept entries (default 15, max 1440)").setMinValue(1).setMaxValue(MAX_TRIAL_SIGNUP_MINUTES))
@@ -225,6 +227,7 @@ export async function execute(interaction) {
         creatorId: interaction.user.id,
         title: interaction.options.getString("title", true).trim(),
         prize: interaction.options.getString("prize", true).trim(),
+        description: interaction.options.getString("description")?.trim() || "",
         rules: interaction.options.getString("rules")?.trim() || "",
         claimWindowHours: survival
           ? (interaction.options.getInteger("claim_minutes")==null ? DEFAULT_CLAIM_HOURS : null)

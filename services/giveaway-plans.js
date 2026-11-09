@@ -113,7 +113,7 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
       record=await Giveaway.create({
         guildId:plan.guildId,channelId:config.activityGiveawayWinnersChannelId,
         creatorId:plan.creatorId,bannerNameKey:plan.bannerNameKey||"",
-        title:plan.title,prize,winnerCount:plan.winnerCount,endsAt:runAt,
+        title:plan.title,prize,description:plan.description||"",winnerCount:plan.winnerCount,endsAt:runAt,
         mode:"activity",status:plan.requireStaffReview?"pending_review":"closing",
         requireStaffReview:Boolean(plan.requireStaffReview),progressEnabled:Boolean(plan.progressEnabled),
         announceEmptyResults:Boolean(plan.announceEmptyResults),

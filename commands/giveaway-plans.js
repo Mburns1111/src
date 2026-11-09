@@ -18,6 +18,7 @@ export function addGiveawayPlanCommands(builder) {
    .addStringOption(o=>o.setName("watch").setDescription("Saved watch rule name, or general for server-wide activity").setRequired(true).setMaxLength(60))
    .addStringOption(o=>o.setName("announce_at").setDescription("First winner announcement: YYYY-MM-DD HH:mm Eastern").setRequired(true))
    .addStringOption(o=>o.setName("prize").setDescription("First prize; add more with prize-add").setRequired(true).setMaxLength(1500))
+   .addStringOption(o=>o.setName("description").setDescription("Optional giveaway description written by the host").setMaxLength(1000))
    .addStringOption(o=>o.setName("repeat").setDescription("One-time, same Eastern time daily/weekly, or fixed elapsed interval")
      .addChoices({name:"One time",value:"once"},{name:"Daily (same Eastern time)",value:"daily"},
        {name:"Weekly (same Eastern day/time)",value:"weekly"},{name:"Every X hours",value:"interval"}))
@@ -41,6 +42,8 @@ export function addGiveawayPlanCommands(builder) {
  .addSubcommand(c=>c.setName("plan-edit").setDescription("Edit a saved plan without changing existing drawings")
    .addStringOption(o=>o.setName("name").setDescription("Saved plan name").setRequired(true))
    .addStringOption(o=>o.setName("title").setDescription("New announcement title").setMaxLength(100))
+   .addStringOption(o=>o.setName("description").setDescription("Update giveaway details for future drawings").setMaxLength(1000))
+   .addBooleanOption(o=>o.setName("clear_description").setDescription("Remove the custom giveaway description"))
    .addStringOption(o=>o.setName("watch").setDescription("Saved watch name, or general"))
    .addStringOption(o=>o.setName("announce_at").setDescription("Next run: YYYY-MM-DD HH:mm Eastern"))
    .addStringOption(o=>o.setName("repeat").setDescription("One-time, daily, weekly or repeat every X hours")
@@ -97,6 +100,7 @@ function summary(plan,details=false) {
  const status=plan.status==="active"?"Active":plan.status==="paused"?"Paused":"Completed";
  const lines=[`**${plan.name} — ${status}**`,
    `Title: ${plan.title}`,
+    `Giveaway Details: ${plan.description?plan.description.slice(0,300):"None"}`,
    `Activity: ${plan.watchNameKey==="general"?"General server activity":plan.watchNameKey}`,
    `Repeat: ${planRepeatMode(plan)==="interval" ? `Every ${plan.intervalMinutes/60} hours` : ({once:"One-time",daily:"Daily at the same Eastern time",weekly:"Weekly at the same Eastern time"})[planRepeatMode(plan)]}`,
    `Activity checked: ${(plan.activityPeriod||"weekly")==="daily" ? "Previous Eastern calendar day only" : "Previous Wednesday–Wednesday week"} · Prize cycle: ${plan.repeatPrizes?"Repeat list":"Stop after final prize"}`,
@@ -151,7 +155,8 @@ export async function executeGiveawayPlanAdmin(interaction) {
   if(!prize)throw Error("Enter a prize.");
   const plan=await GiveawayPlan.create({
    guildId:interaction.guildId,name,nameKey:key,
-   title:interaction.options.getString("title",true).trim(),watchNameKey:watch,
+   title:interaction.options.getString("title",true).trim(),
+   description:interaction.options.getString("description")?.trim()||"",watchNameKey:watch,
    creatorId:interaction.user.id,channelId:channel.id,bannerNameKey,
    requireStaffReview:review,progressEnabled:progress,
    announceEmptyResults:interaction.options.getBoolean("announce_empty")??true,
@@ -180,14 +185,22 @@ export async function executeGiveawayPlanAdmin(interaction) {
   throw Error("This plan is currently drawing. Retry the edit when its run completes.");
  if(op==="plan-edit") {
   let changed=false;
-  for(const [option,field] of [["title","title"],["repeat_prizes","repeatPrizes"],
+  for(const [option,field] of [["title","title"],["description","description"],["repeat_prizes","repeatPrizes"],
     ["claim_hours","claimWindowHours"],["winners","winnerCount"],
     ["messages","minimumTotalMessages"],["review","requireStaffReview"],["progress","progressEnabled"],
     ["announce_empty","announceEmptyResults"]]){
    let value=["repeat_prizes","review","progress","announce_empty"].includes(option)?interaction.options.getBoolean(option):
      option==="claim_hours"||option==="winners"||option==="messages"?interaction.options.getInteger(option):
      interaction.options.getString(option);
-   if(value!==null && value!==undefined){plan[field]=value;changed=true;}
+   if(value!==null && value!==undefined){
+     if(option==="description"&&!value.trim())throw Error("Enter a description, or use clear_description:true.");
+     plan[field]=option==="description"?value.trim():value;changed=true;
+    }
+  }
+  if(interaction.options.getBoolean("clear_description")===true){
+    if(interaction.options.getString("description")!==null)
+      throw Error("Choose either description or clear_description:true.");
+    plan.description="";changed=true;
   }
   const watch=interaction.options.getString("watch");
   if(watch!==null){plan.watchNameKey=await ensureRule(interaction.guildId,watch);changed=true;}

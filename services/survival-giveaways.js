@@ -70,6 +70,7 @@ export function survivalAnnouncement(record) {
     "**THE ROYAL SUMMONS**",
     "",
     `**The Prize:** ${record.prize.slice(0, 1300)}`,
+    ...(record.description?["", "**Giveaway Details:**", String(record.description).slice(0,1000)]:[]),
     "",
     `**Hosted by:** <@${record.creatorId}>`,
     `**Contestants:** ${record.entrantIds?.length || 0} · **Prize places:** ${record.winnerCount}`,
@@ -239,6 +240,7 @@ export function survivalFinalePayload(record, championRecord = null) {
     "",
     "**Royal Prize:**",
     record.prize.slice(0, 1300),
+    ...(record.description?["", "**Giveaway Details:**", String(record.description).slice(0,1000)]:[]),
     ...(prizeClaimLines(record, { finished: true }).length
       ? ["", ...prizeClaimLines(record, { finished: true })]
       : []),

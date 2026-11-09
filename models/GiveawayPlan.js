@@ -8,6 +8,7 @@ const schema=new mongoose.Schema({
   name:{type:String,required:true,trim:true,maxlength:60},
   nameKey:{type:String,required:true},
   title:{type:String,required:true,maxlength:100},
+  description:{type:String,default:"",maxlength:1000},
   watchNameKey:{type:String,required:true}, // 'general' or one saved GiveawayWatchRule
   creatorId:{type:String,required:true},
   channelId:{type:String,required:true}, // result channel at creation; configured winners channel can override
