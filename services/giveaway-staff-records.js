@@ -17,7 +17,7 @@ function claimStatus(record,slot){
  const claimed=record.winnerClaims?.find(c=>c.slot===slot&&c.userId===id);
  const deadline=winnerClaimDeadline(record,slot);
  const used=automaticRerollsUsed(record,slot),remaining=Math.max(0,automaticRerollLimit(record)-used);
- const rerolls=record.mode==="survival"?"Court's Trial: staff managed":
+ const rerolls=record.mode==="survival"&&!record.trialTicketClaimsEnabled?"Court's Trial: staff managed":
    record.autoRerollClaims?"Automatic rerolls left: **"+remaining+"** of "+automaticRerollLimit(record):
    "Automatic rerolls: **Disabled**";
  const title="**Place "+(slot+1)+"** · <@"+id+">";
@@ -56,12 +56,12 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
  }else{
    if(record.status==="open")lines.push("**Entries:** "+(record.entrantIds?.length||0));
    if(record.winnerIds?.length){
-     lines.push("",record.mode==="survival"?"**Court\'s Trial winners — staff-managed prize claims**":"**Current winners and ticket claims**");
+     lines.push("",record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Court\'s Trial winners — staff-managed prize claims**":"**Current winners and ticket claims**");
      for(let slot=0;slot<record.winnerIds.length;slot++)
-       lines.push(record.mode==="survival"?"**Place "+(slot+1)+"** · <@"+record.winnerIds[slot]+"> — delivery coordinated by staff":claimStatus(record,slot));
+       lines.push(record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Place "+(slot+1)+"** · <@"+record.winnerIds[slot]+"> — delivery coordinated by staff":claimStatus(record,slot));
    }else if(["ended","rerolling"].includes(record.status))
      lines.push("","**No eligible winners were selected.**");
-   if(record.mode!=="survival")
+   if(record.mode!=="survival"||record.trialTicketClaimsEnabled)
      lines.push("","**Automatic rerolls:** "+(record.autoRerollClaims?"Enabled":"Disabled")+
        " · Maximum "+automaticRerollLimit(record)+" per winning place");
    if(record.rerollHistory?.length){
@@ -92,7 +92,7 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    if(series?.enabled)controls.push(btn("activitystaff:pause:"+record._id,"Stop future repeats"));
  }
  if(!cancelled){
-   if(record.mode!=="survival"&&record.autoRerollClaims&&record.status==="ended")
+   if((record.mode!=="survival"||record.trialTicketClaimsEnabled)&&record.autoRerollClaims&&record.status==="ended")
      controls.push(btn("giveawaystaff:stop:"+record._id,"Disable Further Rerolls",ButtonStyle.Secondary));
    if(["open","pending_review","ended","running"].includes(record.status))
      controls.push(btn("giveawaystaff:cancel:"+record._id,"Cancel & Remove Giveaway",ButtonStyle.Danger));
@@ -250,7 +250,7 @@ export async function handleGiveawayStaffAction(interaction){
    }
    await interaction.deferReply(ephemeral);
    if(action==="stop"){
-     if(record.mode==="survival"||record.status!=="ended"||!record.autoRerollClaims)
+     if((record.mode==="survival"&&!record.trialTicketClaimsEnabled)||record.status!=="ended"||!record.autoRerollClaims)
        return interaction.editReply("Automatic claim rerolls are not active on this giveaway.");
      const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
        status:"ended",autoRerollClaims:true},
