@@ -3,6 +3,7 @@ import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,ModalBuilder,
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline} from "./giveaway-claims.js";
+import {completedGiveawayCanDeleteListing} from "./giveaway-listing-lifecycle.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
 
 const idText=id=>String(id||"");
@@ -36,6 +37,7 @@ function claimStatus(record,slot){
 
 export function giveawayStaffRecordPayload(record,{series=null}={}){
  const cancelled=record.status==="cancelled";
+ const completedAndRemoved=record.status==="ended"&&Boolean(record.publicListingRemovedAt);
  const statuses={open:"Open",pending_review:"Awaiting staff approval",closing:"Selecting winners",
    ended:"Ended — claims being tracked",rerolling:"Replacing a winner",running:"Trial running",
    preparing:"Trial preparing",cancelled:"Cancelled · public post removed"};
@@ -44,10 +46,16 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    "**Type:** "+(record.mode==="survival"?"Court's Trial":record.mode==="activity"?"Activity giveaway":"Regular giveaway"),
    "**Prize:** "+safe(record.prize||"").slice(0,500),
    "**Host:** <@"+record.creatorId+">",
-   "**Status:** "+(statuses[record.status]||record.status),
+   "**Status:** "+(completedAndRemoved?"Completed — public listing deleted":statuses[record.status]||record.status),
    "**Scheduled end:** "+when(record.endsAt),
    "**Giveaway ID:** \`"+record._id+"\`",
  ];
+ if(completedAndRemoved){
+   lines.push("","**COMPLETED — PUBLIC LISTING DELETED**",
+     "**Deleted by:** "+(record.publicListingRemovedBy?"<@"+record.publicListingRemovedBy+">":"Not recorded"),
+     "**Deleted at:** "+when(record.publicListingRemovedAt),
+     "*The giveaway ended normally. Winners, claims and results remain in the staff archive; it was not cancelled.*");
+ }
  if(cancelled){
    lines.push("","**CANCELLED AND REMOVED FROM PUBLIC VIEW**",
      "**Cancelled by:** "+(record.staffCancelledBy?"<@"+record.staffCancelledBy+">":"Not recorded"),
@@ -72,6 +80,9 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
          " · "+when(h.at));
    }
    if(record.staffEndedEarly)lines.push("**Ended early by:** <@"+record.staffEndedBy+">");
+   if(record.status==="ended"&&!completedAndRemoved&&record.winnerIds?.length&&
+      !completedGiveawayCanDeleteListing(record))
+     lines.push("**Delete Listing:** Available after every current winner submits their ticket claim.");
  }
  // Ticket message links are placed in dedicated fields so they are never
  // truncated when a giveaway has multiple winners or a long staff timeline.
@@ -91,10 +102,13 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    }
    if(series?.enabled)controls.push(btn("activitystaff:pause:"+record._id,"Stop future repeats"));
  }
- if(!cancelled){
-   if((record.mode!=="survival"||record.trialTicketClaimsEnabled)&&record.autoRerollClaims&&record.status==="ended")
-     controls.push(btn("giveawaystaff:stop:"+record._id,"Disable Further Rerolls",ButtonStyle.Secondary));
-   if(["open","pending_review","ended","running"].includes(record.status))
+ if(!cancelled&&!completedAndRemoved){
+   if(record.status==="ended"){
+     if(completedGiveawayCanDeleteListing(record))
+       controls.push(btn("giveawaystaff:remove:"+record._id,"Delete Listing",ButtonStyle.Danger));
+     else if((record.mode!=="survival"||record.trialTicketClaimsEnabled)&&record.autoRerollClaims)
+       controls.push(btn("giveawaystaff:stop:"+record._id,"Disable Further Rerolls",ButtonStyle.Secondary));
+   }else if(["open","pending_review","running"].includes(record.status))
      controls.push(btn("giveawaystaff:cancel:"+record._id,"Cancel & Remove Giveaway",ButtonStyle.Danger));
  }
  const components=[];
@@ -188,10 +202,20 @@ export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
     try{await ensureGiveawayStaffRecord(client,record);await removeGiveawayPublicPosts(client,record);}
     catch(error){console.error("[Giveaways] Cancelled public post cleanup failed:",record._id,error);}
   }
- return missing.length+active.length+cancelled.length;
+ const removed=await Giveaway.find({status:"ended",publicListingRemovedAt:{$ne:null},
+   $or:[{messageId:{$type:"string",$ne:""}},{listMessageId:{$type:"string",$ne:""}},
+     {finaleMessageId:{$type:"string",$ne:""}}]
+ }).sort({updatedAt:-1}).limit(limit).lean();
+ for(const record of removed){
+   try{await removeGiveawayPublicPosts(client,record);}
+   catch(error){console.error("[Giveaways] Completed listing cleanup failed:",record._id,error);}
+ }
+ return missing.length+active.length+cancelled.length+removed.length;
 }
 
 export async function removeGiveawayPublicPosts(client,record){
+ if(record.status!=="cancelled"&&!(record.status==="ended"&&record.publicListingRemovedAt))
+   throw Error("Public posts can only be removed after a cancellation or authorized completed-listing deletion.");
  const targets=[
    [record.listChannelId,record.listMessageId],
    [record.channelId,record.messageId],
@@ -213,11 +237,12 @@ export async function removeGiveawayPublicPosts(client,record){
        throw Error("The public giveaway post belongs to another user or bot.");
      if(msg)await msg.delete();
    }catch(error){
-     console.error("[Giveaways] Couldn't remove public cancelled post:",key,error);
+     console.error("[Giveaways] Couldn't remove public post:",key,error);
      throw error;
    }
  }
- await Giveaway.updateOne({_id:record._id,status:"cancelled"},
+ await Giveaway.updateOne({_id:record._id,status:record.status,
+   ...(record.status==="ended"?{publicListingRemovedAt:{$ne:null}}:{})},
    {$set:{listChannelId:"",listMessageId:"",listFingerprint:"",messageId:null,finaleMessageId:""}});
 }
 export async function handleGiveawayStaffAction(interaction){
