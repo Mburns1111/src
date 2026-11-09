@@ -931,6 +931,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
     }
+    if (interaction.commandName === shopCommand.name &&
+        interaction.options.getSubcommand(false) !== "balance" && interaction.guildId) {
+      const shopSettings = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("shopChannelId").lean();
+      if (!shopSettings?.shopChannelId) {
+        await interaction.editReply("The customization shop is disabled in this server. A manager can enable it using /setup general.");
+        return;
+      }
+    }
     const handler = commandHandlers.get(interaction.commandName);
     if (!handler) {
       await interaction.editReply({
@@ -939,6 +948,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
       return;
     }
+    // Profiles are optional in a guild that only enables giveaways or
+    // Hatchem. Never create one as a prerequisite to an unrelated command.
     if (
       interaction.guild &&
       ![
@@ -949,6 +960,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         cardsAdminCommand.name,
         cardsOwnerCommand.name,
         cardsReleaseCommand.name,
+        giveawayCommand.name,
+        trialCommand.name,
         testPointsCommand.name,
         pointsAdminCommand.name,
         pointsObserveCommand.name,
@@ -958,7 +971,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         profileRefreshCommand.name,
       ].includes(interaction.commandName)
     ) {
-      await ensureProfileCard(interaction.guild, interaction.user);
+      const profileSettings = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("profileChannelId").lean();
+      if (profileSettings?.profileChannelId)
+        await ensureProfileCard(interaction.guild, interaction.user);
     }
     if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name, cardsReleaseCommand.name, partyCommand.name].includes(interaction.commandName) && interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
