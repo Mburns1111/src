@@ -15,7 +15,7 @@ import {ensureBannerRegistered,getGiveawayBanner,attachGiveawayBanner}
   from "../services/giveaway-banners.js";
 import {giveawayAnnouncement,maxRegularGiveawayMinutes} from "../services/giveaways.js";
 import {createRegularGiveaway} from "../services/regular-giveaway-creation.js";
-import {DEFAULT_CLAIM_HOURS} from "../services/giveaway-claims.js";
+import {DEFAULT_CLAIM_HOURS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaway-claims.js";
 
 const sessions=new Map();
 const SESSION_MS=30*60_000;
@@ -29,9 +29,10 @@ const name={
   banner:"Banner",review:"Review and post"
 };
 const parents={descriptionText:"description",minutesText:"minutes",daysText:"minutes",winnerText:"winners",
+  roleHelpText:"roleHelp",
   rulesText:"rules",claimHoursText:"claimHours",claimText:"claimInstructions",
   bannerText:"banner",bannerUpload:"banner"};
-const textSteps=new Set(["title","prize","descriptionText","minutesText","daysText","winnerText",
+const textSteps=new Set(["title","prize","descriptionText","minutesText","daysText","winnerText","roleHelpText",
   "rulesText","claimHoursText","claimText","bannerText","bannerUpload"]);
 const key=(guildId,channelId,userId)=>guildId+":"+channelId+":"+userId;
 // Both custom minutes and custom days respect the actual six-calendar-month
@@ -55,6 +56,14 @@ const roleId=s=>s.requiredRoleMode==="none"?"":s.requiredRoleMode==="custom"?
   s.requiredRoleId:s.serverRequiredRoleId;
 const roleVisible=s=>s.showRequiredRoleInstructions==null?
   s.serverShowRoleInstructions:s.showRequiredRoleInstructions;
+const effectiveRoleInstructions=s=>s.roleInstructions==null?
+  String(s.serverRoleInstructions||""):String(s.roleInstructions);
+const effectiveClaimInstructions=s=>String(s.claimInstructions==null?
+  s.serverClaimInstructions||"":s.claimInstructions).trim()||DEFAULT_CLAIM_INSTRUCTIONS;
+const claimInstructionSource=s=>s.claimInstructions!=null?"Custom for this giveaway":
+  s.serverClaimInstructions?.trim()?"Saved server default":"Built-in default";
+const roleInstructionSource=s=>s.roleInstructions!=null?"Custom for this giveaway":
+  s.serverRoleInstructions?.trim()?"Saved server default":"Not configured";
 const roleDescription=s=>s.requiredRoleMode==="default"?
   "Use server default"+(s.serverRequiredRoleId?" ("+mention(s.serverRequiredRoleId)+")":" (none)"):
   s.requiredRoleMode==="none"?"No role requirement":mention(s.requiredRoleId);
@@ -71,9 +80,11 @@ const summary=(session)=>{
     "**Winners:** "+s.winners,
     "**Required role:** "+roleDescription(s),
     role?"**Show where to get role:** "+(roleVisible(s)?"Yes":"No"):"",
+    role?"**Role instructions ("+roleInstructionSource(s)+"):** "+
+      (effectiveRoleInstructions(s)||"None"):null,
     "**Rules:** "+(s.rules?safe(s.rules).slice(0,150):"None"),
     "**Claim deadline:** "+s.claimHours+" hour(s)",
-    "**Claim instructions:** "+(s.claimInstructions==null?"Server default":safe(s.claimInstructions).slice(0,160)),
+    "**Claim instructions ("+claimInstructionSource(s)+"):** "+effectiveClaimInstructions(s),
     "**Banner:** "+(s.bannerNameKey||"Server default"+(s.serverBannerNameKey?" ("+s.serverBannerNameKey+")":" (none)")),
     "**Shared giveaway ping:** "+mention(s.pingRoleId),
     "**Public channel:** <#"+session.config.giveawayChannelId+">",
@@ -136,11 +147,21 @@ function layout(session,banners=[]){
         .setPlaceholder("Or choose a specific entry role").setMinValues(1).setMaxValues(1)));
   }
   if(step==="roleHelp"){
-    content="Show saved instructions explaining how members can get the required entry role?\n"+
-      "Current: "+(roleVisible(s)?"Show instructions":"Hide instructions")+
-      (roleId(s)?"":"\nNo required role is selected, so this setting will not affect the announcement.");
+    content="Where can members obtain the required entry role? You can use the server's saved instructions or write different ones for this giveaway.\n"+
+      "**Current instructions ("+roleInstructionSource(s)+"):**\n"+
+      (effectiveRoleInstructions(s)||"*No role-acquisition instructions have been saved.*")+
+      "\n**Shown publicly:** "+(roleVisible(s)?"Yes":"No")+
+      (roleId(s)?"":"\nNo entry role is required, so this setting will not appear on the announcement.");
     components.push(buttons(session,[["Use Server Default","roleHelpDefault"],
-      ["Show","roleHelpShow"],["Hide","roleHelpHide"],["Keep Current","keep"]]));
+      ["Write Custom Instructions","roleHelpCustom"],["Show","roleHelpShow"],
+      ["Hide","roleHelpHide"]]));
+    components.push(buttons(session,[["Keep Current / Next","keep"]]));
+  }
+  if(step==="roleHelpText")
+    content="Type your custom instructions for obtaining the required entry role (1–500 characters). Include a channel mention or link if helpful.";
+  if(step==="roleHelpText"&&action==="text"){
+    s.roleInstructions=entered(value,1,500,"Role instructions");
+    return finishStep(session);
   }
   if(step==="rules"){
     content="Optional rules or entry requirements displayed on the giveaway. They are informational; staff must verify external requirements.\n"+
@@ -156,11 +177,12 @@ function layout(session,banners=[]){
   }
   if(step==="claimHoursText")content="Type a whole number of hours from 1 to 720.";
   if(step==="claimInstructions"){
-    content="Use the server's default prize-collection instructions, or write a custom message for this giveaway.\n"+
-      "Current: "+(s.claimInstructions==null?"Server default":safe(s.claimInstructions).slice(0,250))+
-      "\nThe mandatory ticket number, Discord message link and deadline rules are always added.";
+    content="These are the actual prize-collection instructions winners will see. Choose the saved server/default text or enter new instructions for this giveaway.\n"+
+      "**Currently selected ("+claimInstructionSource(s)+"):**\n"+
+      effectiveClaimInstructions(s)+
+      "\n\nThe bot always adds the ticket number, Discord message link, claim deadline and forfeiture warning.";
     components.push(buttons(session,[["Use Server Default","claimDefault"],
-      ["Write Custom","writeClaim"],["Keep Current","keep"]]));
+      ["Write Custom Instructions","writeClaim"],["Keep Current / Next","keep"]]));
   }
   if(step==="claimText")content="Type your custom prize-collection instructions (1–1,000 characters).";
   if(step==="banner"){
@@ -246,7 +268,7 @@ async function preview(session){
     title:s.title,prize:s.prize,description:s.description,rules:s.rules,
     mode:"standard",status:"open",winnerCount:s.winners,
     endsAt:new Date(Date.now()+s.minutes*60000),entrantIds:[],
-    requiredRoleId:selectedRole,requiredRoleInstructions:s.serverRoleInstructions,
+    requiredRoleId:selectedRole,requiredRoleInstructions:effectiveRoleInstructions(s),
     showRequiredRoleInstructions:roleVisible(s),
     claimWindowHours:s.claimHours,claimInstructions:s.claimInstructions==null?
       s.serverClaimInstructions:s.claimInstructions,maxAutoRerolls:s.maxAutoRerolls
@@ -349,8 +371,12 @@ async function apply(session,action,value,client){
     }
   }
   if(step==="roleHelp"){
+    if(action==="roleHelpCustom")return show(session,"roleHelpText");
     if(["roleHelpDefault","roleHelpShow","roleHelpHide"].includes(action)){
-      s.showRequiredRoleInstructions=action==="roleHelpDefault"?null:action==="roleHelpShow";
+      if(action==="roleHelpDefault"){
+        s.roleInstructions=null;
+        s.showRequiredRoleInstructions=null;
+      }else s.showRequiredRoleInstructions=action==="roleHelpShow";
       return finishStep(session);
     }
   }
@@ -441,7 +467,7 @@ export async function startRegularGiveawayWizard(interaction){
       serverRequiredRoleId:config.giveawayDefaultRequiredRoleId||"",
       showRequiredRoleInstructions:null,
       serverShowRoleInstructions:config.giveawayShowRoleInstructions!==false,
-      serverRoleInstructions:config.giveawayRoleInstructions||"",
+      serverRoleInstructions:config.giveawayRoleInstructions||"",roleInstructions:null,
       claimHours:config.activityClaimWindowHours??DEFAULT_CLAIM_HOURS,
       claimInstructions:null,serverClaimInstructions:config.activityClaimInstructions||"",
       maxAutoRerolls:config.activityMaxAutoRerolls??2,
