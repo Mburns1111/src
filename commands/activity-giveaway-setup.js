@@ -54,8 +54,8 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   "🎟️ **Default required role:** "+(settings.giveawayDefaultRequiredRoleId?"<@&"+settings.giveawayDefaultRequiredRoleId+">":"None"),
   "👁️ **Show role instructions publicly:** "+(settings.giveawayShowRoleInstructions!==false?"Yes":"No"),
   "🎟️ **Role acquisition instructions (saved):** "+(settings.giveawayRoleInstructions||"Not set"),
-  "📝 **Claim instructions:** "+(settings.activityClaimInstructions?"Custom":"Server default"),
-  ...(settings.activityClaimInstructions?[settings.activityClaimInstructions.slice(0,400)]:[DEFAULT_CLAIM_INSTRUCTIONS]),
+  "📝 **Current prize-claim instructions ("+(settings.activityClaimInstructions?"Saved server custom":"Built-in default")+"):**",
+  currentGiveawayClaimInstructions(settings),
   "⏰ **Default claim window:** "+settings.activityClaimWindowHours+" hours",
   "🔁 **Automatic rerolls:** "+settings.activityMaxAutoRerolls+" per winning place",
   "🔔 **Shared giveaway ping role (all giveaways and Trials):** "+(sharedGiveawayPingRoleId(settings)?"<@&"+sharedGiveawayPingRoleId(settings)+">":"None"),
@@ -145,11 +145,12 @@ function layout(session,banners=[]) {
    components.push(row(session.id,[["Show Instructions","showHelp"],
      ["Hide Instructions","hideHelp"],["Keep Current","keep"]]));
  }else if(step==="instructions"){
-   content="Write the default prize-collection instructions. You may completely replace the standard paragraph.\n"+
-    "**Always shown by the bot:** winners must enter a ticket number and **Discord message link** before the deadline, or forfeit the win.\n"+
-    (s.activityClaimInstructions?"**Current custom instructions:**":"**Current built-in default instructions:**")+
-    "\n"+currentGiveawayClaimInstructions(s);
-   components.push(row(session.id,[["Use Default","default"],["Write Custom","custom"],["Keep Current","keep"]]));
+   content="Set the saved server-wide prize-claim instructions used by regular and activity giveaways.\n"+
+    "**These are the current instructions winners will see ("+(s.activityClaimInstructions?"Saved server custom":"Built-in default")+"):**\n"+
+    currentGiveawayClaimInstructions(s)+"\n"+
+    "The bot also adds the ticket number, Discord message link, claim deadline and forfeiture warning.\n"+
+    "Choose **Write / Edit Server Instructions** to enter your own text, then Save Settings on the final review.";
+   components.push(row(session.id,[["Use Built-in Default","default"],["Write / Edit Server Instructions","custom"],["Keep Saved","keep"]]));
  }else if(step==="instructionsText"){
    content="Type your custom claim instructions in this commands channel (1–1,000 characters). "+
      "Do not include the mandatory claim deadline warning; the bot always adds it.";
@@ -197,7 +198,8 @@ function layout(session,banners=[]) {
    components.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
      .setCustomId(bind(session,"edit")).setPlaceholder("Edit a setup setting")
      .addOptions(stepsFor(session).filter(x=>x!=="review").map(v=>({label:stepName[v],value:v})))));
-   components.push(row(session.id,[["Preview Winner Announcement","preview"],["Apply to Existing: "+(session.updateExisting?"ON":"OFF"),"toggleExisting"]]));
+   components.push(row(session.id,[["Preview Winner Announcement","preview"],["Edit Claim Instructions","editClaims"],
+     ["Apply to Existing: "+(session.updateExisting?"ON":"OFF"),"toggleExisting"]]));
    components.push(row(session.id,[["Save Settings","save",ButtonStyle.Success],["Cancel Setup","cancel",ButtonStyle.Danger]]));
  }
  if(step!=="review")components.push(row(session.id,[["Back","back"],["Cancel Setup","cancel",ButtonStyle.Danger]]));
@@ -266,6 +268,7 @@ async function apply(session,verb,value){
      return;
    }
    if(verb==="toggleExisting"){session.updateExisting=!session.updateExisting;await show(session,"review");return;}
+   if(verb==="editClaims"){session.fromReview=true;await show(session,"instructions");return;}
    if(verb==="edit"){
      if(!stepsFor(session).includes(value)||value==="review")throw Error("Choose a valid setup setting.");
      session.fromReview=true;await show(session,value);return;
@@ -291,7 +294,7 @@ async function apply(session,verb,value){
    await session.channel.send({content:("**"+(session.mode==="regular"?"Regular":"Activity")+" giveaway setup saved.** ")+
      (session.updateExisting?"Claim instructions were also updated for "+modified+" existing standard/activity giveaways. "+
        "Announcements will refresh as the bot reconciles them.":"New giveaways will use these defaults; existing claim deadlines and ticket claims were not changed.")+
-     "\nUse **/giveaway "+(session.mode==="regular"?"create":"activity")+"** to create a giveaway with per-event overrides.",
+     "\nUse **/giveaway "+(session.mode==="regular"?"start":"activity")+"** to create a giveaway with per-event overrides.",
      allowedMentions:{parse:[]}});
    return;
  }
@@ -326,7 +329,7 @@ async function apply(session,verb,value){
  }
  if(session.step==="roleHelpText"&&verb==="text"){
    if(!value||value.length>500)throw Error("Enter 1–500 characters explaining where to obtain the role.");
-   s.giveawayRoleInstructions=value;return after(session,"instructions");
+   s.giveawayRoleInstructions=value;return after(session,"roleHelpVisible");
  }
  const fields={list:"activityGiveawayListChannelId",winners:"activityGiveawayWinnersChannelId",staff:"activityGiveawayReviewChannelId",regularChannel:"giveawayChannelId"};
  if(fields[session.step]){
