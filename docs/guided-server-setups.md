@@ -48,6 +48,14 @@ The new role **does not** grant `/setup`, access to other bot administrative fea
 
 Because Discord previously registered the giveaway and Trial slash commands as Manage Server–only, **re-register the slash commands on the development bot once after pulling** (`node register-commands.js`, using development token/client ID) so users with the new role can see and invoke them. Discord may list the commands to other members as well; the bot rejects anyone without the configured role or Manage Server before processing an action.
 
+## Prize-claim and role instructions: where to see and edit them
+
+**Server-wide defaults:** Run `/setup giveaways` or `/setup activity-giveaways` in the designated commands channel. The **Claim instructions** step now displays the full wording winners will receive, whether it is saved custom text or the built-in default. Choose **Write / Edit Server Instructions**, type your wording in that same channel (up to 1,000 characters), and select **Save Settings** at review. You can also use the **Edit Claim Instructions** shortcut directly from the setup review. **Use Built-in Default** intentionally clears your saved custom instructions; **Keep Saved** leaves them as-is. Regular and activity giveaways share this saved default. `/setup trials` has a separate Trial default with the same visible wording and an **Edit Claim Instructions** shortcut.
+
+**Per-giveaway overrides:** `/giveaway start` displays the actual selected claim instructions—including the built-in text if no custom default exists—before giving choices to **Use Server Default**, **Write Custom Instructions**, or keep the selection. It also displays the current instructions for obtaining an entry role and permits custom per-giveaway role instructions. The final review shows the selected wording, and **Preview Announcement** shows it exactly as members will receive it. The `/giveaway activity` creation wizard similarly displays the current actual claim instructions before offering its default/custom choices and includes them in review.
+
+Custom text is saved to the giveaway when posted, but changing it on one giveaway does not change server-wide defaults. The bot separately adds the required ticket number, Discord message link, deadline and forfeiture warning. Existing giveaway claim settings are unchanged unless staff explicitly choose **Apply to Existing** in server setup.
+
 ## Guided regular giveaway creation and simplified command menu
 
 `/giveaway start` now opens a **guided, channel-based wizard**, the same basic interaction style as `/giveaway activity`. Staff with Manage Server or the configured Giveaway Manager role may start it in the **configured commands channel only**. The private giveaway staff channel is reserved for staff records and button actions. It requires the development bot's **Message Content Intent** (including `ENABLE_MESSAGE_CONTENT_INTENT=1`) to receive typed answers and banner uploads.
