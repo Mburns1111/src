@@ -45,5 +45,5 @@ test("member lacking Manage Server cannot approve giveaway",async()=>{
   memberPermissions:{has:()=>false},customId:`giveaway-review:approve:${record._id}`,
   deferReply:async()=>{},editReply:async value=>{reply=value;},
  });
- assert.match(reply,/Only staff/);
+ assert.match(reply,/Giveaway Manager/);
 });
