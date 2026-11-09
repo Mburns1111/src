@@ -27,6 +27,7 @@ test("public directory announces watch requirements, next draw and prize without
  assert.match(embed.description,/<#456789012345678901>/);
  assert.match(embed.description,/<@567890123456789012>/);
  assert.match(embed.description,/you are wonderful/);
+ assert.match(embed.description,/Spelling and word order must match; capitals do not matter/);
  assert.match(embed.description,/Copy Cat/);
  assert.match(embed.description,/Previous calendar day/);
  assert.match(embed.description,/<t:1794423600:F>/);
@@ -49,6 +50,13 @@ test("public directory announces watch requirements, next draw and prize without
  assert.match(linkedOneOff.description,/<#234567890123456789>/);
  assert.match(oneOff.toJSON().description,/Qualify automatically/);
  assert.match(oneOff.toJSON().description,/Giveaway details written by the host/);
+ const exactOneOff=activityOneOffListingEmbed({
+   _id:planId,title:"Exact phrase test",prize:"Pet",winnerCount:1,
+   activityRequiredPhrase:"Thank You",activityMinTotalMessages:2,
+   endsAt:new Date("2026-11-11T19:00:00Z"),
+ }).toJSON();
+ assert.match(exactOneOff.description,/exact phrase \*\*Thank You\*\*/);
+ assert.match(exactOneOff.description,/Spelling and word order must match; capitals do not matter/);
 });
 test("active plan publishes a member-facing directory listing to list channel, not winners channel",async()=>{
  const old=[GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne];
