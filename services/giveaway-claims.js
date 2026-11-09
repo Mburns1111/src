@@ -33,6 +33,23 @@ export function winnerClaimDeadline(record, slot) {
 export function winnerHasClaim(record, slot) {
   return (record.winnerClaims || []).some(c => c.slot === slot && c.userId === record.winnerIds?.[slot]);
 }
+// The public post is refreshed as claims arrive. Hide generic deadline,
+// ticket-submission and forfeiture directions once every *current* prize place
+// has a valid claim or is resolved. Claimed winners never need to see a
+// deadline again; other winners must retain their instructions until done.
+export function hasOutstandingTicketClaims(record) {
+  return (record?.winnerIds || []).some((id,slot)=>
+    Boolean(id) && !winnerHasClaim(record,slot) &&
+      !(record.claimResolvedSlots || []).includes(slot));
+}
+
+export function showPublicClaimDirections(record) {
+  if (!(record?.winnerIds || []).length) return false;
+  // Older staff-managed Trials do not use bot-submitted ticket claims.
+  if (record.mode==="survival" && !record.trialTicketClaimsEnabled) return true;
+  return hasOutstandingTicketClaims(record);
+}
+
 export function automaticRerollLimit(record) {
   const n=record.maxAutoRerolls;
   return Number.isSafeInteger(n)&&n>=0&&n<=MAX_AUTO_REROLLS?n:DEFAULT_MAX_AUTO_REROLLS;
@@ -59,6 +76,7 @@ export function prizeClaimDeadline(record) {
 
 export const DEFAULT_CLAIM_INSTRUCTIONS="Open a support ticket in this server to arrange prize delivery. Keep its ticket number and copy the Discord message link from the ticket. You may share available collection times with staff.";
 export function prizeClaimLines(record,{finished=false}={}){
+  if(finished && !showPublicClaimDirections(record))return [];
   const duration=claimDuration(record);
   const instructions=String(record.claimInstructions||"").trim().slice(0,1000)||DEFAULT_CLAIM_INSTRUCTIONS;
   const lines=[];
