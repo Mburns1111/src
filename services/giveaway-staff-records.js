@@ -82,7 +82,7 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    if(record.staffEndedEarly)lines.push("**Ended early by:** <@"+record.staffEndedBy+">");
    if(record.status==="ended"&&!completedAndRemoved&&record.winnerIds?.length&&
       !completedGiveawayCanDeleteListing(record))
-     lines.push("**Delete Listing:** Available after every current winner submits their ticket claim.");
+     lines.push("**Delete Listing:** Available when every current winner has submitted a ticket claim, or each remaining unclaimed prize place is past its deadline with no rerolls left.");
  }
  // Ticket message links are placed in dedicated fields so they are never
  // truncated when a giveaway has multiple winners or a long staff timeline.
@@ -275,7 +275,7 @@ export async function handleGiveawayStaffAction(interaction){
    }
    if(action==="remove"){
      if(!completedGiveawayCanDeleteListing(record))
-       return interaction.reply({content:"A completed giveaway can only be removed if no winners were selected or every current winner submitted their ticket claim.",...ephemeral});
+       return interaction.reply({content:"A completed giveaway can only be removed when no winners were selected, or each prize place has a submitted ticket claim or has passed its deadline with no rerolls left.",...ephemeral});
      return interaction.showModal(new ModalBuilder()
        .setCustomId("giveawaystaff:confirmremove:"+id)
        .setTitle("Delete completed giveaway listing")
@@ -288,7 +288,7 @@ export async function handleGiveawayStaffAction(interaction){
      if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="DELETE")
        return interaction.editReply("Listing deletion not confirmed. Type DELETE to proceed.");
      if(!completedGiveawayCanDeleteListing(record))
-       return interaction.editReply("Cannot delete listing: all current winners must have submitted their ticket claims, or no winners must have been selected.");
+       return interaction.editReply("Cannot delete listing: some winners still have time to claim or have rerolls remaining. Removal is available after all places are claimed or exhausted, or if no winners were selected.");
      const archived=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
        status:"ended",publicListingRemovedAt:null,renderVersion:record.renderVersion??0},
        {$set:{publicListingRemovedAt:new Date(),publicListingRemovedBy:interaction.user.id,
