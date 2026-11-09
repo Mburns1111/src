@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {DEFAULT_CLAIM_HOURS,claimDuration} from "../services/giveaway-claims.js";
 import {guidedActivityRequirements,qualifiesForGuidedActivity} from "../services/guided-activity.js";
-import {activityWizardPrompts,activityWizardInput,defaultActivityWizardSettings} from "../commands/activity-wizard.js";
+import {activityWizardPrompts,activityWizardInput,defaultActivityWizardSettings,describeActivityWizard} from "../commands/activity-wizard.js";
 import {activityOneOffListingEmbed} from "../services/giveaway-directory.js";
 
 test("guided activity uses period-wide message totals separate from optional active days",()=>{
@@ -31,6 +31,22 @@ test("guided wizard supports quick choices, banner registration and image-only D
   assert.deepEqual(activityWizardInput({content:"",attachments:{first:()=>image}},"bannerName"),
     {content:"",attachment:image});
   assert.equal(activityWizardInput({content:"  8 ",attachments:{first:()=>image}},"minimum"),"8");
+});
+test("optional giveaway details appear in the guided review and can be skipped",()=>{
+  assert.equal(defaultActivityWizardSettings("host").description,"");
+  assert.ok(activityWizardPrompts.detailsChoice[1].some(x=>x[1]==="skip"));
+  assert.ok(activityWizardPrompts.details[1].some(x=>x[1]==="remove"));
+  assert.ok(activityWizardPrompts.edit[1].some(x=>x[0]==="Giveaway Details"));
+  const settings={...defaultActivityWizardSettings("host"),title:"Art event",
+    prize:"Neon pet",description:"Share your favorite creation!",period:"24 hours",
+    hours:24,minimum:3,winners:1};
+  assert.match(describeActivityWizard({settings}),/Giveaway Details:\\*\\*\\nShare your favorite creation!/);
+  assert.doesNotMatch(describeActivityWizard({settings:{...settings,description:""}}),/Giveaway Details/);
+  const event={_id:"507f1f77bcf86cd799439011",guidedSeries:"507f1f77bcf86cd799439012",
+    title:settings.title,prize:settings.prize,description:settings.description,
+    activityStartAt:new Date("2026-11-09T00:00:00Z"),activityEndAt:new Date("2026-11-12T00:00:00Z"),
+    endsAt:new Date("2026-11-12T00:00:00Z"),activityChannelIds:[],activityMinTotalMessages:3};
+  assert.match(activityOneOffListingEmbed(event).toJSON().description,/Share your favorite creation!/);
 });
 test("progress defaults on for guided activity and scheduled plans",()=>{
   const guided=defaultActivityWizardSettings("123456789012345678");

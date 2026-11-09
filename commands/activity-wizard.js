@@ -11,7 +11,7 @@ import {weekdays,windowEnd,nextOpening,maxActiveDays,repeatText,createGuidedActi
 
 const sessions=new Map();
 export const defaultActivityWizardSettings=creator=>({
-  creator,days:1,approval:false,bonuses:[],progress:true,
+  creator,days:1,approval:false,bonuses:[],progress:true,description:"",
   claimHours:DEFAULT_CLAIM_HOURS,repeat:"once",
 });
 const sessionKey=(channelId,userId)=>channelId+":"+userId;
@@ -33,6 +33,9 @@ export const activityWizardPrompts={
   phrase:["Which word or phrase must the message contain? Letter case does not matter."],
   title:["What should the giveaway be called? Reply with the title."],
   prize:["What prize are you giving away? Reply with the prize details."],
+  detailsChoice:["Would you like to add your own giveaway description?",[choice("Write giveaway details","write"),choice("Skip description","skip")]],
+  details:["Type your giveaway description (up to 1,000 characters) in this channel.",[
+    choice("Keep current / Skip","keep"),choice("Remove description","remove")]],
   winners:["How many winners should I draw?",["1","2","3","Other"].map(x=>choice(x))],
   winnerNumber:["Reply with the number of winners, from 1 to 10."],
   draw:["",[choice("When counting ends","end"),choice("Choose a later time","later")]],
@@ -57,7 +60,7 @@ export const activityWizardPrompts={
   summary:["",[choice("Create activity","create"),choice("Edit settings","edit"),choice("Cancel","cancel")]],
   edit:["Which setting would you like to edit?",[
     ["Watched channel","scope"],["Counting period","period"],["Message goal","minimum"],["Ping or phrase","filters"],
-    ["Title","title"],["Prize","prize"],["Winners","winners"],["Draw time","draw"],["Optional settings","extras"],["Repeat schedule","repeat"],
+    ["Title","title"],["Prize","prize"],["Giveaway Details","detailsChoice"],["Winners","winners"],["Draw time","draw"],["Optional settings","extras"],["Repeat schedule","repeat"],
   ]],
 };
 function number(input,min,max){
@@ -84,7 +87,7 @@ function checkSchedule(s,start) {
     throw Error("The chosen drawing time is before counting finishes. Edit the draw time.");
   return end;
 }
-function describe(session){
+export function describeActivityWizard(session){
   const s=session.settings,start=new Date(),end=windowEnd(s,start);
   const upcoming=[];
   if(s.repeat!=="once"){
@@ -97,6 +100,7 @@ function describe(session){
   }
   return [
     '**Review your activity giveaway**',s.title,'Prize · '+s.prize,
+    s.description?'**Giveaway Details:**\n'+s.description:null,
     'Count messages in '+(s.channel?'<#'+s.channel+'>':'all eligible server channels'),
     'Counting starts when you click Create activity. Estimated cutoff '+stamp(end),
     s.period==="weekly"?'Weekly boundaries · '+weekdays[s.startDay]+' to '+weekdays[s.endDay]+' at midnight Eastern':null,
@@ -132,7 +136,7 @@ async function show(session,step){
     content+=banners.length?"\nChoose a button or type a registered banner name.":
       "\nThere are no saved banners yet; use Back to banner choices to register one.";
   }
-  if(step==="summary")content=describe(session);
+  if(step==="summary")content=describeActivityWizard(session);
   const controls=[...(choices||[])];
   if(["bannerPick","bannerName","bannerUpload"].includes(step))
     controls.push(["Back to banner choices","bannerOptions"],["Back to preview","bannerBack"]);
@@ -144,7 +148,7 @@ async function show(session,step){
   const payload=step==="summary"?{embeds:[{description:content}]}:{content};
   const message=await session.channel.send({...payload,content:'**Activity setup** · <@'+session.owner+'>\n'+(payload.content||""),components,allowedMentions:{parse:[]}});
   Object.assign(session,{step,messageId:message.id,choices:controls.map(x=>x[1]),
-    acceptText:!choices?.length || ["minimum","days","claim","bannerPick"].includes(step),
+    acceptText:!choices?.length || ["minimum","days","claim","bannerPick","details"].includes(step),
     expires:Date.now()+30*60000});
 }
 async function configFor(guild,channelId){
@@ -210,7 +214,12 @@ async function accept(session,input,client){
     }
     case "phrase":s.phrase=words(v,120);next=done("title");break;
     case "title":s.title=words(v,100);next=done("prize");break;
-    case "prize":s.prize=words(v,1500);next=done("winners");break;
+    case "prize":s.prize=words(v,1500);next=done("detailsChoice");break;
+    case "detailsChoice":next=v==="write"?"details":done("winners");break;
+    case "details":
+      if(v==="remove")s.description="";
+      else if(v!=="keep")s.description=words(v,1000);
+      next=done("winners");break;
     case "winners":case "winnerNumber":
       if(v==="Other"){next="winnerNumber";break;}s.winners=number(v,1,10);next=done("draw");break;
     case "draw":s.firstDraw=null;next=v==="later"?"later":done("extras");break;

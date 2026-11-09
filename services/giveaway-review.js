@@ -9,6 +9,7 @@ export function giveawayReviewPayload(record){
   const bonus=(record.roleBonuses||[]).map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(", ")||"None";
   const lines=[
     `**Prize:** ${String(record.prize||"").slice(0,500)}`,
+    ...(record.description?[`**Giveaway Details:** ${String(record.description).slice(0,1000)}`]:[]),
     `**Active members during window:** ${candidateCount}`,
     `**Qualified members:** ${eligible.length}`,
     `**Not eligible at review time:** ${Math.max(0,candidateCount-eligible.length)}`,

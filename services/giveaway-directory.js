@@ -37,6 +37,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
   if(plan.requireStaffReview)instruction.push("**Winner publication:** After staff approval");
   const description=[
     `**Prize:** ${clean(prize,600)}`,"",
+    ...(plan.description?["**Giveaway Details:**",String(plan.description).slice(0,1000),""]:[]),
     ...instruction,"",
     `**Winner announcement:** <t:${stamp(plan.nextRunAt)}:F> (<t:${stamp(plan.nextRunAt)}:R>)`,
     `**Winners:** ${plan.winnerCount||1}`,
@@ -69,6 +70,7 @@ export function activityOneOffListingEmbed(record) {
   if(record.activityRequiredPhrase)parts.push(`**Must include:** ${clean(record.activityRequiredPhrase,120)}`);
   if(record.customActivityStartAt&&record.customActivityEndAt)
     parts[3]=`**Activity window:** <t:${stamp(record.customActivityStartAt)}:F> to <t:${stamp(record.customActivityEndAt)}:F>`;
+  if(record.description)parts.splice(2,0,"**Giveaway Details:**",String(record.description).slice(0,1000),"");
   if(record.roleBonuses?.length)
     parts.push("**Bonus chances:** "+record.roleBonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(", "));
   if(record.requireStaffReview)parts.push("**Winner publication:** After staff approval");

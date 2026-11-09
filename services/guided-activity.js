@@ -73,7 +73,7 @@ async function materialize(series,start,first=false) {
   try {
     return await Giveaway.findOneAndUpdate(query, {$setOnInsert:{
       guildId:series.guildId, guidedSeries:series._id, creatorId:s.creator, channelId:config.activityGiveawayWinnersChannelId,
-      title:s.title, prize:s.prize, mode:"activity", status:"open", winnerCount:s.winners,
+      title:s.title, prize:s.prize, description:s.description||"", mode:"activity", status:"open", winnerCount:s.winners,
       activityType:s.channel?"channels":"general", activityChannelIds:s.channel?[s.channel]:[],
       activityStartAt:start, activityEndAt:end, customActivityStartAt:start,customActivityEndAt:end,
       endsAt:new Date(end.getTime()+s.delay), ...guidedActivityRequirements(s),
@@ -168,7 +168,7 @@ export async function ensureStaffCard(client,event) {
   const marker="Activity staff preview · "+event._id;
   const recent=await channel.messages.fetch({limit:50});
   const existing=recent.find(m=>m.author.id===client.user.id && m.embeds.some(e=>e.footer?.text===marker));
-  const message=existing || await channel.send({embeds:[{footer:{text:marker},description:'**'+event.title+'**\n'+event.prize.slice(0,800)+'\nStaff can check current activity here. Manual approval is '+(event.requireStaffReview?"on.":"off.")}],
+  const message=existing || await channel.send({embeds:[{footer:{text:marker},description:'**'+event.title+'**\n'+event.prize.slice(0,800)+(event.description?'\n**Giveaway Details:**\n'+event.description.slice(0,1000):'')+'\nStaff can check current activity here. Manual approval is '+(event.requireStaffReview?"on.":"off.")}],
     components:[new ActionRowBuilder().addComponents(controls)],allowedMentions:{parse:[]},
     nonce:event._id.toString(),enforceNonce:true});
   await Giveaway.updateOne({_id:event._id},{$set:{staffCardId:message.id,staffCardChannelId:channel.id}});

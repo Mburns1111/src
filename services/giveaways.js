@@ -44,6 +44,7 @@ export function giveawayAnnouncement(record) {
     foxStory,
     "",
     record.prize.slice(0, 1800),
+    ...(record.description ? ["", "**Giveaway Details:**", String(record.description).slice(0,1000)] : []),
     "",
     `**Hosted by:** <@${record.creatorId}>`,
     ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : activity ? `**Locked entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
