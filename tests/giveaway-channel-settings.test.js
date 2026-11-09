@@ -6,7 +6,7 @@ import Giveaway from "../models/Giveaway.js";
 import { data as setupCommand, execute as setupChannels } from "../commands/setup.js";
 import {generalSetupFields} from "../commands/general-card-setup.js";
 import {describeActivityGiveawaySetup,giveawaySetupNotificationRoleIds,giveawaySetupNotificationFields} from "../commands/activity-giveaway-setup.js";
-import {regularGiveawayNotificationRoleIds} from "../services/giveaway-notification-roles.js";
+import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields,regularGiveawayNotificationRoleIds} from "../services/giveaway-notification-roles.js";
 import { data as giveawayCommand, trialData as trialCommand, execute as postGiveaway } from "../commands/giveaway.js";
 
 const guildId = "123456789012345678";
@@ -209,42 +209,34 @@ test("an unconfigured dedicated channel never falls back to the command channel"
   } finally { restore(changes); }
 });
 
-test("admins can assign and clear each event ping role without changing saved channels", async () => {
-  const patches = [];
-  const updates = [];
-  try {
-    stub(patches, GuildConfig, "findOneAndUpdate", async (query, update) => {
-      updates.push(update.$set);
-    });
-    const first = setupInteraction({}, {
-      giveaway_ping: { id: "135791357913579135" },
-      trial_ping: { id: "246802468024680246" },
-    });
+test("old queued setup interactions only update the shared giveaway ping role",async()=>{
+  const patches=[],updates=[];
+  try{
+    stub(patches,GuildConfig,"findOneAndUpdate",async(_filter,change)=>updates.push(change.$set));
+    const first=setupInteraction({}, {giveaway_ping:{id:"135791357913579135"}});
     await setupChannels(first);
-    assert.deepEqual(updates[0], {
-      giveawayPingRoleId: "135791357913579135",
-      giveawayNotificationRoleIds:["135791357913579135"],
-      survivalTrialPingRoleId: "246802468024680246",
-    });
-    assert.match(first.replies.at(-1).content, /Giveaway notifications|giveaway notifications/i);
-    const second = setupInteraction({}, {}, { clear_trial_ping: true });
-    await setupChannels(second);
-    assert.deepEqual(updates[1], { survivalTrialPingRoleId: "" });
-    const third = setupInteraction({}, {}, { clear_giveaway_ping: true });
-    await setupChannels(third);
-    assert.deepEqual(updates[2], { giveawayPingRoleId: "",giveawayNotificationRoleIds:[] });
-    assert.equal(updates.some(update => Object.hasOwn(update, "giveawayChannelId")), false);
-    await assert.rejects(
-      () => setupChannels(setupInteraction({}, { giveaway_ping: { id: "123" } }, { clear_giveaway_ping: true })),
-      /role or clear/i,
-    );
-  } finally { restore(patches); }
+    assert.deepEqual(updates[0],sharedGiveawayNotificationFields("135791357913579135"));
+    assert.match(first.replies.at(-1).content,/Shared giveaway & Trial notifications/);
+    const next=setupInteraction({}, {trial_ping:{id:"246802468024680246"}});
+    await setupChannels(next);
+    assert.deepEqual(updates[1],sharedGiveawayNotificationFields("246802468024680246"));
+    const clear=setupInteraction({}, {}, {clear_giveaway_ping:true});
+    await setupChannels(clear);
+    assert.deepEqual(updates[2],sharedGiveawayNotificationFields(""));
+    assert.equal(updates.some(change=>Object.hasOwn(change,"giveawayChannelId")),false);
+    await assert.rejects(()=>setupChannels(setupInteraction({}, {
+      giveaway_ping:{id:"135791357913579135"},trial_ping:{id:"246802468024680246"}
+    })),/one shared giveaway ping role/);
+    await assert.rejects(()=>setupChannels(setupInteraction({}, {
+      giveaway_ping:{id:"135791357913579135"}
+    },{clear_giveaway_ping:true})),/one shared giveaway ping role/);
+  }finally{restore(patches);}
 });
 
 test("new event posts ping their configured role only at creation, not a required-entry role", async () => {
   const patches = [];
   const notifications = [];
-  const ids = { normal: "135791357913579135", trial: "246802468024680246" };
+  const sharedRole="135791357913579135";
   const channel = id => ({
     id, guildId, isTextBased: () => true,
     messages:{fetch:async()=>null},permissionsFor:target=>({has:()=>target?.id!=="everyone"}),
@@ -256,7 +248,7 @@ test("new event posts ping their configured role only at creation, not a require
   try {
     stub(patches, GuildConfig, "findOne", async () => ({
       giveawayChannelId: normalId, survivalTrialChannelId: trialId,activityGiveawayReviewChannelId:staffId,
-      giveawayPingRoleId: ids.normal, survivalTrialPingRoleId: ids.trial,
+      giveawayPingRoleId:sharedRole, survivalTrialPingRoleId:"246802468024680246",
     }));
     const saved = [];
     stub(patches, Giveaway, "create", async values => {
@@ -267,9 +259,9 @@ test("new event posts ping their configured role only at creation, not a require
     const guild = { id: guildId,roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}},channels: { fetch: async id => channel(id) } };
     await postGiveaway(postingInteraction("start", guild));
     await postGiveaway(postingInteraction("start", guild, "trial"));
-    assert.deepEqual(saved.map(item => item.announcementPingRoleId), [ids.normal, ids.trial]);
+    assert.deepEqual(saved.map(item => item.announcementPingRoleId), [sharedRole,sharedRole]);
     assert.deepEqual(notifications.map(item => item.channel), [normalId, trialId]);
-    for (const [index, role] of [ids.normal, ids.trial].entries()) {
+    for (const [index, role] of [sharedRole,sharedRole].entries()) {
       assert.equal(notifications[index].payload.content, "<@&" + role + ">");
       assert.deepEqual(notifications[index].payload.allowedMentions, { parse: [], roles: [role] });
       assert.equal(notifications[index].payload.components.length, 1);
@@ -330,76 +322,66 @@ test("activity giveaway listing and winners can be saved independently from stan
  }finally{restore(changes);}
 });
 
-test("regular and activity guided setup keep separate notification-role selections",()=>{
-  const settings={
-    giveawayNotificationRoleIds:["135791357913579135","246802468024680246"],
-    activityNotificationRoleIds:["357913579135791357"],
-    giveawayPingRoleId:"135791357913579135",
-  };
-  assert.deepEqual(giveawaySetupNotificationRoleIds(settings,"regular"),settings.giveawayNotificationRoleIds);
-  assert.deepEqual(giveawaySetupNotificationRoleIds(settings,"activity"),settings.activityNotificationRoleIds);
-  const regular=giveawaySetupNotificationFields(settings,"regular");
-  assert.deepEqual(regular,{giveawayNotificationRoleIds:settings.giveawayNotificationRoleIds,
-    giveawayPingRoleId:settings.giveawayNotificationRoleIds[0]});
-  assert.equal(Object.hasOwn(regular,"activityNotificationRoleIds"),false,
-    "regular setup must not modify active activity giveaway notifications");
-  const activity=giveawaySetupNotificationFields(settings,"activity");
-  assert.deepEqual(activity,{activityNotificationRoleIds:settings.activityNotificationRoleIds});
-  assert.equal(Object.hasOwn(activity,"giveawayNotificationRoleIds"),false,
-    "activity setup must not overwrite regular giveaway notifications");
-  const summary=describeActivityGiveawaySetup(settings,{mode:"regular"});
-  assert.match(summary,/135791357913579135/);
-  assert.doesNotMatch(summary,/357913579135791357/);
-  const activitySummary=describeActivityGiveawaySetup(settings,{mode:"activity"});
-  assert.match(activitySummary,/357913579135791357/);
-  assert.doesNotMatch(activitySummary,/246802468024680246/);
+
+test("all guided setup screens use one shared ping role, not separate lists",()=>{
+ const settings={
+   giveawayPingRoleId:"135791357913579135",
+   giveawayNotificationRoleIds:["246802468024680246"],
+   activityNotificationRoleIds:["357913579135791357"],
+   trialNotificationRoleIds:["468024680246802468"],
+ };
+ for(const mode of ["regular","activity"]){
+   assert.deepEqual(giveawaySetupNotificationRoleIds(settings,mode),["135791357913579135"]);
+   assert.deepEqual(giveawaySetupNotificationFields(settings,mode),
+     sharedGiveawayNotificationFields("135791357913579135"));
+   const summary=describeActivityGiveawaySetup(settings,{mode});
+   assert.match(summary,/Shared giveaway ping role/);
+   assert.match(summary,/135791357913579135/);
+   assert.doesNotMatch(summary,/246802468024680246|357913579135791357/);
+ }
 });
 
-test("legacy single regular giveaway ping role remains effective until changed through guided setup",()=>{
-  const legacy={giveawayPingRoleId:"135791357913579135",giveawayNotificationRoleIds:[]};
-  assert.deepEqual(regularGiveawayNotificationRoleIds(legacy),["135791357913579135"]);
-  assert.deepEqual(giveawaySetupNotificationRoleIds(legacy,"regular"),["135791357913579135"]);
-  assert.deepEqual(giveawaySetupNotificationFields(legacy,"regular"),{
-    giveawayNotificationRoleIds:["135791357913579135"],
-    giveawayPingRoleId:"135791357913579135",
-  });
-  const cleared={giveawayNotificationRoleIds:[],giveawayPingRoleId:""};
-  assert.deepEqual(giveawaySetupNotificationFields(cleared,"regular"),{
-    giveawayNotificationRoleIds:[],giveawayPingRoleId:"",
-  });
-  assert.deepEqual(regularGiveawayNotificationRoleIds({
-    ...legacy,giveawayNotificationRoleIds:["246802468024680246"],
-  }),["246802468024680246"],"new guided roles take precedence over the old singular value");
+test("saved old giveaway or Trial ping role is read; clearing clears all legacy fields",()=>{
+ const old={giveawayPingRoleId:"135791357913579135",giveawayNotificationRoleIds:[]};
+ assert.equal(sharedGiveawayPingRoleId(old),"135791357913579135");
+ assert.deepEqual(regularGiveawayNotificationRoleIds(old),["135791357913579135"]);
+ assert.equal(sharedGiveawayPingRoleId({trialNotificationRoleIds:["246802468024680246"]}),"246802468024680246");
+ assert.equal(sharedGiveawayPingRoleId({survivalTrialPingRoleId:"246802468024680246"}),"246802468024680246");
+ assert.equal(sharedGiveawayPingRoleId({activityNotificationRoleIds:["357913579135791357"]}),"357913579135791357");
+ assert.deepEqual(sharedGiveawayNotificationFields(""),{
+   giveawayPingRoleId:"",giveawayNotificationRoleIds:[],activityNotificationRoleIds:[],
+   trialNotificationRoleIds:[],survivalTrialPingRoleId:""
+ });
 });
 
-test("regular giveaway announcements ping multiple selected roles once on creation",async()=>{
-  const changes=[],records=[],announcements=[];
-  const selected=["135791357913579135","246802468024680246"];
-  try {
-    stub(changes,GuildConfig,"findOne",async()=>({
-      giveawayChannelId:normalId,activityGiveawayReviewChannelId:staffId,
-      giveawayNotificationRoleIds:selected,giveawayPingRoleId:selected[0],
-    }));
-    stub(changes,Giveaway,"create",async values=>{
-      records.push(values);
-      return {...values,_id:giveawayId,toObject:()=>({...values,_id:giveawayId})};
-    });
-    stub(changes,Giveaway,"updateOne",async()=>({modifiedCount:1}));
-    const guild={id:guildId,roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}},
-      channels:{fetch:async id=>({
-        id,isTextBased:()=>true,messages:{fetch:async()=>null},
-        permissionsFor:target=>({has:()=>target?.id!=="everyone"}),
-        send:async payload=>{
-          if(id===normalId)announcements.push(payload);
-          return {id:"678901234567890123",url:"https://discord.com/channels/example"};
-        },
-      })}};
-    await postGiveaway(postingInteraction("start",guild));
-    assert.equal(records.length,1);
-    assert.deepEqual(records[0].announcementPingRoleIds,selected);
-    assert.equal(records[0].announcementPingRoleId,selected[0]);
-    assert.equal(announcements.length,1);
-    assert.equal(announcements[0].content,selected.map(id=>"<@&"+id+">").join(" "));
-    assert.deepEqual(announcements[0].allowedMentions,{parse:[],roles:selected});
-  }finally{restore(changes);}
+test("standard giveaway ignores stale multi-role selections and pings only the shared role",async()=>{
+ const changes=[],records=[],announcements=[];
+ const shared="135791357913579135";
+ try{
+   stub(changes,GuildConfig,"findOne",async()=>({
+     giveawayChannelId:normalId,activityGiveawayReviewChannelId:staffId,
+     giveawayPingRoleId:shared,
+     giveawayNotificationRoleIds:["246802468024680246","357913579135791357"],
+   }));
+   stub(changes,Giveaway,"create",async values=>{
+     records.push(values);
+     return {...values,_id:giveawayId,toObject:()=>({...values,_id:giveawayId})};
+   });
+   stub(changes,Giveaway,"updateOne",async()=>({modifiedCount:1}));
+   const guild={id:guildId,roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}},
+     channels:{fetch:async id=>({
+       id,isTextBased:()=>true,messages:{fetch:async()=>null},
+       permissionsFor:target=>({has:()=>target?.id!=="everyone"}),
+       send:async payload=>{
+         if(id===normalId)announcements.push(payload);
+         return {id:"678901234567890123",url:"https://discord.com/channels/example"};
+       },
+     })}};
+   await postGiveaway(postingInteraction("start",guild));
+   assert.deepEqual(records[0].announcementPingRoleIds,[shared]);
+   assert.equal(records[0].announcementPingRoleId,shared);
+   assert.equal(announcements.length,1);
+   assert.equal(announcements[0].content,"<@&"+shared+">");
+   assert.deepEqual(announcements[0].allowedMentions,{parse:[],roles:[shared]});
+ }finally{restore(changes);}
 });
