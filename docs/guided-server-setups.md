@@ -37,7 +37,7 @@ The existing **private staff giveaway channel** selected by `/setup giveaways` o
 - It includes regular giveaways, activity giveaways, Court's Trials and active recurring activity giveaway schedules.
 - Each item shows the giveaway title, type, status and a direct Discord message link. Activity giveaways link to their public activity listing when available, falling back to the private staff record during approval. Recurring plans link to their public schedule poster.
 - Finished and cancelled giveaways are removed from this **active directory** automatically, but their individual staff records and public completed giveaway listings are not deleted by this change. **Delete Listing** remains a separate manual action.
-- The directory is refreshed by the normal giveaway sweep (approximately every 30 seconds). It edits in place on status changes and reposts near the bottom after additional staff messages, with a three-minute repost cooldown; old directory messages are deleted after the new one is safely sent.
+- The directory is refreshed by the normal giveaway sweep (approximately every 30 seconds). It edits in place on status changes and reposts near the bottom after additional staff messages, with a ten-minute repost cooldown; old directory messages are deleted after the new one is safely sent.
 - A directory with more than 15 items shows **Next page**. Staff use the private, ephemeral pagination buttons without changing the main sticky message. When there are no active giveaways, the directory clearly says so.
 - The bot never pings staff while updating this directory and refuses to post to a staff channel visible to @everyone.
 
