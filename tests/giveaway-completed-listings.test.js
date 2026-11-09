@@ -1,0 +1,168 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import Giveaway from "../models/Giveaway.js";
+import GuildConfig from "../models/GuildConfig.js";
+import { completedGiveawayCanDeleteListing } from "../services/giveaway-listing-lifecycle.js";
+import { giveawayStaffRecordPayload, handleGiveawayStaffAction } from "../services/giveaway-staff-records.js";
+
+const id="507f1f77bcf86cd799439011";
+const guildId="123456789012345678";
+const winnerA="234567890123456789";
+const winnerB="345678901234567890";
+const staffId="456789012345678901";
+const started=new Date("2026-11-09T10:00:00Z");
+const beforeDeadline=new Date("2026-11-09T10:59:59Z");
+const afterDeadline=new Date("2026-11-09T11:00:01Z");
+const ticket=(slot,userId)=>({slot,userId,submittedAt:new Date("2026-11-09T10:25:00Z"),
+  ticketNumber:"CASE-42",ticketUrl:"https://discord.com/channels/123456789012345678/456789012345678901/567890123456789012"});
+function record(overrides={}) {
+  return {
+    _id:id,guildId,status:"ended",mode:"standard",title:"Finalized giveaway",
+    prize:"Example prize",creatorId:winnerA,endsAt:started,claimStartedAt:started,
+    winnerAssignedAt:[started,started],claimWindowHours:1,
+    winnerIds:[winnerA],entrantIds:[winnerA,winnerB],
+    winnerClaims:[],claimResolvedSlots:[],rerollHistory:[],
+    maxAutoRerolls:2,autoRerollClaims:true,
+    publicListingRemovedAt:null,publicListingRemovedBy:"",
+    staffCardId:"678901234567890123",staffCardChannelId:staffId,
+    messageId:"789012345678901234",channelId:"890123456789012345",
+    renderVersion:0,...overrides,
+  };
+}
+const buttons=rec=>giveawayStaffRecordPayload(rec).components.flatMap(row=>
+  row.components.map(b=>b.data.custom_id));
+
+test("Delete Listing is available immediately when a completed giveaway selected nobody",()=>{
+  const rec=record({winnerIds:[]});
+  assert.equal(completedGiveawayCanDeleteListing(rec),true);
+  assert.ok(buttons(rec).includes("giveawaystaff:remove:"+id));
+  assert.ok(!buttons(rec).includes("giveawaystaff:cancel:"+id));
+});
+
+test("the current winning member must submit a complete ticket claim",()=>{
+  const full=record({winnerClaims:[ticket(0,winnerA)]});
+  assert.equal(completedGiveawayCanDeleteListing(full),true);
+  assert.ok(buttons(full).includes("giveawaystaff:remove:"+id));
+  assert.ok(!buttons(full).includes("giveawaystaff:cancel:"+id));
+  assert.equal(completedGiveawayCanDeleteListing(record({
+    winnerClaims:[ticket(0,winnerB)] // Former winner's claim is not the current winner's claim
+  })),false);
+  assert.equal(completedGiveawayCanDeleteListing(record({
+    winnerClaims:[{...ticket(0,winnerA),ticketUrl:""}]
+  })),false);
+});
+
+test("no rerolls left permits deletion only after that winner's claim deadline",()=>{
+  const exhausted=record({
+    rerollHistory:[
+      {slot:0,reason:"claim-expired",previousId:winnerB,replacementId:winnerA},
+      {slot:0,reason:"claim-expired",previousId:"567890123456789012",replacementId:winnerB},
+    ],
+  });
+  assert.equal(completedGiveawayCanDeleteListing(exhausted,{now:beforeDeadline}),false);
+  assert.equal(completedGiveawayCanDeleteListing(exhausted,{now:afterDeadline}),true);
+  assert.ok(buttons(exhausted).includes("giveawaystaff:remove:"+id));
+  assert.equal(completedGiveawayCanDeleteListing(record({
+    rerollHistory:[{slot:0,reason:"claim-expired"}]
+  }),{now:afterDeadline}),false);
+  assert.equal(completedGiveawayCanDeleteListing(record({maxAutoRerolls:0}),{now:beforeDeadline}),false);
+  assert.equal(completedGiveawayCanDeleteListing(record({maxAutoRerolls:0}),{now:afterDeadline}),true);
+});
+
+test("no eligible replacement may be recorded as a resolved prize place",()=>{
+  const noCandidates=record({claimResolvedSlots:[0],maxAutoRerolls:5});
+  assert.equal(completedGiveawayCanDeleteListing(noCandidates,{now:beforeDeadline}),false);
+  assert.equal(completedGiveawayCanDeleteListing(noCandidates,{now:afterDeadline}),true);
+});
+
+test("all prize places must be claimed or past deadline with no replacements left",()=>{
+  const multi=record({winnerIds:[winnerA,winnerB],winnerClaims:[ticket(0,winnerA)],
+    claimResolvedSlots:[1]});
+  assert.equal(completedGiveawayCanDeleteListing(multi,{now:beforeDeadline}),false);
+  assert.equal(completedGiveawayCanDeleteListing(multi,{now:afterDeadline}),true);
+  assert.equal(completedGiveawayCanDeleteListing({...multi,claimResolvedSlots:[]},{now:afterDeadline}),false);
+});
+
+test("live, cancelled, already removed and older staff-managed Trials never offer completed deletion",()=>{
+  for(const rec of [
+    record({status:"open",winnerIds:[]}),
+    record({status:"cancelled",winnerIds:[]}),
+    record({publicListingRemovedAt:new Date(),winnerClaims:[ticket(0,winnerA)]}),
+    record({mode:"survival",trialTicketClaimsEnabled:false,winnerClaims:[ticket(0,winnerA)]}),
+    record({claimWindowHours:null,claimResolvedSlots:[0]}),
+  ]) {
+    assert.equal(completedGiveawayCanDeleteListing(rec,{now:afterDeadline}),false);
+    assert.ok(!buttons(rec).includes("giveawaystaff:remove:"+id));
+  }
+  assert.ok(buttons(record({status:"open"})).includes("giveawaystaff:cancel:"+id));
+  assert.ok(!buttons(record({status:"ended"})).includes("giveawaystaff:cancel:"+id));
+});
+
+test("Delete Listing is a confirmed non-cancellation action; it removes public posts and retains the staff record",async()=>{
+  let stored=record({winnerClaims:[ticket(0,winnerA)]});
+  const old={one:Giveaway.findOne,change:Giveaway.findOneAndUpdate,
+    update:Giveaway.updateOne,config:GuildConfig.findOne};
+  const deleted=[],responses=[],staffUpdates=[],updates=[];
+  const staffPost={
+    id:stored.staffCardId,author:{id:"bot"},
+    embeds:[{description:"Older staff preview",footer:{text:"Older record"}}],
+    components:[],edit:async p=>staffUpdates.push(p),
+  };
+  const staffChannel={
+    id:staffId,guild:{roles:{everyone:{id:"everyone"}}},
+    permissionsFor:()=>({has:()=>false}),
+    messages:{fetch:async ()=>staffPost},
+    send:async()=>{throw Error("Should reuse the existing staff post");},
+  };
+  const publicChannel={
+    messages:{fetch:async()=>({author:{id:"bot"},delete:async()=>deleted.push("public")})}
+  };
+  const client={user:{id:"bot"},channels:{fetch:async id=>
+    id===staffId?staffChannel:publicChannel}};
+  let modal;
+  try {
+    Giveaway.findOne=()=>({lean:async()=>stored});
+    Giveaway.findOneAndUpdate=(query,change)=>({lean:async()=>{
+      assert.equal(query.status,"ended");
+      assert.equal(query.publicListingRemovedAt,null);
+      stored={...stored,...change.$set,renderVersion:stored.renderVersion+1};
+      return stored;
+    }});
+    Giveaway.updateOne=async (query,change)=>{
+      updates.push({query,change});
+      stored={...stored,...change.$set};
+    };
+    GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+      activityGiveawayReviewChannelId:staffId
+    })})});
+    const memberPermissions={has:()=>true};
+    await handleGiveawayStaffAction({
+      guildId,channelId:staffId,customId:"giveawaystaff:remove:"+id,
+      message:{id:stored.staffCardId},memberPermissions,
+      showModal:async m=>{modal=m.toJSON()},
+    });
+    assert.equal(modal.title,"Delete completed giveaway listing");
+    assert.equal(modal.components.length,1);
+    await handleGiveawayStaffAction({
+      client,guildId,channelId:staffId,customId:"giveawaystaff:confirmremove:"+id,
+      user:{id:"999999999999999999"},memberPermissions,
+      fields:{getTextInputValue:()=> "DELETE"},
+      deferReply:async()=>{},editReply:async x=>responses.push(x),
+    });
+    assert.equal(stored.status,"ended","deleting a completed listing must not mark it cancelled");
+    assert.equal(stored.publicListingRemovedBy,"999999999999999999");
+    assert.ok(stored.publicListingRemovedAt instanceof Date);
+    assert.equal(stored.winnerClaims.length,1);
+    assert.deepEqual(deleted,["public"]);
+    assert.equal(stored.messageId,null);
+    assert.ok(staffUpdates.length>0,"the private staff record is updated");
+    assert.match(staffUpdates.at(-1).embeds[0].data.description,/COMPLETED — PUBLIC LISTING DELETED/);
+    assert.match(responses.at(-1),/not cancelled/i);
+    assert.ok(updates.every(x=>!Object.hasOwn(x.change.$set||{},"status")));
+  } finally {
+    Giveaway.findOne=old.one;
+    Giveaway.findOneAndUpdate=old.change;
+    Giveaway.updateOne=old.update;
+    GuildConfig.findOne=old.config;
+  }
+});
