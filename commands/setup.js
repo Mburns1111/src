@@ -5,7 +5,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
-import {startActivityGiveawaySetup} from "./activity-giveaway-setup.js";
+import {startActivityGiveawaySetup,startRegularGiveawaySetup} from "./activity-giveaway-setup.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
 import { requireGuild } from "./shared.js";
@@ -133,10 +133,14 @@ export const data = new SlashCommandBuilder()
       ),
   )
   .addSubcommand(command=>command.setName("activity-giveaways")
-    .setDescription("Guided setup for activity giveaway channels, claim instructions and defaults"));
+    .setDescription("Guided setup for activity giveaway channels, claim instructions and defaults"))
+  .addSubcommand(command=>command.setName("giveaways")
+    .setDescription("Guided setup for regular giveaway channels and shared defaults"));
 
 export async function execute(interaction) {
   requireGuild(interaction);
+  if(interaction.options.getSubcommand?.()==="giveaways")
+    return startRegularGiveawaySetup(interaction);
   if(interaction.options.getSubcommand?.()==="activity-giveaways")
     return startActivityGiveawaySetup(interaction);
   const commandsChannel = interaction.options.getChannel("commands");
