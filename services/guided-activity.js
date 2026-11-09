@@ -19,7 +19,7 @@ export const GuidedActivitySeries=Series;
 // A delivery ID makes Gateway retries harmless. Never retain the message body.
 const receiptSchema = new mongoose.Schema({
   _id: String, event: mongoose.Schema.Types.ObjectId, user: String, day: String,
-  matches: Boolean, expires: Date,
+  matches: Boolean, at: Date, expires: Date,
 });
 receiptSchema.index({event:1, user:1, day:1});
 receiptSchema.index({expires:1}, {expireAfterSeconds:0});
@@ -140,15 +140,29 @@ export async function recordGuidedMessage(message) {
   for(const event of events){
     const matches=guidedMessageMatches(event,message);
     await Receipt.updateOne({_id:event._id+":"+message.id},{$setOnInsert:{
-      event:event._id,user:message.author.id,day:currentActivityDay(time),matches:Boolean(matches),
+      event:event._id,user:message.author.id,day:currentActivityDay(time),matches:Boolean(matches),at:time,
       expires:new Date(+event.endsAt+90*24*hour),
     }},{upsert:true});
   }
 }
+// Changing a live watch channel, member ping or phrase starts a new qualifying
+// window. Previous receipts remain for audit/TTL but are excluded by message time.
+// No historical messages are downloaded or replayed.
+export async function resetGuidedActivityCriteria(event,changes,when=new Date()){
+  if(event.status!=="open")throw Error("Only an active giveaway can restart counting.");
+  if(new Date(event.activityEndAt)<=when)throw Error("The activity has already reached its cutoff.");
+  if(event.activityDays>maxActiveDays(when,new Date(event.activityEndAt)))
+    throw Error("Not enough active days remain. Lower the active-day requirement or extend the deadline first.");
+  return Giveaway.findOneAndUpdate({_id:event._id,guildId:event.guildId,status:"open"},
+    {$set:{...changes,activityStartAt:when,customActivityStartAt:when,activityResetAt:when}},
+    {returnDocument:"after"}).lean();
+}
+
 export async function activityRoster(event,user) {
   const short=event.activityEndAt-event.activityStartAt<=24*hour;
   const rows=await Receipt.aggregate([
-    {$match:{event:event._id,...(user?{user}:{})}},
+    {$match:{event:event._id,...(user?{user}:{}),
+      ...(event.activityResetAt?{at:{$gte:new Date(event.activityResetAt)}}:{})}},
     {$group:{_id:{user:"$user",day:short?{$literal:"window"}:"$day"},matches:{$sum:{$cond:["$matches",1,0]}}}},
     {$group:{_id:"$_id.user",messages:{$sum:"$matches"},days:{$sum:{$cond:[{$gte:["$matches",event.activityMinimum]},1,0]}}}},
     {$sort:{days:-1,messages:-1,_id:1}},
