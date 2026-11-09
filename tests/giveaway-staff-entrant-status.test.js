@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {MessageFlags} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import GuildConfig from "../models/GuildConfig.js";
 import {
   giveawayStaffRecordPayload,giveawayStaffStatusMarker,
   giveawayStaffEntrantsPage,handleGiveawayStaffAction,STAFF_ENTRANTS_PER_PAGE
@@ -105,6 +106,8 @@ test("staff entrant pages show 25 names, Discord IDs and pagination privately",(
 
 test("View Entrants opens privately; navigation uses ephemeral update and requires staff role",async()=>{
   const prior=Giveaway.findOne;
+  const priorConfig=GuildConfig.findOne;
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({giveawayManagerRoleId:""})})});
   const calls=[];
   const current=record();
   Giveaway.findOne=()=>({lean:async()=>current});
@@ -139,7 +142,7 @@ test("View Entrants opens privately; navigation uses ephemeral update and requir
       customId:"giveawaystaff:entrants:"+giveawayId+":0",
       message:{id:staffCardId}});
     assert.match(calls[4].payload.content,/Manage Server|Giveaway Manager/);
-  }finally{Giveaway.findOne=prior;}
+  }finally{Giveaway.findOne=prior;GuildConfig.findOne=priorConfig;}
 });
 
 test("no-winner public results are short, preserve the prize, and never expose old claim history",()=>{
