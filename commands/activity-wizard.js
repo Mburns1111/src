@@ -8,6 +8,7 @@ import {shouldRequestMessageContent} from "../services/observation-intents.js";
 import {weekdays,windowEnd,nextOpening,maxActiveDays,repeatText,createGuidedActivity,ensureStaffCard} from "../services/guided-activity.js";
 
 const sessions=new Map();
+const sessionKey=(channelId,userId)=>channelId+":"+userId;
 const hour=3600000;
 const stamp=date=>'<t:'+Math.floor(+date/1000)+':F>';
 const choice=(label,value=label)=>[label,value];
@@ -105,11 +106,13 @@ async function show(session,step){
     controls.slice(n,n+5).map(([label,value])=>new ButtonBuilder().setCustomId('activitysetup:'+session.id+':'+value)
       .setLabel(label).setStyle(value==="create"||value==="done"?ButtonStyle.Success:ButtonStyle.Secondary))));
   const payload=step==="summary"?{embeds:[{description:content}]}:{content};
-  const message=await session.dm.send({...payload,components,allowedMentions:{parse:[]}});
+  const message=await session.channel.send({...payload,content:'**Activity setup** · <@'+session.owner+'>\n'+(payload.content||""),components,allowedMentions:{parse:[]}});
   Object.assign(session,{step,messageId:message.id,choices:controls.map(x=>x[1]),acceptText:!choices?.length,expires:Date.now()+30*60000});
 }
-async function configFor(guild){
+async function configFor(guild,channelId){
   const c=await GuildConfig.findOne({guildId:guild.id}).lean();
+  if(!c?.commandChannelId)throw Error("Use /setup channels to choose the commands channel first.");
+  if(c.commandChannelId!==channelId)throw Error("Start /giveaway activity in <#"+c.commandChannelId+">.");
   for(const [field,label] of [["activityGiveawayListChannelId","activity_giveaway_list"],["activityGiveawayWinnersChannelId","activity_winners"],["activityGiveawayReviewChannelId","activity_review"]]){
     const channel=c?.[field]&&await guild.channels.fetch(c[field]);
     if(!channel?.send)throw Error("Use /setup channels to set "+label+" first.");
@@ -119,15 +122,15 @@ async function configFor(guild){
 }
 export async function startActivityWizard(i){
   if(!shouldRequestMessageContent())throw Error("Enable Message Content Intent and set ENABLE_MESSAGE_CONTENT_INTENT=1 to count activity.");
-  await configFor(i.guild);
-  const previous=sessions.get(i.user.id);
-  if(previous && previous.expires>Date.now())return i.editReply("You already have an activity setup in your DMs. Finish or cancel it there.");
-  const session={id:new mongoose.Types.ObjectId().toString(),guild:i.guild,owner:i.user.id,
+  await configFor(i.guild,i.channelId);
+  const key=sessionKey(i.channelId,i.user.id);
+  const previous=sessions.get(key);
+  if(previous && previous.expires>Date.now())return i.editReply("You already have an activity setup in this channel. Finish or cancel it here.");
+  const session={id:new mongoose.Types.ObjectId().toString(),guild:i.guild,owner:i.user.id,key,channel:i.channel,
     settings:{creator:i.user.id,days:1,approval:false,bonuses:[],progress:false,claimHours:48,repeat:"once"}};
-  session.dm=await i.user.createDM();
-  try{await show(session,"scope");}catch{throw Error("I couldn't send the setup DM. Allow DMs from this server and run /giveaway activity again.");}
-  sessions.set(i.user.id,session);
-  return i.editReply("Open my DM to set up your activity giveaway.");
+  await show(session,"scope");
+  sessions.set(key,session);
+  return i.editReply("Your activity setup is open in this channel.");
 }
 const finishGroup=(session,next)=>session.editing?(session.editing=false,"summary"):next;
 async function accept(session,v,client){
@@ -135,7 +138,7 @@ async function accept(session,v,client){
   const done=next=>finishGroup(session,next);
   const dayStep=()=>windowEnd(s,now)-now>24*hour?"days":(s.days=1,done("filters"));
   if(/^cancel setup$/i.test(v)){
-    sessions.delete(session.owner); return session.dm.send("Setup cancelled.");
+    sessions.delete(session.key); return session.channel.send("Setup cancelled.");
   }
   let next;
   switch(step){
@@ -199,13 +202,13 @@ async function accept(session,v,client){
       if(v==="edit"){next="edit";break;}
       const host=await session.guild.members.fetch({user:session.owner,force:true});
       if(!host.permissions.has(PermissionFlagsBits.ManageGuild))throw Error("Manage Server permission is required.");
-      await configFor(session.guild);
+      await configFor(session.guild,session.channel.id);
       const start=new Date(),end=checkSchedule(s,start);
       s.delay=s.firstDraw?new Date(s.firstDraw)-end:0;
       const record=await createGuidedActivity(session.id,session.guild.id,s,start);
-      sessions.delete(session.owner);
+      sessions.delete(session.key);
       const posts=await Promise.allSettled([publishActivityOneOffListing(client,record),ensureStaffCard(client,record)]);
-      return session.dm.send('Activity created. Counting ends '+stamp(record.activityEndAt)+'. '+(posts.every(p=>p.status==="fulfilled")?'The activity list and staff cards are ready.':'The bot will retry any missing channel post.'));
+      return session.channel.send('Activity created. Counting ends '+stamp(record.activityEndAt)+'. '+(posts.every(p=>p.status==="fulfilled")?'The activity list and staff cards are ready.':'The bot will retry any missing channel post.'));
     }
   }
   return show(session,next);
@@ -214,21 +217,26 @@ async function respond(session,input,client){
   if(session.busy)return;
   session.busy=true;
   try{await accept(session,input,client);}
-  catch(error){await session.dm.send({content:error.message,allowedMentions:{parse:[]}});}
+  catch(error){await session.channel.send({content:error.message,allowedMentions:{parse:[]}});}
   finally{session.busy=false;}
 }
 export async function wizardButton(i){
-  const session=sessions.get(i.user.id);
+  const session=sessions.get(sessionKey(i.channelId,i.user.id));
   const [,id,value]=i.customId.split(":");
   if(!session || session.expires<Date.now() || session.id!==id || session.messageId!==i.message.id || !session.choices.includes(value))
-    return i.reply({content:"Use the latest setup prompt, or start /giveaway activity again.",flags:MessageFlags.Ephemeral});
+    return i.reply({content:"Only the staff member who started this setup can use its current prompt.",flags:MessageFlags.Ephemeral});
   await i.deferUpdate();
-  if(value==="cancel"){sessions.delete(i.user.id);return session.dm.send("Setup cancelled.");}
+  if(value==="cancel"){sessions.delete(session.key);return session.channel.send("Setup cancelled.");}
   return respond(session,value,i.client);
 }
-export async function wizardReply(message){
-  const session=sessions.get(message.author.id);
-  if(!session || session.dm.id!==message.channelId || !session.acceptText)return;
-  if(session.expires<Date.now()){sessions.delete(session.owner);return message.reply("Setup expired. Start /giveaway activity again.");}
-  return respond(session,message.content.trim(),message.client);
+// Route only the host's text at a text-input step in this channel.
+export function wizardReply(message){
+  if(!message.guildId || message.author?.bot || message.webhookId)return false;
+  const session=sessions.get(sessionKey(message.channelId,message.author.id));
+  if(!session || !session.acceptText)return false;
+  if(session.expires<Date.now()){sessions.delete(session.key);return false;}
+  if(message.reference?.messageId && message.reference.messageId!==session.messageId)return false;
+  void respond(session,message.content.trim(),message.client)
+    .catch(error=>console.error("[Giveaways] Channel setup reply failed:",error));
+  return true;
 }

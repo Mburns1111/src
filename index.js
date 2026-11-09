@@ -215,9 +215,7 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // Messages are never stored or logged: only a short SHA-256 digest is kept to
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
-  if (!message.guildId && !message.author?.bot) {
-    void wizardReply(message).catch(error => console.error("[Giveaways] Setup DM failed:",error));
-  }
+  if (wizardReply(message)) return;
   if (message.guildId && !message.author?.bot && !message.webhookId) {
     void recordGuidedMessage(message).catch(error => console.error("[Giveaways] Guided activity count failed:",error));
   }
