@@ -3,12 +3,13 @@ import GiveawayPlan,{planNameKey} from "../models/GiveawayPlan.js";
 import GiveawayWatchRule,{watchNameKey} from "../models/GiveawayWatchRule.js";
 import Giveaway from "../models/Giveaway.js";
 import {normalizeRoleBonuses} from "../services/giveaway-role-weights.js";
+import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
 import {publishActivityPlanListing,publishActivityOneOffListing} from "../services/giveaway-directory.js";
 
 export const ROLE_BONUS_OPERATIONS=new Set(["bonus-add","bonus-remove","bonus-list"]);
 export const data=addGiveawayRoleBonusCommands(new SlashCommandBuilder()
  .setName("giveaway-role").setDescription("Manage weighted role chances on saved activity giveaways")
- .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild));
+ );
 export function addGiveawayRoleBonusCommands(builder){
  return builder
   .addSubcommand(c=>c.setName("bonus-add").setDescription("Add or update an extra-drawing-chances role on a watch or plan")
@@ -28,8 +29,8 @@ export function addGiveawayRoleBonusCommands(builder){
     .addStringOption(o=>o.setName("name").setDescription("Saved watch or plan name").setRequired(true)));
 }
 export async function executeGiveawayRoleBonusAdmin(interaction){
- if(!interaction.guildId||!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-   return interaction.editReply("Only Manage Server staff can edit giveaway role bonuses.");
+ if(!interaction.guildId||!await canManageGiveaways(interaction))
+   return interaction.editReply(giveawayManagerPermissionMessage);
  const op=interaction.options.getSubcommand();
  if(!ROLE_BONUS_OPERATIONS.has(op))throw Error("Unknown role bonus action.");
  const target=interaction.options.getString("target",true);
