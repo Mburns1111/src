@@ -24,6 +24,14 @@ Giveaways, activity giveaways, Trials and Hatchem use **separate** setup command
 
 Slash commands other than `/setup` are blocked before initial setup. The bot also recognizes legacy servers with an existing commands channel. Hatchem player commands require both its local channel and Card role. Auto eggs additionally honor the saved **Enable wild activity eggs** switch; turning it off does not disable manual `.drop` actions. Hatch odds and activity thresholds remain the existing global values.
 
+## Banner selection and upload in every giveaway setup
+
+The **Default banner** step in `/setup giveaways`, `/setup activity-giveaways` and `/setup trials` lists registered banners for the current server (up to 40 names). Staff may select one from the dropdown (first 25), type an exact saved name, leave the current selection, clear the default, or choose **Upload New Banner**. When none exist, the setup prominently offers the upload action rather than asking staff to leave setup.
+
+To upload, post a PNG, JPG, WebP or GIF **under 4 MB** as an attachment in the same command channel. The optional message text becomes the banner's name; otherwise the image filename (without extension) is used. Names must have 1–60 characters and cannot be `default`. The bot saves reusable image bytes in the server's MongoDB banner catalog and selects the new banner for this setup. Reusing an existing name replaces that banner's stored image. Invalid uploads keep the wizard at its upload step so staff can retry.
+
+A completed banner selection or upload moves to **Review & Save**, or returns there directly when editing from review. It must never restart at Step 1. The separate `/giveaway activity` creation wizard also supports registering an image, including an **Upload New Banner** shortcut from the saved-banner list. Uploading a banner by itself does not save or change the other setup fields; staff must still choose **Save Setup** at the final review.
+
 ## Court's Trial defaults
 
 The new Trial flow uses separate default eligibility role/instructions, role-instruction visibility, the shared giveaway notification role (pinged at signup only), minute-based claim window (1–43,200 minutes), staff ticket instructions, rerolls (0–10), and saved banner artwork. Each `/trial start` may override supported defaults. Configuring Trials does not change regular/activity claim and eligibility defaults, but the single shared giveaway ping role is intentionally updated for every giveaway type.
