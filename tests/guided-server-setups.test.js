@@ -48,10 +48,11 @@ function trial(overrides = {}) {
   };
 }
 
-test("each feature has its own guided /setup command; legacy channels stay available", () => {
+test("each feature has its own guided /setup command; legacy saved channel IDs remain readable", () => {
   const names = setup.toJSON().options.map(item => item.name);
-  for (const name of ["general", "giveaways", "activity-giveaways", "trials", "cards", "channels"])
+  for (const name of ["general", "giveaways", "activity-giveaways", "trials", "cards"])
     assert.ok(names.includes(name), name + " is available");
+  assert.equal(names.includes("channels"),false,"retired /setup channels is no longer registered");
   assert.equal(generalSetupFields[0], "commandChannelId");
   assert.ok(!generalSetupFields.includes("giveawayChannelId"));
   assert.deepEqual(cardSetupFields, ["hatchemChannelId", "cardRoleId", "hatchemAutoDropsEnabled"]);
