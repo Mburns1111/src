@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {sharedGiveawayPingRoleId} from "./giveaway-notification-roles.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import { completedActivityWeek, previousActivityDay, qualifyingActivity, qualifyingWatchActivity,countActivityParticipants } from "./giveaway-activity-counter.js";
@@ -95,11 +96,11 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
   const prize=plan.prizes[plan.nextPrizeIndex];
   if (!prize) throw Error("No next prize configured.");
   const config=await GuildConfig.findOne({guildId:plan.guildId})
-    .select("activityGiveawayWinnersChannelId activityGiveawayReviewChannelId").lean();
+    .select("activityGiveawayWinnersChannelId activityGiveawayReviewChannelId giveawayPingRoleId giveawayNotificationRoleIds activityNotificationRoleIds trialNotificationRoleIds survivalTrialPingRoleId").lean();
   if(!config?.activityGiveawayWinnersChannelId)
-    throw Error("Configure /setup channels activity_winners before scheduled activity drawings.");
+    throw Error("Configure the activity winners channel with /setup activity-giveaways before scheduled activity drawings.");
   if(plan.requireStaffReview&&!config.activityGiveawayReviewChannelId)
-    throw Error("Configure a private /setup channels activity_review before using staff review.");
+    throw Error("Configure the private staff review channel with /setup activity-giveaways before using staff review.");
   const candidateCount=plan.requireStaffReview?await countActivityParticipants({
     guildId:plan.guildId,type:qualification.type,channelIds:qualification.channelIds,
     period:activityWindow.period,key:activityWindow.key,
@@ -132,7 +133,7 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
         activityCheckedAt:now,activityCandidateCount:candidateCount,
         claimWindowHours:plan.claimWindowHours,autoRerollClaims:true,
         claimInstructions:plan.claimInstructions||"",maxAutoRerolls:plan.maxAutoRerolls??2,
-        notificationRoleIds:plan.notificationRoleIds||[],announceEmptyResults:plan.announceEmptyResults!==false,
+        notificationRoleIds:sharedGiveawayPingRoleId(config)?[sharedGiveawayPingRoleId(config)]:[],announceEmptyResults:plan.announceEmptyResults!==false,
         scheduleId:plan._id,scheduleRunAt:runAt,
       });
       record=record.toObject();
