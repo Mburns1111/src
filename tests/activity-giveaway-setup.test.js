@@ -84,7 +84,7 @@ test("regular and activity setup display the actual default claim message when n
     assert.match(current,/Open a support ticket/);
     assert.match(current,/Discord message link/);
     const summary=describeActivityGiveawaySetup(settings,{mode});
-    assert.match(summary,new RegExp(DEFAULT_CLAIM_INSTRUCTIONS.replace(/[.*+?^$()|[\]\\]/g,"\\test("every guided activity can override server claim settings and role notification options",()=>{")));
+    assert.ok(summary.includes(DEFAULT_CLAIM_INSTRUCTIONS));
   }
   assert.equal(currentGiveawayClaimInstructions(claimSettings),claimSettings.activityClaimInstructions);
   assert.equal(currentGiveawayClaimInstructions({...claimSettings,activityClaimInstructions:"  Custom ticket steps  "}),"Custom ticket steps");
