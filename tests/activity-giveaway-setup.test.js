@@ -50,7 +50,7 @@ test("separate activity setup exposes channels, editable summary and preview",()
  assert.match(rendered,/ticket number/);
  assert.match(rendered,/Discord message link/);
  assert.match(rendered,/FORFEIT YOUR WIN/);
- assert.match(rendered,/2 automatic rerolls/);
+ assert.doesNotMatch(rendered,/automatic rerolls/i,"reroll budgets are private, not public claim instructions");
  assert.equal(preview.components[0].components[0].data.disabled,true);
  assert.equal(preview.components[0].components[0].data.label,"Enter Ticket Claim info");
  assert.deepEqual(preview.allowedMentions,{parse:[]});
@@ -153,7 +153,7 @@ test("two automatic rerolls per winner by default; no changes to manual rerolls"
    claimWindowHours:12,autoRerollClaims:true,maxAutoRerolls:2,
    claimStartedAt:new Date("2026-11-08T00:00:00Z")},{finished:true}).join("\n");
  assert.match(output,/FORFEIT YOUR WIN/);
- assert.match(output,/2 automatic rerolls/);
+ assert.doesNotMatch(output,/automatic rerolls/i,"public messages do not advertise reroll quotas");
  assert.match(output,/Roblox name/);
  assert.doesNotMatch(output,/hammertime\.cyou/, "custom instructions replace defaults");
 });
