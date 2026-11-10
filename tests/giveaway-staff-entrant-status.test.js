@@ -87,10 +87,14 @@ test("deleted completed listings are gray regardless of previous red, yellow or 
       const payload=giveawayStaffRecordPayload(archived);
       const embed=payload.embeds[0].toJSON();
       assert.match(embed.title,/⬜ ARCHIVED/);
-      assert.match(embed.description,/⬜.*COMPLETED — PUBLIC LISTING DELETED/);
+      assert.match(embed.description,mode==="survival"
+        ?/⬜.*COURT'S TRIAL ARCHIVED — ROYAL VERDICT PRESERVED/
+        :/⬜.*COMPLETED — PUBLIC LISTING DELETED/);
       assert.doesNotMatch(embed.description,/🟦|🟨|🟩|🟥/);
       assert.equal(embed.color,0x777777);
-      assert.match(embed.description,/Completed — public listing deleted/);
+      assert.match(embed.description,mode==="survival"
+        ?/Trial archived — Royal Verdict preserved/
+        :/Completed — public listing deleted/);
       assert.ok(buttons(payload).includes("giveawaystaff:entrants:"+giveawayId+":0"));
       assert.ok(!buttons(payload).some(x=>x.includes(":remove:")));
     }
