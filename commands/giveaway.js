@@ -5,6 +5,7 @@ import Giveaway from "../models/Giveaway.js";
 import { submitGiveawayTicket } from "../services/giveaway-ticket-claims.js";
 import { winnerClaimDeadline, winnerHasClaim, DEFAULT_CLAIM_HOURS } from "../services/giveaway-claims.js";
 import { startActivityWizard } from "./activity-wizard.js";
+import {refreshActivityClaimReviewMessage} from "../services/giveaway-review.js";
 import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {startRegularGiveawayWizard} from "./regular-giveaway-wizard.js";
@@ -485,6 +486,10 @@ export async function handleGiveawayClaimModal(interaction) {
     catch(error) { console.error("[Giveaways] Ticket saved but announcement refresh failed:",error); }
     try { await ensureGiveawayStaffRecord(interaction.client, updated); }
     catch(error) { console.error("[Giveaways] Ticket saved; staff record will be reconciled later:",error); }
+    if(updated.mode==="activity"){
+      try{await refreshActivityClaimReviewMessage(interaction.client,updated);}
+      catch(error){console.error("[Giveaways] Ticket saved; activity review claim status refresh pending:",error);}
+    }
     return interaction.editReply("Claim submitted successfully.");
   } catch(error) {
     return interaction.editReply(error.message||"Unable to record your ticket claim.");
