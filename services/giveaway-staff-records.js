@@ -200,7 +200,6 @@ export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
    catch(error){console.error("[Giveaways] Staff record sync failed:",String(record._id),error);}
  }
   const cancelled=await Giveaway.find({status:"cancelled",
-    archiveMovedAt:null,
     $or:[{messageId:{$type:"string",$ne:""}},{listMessageId:{$type:"string",$ne:""}}]
   }).sort({updatedAt:-1}).limit(limit).lean();
   for(const record of cancelled){
