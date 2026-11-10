@@ -30,7 +30,8 @@ test("staff can view any giveaway or Court's Trial entrants with 25-per-page ros
   for (const command of [giveawayData, trialData]) {
     const spec = command.toJSON();
     assert.equal(spec.default_member_permissions, undefined, "the bot authorizes the assigned Giveaway Manager role");
-    assert.ok(spec.options.some(o => o.name === "entrants"));
+    assert.equal(spec.options.some(o => o.name === "entrants"),false,
+       "View Entrants is in the private staff record, not the slash command menu");
   }
   const page2 = formatGiveawayEntrants(sample(), 2);
   assert.match(page2, /120/);
