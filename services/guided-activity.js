@@ -233,6 +233,17 @@ export async function staffPreview(i) {
   const page=Math.min(Math.max(0,pageValue||0),pages-1);
   const required=event.activityMinTotalMessages||event.activityMinimum||1;
   const requiredDays=Math.max(1,event.activityDays||1);
+  if(action==="find"){
+    const userId=i.values?.[0];
+    if(!userId)return i.editReply("Select a member to view progress.");
+    const found=rows.find(row=>row.userId===userId);
+    return i.editReply({content:[
+      "**Member progress · <@"+userId+">**",
+      "**Status:** "+(found?(found.qualified?"Qualified":"Still in progress"):"No recorded qualifying activity"),
+      "**Qualifying messages:** "+(found?.messages||0)+" / "+required+" during this activity period",
+      ...(requiredDays>1?["**Active days:** "+(found?.days||0)+" / "+requiredDays]:[]),
+    ].join("\n"),allowedMentions:{parse:[]}});
+  }
   if(action==="member"){
     const userId=i.values?.[0];
     const member=filtered.find(row=>row.userId===userId);
