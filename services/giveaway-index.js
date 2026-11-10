@@ -81,6 +81,7 @@ export async function activeGiveawayIndexData(guildId,now=new Date()){
  ]);
  const records=all.filter(record=>{
    if(!hasPublicPost(record)||!["open","preparing","running","closing","pending_review","rerolling","ended"].includes(record.status))return false;
+   if(record.archivedAt||record.prizeDeliveredAt)return false;
    if(record.status==="ended" || record.status==="rerolling")
      return (record.winnerIds||[]).some((_,slot)=>
        !(record.claimResolvedSlots||[]).includes(slot));
