@@ -148,3 +148,33 @@ test("cancelling an ended giveaway archives the reason and removes only its publ
    GuildConfig.findOne=original.config;
  }
 });
+
+test("finished giveaways with prizes expose delivery confirmation; archived ones no longer do",()=>{
+ const ready={...ended,status:"ended",prizeDeliveredAt:null};
+ const buttons=giveawayStaffRecordPayload(ready).components.flatMap(r=>r.components)
+   .map(b=>b.data.custom_id);
+ assert.ok(buttons.includes("giveawaystaff:deliver:"+id));
+ const delivered=giveawayStaffRecordPayload({...ready,prizeDeliveredAt:new Date(),
+   prizeDeliveredBy:"999999999999999999"});
+ const finalButtons=delivered.components.flatMap(r=>r.components).map(b=>b.data.custom_id);
+ assert.ok(!finalButtons.includes("giveawaystaff:deliver:"+id));
+ assert.match(delivered.embeds[0].data.description,/Prize delivery confirmed/);
+});
+
+test("delivery action requires explicit staff confirmation, never archives on initial click",async()=>{
+ const original=Giveaway.findOne;
+ try{
+  Giveaway.findOne=()=>({lean:async()=>({...ended,prizeDeliveredAt:null})});
+  let modal;
+  await handleGiveawayStaffAction({
+    guildId,channelId:ended.staffCardChannelId,
+    customId:"giveawaystaff:deliver:"+id,
+    message:{id:ended.staffCardId},
+    memberPermissions:{has:()=>true},
+    showModal:async m=>{modal=m.toJSON();},
+  });
+  assert.equal(modal.custom_id,"giveawaystaff:confirmdeliver:"+id);
+  assert.equal(modal.components[0].components[0].custom_id,"confirm");
+  assert.match(modal.components[0].components[0].label,/DELIVERED/i);
+ }finally{Giveaway.findOne=original;}
+});
