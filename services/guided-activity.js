@@ -214,8 +214,9 @@ export async function ensureStaffCard(client,event) {
 }
 export async function staffPreview(i) {
   await i.deferReply({flags:MessageFlags.Ephemeral});
-  if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild))return i.editReply("Only Manage Server staff can view activity.");
-  const [,action,id,rawPage]=i.customId.split(":");
+  if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
+    return i.editReply("Only Manage Server staff can view activity.");
+  const [,action,id,rawPage,extraPage]=i.customId.split(":");
   const event=await Giveaway.findOne({_id:id,guildId:i.guildId,staffCardChannelId:i.channelId}).lean();
   if(!event)return i.editReply("This staff preview is unavailable.");
   if(action==="pause"){
@@ -223,15 +224,57 @@ export async function staffPreview(i) {
     await ensureStaffCard(i.client,event);
     return i.editReply("Future repeats stopped. The current activity will finish as scheduled.");
   }
-  const rows=await activityRoster(event);
-  const page=Math.min(Number(rawPage)||0,Math.max(0,Math.ceil(rows.length/12)-1));
-  const controls=[];
-  if(page>0)controls.push(btn('activitystaff:view:'+id+':'+(page-1),"Previous"));
-  if((page+1)*12<rows.length)controls.push(btn('activitystaff:view:'+id+':'+(page+1),"Next"));
-  const qualified=rows.filter(r=>r.qualified).length;
-  const lines=rows.slice(page*12,page*12+12).map(r=>
-    (r.qualified?"Qualified":"Not yet qualified")+' · <@'+r._id+'> · '+r.messages+' matching message(s)'+(event.activityDays>1?' · '+r.days+'/'+event.activityDays+' active days':''));
-  return i.editReply({content:['**'+event.title+'**',qualified+' qualified · '+(rows.length-qualified)+' not yet qualified', 'Goal · '+(event.activityMinTotalMessages||event.activityMinimum)+' matching message(s) total during the activity period'+(event.activityDays>1?' · at least one on '+event.activityDays+' different days':''),...lines,
-    rows.length?'Page '+(page+1)+' of '+Math.ceil(rows.length/12):"No members have posted in the watched channels during this activity."].join('\n'),
-    allowedMentions:{parse:[]},components:controls.length?[new ActionRowBuilder().addComponents(controls)]:[]});
+  const {activityProgressRows}=await import("./giveaway-staff-progress.js");
+  const rows=await activityProgressRows(event);
+  const mode=action==="progress"?"progress":action==="member"&&rawPage==="progress"?"progress":"qualified";
+  const filtered=rows.filter(row=>mode==="qualified"?row.qualified:!row.qualified);
+  const pageValue=action==="member"?Number(extraPage):Number(rawPage);
+  const pages=Math.max(1,Math.ceil(filtered.length/10));
+  const page=Math.min(Math.max(0,pageValue||0),pages-1);
+  const required=event.activityMinTotalMessages||event.activityMinimum||1;
+  const requiredDays=Math.max(1,event.activityDays||1);
+  if(action==="member"){
+    const userId=i.values?.[0];
+    const member=filtered.find(row=>row.userId===userId);
+    if(!member)return i.editReply("This member is no longer in the selected progress list.");
+    const label=member.qualified?"Qualified":"Still in progress";
+    return i.editReply({content:[
+      "**Member progress · <@"+userId+">**",
+      "**Status:** "+label,
+      "**Qualifying messages:** "+member.messages+" / "+required+" during this activity period",
+      ...(requiredDays>1?["**Active days:** "+member.days+" / "+requiredDays]:[]),
+      "**Activity start:** <t:"+Math.floor(+new Date(event.activityStartAt)/1000)+":f>",
+      "**Activity end:** <t:"+Math.floor(+new Date(event.activityEndAt)/1000)+":f>",
+    ].join("\n"),components:[new ActionRowBuilder().addComponents(
+      btn("activitystaff:"+mode+":"+id+":"+page,"Back to "+(mode==="qualified"?"Qualified":"In Progress")))],
+      allowedMentions:{parse:[]}});
+  }
+  const buttons=[
+    btn("activitystaff:qualified:"+id+":0","Qualified ("+rows.filter(r=>r.qualified).length+")"),
+    btn("activitystaff:progress:"+id+":0","In Progress ("+rows.filter(r=>!r.qualified).length+")"),
+  ];
+  if(page>0)buttons.push(btn("activitystaff:"+mode+":"+id+":"+(page-1),"Previous"));
+  if(page+1<pages)buttons.push(btn("activitystaff:"+mode+":"+id+":"+(page+1),"Next"));
+  const lines=filtered.slice(page*10,page*10+10).map(r=>
+    "<@"+r.userId+"> · "+r.messages+"/"+required+" qualifying messages"+
+    (requiredDays>1?" · "+r.days+"/"+requiredDays+" days":""));
+  const content=[
+    "**"+event.title+" · "+(mode==="qualified"?"Qualified Members":"In Progress")+"**",
+    "**Participants with activity:** "+rows.length+" · **Qualified:** "+rows.filter(r=>r.qualified).length+
+      " · **Still working:** "+rows.filter(r=>!r.qualified).length,
+    "",...(lines.length?lines:["No members in this category."]),
+    "", "*Only members with recorded activity are listed.*",
+    "Page "+(page+1)+" of "+pages,
+  ].join("\n");
+  const components=[new ActionRowBuilder().addComponents(buttons)];
+  if(lines.length){
+    const {StringSelectMenuBuilder}=await import("discord.js");
+    const select=new StringSelectMenuBuilder().setCustomId("activitystaff:member:"+id+":"+mode+":"+page)
+      .setPlaceholder("Choose a member to view details")
+      .addOptions(filtered.slice(page*10,page*10+10).map(r=>({
+        label:r.userId,description:r.messages+" matching messages",value:r.userId,
+      })));
+    components.push(new ActionRowBuilder().addComponents(select));
+  }
+  return i.editReply({content,allowedMentions:{parse:[]},components});
 }
