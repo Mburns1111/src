@@ -18,7 +18,7 @@ export const defaultActivityWizardSettings=creator=>({
   serverDefaultRequiredRoleId:"",serverShowRoleInstructions:true,showRequiredRoleInstructions:true,
   claimHours:DEFAULT_CLAIM_HOURS,claimInstructions:"",serverClaimInstructions:"",
   maxAutoRerolls:DEFAULT_MAX_AUTO_REROLLS,notificationRoleIds:[],announceEmptyResults:true,
-  repeat:"once",maxRepeats:null,
+  repeat:"once",maxRepeats:null,minChars:1,
 });
 const sessionKey=(channelId,userId)=>channelId+":"+userId;
 const hour=3600000;
@@ -38,6 +38,11 @@ export const activityWizardPrompts={
   length:["Reply with a positive whole number for the duration."],
   minimum:["How many qualifying messages must a member send during the entire activity period?",[]],
   minimumText:["Type the total number of qualifying messages required during the activity period (1–10,000)."],
+  minChars:["What is the minimum **character length per message** to count? Mentions do not count toward the length. This applies only to activity giveaways.",[
+    choice("No length minimum","1"),choice("5 characters","5"),choice("10 characters","10"),
+    choice("25 characters","25"),choice("50 characters","50"),
+    choice("Custom number","custom")]],
+  minCharsText:["Enter the minimum number of characters required in EACH message (1–2,000)."],
   days:["On how many different days must they send at least one matching message?",[]],
   daysText:["Enter the number of separate days with at least one matching message (minimum 1)."],
   filters:["Which messages should count?",["Any message","Member ping","Word or phrase","Ping and phrase"].map(x=>choice(x))],
@@ -91,7 +96,8 @@ export const activityWizardPrompts={
   repeatCount:["Enter how many **additional giveaways** to create after the first (1–1,000). Example: 2 means 3 giveaways in total."],
   summary:["",[choice("Create activity","create"),choice("Edit settings","edit"),choice("Cancel","cancel")]],
   edit:["Which setting would you like to edit?",[
-    ["Watched channel","scope"],["Counting period","period"],["Message goal","minimum"],["Ping or phrase","filters"],["Required role","requiredRoleChoice"],
+    ["Watched channel","scope"],["Counting period","period"],["Message goal","minimum"],
+    ["Minimum message length","minChars"],["Ping or phrase","filters"],["Required role","requiredRoleChoice"],
     ["Title","title"],["Prize","prize"],["Giveaway Details","detailsChoice"],["Winners","winners"],["Draw time","draw"],["Optional settings","extras"],["Repeat schedule","repeat"],
   ]],
 };
@@ -136,7 +142,9 @@ export function describeActivityWizard(session){
     'Count messages in '+(s.channel?'<#'+s.channel+'>':'all eligible server channels'),
     'Counting starts when you click Create activity. Estimated cutoff '+stamp(end),
     s.period==="weekly"?'Weekly boundaries · '+weekdays[s.startDay]+' to '+weekdays[s.endDay]+' at midnight Eastern':null,
-    'Requirement · '+s.minimum+' matching message(s) total during the activity period'+(s.days>1?' · at least one matching message on '+s.days+' different days':''),
+    'Requirement · Send '+s.minimum+' '+(s.phrase||s.mention?'qualifying ':'')+'message(s) total during the activity period'+
+      (s.days>1?' · at least one message on '+s.days+' different days':''),
+    s.minChars>1?'Minimum message length · '+s.minChars+' characters of text per message (not including mentions)':null,
     s.requiredRoleId?'Required role · <@&'+s.requiredRoleId+'>':null,
     s.requiredRoleId?'Show where to get role · '+(s.showRequiredRoleInstructions?'Yes'+(s.requiredRoleInstructions?' · '+s.requiredRoleInstructions:''):'No (restricted)'):null,
     s.mention?'Required ping · <@'+s.mention+'>':null,s.phrase?'Required exact phrase · '+s.phrase+' (correct spelling and word order; capitalization does not matter)':null,
@@ -159,7 +167,8 @@ async function show(session,step){
   if(step==="draw")content='When should I draw and announce the winners? If you create this activity now, counting ends '+stamp(windowEnd(s,new Date()))+'.';
   if(step==="length")content='How many '+(s.period==="Custom days"?'days':'hours')+' should I count? Reply with a whole number.';
   if(step==="amount")content='How many '+s.unit+' between giveaway starts? Reply with a number, such as 3.';
-  if(step==="minimum")content='How many qualifying messages must each member send over the **entire activity period**?';
+  if(step==="minimum")content='How many messages must each member send over the **entire activity period**?';
+  if(step==="minChars")content='Minimum character length for EACH counted message. A required ping does not count toward the length. Choose No length minimum, a preset, or Custom number.\nCurrent: '+(s.minChars||1)+' character(s).';
   if(step==="repeatCount")content='Enter a whole number from 1 to 1,000. This counts **additional repeats after the first giveaway**.';
   if(step==="extras")choices=[
     ['Manual approval '+(s.approval?'ON':'OFF'),'approval'],['Member progress '+(s.progress?'ON':'OFF'),'progress'],
@@ -281,8 +290,12 @@ async function accept(session,input,client){
     case "length":s.hours=number(v,1,s.period==="Custom days"?365:8760)*(s.period==="Custom days"?24:1);next="minimum";break;
     case "minimum":
       if(v==="custom"){next="minimumText";break;}
-      s.minimum=number(v,1,10000);next=dayStep();break;
-    case "minimumText":s.minimum=number(v,1,10000);next=dayStep();break;
+      s.minimum=number(v,1,10000);next=done("minChars");break;
+    case "minimumText":s.minimum=number(v,1,10000);next=done("minChars");break;
+    case "minChars":
+      if(v==="custom"){next="minCharsText";break;}
+      s.minChars=number(v,1,2000);next=dayStep();break;
+    case "minCharsText":s.minChars=number(v,1,2000);next=dayStep();break;
     case "days":
       if(v==="custom"){next="daysText";break;}
       s.days=number(v,1,maxActiveDays(now,windowEnd(s,now)));next=done("filters");break;
