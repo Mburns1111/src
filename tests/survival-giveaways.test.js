@@ -743,7 +743,9 @@ test("unclaimed Court's Trial prize with no replacement becomes No Eligible Winn
   });
   const finale=survivalFinalePayload(ended);
   const description=finale.embeds[0].toJSON().description;
-  assert.match(description,/Prize outcome: No eligible winner/i);
+  assert.match(description,/No eligible winner for the prize/i);
+  assert.ok(description.length<600,"public no-winner verdict must be concise");
+  assert.doesNotMatch(description,/Royal Reroll Record|The Roll of Honour|Ticket claim status/);
   assert.match(description,/No eligible winner/);
   assert.match(description,/until staff explicitly remove the listing/);
   assert.match(description,/The Last Survivor/,"historic champion identity remains");
