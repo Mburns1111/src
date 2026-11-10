@@ -29,7 +29,7 @@ const qualifyChannel=channels=>channels.length?channels.join(", "):"any eligible
 const giveawayDetails=value=>value?["",String(value).slice(0,1000)]:[];
 const memberSafeText=(value,max=180)=>String(value||"").replace(/[\r\n]+/g," ").slice(0,max);
 
-export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
+export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",recentWinners=[]}={}) {
   const period=plan.activityPeriod||"weekly";
   const minimum=plan.minimumTotalMessages??rule?.minimumTotalMessages??1;
   const channel=rule?.channelId?"<#"+rule.channelId+">":"any eligible server channel";
@@ -64,6 +64,8 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
     "",
     "🏆 **"+winnerLabel(plan.winnerCount||1)+"** · Draws <t:"+stamp(plan.nextRunAt)+":F> (<t:"+stamp(plan.nextRunAt)+":R>)",
     ...(repeat?["🔁 **Repeats:** "+repeat]:[]),
+    ...(repeat && recentWinners.length ? ["", "🏅 **Recent winners**",
+      ...recentWinners.slice(0,2).map(w=>"<@"+w.userId+"> · <t:"+stamp(w.drawnAt)+":d>")] : []),
     ...(winnerChannelId?["📣 **Winners announced in:** <#"+winnerChannelId+">"]:[]),
     ...(plan.requireStaffReview?["*Winners are confirmed after staff review.*"]:[]),
     "",
@@ -190,8 +192,17 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
     ?await GiveawayWatchRule.findOne({guildId:item.guildId,nameKey:item.watchNameKey}).lean()
     :null;
   const banner=await getGiveawayBanner(item.guildId,item.bannerNameKey);
+  let recentWinners=[];
+  if(isPlan && humanRepeat(item)){
+    const history=await Giveaway.find({guildId:item.guildId,scheduleId:item._id,
+      status:"ended",winnerIds:{$exists:true,$ne:[]}})
+      .sort({endsAt:-1}).limit(10).select("winnerIds endsAt").lean();
+    recentWinners=history.flatMap(d=>(d.winnerIds||[]).map(userId=>({
+      userId,drawnAt:d.endsAt,
+    }))).slice(0,2);
+  }
   const embed=isPlan ? activityPlanListingEmbed(item,rule,{
-    winnerChannelId:config.activityGiveawayWinnersChannelId,
+    winnerChannelId:config.activityGiveawayWinnersChannelId,recentWinners,
   }) : activityOneOffListingEmbed(item);
   if(/^#[0-9a-fA-F]{6}$/.test(config?.giveawayEmbedColor||""))
     embed.setColor(parseInt(config.giveawayEmbedColor.slice(1),16));
