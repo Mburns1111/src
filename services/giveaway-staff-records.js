@@ -71,25 +71,19 @@ export function giveawayStaffStatusMarker(record){
 }
 
 
-function claimStatus(record,slot){
+function claimStatus(record,slot,{now=new Date()}={}){
  const id=record.winnerIds?.[slot];
  const claimed=record.winnerClaims?.find(c=>c.slot===slot&&c.userId===id);
+ const resolved=(record.claimResolvedSlots||[]).includes(slot);
  const deadline=winnerClaimDeadline(record,slot);
- const used=automaticRerollsUsed(record,slot),remaining=Math.max(0,automaticRerollLimit(record)-used);
- const rerolls=record.mode==="survival"&&!record.trialTicketClaimsEnabled?"Court's Trial: staff managed":
-   record.autoRerollClaims?"Automatic rerolls left: **"+remaining+"** of "+automaticRerollLimit(record):
-   "Automatic rerolls: **Disabled**";
  const title="**Place "+(slot+1)+"** · <@"+id+">";
- if(claimed)return [
-   title+" — **Claim submitted** at "+when(claimed.submittedAt),
-   "Ticket number: \`"+safe(claimed.ticketNumber).replace(/\`/g,"")+"\`",
-   "Ticket message: <"+String(claimed.ticketUrl||"").replace(/[<>]/g,"")+">",
-   rerolls
- ].join("\n");
- return [
-   title+" — "+((record.claimResolvedSlots||[]).includes(slot)?"**No eligible winner — forfeited / no replacement**":"**Not claimed**"),
-   "Claim deadline: "+(deadline?when(deadline)+" (<t:"+unix(deadline)+":R>)":"Not applicable"),
-   rerolls
+ // Ticket number, message link and submission time are shown below once in
+ // dedicated private claim fields. Do not repeat them in the main body.
+ if(claimed)return title+" — ✅ **Claim submitted**";
+ if(resolved)return title+" — **No eligible winner — forfeited / no replacement**\nClaim deadline: **Expired**";
+ return [title+" — **Not claimed**",
+   "Claim deadline: "+(deadline?
+     deadline<=now?"**Expired**":when(deadline)+" (<t:"+unix(deadline)+":R>)":"Not applicable"),
  ].join("\n");
 }
 
