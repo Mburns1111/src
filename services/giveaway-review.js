@@ -3,6 +3,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import {closeGiveaway,publishGiveawayResult} from "./giveaways.js";
+import {winnerHasClaim,hasOutstandingTicketClaims,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
 
 export function giveawayReviewPayload(record){
   const eligible=[...new Set(record.entrantIds||[])];
@@ -59,12 +60,33 @@ export async function refreshGiveawayReviewMessage(client,record,result){
   const channel=await client.channels.fetch(record.reviewChannelId);
   const message=await channel?.messages?.fetch(record.reviewMessageId).catch(()=>null);
   if(!message||message.author?.id!==client.user.id)return;
-  await message.edit({embeds:[new EmbedBuilder().setColor(0x937ca3)
-    .setTitle(`Staff review · ${String(record.title).slice(0,150)}`)
+  const noWinner=record.status==="ended"&&giveawayHasNoEligibleWinner(record);
+  const pending=record.status==="ended"&&hasOutstandingTicketClaims(record);
+  const claimed=record.status==="ended"&&record.winnerIds?.some((id,slot)=>
+    id&&winnerHasClaim(record,slot));
+  const color=noWinner?0xE74C3C:pending?0xF1C40F:claimed?0x2ECC71:0x937ca3;
+  const prefix=noWinner?"🟥 NO ELIGIBLE WINNER":pending?"🟨 CLAIM PENDING":
+    claimed?"🟩 CLAIM COMPLETED":"Staff review";
+  await message.edit({embeds:[new EmbedBuilder().setColor(color)
+    .setTitle(`${prefix} · ${String(record.title).slice(0,130)}`)
     .setDescription(`${result}\nReviewed by <@${record.reviewedBy||record.creatorId}>.`)
     .setFooter({text:`Activity giveaway review: ${record._id}`})],
    components:[],allowedMentions:{parse:[]}});
 }
+export async function refreshActivityClaimReviewMessage(client,record){
+  if(record.mode!=="activity"||record.status!=="ended"||!record.reviewMessageId)return false;
+  const claims=(record.winnerIds||[]).filter((id,slot)=>id&&winnerHasClaim(record,slot)).length;
+  const pending=(record.winnerIds||[]).filter((id,slot)=>id&&
+    !winnerHasClaim(record,slot)&&!(record.claimResolvedSlots||[]).includes(slot)).length;
+  const outcome=giveawayHasNoEligibleWinner(record)
+    ?"No eligible winner — all prize places are unclaimed or forfeited.":
+    pending?claims+" claimed; "+pending+" winner(s) still waiting to claim.":
+      "Claims completed — "+claims+" valid ticket claim(s) received.";
+  await refreshGiveawayReviewMessage(client,record,
+    "Approved — "+(record.winnerIds||[]).length+" winner(s) drawn.\n"+outcome);
+  return true;
+}
+
 export async function handleGiveawayReviewButton(interaction){
   await interaction.deferReply({flags:MessageFlags.Ephemeral});
   try{
