@@ -25,7 +25,7 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.equal(spec.name,"giveaway");
  assert.equal(spec.default_member_permissions, String(32)); // ManageGuild
  const opts=spec.options;
- assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","list","entrants","plan-create","plan-list","plan-view","plan-edit","prize-add","prize-edit","prize-remove","prize-move","banner-save","banner-list","banner-default","banner-clear","banner-remove"]);
+ assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","list","entrants","plan-create","plan-list","plan-view","plan-edit","prize-add","prize-edit","prize-remove","prize-move","banner-save","banner-list","banner-default","banner-clear","color-default","color-clear","banner-remove"]);
  const start=opts[0].options.map(x=>x.name);
  for(const name of ["title","prize","description","minutes","winners","rules","role","claim_hours","claim_instructions"])
    assert.ok(start.includes(name));
