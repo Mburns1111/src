@@ -1,5 +1,6 @@
 import Giveaway from "../models/Giveaway.js";
 import { chooseGiveawayWinners, rerollGiveaway, publishGiveawayResult } from "./giveaways.js";
+import {refreshActivityClaimReviewMessage} from "./giveaway-review.js";
 import { winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, automaticRerollLimit, automaticRerollsUsed } from "./giveaway-claims.js";
 
 // Reroll only when automatic enforcement was explicitly enabled on the giveaway.
@@ -40,6 +41,7 @@ export async function reconcileGiveawayClaims(client, {now=new Date(),limit=30}=
         await Giveaway.updateOne({_id:latest._id,status:"ended",renderVersion:latest.renderVersion},
           {$set:{claimCheckAt:nextClaimCheckAt(latest)}});
         await publishGiveawayResult(client,latest);
+        if(latest.mode==="activity")await refreshActivityClaimReviewMessage(client,latest);
       }
     } catch(error) {
       console.error("[Giveaways] Claim deadline sweep failed:",String(candidate._id),error);
