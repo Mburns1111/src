@@ -299,6 +299,17 @@ export async function handleGiveawayStaffAction(interaction){
      const archived=await archiveGiveawayStaffRecord(interaction.client,updated,{
        staffPayload:giveawayStaffRecordPayload(updated),
      });
+     // The public result remains visible, but its claim button must close after
+     // staff confirms delivery. Fetch the persisted archive state before editing.
+     try{
+       const latest=await Giveaway.findById(id).lean();
+       if(latest?.messageId){
+         const {publishGiveawayResult}=await import("./giveaways.js");
+         await publishGiveawayResult(interaction.client,latest);
+       }
+     }catch(error){
+       console.error("[Giveaways] Prize delivery saved; public result refresh failed:",error);
+     }
      return interaction.editReply(archived?
        "All prizes marked delivered. The complete staff record was moved to Archives.":
        "Delivery saved, but Archives is not configured. Set /setup channels giveaway_archives and the bot will archive this record.");
