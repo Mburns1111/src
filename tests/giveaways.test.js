@@ -25,7 +25,8 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.equal(spec.name,"giveaway");
  assert.equal(spec.default_member_permissions, undefined); // Discord permits the role; the bot gates staff actions
  const opts=spec.options;
- assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","list","entrants","banner"]);
+ assert.deepEqual(opts.map(x=>x.name),["start","activity","list","banner"],
+   "staff management is through staff record buttons, not slash commands");
  const banner=opts.find(x=>x.name==="banner");
  assert.deepEqual(banner.options.map(x=>x.name),["save","list","default","clear","remove"]);
  assert.equal(banner.type,2,"nested banner operations must be in a Discord subcommand group");
