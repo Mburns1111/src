@@ -191,7 +191,7 @@ export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
    $or:[{staffCardId:""},{staffCardId:{$exists:false}},{staffCardChannelId:""}]
  }).sort({createdAt:-1}).limit(limit).lean();
  const active=await Giveaway.find({
-   status:{$in:["open","closing","rerolling","pending_review","running","ended","cancelled"]},
+   status:{$in:["open","preparing","closing","rerolling","pending_review","running","ended","cancelled"]},
    archiveMovedAt:null,
    staffCardId:{$ne:""},staffCardChannelId:{$ne:""}
  }).sort({updatedAt:-1}).limit(limit).lean();
