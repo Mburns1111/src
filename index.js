@@ -531,8 +531,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         interaction.customId.startsWith("activitystaff:")) {
       if(interaction.isButton() && /^activitystaff:refresh:/.test(interaction.customId))
         return await handleStaffProgressRefresh(interaction);
-      if((interaction.isButton() || interaction.isStringSelectMenu()) &&
-        /^activitystaff:(view|pause|qualified|progress|member):/.test(interaction.customId))
+      if((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) &&
+        /^activitystaff:(view|pause|qualified|progress|member|find):/.test(interaction.customId))
         return await staffPreview(interaction);
       return await handleGuidedStaffAction(interaction);
     }
