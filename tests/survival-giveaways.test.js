@@ -378,7 +378,7 @@ test("Court's Trial has decorative royal framing and a distinct final verdict wi
   assert.equal(finale.embeds[0].data.footer.text, `♛ Trial ${id} · Finale`);
   assert.match(finale.embeds[0].data.description, /THE COURT HAS SPOKEN/);
   assert.match(finale.embeds[0].data.description, /The Last Survivor/);
-  assert.match(finale.embeds[0].data.description, /Royal Reroll Record/);
+  assert.doesNotMatch(finale.embeds[0].data.description, /Royal Reroll Record/);
   assert.match(finale.embeds[0].data.description, /Prizes are delivered by staff/);
   for (const winner of finished.winnerIds)
     assert.ok(finale.embeds[0].data.description.includes(winner));
