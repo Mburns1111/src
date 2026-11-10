@@ -5,7 +5,7 @@ import GiveawayPlan from "../models/GiveawayPlan.js";
 import {reconcileActivityGiveawayListings} from "../services/giveaway-directory.js";
 import {refreshActiveStandardGiveawayBanners} from "../services/giveaways.js";
 
-export const BANNER_OPERATIONS=new Set(["banner-save","banner-list","banner-default","banner-clear","banner-remove"]);
+export const BANNER_OPERATIONS=new Set(["banner-save","banner-list","banner-default","banner-clear","banner-remove","color-default","color-clear"]);
 
 export function addGiveawayBannerCommands(builder) {
   return builder
@@ -16,6 +16,9 @@ export function addGiveawayBannerCommands(builder) {
     .addSubcommand(c=>c.setName("banner-default").setDescription("Select the default giveaway banner, including activity posts")
       .addStringOption(o=>o.setName("name").setDescription("Registered banner name").setRequired(true)))
     .addSubcommand(c=>c.setName("banner-clear").setDescription("Remove the default banner (saved images remain registered)"))
+    .addSubcommand(c=>c.setName("color-default").setDescription("Set the giveaway embed accent color for this server")
+      .addStringOption(o=>o.setName("hex").setDescription("Six-digit HEX color, such as #B47E99").setRequired(true)))
+    .addSubcommand(c=>c.setName("color-clear").setDescription("Restore the Cryptic Court giveaway accent color"))
     .addSubcommand(c=>c.setName("banner-remove").setDescription("Delete a saved banner that no active plan uses")
       .addStringOption(o=>o.setName("name").setDescription("Registered banner name").setRequired(true)));
 }
@@ -32,6 +35,16 @@ export async function executeGiveawayBannerAdmin(interaction) {
   const op=interaction.options.getSubcommand();
   if(!BANNER_OPERATIONS.has(op))throw Error("Unknown banner action.");
   const guildId=interaction.guildId;
+  if(op==="color-default" || op==="color-clear") {
+    const raw=op==="color-default"?interaction.options.getString("hex",true).trim():"";
+    if(raw && !/^#?[0-9a-fA-F]{6}$/.test(raw))throw Error("Enter a valid six-digit HEX color, such as #B47E99.");
+    const color=raw?"#"+raw.replace(/^#/,"").toUpperCase():"";
+    await GuildConfig.findOneAndUpdate({guildId},{$set:{giveawayEmbedColor:color}},
+      {upsert:true,returnDocument:"after"});
+    await refreshCurrentBannerPosts(interaction);
+    return interaction.editReply(color?`Giveaway accent color set to \`${color}\`. Active public listings were refreshed where accessible.`:
+      "Giveaway accent color restored to the Cryptic Court default.");
+  }
   if(op==="banner-save") {
     const name=interaction.options.getString("name",true).trim();
     if(bannerNameKey(name)==="default") throw Error("Choose a banner name other than default.");
