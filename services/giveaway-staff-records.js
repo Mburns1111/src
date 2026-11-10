@@ -1,11 +1,15 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,ModalBuilder,
-  TextInputBuilder,TextInputStyle,MessageFlags,PermissionFlagsBits} from "discord.js";
+  TextInputBuilder,TextInputStyle,MessageFlags,PermissionFlagsBits,StringSelectMenuBuilder} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline,winnerHasClaim,hasOutstandingTicketClaims,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
 import {completedGiveawayCanDeleteListing} from "./giveaway-listing-lifecycle.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
+import {closeGiveaway,rerollGiveaway,publishGiveawayResult} from "./giveaways.js";
+import {beginSurvivalTrial,publishSurvivalAnnouncement} from "./survival-giveaways.js";
+import {ensureBannerRegistered} from "./giveaway-banners.js";
+import {maxRegularGiveawayMinutes} from "./giveaways.js";
 
 const idText=id=>String(id||"");
 const unix=date=>Math.floor(new Date(date).getTime()/1000);
@@ -166,10 +170,21 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    if(series?.enabled)controls.push(btn("activitystaff:pause:"+record._id,"Stop future repeats"));
  }
  if(!cancelled&&!completedAndRemoved){
+   if(record.status==="open"&&!record.guidedSeries){
+     controls.push(btn("giveawaystaff:edit:"+record._id,"Edit Giveaway",ButtonStyle.Primary));
+     controls.push(btn("giveawaystaff:end:"+record._id,
+       record.mode==="survival"?"Start Trial Early":"End Early",ButtonStyle.Success));
+   }else if(record.mode==="survival"&&record.status==="running"){
+     controls.push(btn("giveawaystaff:end:"+record._id,"Finish Trial Early",ButtonStyle.Success));
+   }
    if(record.status==="ended"){
      if(completedGiveawayCanDeleteListing(record))
-       controls.push(btn("giveawaystaff:remove:"+record._id,"Delete Listing",ButtonStyle.Danger));
-     else if((record.mode!=="survival"||record.trialTicketClaimsEnabled)&&record.autoRerollClaims)
+       controls.push(btn("giveawaystaff:remove:"+record._id,
+         record.mode==="survival"?"Archive Trial":"Delete Listing",ButtonStyle.Secondary));
+     if(hasOutstandingTicketClaims(record))
+       controls.push(btn("giveawaystaff:reroll:"+record._id,"Manual Reroll",ButtonStyle.Primary));
+     if(!completedGiveawayCanDeleteListing(record)&&
+       (record.mode!=="survival"||record.trialTicketClaimsEnabled)&&record.autoRerollClaims)
        controls.push(btn("giveawaystaff:stop:"+record._id,"Disable Further Rerolls",ButtonStyle.Secondary));
    }else if(["open","pending_review","running"].includes(record.status))
      controls.push(btn("giveawaystaff:cancel:"+record._id,"Cancel & Remove Giveaway",ButtonStyle.Danger));
