@@ -110,6 +110,11 @@ export const data = new SlashCommandBuilder()
           .addChannelTypes(ChannelType.GuildText),
       )
       .addChannelOption((option) =>
+        option.setName("giveaway_archives")
+          .setDescription("Private staff archive for completed and cancelled giveaway records")
+          .addChannelTypes(ChannelType.GuildText),
+      )
+      .addChannelOption((option) =>
         option
           .setName("survival_trials")
           .setDescription("Separate channel for Court's Trial signups and eliminations")
@@ -157,6 +162,7 @@ export async function execute(interaction) {
   const activityGiveawayListChannel = interaction.options.getChannel("activity_giveaway_list");
   const activityWinnersChannel = interaction.options.getChannel("activity_winners");
   const activityReviewChannel = interaction.options.getChannel("activity_review");
+  const archiveChannel = interaction.options.getChannel("giveaway_archives");
   const survivalTrialChannel = interaction.options.getChannel("survival_trials");
   const giveawayPingRole = interaction.options.getRole("giveaway_ping");
   const trialPingRole = interaction.options.getRole("trial_ping");
@@ -181,6 +187,7 @@ export async function execute(interaction) {
     !activityGiveawayListChannel &&
     !activityWinnersChannel &&
     !activityReviewChannel &&
+    !archiveChannel &&
     !survivalTrialChannel &&
     !giveawayPingRole &&
     !trialPingRole &&
@@ -195,19 +202,21 @@ export async function execute(interaction) {
   }
   // The two event modes must never share an assigned channel. When only one
   // setting changes, compare it with the currently saved other channel.
-  if (activityReviewChannel && interaction.guild?.roles?.everyone) {
-    const everyone=interaction.guild.roles.everyone;
-    if(activityReviewChannel.permissionsFor?.(everyone)?.has(PermissionFlagsBits.ViewChannel))
-      throw new UserFacingError("The activity review channel must be hidden from @everyone. Restrict its View Channel permission first.");
+  if ((activityReviewChannel||archiveChannel) && interaction.guild?.roles?.everyone) {
+    for(const channel of [activityReviewChannel,archiveChannel].filter(Boolean)){
+      if(channel.permissionsFor?.(interaction.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
+        throw new UserFacingError("Staff giveaway channels must be hidden from @everyone. Restrict View Channel first.");
+    }
   }
-  if (giveawayChannel || survivalTrialChannel || activityGiveawayListChannel || activityWinnersChannel || activityReviewChannel) {
+  if (giveawayChannel || survivalTrialChannel || activityGiveawayListChannel || activityWinnersChannel || activityReviewChannel || archiveChannel) {
     const prior = await GuildConfig.findOne({ guildId: interaction.guildId })
-      .select("giveawayChannelId survivalTrialChannelId activityGiveawayListChannelId activityGiveawayWinnersChannelId activityGiveawayReviewChannelId").lean();
+      .select("giveawayChannelId survivalTrialChannelId activityGiveawayListChannelId activityGiveawayWinnersChannelId activityGiveawayReviewChannelId giveawayArchiveChannelId").lean();
     const nextGiveaways = giveawayChannel?.id || prior?.giveawayChannelId || "";
     const nextTrials = survivalTrialChannel?.id || prior?.survivalTrialChannelId || "";
     const nextList = activityGiveawayListChannel?.id || prior?.activityGiveawayListChannelId || "";
     const nextWinners = activityWinnersChannel?.id || prior?.activityGiveawayWinnersChannelId || "";
     const nextReview = activityReviewChannel?.id || prior?.activityGiveawayReviewChannelId || "";
+    const nextArchive = archiveChannel?.id || prior?.giveawayArchiveChannelId || "";
     if (nextGiveaways && nextGiveaways === nextTrials)
       throw new UserFacingError("Standard giveaways and Court's Trials need two different channels.");
     if (nextList && nextWinners && nextList === nextWinners)
@@ -216,6 +225,8 @@ export async function execute(interaction) {
       throw new UserFacingError("Use separate channels for standard giveaways, the activity directory, and activity winners.");
     if(nextReview && [nextGiveaways,nextTrials,nextList,nextWinners].includes(nextReview))
       throw new UserFacingError("The staff review channel must be separate from every public giveaway channel.");
+    if(nextArchive && [nextReview,nextGiveaways,nextTrials,nextList,nextWinners].includes(nextArchive))
+      throw new UserFacingError("Giveaway Archives must be a separate private channel from active staff records and all public giveaway channels.");
     if ((nextList && nextList === nextTrials) || (nextWinners && nextWinners === nextTrials))
       throw new UserFacingError("Keep the activity directory and winners separate from Court's Trial announcements.");
   }
@@ -233,6 +244,7 @@ export async function execute(interaction) {
   if (activityGiveawayListChannel) updates.activityGiveawayListChannelId = activityGiveawayListChannel.id;
   if (activityWinnersChannel) updates.activityGiveawayWinnersChannelId = activityWinnersChannel.id;
   if (activityReviewChannel) updates.activityGiveawayReviewChannelId = activityReviewChannel.id;
+  if (archiveChannel) updates.giveawayArchiveChannelId = archiveChannel.id;
   if (survivalTrialChannel) updates.survivalTrialChannelId = survivalTrialChannel.id;
   if (giveawayPingRole || clearGiveawayPing) updates.giveawayPingRoleId = clearGiveawayPing ? "" : giveawayPingRole.id;
   if (trialPingRole || clearTrialPing) updates.survivalTrialPingRoleId = clearTrialPing ? "" : trialPingRole.id;
@@ -298,7 +310,8 @@ export async function execute(interaction) {
   }
   if (activityGiveawayListChannel) configured.push(`Active activity giveaway directory: ${activityGiveawayListChannel}`);
   if (activityWinnersChannel) configured.push(`Activity giveaway winner announcements: ${activityWinnersChannel}`);
-  if (activityReviewChannel) configured.push(`Private activity drawing approval: ${activityReviewChannel}`);
+  if (activityReviewChannel) configured.push(`Private active giveaway staff records: ${activityReviewChannel}`);
+  if (archiveChannel) configured.push(`Private giveaway archives: ${archiveChannel}`);
   if (survivalTrialChannel) {
     configured.push(`Court's Trial survival giveaways: ${survivalTrialChannel}`);
   }
