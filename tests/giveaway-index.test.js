@@ -153,3 +153,34 @@ test("moving sticky from public channel deletes only the prior bot-owned directo
   Giveaway.find=old.records;GiveawayPlan.find=old.plans;
  }
 });
+
+test("existing staff directory is reused rather than creating a duplicate",async()=>{
+ const old={config:GuildConfig.find,update:GuildConfig.updateOne,
+   records:Giveaway.find,plans:GiveawayPlan.find};
+ const legacyId="999999999999999999";
+ const state={guildId,activityGiveawayReviewChannelId:staffChannelId,
+   giveawayIndexChannelId:"",giveawayIndexMessageId:"",
+   giveawayIndexFingerprint:"",giveawayIndexCheckedAt:null};
+ let edits=0,sends=0;
+ const legacy={id:legacyId,author:{id:"bot"},
+   embeds:[{footer:{text:"Active giveaway staff directory · 908522799285538817 · Page 1/1"}}],
+   edit:async()=>{edits++;},pinned:false};
+ try{
+  GuildConfig.find=()=>({select:()=>({lean:async()=>[state]})});
+  GuildConfig.updateOne=async(q,u)=>Object.assign(state,u.$set);
+  Giveaway.find=()=>({sort:()=>({limit:()=>({lean:async()=>[]})})});
+  GiveawayPlan.find=()=>({sort:()=>({limit:()=>({lean:async()=>[]})})});
+  const client={user:{id:"bot"},channels:{fetch:async()=>({
+    id:staffChannelId,send:async()=>{sends++;},
+    messages:{fetch:async arg=>arg?.limit===100?{find:predicate=>predicate(legacy)?legacy:null}:
+      arg?.limit===1?{first:()=>({id:legacyId})}:null},
+  })}};
+  await reconcileActiveGiveawayIndex(client,{now});
+  assert.equal(edits,1);
+  assert.equal(sends,0);
+  assert.equal(state.giveawayIndexMessageId,legacyId);
+ }finally{
+  GuildConfig.find=old.config;GuildConfig.updateOne=old.update;
+  Giveaway.find=old.records;GiveawayPlan.find=old.plans;
+ }
+});
