@@ -270,6 +270,8 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
   if(item.publicListingRemovedAt) throw Error("This completed giveaway listing has already been deleted and cannot be rerolled.");
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Choose an existing winner number to reroll.");
+  if(reason==="staff" && (winnerHasClaim(item,slot)||(item.claimResolvedSlots||[]).includes(slot)))
+    throw Error("This prize place has already been claimed or permanently resolved. Only unclaimed winners can be manually rerolled.");
   if (reason==="claim-expired") {
     const deadline=winnerClaimDeadline(item,slot);
     if (!item.autoRerollClaims || !deadline || deadline>now || winnerHasClaim(item,slot) ||
@@ -287,7 +289,10 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
   if (!verified.length) throw Error("There are no unused current server members left for a reroll.");
   const reserved = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "ended",
-      ...(reason==="claim-expired" ? {winnerClaims:{$not:{$elemMatch:{slot,userId:item.winnerIds[slot]}}},claimResolvedSlots:{$ne:slot}} : {}) },
+      ...(reason==="claim-expired"||reason==="staff"
+        ? {winnerClaims:{$not:{$elemMatch:{slot,userId:item.winnerIds[slot]}}},
+          claimResolvedSlots:{$ne:slot},[`winnerIds.${slot}`]:item.winnerIds[slot]}
+        : {}) },
     { $set: { status: "rerolling", pendingRerollSlot: slot, pendingRerollStaffId: staffId,
       pendingRerollReason:reason,pendingRerollAt:now,pendingRerollEligibleIds:verified,renderedAt:null } },
     { returnDocument: "after" },
