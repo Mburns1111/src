@@ -102,8 +102,9 @@ export function activityOneOffListingEmbed(record) {
   const minimum=record.activityMinTotalMessages||record.activityMinimum||1;
   const channels=(record.activityChannelIds||[]).map(id=>"<#"+id+">");
   const qualifier=[
-    "• Send **"+minimum+" matching "+(minimum===1?"message":"messages")+"** in "+
-      qualifyChannel(channels)+" during this activity.",
+    "• Send **"+minimum+" "+(minimum===1?"message":"messages")+"** in "+
+      qualifyChannel(channels)+" during this activity"+
+      (record.activityRequiredPhrase?" containing the required phrase":"")+".",
   ];
   if(record.requiredRoleId){
     qualifier.push("• **Required role:** <@&"+record.requiredRoleId+">.");
