@@ -128,14 +128,14 @@ export function giveawayAnnouncement(record) {
           lines.push(`#${slot+1} <@${userId}> — **Claim submitted successfully**`);
         } else if ((record.claimResolvedSlots || []).includes(slot))
           lines.push(`#${slot+1} — **No eligible winner** · <@${userId}> forfeited their claim; no replacement available.`);
-        else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline ? ` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>` : ""}`);
+        else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline ? (deadline<=new Date()?` · **Claim deadline expired**`:` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>`) : ""}`);
       }
     }
     const claims = prizeClaimLines(record, { finished: true });
     if (claims.length) lines.push("", "**Claiming your prize:** Follow the instructions below and use the claim button before the deadline.");
     if(record.mode==="activity" && !record.winnerIds?.length)
       lines.push("", "**Outcome:** No qualifying members won this drawing.");
-    if (changed.length) lines.push("", "**Reroll history**", ...changed);
+    // Reroll history remains in the private staff record, not the public announcement.
     lines.push("", "*Prize delivery is handled by the giveaway host.*");
   }
   const description = lines.join("\n").slice(0, 4000);
