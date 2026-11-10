@@ -109,7 +109,7 @@ export function prizeClaimLines(record,{finished=false}={}){
   if(record.mode!=="survival" || record.trialTicketClaimsEnabled){
     lines.push("**Submit your claim:** Press **Enter Ticket Claim info** and provide your **ticket number** and the **Discord message link** from your ticket. Creating a support ticket alone does not register your claim with the bot.");
     lines.push("⚠️ **IMPORTANT — CLAIM BEFORE THE DEADLINE OR FORFEIT YOUR WIN.** If your ticket number and message link are not entered into the bot before the claim window closes, your winning place is forfeited."+
-      (record.autoRerollClaims?" The bot can choose another eligible winner (up to "+automaticRerollLimit(record)+" automatic rerolls per place).":""));
+);
   }else lines.push("*Court's Trial claims are coordinated by staff; these deadlines do not trigger automated rerolls.*");
   return lines;
 }
