@@ -41,3 +41,12 @@ test("fulfilled or archived giveaways reject new claims and rerolls",async()=>{
      staffId:first,slot:0}),/fulfilled or archived/);
  }finally{Giveaway.findOne=previous;}
 });
+
+test("public claim buttons disappear after delivery or fully forfeited winning places",()=>{
+ const delivered=giveawayAnnouncement({...record,prizeDeliveredAt:new Date()});
+ assert.equal(delivered.components.length,0);
+ assert.match(delivered.embeds[0].toJSON().description,/Prize delivery:\*\* Confirmed complete/);
+ const forfeited=giveawayAnnouncement({...record,claimResolvedSlots:[0,1]});
+ assert.equal(forfeited.components.length,0);
+ assert.doesNotMatch(forfeited.embeds[0].toJSON().description,/Claiming your prize/);
+});
