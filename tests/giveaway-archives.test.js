@@ -38,7 +38,7 @@ test("archiver copies complete record with claims before deleting old staff post
  const card={id:"789012345678901234",author:{id:"bot"},
    delete:async()=>removed.push("active card")};
  const archiveChannel={id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
-   permissionsFor:()=>({has:()=>false}),
+   permissionsFor:target=>({has:()=>target?.id!=="everyone"}),
    messages:{fetch:async()=>({find:()=>null})},
    send:async input=>{
      posts.push(input);return{id:"890123456789012345",author:{id:"bot"}};
