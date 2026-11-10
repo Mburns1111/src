@@ -27,14 +27,19 @@ const record=(opts={})=>({
 });
 const buttons=p=>p.components.flatMap(r=>r.components).map(b=>b.data.custom_id);
 
-test("every giveaway type has staff-only entrant control; active events have no claim status marker",()=>{
-  for(const mode of ["standard","activity","survival"]){
-    const current=record({mode});
+test("active giveaways, activity review and running Trials show blue status, never claim colors",()=>{
+  for(const [mode,status] of [
+    ["standard","open"],["activity","open"],["activity","pending_review"],
+    ["activity","closing"],["survival","open"],["survival","preparing"],["survival","running"]
+  ]){
+    const current=record({mode,status});
     const payload=giveawayStaffRecordPayload(current);
     const json=payload.embeds[0].toJSON();
-    assert.equal(giveawayStaffStatusMarker(current),null);
-    assert.equal(json.title,"📋 Giveaway staff record");
+    assert.match(giveawayStaffStatusMarker(current).title,/🟦 IN PROGRESS/);
+    assert.match(json.title,/🟦 IN PROGRESS/);
+    assert.match(json.description,/🟦.*GIVEAWAY IN PROGRESS/);
     assert.doesNotMatch(json.description,/🟨|🟩|🟥/);
+    assert.equal(json.color,0x3498DB);
     assert.ok(buttons(payload).includes("giveawaystaff:entrants:"+giveawayId+":0"));
   }
 });
@@ -63,6 +68,44 @@ test("staff claim status markers distinguish pending yellow, completed green and
 
     const forfeited=record({...claimSettings,claimResolvedSlots:[0]});
     assert.match(giveawayStaffRecordPayload(forfeited).embeds[0].toJSON().title,/🟥 NO ELIGIBLE WINNER/);
+  }
+});
+
+test("deleted completed listings are gray regardless of previous red, yellow or green claim status",()=>{
+  const deletedAt=new Date("2026-11-12T12:00:00Z");
+  for(const mode of ["standard","activity","survival"]){
+    const base={mode,trialTicketClaimsEnabled:mode==="survival",status:"ended",
+      winnerIds:[first],winnerCount:1,publicListingRemovedAt:deletedAt,
+      publicListingRemovedBy:second};
+    for(const claims of [
+      {winnerClaims:[]}, // claim previously pending
+      {winnerClaims:[ticket(0,first)]}, // claim was completed
+      {winnerClaims:[],claimResolvedSlots:[0]}, // no eligible winner
+      {winnerIds:[],winnerClaims:[]}, // nobody entered
+    ]){
+      const archived=record({...base,...claims});
+      const payload=giveawayStaffRecordPayload(archived);
+      const embed=payload.embeds[0].toJSON();
+      assert.match(embed.title,/⬜ ARCHIVED/);
+      assert.match(embed.description,/⬜.*COMPLETED — PUBLIC LISTING DELETED/);
+      assert.doesNotMatch(embed.description,/🟦|🟨|🟩|🟥/);
+      assert.equal(embed.color,0x777777);
+      assert.match(embed.description,/Completed — public listing deleted/);
+      assert.ok(buttons(payload).includes("giveawaystaff:entrants:"+giveawayId+":0"));
+      assert.ok(!buttons(payload).some(x=>x.includes(":remove:")));
+    }
+  }
+});
+
+test("cancelled giveaway archives are gray even if unclaimed winners are in their history",()=>{
+  for(const mode of ["standard","activity","survival"]){
+    const cancelled=record({mode,status:"cancelled",winnerIds:[first],
+      staffCancelReason:"Test cancellation",staffCancelledBy:second});
+    const embed=giveawayStaffRecordPayload(cancelled).embeds[0].toJSON();
+    assert.match(embed.title,/⬜ CANCELLED/);
+    assert.match(embed.description,/⬜.*CANCELLED — PUBLIC LISTING REMOVED/);
+    assert.equal(embed.color,0x777777);
+    assert.doesNotMatch(embed.description,/🟦|🟨|🟩|🟥/);
   }
 });
 
