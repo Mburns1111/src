@@ -28,36 +28,7 @@ export const data = new SlashCommandBuilder()
   .setName("giveaway").setDescription("Host giveaways that retain their winners and prize details")
   .addSubcommand(c => c.setName("start").setDescription("Create a regular giveaway with a guided setup and preview"))
   .addSubcommand(c => c.setName("activity").setDescription("Create an activity giveaway with guided questions in the current allowed channel"))
-  .addSubcommand(c => c.setName("watch-save").setDescription("Save a named channel watched daily or Wednesday–Wednesday")
-    .addStringOption(o => o.setName("name").setDescription("Example: QOTD, Suggestions, Art").setRequired(true).setMinLength(1).setMaxLength(60))
-    .addChannelOption(o => o.setName("channel").setDescription("Channel whose messages count").setRequired(true))
-    .addIntegerOption(o => o.setName("min_chars").setDescription("Minimum characters per qualifying message (default 1)").setMinValue(0).setMaxValue(2000))
-    .addIntegerOption(o => o.setName("messages").setDescription("Total qualifying messages required during this daily/weekly period").setMinValue(1).setMaxValue(10000))
-    .addIntegerOption(o => o.setName("per_day").setDescription("Optional extra minimum messages per active day (default 1)").setMinValue(1).setMaxValue(50))
-    .addIntegerOption(o => o.setName("days").setDescription("Required active days: 1 for daily, up to 7 weekly").setMinValue(1).setMaxValue(7))
-    .addStringOption(o => o.setName("period").setDescription("Daily: prior calendar day; Weekly: prior Wednesday–Wednesday")
-      .addChoices({name:"Daily — previous calendar day",value:"daily"},
-        {name:"Weekly — Wednesday to Wednesday",value:"weekly"}))
-    .addUserOption(o => o.setName("mention_member").setDescription("Require an explicit @mention of this member"))
-    .addStringOption(o => o.setName("phrase").setDescription("Exact spelling and word order required; capitalization ignored").setMinLength(1).setMaxLength(120))
-    .addBooleanOption(o => o.setName("clear_mention").setDescription("Stop requiring a member mention"))
-    .addBooleanOption(o => o.setName("clear_phrase").setDescription("Stop requiring a phrase")))
-  .addSubcommand(c => c.setName("watch-list").setDescription("Review saved named activity channel rules"))
-  .addSubcommand(c => c.setName("watch-delete").setDescription("Remove a named watched channel rule")
-    .addStringOption(o => o.setName("name").setDescription("Saved rule name").setRequired(true)))
-  .addSubcommand(c => c.setName("edit-prize").setDescription("Update a giveaway's prize before winners are drawn")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or existing message link").setRequired(true))
-    .addStringOption(o => o.setName("prize").setDescription("Updated prize details").setRequired(true).setMinLength(2).setMaxLength(1500)))
-  .addSubcommand(c => c.setName("end").setDescription("End a normal giveaway early and retain its results")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true)))
-  .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true))
-    .addIntegerOption(o => o.setName("winner").setDescription("Winner number to replace, starting with 1").setRequired(true).setMinValue(1).setMaxValue(10)))
-  .addSubcommand(c => c.setName("list").setDescription("Show recent regular giveaways and saved IDs"))
-  .addSubcommand(c => c.setName("entrants").setDescription("Privately list entrants of any giveaway or trial")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway or trial ID or message link").setRequired(true))
-    .addIntegerOption(o => o.setName("page").setDescription("Page (25 entrants at a time)").setMinValue(1)));
-
+  .addSubcommand(c => c.setName("list").setDescription("Show recent regular giveaways and saved IDs"));
 
 addGiveawayBannerCommands(data);
 
@@ -80,16 +51,7 @@ export const trialData = new SlashCommandBuilder()
     .addBooleanOption(o => o.setName("disable_auto_rerolls").setDescription("Turn off automatic unclaimed-prize rerolls"))
     .addIntegerOption(o => o.setName("claim_minutes").setDescription("Minutes winners have to claim after trial ends (default 12 hours)").setMinValue(1).setMaxValue(43200))
     .addStringOption(o => o.setName("claim_instructions").setDescription("Optional custom prize collection instructions").setMaxLength(1000)))
-  .addSubcommand(c => c.setName("cancel").setDescription("Cancel a trial without awarding winners; retain its record")
-    .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
-  .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true))
-    .addIntegerOption(o => o.setName("winner").setDescription("Winner number to replace, starting with 1").setRequired(true).setMinValue(1).setMaxValue(10)))
   .addSubcommand(c => c.setName("list").setDescription("Show recent Court's Trials and saved IDs"))
-  .addSubcommand(c => c.setName("entrants").setDescription("Privately list registered Court's Trial contestants")
-    .addStringOption(o => o.setName("id").setDescription("Trial ID or message link").setRequired(true))
-    .addIntegerOption(o => o.setName("page").setDescription("Page (25 contestants at a time)").setMinValue(1)));
-
 const linkTo = record => `https://discord.com/channels/${record.guildId}/${record.channelId}/${record.messageId}`;
 
 export const ENTRANTS_PER_PAGE = 25;
