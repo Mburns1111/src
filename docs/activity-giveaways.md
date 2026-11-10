@@ -82,6 +82,18 @@ The following settings are **per giveaway** and are not forced on all servers.
 - Set `announce_empty:false` to keep zero-qualifier scheduled outcomes private instead (without consuming a prize).
 - One-time activity giveaways also report no qualifying members in their result rather than failing to create.
 
+## Giveaway presentation and staff progress (development)
+
+The Cryptic Court remains the default presentation, with a decorative registered banner and a compact Discord embed. Staff may change the server-wide embed accent with `/giveaway color-default hex:#B47E99` and restore the default with `/giveaway color-clear`. Registered banner uploads and per-plan banner selection remain supported. Setting a color does not alter eligibility, prizes, role weights or claims. The color is shared by public giveaway listings and regular/activity result embeds, not Court's Trials.
+
+For activity giveaway staff records, the bot publishes **two separate messages** in the configured private staff channel: the existing management/claim record and an adjacent **Member Activity & Qualification** overview. It shows the counts for members with recorded activity and concise samples of qualified/in-progress members; members with zero recorded activity are omitted. Staff may open a private paginated qualified or in-progress roster, select an individual member, or use the member-search picker. Staff member lookups and rosters never post new permanent chat messages.
+
+The second message refreshes at most once each Eastern calendar day while the activity is open, or when a moderator presses **Refresh Progress** (60-second refresh cooldown). Status transitions can also cause an update. The bot keeps collecting activity counters continuously; display refresh timing does **not** control winner eligibility or the draw. No new Discord progress-message fetch is needed between scheduled refreshes when the saved message ID is already present.
+
+**Current implementation limitation:** These are per-drawing staff messages. Reusing exactly the same two staff message IDs across every recurring drawing is not yet implemented; public recurring giveaway listings already reuse their existing message. Do not assume recurring staff-panel reuse is complete until the per-plan lifecycle is added and tested.
+
+Winner result embeds use a Court-themed title for activity drawings. A zero-winner result does not include ticket-claim instructions, and an actual winner retains claim and reroll controls.
+
 ## Registered giveaway embed banners
 
 Use a one-time image upload to register a reusable banner; the bot stores the image in MongoDB rather than trusting a temporary signed upload URL.
