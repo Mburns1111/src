@@ -71,6 +71,7 @@ export async function ensureStaffProgressPanel(client,record,channel,{force=fals
  const current=record.staffProgressRefreshedAt?new Date(record.staffProgressRefreshedAt):null;
  const due=force||!current||(record.status==="open"&&dayKey(current)!==dayKey(now))||
    (record.staffProgressStatus||"")!==record.status;
+ if(!due && record.staffProgressMessageId)return true; // No Discord API work between scheduled refreshes.
  let message=record.staffProgressMessageId?await channel.messages.fetch(record.staffProgressMessageId).catch(e=>{
    if(e.code===10008)return null;throw e;
  }):null;
