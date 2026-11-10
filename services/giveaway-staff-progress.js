@@ -1,4 +1,4 @@
-import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,PermissionFlagsBits} from "discord.js";
+import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,PermissionFlagsBits,UserSelectMenuBuilder} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
@@ -60,7 +60,10 @@ export function progressPanelPayload(record,rows,at=new Date()){
    components:[new ActionRowBuilder().addComponents(
       button("activitystaff:qualified:"+record._id+":0","Qualified Members"),
       button("activitystaff:progress:"+record._id+":0","In Progress"),
-      button("activitystaff:refresh:"+record._id,"Refresh Progress",ButtonStyle.Primary))],
+      button("activitystaff:refresh:"+record._id,"Refresh Progress",ButtonStyle.Primary)),
+     new ActionRowBuilder().addComponents(new UserSelectMenuBuilder()
+       .setCustomId("activitystaff:find:"+record._id)
+       .setPlaceholder("Find a member · View individual progress").setMinValues(1).setMaxValues(1))],
    allowedMentions:{parse:[]}};
 }
 export async function ensureStaffProgressPanel(client,record,channel,{force=false,now=new Date()}={}){
