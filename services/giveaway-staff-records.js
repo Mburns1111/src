@@ -46,9 +46,18 @@ export function giveawayStaffEntrantsPage(record,page=0){
   };
 }
 
-// Make the staff record immediately scannable. Only finished prize/claim states
-// get a marker; live giveaways remain unmarked.
+// Staff records are scannable from the embed title, status line and border.
+// Priority matters: a publicly removed/archived listing is always GRAY,
+// regardless of whether its previous state was pending, claimed or no-winner.
 export function giveawayStaffStatusMarker(record){
+  if(record.publicListingRemovedAt||record.status==="cancelled"){
+    const cancelled=record.status==="cancelled";
+    return cancelled
+      ? {text:"⬜ **CANCELLED — PUBLIC LISTING REMOVED** ⬜",title:"⬜ CANCELLED · Giveaway staff archive",color:0x777777}
+      : {text:"⬜ **COMPLETED — PUBLIC LISTING DELETED** ⬜",title:"⬜ ARCHIVED · Giveaway staff record",color:0x777777};
+  }
+  if(["open","preparing","running","pending_review","closing"].includes(record.status))
+    return {text:"🟦 **GIVEAWAY IN PROGRESS** 🟦",title:"🟦 IN PROGRESS · Giveaway staff record",color:0x3498DB};
   if(!["ended","rerolling"].includes(record.status))return null;
   if(giveawayHasNoEligibleWinner(record))
     return {text:"🟥 **ENDED — NO ELIGIBLE WINNER** 🟥",title:"🟥 NO ELIGIBLE WINNER · Giveaway staff record",color:0xE74C3C};
@@ -119,7 +128,9 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
        (record.winnerIds||[]).length
          ? "*The claim window expired and no eligible replacement remained.*"
          : "*No eligible members entered or qualified.*",
-       "*The public result remains visible until staff explicitly use Delete Listing.*");
+       completedAndRemoved
+         ? "*The public listing was deleted by staff; this private record preserves the outcome.*"
+         : "*The public result remains visible until staff explicitly use Delete Listing.*");
    if(record.winnerIds?.length){
      lines.push("",record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Court\'s Trial winners — staff-managed prize claims**":"**Current winners and ticket claims**");
      for(let slot=0;slot<record.winnerIds.length;slot++)
