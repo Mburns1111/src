@@ -178,7 +178,7 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
     item.mode==="activity"&&item.status==="open"&&new Date(item.endsAt)>now;
   if(!visible)return deleteListing(client,item,Model);
   const config=await GuildConfig.findOne({guildId:item.guildId})
-    .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId").lean();
+    .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId giveawayEmbedColor").lean();
   const channelId=config?.activityGiveawayListChannelId;
   if(!channelId)return false;
   if(!config?.activityGiveawayWinnersChannelId)return false;
@@ -193,6 +193,8 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
   const embed=isPlan ? activityPlanListingEmbed(item,rule,{
     winnerChannelId:config.activityGiveawayWinnersChannelId,
   }) : activityOneOffListingEmbed(item);
+  if(/^#[0-9a-fA-F]{6}$/.test(config?.giveawayEmbedColor||""))
+    embed.setColor(parseInt(config.giveawayEmbedColor.slice(1),16));
   const payload=attachGiveawayBanner({embeds:[embed],allowedMentions:{parse:[]},attachments:[]},banner);
   if(item.progressEnabled && (isPlan||item.status==="open")){
     payload.components=[new ActionRowBuilder().addComponents(
