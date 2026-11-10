@@ -507,15 +507,18 @@ export async function handleGiveawayStaffAction(interaction){
        return interaction.reply({content:"A completed giveaway can only be removed when no winners were selected, or each prize place has a submitted ticket claim or has passed its deadline with no rerolls left.",...ephemeral});
      return interaction.showModal(new ModalBuilder()
        .setCustomId("giveawaystaff:confirmremove:"+id)
-       .setTitle("Delete completed giveaway listing")
+       .setTitle(record.mode==="survival"?"Archive completed Court's Trial":"Delete completed giveaway listing")
        .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
-         .setCustomId("confirm").setLabel("Type DELETE to remove public posts")
-         .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(6))));
+         .setCustomId("confirm")
+         .setLabel(record.mode==="survival"?"Type ARCHIVE to keep Royal Verdict":"Type DELETE to remove public posts")
+         .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(7))));
    }
    await interaction.deferReply(ephemeral);
    if(action==="confirmremove"){
-     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="DELETE")
-       return interaction.editReply("Listing deletion not confirmed. Type DELETE to proceed.");
+     const isTrial=record.mode==="survival";
+     const confirmWord=isTrial?"ARCHIVE":"DELETE";
+     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!==confirmWord)
+       return interaction.editReply("Archive/removal not confirmed. Type "+confirmWord+" to proceed.");
      if(!completedGiveawayCanDeleteListing(record))
        return interaction.editReply("Cannot delete listing: some winners still have time to claim or have rerolls remaining. Removal is available after all places are claimed or exhausted, or if no winners were selected.");
      const archived=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
@@ -531,8 +534,10 @@ export async function handleGiveawayStaffAction(interaction){
      try{await ensureGiveawayStaffRecord(interaction.client,archived);}
      catch(error){console.error("[Giveaways] Completed listing staff record refresh failed:",error);}
      return interaction.editReply(cleanupError
-       ?"The giveaway ended and was archived (not cancelled), but some public posts could not be deleted. The bot will retry; check its permissions."
-       :"Completed giveaway listing deleted from public channels. The giveaway remains **ended** with winners and claims preserved in the staff archive; it was not cancelled.");
+       ?"The giveaway was archived (not cancelled), but the signup/listing could not be removed. The bot will retry; check its permissions."
+       :isTrial
+         ?"Court's Trial archived. Signup listing closed; **Royal Verdict remains public**, with winners and claims preserved privately. Staff record is gray."
+         :"Completed giveaway listing deleted from public channels. The giveaway remains **ended** with winners and claims preserved in the staff archive; it was not cancelled.");
    }
    if(action==="stop"){
      if(record.publicListingRemovedAt||(record.mode==="survival"&&!record.trialTicketClaimsEnabled)||record.status!=="ended"||!record.autoRerollClaims)
