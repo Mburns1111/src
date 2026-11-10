@@ -79,7 +79,7 @@ test("announcement remains on completion with details, winners and audit trail",
  assert.equal(finished.components[0].components[0].data.label,"Enter Ticket Claim info");
  const description=finished.embeds[0].data.description;
  assert.match(description,/Jester Dragon/);
- assert.match(description,/Reroll history/);
+ assert.doesNotMatch(description,/Reroll history/);
  assert.match(description,/<@444444444444444444>/);
  assert.match(description,/<@234567890123456789>/);
  assert.match(open.embeds[0].data.description,/fox whispers/i);
