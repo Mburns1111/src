@@ -1,178 +1,158 @@
-# Activity giveaways — saved plans, watched channels, prize queues and ticket claims
+# Giveaways and Court's Trials — guided setup, activity tracking, staff controls, and claims
 
-**Development only:** `feature/activity-giveaways-complete`. Do not merge into main or deploy to Wispbyte without approval.
+**Updated:** November 10, 2026, following giveaway/Trial testing feedback.  
+**Development branch:** `feature/trials-guided-setup` (based on `feature/activity-giveaways-complete`). **Documentation only**; this page is not proof of Discord testing or production deployment. Do not merge into `main` or deploy to Wispbyte without the owner's approval.
 
-## Setup workflow
+## Which setup and commands to use
 
-1. Configure **three separate channels** with `/setup channels giveaways:#regular-giveaways activity_giveaway_list:#active-giveaways activity_winners:#activity-winners`. The first is for existing button-entry giveaways, the second is a member-visible directory, and the third is where automatic activity drawing results and ticket-claim buttons are announced.
-   - Optional: `/setup channels activity_review:#private-giveaway-reviews` for staff approval. Review cards are never posted publicly.\n   - The public directory gets one live embed **per active scheduled activity plan or confirmed one-off activity giveaway**. It shows the current/upcoming prize, watched channel, qualifying message count/conditions, period, next winner announcement time and results channel. It does **not** reveal entrants or winners before the draw.
-   - Recurring plans reuse/edit their own directory message each cycle; changing a plan/prize updates that listing. Paused, completed and concluded giveaways are cleared from the directory while finished results remain preserved in the **separate** winners channel.
-   - The bot synchronizes directory posts automatically on startup and every giveaway sweep, including recovery after restarts. Ensure it can send/edit embeds and upload images in both channels.
-   - Older standard giveaways and Court's Trials retain their existing assigned channels.
-2. Save one watched channel at a time:
-   - Daily QOTD: `/giveaway watch-save name:QOTD channel:#question-of-the-day period:daily min_chars:25 messages:1`
-   - Weekly discussion: `/giveaway watch-save name:Discussion channel:#discussion period:weekly min_chars:20 messages:50`
-   - `/giveaway watch-list` shows all saved rules. Reuse `watch-save` with the same name to edit **only** that rule. When editing an existing watch, omitted settings are preserved.
-3. Create an independent one-time or recurring drawing plan:
-   - Daily QOTD: `/giveaway plan-create name:QOTD-Daily title:QOTD Daily Prize watch:QOTD announce_at:2026-11-11 19:00 prize:Diamond Egg repeat:daily period:daily claim_hours:12 winners:1`
-   - Weekly: `/giveaway plan-create name:Weekly-Activity title:Weekly Activity Prize watch:Discussion announce_at:2026-11-11 19:00 prize:Copy Cat repeat:weekly period:weekly claim_hours:12`
-   - Once at a specified time: `/giveaway plan-create name:Art-OneTime title:Art Prize watch:general announce_at:2026-11-14 19:00 prize:Art Prize repeat:once period:daily claim_hours:24`
-   - Fixed elapsed intervals: `/giveaway plan-create name:Interval-QOTD title:QOTD Interval Prize watch:QOTD announce_at:2026-11-11 19:00 prize:Egg repeat:interval interval_hours:36 period:daily`
-   - For general activity use `watch:general`, which checks any eligible server channel. Add `messages:50` to `plan-create` to require 50 total messages across the chosen period. Plan-specific message counts can be edited later without changing a saved watch.
-4. Maintain the prize list:
-   - `/giveaway prize-add name:QOTD-Weekly prize:Copy Cat`
-   - `/giveaway prize-edit name:QOTD-Weekly position:2 prize:Neon Cat`
-   - `/giveaway prize-move name:QOTD-Weekly from:2 to:1`
-   - `/giveaway prize-remove name:QOTD-Weekly position:2`
-   - `/giveaway plan-view name:QOTD-Weekly` to review the ordered prize list, next prize, active status, claim period and next announcement.
-   - `/giveaway plan-list` lists all plans; `/giveaway plan-edit` edits title, watched rule, next scheduled time, recurrence, prize cycling, enabled status, winner count, and claim hours.
-5. To modify one giveaway **before its winners are drawn**, use `/giveaway edit-prize id:<ID> prize:<updated prize>`. The original giveaway record and entered members remain in place.
+Configure the server through the current guided commands:
 
-`announce_at` is the **first draw's exact date and time**, written `YYYY-MM-DD HH:mm` **Eastern time**. Each plan has independent settings:
+1. `/setup general` — set the bot **commands channel** first; unrelated modules are optional.
+2. `/setup giveaways` — set regular giveaway channels and shared defaults.
+3. `/setup activity-giveaways` — set the **public activity directory**, the **separate activity winners/results channel**, and a **private staff/review channel**. Set claim instructions/defaults and notification settings here.
+4. `/setup trials` — set the Court's Trials channel, trial eligibility/claim defaults, and related settings.
+5. Start a regular giveaway with `/giveaway start`, or start an activity giveaway with **`/giveaway activity`**. Both use guided setup; `/trial start` starts a Court's Trial.
 
-- **Activity window (`period`)**: `daily` checks *exactly the previous Eastern calendar day* (00:00 to the following 00:00, not a rolling 24 hours). `weekly` checks *exactly the last completed Wednesday-to-Wednesday week*. The period is frozen into each saved drawing.
-- **Drawing schedule (`repeat`)**: `once` runs on the chosen date/time; `daily` repeats at the same Eastern wall-clock time each day; `weekly` repeats on the same weekday and Eastern wall-clock time; `interval` repeats after `interval_hours` elapsed hours, measured as fixed elapsed time.
-- **Interval safety**: for daily eligibility, intervals must be **24–720 hours**; for weekly eligibility, **168–720 hours**. This prevents repeated drawings from counting the same activity window. `daily` recurrence cannot use a `weekly` activity window.
-- **Prize cycling**: `repeat_prizes` determines whether the ordered prize list cycles after the last prize (default true). No prize is consumed when a scheduled draw finds zero eligible members.
+**Create and answer the activity wizard in the configured commands channel, not in DMs or in the private staff-record channel.** The bot prompts in that channel, then posts the confirmed giveaway to the public activity list and creates its private staff record. Staff should use the on-message controls to manage it.
 
-All start times and day boundaries use `America/New_York` and handle daylight-saving changes. Daily and weekly same-clock-time recurrences keep the Eastern clock time; fixed-hour intervals may shift their Eastern clock time when DST changes. You may update the next announcement, schedule, or activity period later with `/giveaway plan-edit` without changing past drawings.
+The old `/setup channels` path is retained only for compatibility with already cached interactions; it is not the current setup method. The old `/giveaway watch-save`, `watch-list`, `watch-delete`, `plan-create`, `plan-edit`, `plan-view`, `plan-list`, `prize-*`, and record-management slash commands are **not the current advertised creation/management workflow**. Previously saved watches, schedules, records, and prize histories must be preserved; do not delete legacy data as part of setup.
 
-## Optional staff approval, private member progress, role weights and custom windows
+### Public and staff destinations
 
-The following settings are **per giveaway** and are not forced on all servers.
+- **Public activity directory:** displays the prize, title, optional giveaway description, the real activity requirements, activity start/end, announcement time and results channel; no public list of qualifying members. Qualifying members enter **automatically** — there is no manual entry button.
+- **Activity winners/results channel:** receives the actual result (or a configured no-winner result). Do not add claim directions when nobody was selected as a winner.
+- **Private staff/review channel:** receives a staff record with progress preview and management buttons, then updates with winners, claim deadlines, submitted ticket details and reroll history. Staff-only claim information belongs here, not in redundant public text.
+- **Existing regular giveaways and Trials:** retain their separately configured destinations. The Court's Trial Royal Verdict remains public after staff archive the trial.
 
-### Staff-only approval before drawing
+For a **one-time guided activity giveaway**, its directory post remains visible after drawing, including while a winner has a claim pending, until staff deliberately use **Delete Listing** when that action becomes eligible. Ending a giveaway is not the same as deleting its listing. A recurring plan's ongoing directory listing can be updated for new rounds; legacy schedules and completed posts should not be silently discarded.
 
-- `/setup channels activity_review:#private-giveaway-reviews` configures a **separate private staff channel**. Restrict channel visibility for @everyone; the bot rejects a publicly visible review channel when it can inspect channel permissions.
-- `/giveaway plan-create ... review:true` or `/giveaway plan-edit name:... review:true` enables review; omission defaults **off** for newly created plans.
-- At the scheduled drawing time the bot **does not choose or announce winners yet**. It snapshots qualifying member IDs (one per member) and posts a staff review embed with the requirements, prize, number of active members, number eligible/not eligible, and qualifying member mentions, capped at a 20-member preview. The ineligible count is based on distinct active participants; it can include people who have left the server.
-- A staff member with **Manage Server** presses **Approve & Draw** to select distinct winners and announce them in the separate `activity_winners` channel; **Decline Drawing** cancels without using a prize. Only one approval can succeed.
-- The review request remains recoverable after restarts. The next schedule cycle begins when a reviewed result is finalized.
-- One-off `/giveaway activity ... review:true` supports the same option. Its existing creation confirmation is separate from this optional pre-draw staff review.
+## Guided activity giveaway: counting rules
 
-### Member progress button (on by default)
+### Message target means the total for the whole activity period
 
-- New guided activity giveaways and saved plans turn on **Check My Progress by default**. Staff can turn it off in the guided setup with **Member progress**, or specify `progress:false` in `plan-create` / `plan-edit`. Existing saved giveaways keep their previous setting unless edited.
-- Any server member may click **Check My Progress**, including members who have posted zero messages. No staff role or prior qualification is required. Each person privately sees only their own `qualifying messages / target`, relevant active-day threshold, provisional chances if qualified, and the current activity window. No one else's data is returned.
-- For each saved plan, the progress button checks the **exact activity window associated with its next scheduled drawing**. This may be ongoing, already completed (for a drawing later today), or upcoming. The private reply shows the relevant window boundaries. For custom windows it checks activity from the configured start up through the current time or cutoff.
+**The message goal is a TOTAL, not a per-active-day quota.** For example, choosing **50 qualifying messages** for a weekly activity means 50 matching messages **across that one weekly activity window**. It does **not** mean 50 each day or 50 multiplied by the number of active days.
 
-### One-time custom activity start and cutoff
+- The wizard offers **1, 3, 5, 10, 20**, or **Custom number**. Custom totals may be **1–10,000**; the minimum goal is **1**.
+- **Distinct active days** are a separate optional condition. If the activity requires three different days, a member must contribute at least one qualifying message on three distinct days **and** reach the total-message goal during the full period. It is still **not a daily message quota**.
+- **Minimum characters per message** is yet another independent option: none / 5 / 10 / 25 / 50 / Custom (1–2,000). The length rule applies to each counted message; explicit member mentions do not satisfy a custom text-length threshold.
+- The wizard can count messages in **all eligible server channels** or **one chosen channel**.
+- Optional matching filters are **Any message**, **Member ping**, **Word or phrase**, or **Ping and phrase**. A required member ping must be a real explicit user mention; a plain name or role ping is insufficient. Phrase spelling and word order must match; capitalization does not matter. When both are selected, the **same counted message** must meet both rules.
+- A giveaway may require a specific role before messages can count. Staff can use the default role, choose another, or require none, and decide whether to show instructions about obtaining it.
+- Bots, webhooks and otherwise ineligible messages are excluded. Activity counts are recorded as qualifying events/counters rather than storing message bodies; a change in important matching conditions can restart the current activity window instead of retroactively counting prior messages.
 
-- Add `starts_at:YYYY-MM-DD HH:mm` and `ends_at:YYYY-MM-DD HH:mm` to a one-time `plan-create` or `/giveaway activity`. Both are in Eastern time and use the exact minute.
-- The custom cutoff must be later than the start and no later than the scheduled winner announcement time. Custom windows are **one-time only**, to avoid repeating the same dates on daily or weekly plans.
-- `plan-edit` supports changing either endpoint (provided the full range remains valid), plus `clear_window:true` to revert to the default previous day/week.
-- A future custom window **collects entries until its cutoff**; creating the giveaway does not freeze an empty entrant list. Messages are counted using persisted per-minute counter summaries.
-- Record retention is 90 days. The selected start cannot be more than 89 days old. Counters do not backfill Discord chat that predates the new bot code running.
+**Progress preview:** The staff-only **Preview qualifying members** button displays members with recorded participation since the current activity started, including qualifying and not-yet-qualifying progress. It omits people with **no recorded activity** in that window; it should never list the entire server membership just to show zeros. Each person appears once, even if they sent many messages or met several filters. A private **Check My Progress** button can be enabled for members (on by default in the guided activity wizard); it shows only the requesting person's progress.
 
-### One entry per member, multiple role-based chances
+### Activity window and announcement
 
-- All activity types (general messages, QOTD participation, special phrases, @member tags) **qualify the user at most once**. Five valid tags are not five entries; 50 valid chat messages merely meets a 50-message goal.
-- If staff want role advantages, register any number of separate bonus roles (up to 20) against a saved watch or a plan using the distinct staff-only command:
-  - `/giveaway-role bonus-add target:watch name:QOTD role:@VIP extra:2`
-  - `/giveaway-role bonus-add target:watch name:QOTD role:@Supporter extra:3`
-  - `/giveaway-role bonus-add target:plan name:Weekly-Activity role:@Contributor extra:1`
-  - `/giveaway-role bonus-list target:watch name:QOTD` and `/giveaway-role bonus-remove target:watch name:QOTD role:@VIP`\n  - `/giveaway-role bonus-add target:event name:<Giveaway ID> role:@VIP extra:2` — customize an individual **one-off activity giveaway** until its draw; the private setup preview shows its ID.
-- Each one-off drawing can also receive its own role bonuses using `target:event`; future rounds of named plans use `target:plan` or inherited `target:watch`.\n- A qualified member has **one base chance**, plus every applicable unique bonus role's extra chances. For example, VIP +2 and Supporter +3 provides weight **6**, not six eligible-member records.
-- A plan can use bonuses inherited from its saved watch plus plan-specific bonuses; if the same role appears on both, the plan setting overrides the watch setting.
-- Weighted draws sample **distinct winners without replacement** and snapshot weights for fair rerolls. No member can win twice in one drawing, even with several roles.
+The guided wizard offers:
 
-### Zero-qualifier result announcements
+- **24 hours**, **Weekly** (choose week start and end weekdays, at midnight Eastern), **Custom days**, or **Custom hours**.
+- Counting begins when staff confirm **Create activity**; future repeating occurrences get their own windows. Activity from an earlier occurrence is not a new entry in the next occurrence.
+- Draw/announce **when counting ends**, or at a chosen later date/time in **America/New_York**.
+- One winner or several (wizard supports **1–10**).
+- An optional description separate from the giveaway title, prize and activity requirements.
+- Optional staff approval, role-based bonus chances, custom claim instructions/window, claim reroll limit, banners, member progress and no-winner announcements.
 
-- New scheduled plans default `announce_empty:true`: if no member qualifies, the bot posts a **no winner selected** result in the winners channel, keeps the prize in the rotation and advances to the next schedule.
-- Set `announce_empty:false` to keep zero-qualifier scheduled outcomes private instead (without consuming a prize).
-- One-time activity giveaways also report no qualifying members in their result rather than failing to create.
+**Winner selection:** Every qualifying member is **one distinct entrant**; 50 messages or multiple qualifying pings are not 50 tickets. Bonus roles add drawing *weight*, not extra member entries. Multiple matching bonus roles can add their weights, but a member cannot win two places in the same draw. The bot checks that a selected member is still in the Discord server before announcing them.
 
-## Registered giveaway embed banners
+**Optional manual approval:** When enabled, qualification is collected at draw time but the bot waits for private staff **Approve & Draw** or **Decline**. Declining does not consume the prize. Default approval is **off**. Staff previews should show people making progress without including all inactive members.
 
-Use a one-time image upload to register a reusable banner; the bot stores the image in MongoDB rather than trusting a temporary signed upload URL.
+### Repeat scheduling
 
-- `/giveaway banner-save name:Roses image:[upload PNG/JPG/WebP/GIF]` — register or replace a named banner (maximum 4 MB)
-- `/giveaway banner-list` — review registered images and the default selection
-- `/giveaway banner-default name:Roses` — select the server-wide default banner on standard and activity giveaway embeds
-- `/giveaway banner-clear` — remove the default while keeping saved assets
-- `/giveaway banner-remove name:Roses` — remove an unused asset (first change the default or any active plan using it)
-- On `/giveaway plan-create` or `plan-edit`, specify `banner:Roses` for a particular giveaway; on `plan-edit`, `banner:default` returns to the server default.
-- One-off `/giveaway activity` and ordinary `/giveaway start` accept an optional `banner` registered name. If omitted, they inherit the server default.
+After setting the giveaway, staff choose **One time**, **Every 24 hours**, **Every week**, or a **Custom interval** in minutes, hours or days. For repeatable giveaways, choose:
 
-The registered banner is displayed above the details as the embed image in both public directory listings and the final winners/results post. **Court's Trials are not changed.**
+- **Forever (until staff stops it)**, or
+- **Custom number of additional repeats** (**1–1,000**). The first giveaway is not counted as an additional repeat: **2 repeats = 3 giveaways total**.
 
-## Configurable activity counts and mention/phrase challenges
+The **confirmation preview**, before Create activity, includes the next **up to two** repeating occurrences with their **start and end** times. The exact number shown depends on how many repeats are configured. Repeats have independent activity windows and should not overlap in ways that count the same activity twice. Staff can stop future repeats without cancelling the current occurrence.
 
-Each watch uses staff-defined thresholds rather than a fixed message quota:
+A legacy saved `GiveawayPlan` may use older day/week/fixed-hour schedule and prize-rotation rules. Those records are preserved for compatibility; do **not** confuse their old `plan-*` interface with the current guided repeat wizard. The current wizard's prize is repeated as configured; it does not expose the legacy `prize-add` / `prize-move` command workflow.
 
-- `messages`: **total qualifying messages within the selected activity period** (for example, 50 messages in the previous Eastern calendar day, or 50 messages anywhere in the last completed Wednesday–Wednesday week).
-- `period`: daily or weekly. Daily messages from Tuesday do not roll over into Wednesday, and weekly drawings exclude earlier weeks.
-- `min_chars`: optional minimum length for each message; command-style messages, bots and webhooks do not count.
-- `per_day` and `days`: **optional additional** minimum/day and minimum distinct active days. These are not imposed when only a total target is provided.
-- `mention_member`: optional explicit Discord member mention required in each counted message, e.g., tag Tina in #general. Plain-text names, @role pings and reply-only notifications do not count.
-- `phrase`: optional case-insensitive text that must appear in the same message (e.g., "you are wonderful"). If both mention and phrase are configured, both must match for the message to count.
-- `clear_mention:true` and `clear_phrase:true` remove existing challenge requirements. Editing matching requirements starts a new counter version so old messages cannot qualify under the changed challenge.
+## Staff-only management buttons
 
-Examples:
-- `/giveaway watch-save name:Chat-50 channel:#general period:weekly messages:50 min_chars:10 days:1`
-- `/giveaway watch-save name:Compliment channel:#general period:daily messages:1 mention_member:@Tina phrase:you are wonderful min_chars:5`
-- `/giveaway watch-save name:QOTD channel:#qotd period:daily messages:1 min_chars:25`
+Use the private staff record, not an old slash-command management workflow:
 
-All watched-message counts are accumulated by the bot as messages arrive and checked against the selected **completed** activity period. The bot records counts, not message bodies. A phrase check verifies the words, not whether a free-form answer is factually correct.
+| When | Available action | Meaning |
+| --- | --- | --- |
+| During activity collection | **Preview qualifying members** | See active members who are qualified or making progress; inactive members are omitted. |
+| During an open giveaway | **View Entrants** / **View Contestants** | Review the recorded member list privately. |
+| During an open giveaway | **Edit Giveaway** | Change supported settings through the private staff controls. Changes are not a second giveaway. |
+| During an open giveaway | **End Early** | Confirm ending early and proceed through the normal drawing/approval, announcement and claim workflow. Do not treat it as cancellation. |
+| During an open giveaway | **Cancel Giveaway** | Confirm cancellation, select no winners, and remove the public listing while preserving staff history. |
+| While a recurring series is active | **Stop future repeats** | Stop creating later occurrences without cancelling the current activity. |
+| After winners are selected, while claims are outstanding | **Manual Reroll** | Choose an unclaimed winner position and confirm replacement, if another eligible member is available. |
+| Once a finished regular/activity giveaway is eligible for removal | **Delete Listing** | Remove its public listing, **not** the giveaway's winner/claim history. |
+| For a completed Court's Trial | **Archive Trial** | Close the signup/listing and preserve the public Royal Verdict and private history. **Do not label it Delete Trial.** |
 
-## Daily and weekly activity eligibility
+For Trials, staff can **Start Trial Early** or **Finish Trial Early** when the corresponding live state allows it. Trial contestant views and archived Royal Verdicts remain distinct from ordinary activity qualification.
 
-- **Daily QOTD example:** Wednesday's drawing checks **Tuesday only**. Thursday's drawing checks **Wednesday only**. Entries from Tuesday are **not** included in Thursday's drawing. Every daily window is a separate Eastern calendar day, 00:00–00:00. No current-day incomplete data is used.
-- **Weekly example:** Wednesday 00:00 to next Wednesday 00:00 in **America/New_York** (including DST). Weekly drawings use only the last fully completed Wednesday-to-Wednesday period.
-- General activity defaults to one message of at least one character on one active day in the chosen daily or weekly window.
-- Named watches count messages **only in their saved channel**, with the configured minimum message length and messages per active day. Daily windows require one active day. Weekly windows may require activity on 1–7 different days (for example, three days with 25+ character QOTD messages).
-- A watched channel may have its own default period. When creating a plan, `period` can override that default without changing the watched rule or other plans. Every scheduled drawing uses its saved period, not an accumulating total.
-- One-time `/giveaway activity` supports `period:daily` or `period:weekly`, and inherits a named watch's default period when not supplied.
-- Bots, webhooks, blank messages and commands starting with `/` or `.` do not count. Message contents are never saved in this counter. Only daily counts and character-length buckets are stored.
-- Tracking starts when the updated bot is running. Earlier messages cannot be reconstructed from the counter, and older rows created before length tracking lack length details; do not assume they qualify for new length thresholds.
-- Staff set up saved watches separately. Creating a QOTD plan does not replace an Art plan. A plan referencing a deleted/missing watch cannot draw until it is repaired.
+**Delete Listing is not available while a current winner still has a live unclaimed deadline or possible rerolls.** A giveaway with no eligible winner, or with all claims submitted/remaining places exhausted, can become removable. Staff must intentionally remove the public listing; the private historical record remains.
 
-## Giveaway details
+### Staff record statuses and colors
 
-Creators can add an optional **Giveaway Details** description, separate from the title, prize and qualification rules (maximum 1,000 characters). The guided activity wizard asks after the prize whether to **Write giveaway details** or **Skip description**. To edit, use **Edit settings → Giveaway Details** in the final preview; the details are saved into each repeating giveaway. They appear on the public activity listing, staff preview and winner result. Other giveaway types can supply `description:` when using `/giveaway start`, `/trial start`, or `/giveaway plan-create`. Saved plans can be revised using `/giveaway plan-edit name:... description:...` or `clear_description:true`. Existing giveaways without descriptions display normally.
+| Color | Status | Rule |
+| --- | --- | --- |
+| **Blue** | In progress | Entries are collecting, the draw is preparing, or staff approval is pending. |
+| **Yellow** | Winner claim pending | At least one selected winner has not yet submitted a valid claim; includes reroll in progress. For older staff-managed Trials, staff follow-up is shown separately. |
+| **Green** | Claim completed | All current prize places are resolved and at least one current winner submitted a ticket claim. This is **not** proof the Roblox prize was delivered. |
+| **Red** | No eligible winner | No selected eligible winner remains, including cases where unclaimed places have exhausted replacement options. |
+| **Gray** | Cancelled / archived / listing deleted | Public listing has been removed or the Trial archived. This **overrides** an earlier yellow/green/red state. |
 
-## Winner tickets and claim deadlines
+Claim deadlines that have passed display **Expired** instead of an endlessly negative relative countdown. Ticket number, link, submission time and reroll history are shown in private staff fields rather than repeated throughout the main staff message. Claims update the staff record; the result should not duplicate winner text or long explanations of reroll mechanics.
 
-In guided activity setup, staff can use a saved banner, register a new one directly, or return to the giveaway preview without losing settings. Upload PNG, JPG, WebP or GIF images (up to 4 MB) in the commands channel. Existing banners appear as quick-select buttons; the uploaded filename can autofill a new banner name. Once registered, the image is saved for reuse. Message targets are **totals for the activity period**, not daily quotas.
+## Winner claims and automatic rerolls
 
-- Winners **must create their normal server support ticket themselves**. The bot does not create support tickets or deliver Roblox prizes.
-- The finished giveaway shows **File Ticket Claim**. Only currently selected winners can use the button. The modal requests **ticket number** and **HTTPS link**.
-- Accepted ticket claims are recorded with the winning position, member ID, submission timestamp and link. The announcement displays the filed ticket details; this may make the ticket link visible even to members who cannot read the private ticket.
-- New standard giveaways, one-off `/giveaway activity`, and saved giveaway plans default to a **12-hour claim window** with automatic claim rerolls; an explicit `claim_hours` overrides the default. Plans default to **12 hours**, adjustable from 1 to 720 hours. Existing historical giveaways are **not retroactively switched** to automatic rerolling.
-- If the deadline expires without a ticket claim, an unused eligible entrant is selected as a replacement. Previously selected winners are excluded; the replacement gets a fresh claim window. If no unused entrants remain, that place is labeled expired.
-- Filing a ticket **prevents automatic reroll**, not manual host review. The bot only records claims; it does not verify that a ticket's contents are legitimate or that a prize was delivered.
-- Court's Trial (`/trial`) also defaults to **12 hours** to claim, with an optional `claim_minutes` override. Trial deadlines are informational, and staff manage trial rerolls manually; automatic ticket-claim rerolls apply to standard and activity giveaways.
+- Winners open their own normal support tickets. **The bot does not create tickets, validate prize delivery or hand out Roblox items.**
+- The active winner submits the ticket **number and Discord message URL** with the giveaway's claim button; merely opening a ticket does not register a bot claim.
+- Guided activity and regular giveaways normally give **12 hours** to claim, with a guided custom setting (1–720 hours). Each replacement winner has their own fresh deadline.
+- Guided activity giveaways can set the **maximum automatic rerolls per unclaimed position** (0–10; default 2), with staff able to intervene manually while a claim is pending. Automatic expiry should not reroll someone who already submitted the required ticket information.
+- When the deadline passes without a claim, an unused eligible entrant may replace that winner. Previous winners cannot win the same place again. If no eligible replacement remains, the place is forfeited and marked **Expired**; staff may remove the listing when eligible.
+- **When no winner is selected, do not publish claim instructions or claim-window information.** A no-winner result may be announced if that option is enabled, without consuming the prize.
+- New Trials configured through `/setup trials` may use ticket-claim handling and optional automatic rerolls; **older Trials keep their prior staff-managed claim behavior**. The current `/trial start` supports `claim_minutes` (minute-based window), while earlier stored Trial durations in hours remain valid for existing records.
+- Public result messages should be concise: do not repeat the winner list in multiple places or include unnecessary reroll/process explanations. A claim submission confirms the ticket information was recorded, **not** prize delivery.
 
-## Reliability and safety
+## Banners, prize details and privacy
 
-- The bot checks member presence through Discord before scheduled activity drawing results.
-- Each scheduled drawing is keyed uniquely to its plan and run time; startup reconciliation reuses a drawing after a restart and never deliberately redraws that occurrence.
-- Previously drawn daily or weekly activity periods cannot be awarded a second time by the same plan, even if its schedule is edited.
-- Daily drawings more than 24 hours overdue and weekly drawings more than seven days overdue are skipped without consuming a prize. Missed occurrences are fast-forwarded without posting a backlog after long downtime.
-- The 30-second giveaway sweep handles due schedules, winner announcements and claim expiry rerolls.
-- Submitted claims, prize snapshots, winner history and reroll history persist in MongoDB; older giveaway data is preserved. Drafts and finished posts are not deleted during ordinary operation.
-- For manual testing, use a **separate development Discord bot and database**, and restore future-dated plans before enabling recurrence.
+- Register a reusable image with the `/giveaway banner-*` actions (PNG/JPG/WebP/GIF, maximum 4 MB). Banners are stored for reuse rather than relying on a temporary Discord upload URL.
+- The guided activity wizard can choose a saved banner, upload and register a new one in the **commands channel**, or keep the server default. Changes in selection must not erase other draft settings.
+- A custom **Giveaway Details** paragraph may be entered separately from the prize/title (up to 1,000 characters); include it in public listing and staff/preview/result where supported.
+- Bonus roles can award 1–20 additional chances each (up to 20 configured bonus roles); chances add, but a winner is selected only once.
+- Staff review and ticket details belong in a permission-restricted channel. Public directory listings do not show staff-only qualification rosters, ticket URLs, raw administration data, or confidential notes.
+- A saved prize/claim history is never deleted by editing a description, archiving a Trial, or clearing a finished directory card.
 
-## Replit test checklist
+## Legacy watches and plans — retained but not the current UX
 
-1. Pull the feature branch and run `npm test`.
-2. Run `node register-commands.js` to refresh the new subcommands; restart the Replit development bot.
-3. Save a daily QOTD watch and weekly discussion watch, list both, and update one. Verify both remain saved. Confirm new plan listings appear only in `#active-giveaways`.
-4. Check the daily QOTD watch on Wednesday: it must include only Tuesday's qualifying messages. Check again Thursday: it must include only Wednesday's qualifying messages (not Tuesday's). Test messages just below/above the length threshold. Verify Eastern midnight and both DST transitions.
-5. Register a banner, set it as default, create a one-time activity plan, and verify its banner appears in the public list. At draw time confirm the finished result posts only in `#activity-winners`, and the active list entry disappears.
-6. Create two recurring plans: daily QOTD and weekly discussion. Verify independent eligible entrants and rotating prizes; one day's entries must never accumulate into the next. Test a fixed-hour interval schedule and verify no activity period is drawn twice.
-7. Edit, reorder and remove future prizes; confirm the public directory updates in place without creating duplicate posts. Check that past drawing prizes/winners are unchanged, and a completed plan is removed from the directory.
-8. Create a short claim-window test. Submit ticket number and link as a winner from the announcement in `#activity-winners`; confirm that winner post updates, duplicate submission is blocked, and no automatic reroll happens for that place.
-9. Let an unclaimed winning place expire, confirm a new eligible winner is chosen, prior winner is excluded and the replacement gets their own claim deadline.
-10. Test no available replacement, simultaneous submissions/rerolls, expired winner leaving Discord, bot restart during drawing, and a bot downtime gap over one week.
-11. Confirm ordinary button-entry giveaways, original prize/claim display, and Court's Trial functionality are not regressed.
-12. **Do not merge or deploy** until Discord tests are confirmed by the owner.
+Older saved `GiveawayWatchRule` / `GiveawayPlan` records may still use a previous calendar day, a completed Wednesday–Wednesday week, custom historical windows, separately saved watches, and independent prize queues. Those records should continue to function without silently changing their historical thresholds.
 
+**Important distinction:** In legacy rules, a `minimumMessages` / `per_day` value may be a **separate optional per-active-day condition**, alongside a `minimumTotalMessages` total and `activeDays`. Do not describe that legacy extra condition as the meaning of the new guided wizard's **message goal**. The guided message goal always means the **whole activity period total**.
 
-## Public activity giveaway presentation
+Legacy dates, reviews, role bonuses and prize queues are historical implementation details, not instructions to create new giveaways through retired `/giveaway watch-save` or `/giveaway plan-create` commands. If a saved legacy plan needs specialized maintenance, inspect its retained data and compatible staff controls instead of guessing a currently registered slash command.
 
-The public activity directory is a member-facing giveaway card. The embed shows the creator's title (Discord member/channel mentions remain clickable), prize, optional **Giveaway Details**, the actual entry requirements, activity period, winner count, draw time, recurring cadence when relevant, and the channel where results appear. Minimum character counts and active-day requirements are shown only when greater than the baseline. Staff-only configuration, raw IDs, locked-entry explanations, and other internal details are omitted. A short reference remains in the footer so reconciliations can recognize existing posts. The **Check My Progress** button stays available when progress is enabled; saved artwork remains the embed banner. Current public listings are edited in place by the normal reconciliation sweep.
+## Replit and Discord verification checklist
 
-## Guided activity staff controls
+1. From the separate development environment, fetch the branch, run `npm test`, and register the current slash commands before restarting the test bot.
+2. Run `/setup general`, `/setup giveaways`, `/setup activity-giveaways` and `/setup trials` as applicable; confirm channel visibility, private staff review access and the shared notification role.
+3. Start `/giveaway activity` in the **commands channel**. Confirm wizard steps remain there (not DMs) and confirmation creates one public activity-directory entry **plus** one private staff record.
+4. Choose **50 total messages** and 3 active days. Confirm 50 matching messages across the full period qualify once, while fewer than 3 distinct days do not. Check the minimum of 1, custom goal, and optional per-message character length.
+5. Test a real member ping, exact phrase, combined ping + phrase, all channels versus one chosen channel, and required role; no matching data should be fabricated from earlier chat.
+6. Test daily, weekly, custom-hour/day activity periods; one-time, 24-hour, weekly and custom-interval repetition. Check Forever and a custom number of repeats, plus the **next two start/end** preview lines.
+7. Use **Preview qualifying members**. Confirm active qualifying and active not-yet-qualifying members appear, but members with zero recorded messages during the activity do not.
+8. Edit, End Early, Cancel, Stop future repeats and View Entrants from private staff controls. End Early must use the ordinary winner/claim path; Cancel must not draw winners. Confirm private staff state updates.
+9. Confirm a one-time giveaway stays in the public directory **after drawing and throughout pending claims**. Test manual reroll while unclaimed, automatic reroll at expiration, submitted ticket claims, no replacement available, and removal only via eligible **Delete Listing**.
+10. Confirm status colors: blue in progress, yellow pending, green claim submitted, red no eligible winner and **gray after cancellation/archive/deletion**. Expired deadlines must say **Expired**, not count below zero.
+11. Test zero eligible members: optional no-winner public result, no claim information and no consumed prize. Verify public result is compact and staff detail is not duplicated.
+12. Check Court's Trial **Archive Trial** (not Delete), Royal Verdict persistence, minute-based claim option, and old Trial compatibility.
+13. Simulate restarts and concurrent actions to ensure no repeated draw, double claim or lost staff/history records. Check regular giveaway and other bot features for regression.
+14. **Do not merge into `main`, update AM-bot, or restart Wispbyte** without separate explicit approval. Passing automated tests is not the same as completing Discord testing.
 
-The staff-only preview cards have **Preview qualifying members**, **Edit Giveaway**, **End Early**, and **Cancel Giveaway**, with **Stop future repeats** shown when a recurring series is active. Staff must hold **Manage Server**. End Early and Cancel require confirmation; editing is a private dropdown/modal workflow. All three actions affect only the current giveaway, not future cycles. Ending early closes activity tracking and draws qualified members (or queues manual review); cancellation draws no winners and removes the public listing. Ending, cancelling, and editing refresh the private staff card. Previously posted staff cards gain these controls through reconciliation after an update.
+### Development pull commands
+
+```bash
+git fetch origin
+git switch feature/trials-guided-setup
+git pull --ff-only origin feature/trials-guided-setup
+npm test
+node register-commands.js
+```
+
+Restart the **Replit test bot** only after confirming the development token/database. No production deployment is implied.
