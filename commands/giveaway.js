@@ -51,7 +51,8 @@ export const trialData = new SlashCommandBuilder()
     .addBooleanOption(o => o.setName("disable_auto_rerolls").setDescription("Turn off automatic unclaimed-prize rerolls"))
     .addIntegerOption(o => o.setName("claim_minutes").setDescription("Minutes winners have to claim after trial ends (default 12 hours)").setMinValue(1).setMaxValue(43200))
     .addStringOption(o => o.setName("claim_instructions").setDescription("Optional custom prize collection instructions").setMaxLength(1000)))
-  .addSubcommand(c => c.setName("list").setDescription("Show recent Court's Trials and saved IDs"))
+  .addSubcommand(c => c.setName("list").setDescription("Show recent Court's Trials and saved IDs"));
+
 const linkTo = record => `https://discord.com/channels/${record.guildId}/${record.channelId}/${record.messageId}`;
 
 export const ENTRANTS_PER_PAGE = 25;
