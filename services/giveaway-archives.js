@@ -76,16 +76,16 @@ export async function archiveGiveawayStaffRecord(client,record,{staffPayload}={}
  const oldProgressId=record.staffProgressMessageId;
  const mainMarker="Giveaway archive · "+record._id;
 
+ let snapshotRows=null;
  let archive=await findOwnedMessage(channel,record.archiveCardId,client,mainMarker);
  if(!archive){
    if(!staffPayload)throw Error("A saved staff record is required to archive a giveaway.");
-   let rows=[];
    if(record.mode==="activity"){
-     try{rows=await activityProgressRows(record);}
+     try{snapshotRows=await activityProgressRows(record);}
      catch(error){console.error("[Giveaways] Could not add full roster to archive snapshot:",error);}
    }
    const snapshot={archivedAt:at.toISOString(),giveaway:record,
-     activityProgress:rows};
+     activityProgress:snapshotRows||[]};
    const bytes=Buffer.from(JSON.stringify(snapshot,null,2));
    // Discord permits file uploads up to at least 8 MB. Keep the full original
    // Mongo document intact even when a larger roster cannot fit in one file.
@@ -109,17 +109,19 @@ export async function archiveGiveawayStaffRecord(client,record,{staffPayload}={}
    let progress=await findOwnedMessage(channel,archiveProgressId,client,marker(record));
    if(!progress){
      let summary=null;
-     if(oldProgressId&&oldCardChannel){
+     if(!snapshotRows){
+       try{snapshotRows=await activityProgressRows(record);}catch(error){
+         console.error("[Giveaways] Could not refresh final archive progress:",error);
+       }
+     }
+     if(snapshotRows)summary=progressPanelPayload(record,snapshotRows,at).embeds[0];
+     if(!summary && oldProgressId && oldCardChannel){
        const source=await client.channels.fetch(oldCardChannel).catch(()=>null);
        const old=await source?.messages?.fetch(oldProgressId).catch(()=>null);
        if(old?.author?.id===client.user?.id&&old.embeds?.length)
          summary=EmbedBuilder.from(old.embeds[0]);
      }
-     if(!summary){
-       let rows=[];
-       try{rows=await activityProgressRows(record);}catch{}
-       summary=progressPanelPayload(record,rows,at).embeds[0];
-     }
+     if(!summary)summary=progressPanelPayload(record,[],at).embeds[0];
      summary.setTitle("📁 Archived member activity · final snapshot")
        .setFooter({text:marker(record)});
      progress=await channel.send({embeds:[summary],allowedMentions:{parse:[]},components:[]});
