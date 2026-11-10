@@ -53,6 +53,7 @@ const giveawaySchema = new mongoose.Schema({
   staffCardId: {type:String,default:""},
   staffCardChannelId: {type:String,default:""},
   archivedAt: {type:Date,default:null},
+  archiveMovedAt: {type:Date,default:null},
   archivedBy: {type:String,default:""},
   archiveReason: {type:String,default:""},
   archiveCardId: {type:String,default:""},
