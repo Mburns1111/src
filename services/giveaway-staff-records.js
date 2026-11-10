@@ -126,28 +126,7 @@ export async function requirePrivateGiveawayStaffChannel(guild,config){
   return channel;
 }
 export async function ensureGiveawayStaffRecord(client,record){
- if(!record||["draft","publishing","failed"].includes(record.status)||record.staffPanelSuperseded)return false;
- // A named recurring activity retains one shared management/progress pair.
- // Older drawing records remain in MongoDB, but no longer update the shared panels.
- const group=record.mode==="activity"&&record.activityStartAt&&
-   (record.scheduleId?{scheduleId:record.scheduleId}:record.guidedSeries?{guidedSeries:record.guidedSeries}:null);
- let source=record;
- if(group){
-   const later=await Giveaway.exists({...group,guildId:record.guildId,
-     activityStartAt:{$gt:new Date(record.activityStartAt)},
-     status:{$nin:["draft","publishing","failed"]}});
-   if(later)return false;
-   if(!record.staffCardId){
-     const previous=await Giveaway.findOne({...group,guildId:record.guildId,
-       activityStartAt:{$lt:new Date(record.activityStartAt)},staffCardId:{$nin:["",null]}})
-       .sort({activityStartAt:-1}).lean();
-     if(previous?.staffCardId)source={...record,
-       staffCardId:previous.staffCardId,
-       staffCardChannelId:previous.staffCardChannelId,
-       staffProgressMessageId:previous.staffProgressMessageId,
-       staffProgressRefreshedAt:null,staffProgressStatus:""};
-   }
- }
+ if(!record||["draft","publishing","failed"].includes(record.status))return false;
  const config=await GuildConfig.findOne({guildId:record.guildId})
    .select("activityGiveawayReviewChannelId").lean();
  const channelId=config?.activityGiveawayReviewChannelId;
@@ -160,8 +139,8 @@ export async function ensureGiveawayStaffRecord(client,record){
    throw Error("The giveaway staff channel must not be accessible to @everyone.");
  const series=record.guidedSeries?await GuidedActivitySeries.findById(record.guidedSeries).lean():null;
  const payload=giveawayStaffRecordPayload(record,{series});
- let message=source.staffCardId&&source.staffCardChannelId===channelId?
-   await channel.messages.fetch(source.staffCardId).catch(error=>{
+ let message=record.staffCardId&&record.staffCardChannelId===channelId?
+   await channel.messages.fetch(record.staffCardId).catch(error=>{
      if(error.code===10008)return null;
      throw error;
    }):null;
@@ -187,24 +166,17 @@ export async function ensureGiveawayStaffRecord(client,record){
  if(record.staffCardId!==message.id||record.staffCardChannelId!==channelId)
    await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
      {$set:{staffCardId:message.id,staffCardChannelId:channelId}});
- if(record.mode==="activity")await ensureStaffProgressPanel(client,source,channel);
- if(group){
-   await Giveaway.updateMany({...group,guildId:record.guildId,
-     _id:{$ne:record._id},activityStartAt:{$lt:new Date(record.activityStartAt)}},
-     {$set:{staffPanelSuperseded:true}});
- }
+ if(record.mode==="activity")await ensureStaffProgressPanel(client,record,channel);
  return true;
 }
 export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
  // Prioritize unposted records, including existing/ended giveaways. Keep audit records forever.
  const missing=await Giveaway.find({
    status:{$nin:["draft","publishing","failed"]},
-   staffPanelSuperseded:{$ne:true},
    $or:[{staffCardId:""},{staffCardId:{$exists:false}},{staffCardChannelId:""}]
  }).sort({createdAt:-1}).limit(limit).lean();
  const active=await Giveaway.find({
    status:{$in:["open","closing","rerolling","pending_review","running","ended"]},
-   staffPanelSuperseded:{$ne:true},
    staffCardId:{$ne:""},staffCardChannelId:{$ne:""}
  }).sort({updatedAt:-1}).limit(limit).lean();
  for(const record of [...new Map([...missing,...active].map(x=>[String(x._id),x])).values()]){
