@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateTicketClaim } from "../services/giveaway-ticket-claims.js";
+import { validateTicketClaim,submitGiveawayTicket } from "../services/giveaway-ticket-claims.js";
+import Giveaway from "../models/Giveaway.js";
+import {rerollGiveaway} from "../services/giveaways.js";
 import { nextClaimCheckAt, winnerClaimDeadline, winnerHasClaim } from "../services/giveaway-claims.js";
 import { giveawayAnnouncement } from "../services/giveaways.js";
 const first="111111111111111111", second="222222222222222222";
@@ -27,4 +29,15 @@ test("per-winner deadlines stop being checked once claims are filed",()=>{
 test("rerolled winners receive new deadlines",()=>{
  const later={...record,winnerAssignedAt:[new Date("2026-11-08T12:00:00Z"),record.winnerAssignedAt[1]]};
  assert.equal(winnerClaimDeadline(later,0).toISOString(),"2026-11-09T12:00:00.000Z");
+});
+
+test("fulfilled or archived giveaways reject new claims and rerolls",async()=>{
+ const previous=Giveaway.findOne;
+ try{
+   Giveaway.findOne=()=>({lean:async()=>({...record,archivedAt:new Date("2026-11-10T12:00:00Z")})});
+   await assert.rejects(submitGiveawayTicket({id:record._id,guildId:record.guildId,
+     userId:first,ticketNumber:"T-1",ticketUrl:"https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890"}),/not accepting ticket claims/);
+   await assert.rejects(rerollGiveaway({id:record._id,guildId:record.guildId,
+     staffId:first,slot:0}),/fulfilled or archived/);
+ }finally{Giveaway.findOne=previous;}
 });
