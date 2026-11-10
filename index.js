@@ -88,6 +88,7 @@ import { reconcileGiveaways } from "./services/giveaways.js";
 import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
 import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
 import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
+import { reconcileActiveGiveawayIndex } from "./services/giveaway-index.js";
 import { handleActivityGiveawayProgress } from "./services/giveaway-progress.js";
 import { handleGiveawayReviewButton,reconcilePendingGiveawayReviews } from "./services/giveaway-review.js";
 import {data as giveawayRoleCommand,executeGiveawayRoleBonusAdmin} from "./commands/giveaway-role-bonuses.js";
@@ -430,6 +431,7 @@ client.once(Events.ClientReady, async (readyClient) => {
       await reconcilePendingGiveawayReviews(readyClient);
       await reconcileGiveawayClaims(readyClient);
       await reconcileActivityGiveawayListings(readyClient);
+      await reconcileActiveGiveawayIndex(readyClient);
       await reconcileGiveawayStaffRecords(readyClient);
     }
     catch (error) { console.error("[Giveaways] Cleanup sweep failed:", error); }
