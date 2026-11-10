@@ -2,6 +2,7 @@ import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import GuildConfig from "../models/GuildConfig.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
@@ -129,6 +130,9 @@ export async function refreshActiveStandardGiveawayBanners(client,guildId) {
 }
 export async function giveawayAnnouncementWithBanner(record) {
   const announcement=giveawayAnnouncement(record);
+  const config=await GuildConfig.findOne({guildId:record.guildId}).select("giveawayEmbedColor").lean();
+  if(/^#[0-9a-fA-F]{6}$/.test(config?.giveawayEmbedColor||""))
+    announcement.embeds[0].setColor(parseInt(config.giveawayEmbedColor.slice(1),16));
   if(record.mode==="survival")return announcement;
   const banner=await getGiveawayBanner(record.guildId,record.bannerNameKey);
   return attachGiveawayBanner(announcement,banner);
