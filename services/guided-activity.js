@@ -152,8 +152,11 @@ export function guidedMessageMatches(event,message) {
     requiredPhrase:event.activityRequiredPhrase,
     // Length is based on meaningful text after stripping explicit @mentions.
     // The configured threshold applies even if the event requires a ping.
-    minimumChars:Number.isSafeInteger(event.activityMinChars)&&event.activityMinChars>=1?
-      event.activityMinChars:1,
+    minimumChars:Number.isSafeInteger(event.activityMinChars)&&event.activityMinChars>1?
+      event.activityMinChars:
+      // With the default "No length minimum", an explicit member ping alone
+      // remains eligible as before; custom thresholds always require text.
+      event.activityRequiredMentionUserId&&!event.activityRequiredPhrase?0:1,
   });
 }
 export async function recordGuidedMessage(message) {
