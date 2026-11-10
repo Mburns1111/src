@@ -184,3 +184,21 @@ test("existing staff directory is reused rather than creating a duplicate",async
   Giveaway.find=old.records;GiveawayPlan.find=old.plans;
  }
 });
+
+test("active activity giveaway without a results post links its public activity listing",async()=>{
+ const old={find:Giveaway.find,plans:GiveawayPlan.find};
+ try{
+  const activity=item("888888888888888888","activity","open",{
+    messageId:null,listChannelId:"111111111111111111",
+    listMessageId:"222222222222222222",
+  });
+  Giveaway.find=()=>({sort:()=>({limit:()=>({lean:async()=>[activity]})})});
+  GiveawayPlan.find=()=>({sort:()=>({limit:()=>({lean:async()=>[]})})});
+  const data=await activeGiveawayIndexData(guildId,now);
+  assert.equal(data.records.length,1);
+  const text=activeGiveawayIndexEmbed(data).toJSON().description;
+  assert.match(text,/https:\/\/discord.com\/channels\/123456789012345678\/111111111111111111\/222222222222222222/);
+ }finally{
+  Giveaway.find=old.find;GiveawayPlan.find=old.plans;
+ }
+});
