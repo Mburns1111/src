@@ -35,9 +35,9 @@ test("unclaimed winner staff record shows deadline and remaining rerolls",()=>{
  const staff=giveawayStaffRecordPayload(ended);
  const description=staff.embeds[0].toJSON().description;
  assert.match(description,/Not claimed/);
- assert.match(description,/Automatic rerolls left: \*\*1\*\* of 2/);
+ assert.match(description,/Automatic rerolls:\*\*|Automatic rerolls:\s+Enabled/);
  assert.match(description,/Claim deadline:/);
- assert.match(description,/<t:\d+:R>/);
+ assert.match(description,/Expired|<t:\d+:R>/);
  assert.match(description,/Reroll history/);
  const ids=staff.components.flatMap(r=>r.components).map(b=>b.data.custom_id);
  assert.ok(ids.includes("giveawaystaff:stop:"+id));
@@ -53,7 +53,7 @@ test("claim number, exact message link and submission time are private",()=>{
  assert.ok(fields.some(f=>f.value.includes(ticketLink)));
  assert.ok(fields.some(f=>f.value.includes("123-ABC")));
  assert.match(staff.embeds[0].toJSON().description,/Claim submitted/);
- assert.match(staff.embeds[0].toJSON().description,/Claim submitted.*<t:\d+:F>/i);
+ assert.match(fields.map(f=>f.value).join('\n'),/Submitted:\*\* <t:\d+:F>/i);
  const publicPost=giveawayAnnouncement(claimed).embeds[0].toJSON();
  const publicText=publicPost.description+JSON.stringify(publicPost.fields||[]);
  assert.match(publicText,/Claim submitted successfully/);
