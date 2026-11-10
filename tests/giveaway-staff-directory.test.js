@@ -65,7 +65,7 @@ test("page controls expose all entries while keeping primary sticky message comp
  assert.match(second.embeds[0].toJSON().description,/Giveaway 18/);
  assert.ok(buttons(second).includes("giveawaydir:page:0"));
  const empty=giveawayStaffDirectoryPayload(guild,[]);
- assert.match(empty.embeds[0].toJSON().description,/no active giveaways/i);
+ assert.match(empty.embeds[0].toJSON().description,/no active or pending-claim giveaways/i);
  assert.equal(empty.components.length,0);
 });
 
