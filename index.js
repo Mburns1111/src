@@ -552,7 +552,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if ((interaction.isButton() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("actconfig:"))
       return await handleActivityGiveawaySetupInteraction(interaction);
-    if ((interaction.isButton()||interaction.isModalSubmit()) && interaction.customId.startsWith("giveawaystaff:"))
+    if ((interaction.isButton()||interaction.isModalSubmit()||interaction.isStringSelectMenu()) && interaction.customId.startsWith("giveawaystaff:"))
       return await handleGiveawayStaffAction(interaction);
     if (interaction.isButton() && interaction.customId.startsWith("giveawaydir:"))
       return await handleGiveawayStaffDirectoryButton(interaction);
