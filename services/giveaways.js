@@ -213,6 +213,7 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
 export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "staff", now = new Date(), client = null }) {
   const item = await Giveaway.findOne({ _id: id, guildId, status: "ended" }).lean();
   if (!item) throw Error("That giveaway is not finished or does not exist.");
+  if(item.prizeDeliveredAt||item.archivedAt)throw Error("This giveaway has been fulfilled or archived and cannot be rerolled.");
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Choose an existing winner number to reroll.");
   if (reason==="claim-expired") {
@@ -231,7 +232,7 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
     [...new Set(pool)];
   if (!verified.length) throw Error("There are no unused current server members left for a reroll.");
   const reserved = await Giveaway.findOneAndUpdate(
-    { _id: id, guildId, status: "ended",
+    { _id: id, guildId, status: "ended",prizeDeliveredAt:null,archivedAt:null,
       ...(reason==="claim-expired" ? {winnerClaims:{$not:{$elemMatch:{slot,userId:item.winnerIds[slot]}}},claimResolvedSlots:{$ne:slot}} : {}) },
     { $set: { status: "rerolling", pendingRerollSlot: slot, pendingRerollStaffId: staffId,
       pendingRerollReason:reason,pendingRerollAt:now,pendingRerollEligibleIds:verified,renderedAt:null } },
