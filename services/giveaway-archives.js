@@ -130,5 +130,7 @@ export async function archiveGiveawayStaffRecord(client,record,{staffPayload}={}
      archiveProgressMessageId:archiveProgressId}});
  await deleteOldMessage(client,oldCardChannel,oldProgressId,channel.id);
  await deleteOldMessage(client,oldCardChannel,oldCardId,channel.id);
+ await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
+   {$set:{archiveMovedAt:new Date()}});
  return true;
 }
