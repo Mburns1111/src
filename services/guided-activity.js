@@ -14,6 +14,8 @@ const hour = 3600000;
 const seriesSchema = new mongoose.Schema({
   guildId: { type: String, required: true }, settings: { type: Object, required: true },
   nextStart: Date, enabled: { type: Boolean, default: true },
+  // Counts successful additional giveaway occurrences after the first.
+  repeatCount:{type:Number,default:0},
 });
 seriesSchema.index({enabled:1, nextStart:1, guildId:1});
 const Series = mongoose.models.GuidedActivitySeries || mongoose.model("GuidedActivitySeries", seriesSchema);
@@ -50,10 +52,15 @@ export function nextOpening(settings, start) {
   return new Date(start.getTime() + minutes * 60000);
 }
 export function repeatText(settings) {
-  if (settings.repeat === "once") return "One time";
-  if (settings.repeat === "daily") return "Every 24 hours";
-  if (settings.repeat === "weekly") return "Every week";
-  return 'Every ' + settings.amount + ' ' + settings.unit;
+  if(settings.repeat==="once")return "One time";
+  const cadence=settings.repeat==="daily"?"Every 24 hours":
+    settings.repeat==="weekly"?"Every week":'Every '+settings.amount+' '+settings.unit;
+  return cadence+(Number.isSafeInteger(settings.maxRepeats)&&settings.maxRepeats>=1
+    ?" · "+settings.maxRepeats+" additional repeats":" · Forever until stopped");
+}
+export function canRepeatGuidedActivity(settings,repeatCount=0){
+  return settings.repeat!=="once" &&
+    (settings.maxRepeats==null || repeatCount<settings.maxRepeats);
 }
 export function maxActiveDays(start,end) {
   const first = Date.parse(currentActivityDay(start));
@@ -98,7 +105,7 @@ async function materialize(series,start,first=false) {
 export async function createGuidedActivity(id,guildId,settings,start) {
   // Keep the first opening durable until its giveaway has been saved.
   const series = await Series.findOneAndUpdate({_id:id},{$setOnInsert:{
-    guildId,settings:{...settings,firstStart:start},nextStart:start,
+    guildId,settings:{...settings,firstStart:start},nextStart:start,repeatCount:0,
   }},{upsert:true,new:true}).lean();
   const firstStart = new Date(series.settings.firstStart);
   const record = await materialize(series,firstStart,true);
@@ -106,12 +113,19 @@ export async function createGuidedActivity(id,guildId,settings,start) {
   return record;
 }
 function advance(series,start) {
-  const nextStart = series.settings.repeat==="once"?null:nextOpening(series.settings,start);
-  return Series.updateOne({_id:series._id,nextStart:start},{$set:{nextStart,enabled:Boolean(nextStart)}});
+  const nextStart=canRepeatGuidedActivity(series.settings,series.repeatCount||0)?
+    nextOpening(series.settings,start):null;
+  return Series.updateOne({_id:series._id,nextStart:start},
+    {$set:{nextStart,enabled:Boolean(nextStart)}});
 }
 export async function openDueActivities(now=new Date(),guildId) {
   const due = await Series.find({enabled:true,nextStart:{$type:"date",$lte:now},...(guildId?{guildId}:{})}).lean();
   for (const series of due) {
+    if(!canRepeatGuidedActivity(series.settings,series.repeatCount||0)){
+      await Series.updateOne({_id:series._id,nextStart:series.nextStart},
+        {$set:{nextStart:null,enabled:false}});
+      continue;
+    }
     let start = new Date(series.nextStart);
     // Recover the current window after downtime without announcing missed cycles.
     if(series.settings.repeat!=="once" && windowEnd(series.settings,start)<=now) {
@@ -122,10 +136,14 @@ export async function openDueActivities(now=new Date(),guildId) {
         while(nextOpening(series.settings,start)<=now)start=nextOpening(series.settings,start);
       }
     }
-    if(windowEnd(series.settings,start)>now || +start===+new Date(series.settings.firstStart))
-      await materialize(series,start,+start===+new Date(series.settings.firstStart));
-    const nextStart=series.settings.repeat==="once"?null:nextOpening(series.settings,start);
-    await Series.updateOne({_id:series._id,nextStart:series.nextStart},{$set:{nextStart,enabled:Boolean(nextStart)}});
+    const first=+start===+new Date(series.settings.firstStart);
+    const shouldMaterialize=windowEnd(series.settings,start)>now||first;
+    if(shouldMaterialize)await materialize(series,start,first);
+    const repeatCount=(series.repeatCount||0)+(shouldMaterialize&&!first?1:0);
+    const nextStart=canRepeatGuidedActivity(series.settings,repeatCount)?
+      nextOpening(series.settings,start):null;
+    await Series.updateOne({_id:series._id,nextStart:series.nextStart},
+      {$set:{nextStart,enabled:Boolean(nextStart),repeatCount}});
   }
 }
 export function guidedMessageMatches(event,message) {
