@@ -41,7 +41,7 @@ test("guided activity uses period-wide message totals separate from optional act
     activityEndAt:new Date("2026-11-12T00:00:00Z"),
     endsAt:new Date("2026-11-12T00:00:00Z"),activityChannelIds:[],...goals};
   const desc=activityOneOffListingEmbed(event).toJSON().description;
-  assert.match(desc,/10 matching messages/);
+  assert.match(desc,/10 messages/);
   assert.match(desc,/3 different days/i);
   assert.doesNotMatch(desc,/per day/i);
 });
@@ -83,6 +83,27 @@ test("progress defaults on for guided activity and scheduled plans",()=>{
     creatorId:"123456789012345678",channelId:"123456789012345678",
     nextRunAt:new Date()});
   assert.equal(plan.progressEnabled,true);
+});
+test("activity minimum text length can require multiple meaningful characters without counting member markup",()=>{
+ const target="123456789012345678",author="234567890123456789";
+ const event={activityMinChars:8,activityRequiredMentionUserId:"",activityRequiredPhrase:""};
+ const message={guildId:"123456789012345678",author:{id:author,bot:false},content:"1234567"};
+ assert.equal(guidedMessageMatches(event,message),false);
+ assert.equal(guidedMessageMatches(event,{...message,content:"12345678"}),true);
+ assert.equal(guidedMessageMatches({...event,activityRequiredMentionUserId:target},{
+   ...message,content:"<@"+target+"> yes",mentions:{users:{has:id=>id===target}}
+ }),false,"a required mention must not satisfy the configured minimum text length");
+ assert.equal(guidedMessageMatches({...event,activityRequiredMentionUserId:target},{
+   ...message,content:"<@"+target+"> thank you",mentions:{users:{has:id=>id===target}}
+ }),true);
+ const defaults=defaultActivityWizardSettings(author);
+ assert.equal(defaults.minChars,1);
+ assert.ok(activityWizardPrompts.minChars[1].some(x=>x[1]==="custom"));
+ assert.ok(activityWizardPrompts.edit[1].some(x=>x[1]==="minChars"));
+ const settings={...defaults,period:"24 hours",hours:24,title:"Short messages",
+   prize:"Test pet",minimum:3,days:1,winners:1};
+ assert.match(describeActivityWizard({settings:{...settings,minChars:25}}),/Minimum message length · 25 characters/);
+ assert.doesNotMatch(describeActivityWizard({settings}),/Minimum message length/);
 });
 test("all new giveaway types default to a 12-hour claim window",()=>{
   assert.equal(DEFAULT_CLAIM_HOURS,12);
