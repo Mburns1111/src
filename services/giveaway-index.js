@@ -8,7 +8,7 @@ import {winnerHasClaim} from "./giveaway-claims.js";
 const MARKER="AM Isa · Active Giveaway Index";
 const LEGACY_MARKER="AM Isa · Active Giveaway Index";
 const isStaffDirectoryFooter=text=>text===MARKER||
-  /^Active giveaway staff directory\\b/i.test(text||"");
+  /^Active giveaway staff directory\b/i.test(text||"");
 const link=(guildId,channelId,messageId)=>`https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
 const safe=value=>String(value||"Giveaway").replace(/[\r\n]+/g," ").replace(/[@`*_~|<>\[\]]/g,"").slice(0,90);
 const relative=date=>date&&Number.isFinite(+new Date(date))?`<t:${Math.floor(+new Date(date)/1000)}:R>`:"";
