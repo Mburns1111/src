@@ -130,7 +130,7 @@ export async function refreshActiveStandardGiveawayBanners(client,guildId) {
 }
 export async function giveawayAnnouncementWithBanner(record) {
   const announcement=giveawayAnnouncement(record);
-  const config=await GuildConfig.findOne({guildId:record.guildId}).select("giveawayEmbedColor").lean();
+  const config=await GuildConfig.findOne({guildId:record.guildId});
   if(/^#[0-9a-fA-F]{6}$/.test(config?.giveawayEmbedColor||""))
     announcement.embeds[0].setColor(parseInt(config.giveawayEmbedColor.slice(1),16));
   if(record.mode==="survival")return announcement;
