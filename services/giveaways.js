@@ -62,7 +62,7 @@ export function giveawayAnnouncement(record) {
   ];
   if (ended) {
     lines.push("", winners.length ? (activity ? "🏆 **The Court Has Chosen**" : "**Winners**") : "**No winner selected**",
-      ...(winners.length ? winners : [activity ? "No members qualified for this drawing." : "No eligible entries — no winner was selected."]));
+      ...(winners.length ? winners : [activity ? "No qualifying members were found for this drawing." : "No eligible entries — no winner was selected."]));
     if (record.mode !== "survival" && (record.winnerIds || []).length) {
       lines.push("", "**Winner ticket claims**");
       for (let slot=0;slot<record.winnerIds.length;slot++) {
