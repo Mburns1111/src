@@ -55,7 +55,6 @@ const giveawaySchema = new mongoose.Schema({
   staffProgressMessageId:{type:String,default:""},
   staffProgressRefreshedAt:{type:Date,default:null},
   staffProgressStatus:{type:String,default:""},
-  staffPanelSuperseded:{type:Boolean,default:false},
   staffEndedEarly:{type:Boolean,default:false},
   staffEndedBy:{type:String,default:""},
   staffCancelledBy:{type:String,default:""},
