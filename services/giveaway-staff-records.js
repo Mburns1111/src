@@ -456,7 +456,7 @@ export async function handleGiveawayStaffAction(interaction){
          new StringSelectMenuBuilder().setCustomId("giveawaystaff:rerollselect:"+id)
            .setPlaceholder("Choose an unclaimed prize place")
            .addOptions(slots.map(({userId,slot})=>({label:"Place "+(slot+1),
-             description:"Current winner "+userId,value:String(slot)})))],...ephemeral});
+             description:"Current winner "+userId,value:String(slot)}))))],...ephemeral});
    }
    if(action==="rerollselect"){
      const slot=Number(interaction.values?.[0]);
