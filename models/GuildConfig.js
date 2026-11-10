@@ -27,6 +27,7 @@ const guildConfigSchema = new mongoose.Schema(
     activityNotificationRoleIds:{type:[String],default:[]},
     activityAnnounceEmptyResults:{type:Boolean,default:true},
     giveawayDefaultBannerNameKey: { type: String, default: "" },
+    giveawayEmbedColor: { type: String, default: "" },
     survivalTrialChannelId: { type: String, default: "" },
     giveawayPingRoleId: { type: String, default: "" },
     survivalTrialPingRoleId: { type: String, default: "" },
