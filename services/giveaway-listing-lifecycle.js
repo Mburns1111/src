@@ -11,7 +11,7 @@ export function completedGiveawayCanDeleteListing(record,{now=new Date()}={}) {
   const winners=record.winnerIds||[];
   if (!winners.length) return true; // The draw selected nobody.
   // Old Court's Trials were staff-managed and had no ticket-based settlement.
-  if (record.mode==="survival"&&!record.trialTicketClaimsEnabled) return false;
+  if (record.mode==="survival"&&!record.trialTicketClaimsEnabled) return true; // Staff-managed legacy Trials may archive a completed signup; Royal Verdict remains.
   return winners.every((userId,slot)=>{
     const claimed=(record.winnerClaims||[]).some(claim=>
       claim.slot===slot && claim.userId===userId &&
