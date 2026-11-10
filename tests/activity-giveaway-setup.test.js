@@ -42,7 +42,7 @@ test("separate activity setup exposes channels, editable summary and preview",()
  assert.match(description,/existing giveaways/);
  const preview=claimAnnouncementPreview(claimSettings);
  const embed=preview.embeds[0].toJSON();
- assert.equal(embed.title,"🦊 Heist Complete");
+ assert.equal(embed.title,"✦ Giveaway Results");
  assert.match(preview.content,/Winner Announcement Preview/);
  assert.match(embed.footer.text,/PREVIEW ONLY/);
  const rendered=[embed.description,...(embed.fields||[]).map(field=>field.value)].join("\n");
@@ -73,7 +73,7 @@ test("winner announcement preview attaches saved banner and matches actual regul
    assert.equal(preview.files[0].name,"giveaway-banner.png");
    assert.equal(preview.components[0].components[0].data.disabled,true);
    assert.match(embed.footer.text,/PREVIEW ONLY/);
-   if(mode==="activity")assert.match(embed.description,/Activity giveaway concluded/);
+   if(mode==="activity")assert.match(embed.description,/The Court Has Chosen/);
    else assert.match(embed.description,/fox cackles/);
  }
 });
