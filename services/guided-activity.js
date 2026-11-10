@@ -88,7 +88,7 @@ async function materialize(series,start,first=false) {
       activityType:s.channel?"channels":"general", activityChannelIds:s.channel?[s.channel]:[],
       activityStartAt:start, activityEndAt:end, customActivityStartAt:start,customActivityEndAt:end,
       endsAt:new Date(end.getTime()+s.delay), ...guidedActivityRequirements(s),
-      activityMinChars:1,
+      activityMinChars:Number.isSafeInteger(s.minChars)&&s.minChars>=1&&s.minChars<=2000?s.minChars:1,
       activityRequiredMentionUserId:s.mention || "", activityRequiredPhrase:s.phrase || "",
       requireStaffReview:s.approval, roleBonuses:s.bonuses || [], progressEnabled:Boolean(s.progress),
       requiredRoleId:s.requiredRoleId||"",requiredRoleInstructions:s.requiredRoleInstructions||"",
@@ -150,7 +150,10 @@ export function guidedMessageMatches(event,message) {
   return messageMatchesGiveawayWatch(message,{
     requiredMentionUserId:event.activityRequiredMentionUserId,
     requiredPhrase:event.activityRequiredPhrase,
-    minimumChars:event.activityRequiredMentionUserId && !event.activityRequiredPhrase ? 0 : 1,
+    // Length is based on meaningful text after stripping explicit @mentions.
+    // The configured threshold applies even if the event requires a ping.
+    minimumChars:Number.isSafeInteger(event.activityMinChars)&&event.activityMinChars>=1?
+      event.activityMinChars:1,
   });
 }
 export async function recordGuidedMessage(message) {
