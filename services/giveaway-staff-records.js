@@ -1,6 +1,7 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,ModalBuilder,
   TextInputBuilder,TextInputStyle,MessageFlags,PermissionFlagsBits} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {ensureStaffProgressPanel} from "./giveaway-staff-progress.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline} from "./giveaway-claims.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
@@ -165,6 +166,7 @@ export async function ensureGiveawayStaffRecord(client,record){
  if(record.staffCardId!==message.id||record.staffCardChannelId!==channelId)
    await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
      {$set:{staffCardId:message.id,staffCardChannelId:channelId}});
+ if(record.mode==="activity")await ensureStaffProgressPanel(client,record,channel);
  return true;
 }
 export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
