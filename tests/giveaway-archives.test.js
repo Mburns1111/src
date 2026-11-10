@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
+import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
 import {EmbedBuilder} from "discord.js";
 import {archiveGiveawayStaffRecord,giveawayReadyToArchive} from "../services/giveaway-archives.js";
 
@@ -71,4 +72,44 @@ test("archive transfer is not attempted before prize delivery",async()=>{
   assert.equal(await archiveGiveawayStaffRecord(null,record({prizeDeliveredAt:null}),
     {staffPayload:payload}),false);
  }finally{GuildConfig.findOne=prior;}
+});
+
+test("completed activity giveaway archives both staff posts and the final member totals",async()=>{
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne,
+   aggregate:GiveawayActivityMinuteCount.aggregate};
+ const sent=[],deleted=[],updates=[];
+ const activeIds=["789012345678901234","890123456789012345"];
+ const channel={id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
+   permissionsFor:target=>({has:()=>target?.id!=="everyone"}),
+   messages:{fetch:async()=>({find:()=>null})},
+   send:async payload=>{sent.push(payload);return{id:sent.length===1?
+     "901234567890123456":"912345678901234567",author:{id:"bot"}};}};
+ const source={messages:{fetch:async id=>({
+   id,author:{id:"bot"},delete:async()=>deleted.push(id),
+ })}};
+ const activity=record({mode:"activity",status:"ended",winnerIds:[],
+   prizeDeliveredAt:null,prizeDeliveredBy:"",
+   staffProgressMessageId:activeIds[1],
+   activityStartAt:new Date("2026-11-01T12:00:00Z"),
+   activityEndAt:new Date("2026-11-10T12:00:00Z"),
+   activityMinTotalMessages:10,activityMinimum:1,activityDays:1});
+ try{
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+    giveawayArchiveChannelId:archiveId,activityGiveawayReviewChannelId:staffId,
+  })})});
+  Giveaway.updateOne=async(_q,u)=>updates.push(u.$set);
+  GiveawayActivityMinuteCount.aggregate=async()=>[{
+    _id:"111111111111111111",totalMessages:14,activeDays:1,
+  }];
+  const client={user:{id:"bot"},channels:{fetch:async id=>
+    id===archiveId?channel:source}};
+  assert.equal(await archiveGiveawayStaffRecord(client,activity,{staffPayload:payload}),true);
+  assert.equal(sent.length,2);
+  assert.match(sent[1].embeds[0].toJSON().description,/14\/10/);
+  assert.deepEqual(deleted,[activeIds[1],activeIds[0]]);
+  assert.ok(updates.at(-1).archiveMovedAt);
+ }finally{
+  GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;
+  GiveawayActivityMinuteCount.aggregate=old.aggregate;
+ }
 });
