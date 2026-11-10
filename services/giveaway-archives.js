@@ -8,14 +8,16 @@ export function giveawayReadyToArchive(record){
     record.status==="failed")return false;
  if(record.status==="cancelled")return true;
  return record.status==="ended" &&
-   (!(record.winnerIds||[]).length || Boolean(record.prizeDeliveredAt));
+   (!(record.winnerIds||[]).length || Boolean(record.prizeDeliveredAt) ||
+     (record.winnerIds||[]).every((_,slot)=>(record.claimResolvedSlots||[]).includes(slot)));
 }
 const asDate=date=>date?new Date(date):new Date();
 const marker=record=>"Archived giveaway activity · "+record._id;
 const archiveNote=(record,at)=>[
   "**Archived at:** <t:"+Math.floor(+at/1000)+":F>",
   "**Outcome:** "+(record.status==="cancelled"?"Cancelled":
-    record.winnerIds?.length?"Prize delivery confirmed by staff":"No winners selected"),
+    record.prizeDeliveredAt?"Prize delivery confirmed by staff":
+      record.winnerIds?.length?"All winning places forfeited / closed":"No winners selected"),
   ...(record.prizeDeliveredBy?["**Delivery confirmed by:** <@"+record.prizeDeliveredBy+">"]:[]),
   ...(record.staffCancelledBy?["**Cancelled by:** <@"+record.staffCancelledBy+">"]:[]),
   "**Original giveaway ID:** `"+record._id+"`",
@@ -96,7 +98,10 @@ export async function archiveGiveawayStaffRecord(client,record,{staffPayload}={}
      name:"giveaway-"+record._id+"-archive.json",
    })],allowedMentions:{parse:[]},components:[]});
    await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
-     {$set:{archiveCardId:archive.id,archivedAt:at}});
+     {$set:{archiveCardId:archive.id,archivedAt:at,
+       archiveReason:record.status==="cancelled"?"Cancelled":record.prizeDeliveredAt?
+         "Prizes delivered":record.winnerIds?.length?"All winning places forfeited":"No winners",
+       archivedBy:record.prizeDeliveredBy||record.staffCancelledBy||"system"}});
  }
 
  let archiveProgressId=record.archiveProgressMessageId||"";
