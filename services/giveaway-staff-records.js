@@ -58,9 +58,13 @@ export function giveawayStaffEntrantsPage(record,page=0){
 export function giveawayStaffStatusMarker(record){
   if(record.publicListingRemovedAt||record.status==="cancelled"){
     const cancelled=record.status==="cancelled";
-    return cancelled
-      ? {text:"⬜ **CANCELLED — PUBLIC LISTING REMOVED** ⬜",title:"⬜ CANCELLED · Giveaway staff archive",color:0x777777}
-      : {text:"⬜ **COMPLETED — PUBLIC LISTING DELETED** ⬜",title:"⬜ ARCHIVED · Giveaway staff record",color:0x777777};
+    if(cancelled)return {text:"⬜ **CANCELLED — PUBLIC LISTING REMOVED** ⬜",
+      title:"⬜ CANCELLED · Giveaway staff archive",color:0x777777};
+    return record.mode==="survival"
+      ? {text:"⬜ **COURT'S TRIAL ARCHIVED — ROYAL VERDICT PRESERVED** ⬜",
+         title:"⬜ ARCHIVED TRIAL · Giveaway staff record",color:0x777777}
+      : {text:"⬜ **COMPLETED — PUBLIC LISTING DELETED** ⬜",
+         title:"⬜ ARCHIVED · Giveaway staff record",color:0x777777};
   }
   if(["open","preparing","running","pending_review","closing"].includes(record.status))
     return {text:"🟦 **GIVEAWAY IN PROGRESS** 🟦",title:"🟦 IN PROGRESS · Giveaway staff record",color:0x3498DB};
@@ -106,15 +110,18 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    "**Type:** "+(record.mode==="survival"?"Court's Trial":record.mode==="activity"?"Activity giveaway":"Regular giveaway"),
    "**Prize:** "+safe(record.prize||"").slice(0,500),
    "**Host:** <@"+record.creatorId+">",
-   "**Status:** "+(completedAndRemoved?"Completed — public listing deleted":statuses[record.status]||record.status),
+   "**Status:** "+(completedAndRemoved?(record.mode==="survival"?"Trial archived — Royal Verdict preserved":"Completed — public listing deleted"):statuses[record.status]||record.status),
    "**Scheduled end:** "+when(record.endsAt),
    "**Giveaway ID:** \`"+record._id+"\`",
  ];
  if(completedAndRemoved){
-   lines.push("","**COMPLETED — PUBLIC LISTING DELETED**",
-     "**Deleted by:** "+(record.publicListingRemovedBy?"<@"+record.publicListingRemovedBy+">":"Not recorded"),
-     "**Deleted at:** "+when(record.publicListingRemovedAt),
-     "*The giveaway ended normally. Winners, claims and results remain in the staff archive; it was not cancelled.*");
+   const trialArchived=record.mode==="survival";
+   lines.push("",trialArchived?"**COURT'S TRIAL ARCHIVED — ROYAL VERDICT PRESERVED**":"**COMPLETED — PUBLIC LISTING DELETED**",
+     (trialArchived?"**Archived by:** ":"**Deleted by:** ")+(record.publicListingRemovedBy?"<@"+record.publicListingRemovedBy+">":"Not recorded"),
+     (trialArchived?"**Archived at:** ":"**Deleted at:** ")+when(record.publicListingRemovedAt),
+     trialArchived
+       ? "*Trial signups are closed. The Royal Verdict remains public and the staff record retains the full prize history.*"
+       : "*The giveaway ended normally. Winners, claims and results remain in the staff archive; it was not cancelled.*");
  }
  if(cancelled){
    lines.push("","**CANCELLED AND REMOVED FROM PUBLIC VIEW**",
