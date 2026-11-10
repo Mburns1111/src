@@ -527,7 +527,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return await handleGiveawayStaffAction(interaction);
     if (interaction.isButton() && interaction.customId.startsWith("activitysetup:"))
       return await wizardButton(interaction);
-    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isUserSelectMenu() || interaction.isModalSubmit()) &&
         interaction.customId.startsWith("activitystaff:")) {
       if(interaction.isButton() && /^activitystaff:refresh:/.test(interaction.customId))
         return await handleStaffProgressRefresh(interaction);
