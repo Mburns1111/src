@@ -180,8 +180,7 @@ async function show(session,step){
   if(step==="minimum")choices.push(choice("Custom number","custom"));
   if(step==="days")choices=[1,2,3,5,7].filter(x=>x<=maxActiveDays(new Date(),windowEnd(s,new Date())))
     .map(x=>choice(String(x)+" day"+(x===1?"":"s"),String(x)));
-  if(step==="days" && maxActiveDays(new Date(),windowEnd(s,new Date()))>7)
-    choices.push(choice("Custom number of days","custom"));
+  if(step==="days")choices.push(choice("Custom number of days","custom"));
   if(step==="claim")choices=[12,24,48].map(x=>choice(String(x)+" hours",String(x)));
   if(step==="claim")choices.push(choice("Custom hours","custom"));
   if(step==="claimChoice")content="Choose prize-collection instructions for this giveaway.\n"+
