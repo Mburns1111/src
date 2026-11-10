@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {DEFAULT_CLAIM_HOURS,claimDuration} from "../services/giveaway-claims.js";
-import {guidedActivityRequirements,qualifiesForGuidedActivity,guidedMessageMatches,guidedStaffCardPayload} from "../services/guided-activity.js";
+import {guidedActivityRequirements,qualifiesForGuidedActivity,guidedMessageMatches,guidedStaffCardPayload,canRepeatGuidedActivity} from "../services/guided-activity.js";
 import {activityWizardPrompts,activityWizardInput,defaultActivityWizardSettings,describeActivityWizard} from "../commands/activity-wizard.js";
 import {activityOneOffListingEmbed} from "../services/giveaway-directory.js";
 
@@ -114,4 +114,26 @@ test("all new giveaway types default to a 12-hour claim window",()=>{
   assert.equal(claimDuration({mode:"standard",claimWindowHours:12}).milliseconds,43200000);
   assert.equal(claimDuration({mode:"survival",claimWindowHours:12,claimWindowMinutes:null}).count,12);
   assert.equal(claimDuration({mode:"survival",claimWindowMinutes:15}).count,15);
+});
+
+test("repeating activity has Forever and a finite custom-count cutoff",()=>{
+ const defaults=defaultActivityWizardSettings("123456789012345678");
+ assert.equal(defaults.maxRepeats,null);
+ assert.deepEqual(activityWizardPrompts.repeatLimit[1].map(x=>x[1]),["forever","custom"]);
+ assert.match(activityWizardPrompts.repeatCount[0],/additional giveaways/);
+ const limited={repeat:"daily",maxRepeats:2};
+ assert.equal(canRepeatGuidedActivity(limited,0),true);
+ assert.equal(canRepeatGuidedActivity(limited,1),true);
+ assert.equal(canRepeatGuidedActivity(limited,2),false);
+ assert.equal(canRepeatGuidedActivity({repeat:"daily",maxRepeats:null},5000),true);
+ assert.equal(canRepeatGuidedActivity({repeat:"once",maxRepeats:null},0),false);
+ const settings={...defaults,period:"24 hours",hours:24,title:"Counted repeat",
+   prize:"Test pet",minimum:2,days:1,winners:1,
+   repeat:"daily",maxRepeats:2};
+ const preview=describeActivityWizard({settings});
+ assert.match(preview,/2 additional repeats/);
+ assert.match(preview,/3 total giveaways/);
+ assert.match(preview,/Repeat 1/);
+ assert.match(preview,/Repeat 2/);
+ assert.doesNotMatch(preview,/Repeat 3/);
 });
