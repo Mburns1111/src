@@ -156,8 +156,8 @@ export function describeActivityWizard(session){
     'Shared giveaway ping role · '+(s.notificationRoleIds?.[0]?'<@&'+s.notificationRoleIds[0]+'>':'None')+' (managed in /setup giveaways, /setup activity-giveaways or /setup trials)',
     'No eligible members · '+(s.announceEmptyResults?'Announce no winners':'Do not post empty results'),
     s.bonuses.length?'Bonus roles · '+s.bonuses.map(b=>'<@&'+b.roleId+'> +'+b.extraEntries).join(', '):null,
-    'Repeat · '+repeatText(s)+(s.repeat==="once"?"":s.maxRepeats==null
-      ?" · Forever until stopped":" · "+s.maxRepeats+" additional run(s), "+(s.maxRepeats+1)+" total"),
+    'Repeat · '+repeatText(s)+(s.maxRepeats!=null&&s.repeat!=="once"?
+      " · "+(s.maxRepeats+1)+" total giveaways":""),
     ...upcoming,
   ].filter(Boolean).join('\n');
 }
