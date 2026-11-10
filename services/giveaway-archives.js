@@ -29,7 +29,8 @@ async function verifiedPrivateChannel(client,channelId){
  if(channel.guild?.roles?.everyone &&
     channel.permissionsFor?.(channel.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
    throw Error("Giveaway archive channel must be hidden from @everyone.");
- const perms=channel.permissionsFor?.(channel.guild?.members?.me);
+ const botMember=channel.guild?.members?.me;
+ const perms=botMember?channel.permissionsFor?.(botMember):null;
  if(perms && [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,
    PermissionFlagsBits.EmbedLinks].some(p=>!perms.has(p)))
    throw Error("The bot needs View Channel, Send Messages and Embed Links in giveaway Archives.");
