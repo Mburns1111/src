@@ -68,9 +68,9 @@ export async function activeGiveawayIndexData(guildId,now=new Date()){
    const url=link(guildId,item.channelId,item.messageId);
    if(!seen.has(url)){trials.push({title:item.title,url});seen.add(url);}
  }
- const savedPlans=plans.map(plan=>({
+ const savedPlans=plans.filter(plan=>plan.listChannelId&&plan.listMessageId).map(plan=>({
    title:plan.title,url:link(guildId,plan.listChannelId,plan.listMessageId),endsAt:plan.nextRunAt,
- })).filter(p=>!p.url.includes("/undefined/")&&!p.url.includes("//"));
+ }));
  return {standard,trials,activities,plans:savedPlans};
 }
 
