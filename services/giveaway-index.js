@@ -37,6 +37,8 @@ export function activeGiveawayIndexEmbed({records=[],plans=[]}={}){
      name:record.title,type:typeName(record),status:claimOrActivityStatus(record),
      url:link(record.guildId,record.channelId,record.messageId),
      until:record.status==="open"?record.endsAt:null,
+     staffUrl:record.staffCardChannelId&&record.staffCardId?
+       link(record.guildId,record.staffCardChannelId,record.staffCardId):"",
    })),
    ...plans.map(plan=>({
      name:plan.title,type:"Activity schedule",status:"Ongoing schedule",
@@ -68,7 +70,7 @@ export async function activeGiveawayIndexData(guildId,now=new Date()){
    GiveawayPlan.find({guildId,status:"active"}).sort({nextRunAt:1}).limit(150).lean(),
  ]);
  const records=all.filter(record=>{
-   if(!hasPublicPost(record))return false;
+   if(!hasPublicPost(record)||!["open","preparing","running","closing","pending_review","rerolling","ended"].includes(record.status))return false;
    if(record.status==="ended" || record.status==="rerolling")
      return (record.winnerIds||[]).some((_,slot)=>
        !(record.claimResolvedSlots||[]).includes(slot));
