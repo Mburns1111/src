@@ -18,7 +18,7 @@ export const defaultActivityWizardSettings=creator=>({
   serverDefaultRequiredRoleId:"",serverShowRoleInstructions:true,showRequiredRoleInstructions:true,
   claimHours:DEFAULT_CLAIM_HOURS,claimInstructions:"",serverClaimInstructions:"",
   maxAutoRerolls:DEFAULT_MAX_AUTO_REROLLS,notificationRoleIds:[],announceEmptyResults:true,
-  repeat:"once",
+  repeat:"once",maxRepeats:null,
 });
 const sessionKey=(channelId,userId)=>channelId+":"+userId;
 const hour=3600000;
@@ -36,8 +36,10 @@ export const activityWizardPrompts={
   startDay:["Which weekday should a regular weekly window start at midnight Eastern?",weekChoices],
   endDay:["Which weekday should counting end at midnight Eastern? Choose the same weekday for a full week.",weekChoices],
   length:["Reply with a positive whole number for the duration."],
-  minimum:["How many qualifying messages must a member send during the entire activity period? Reply with a number, such as 1."],
-  days:["On how many different days must they send at least one matching message? Reply with a number (minimum 1)."],
+  minimum:["How many qualifying messages must a member send during the entire activity period?",[]],
+  minimumText:["Type the total number of qualifying messages required during the activity period (1–10,000)."],
+  days:["On how many different days must they send at least one matching message?",[]],
+  daysText:["Enter the number of separate days with at least one matching message (minimum 1)."],
   filters:["Which messages should count?",["Any message","Member ping","Word or phrase","Ping and phrase"].map(x=>choice(x))],
   mention:["Which member must the message explicitly ping? Paste their member mention or Discord user ID."],
   phrase:["Enter the **exact required word or phrase**. Members must use the **correct spelling and word order** for their messages to qualify. **Capital letters do not matter.**"],
@@ -59,13 +61,16 @@ export const activityWizardPrompts={
   extras:["Optional giveaway settings",[]],
   role:["Paste a role mention or role ID for extra drawing chances."],
   bonus:["How many extra chances does this role add? Reply with a number from 1 to 20."],
-  claim:["How many hours do winners have to claim? Reply with a number from 1 to 720."],
+  claim:["How many hours do winners have to claim?",[]],
+  claimTextHours:["Enter a whole number of hours from 1 to 720."],
   claimChoice:["Choose prize collection instructions for this giveaway.",[
     choice("Use server default","claimDefault"),choice("Write custom instructions","claimCustom"),
     choice("Preview winner announcement","claimPreview"),choice("Back","extras")]],
   claimText:["Reply with your custom prize-collection instructions, up to 1,000 characters. The mandatory claim forfeiture warning is added automatically."],
   claimPreview:["Winner announcement preview",[choice("Back to claim settings","claimChoice"),choice("Back to options","extras")]],
-  rerollsChoice:["How many automatic rerolls may this giveaway make for each unclaimed winner?",[0,1,2,3,5,10].map(n=>choice(n+" rerolls",String(n)))],
+  rerollsChoice:["How many automatic rerolls may this giveaway make for each unclaimed winner?",[
+    ...[0,1,2,3,5,10].map(n=>choice(n+" rerolls",String(n))),choice("Custom number","custom")]],
+  rerollCount:["Enter a custom number of automatic rerolls from 0 to 10."],
   emptyResults:["If nobody qualifies, announce no winners?",[choice("Announce no winners","announce"),choice("Skip empty announcement","silent")]],
   banner:["Which banner should appear on this giveaway?",[
     choice("Use server default","bannerDefault"),
@@ -80,6 +85,10 @@ export const activityWizardPrompts={
   repeat:["How often should a new activity giveaway start?",[choice("One time","once"),choice("Every 24 hours","daily"),choice("Every week","weekly"),choice("Custom interval","custom")]],
   unit:["Which unit should I use for the repeat interval?",["Minutes","Hours","Days"].map(x=>choice(x))],
   amount:["How many units between the start of each giveaway? Reply with a positive whole number."],
+  repeatLimit:["How many **additional times** should this giveaway repeat?",[
+    choice("Forever (until staff stops it)","forever"),
+    choice("Custom number of repeats","custom")]],
+  repeatCount:["Enter how many **additional giveaways** to create after the first (1–1,000). Example: 2 means 3 giveaways in total."],
   summary:["",[choice("Create activity","create"),choice("Edit settings","edit"),choice("Cancel","cancel")]],
   edit:["Which setting would you like to edit?",[
     ["Watched channel","scope"],["Counting period","period"],["Message goal","minimum"],["Ping or phrase","filters"],["Required role","requiredRoleChoice"],
@@ -116,7 +125,7 @@ export function describeActivityWizard(session){
   if(s.repeat!=="once"){
     upcoming.push("**Upcoming giveaways if you create this activity now**");
     let opening=start;
-    for(let n=1;n<=2;n++){
+    for(let n=1;n<=Math.min(2,s.maxRepeats??2);n++){
       opening=nextOpening(s,opening);
       upcoming.push("Repeat "+n+" · Starts "+stamp(opening)+" · Ends "+stamp(windowEnd(s,opening)));
     }
@@ -139,7 +148,8 @@ export function describeActivityWizard(session){
     'Shared giveaway ping role · '+(s.notificationRoleIds?.[0]?'<@&'+s.notificationRoleIds[0]+'>':'None')+' (managed in /setup giveaways, /setup activity-giveaways or /setup trials)',
     'No eligible members · '+(s.announceEmptyResults?'Announce no winners':'Do not post empty results'),
     s.bonuses.length?'Bonus roles · '+s.bonuses.map(b=>'<@&'+b.roleId+'> +'+b.extraEntries).join(', '):null,
-    'Repeat · '+repeatText(s),
+    'Repeat · '+repeatText(s)+(s.repeat==="once"?"":s.maxRepeats==null
+      ?" · Forever until stopped":" · "+s.maxRepeats+" additional run(s), "+(s.maxRepeats+1)+" total"),
     ...upcoming,
   ].filter(Boolean).join('\n');
 }
@@ -149,6 +159,8 @@ async function show(session,step){
   if(step==="draw")content='When should I draw and announce the winners? If you create this activity now, counting ends '+stamp(windowEnd(s,new Date()))+'.';
   if(step==="length")content='How many '+(s.period==="Custom days"?'days':'hours')+' should I count? Reply with a whole number.';
   if(step==="amount")content='How many '+s.unit+' between giveaway starts? Reply with a number, such as 3.';
+  if(step==="minimum")content='How many qualifying messages must each member send over the **entire activity period**?';
+  if(step==="repeatCount")content='Enter a whole number from 1 to 1,000. This counts **additional repeats after the first giveaway**.';
   if(step==="extras")choices=[
     ['Manual approval '+(s.approval?'ON':'OFF'),'approval'],['Member progress '+(s.progress?'ON':'OFF'),'progress'],
     ['Add bonus role','role'],['Claim time','claim'],['Claim instructions','claimChoice'],
@@ -156,9 +168,13 @@ async function show(session,step){
     ['No eligible winners','emptyResults'],['Banner','banner'],['Done','done'],
   ];
   if(step==="minimum")choices=[1,3,5,10,20].map(x=>choice(String(x)+" messages",String(x)));
+  if(step==="minimum")choices.push(choice("Custom number","custom"));
   if(step==="days")choices=[1,2,3,5,7].filter(x=>x<=maxActiveDays(new Date(),windowEnd(s,new Date())))
     .map(x=>choice(String(x)+" day"+(x===1?"":"s"),String(x)));
+  if(step==="days" && maxActiveDays(new Date(),windowEnd(s,new Date()))>7)
+    choices.push(choice("Custom number of days","custom"));
   if(step==="claim")choices=[12,24,48].map(x=>choice(String(x)+" hours",String(x)));
+  if(step==="claim")choices.push(choice("Custom hours","custom"));
   if(step==="claimChoice")content="Choose prize-collection instructions for this giveaway.\n"+
     "**Current ("+claimSource(s)+"):**\n"+effectiveClaimInstructions(s)+
     "\n\nThe bot will separately require ticket number, Discord message link, and a claim before the deadline.";
@@ -263,8 +279,14 @@ async function accept(session,input,client){
     case "startDay":s.startDay=Number(v);next="endDay";break;
     case "endDay":s.endDay=Number(v);next="minimum";break;
     case "length":s.hours=number(v,1,s.period==="Custom days"?365:8760)*(s.period==="Custom days"?24:1);next="minimum";break;
-    case "minimum":s.minimum=number(v,1,10000);next=dayStep();break;
-    case "days":s.days=number(v,1,maxActiveDays(now,windowEnd(s,now)));next=done("filters");break;
+    case "minimum":
+      if(v==="custom"){next="minimumText";break;}
+      s.minimum=number(v,1,10000);next=dayStep();break;
+    case "minimumText":s.minimum=number(v,1,10000);next=dayStep();break;
+    case "days":
+      if(v==="custom"){next="daysText";break;}
+      s.days=number(v,1,maxActiveDays(now,windowEnd(s,now)));next=done("filters");break;
+    case "daysText":s.days=number(v,1,maxActiveDays(now,windowEnd(s,now)));next=done("filters");break;
     case "filters":s.mention="";s.phrase="";s.both=v==="Ping and phrase";next=s.both||v==="Member ping"?"mention":v==="Word or phrase"?"phrase":done("requiredRoleChoice");break;
     case "mention":{
       const id=/^(?:<@!?(\d{17,20})>|(\d{17,20}))$/.exec(v);
@@ -322,7 +344,10 @@ async function accept(session,input,client){
     case "extras":
       if(v==="approval"||v==="progress"){s[v]=!s[v];next="extras";}
       else next=v==="done"?done("repeat"):v;break;
-    case "claim":s.claimHours=number(v,1,720);next="extras";break;
+    case "claim":
+      if(v==="custom"){next="claimTextHours";break;}
+      s.claimHours=number(v,1,720);next="extras";break;
+    case "claimTextHours":s.claimHours=number(v,1,720);next="extras";break;
     case "claimChoice":
       if(v==="claimDefault"){s.claimInstructions=s.serverClaimInstructions||"";next="extras";}
       else if(v==="claimCustom")next="claimText";
@@ -330,7 +355,10 @@ async function accept(session,input,client){
       break;
     case "claimText":s.claimInstructions=words(v,1000);next="extras";break;
     case "claimPreview":next=v;break;
-    case "rerollsChoice":s.maxAutoRerolls=number(v,0,10);next="extras";break;
+    case "rerollsChoice":
+      if(v==="custom"){next="rerollCount";break;}
+      s.maxAutoRerolls=number(v,0,10);next="extras";break;
+    case "rerollCount":s.maxAutoRerolls=number(v,0,10);next="extras";break;
     case "emptyResults":s.announceEmptyResults=v==="announce";next="extras";break;
     case "banner":
       if(v==="bannerDefault"){s.banner="";next=done("extras");}
@@ -373,9 +401,21 @@ async function accept(session,input,client){
       if(bonuses.length>=20)throw Error("At most 20 roles can have bonus chances.");
       s.bonuses=[...bonuses,{roleId:session.role,extraEntries}];next="extras";break;
     }
-    case "repeat":s.repeat=v;next=v==="custom"?"unit":done("summary");break;
+    case "repeat":
+      s.repeat=v;
+      next=v==="once"?done("summary"):v==="custom"?"unit":"repeatLimit";
+      break;
     case "unit":s.unit=v.toLowerCase();next="amount";break;
-    case "amount":s.amount=number(v,1,525600);s.interval=s.amount*({minutes:1,hours:60,days:1440}[s.unit]);next=done("summary");break;
+    case "amount":
+      s.amount=number(v,1,525600);
+      s.interval=s.amount*({minutes:1,hours:60,days:1440}[s.unit]);
+      next="repeatLimit";break;
+    case "repeatLimit":
+      if(v==="forever"){s.maxRepeats=null;next=done("summary");}
+      else if(v==="custom")next="repeatCount";
+      else throw Error("Choose Forever or Custom repeats.");
+      break;
+    case "repeatCount":s.maxRepeats=number(v,1,1000);next=done("summary");break;
     case "edit":session.editing=true;next=v;break;
     case "summary":{
       if(v==="edit"){next="edit";break;}
