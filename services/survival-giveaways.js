@@ -293,12 +293,12 @@ export function survivalFinalePayload(record, championRecord = null) {
           return "#" + (slot + 1) + " <@" + id + "> — **No eligible winner** (claim forfeited; no replacement)";
         const deadline = winnerClaimDeadline(record, slot);
         return "#" + (slot + 1) + " <@" + id + "> — **Awaiting ticket info**" +
-          (deadline ? " · Due <t:" + Math.floor(deadline.getTime() / 1000) + ":R>" : "");
+          (deadline ? (deadline<=new Date() ? " · **Claim deadline expired**" : " · Due <t:" + Math.floor(deadline.getTime() / 1000) + ":R>") : "");
       })] : []),
     "",
     "**The Roll of Honour**",
     ...(ranked.length ? ranked : ["No prize winners recorded."]),
-    ...(changes.length ? ["", "**Royal Reroll Record**", ...changes] : []),
+    // Royal Reroll history stays in the private staff archive, not in public Verdicts.
     "",
     "**Contestants:** " + (record.entrantIds?.length || 0)
       + " · **Eliminations:** " + (record.nextEventIndex || 0),
