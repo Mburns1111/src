@@ -92,11 +92,17 @@ export function prizeClaimLines(record,{finished=false}={}){
   const instructions=String(record.claimInstructions||"").trim().slice(0,1000)||DEFAULT_CLAIM_INSTRUCTIONS;
   const lines=[];
   if(duration){
-    const deadline=finished?prizeClaimDeadline(record):null;
-    if(deadline){
-      const label=record.mode!=="survival"&&(record.rerollHistory||[]).length?"Original claim deadline":"Claim deadline";
-      lines.push("**"+label+":** <t:"+deadline+":F> (<t:"+deadline+":R>)");
-    }else{
+    const outstanding=finished?(record.winnerIds||[]).map((id,slot)=>({
+      id,slot,deadline:winnerClaimDeadline(record,slot)
+    })).filter(({id,slot,deadline})=>id&&deadline&&!winnerHasClaim(record,slot)&&
+      !(record.claimResolvedSlots||[]).includes(slot)):[];
+    const deadlines=[...new Set(outstanding.map(x=>Math.floor(+x.deadline/1000)))];
+    if(finished&&deadlines.length===1){
+      const deadline=deadlines[0],expired=deadline*1000<=Date.now();
+      lines.push("**Claim deadline:** <t:"+deadline+":F> "+(expired?"— **Expired**":"(<t:"+deadline+":R>)"));
+    }else if(finished&&deadlines.length>1){
+      lines.push("**Claim deadlines:** Check the deadline shown next to your winning place above.");
+    }else if(!finished){
       lines.push("**Claim window:** "+duration.count+" "+duration.unit+(duration.count===1?"":"s")+" after winners are announced");
     }
   }
