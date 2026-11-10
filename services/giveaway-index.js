@@ -10,7 +10,7 @@ const safe=value=>String(value||"Giveaway").replace(/[\r\n]+/g," ").replace(/[@`
 const time=date=>`<t:${Math.floor(new Date(date).getTime()/1000)}:R>`;
 const row=(name,url,when)=>`• [${safe(name)}](${url})${when?" · "+time(when):""}`;
 
-/** A pinned, single-message directory replaces /giveaway list.
+/** A sticky, single-message directory replaces /giveaway list.
  * It links to existing public announcements; it never makes new entry buttons.
  * Entries are resolved fresh from MongoDB so finished/paused events disappear.
  */
@@ -23,7 +23,7 @@ export function activeGiveawayIndexEmbed({standard=[],trials=[],plans=[],activit
  const lines=["Choose a giveaway below to open its announcement.",""];
  let displayed=0;
  // Discord embeds allow 4096 description characters. Leave room for headings/footer
- // and signal truncation rather than posting a second unpinned directory.
+ // and signal truncation rather than posting another directory.
  for(const [heading,items] of sections){
    if(!items.length)continue;
    const next=["**"+heading+"**"];
@@ -74,10 +74,12 @@ export async function activeGiveawayIndexData(guildId,now=new Date()){
  return {standard,trials,activities,plans:savedPlans};
 }
 
+// Check channel position at most once an hour. Content edits never bump the message.
+export const GIVEAWAY_INDEX_STICKY_INTERVAL_MS=60*60*1000;
 export async function reconcileActiveGiveawayIndex(client,{guildId=null,now=new Date()}={}){
  const configs=await GuildConfig.find({
    ...(guildId?{guildId}:{}),activityGiveawayListChannelId:{$nin:["",null]},
- }).select("guildId activityGiveawayListChannelId giveawayIndexMessageId giveawayIndexChannelId giveawayIndexFingerprint giveawayEmbedColor").lean();
+ }).select("guildId activityGiveawayListChannelId giveawayIndexMessageId giveawayIndexChannelId giveawayIndexFingerprint giveawayIndexCheckedAt giveawayEmbedColor").lean();
  for(const config of configs){
    try{
      const channel=await client.channels.fetch(config.activityGiveawayListChannelId);
@@ -86,11 +88,16 @@ export async function reconcileActiveGiveawayIndex(client,{guildId=null,now=new 
      const embed=activeGiveawayIndexEmbed(data);
      if(/^#[0-9a-fA-F]{6}$/.test(config.giveawayEmbedColor||""))
        embed.setColor(parseInt(config.giveawayEmbedColor.slice(1),16));
+     const payload={embeds:[embed],allowedMentions:{parse:[]}};
      const fingerprint=createHash("sha256").update(JSON.stringify(embed.toJSON())).digest("hex");
      const stored=config.giveawayIndexChannelId===channel.id&&config.giveawayIndexMessageId;
-     // No Discord read/edit when the directory is unchanged. This runs in the
-     // existing giveaway sweep, but updates happen only after a real change.
-     if(stored&&config.giveawayIndexFingerprint===fingerprint)continue;
+     const changed=!stored||config.giveawayIndexFingerprint!==fingerprint;
+     const lastCheck=+new Date(config.giveawayIndexCheckedAt||0);
+     const checkPosition=!stored||!Number.isFinite(lastCheck)||
+       now.getTime()-lastCheck>=GIVEAWAY_INDEX_STICKY_INTERVAL_MS;
+     // No Discord message reads when neither the contents nor hourly position
+     // need checking (the normal 30-second giveaway sweep is effectively free).
+     if(!changed&&!checkPosition)continue;
      let message=stored?await channel.messages.fetch(config.giveawayIndexMessageId).catch(e=>{
        if(e.code===10008)return null;throw e;
      }):null;
@@ -99,22 +106,43 @@ export async function reconcileActiveGiveawayIndex(client,{guildId=null,now=new 
        message=recent.find(m=>m.author?.id===client.user?.id&&
          m.embeds?.some(e=>e.footer?.text===MARKER))||null;
      }
-     if(message){
-       if(message.author?.id!==client.user?.id)throw Error("Giveaway index belongs to another author.");
-       await message.edit({embeds:[embed],allowedMentions:{parse:[]}});
+     if(message?.author?.id!==client.user?.id&&message)
+       throw Error("Giveaway index belongs to another author.");
+
+     let lastId=null;
+     if(checkPosition){
+       const latest=await channel.messages.fetch({limit:1});
+       lastId=latest.first?.()?.id||latest.values?.().next().value?.id||null;
+     }
+     const displaced=Boolean(message&&checkPosition&&lastId&&lastId!==message.id);
+     if(!message||displaced){
+       // Send first so a failed post never destroys the existing directory.
+       const replacement=await channel.send(payload);
+       // Persist the replacement before removing the former post so restart
+       // recovery cannot recreate duplicates.
+       await GuildConfig.updateOne({guildId:config.guildId},{$set:{
+         giveawayIndexChannelId:channel.id,giveawayIndexMessageId:replacement.id,
+         giveawayIndexFingerprint:fingerprint,giveawayIndexCheckedAt:now,
+       }});
+       if(message){
+         try{await message.delete();}
+         catch(error){console.error("[Giveaways] Could not delete previous sticky index:",error);}
+       }
      }else{
-       message=await channel.send({embeds:[embed],allowedMentions:{parse:[]}});
+       if(changed)await message.edit(payload);
+       // Existing deployments may have pinned the index; sticky mode explicitly
+       // removes the old pin while leaving the message intact.
+       if(message.pinned&&message.unpin){
+         try{await message.unpin();}
+         catch(error){console.error("[Giveaways] Could not unpin previous giveaway index:",error);}
+       }
+       await GuildConfig.updateOne({guildId:config.guildId},{$set:{
+         giveawayIndexChannelId:channel.id,giveawayIndexMessageId:message.id,
+         giveawayIndexFingerprint:fingerprint,
+         ...(checkPosition?{giveawayIndexCheckedAt:now}:{}),
+       }});
      }
-     // A pin is persistent and does not bump/repost the message. If Manage
-     // Messages isn't granted, the index still works but cannot be pinned.
-     if(!message.pinned&&message.pin){
-       try{await message.pin();}catch(e){console.error("[Giveaways] Index pin needs Manage Messages:",e);}
-     }
-     await GuildConfig.updateOne({guildId:config.guildId},{$set:{
-       giveawayIndexChannelId:channel.id,giveawayIndexMessageId:message.id,
-       giveawayIndexFingerprint:fingerprint,
-     }});
-   }catch(e){console.error("[Giveaways] Giveaway index sync failed:",config.guildId,e);}
+   }catch(e){console.error("[Giveaways] Giveaway sticky index sync failed:",config.guildId,e);}
  }
  return configs.length;
 }
