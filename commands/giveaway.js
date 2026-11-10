@@ -62,7 +62,6 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
     .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true))
     .addIntegerOption(o => o.setName("winner").setDescription("Winner number to replace, starting with 1").setRequired(true).setMinValue(1).setMaxValue(10)))
-  .addSubcommand(c => c.setName("list").setDescription("Show recent regular giveaways and saved IDs"))
   .addSubcommand(c => c.setName("entrants").setDescription("Privately list entrants of any giveaway or trial")
     .addStringOption(o => o.setName("id").setDescription("Giveaway or trial ID or message link").setRequired(true))
     .addIntegerOption(o => o.setName("page").setDescription("Page (25 entrants at a time)").setMinValue(1)));
@@ -275,7 +274,7 @@ export async function execute(interaction) {
       return interaction.editReply(`🥀 ${survival ? "Survival trial" : "Giveaway"} posted: ${message.url}\nSaved giveaway ID: \`${record._id}\`\n${survival ? "Members join using the buttons; staff click Start Trial when ready." : "The announcement and results will stay visible after it ends."}`);
     }
 
-    if (operation === "list") {
+    if (survivalCommand && operation === "list") {
       const records = await Giveaway.find({
         guildId: interaction.guildId, status: { $ne: "failed" },
         mode: survivalCommand ? "survival" : { $ne: "survival" },
