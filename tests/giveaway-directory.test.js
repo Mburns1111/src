@@ -23,7 +23,7 @@ test("public directory announces watch requirements, next draw and prize without
  const linked=activityPlanListingEmbed({...plan,title:"Ping <@123456789012345678> in <#234567890123456789>"},rule).toJSON();
  assert.match(linked.description,/<@123456789012345678>/);
  assert.match(linked.description,/<#234567890123456789>/);
- assert.match(embed.description,/50 qualifying messages/);
+ assert.match(embed.description,/50 messages/);
  assert.match(embed.description,/Tell us about your favorite pet!/);
  assert.match(embed.description,/<#456789012345678901>/);
  assert.match(embed.description,/<@567890123456789012>/);
@@ -76,7 +76,7 @@ test("active plan publishes a member-facing directory listing to list channel, n
   assert.equal(sent.length,1);
   assert.equal(sent[0].content,"<@&567890123456789012>");
   assert.deepEqual(sent[0].allowedMentions,{parse:[],roles:["567890123456789012"]});
-  assert.match(sent[0].embeds[0].toJSON().description,/50 qualifying messages/);
+  assert.match(sent[0].embeds[0].toJSON().description,/50 messages/);
  assert.equal(sent[0].components[0].components[0].data.label,"Check My Progress");
  assert.equal(sent[0].components[0].components[0].data.custom_id,`activity-progress:plan:${planId}`);
   assert.equal(updates[0].listChannelId,listId);
@@ -116,7 +116,7 @@ test("public cards hide internal details while keeping real entry requirements",
  assert.match(guided.description,/✨ \*\*How to qualify\*\*/);
  assert.match(guided.description,/<@123456789012345678>/);
  assert.match(guided.description,/<#234567890123456789>/);
- assert.match(guided.description,/5 matching messages/);
+ assert.match(guided.description,/5 messages/);
  assert.match(guided.description,/Tag <@123456789012345678>/);
  assert.match(guided.description,/cozy community challenge/);
  assert.match(guided.description,/Ends and draws/);
@@ -128,7 +128,7 @@ test("public cards hide internal details while keeping real entry requirements",
    activityChannelIds:[],activityDays:3,activityMinimum:1,activityMinChars:25,
    activityRequiredPhrase:"thank you",winnerCount:2,
  }).toJSON();
- assert.match(advanced.description,/10 matching messages/);
+ assert.match(advanced.description,/10 messages/);
  assert.match(advanced.description,/3 different days/);
  assert.match(advanced.description,/25 characters/);
  assert.match(advanced.description,/thank you/);
