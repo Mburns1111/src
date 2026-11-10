@@ -12,7 +12,15 @@ const isStaffDirectoryFooter=text=>text===MARKER||
 const link=(guildId,channelId,messageId)=>`https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
 const safe=value=>String(value||"Giveaway").replace(/[\r\n]+/g," ").replace(/[@`*_~|<>\[\]]/g,"").slice(0,90);
 const relative=date=>date&&Number.isFinite(+new Date(date))?`<t:${Math.floor(+new Date(date)/1000)}:R>`:"";
-const hasPublicPost=record=>Boolean(record.channelId&&record.messageId);
+// Active activity giveaways use their directory announcement until results exist.
+const publicPost=record=>record.mode==="activity"&&record.status==="open"&&
+  record.listChannelId&&record.listMessageId?
+  {channelId:record.listChannelId,messageId:record.listMessageId}:
+  record.channelId&&record.messageId?
+  {channelId:record.channelId,messageId:record.messageId}:
+  record.listChannelId&&record.listMessageId?
+  {channelId:record.listChannelId,messageId:record.listMessageId}:null;
+const hasPublicPost=record=>Boolean(publicPost(record));
 const hasOutstandingClaims=record=>
   (record.winnerIds||[]).some((_,slot)=>!winnerHasClaim(record,slot)&&
     !(record.claimResolvedSlots||[]).includes(slot));
@@ -37,7 +45,7 @@ export function activeGiveawayIndexEmbed({records=[],plans=[]}={}){
  const candidates=[
    ...records.map(record=>({
      name:record.title,type:typeName(record),status:claimOrActivityStatus(record),
-     url:link(record.guildId,record.channelId,record.messageId),
+     url:link(record.guildId,publicPost(record).channelId,publicPost(record).messageId),
      until:record.status==="open"?record.endsAt:null,
      staffUrl:record.staffCardChannelId&&record.staffCardId?
        link(record.guildId,record.staffCardChannelId,record.staffCardId):"",
