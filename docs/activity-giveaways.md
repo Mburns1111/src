@@ -90,7 +90,7 @@ For activity giveaway staff records, the bot publishes **two separate messages**
 
 The second message refreshes at most once each Eastern calendar day while the activity is open, or when a moderator presses **Refresh Progress** (60-second refresh cooldown). Status transitions can also cause an update. The bot keeps collecting activity counters continuously; display refresh timing does **not** control winner eligibility or the draw. No new Discord progress-message fetch is needed between scheduled refreshes when the saved message ID is already present.
 
-**Current implementation limitation:** These are per-drawing staff messages. Reusing exactly the same two staff message IDs across every recurring drawing is not yet implemented; public recurring giveaway listings already reuse their existing message. Do not assume recurring staff-panel reuse is complete until the per-plan lifecycle is added and tested.
+Recurring activity giveaways reuse their management and progress messages across drawing periods. Older drawing records retain their winner, claim and reroll history in MongoDB and winner announcements, but are marked as superseded for the shared staff panel so an older reconciliation cannot overwrite the current period. The public recurring giveaway listing also continues to reuse its existing message.
 
 Winner result embeds use a Court-themed title for activity drawings. A zero-winner result does not include ticket-claim instructions, and an actual winner retains claim and reroll controls.
 
