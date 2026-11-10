@@ -147,15 +147,12 @@ test("a scheduled plan never redraws the same activity day at another hour",asyn
 });
 
 test("watch settings expose total messages for the chosen period, not forced per-day totals",()=>{
- const watch=giveawayCommand.toJSON().options.find(o=>o.name==="watch-save");
- assert.ok(watch);
- const messages=watch.options.find(o=>o.name==="messages");
- assert.match(messages.description,/Total qualifying messages/i);
- assert.equal(messages.max_value,10000);
- assert.ok(watch.options.find(o=>o.name==="period"));
- assert.ok(watch.options.find(o=>o.name==="mention_member"));
- assert.ok(watch.options.find(o=>o.name==="phrase"));
- assert.ok(watch.options.find(o=>o.name==="per_day"));
+ // Legacy named watched-channel rules are retained for existing schedules,
+ // but new activity giveaways choose their watch scope and total count in
+ // the guided wizard (no watch-* slash command clutter).
+ const visible=giveawayCommand.toJSON().options;
+ assert.ok(!visible.some(o=>o.name.startsWith("watch-")));
+ assert.ok(visible.some(o=>o.name==="activity"));
  const plans=addGiveawayPlanCommands(new SlashCommandBuilder().setName("x").setDescription("X")).toJSON().options;
  const create=plans.find(o=>o.name==="plan-create");
  const edit=plans.find(o=>o.name==="plan-edit");
