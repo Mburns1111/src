@@ -23,7 +23,7 @@ test("staff editor includes all creation settings plus clear editing guidance",(
   const values=GUIDED_EDIT_FIELDS.map(field=>field.value);
   for(const name of [
     "title","prize","description","winnerCount","activityMinTotalMessages",
-    "activityDays","activityEndAt","endsAt","requireStaffReview","progressEnabled",
+    "activityDays","activityMinChars","activityEndAt","endsAt","requireStaffReview","progressEnabled",
     "roleBonuses","claimWindowHours","bannerNameKey","activityChannelIds",
     "activityRequiredMentionUserId","activityRequiredPhrase","repeatSchedule","activityStartAt"
   ])assert.ok(values.includes(name),name);
@@ -40,6 +40,8 @@ test("edit values validate counts, dates, announcements, filters, and recurrence
   assert.deepEqual(check("description",""),{description:""});
   assert.deepEqual(check("winnerCount","3"),{winnerCount:3});
   assert.deepEqual(check("activityMinTotalMessages","12"),{activityMinTotalMessages:12});
+  assert.deepEqual(check("activityMinChars","25"),{activityMinChars:25});
+  assert.throws(()=>check("activityMinChars","2001"),/whole number/);
   assert.deepEqual(check("activityDays","3"),{activityDays:3});
   assert.deepEqual(check("requireStaffReview","on"),{requireStaffReview:true});
   assert.deepEqual(check("progressEnabled","off"),{progressEnabled:false});
