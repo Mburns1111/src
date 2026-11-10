@@ -39,7 +39,8 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
   const bonus=[...new Map([...(rule?.roleBonuses||[]),...(plan.roleBonuses||[])]
     .map(b=>[b.roleId,b])).values()];
   const qualifier=[
-    "• Send **"+minimum+" qualifying "+(minimum===1?"message":"messages")+"** in "+channel+".",
+    "• Send **"+minimum+" "+(minimum===1?"message":"messages")+"** in "+channel+
+      (rule?.requiredPhrase?" containing the required phrase":"")+".",
   ];
   if(rule?.minimumChars>1)qualifier.push("• Each message must have at least **"+rule.minimumChars+" characters**.");
   if(rule?.minimumMessages>1)qualifier.push("• Send at least **"+rule.minimumMessages+" messages** on each qualifying day.");
