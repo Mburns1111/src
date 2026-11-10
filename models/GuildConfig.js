@@ -22,6 +22,7 @@ const guildConfigSchema = new mongoose.Schema(
     giveawayIndexCheckedAt: { type: Date, default: null },
     activityGiveawayWinnersChannelId: { type: String, default: "" },
     activityGiveawayReviewChannelId: { type: String, default: "" },
+    giveawayArchiveChannelId: { type: String, default: "" },
     activityClaimInstructions:{type:String,default:"",maxlength:1000},
     giveawayRoleInstructions:{type:String,default:"",maxlength:500},
     giveawayDefaultRequiredRoleId:{type:String,default:""},
