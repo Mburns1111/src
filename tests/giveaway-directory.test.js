@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import GuildConfig from "../models/GuildConfig.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
+import Giveaway from "../models/Giveaway.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import {activityPlanListingEmbed,activityOneOffListingEmbed,
   publishActivityPlanListing} from "../services/giveaway-directory.js";
@@ -59,12 +60,13 @@ test("public directory announces watch requirements, next draw and prize without
  assert.match(exactOneOff.description,/Spelling and word order must match; capitals do not matter/);
 });
 test("active plan publishes a member-facing directory listing to list channel, not winners channel",async()=>{
- const old=[GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne];
+ const old=[GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne,Giveaway.find];
  const sent=[],updates=[],fetched=[];
  try {
   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
     activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId})})});
   GiveawayWatchRule.findOne=()=>({lean:async()=>rule});
+  Giveaway.find=()=>({sort:()=>({limit:()=>({select:()=>({lean:async()=>[]})})})});
   GiveawayPlan.updateOne=async (_query,update)=>{updates.push(update.$set);return {modifiedCount:1}};
   const channel={id:listId,messages:{fetch:async()=>({find:()=>null})},
     send:async payload=>{sent.push(payload);return {id:"678901234567890123"}}};
@@ -78,7 +80,7 @@ test("active plan publishes a member-facing directory listing to list channel, n
   assert.equal(updates[0].listChannelId,listId);
   assert.equal(updates[0].listMessageId,"678901234567890123");
  }finally{
-  [GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne]=old;
+  [GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne,Giveaway.find]=old;
  }
 });
 test("finished or paused activity plan listing is removed without deleting its actual results",async()=>{
@@ -129,4 +131,20 @@ test("public cards hide internal details while keeping real entry requirements",
  assert.match(advanced.description,/25 characters/);
  assert.match(advanced.description,/thank you/);
  assert.doesNotMatch(advanced.description,/per active day/);
+});
+
+
+test("recurring giveaway public listing displays only the last two winners",()=>{
+ const history=[
+   {userId:"111111111111111111",drawnAt:new Date("2026-11-10T19:00:00Z")},
+   {userId:"222222222222222222",drawnAt:new Date("2026-11-09T19:00:00Z")},
+   {userId:"333333333333333333",drawnAt:new Date("2026-11-08T19:00:00Z")},
+ ];
+ const embed=activityPlanListingEmbed(plan,rule,{recentWinners:history}).toJSON();
+ assert.match(embed.description,/Recent winners/);
+ assert.match(embed.description,/<@111111111111111111>/);
+ assert.match(embed.description,/<@222222222222222222>/);
+ assert.doesNotMatch(embed.description,/<@333333333333333333>/);
+ assert.doesNotMatch(activityPlanListingEmbed({...plan,repeatMode:"once"},rule,
+   {recentWinners:history}).toJSON().description,/Recent winners/);
 });
