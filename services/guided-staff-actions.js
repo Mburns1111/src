@@ -19,6 +19,7 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Giveaway Details",value:"description",description:"Edit or remove the custom description"},
   {label:"Number of winners",value:"winnerCount",description:"1–10 winners"},
   {label:"Total message goal",value:"activityMinTotalMessages",description:"Total messages for this activity"},
+  {label:"Minimum characters per message",value:"activityMinChars",description:"1–2000 characters; restarts counting"},
   {label:"Different active days",value:"activityDays",description:"Days with at least one qualifying message"},
   {label:"Activity ends",value:"activityEndAt",description:"Edit counting cutoff in Eastern time"},
   {label:"Winner announcement",value:"endsAt",description:"Edit draw date and time (Eastern)"},
@@ -38,9 +39,9 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Future repeats",value:"repeatSchedule",description:"Edit next cycles, not the current one"},
   {label:"Counting start",value:"activityStartAt",description:"Started already; cannot backdate counts"},
 ];
-const criteriaFields=new Set(["activityChannelIds","activityRequiredMentionUserId","activityRequiredPhrase","requiredRoleId"]);
+const criteriaFields=new Set(["activityChannelIds","activityRequiredMentionUserId","activityRequiredPhrase","requiredRoleId","activityMinChars"]);
 const inputMax={title:100,prize:1500,description:1000,winnerCount:2,
-  activityMinTotalMessages:5,activityDays:3,claimWindowHours:3,bannerNameKey:60,
+  activityMinTotalMessages:5,activityMinChars:4,activityDays:3,claimWindowHours:3,bannerNameKey:60,
   requireStaffReview:3,progressEnabled:3,showRequiredRoleInstructions:3,
   roleBonuses:350,activityChannelIds:100,
   activityRequiredMentionUserId:100,activityRequiredPhrase:120,requiredRoleId:100,
@@ -57,6 +58,7 @@ const inputHint={
   activityRequiredMentionUserId:"@member, user ID, or none",
   requiredRoleId:"@role, role ID, default, or none; resets counting",
   activityRequiredPhrase:"Exact spelling and word order; capitals ignored",
+  activityMinChars:"1–2000 text characters per counted message, excludes mentions; RESET required",
   activityEndAt:"YYYY-MM-DD HH:mm Eastern",
   endsAt:"YYYY-MM-DD HH:mm Eastern",
   repeatSchedule:"once, daily, weekly, every 3 hours",
@@ -146,7 +148,7 @@ export function validateGuidedStaffEdit(field,raw,event,{now=new Date()}={}){
     if(interval>525600||interval<1)throw Error("Repeat interval must be 1–525600 minutes.");
     return {repeat:"custom",amount,unit,interval};
   }
-  const bounds={winnerCount:[1,10],activityMinTotalMessages:[1,10000],
+  const bounds={winnerCount:[1,10],activityMinTotalMessages:[1,10000],activityMinChars:[1,2000],
     activityDays:[1,maxActiveDays(new Date(event.activityStartAt),new Date(event.activityEndAt))],
     claimWindowHours:[1,720],maxAutoRerolls:[0,10]};
   const bound=bounds[field];
@@ -222,7 +224,7 @@ export function describeGuidedStaffOptions(event){
  return [
    "**Edit this activity giveaway**",
    "**Giveaway post:** Title · Prize · Giveaway Details · Banner",
-   "**Qualification:** Total message goal · Active days · Watched channel · Member ping · Required phrase · Required role · Role instructions visibility",
+   "**Qualification:** Total message goal · Minimum characters per message · Active days · Watched channel · Member ping · Required phrase · Required role · Role instructions visibility",
    "*Exact phrases require correct spelling and word order; capitalization does not matter.*",
    "**Timing:** Activity cutoff · Winner announcement",
    "**Drawing:** Winners · Manual approval · Bonus roles · Claim time · Max rerolls · Member progress",
@@ -230,7 +232,8 @@ export function describeGuidedStaffOptions(event){
    "**Future giveaways:** Repeat schedule (changes future starts only)",
    "",
    "**Current settings**",
-   "Watch: "+channel+" · Goal: "+(event.activityMinTotalMessages||1)+" total message(s)",
+   "Watch: "+channel+" · Goal: "+(event.activityMinTotalMessages||1)+" total message(s)"+
+     " · Minimum length: "+(event.activityMinChars||1)+" character(s) per message",
    "Required role: "+(event.requiredRoleId?"<@&"+event.requiredRoleId+">":"None")+
      " · Acquisition instructions: "+(event.showRequiredRoleInstructions!==false?"Shown to members":"Hidden from members"),
    "Counting ends: "+fmt(event.activityEndAt)+" · Draws: "+fmt(event.endsAt),
