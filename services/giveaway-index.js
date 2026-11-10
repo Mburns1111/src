@@ -70,19 +70,11 @@ export async function activeGiveawayIndexData(guildId,now=new Date()){
  const records=all.filter(record=>{
    if(!hasPublicPost(record))return false;
    if(record.status==="ended" || record.status==="rerolling")
-     return (record.winnerIds||[]).length>0 &&
-       (hasOutstandingClaims(record) || (record.winnerClaims||[]).length>0 &&
-         !(record.claimResolvedSlots||[]).includes(-1));
+     return (record.winnerIds||[]).some((_,slot)=>
+       !(record.claimResolvedSlots||[]).includes(slot));
    return true;
  });
- // Finished drawings with ticket submissions still need staff delivery; keep
- // them visible until staff have resolved all claim slots.
- const outstanding=records.filter(record=>{
-   if(!["ended","rerolling"].includes(record.status))return true;
-   return (record.winnerIds||[]).some((_,slot)=>
-     !(record.claimResolvedSlots||[]).includes(slot));
- });
- return {records:outstanding,plans:plans.filter(plan=>plan.listChannelId&&plan.listMessageId)};
+ return {records,plans:plans.filter(plan=>plan.listChannelId&&plan.listMessageId)};
 }
 
 async function fetchStored(channel,id){
