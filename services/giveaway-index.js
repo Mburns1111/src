@@ -49,7 +49,7 @@ export function activeGiveawayIndexEmbed({records=[],plans=[]}={}){
  const lines=[`**${candidates.length} active or pending giveaways / schedules**`,""];
  let displayed=0;
  for(const item of candidates){
-   const entry=`${displayed+1}. [${safe(item.name)}](${item.url}) · ${item.type}\n🟨 ${item.status}${item.until?" · "+relative(item.until):""} · [Public post](${item.url})`;
+   const entry=`${displayed+1}. **${safe(item.name)}** · ${item.type}\n🟨 ${item.status}${item.until?" · "+relative(item.until):""}${item.staffUrl?" · [Open staff record]("+item.staffUrl+")":""} · [Public post](${item.url})`;
    if(lines.join("\n").length+entry.length+225>3890)break;
    lines.push(entry);displayed++;
  }
