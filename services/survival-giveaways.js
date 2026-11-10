@@ -227,6 +227,32 @@ export async function getTrialChampionRecord(guildId, championId) {
  */
 export function survivalFinalePayload(record, championRecord = null) {
   const championId = record.originalChampionId || record.winnerIds?.[0];
+  // A Royal Verdict with no eligible prize recipient should not retain a
+  // page of expired claim instructions or reroll audit history. The Court's
+  // historical Last Survivor stays visible even when the prize was forfeited.
+  if(giveawayHasNoEligibleWinner(record)){
+    const lines=[
+      "🏰 **THE COURT HAS SPOKEN**",
+      "",
+      "**"+String(record.title||"Court's Trial").slice(0,160)+"**",
+      championId?"👑 **The Last Survivor:** <@"+championId+">":null,
+      "",
+      "🎁 **Royal Prize:** "+String(record.prize||"").slice(0,800),
+      "",
+      "🏁 **No eligible winner for the prize.**",
+      (record.winnerIds||[]).length
+        ?"The prize claim was forfeited; no replacement was available."
+        :"No eligible prize winner was selected.",
+      "",
+      "*This verdict remains visible until staff explicitly remove the listing.*",
+    ].filter(line=>line!==null);
+    return {embeds:[new EmbedBuilder().setColor(0x71537c)
+      .setAuthor({name:"♛ THE CRYPTIC COURT · ROYAL VERDICT ♛"})
+      .setTitle("👑 TRIAL COMPLETE · NO ELIGIBLE PRIZE WINNER")
+      .setDescription(lines.join("\n").slice(0,3900))
+      .setFooter({text:"♛ Trial "+record._id+" · Finale"})],
+      components:[],allowedMentions:{parse:[]}};
+  }
   const ranked = (record.winnerIds || []).slice(0, 10)
     .map((id, index) => (record.claimResolvedSlots||[]).includes(index)
       ? (index+1)+". **No eligible winner** — <@"+id+"> forfeited; no replacement available"
