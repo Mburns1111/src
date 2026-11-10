@@ -48,33 +48,87 @@ test("giveaway index lists active standard, activity and trial posts but omits c
  }finally{Giveaway.find=prior.find;GiveawayPlan.find=prior.planFind;}
 });
 
-test("index creates one pinned message and skips Discord reads and edits when unchanged",async()=>{
- const prior={find:GuildConfig.find,update:GuildConfig.updateOne,
+test("sticky index posts once, checks position hourly, and moves only when displaced",async()=>{
+ const old={find:GuildConfig.find,update:GuildConfig.updateOne,
    giveaway:Giveaway.find,plans:GiveawayPlan.find};
+ const t0=new Date("2026-11-10T12:00:00Z");
  const state={guildId,activityGiveawayListChannelId:channelId,
-   giveawayIndexMessageId:"",giveawayIndexChannelId:"",giveawayIndexFingerprint:""};
- const sends=[],edits=[],pins=[],reads=[];
- const message={id:"987654321098765432",author:{id:"bot"},pinned:false,
-   pin:async()=>{pins.push(true);},edit:async p=>{edits.push(p);}};
- const channel={id:channelId,send:async p=>{sends.push(p);return message;},
-   messages:{fetch:async arg=>{reads.push(arg);return arg?.limit?{find:()=>null}:message;}}};
+   giveawayIndexMessageId:"",giveawayIndexChannelId:"",
+   giveawayIndexFingerprint:"",giveawayIndexCheckedAt:null};
+ const sent=[],deleted=[],edited=[],fetched=[];
+ let newest="987654321098765432";
+ const messages=new Map();
+ const channel={id:channelId,send:async payload=>{
+   sent.push(payload);
+   const id=sent.length===1?"987654321098765432":"876543210987654321";
+   newest=id;
+   const msg={id,author:{id:"bot"},pinned:false,
+     edit:async()=>edited.push(id),delete:async()=>deleted.push(id)};
+   messages.set(id,msg);return msg;
+ },messages:{fetch:async arg=>{
+   fetched.push(arg);
+   if(arg?.limit===1)return {first:()=>({id:newest})};
+   if(arg?.limit===100)return {find:()=>null};
+   return messages.get(arg)||null;
+ }}};
  try{
    GuildConfig.find=()=>({select:()=>({lean:async()=>[state]})});
    GuildConfig.updateOne=async(q,update)=>{Object.assign(state,update.$set);};
    Giveaway.find=()=>({sort:()=>({limit:()=>({lean:async()=>[]})})});
    GiveawayPlan.find=()=>({sort:()=>({limit:()=>({lean:async()=>[]})})});
    const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
-   await reconcileActiveGiveawayIndex(client);
-   assert.equal(sends.length,1);
-   assert.equal(pins.length,1);
-   assert.equal(state.giveawayIndexMessageId,message.id);
-   const firstReads=reads.length;
-   await reconcileActiveGiveawayIndex(client);
-   assert.equal(sends.length,1);
-   assert.equal(edits.length,0);
-   assert.equal(reads.length,firstReads);
+   await reconcileActiveGiveawayIndex(client,{now:t0});
+   assert.equal(sent.length,1);
+   assert.equal(state.giveawayIndexMessageId,"987654321098765432");
+   assert.equal(state.giveawayIndexCheckedAt.getTime(),t0.getTime());
+   const firstReads=fetched.length;
+   await reconcileActiveGiveawayIndex(client,{now:new Date(t0.getTime()+30*60_000)});
+   assert.equal(fetched.length,firstReads,"No Discord message checks between hourly windows");
+
+   // A newer user post appears. The index must stay where it is until an hour passes.
+   newest="777777777777777777";
+   await reconcileActiveGiveawayIndex(client,{now:new Date(t0.getTime()+59*60_000)});
+   assert.equal(sent.length,1);
+   await reconcileActiveGiveawayIndex(client,{now:new Date(t0.getTime()+60*60_000)});
+   assert.equal(sent.length,2,"One replacement restores the index as the last message");
+   assert.deepEqual(deleted,["987654321098765432"]);
+   assert.equal(state.giveawayIndexMessageId,"876543210987654321");
+   assert.equal(sent[1].allowedMentions.parse.length,0);
+   await reconcileActiveGiveawayIndex(client,{now:new Date(t0.getTime()+120*60_000)});
+   assert.equal(sent.length,2,"Do not repost when the sticky remains last");
+   assert.equal(edited.length,0);
  }finally{
-   GuildConfig.find=prior.find;GuildConfig.updateOne=prior.update;
-   Giveaway.find=prior.giveaway;GiveawayPlan.find=prior.plans;
+   GuildConfig.find=old.find;GuildConfig.updateOne=old.update;
+   Giveaway.find=old.giveaway;GiveawayPlan.find=old.plans;
+ }
+});
+
+test("previously pinned giveaway index is unpinned instead of reposted when already last",async()=>{
+ const old={find:GuildConfig.find,update:GuildConfig.updateOne,
+   giveaway:Giveaway.find,plans:GiveawayPlan.find};
+ const now=new Date("2026-11-10T14:00:00Z");
+ const id="987654321098765432";
+ const state={guildId,activityGiveawayListChannelId:channelId,
+   giveawayIndexMessageId:id,giveawayIndexChannelId:channelId,
+   giveawayIndexFingerprint:"changed",giveawayIndexCheckedAt:null};
+ let unpins=0,edits=0,sends=0;
+ try{
+   GuildConfig.find=()=>({select:()=>({lean:async()=>[state]})});
+   GuildConfig.updateOne=async(q,update)=>{Object.assign(state,update.$set);};
+   Giveaway.find=()=>({sort:()=>({limit:()=>({lean:async()=>[]})})});
+   GiveawayPlan.find=()=>({sort:()=>({limit:()=>({lean:async()=>[]})})});
+   const msg={id,author:{id:"bot"},pinned:true,
+     unpin:async()=>{unpins++;},edit:async()=>{edits++;}};
+   const client={user:{id:"bot"},channels:{fetch:async()=>({
+     id:channelId,send:async()=>{sends++;},messages:{fetch:async arg=>
+       arg?.limit===1?{first:()=>({id})}:msg},
+   })}};
+   await reconcileActiveGiveawayIndex(client,{now});
+   assert.equal(unpins,1);
+   assert.equal(edits,1);
+   assert.equal(sends,0);
+ }finally{
+   GuildConfig.find=old.find;GuildConfig.updateOne=old.update;
+   Giveaway.find=old.giveaway;GiveawayPlan.find=old.plans;
  }
 });
