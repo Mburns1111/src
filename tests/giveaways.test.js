@@ -80,7 +80,7 @@ test("announcement remains on completion with details, winners and audit trail",
  const description=finished.embeds[0].data.description;
  assert.match(description,/Jester Dragon/);
  assert.doesNotMatch(description,/Reroll history/);
- assert.match(description,/<@444444444444444444>/);
+ assert.doesNotMatch(description,/<@444444444444444444>/,"former winner and reroll history must only be in private staff records");
  assert.match(description,/<@234567890123456789>/);
  assert.match(open.embeds[0].data.description,/fox whispers/i);
  assert.match(open.embeds[0].data.description,/pocket/i);
