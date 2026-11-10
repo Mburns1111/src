@@ -34,7 +34,7 @@ export function giveawayAnnouncement(record) {
   const changed = (record.rerollHistory || []).slice(-8).map(item =>
     `#${item.slot + 1}: <@${item.previousId}> → <@${item.replacementId}>`);
   const activity = record.mode === "activity";
-  const foxStory = activity ? (ended ? "🥀 Activity giveaway concluded." : "🥀 Activity entries are locked; no manual entry.") : ended
+  const foxStory = activity ? null : ended
     ? winners.length === 1
       ? `🦊 **The fox cackles:** "My sneaky helper <@${record.winnerIds[0]}> distracted <@${record.creatorId}> while I swiped the prize straight from their pocket! What a marvelous heist!"`
       : winners.length > 1
@@ -43,9 +43,8 @@ export function giveawayAnnouncement(record) {
     : `🦊 **The fox whispers:** "Psst! I spotted something shiny in <@${record.creatorId}>'s pocket. Enter below and you might be the accomplice I need to swipe the prize!"`;
   const lines = [
     `**${String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)}**`,"",
-    foxStory,
-    "",
-    record.prize.slice(0, 1800),
+    ...(foxStory ? [foxStory, ""] : []),
+    activity ? `🎁 **Prize:** ${record.prize.slice(0, 1700)}` : record.prize.slice(0, 1800),
     ...(record.description ? ["", "**Giveaway Details:**", String(record.description).slice(0,1000)] : []),
     "",
     `**Hosted by:** <@${record.creatorId}>`,
@@ -61,7 +60,8 @@ export function giveawayAnnouncement(record) {
     ...(record.rules ? ["", "**Rules / Requirements:**", record.rules.slice(0, 1300)] : []),
   ];
   if (ended) {
-    lines.push("", "**Winners**", ...(winners.length ? winners : ["No eligible entries — no winner was selected."]));
+    lines.push("", winners.length ? (activity ? "🏆 **The Court Has Chosen**" : "**Winners**") : "**No winner selected**",
+      ...(winners.length ? winners : [activity ? "No members qualified for this drawing." : "No eligible entries — no winner was selected."]));
     if (record.mode !== "survival" && (record.winnerIds || []).length) {
       lines.push("", "**Winner ticket claims**");
       for (let slot=0;slot<record.winnerIds.length;slot++) {
@@ -77,15 +77,14 @@ export function giveawayAnnouncement(record) {
     }
     const claims = prizeClaimLines(record, { finished: true });
     if (claims.length) lines.push("", "**Claiming your prize:** Follow the instructions below and use the claim button before the deadline.");
-    if(record.mode==="activity" && !record.winnerIds?.length)
-      lines.push("", "**Outcome:** No qualifying members won this drawing.");
     if (changed.length) lines.push("", "**Reroll history**", ...changed);
     if (winners.length) lines.push("", "*Prize delivery is handled by the giveaway host.*");
   }
   const description = lines.join("\n").slice(0, 4000);
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x86738d : 0xb47e99)
-    .setTitle(ended ? "🦊 Heist Complete" : "🦊 The Fox’s Giveaway")
+    .setTitle(activity ? (ended ? (winners.length ? "✦ Giveaway Results" : "✦ No Winner Selected") : "✦ Activity Giveaway")
+      : (ended ? "🦊 Heist Complete" : "🦊 The Fox’s Giveaway"))
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
   if(ended && record.status==="ended" && (record.winnerIds||[]).length){
