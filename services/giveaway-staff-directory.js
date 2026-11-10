@@ -4,6 +4,7 @@ import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
+import {hasOutstandingTicketClaims} from "./giveaway-claims.js";
 
 // This directory lives in the existing *private* giveaway staff channel, not
 // a public channel, DM, or separate new setup field.
@@ -32,12 +33,18 @@ const statusLabels={
   running:"Trial running",
   closing:"Selecting winners",
   rerolling:"Reroll in progress",
+  ended:"🟨 Waiting for winner claim",
 };
 
 export function giveawayDirectoryEntries(giveaways=[],plans=[]){
   const entries=[];
   for(const record of giveaways){
-    if(!ACTIVE_GIVEAWAY_STATES.includes(record.status) || record.publicListingRemovedAt)continue;
+    if(record.publicListingRemovedAt)continue;
+    const awaitingClaim=record.status==="ended" &&
+      (record.mode==="survival"&&!record.trialTicketClaimsEnabled
+        ? (record.winnerIds||[]).length>0
+        : hasOutstandingTicketClaims(record));
+    if(!ACTIVE_GIVEAWAY_STATES.includes(record.status)&&!awaitingClaim)continue;
     const isActivity=record.mode==="activity";
     // For activities, link to the member-facing list when possible. During
     // a draw awaiting approval, staff can use their private record instead.
@@ -51,11 +58,13 @@ export function giveawayDirectoryEntries(giveaways=[],plans=[]){
     const url=staffUrl||publicUrl;
     const label=record.mode==="survival"?"Court's Trial":isActivity?"Activity":"Regular";
     const end=record.status==="open"?discordTime(record.endsAt):"";
+    const claimDeadline=awaitingClaim?
+      (record.winnerAssignedAt?.[0]||record.claimStartedAt):null;
     entries.push({
       key:"giveaway:"+record._id,title:shortTitle(record.title),
       url,publicUrl:staffUrl&&publicUrl&&publicUrl!==staffUrl?publicUrl:"",
       label,status:statusLabels[record.status]||record.status,
-      detail:end?"Ends "+end:"",
+      detail:end?"Ends "+end:awaitingClaim?"Winner must claim — open staff record":"",
       timestamp:new Date(record.endsAt||0).getTime()||0,
     });
   }
@@ -84,9 +93,9 @@ export function giveawayStaffDirectoryPayload(guildId,entries,{page=0}={}){
     (entry.url?"":" · *Link pending*")
   );
   const description=entries.length
-    ?[`**${entries.length} active giveaway${entries.length===1?"":"s"} / schedules**`,"",...rows,
-      "","*Only live giveaways and active recurring schedules appear here. Finished and cancelled giveaways stay in their individual staff records.*"].join("\n").slice(0,4000)
-    :"There are currently **no active giveaways**. New giveaways will appear here automatically.";
+    ?[`**${entries.length} active or pending giveaway${entries.length===1?"":"s"} / schedules**`,"",...rows,
+      "","*Shows active giveaways, awaiting claims and ongoing schedules. Settled or archived giveaways remain in their private staff records.*"].join("\n").slice(0,4000)
+    :"There are currently **no active or pending-claim giveaways**. New giveaways will appear here automatically.";
   const embed=new EmbedBuilder().setColor(0x896b88)
     .setTitle("📌 Active Giveaway Directory · Staff")
     .setDescription(description)
@@ -103,7 +112,8 @@ export function giveawayStaffDirectoryPayload(guildId,entries,{page=0}={}){
 
 async function loadEntries(guildId){
   const [records,plans]=await Promise.all([
-    Giveaway.find({guildId,status:{$in:ACTIVE_GIVEAWAY_STATES}}).sort({endsAt:1}).lean(),
+    Giveaway.find({guildId,status:{$in:[...ACTIVE_GIVEAWAY_STATES,"ended"]},
+      publicListingRemovedAt:{$in:[null]}}).sort({endsAt:1}).lean(),
     GiveawayPlan.find({guildId,status:"active"}).sort({nextRunAt:1}).lean(),
   ]);
   return giveawayDirectoryEntries(records,plans);
