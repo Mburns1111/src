@@ -1,3 +1,9 @@
+## Permanent active giveaway index (replaces `/giveaway list`)
+
+The public **Activity Giveaway List** channel now hosts one pinned **Current Giveaways** index post. It links to active regular giveaways, active activity giveaways (including recurring plan announcements), and Court's Trials. The bot creates the index on startup/sweep once the channel is configured, then edits the **same message** only when its contents change. Paused/completed plans and ended/cancelled events are omitted. Court's Trials running beyond their signup deadline still appear until they finish. Nothing is manually entered through the index; links open the original giveaway messages.
+
+The bot needs **Manage Messages** in the list channel to pin the index. Without that permission, it can still post/edit the directory, but the message won't be pinned. The same index is preserved across restarts using its saved message ID and a marker for recovery. The former staff-only `/giveaway list` command is removed; `/trial list` remains a separate historical staff lookup. The index can also be used by ordinary members.
+
 # Activity giveaways — saved plans, watched channels, prize queues and ticket claims
 
 **Development only:** `feature/activity-giveaways-complete`. Do not merge into main or deploy to Wispbyte without approval.
