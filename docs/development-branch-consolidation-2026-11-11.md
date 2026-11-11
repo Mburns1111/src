@@ -1,64 +1,49 @@
-# Development branch consolidation — 2026-11-11
+# AM Isa — consolidated development branch (11 November 2026)
 
-## Canonical development candidate
+## Canonical development branch
+
 `integration/active-development-2026-11-11` in `Mburns1111/src`.
 
-**NOT production-ready.** `main` and Wispbyte have not been updated. No Discord smoke tests or complete npm test run have been performed on this integrated head. Re-register Discord slash commands on the development bot after validation.
+**Development only.** Nothing has been merged into `main`, `Mburns1111/AM-bot` or Wispbyte. Do not deploy before the full test suite and Discord smoke tests. The integration PR merges below were into the development integration branch, not production.
 
-## Integrated (commit ancestry verified)
+## Consolidated feature branches
 
-This branch contains the guided general/Trials/card setup from `feature/trials-guided-setup` as its starting point and now also includes:
+The following PRs were merged into this development branch and their source heads are now ancestors (0 commits ahead):
 
-- Hatchem Creator Shared achievements, from `feature/hatchem-creator-shared-achievements-20261105` (integration PR #43)
-- Earned secret achievement labeling, from `fix/hatchem-secret-achievement-label` (PR #44)
-- Trade-vote uploads and image links, from `feature/trade-vote-image-sources` (PR #45)
-- Series 1 card enablement and egg reuse plan, from `feature/hatchem-series1-enablement-egg-reuse` (PR #46)
-- Series 1 owner-art credits, from `feature/hatchem-owner-art-credits` (PR #47)
-- Series 1 artwork batch review, from `feature/hatchem-series1-batch-review` (PR #48)
-- Additional Court's Trial event stories, from `feature/trial-event-expansion-100` (PR #49)
-- New required shared giveaway archive configuration in `/setup giveaways`, `/setup activity-giveaways`, and `/setup trials`; removes `/setup archives` from registered slash commands
-- Expanded public/staff help restored from the activity-giveaway branch and rewritten to prioritize a blue **Bot Setup** button, private commands channel, full-system channel organization, and updated giveaway/claim/archive guidance
+- #42 — Activity giveaways, reconciled with the modern guided setup and the final delivery/archival rules
+- #50 — Court of Chaos party-game logic
+- #51 — Hatchem artwork previews, official release audit and import tooling
+- #52 — Hatchem six-page tutorial: private **Learn to Play** buttons instead of DMs
+- #53 — Egg artwork credits and active reference catalog
+- #54 — Historical artwork research and Series 1 roster sources, preserved without replacing the completed release catalog
+- #43–49 — Creator Shared, secret-achievement labels, trade image links, Series 1 enablement/reuse, owner art credits, batch artwork review and expanded Court's Trial stories
 
-The older PRs #25, #38, #40 and #41 were closed after their associated code was confirmed in integration. GitHub history remains available.
+Previous standalone PRs #25, #38, #40 and #41 were closed after their changes were incorporated into integration.
 
-## Not yet consolidated — preserve these branches
+## Owner-approved workflow rules
 
-Do **not** delete the following based on age alone; GitHub reports divergent commits or conflicts.
+1. **Regular giveaway archive** — only when all current winners have submitted their valid claim forms **and** staff use **Confirm Prizes Delivered**. Optional proof is a Discord message link; staff action and time are recorded. An undelivered, unclaimed, forfeited, or no-winner giveaway uses **Cancel Giveaway** with a staff reason instead of being archived as completed.
+2. **Public results** — archiving a completed *regular* giveaway deletes its public entry/listing. Activity giveaways post winner results in the separate **Activity Winners** channel when they end; those results are retained when the activity list entry is archived. Court's Trial Royal Verdicts are preserved.
+3. **Private channels** — Bot Commands is staff-private. Each of the three giveaway setups chooses the **same required private archive**, separate from the active staff controls and public giveaway channels. Standalone `/setup archives` is retired.
+4. **Hatchem** — tutorial stays in the Hatchem channel as a private interactive button view, not in DMs.
+5. **Artwork** — first-release artwork is completed. The current 108-card Series 1 artwork/release state is preserved; historical artist outreach and source notes are retained separately. No release activation or artwork rewriting has been performed.
 
-- `feature/activity-giveaways-complete`: integration PR #42, **merge conflict** across giveaway/setup/help/staff code; newer activity giveaways still need careful reconciliation with guided Trial/general setup. The restored staff help is a selective port, **not** a complete merge of this branch.
-- `feature/party-court-of-chaos`: integration PR #50, **merge conflict**. Verify game engine and setup compatibility.
-- `feature/card-release-art-preview`: integration PR #51, **merge conflict**. Preserve artwork previews and Series 1 art sources.
-- `feature/hatchem-player-tutorial`: integration PR #52, **merge conflict**. Reconcile tutorial against newer guided card setup.
-- `feature/egg-artwork-credits`: integration PR #53, **merge conflict**. Reconcile artwork-credit history.
-- `Artwork-Credit`: still divergent; audit against the dedicated egg/artwork branches.
-- `release/hatchem-prep-2026-11-04`: still divergent; audit unique release prep/fixes before retirement.
-- `feature/activity-giveaways`: older activity branch but still divergent; compare against `feature/activity-giveaways-complete` before retirement.
+## Additional integration details
 
-The original activity giveaway PR #39 remains open until its unique work has been integrated.
+- Restored expanded Public Help and Staff Help, blue **Bot Setup** button, bot-wide setup instructions.
+- Added model fields for delivery confirmation and archive/staff progress metadata.
+- Kept newer commands and guided wizards when the older activity branch conflicted with modern setup. Detailed original activity branch documentation is stored as **historical reference only** in `docs/activity-giveaways-branch-history.md` to avoid reviving obsolete setup commands.
+- Activity branch's archive, staff progress and index modules and tests were retained. Existing live staff-directory and current guided activity routing were not replaced wholesale during consolidation.
 
-## Branches fully contained in integration (safe from a commit-history standpoint)
+## Older superseded branch lines to inspect before deletion
 
-These branches currently have **0 commits ahead** of the integrated branch and do not need to remain as separate development lines:
+- `feature/activity-giveaways` — superseded by the newer complete activity giveaway branch; diverged history includes older aggregate counters and compatibility code.
+- `release/hatchem-prep-2026-11-04` — superseded release candidate; compare with the finished Series 1 state before deleting.
+- Every other fully contained feature branch (0 commits ahead of integration) can be retired once development tests pass and no collaborator needs it.
 
-- `feature/card-game-foundation`
-- `feature/hatchem-launch-readiness`
-- `feature/permanent-giveaways`
-- `feature/pet-catalog`
-- `feature/hatchem-unranked-creator-reset-20261105` (superseded by non-destructive Creator Shared)
-- `fix/hatchem-activity-only-role-ping`
-- `fix/hatchem-guide-layout-20261105`
-- `feature/trials-guided-setup`
-- `feature/hatchem-creator-shared-achievements-20261105`
-- `fix/hatchem-secret-achievement-label`
-- `feature/trade-vote-image-sources`
-- `feature/hatchem-series1-enablement-egg-reuse`
-- `feature/hatchem-owner-art-credits`
-- `feature/hatchem-series1-batch-review`
-- `feature/trial-event-expansion-100`
+**Remote branch deletion is not completed.** The GitHub connector has no branch-deletion action. Do not delete divergent branches before unique code/history has been verified, and never delete `main` or the integration branch.
 
-Branch deletion has **not** been performed: the available GitHub connector can close PRs, create branches and merge PRs, but does not provide a branch-ref deletion action. Delete only these fully contained branches through GitHub's Branches UI or an authorized git push after confirming development runs and no collaborators depend on them.
-
-## Validation and Replit
+## Run validation on the Replit development bot
 
 ```bash
 git fetch origin
@@ -69,6 +54,12 @@ node register-commands.js
 npm start
 ```
 
-For an existing local branch with that name, use `git switch integration/active-development-2026-11-11` then `git pull --ff-only origin integration/active-development-2026-11-11`.
+If the branch already exists locally:
 
-Complete the conflict-resolution PRs, run automated checks and verify Discord setup/giveaway/trial/card/party controls on the development bot before considering a production PR.
+```bash
+git switch integration/active-development-2026-11-11
+git pull --ff-only origin integration/active-development-2026-11-11
+npm test
+```
+
+Important Discord checks: setup private-channel validation; regular, activity and Trial creation; activity winner announcements; staff preview and sticky directory; winner ticket claim; prize delivery confirmation; cancellation and archive; public post retention/removal; Hatchem tutorial private buttons; Series 1 art credit/release previews. The full automated suite has **not** been run in this environment.
