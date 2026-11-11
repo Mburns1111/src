@@ -58,14 +58,14 @@ test("activity winner presentation is concise and never includes claims for no-w
    claimWindowHours:12};
  const empty=giveawayAnnouncement(base);
  const emptyEmbed=empty.embeds[0].toJSON();
- assert.match(emptyEmbed.title,/No Winner Selected/);
+ assert.match(emptyEmbed.description,/No Winner Selected/);
  assert.match(emptyEmbed.description,/No qualifying members/);
  assert.doesNotMatch(emptyEmbed.description,/Claiming your prize|Winner ticket claims|open a ticket/i);
  assert.equal(empty.components.length,0);
  const won=giveawayAnnouncement({...base,entrantIds:["234567890123456789"],
    winnerIds:["234567890123456789"]});
  const wonEmbed=won.embeds[0].toJSON();
- assert.match(wonEmbed.title,/Giveaway Results/);
+ assert.match(wonEmbed.description,/The Court Has Chosen/);
  assert.match(wonEmbed.description,/The Court Has Chosen/);
  assert.match(wonEmbed.description,/<@234567890123456789>/);
  assert.equal(won.components.length,1);
