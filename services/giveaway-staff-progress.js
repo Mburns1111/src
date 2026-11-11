@@ -100,8 +100,6 @@ export async function handleStaffProgressRefresh(interaction){
  const record=await Giveaway.findOne({_id:id,guildId:interaction.guildId,staffCardChannelId:interaction.channelId}).lean();
  if(!record||record.staffProgressMessageId!==interaction.message.id)
    return interaction.editReply("This is not the current giveaway progress panel.");
- if(record.staffProgressRefreshedAt&&Date.now()-new Date(record.staffProgressRefreshedAt).getTime()<60000)
-   return interaction.editReply("Progress was refreshed within the last minute. Try again shortly.");
  try{
    await ensureStaffProgressPanel(interaction.client,record,interaction.channel,{force:true});
    return interaction.editReply("Shared giveaway progress refreshed.");
