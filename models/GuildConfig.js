@@ -15,6 +15,7 @@ const guildConfigSchema = new mongoose.Schema(
     inventoryEntryChannelId: { type: String, default: "" },
     inventoryEntryMessageId: { type: String, default: "" },
     giveawayChannelId: { type: String, default: "" },
+    giveawayManagerRoleId: { type: String, default: "" },
     activityGiveawayListChannelId: { type: String, default: "" },
     giveawayIndexChannelId: { type: String, default: "" },
     giveawayIndexMessageId: { type: String, default: "" },
