@@ -133,7 +133,7 @@ export async function requirePrivateGiveawayStaffChannel(guild,config){
 export async function ensureGiveawayStaffRecord(client,record){
  if(!record||["draft","publishing","failed"].includes(record.status))return false;
  if(record.archiveMovedAt)return true;
- if(giveawayReadyToArchive(record)){
+ if(record.archiveRequestedAt&&giveawayReadyToArchive(record)){
    const archived=await archiveGiveawayStaffRecord(client,record,{
      staffPayload:giveawayStaffRecordPayload(record,{
        series:record.guidedSeries?await GuidedActivitySeries.findById(record.guidedSeries).lean():null,
@@ -206,7 +206,7 @@ export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
     try{await ensureGiveawayStaffRecord(client,record);await removeGiveawayPublicPosts(client,record);}
     catch(error){console.error("[Giveaways] Cancelled public post cleanup failed:",record._id,error);}
   }
-  const pendingMoves=await Giveaway.find({archivedAt:{$ne:null},archiveMovedAt:null})
+  const pendingMoves=await Giveaway.find({archiveRequestedAt:{$ne:null},archiveMovedAt:null})
     .sort({updatedAt:-1}).limit(limit).lean();
   for(const record of pendingMoves){
     try{await ensureGiveawayStaffRecord(client,record);}
@@ -249,16 +249,27 @@ export async function handleGiveawayStaffAction(interaction){
  try{
    if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
      return interaction.reply({content:"Manage Server permission is required.",...ephemeral});
-   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver):([0-9a-f]{24})$/.exec(interaction.customId);
+   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|archive|confirmarchive):([0-9a-f]{24})$/.exec(interaction.customId);
    if(!match)return interaction.reply({content:"Unknown staff action.",...ephemeral});
    const [,action,id]=match;
    const record=await Giveaway.findOne({_id:id,guildId:interaction.guildId,
      staffCardChannelId:interaction.channelId}).lean();
    if(!record)return interaction.reply({content:"This staff record was not found.",...ephemeral});
-   if(action!=="confirmcancel" && record.staffCardId!==interaction.message?.id)
+   if(!["confirmcancel","confirmdeliver","confirmarchive"].includes(action) && record.staffCardId!==interaction.message?.id)
      return interaction.reply({content:"Use the current staff record for this giveaway.",...ephemeral});
    if(record.archiveMovedAt)
      return interaction.reply({content:"This giveaway is already archived.",...ephemeral});
+   if(action==="archive"){
+     if(!giveawayReadyToArchive(record))return interaction.reply({content:"This giveaway is still active or has outstanding prizes. Confirm delivery or complete the giveaway first.",...ephemeral});
+     return interaction.showModal(new ModalBuilder().setCustomId("giveawaystaff:confirmarchive:"+id)
+       .setTitle("Confirm giveaway archive").addComponents(
+         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("reason")
+           .setLabel("Archive reason (shown in staff record)")
+           .setStyle(TextInputStyle.Paragraph).setMinLength(3).setMaxLength(500).setRequired(true)),
+         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("confirm")
+           .setLabel("Type ARCHIVE to confirm the move")
+           .setStyle(TextInputStyle.Short).setMaxLength(7).setRequired(true))));
+   }
    if(action==="deliver"){
      if(record.status!=="ended"||!record.winnerIds?.length||record.prizeDeliveredAt)
        return interaction.reply({content:"This giveaway is not awaiting prize-delivery confirmation.",...ephemeral});
@@ -266,7 +277,7 @@ export async function handleGiveawayStaffAction(interaction){
        .setCustomId("giveawaystaff:confirmdeliver:"+id)
        .setTitle("Confirm all prizes delivered")
        .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
-         .setCustomId("confirm").setLabel("Type DELIVERED to archive this giveaway")
+         .setCustomId("confirm").setLabel("Type DELIVERED to confirm prize delivery")
          .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(9))));
    }
    if(action==="cancel"){
@@ -285,6 +296,22 @@ export async function handleGiveawayStaffAction(interaction){
        ));
    }
    await interaction.deferReply(ephemeral);
+   if(action==="confirmarchive"){
+     if(!giveawayReadyToArchive(record))return interaction.editReply("This giveaway is not eligible for archiving.");
+     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="ARCHIVE")
+       return interaction.editReply("Archive not confirmed. Type ARCHIVE to continue.");
+     const reason=interaction.fields.getTextInputValue("reason").trim();
+     if(reason.length<3)return interaction.editReply("Enter an archive reason of at least three characters.");
+     const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
+       archiveMovedAt:null,archiveRequestedAt:null,status:record.status},
+       {$set:{archiveRequestedAt:new Date(),archiveRequestedBy:interaction.user.id,
+         archiveRequestedReason:reason}}, {returnDocument:"after"}).lean();
+     if(!updated)return interaction.editReply("The giveaway has already changed or an archive transfer has begun.");
+     const result=await archiveGiveawayStaffRecord(interaction.client,updated,
+       {staffPayload:giveawayStaffRecordPayload(updated)});
+     return interaction.editReply(result?"The complete giveaway record was moved to Archives.":
+       "Archive request saved, but the archive channel is unavailable. The record remains active until transfer succeeds.");
+   }
    if(action==="confirmdeliver"){
      if(record.status!=="ended"||!record.winnerIds?.length||record.prizeDeliveredAt)
        return interaction.editReply("This giveaway is not awaiting prize-delivery confirmation.");
@@ -296,9 +323,7 @@ export async function handleGiveawayStaffAction(interaction){
          autoRerollClaims:false,claimCheckAt:null}},
        {returnDocument:"after"}).lean();
      if(!updated)return interaction.editReply("This giveaway was already updated.");
-     const archived=await archiveGiveawayStaffRecord(interaction.client,updated,{
-       staffPayload:giveawayStaffRecordPayload(updated),
-     });
+     await ensureGiveawayStaffRecord(interaction.client,updated);
      // The public result remains visible, but its claim button must close after
      // staff confirms delivery. Fetch the persisted archive state before editing.
      try{
@@ -310,9 +335,7 @@ export async function handleGiveawayStaffAction(interaction){
      }catch(error){
        console.error("[Giveaways] Prize delivery saved; public result refresh failed:",error);
      }
-     return interaction.editReply(archived?
-       "All prizes marked delivered. The complete staff record was moved to Archives.":
-       "Delivery saved, but Archives is not configured. Set /setup channels giveaway_archives and the bot will archive this record.");
+     return interaction.editReply("Prize delivery confirmed. The giveaway remains in the active staff channel until a moderator selects Confirm Archive.");
    }
    if(action==="stop"){
      if(record.mode==="survival"||record.status!=="ended"||!record.autoRerollClaims)
