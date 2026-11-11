@@ -103,6 +103,12 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    if(["open","pending_review","ended","running"].includes(record.status))
      controls.push(btn("giveawaystaff:cancel:"+record._id,"Cancel & Remove Giveaway",ButtonStyle.Danger));
  }
+ if(giveawayReadyToArchive(record)&&!record.archiveMovedAt){
+   const red=record.status==="cancelled"||!(record.winnerIds||[]).length||
+     (record.winnerIds||[]).every((_,slot)=>(record.claimResolvedSlots||[]).includes(slot));
+   controls.push(btn("giveawaystaff:archive:"+record._id,"Confirm Archive",
+     red?ButtonStyle.Danger:ButtonStyle.Success));
+ }
  const components=[];
  for(let i=0;i<controls.length;i+=5)
    components.push(new ActionRowBuilder().addComponents(controls.slice(i,i+5)));
