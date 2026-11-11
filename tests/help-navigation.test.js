@@ -60,6 +60,32 @@ test("public system guides cover card game, giveaways, listings, games and shop"
  assert.match(JSON.stringify(data(helpTopicPayload("listings",userId))),/Choose photo/);
  assert.match(JSON.stringify(data(helpTopicPayload("shop",userId))),/shop balance/);
 });
+test("Bot Setup is first in Staff Help and guides channel creation before general setup",()=>{
+ assert.equal(STAFF_TOPICS[0].id,"ssetup");
+ const staff=helpTopicPayload("staff",userId);
+ assert.equal(buttonIds(staff)[0],"help:topic:ssetup:"+userId);
+ const setup=data(helpTopicPayload("ssetup",userId));
+ const fields=setup.fields||[];
+ assert.match(setup.description,/Create your channels in Discord first/);
+ assert.match(fields[0].name,/Priority.*Commands channel/);
+ assert.match(fields[0].value,/#commands/);
+ const groups=fields.map(x=>x.name).join(" ");
+ for(const group of ["Profiles & Listings","Shop & Points","Collectible Cards",
+   "Games","Giveaways · PUBLIC","Giveaways · PRIVATE"]){
+  assert.ok(groups.includes(group),group+" should be listed by bot system");
+ }
+ assert.match(fields.find(x=>x.name.includes("PRIVATE")).value,/hide from @everyone/);
+ assert.match(fields.find(x=>x.name.includes("PRIVATE")).value,/Archives/);
+ assert.match(fields.find(x=>x.name==="Bot permissions").value,/Read Message History/);
+ const general=fields.findIndex(x=>x.name.includes("General setup"));
+ const systems=fields.findIndex(x=>x.name.includes("Individual system setup"));
+ assert.ok(general>fields.findIndex(x=>x.name.includes("PRIVATE")));
+ assert.ok(systems>general);
+ assert.match(fields[general].value,/Only after the channels exist/);
+ assert.match(fields[general].value,/\/setup channels/);
+ assert.match(fields[systems].value,/\/setup giveaways/);
+ assert.match(fields[systems].value,/\/setup activity-giveaways/);
+});
 test("staff guides cover giveaway claims archives progress and setup",()=>{
  for(const topic of STAFF_TOPICS){
   const payload=helpTopicPayload(topic.id,userId);
