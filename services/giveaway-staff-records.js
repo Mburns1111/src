@@ -189,7 +189,7 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    if(record.status==="ended"){
      if(completedGiveawayCanDeleteListing(record))
        controls.push(btn("giveawaystaff:remove:"+record._id,"Archive Giveaway",ButtonStyle.Secondary));
-     if(hasOutstandingTicketClaims(record))
+     if((record.mode!=="survival"||record.trialTicketClaimsEnabled)&&hasOutstandingTicketClaims(record))
        controls.push(btn("giveawaystaff:reroll:"+record._id,"Manual Reroll",ButtonStyle.Primary));
      if(!completedGiveawayCanDeleteListing(record)&&
        (record.mode!=="survival"||record.trialTicketClaimsEnabled)&&record.autoRerollClaims)
@@ -473,7 +473,9 @@ export async function handleGiveawayStaffAction(interaction){
        "Counting stopped. The giveaway is being finalized.");
    }
    if(action==="reroll"){
-     if(record.status!=="ended"||record.publicListingRemovedAt||
+     if(record.mode==="survival"&&!record.trialTicketClaimsEnabled)
+       return interaction.reply({content:"Legacy Trials use staff-managed prize follow-up, not ticket-based rerolls.",...ephemeral});
+     if(record.status!=="ended||record.publicListingRemovedAt||
        !hasOutstandingTicketClaims(record))
        return interaction.reply({content:"A manual reroll is only available while waiting for a current winner to claim.",...ephemeral});
      const slots=(record.winnerIds||[]).map((userId,slot)=>({userId,slot}))
@@ -488,6 +490,8 @@ export async function handleGiveawayStaffAction(interaction){
              description:"Current winner "+userId,value:String(slot)}))))],...ephemeral});
    }
    if(action==="rerollselect"){
+     if(record.mode==="survival"&&!record.trialTicketClaimsEnabled)
+       return interaction.reply({content:"Legacy Trials do not use ticket-based rerolls.",...ephemeral});
      const slot=Number(interaction.values?.[0]);
      if(!Number.isSafeInteger(slot)||slot<0||slot>9)
        return interaction.reply({content:"Choose an existing unclaimed prize place.",...ephemeral});
@@ -501,6 +505,8 @@ export async function handleGiveawayStaffAction(interaction){
    }
    if(action==="confirmreroll"){
      await interaction.deferReply(ephemeral);
+     if(record.mode==="survival"&&!record.trialTicketClaimsEnabled)
+       return interaction.editReply("Legacy Trials do not use ticket-based rerolls.");
      const slot=Number(pageText);
      if(!Number.isSafeInteger(slot)||!record.winnerIds?.[slot]||
        record.status!=="ended"||record.publicListingRemovedAt||
