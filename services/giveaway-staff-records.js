@@ -49,7 +49,7 @@ function claimStatus(record,slot){
 export function giveawayStaffRecordPayload(record,{series=null}={}){
  const cancelled=record.status==="cancelled";
  const statuses={open:"Open",pending_review:"Awaiting staff approval",closing:"Selecting winners",
-   ended:"Ended — claims being tracked",rerolling:"Replacing a winner",running:"Trial running",
+   ended:record.winnerIds?.length?"Ended — claims being tracked":"Ended — no winner selected",rerolling:"Replacing a winner",running:"Trial running",
    preparing:"Trial preparing",cancelled:"Cancelled · public post removed"};
  const lines=[
    "**"+safe(record.title||"Giveaway").slice(0,170)+"**",
@@ -73,7 +73,7 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
        lines.push(record.mode==="survival"?"**Place "+(slot+1)+"** · <@"+record.winnerIds[slot]+"> — delivery coordinated by staff":claimStatus(record,slot));
    }else if(["ended","rerolling"].includes(record.status))
      lines.push("","**No eligible winners were selected.**");
-   if(record.mode!=="survival")
+   if(record.mode!=="survival" && record.winnerIds?.length)
      lines.push("","**Automatic rerolls:** "+(record.autoRerollClaims?"Enabled":"Disabled")+
        " · Maximum "+automaticRerollLimit(record)+" per winning place");
    if(record.rerollHistory?.length){
@@ -109,11 +109,12 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    if(series?.enabled)controls.push(btn("activitystaff:pause:"+record._id,"Stop future repeats"));
  }
  if(!cancelled){
-   if(record.mode!=="survival"&&record.autoRerollClaims&&record.status==="ended")
+   if(record.mode!=="survival"&&record.autoRerollClaims&&record.status==="ended"&&record.winnerIds?.length)
      controls.push(btn("giveawaystaff:stop:"+record._id,"Disable Further Rerolls",ButtonStyle.Secondary));
    if(record.status==="ended" && record.winnerIds?.length && !record.prizeDeliveredAt)
      controls.push(btn("giveawaystaff:deliver:"+record._id,"Confirm Prizes Delivered",ButtonStyle.Success));
-   if(["open","pending_review","ended","running"].includes(record.status))
+   if(["open","pending_review","running"].includes(record.status)||
+      (record.status==="ended"&&record.winnerIds?.length&&!record.prizeDeliveredAt))
      controls.push(btn("giveawaystaff:cancel:"+record._id,"Cancel & Remove Giveaway",ButtonStyle.Danger));
  }
  if(giveawayReadyToArchive(record)&&!record.archiveMovedAt){
