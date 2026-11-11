@@ -4,6 +4,7 @@ import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline,winnerHasClaim,hasOutstandingTicketClaims,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
 import {completedGiveawayCanDeleteListing} from "./giveaway-listing-lifecycle.js";
+import {ensureGiveawayStaffDirectory} from "./giveaway-staff-directory.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import {closeGiveaway,rerollGiveaway,publishGiveawayResult} from "./giveaways.js";
@@ -226,6 +227,65 @@ export async function requirePrivateGiveawayStaffChannel(guild,config){
   }
   return channel;
 }
+// A staff review is a separate bot message from the permanent staff card.
+// Preserve both in the private archive; never delete an original before its
+// replacement has been posted and the new Discord ID has been saved.
+async function archiveGiveawayReview(client,record,config){
+ const staffId=config?.activityGiveawayReviewChannelId;
+ const archiveId=config?.giveawayArchiveChannelId;
+ if(!staffId||!archiveId||staffId===archiveId)return false;
+ if(record.reviewChannelId===archiveId)return true;
+ if(!record.reviewMessageId||record.reviewChannelId!==staffId)return false;
+ const source=await client.channels.fetch(staffId);
+ let original=await source?.messages?.fetch(record.reviewMessageId).catch(error=>{
+   if(error?.code===10008)return null;
+   throw error;
+ });
+ if(!original){
+   const recent=await source?.messages?.fetch({limit:100});
+   original=recent?.find?.(m=>m.author?.id===client.user?.id &&
+     m.embeds?.some(e=>e.footer?.text==="Activity giveaway review: "+record._id))||null;
+ }
+ if(!original)return false;
+ if(original.author?.id!==client.user?.id)
+   throw Error("Cannot archive a staff review authored by another bot or member.");
+ const destination=await client.channels.fetch(archiveId);
+ if(!destination?.send||!destination.messages?.fetch)
+   throw Error("The private giveaway archive channel is unavailable.");
+ const recent=await destination.messages.fetch({limit:100});
+ let archived=recent?.find?.(m=>m.author?.id===client.user?.id &&
+   m.embeds?.some(e=>e.footer?.text==="Activity giveaway review: "+record._id))||null;
+ if(!archived)archived=await destination.send({
+   content:original.content||undefined,embeds:original.embeds||[],
+   components:[],allowedMentions:{parse:[]},
+ });
+ const result=await Giveaway.updateOne({
+   _id:record._id,guildId:record.guildId,
+   reviewChannelId:staffId,reviewMessageId:record.reviewMessageId,
+ },{$set:{reviewChannelId:archiveId,reviewMessageId:archived.id}});
+ if(result?.matchedCount===0)return false; // Another worker already moved it.
+ try{await original.delete();}
+ catch(error){console.warn("[Giveaways] Archived review saved but old review delete failed:",String(record._id),error);}
+ return true;
+}
+
+// Clean up duplicates from earlier staff-card implementations or interrupted
+// moves. The sticky index has a different marker and is never deleted here.
+async function cleanupArchivedStaffMessages(client,record,staffId,{reviewArchived=false}={}){
+ if(!staffId)return;
+ const source=await client.channels.fetch(staffId);
+ const recent=await source?.messages?.fetch({limit:100});
+ if(!recent?.values)return;
+ const markers=new Set([staffRecordMarker(record),"Activity staff preview · "+record._id]);
+ if(reviewArchived)markers.add("Activity giveaway review: "+record._id);
+ for(const message of recent.values()){
+   if(message.author?.id!==client.user?.id ||
+      !message.embeds?.some(e=>markers.has(e.footer?.text)))continue;
+   try{await message.delete();}
+   catch(error){console.warn("[Giveaways] Archived duplicate staff post cleanup failed:",String(record._id),error);}
+ }
+}
+
 export async function ensureGiveawayStaffRecord(client,record){
  if(!record||["draft","publishing","failed"].includes(record.status))return false;
  const config=await GuildConfig.findOne({guildId:record.guildId})
@@ -286,6 +346,10 @@ export async function ensureGiveawayStaffRecord(client,record){
      });
      if(previous&&previous.author?.id===client.user?.id)await previous.delete();
    }catch(error){console.warn("[Giveaways] Archive created but old staff card cleanup failed:",String(record._id),error);}
+ }
+ if(isArchive){
+   const reviewArchived=await archiveGiveawayReview(client,record,config);
+   await cleanupArchivedStaffMessages(client,record,config.activityGiveawayReviewChannelId,{reviewArchived});
  }
  return true;
 }
@@ -537,30 +601,22 @@ export async function handleGiveawayStaffAction(interaction){
            .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(6))
        ));
    }
-   if(action==="remove"){
-     if(!((record.status==="ended"&&completedGiveawayCanDeleteListing(record))||record.publicListingRemovedAt||record.status==="cancelled"))
-       return interaction.reply({content:"A completed giveaway can only be removed when no winners were selected, or each prize place has a submitted ticket claim or has passed its deadline with no rerolls left.",...ephemeral});
-     const archiveConfig=await GuildConfig.findOne({guildId:record.guildId})
-       .select("giveawayArchiveChannelId activityGiveawayReviewChannelId").lean();
-     if(!archiveConfig?.giveawayArchiveChannelId||
-        archiveConfig.giveawayArchiveChannelId===archiveConfig.activityGiveawayReviewChannelId)
-       return interaction.reply({content:"Configure a separate private archive channel with /setup archives before archiving.",...ephemeral});
-     return interaction.showModal(new ModalBuilder()
-       .setCustomId("giveawaystaff:confirmremove:"+id)
-       .setTitle("Archive completed giveaway")
-       .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
-         .setCustomId("confirm")
-         .setLabel("Type ARCHIVE to confirm")
-         .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(7))));
-   }
-   await interaction.deferReply(ephemeral);
-   if(action==="confirmremove"){
-     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="ARCHIVE")
-       return interaction.editReply("Archive not confirmed. Type ARCHIVE to proceed.");
+   if(action==="remove"||action==="confirmremove"){
+     // One click archives a settled giveaway. The legacy modal identifier is
+     // still understood so a confirmation already opened before deployment
+     // cannot accidentally perform a different action.
+     await interaction.deferReply(ephemeral);
+     if(action==="confirmremove" &&
+        interaction.fields?.getTextInputValue("confirm")?.trim().toUpperCase()!=="ARCHIVE")
+       return interaction.editReply("Archive not confirmed.");
+     if(!((record.status==="ended"&&completedGiveawayCanDeleteListing(record))||
+          record.publicListingRemovedAt||record.status==="cancelled"))
+       return interaction.editReply("This giveaway cannot be archived until all winner claims and rerolls are settled.");
      const config=await GuildConfig.findOne({guildId:record.guildId})
-       .select("giveawayArchiveChannelId activityGiveawayReviewChannelId").lean();
-     if(!config?.giveawayArchiveChannelId||config.giveawayArchiveChannelId===config.activityGiveawayReviewChannelId)
-       return interaction.editReply("Set a separate private archive channel using /setup archives first.");
+       .select("guildId giveawayArchiveChannelId activityGiveawayReviewChannelId giveawayStaffDirectoryChannelId giveawayStaffDirectoryMessageId giveawayStaffDirectoryFingerprint").lean();
+     if(!config?.giveawayArchiveChannelId||
+        config.giveawayArchiveChannelId===config.activityGiveawayReviewChannelId)
+       return interaction.editReply("Configure a separate private archive channel using /setup archives first.");
      const archiveChannel=await interaction.client.channels.fetch(config.giveawayArchiveChannelId).catch(()=>null);
      if(!archiveChannel?.send||!archiveChannel.messages?.fetch||
         archiveChannel.permissionsFor?.(archiveChannel.guild?.roles?.everyone)?.has(PermissionFlagsBits.ViewChannel))
@@ -576,18 +632,27 @@ export async function handleGiveawayStaffAction(interaction){
        if(!updated)return interaction.editReply("The giveaway changed. Refresh its staff record.");
        record=updated;
      }
+     // Protect the staff record and any separate review message first. If
+     // Discord rejects the archive copy, leave the original posts untouched.
+     try{await ensureGiveawayStaffRecord(interaction.client,record);}
+     catch(error){
+       console.error("[Giveaways] Archiving staff messages failed:",error);
+       return interaction.editReply("The archive could not be completed. The original staff records are preserved and the bot will retry the move.");
+     }
      let cleanupError=null;
      try{
        if(record.status==="ended")await removeGiveawayPublicPosts(interaction.client,record);
      }catch(error){cleanupError=error;}
-     try{await ensureGiveawayStaffRecord(interaction.client,record);}
-     catch(error){
-       console.error("[Giveaways] Archiving staff record failed:",error);
-       return interaction.editReply("The giveaway has been marked for archiving, but the archive post could not be created. The bot will retry. Do not delete the original staff record.");
-     }
+     // Refresh the private sticky index immediately, after the archive move
+     // and public cleanup. It stays in the active staff channel, not archives.
+     try{
+       await ensureGiveawayStaffDirectory(interaction.client,{
+         ...config,guildId:record.guildId
+       },{forceBump:true});
+     }catch(error){console.error("[Giveaways] Sticky directory archive refresh failed:",error);}
      return interaction.editReply(cleanupError
-       ?"Staff record moved to the archive channel, but removing the public listing failed. The bot will retry cleanup."
-       :"Giveaway archived in <#"+config.giveawayArchiveChannelId+">. Winner, claim and reroll history is preserved.");
+       ?"Giveaway staff records archived in <#"+config.giveawayArchiveChannelId+">, but public listing cleanup failed. The bot will retry."
+       :"Giveaway archived in <#"+config.giveawayArchiveChannelId+">. Its private review, winner and claim records are preserved.");
    }
    if(action==="stop"){
      if(record.publicListingRemovedAt||(record.mode==="survival"&&!record.trialTicketClaimsEnabled)||record.status!=="ended"||!record.autoRerollClaims)
