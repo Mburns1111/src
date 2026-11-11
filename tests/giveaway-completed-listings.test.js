@@ -103,29 +103,30 @@ test("live and unsettled events cannot archive; cancelled and removed records ca
   assert.ok(!buttons(record({status:"ended"})).includes("giveawaystaff:cancel:"+id));
 });
 
-test("Delete Listing is a confirmed non-cancellation action; it removes public posts and retains the staff record",async()=>{
+test("Archive Giveaway preserves claims, removes the public listing and moves the staff record",async()=>{
   let stored=record({winnerClaims:[ticket(0,winnerA)]});
+  const archiveId="901234567890123456";
+  const archivedId="912345678901234567";
   const old={one:Giveaway.findOne,change:Giveaway.findOneAndUpdate,
     update:Giveaway.updateOne,config:GuildConfig.findOne};
-  const deleted=[],responses=[],staffUpdates=[],updates=[];
-  const staffPost={
-    id:stored.staffCardId,author:{id:"bot"},
-    embeds:[{description:"Older staff preview",footer:{text:"Older record"}}],
-    components:[],edit:async p=>staffUpdates.push(p),
-  };
-  const staffChannel={
-    id:staffId,guild:{roles:{everyone:{id:"everyone"}}},
+  const deleted=[],responses=[],archivePosts=[],updates=[];
+  const originalStaffPost={id:stored.staffCardId,author:{id:"bot"},
+    delete:async()=>deleted.push("old staff")};
+  const staffChannel={id:staffId,messages:{fetch:async()=>originalStaffPost},
+    permissionsFor:()=>({has:()=>false})};
+  const archiveChannel={
+    id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
     permissionsFor:()=>({has:()=>false}),
-    messages:{fetch:async ()=>staffPost},
-    send:async()=>{throw Error("Should reuse the existing staff post");},
+    messages:{fetch:async()=>new Map()},
+    send:async payload=>{archivePosts.push(payload);return {id:archivedId,author:{id:"bot"}};},
   };
-  const publicChannel={
-    messages:{fetch:async()=>({author:{id:"bot"},delete:async()=>deleted.push("public")})}
-  };
-  const client={user:{id:"bot"},channels:{fetch:async id=>
-    id===staffId?staffChannel:publicChannel}};
+  const publicChannel={messages:{fetch:async()=>({
+    author:{id:"bot"},delete:async()=>deleted.push("public")
+  })}};
+  const client={user:{id:"bot"},channels:{fetch:async channelId=>
+    channelId===staffId?staffChannel:channelId===archiveId?archiveChannel:publicChannel}};
   let modal;
-  try {
+  try{
     Giveaway.findOne=()=>({lean:async()=>stored});
     Giveaway.findOneAndUpdate=(query,change)=>({lean:async()=>{
       assert.equal(query.status,"ended");
@@ -138,33 +139,37 @@ test("Delete Listing is a confirmed non-cancellation action; it removes public p
       stored={...stored,...change.$set};
     };
     GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
-      activityGiveawayReviewChannelId:staffId
+      activityGiveawayReviewChannelId:staffId,giveawayArchiveChannelId:archiveId
     })})});
     const memberPermissions={has:()=>true};
     await handleGiveawayStaffAction({
       guildId,channelId:staffId,customId:"giveawaystaff:remove:"+id,
       message:{id:stored.staffCardId},memberPermissions,
       showModal:async m=>{modal=m.toJSON()},
+      reply:async error=>{throw Error("Unexpected archive error: "+JSON.stringify(error));}
     });
-    assert.equal(modal.title,"Delete completed giveaway listing");
+    assert.equal(modal.title,"Archive completed giveaway");
     assert.equal(modal.components.length,1);
     await handleGiveawayStaffAction({
       client,guildId,channelId:staffId,customId:"giveawaystaff:confirmremove:"+id,
       user:{id:"999999999999999999"},memberPermissions,
-      fields:{getTextInputValue:()=> "DELETE"},
+      fields:{getTextInputValue:()=> "ARCHIVE"},
       deferReply:async()=>{},editReply:async x=>responses.push(x),
+      reply:async error=>{throw Error("Unexpected confirmation error: "+JSON.stringify(error));},
     });
-    assert.equal(stored.status,"ended","deleting a completed listing must not mark it cancelled");
+    assert.equal(stored.status,"ended","archiving must not mark a completed giveaway cancelled");
     assert.equal(stored.publicListingRemovedBy,"999999999999999999");
     assert.ok(stored.publicListingRemovedAt instanceof Date);
     assert.equal(stored.winnerClaims.length,1);
-    assert.deepEqual(deleted,["public"]);
+    assert.deepEqual(deleted,["public","old staff"]);
     assert.equal(stored.messageId,null);
-    assert.ok(staffUpdates.length>0,"the private staff record is updated");
-    assert.match(staffUpdates.at(-1).embeds[0].data.description,/COMPLETED — PUBLIC LISTING DELETED/);
-    assert.match(responses.at(-1),/not cancelled/i);
+    assert.equal(stored.staffCardId,archivedId);
+    assert.equal(stored.staffCardChannelId,archiveId);
+    assert.equal(archivePosts.length,1);
+    assert.match(archivePosts[0].embeds[0].data.description,/COMPLETED — PUBLIC LISTING DELETED/);
+    assert.match(responses.at(-1),/archived in/);
     assert.ok(updates.every(x=>!Object.hasOwn(x.change.$set||{},"status")));
-  } finally {
+  }finally{
     Giveaway.findOne=old.one;
     Giveaway.findOneAndUpdate=old.change;
     Giveaway.updateOne=old.update;
