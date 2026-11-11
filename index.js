@@ -916,6 +916,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.guild &&
       ![
         setupCommand.name,
+        helpCommand.name,
         adminImportCommand.name,
         shopCommand.name,
         cardsCommand.name,
@@ -933,7 +934,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     ) {
       await ensureProfileCard(interaction.guild, interaction.user);
     }
-    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name, cardsReleaseCommand.name, partyCommand.name].includes(interaction.commandName) && interaction.guildId) {
+    if (![setupCommand.name, helpCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name, cardsReleaseCommand.name, partyCommand.name].includes(interaction.commandName) && interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
       if (
         config?.commandChannelId &&
