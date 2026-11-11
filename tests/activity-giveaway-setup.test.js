@@ -42,7 +42,7 @@ test("separate activity setup exposes channels, editable summary and preview",()
  assert.match(description,/existing giveaways/);
  const preview=claimAnnouncementPreview(claimSettings);
  const embed=preview.embeds[0].toJSON();
- assert.equal(embed.title,"✦ Giveaway Results");
+ assert.match(embed.description,/The Court Has Chosen/);
  assert.match(preview.content,/Winner Announcement Preview/);
  assert.match(embed.footer.text,/PREVIEW ONLY/);
  const rendered=[embed.description,...(embed.fields||[]).map(field=>field.value)].join("\n");
