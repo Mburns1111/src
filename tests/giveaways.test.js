@@ -145,6 +145,33 @@ test("closing a giveaway commits winners once and keeps finished results unchang
  }finally{restore(old);}
 });
 
+test("guided activity draw uses same live qualified receipts as staff progress, not stale entrant snapshot",async()=>{
+ const mongoose=(await import("mongoose")).default;
+ const Receipt=mongoose.model("GuidedActivityReceipt");
+ const original={aggregate:Receipt.aggregate,change:Giveaway.findOneAndUpdate,find:Giveaway.findOne};
+ const candidate="234567890123456789";
+ let stored=snapshot({mode:"activity",status:"open",guidedSeries:"507f1f77bcf86cd799439012",
+   entrantIds:[],winnerIds:[],winnerCount:1,requiredRoleId:"345678901234567890"});
+ try{
+  Receipt.aggregate=async()=>[{_id:candidate,messages:2,days:1}];
+  Giveaway.findOneAndUpdate=(filter,update)=>({lean:async()=>{
+   if(stored.status!==filter.status)return null;
+   stored={...stored,...update.$set};
+   return {...stored};
+  }});
+  Giveaway.findOne=()=>({lean:async()=>({...stored})});
+  const client={guilds:{fetch:async()=>({members:{fetch:async({user})=>({
+   id:user,user:{bot:false},roles:{cache:new Map()},
+  })}})}};
+  const actual=await closeGiveaway({id,guildId,now,client});
+  assert.deepEqual(actual.winnerIds,[candidate]);
+  assert.deepEqual(actual.activityVerifiedIds,[candidate]);
+ }finally{
+  Receipt.aggregate=original.aggregate;
+  Giveaway.findOneAndUpdate=original.change;Giveaway.findOne=original.find;
+ }
+});
+
 test("reroll selects a new entrant without erasing earlier winner or reroll history",async()=>{
  const old=[];
  const prior=userId,replacement="444444444444444444";
