@@ -51,7 +51,10 @@ test("setup exposes two distinct optional giveaway channel selectors", () => {
   }
   assert.ok(GuildConfig.schema.path("giveawayPingRoleId"));
   assert.ok(GuildConfig.schema.path("survivalTrialPingRoleId"));
-  assert.equal(config.options.length, 20);
+  assert.equal(config.options.length, 22);
+  assert.ok(names.includes("giveaway_manager"));
+  assert.ok(names.includes("clear_giveaway_manager"));
+  assert.ok(GuildConfig.schema.path("giveawayManagerRoleId"));
   assert.ok(names.includes("activity_review"));
   assert.ok(names.includes("giveaway_archives"));
   assert.ok(GuildConfig.schema.path("giveawayArchiveChannelId"));
