@@ -21,7 +21,7 @@ const stepName={list:"Public giveaway listings",winners:"Winner announcements",s
   regularChannel:"Regular giveaway posts",archive:"Private giveaway archives",
   requiredRole:"Default required role",roleHelp:"Where to get required roles",
   roleHelpVisible:"Show role instructions",instructions:"Claim instructions",hours:"Claim deadline",rerolls:"Automatic rerolls",
-  roles:"Notification roles",empty:"No eligible winners",banner:"Default banner"};
+  roles:"Notification roles",empty:"No eligible winners",banner:"Default banner",rerollsText:"Custom automatic rerolls"};
 const button=(id,label,value,style=ButtonStyle.Secondary)=>new ButtonBuilder()
   .setCustomId("actconfig:"+id+":"+value).setLabel(label).setStyle(style);
 const row=(id,items)=>new ActionRowBuilder().addComponents(items.map(([label,value,style])=>button(id,label,value,style)));
@@ -147,7 +147,9 @@ function layout(session) {
  }else if(step==="rerolls"){
    content="How many times may the bot automatically replace an unclaimed winning place? **Default: 2.** Manual staff rerolls are separate.\nCurrent: "+s.activityMaxAutoRerolls;
    components.push(row(session.id,[0,1,2,3,5].map(x=>[String(x)+" reroll"+(x===1?"":"s"),"reroll"+x])));
-   components.push(row(session.id,[["10 rerolls","reroll10"],["Keep Current","keep"]]));
+   components.push(row(session.id,[["10 rerolls","reroll10"],["Custom Amount","customRerolls"],["Keep Current","keep"]]));
+ }else if(step==="rerollsText"){
+   content="Reply with your custom number of automatic rerolls per unclaimed winning place, from 0 to 10.";
  }else if(step==="roles"){
    content="Optional: select **up to 10 notification roles**. Each role is mentioned **once** when a new activity giveaway is posted, never on later edits.\n"+
      "Selected: "+(s.activityNotificationRoleIds?.length?s.activityNotificationRoleIds.map(id=>"<@&"+id+">").join(", "):"None")+
@@ -223,7 +225,7 @@ async function apply(session,verb,value){
  if(verb==="cancel"){sessions.delete(session.key);await session.channel.send("Activity giveaway setup cancelled.");return;}
  if(verb==="back"){
    const ordered=stepsFor(session),index=ordered.indexOf(session.step);
-   const back=step=>({roleHelpText:"roleHelp",instructionsText:"instructions",hoursText:"hours",bannerText:"banner"})[step]||ordered[Math.max(0,index-1)];
+   const back=step=>({roleHelpText:"roleHelp",instructionsText:"instructions",hoursText:"hours",rerollsText:"rerolls",bannerText:"banner"})[step]||ordered[Math.max(0,index-1)];
    await show(session,session.fromReview?"review":back(session.step));return;
  }
  if(session.step==="review"){
@@ -315,6 +317,14 @@ async function apply(session,verb,value){
  if(session.step==="rerolls" && /^reroll(?:0|1|2|3|5|10)$/.test(verb)){
    s.activityMaxAutoRerolls=Number(verb.slice(6));return next();
  }
+ if(session.step==="rerolls"&&verb==="customRerolls"){
+   await show(session,"rerollsText");return;
+ }
+ if(session.step==="rerollsText"&&verb==="text"){
+   if(!/^\d+$/.test(value)||!Number.isSafeInteger(+value)||+value>10)
+     throw Error("Enter a whole number of automatic rerolls from 0 to 10.");
+   s.activityMaxAutoRerolls=Number(value);return after(session,"roles");
+ }
  if(session.step==="roles"){
    if(verb==="none"){s.activityNotificationRoleIds=[];return next();}
    if(verb==="roles"){
@@ -389,7 +399,7 @@ export async function handleActivityGiveawaySetupInteraction(interaction){
 export function activityGiveawaySetupReply(message){
  if(!message.guildId||message.author?.bot||!message.content)return false;
  const session=sessions.get(key(message.channelId,message.author.id));
- if(!session||session.expires<Date.now()||!["roleHelpText","instructionsText","hoursText","bannerText"].includes(session.step))
+ if(!session||session.expires<Date.now()||!["roleHelpText","instructionsText","hoursText","rerollsText","bannerText"].includes(session.step))
    return false;
  void apply(session,"text",message.content.trim()).catch(error=>
    session.channel.send({content:"Setup error: "+String(error.message||error),allowedMentions:{parse:[]}}));
