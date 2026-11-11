@@ -26,6 +26,7 @@ const button=(id,label,value,style=ButtonStyle.Secondary)=>new ButtonBuilder()
   .setCustomId("actconfig:"+id+":"+value).setLabel(label).setStyle(style);
 const row=(id,items)=>new ActionRowBuilder().addComponents(items.map(([label,value,style])=>button(id,label,value,style)));
 const shown=id=>id?"<#"+id+">":"Not set";
+export const giveawayServerRerollOptions=()=>[["10 rerolls","reroll10"],["Custom Amount","customRerolls"],["Keep Current","keep"]];
 const progress=session=>session.editing?"Editing "+stepName[session.step]:"Step "+(stepsFor(session).indexOf(session.step)+1)+" of "+stepsFor(session).length;
 const mainSetting=session=>session.settings;
 
@@ -147,7 +148,7 @@ function layout(session) {
  }else if(step==="rerolls"){
    content="How many times may the bot automatically replace an unclaimed winning place? **Default: 2.** Manual staff rerolls are separate.\nCurrent: "+s.activityMaxAutoRerolls;
    components.push(row(session.id,[0,1,2,3,5].map(x=>[String(x)+" reroll"+(x===1?"":"s"),"reroll"+x])));
-   components.push(row(session.id,[["10 rerolls","reroll10"],["Custom Amount","customRerolls"],["Keep Current","keep"]]));
+   components.push(row(session.id,giveawayServerRerollOptions()));
  }else if(step==="rerollsText"){
    content="Reply with your custom number of automatic rerolls per unclaimed winning place, from 0 to 10.";
  }else if(step==="roles"){
