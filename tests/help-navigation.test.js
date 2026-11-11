@@ -48,7 +48,8 @@ test("shop and Points sections describe browsing, customization and balance",()=
   const points=JSON.stringify(helpTopicPayload("points",userId).embeds[0].toJSON());
   assert.match(shop,/shop browse/);
   assert.match(shop,/stickers/);
-  assert.match(points,/shop balance/);
+  assert.match(points,/See Balance/);
+  assert.doesNotMatch(points,/\/shop balance/);
   assert.match(points,/server/);
 });
 test("all help pages respect Discord embed field caps",()=>{
@@ -98,19 +99,20 @@ test("cross-user, malformed and prototype-key help controls are rejected before 
 test("registered command help includes server commands and subcommands",async()=>{
   const i=interaction("help:topic:commands:"+userId);
   i.client={application:{commands:{fetch:async()=>new Map([
-    ["profile",{name:"profile",description:"Profile",options:[]}],
+    ["help",{name:"help",description:"Help",options:[]}],
     ["shop",{name:"shop",description:"Shop",options:[]}],
   ])}}};
   i.guild={commands:{fetch:async()=>new Map([
     ["shop",{name:"shop",description:"Server shop",options:[{
-      type:ApplicationCommandOptionType.Subcommand,name:"balance",description:"Check balance",
+      type:ApplicationCommandOptionType.Subcommand,name:"browse",description:"Open shop",
     }]}],
   ])}};
   await handleHelpTopicButton(i);
   const content=i.calls.at(-1).payload.embeds[0].toJSON().fields.map(f=>f.value).join(" ");
-  assert.match(content,/profile/);
+  assert.match(content,/help/);
   assert.match(content,/Server shop/);
-  assert.match(content,/shop balance/);
+  assert.match(content,/shop browse/);
+  assert.doesNotMatch(content,/shop balance/);
 });
 test("registered-command API failures show fallback rather than breaking /help",async()=>{
   const i=interaction("help:topic:commands:"+userId);
