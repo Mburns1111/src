@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {sharedGiveawayPingRoleId} from "./giveaway-notification-roles.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import {DEFAULT_CLAIM_HOURS} from "./giveaway-claims.js";
 import { currentActivityDay, messageCharacterCount, messageMatchesGiveawayWatch } from "./giveaway-activity-counter.js";
@@ -12,6 +14,8 @@ const hour = 3600000;
 const seriesSchema = new mongoose.Schema({
   guildId: { type: String, required: true }, settings: { type: Object, required: true },
   nextStart: Date, enabled: { type: Boolean, default: true },
+  // Counts successful additional giveaway occurrences after the first.
+  repeatCount:{type:Number,default:0},
 });
 seriesSchema.index({enabled:1, nextStart:1, guildId:1});
 const Series = mongoose.models.GuidedActivitySeries || mongoose.model("GuidedActivitySeries", seriesSchema);
@@ -48,10 +52,15 @@ export function nextOpening(settings, start) {
   return new Date(start.getTime() + minutes * 60000);
 }
 export function repeatText(settings) {
-  if (settings.repeat === "once") return "One time";
-  if (settings.repeat === "daily") return "Every 24 hours";
-  if (settings.repeat === "weekly") return "Every week";
-  return 'Every ' + settings.amount + ' ' + settings.unit;
+  if(settings.repeat==="once")return "One time";
+  const cadence=settings.repeat==="daily"?"Every 24 hours":
+    settings.repeat==="weekly"?"Every week":'Every '+settings.amount+' '+settings.unit;
+  return cadence+(Number.isSafeInteger(settings.maxRepeats)&&settings.maxRepeats>=1
+    ?" · "+settings.maxRepeats+" additional repeats":" · Forever until stopped");
+}
+export function canRepeatGuidedActivity(settings,repeatCount=0){
+  return settings.repeat!=="once" &&
+    (settings.maxRepeats==null || repeatCount<settings.maxRepeats);
 }
 export function maxActiveDays(start,end) {
   const first = Date.parse(currentActivityDay(start));
@@ -70,7 +79,7 @@ export function qualifiesForGuidedActivity(row,event){
 async function materialize(series,start,first=false) {
   const s = series.settings, end = windowEnd(s,start);
   const config = await GuildConfig.findOne({guildId:series.guildId}).lean();
-  if (!config?.activityGiveawayWinnersChannelId) throw Error("Set the activity winners channel in /setup channels.");
+  if (!config?.activityGiveawayWinnersChannelId) throw Error("Set the activity winners channel in /setup activity-giveaways.");
   const query = first ? {_id:series._id} : {guidedSeries:series._id,activityStartAt:start};
   try {
     return await Giveaway.findOneAndUpdate(query, {$setOnInsert:{
@@ -79,14 +88,14 @@ async function materialize(series,start,first=false) {
       activityType:s.channel?"channels":"general", activityChannelIds:s.channel?[s.channel]:[],
       activityStartAt:start, activityEndAt:end, customActivityStartAt:start,customActivityEndAt:end,
       endsAt:new Date(end.getTime()+s.delay), ...guidedActivityRequirements(s),
-      activityMinChars:1,
+      activityMinChars:Number.isSafeInteger(s.minChars)&&s.minChars>=1&&s.minChars<=2000?s.minChars:1,
       activityRequiredMentionUserId:s.mention || "", activityRequiredPhrase:s.phrase || "",
       requireStaffReview:s.approval, roleBonuses:s.bonuses || [], progressEnabled:Boolean(s.progress),
       requiredRoleId:s.requiredRoleId||"",requiredRoleInstructions:s.requiredRoleInstructions||"",
       showRequiredRoleInstructions:s.showRequiredRoleInstructions!==false,
       claimWindowHours:s.claimHours ?? DEFAULT_CLAIM_HOURS, autoRerollClaims:true, bannerNameKey:s.banner || "",
       claimInstructions:s.claimInstructions||"",maxAutoRerolls:s.maxAutoRerolls??2,
-      notificationRoleIds:s.notificationRoleIds||[],announceEmptyResults:s.announceEmptyResults!==false,
+      notificationRoleIds:sharedGiveawayPingRoleId(config)?[sharedGiveawayPingRoleId(config)]:[],announceEmptyResults:s.announceEmptyResults!==false,
     }},{upsert:true,new:true}).lean();
   } catch(error) {
     if(error.code!==11000)throw error;
@@ -96,7 +105,7 @@ async function materialize(series,start,first=false) {
 export async function createGuidedActivity(id,guildId,settings,start) {
   // Keep the first opening durable until its giveaway has been saved.
   const series = await Series.findOneAndUpdate({_id:id},{$setOnInsert:{
-    guildId,settings:{...settings,firstStart:start},nextStart:start,
+    guildId,settings:{...settings,firstStart:start},nextStart:start,repeatCount:0,
   }},{upsert:true,new:true}).lean();
   const firstStart = new Date(series.settings.firstStart);
   const record = await materialize(series,firstStart,true);
@@ -104,12 +113,19 @@ export async function createGuidedActivity(id,guildId,settings,start) {
   return record;
 }
 function advance(series,start) {
-  const nextStart = series.settings.repeat==="once"?null:nextOpening(series.settings,start);
-  return Series.updateOne({_id:series._id,nextStart:start},{$set:{nextStart,enabled:Boolean(nextStart)}});
+  const nextStart=canRepeatGuidedActivity(series.settings,series.repeatCount||0)?
+    nextOpening(series.settings,start):null;
+  return Series.updateOne({_id:series._id,nextStart:start},
+    {$set:{nextStart,enabled:Boolean(nextStart)}});
 }
 export async function openDueActivities(now=new Date(),guildId) {
   const due = await Series.find({enabled:true,nextStart:{$type:"date",$lte:now},...(guildId?{guildId}:{})}).lean();
   for (const series of due) {
+    if(!canRepeatGuidedActivity(series.settings,series.repeatCount||0)){
+      await Series.updateOne({_id:series._id,nextStart:series.nextStart},
+        {$set:{nextStart:null,enabled:false}});
+      continue;
+    }
     let start = new Date(series.nextStart);
     // Recover the current window after downtime without announcing missed cycles.
     if(series.settings.repeat!=="once" && windowEnd(series.settings,start)<=now) {
@@ -120,17 +136,27 @@ export async function openDueActivities(now=new Date(),guildId) {
         while(nextOpening(series.settings,start)<=now)start=nextOpening(series.settings,start);
       }
     }
-    if(windowEnd(series.settings,start)>now || +start===+new Date(series.settings.firstStart))
-      await materialize(series,start,+start===+new Date(series.settings.firstStart));
-    const nextStart=series.settings.repeat==="once"?null:nextOpening(series.settings,start);
-    await Series.updateOne({_id:series._id,nextStart:series.nextStart},{$set:{nextStart,enabled:Boolean(nextStart)}});
+    const first=+start===+new Date(series.settings.firstStart);
+    const shouldMaterialize=windowEnd(series.settings,start)>now||first;
+    if(shouldMaterialize)await materialize(series,start,first);
+    const repeatCount=(series.repeatCount||0)+(shouldMaterialize&&!first?1:0);
+    const nextStart=canRepeatGuidedActivity(series.settings,repeatCount)?
+      nextOpening(series.settings,start):null;
+    await Series.updateOne({_id:series._id,nextStart:series.nextStart},
+      {$set:{nextStart,enabled:Boolean(nextStart),repeatCount}});
   }
 }
 export function guidedMessageMatches(event,message) {
   return messageMatchesGiveawayWatch(message,{
     requiredMentionUserId:event.activityRequiredMentionUserId,
     requiredPhrase:event.activityRequiredPhrase,
-    minimumChars:event.activityRequiredMentionUserId && !event.activityRequiredPhrase ? 0 : 1,
+    // Length is based on meaningful text after stripping explicit @mentions.
+    // The configured threshold applies even if the event requires a ping.
+    minimumChars:Number.isSafeInteger(event.activityMinChars)&&event.activityMinChars>1?
+      event.activityMinChars:
+      // With the default "No length minimum", an explicit member ping alone
+      // remains eligible as before; custom thresholds always require text.
+      event.activityRequiredMentionUserId&&!event.activityRequiredPhrase?0:1,
   });
 }
 export async function recordGuidedMessage(message) {
@@ -214,9 +240,8 @@ export async function ensureStaffCard(client,event) {
 }
 export async function staffPreview(i) {
   await i.deferReply({flags:MessageFlags.Ephemeral});
-  if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-    return i.editReply("Only Manage Server staff can view activity.");
-  const [,action,id,rawPage,extraPage]=i.customId.split(":");
+  if(!await canManageGiveaways(i))return i.editReply(giveawayManagerPermissionMessage);
+  const [,action,id,rawPage]=i.customId.split(":");
   const event=await Giveaway.findOne({_id:id,guildId:i.guildId,staffCardChannelId:i.channelId}).lean();
   if(!event)return i.editReply("This staff preview is unavailable.");
   if(action==="pause"){
@@ -224,68 +249,15 @@ export async function staffPreview(i) {
     await ensureStaffCard(i.client,event);
     return i.editReply("Future repeats stopped. The current activity will finish as scheduled.");
   }
-  const {activityProgressRows}=await import("./giveaway-staff-progress.js");
-  const rows=await activityProgressRows(event);
-  const mode=action==="progress"?"progress":action==="member"&&rawPage==="progress"?"progress":"qualified";
-  const filtered=rows.filter(row=>mode==="qualified"?row.qualified:!row.qualified);
-  const pageValue=action==="member"?Number(extraPage):Number(rawPage);
-  const pages=Math.max(1,Math.ceil(filtered.length/10));
-  const page=Math.min(Math.max(0,pageValue||0),pages-1);
-  const required=event.activityMinTotalMessages||event.activityMinimum||1;
-  const requiredDays=Math.max(1,event.activityDays||1);
-  if(action==="find"){
-    const userId=i.values?.[0];
-    if(!userId)return i.editReply("Select a member to view progress.");
-    const found=rows.find(row=>row.userId===userId);
-    return i.editReply({content:[
-      "**Member progress · <@"+userId+">**",
-      "**Status:** "+(found?(found.qualified?"Qualified":"Still in progress"):"No recorded qualifying activity"),
-      "**Qualifying messages:** "+(found?.messages||0)+" / "+required+" during this activity period",
-      ...(requiredDays>1?["**Active days:** "+(found?.days||0)+" / "+requiredDays]:[]),
-    ].join("\n"),allowedMentions:{parse:[]}});
-  }
-  if(action==="member"){
-    const userId=i.values?.[0];
-    const member=filtered.find(row=>row.userId===userId);
-    if(!member)return i.editReply("This member is no longer in the selected progress list.");
-    const label=member.qualified?"Qualified":"Still in progress";
-    return i.editReply({content:[
-      "**Member progress · <@"+userId+">**",
-      "**Status:** "+label,
-      "**Qualifying messages:** "+member.messages+" / "+required+" during this activity period",
-      ...(requiredDays>1?["**Active days:** "+member.days+" / "+requiredDays]:[]),
-      "**Activity start:** <t:"+Math.floor(+new Date(event.activityStartAt)/1000)+":f>",
-      "**Activity end:** <t:"+Math.floor(+new Date(event.activityEndAt)/1000)+":f>",
-    ].join("\n"),components:[new ActionRowBuilder().addComponents(
-      btn("activitystaff:"+mode+":"+id+":"+page,"Back to "+(mode==="qualified"?"Qualified":"In Progress")))],
-      allowedMentions:{parse:[]}});
-  }
-  const buttons=[
-    btn("activitystaff:qualified:"+id+":0","Qualified ("+rows.filter(r=>r.qualified).length+")"),
-    btn("activitystaff:progress:"+id+":0","In Progress ("+rows.filter(r=>!r.qualified).length+")"),
-  ];
-  if(page>0)buttons.push(btn("activitystaff:"+mode+":"+id+":"+(page-1),"Previous"));
-  if(page+1<pages)buttons.push(btn("activitystaff:"+mode+":"+id+":"+(page+1),"Next"));
-  const lines=filtered.slice(page*10,page*10+10).map(r=>
-    "<@"+r.userId+"> · "+r.messages+"/"+required+" qualifying messages"+
-    (requiredDays>1?" · "+r.days+"/"+requiredDays+" days":""));
-  const content=[
-    "**"+event.title+" · "+(mode==="qualified"?"Qualified Members":"In Progress")+"**",
-    "**Participants with activity:** "+rows.length+" · **Qualified:** "+rows.filter(r=>r.qualified).length+
-      " · **Still working:** "+rows.filter(r=>!r.qualified).length,
-    "",...(lines.length?lines:["No members in this category."]),
-    "", "*Only members with recorded activity are listed.*",
-    "Page "+(page+1)+" of "+pages,
-  ].join("\n");
-  const components=[new ActionRowBuilder().addComponents(buttons)];
-  if(lines.length){
-    const {StringSelectMenuBuilder}=await import("discord.js");
-    const select=new StringSelectMenuBuilder().setCustomId("activitystaff:member:"+id+":"+mode+":"+page)
-      .setPlaceholder("Choose a member to view details")
-      .addOptions(filtered.slice(page*10,page*10+10).map(r=>({
-        label:r.userId,description:r.messages+" matching messages",value:r.userId,
-      })));
-    components.push(new ActionRowBuilder().addComponents(select));
-  }
-  return i.editReply({content,allowedMentions:{parse:[]},components});
+  const rows=await activityRoster(event);
+  const page=Math.min(Number(rawPage)||0,Math.max(0,Math.ceil(rows.length/12)-1));
+  const controls=[];
+  if(page>0)controls.push(btn('activitystaff:view:'+id+':'+(page-1),"Previous"));
+  if((page+1)*12<rows.length)controls.push(btn('activitystaff:view:'+id+':'+(page+1),"Next"));
+  const qualified=rows.filter(r=>r.qualified).length;
+  const lines=rows.slice(page*12,page*12+12).map(r=>
+    (r.qualified?"Qualified":"Not yet qualified")+' · <@'+r._id+'> · '+r.messages+' matching message(s)'+(event.activityDays>1?' · '+r.days+'/'+event.activityDays+' active days':''));
+  return i.editReply({content:['**'+event.title+'**',qualified+' qualified · '+(rows.length-qualified)+' not yet qualified', 'Goal · '+(event.activityMinTotalMessages||event.activityMinimum)+' matching message(s) total during the activity period'+(event.activityDays>1?' · at least one on '+event.activityDays+' different days':''),...lines,
+    rows.length?'Page '+(page+1)+' of '+Math.ceil(rows.length/12):"No members have posted in the watched channels during this activity."].join('\n'),
+    allowedMentions:{parse:[]},components:controls.length?[new ActionRowBuilder().addComponents(controls)]:[]});
 }
