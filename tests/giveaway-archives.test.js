@@ -113,3 +113,55 @@ test("completed activity giveaway archives both staff posts and the final member
   GiveawayActivityMinuteCount.aggregate=old.aggregate;
  }
 });
+
+test("failed archive upload never deletes active moderator record",async()=>{
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const deleted=[],updates=[];
+ try{
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+    giveawayArchiveChannelId:archiveId,activityGiveawayReviewChannelId:staffId,
+  })})});
+  Giveaway.updateOne=async(...args)=>updates.push(args);
+  const archiveChannel={id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
+    messages:{fetch:async()=>({find:()=>null})},
+    send:async()=>{throw Error("Attachment upload denied");}};
+  const active={messages:{fetch:async id=>({
+    id,author:{id:"bot"},delete:async()=>deleted.push(id),
+  })}};
+  const client={user:{id:"bot"},channels:{fetch:async id=>
+    id===archiveId?archiveChannel:active}};
+  await assert.rejects(archiveGiveawayStaffRecord(client,record(),{staffPayload:payload}),
+    /Attachment upload denied/);
+  assert.deepEqual(deleted,[]);
+  assert.equal(updates.length,0);
+ }finally{GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;}
+});
+
+test("failed final activity count retrieval never archives or removes active records",async()=>{
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne,
+   aggregate:GiveawayActivityMinuteCount.aggregate};
+ let writes=0,deletes=0;
+ try{
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+    giveawayArchiveChannelId:archiveId,activityGiveawayReviewChannelId:staffId,
+  })})});
+  Giveaway.updateOne=async()=>{writes++;};
+  GiveawayActivityMinuteCount.aggregate=async()=>{throw Error("MongoDB temporarily unavailable");};
+  const archiveChannel={id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
+    messages:{fetch:async()=>({find:()=>null})},
+    send:async()=>{writes++;throw Error("Should not post archive");}};
+  const client={user:{id:"bot"},channels:{fetch:async id=>id===archiveId?
+    archiveChannel:{messages:{fetch:async()=>({delete:async()=>deletes++})}}}};
+  const activity=record({mode:"activity",winnerIds:[],prizeDeliveredAt:null,
+    activityStartAt:new Date("2026-11-01T12:00:00Z"),
+    activityEndAt:new Date("2026-11-10T12:00:00Z"),
+    activityMinTotalMessages:10,activityDays:1});
+  await assert.rejects(archiveGiveawayStaffRecord(client,activity,{staffPayload:payload}),
+    /MongoDB temporarily unavailable/);
+  assert.equal(writes,0);
+  assert.equal(deletes,0);
+ }finally{
+  GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;
+  GiveawayActivityMinuteCount.aggregate=old.aggregate;
+ }
+});
