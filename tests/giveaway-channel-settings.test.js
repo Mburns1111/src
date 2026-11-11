@@ -51,10 +51,9 @@ test("setup exposes two distinct optional giveaway channel selectors", () => {
   }
   assert.ok(GuildConfig.schema.path("giveawayPingRoleId"));
   assert.ok(GuildConfig.schema.path("survivalTrialPingRoleId"));
-  assert.equal(config.options.length, 22);
-  assert.ok(names.includes("giveaway_manager"));
-  assert.ok(names.includes("clear_giveaway_manager"));
-  assert.ok(GuildConfig.schema.path("giveawayManagerRoleId"));
+  assert.equal(config.options.length, 20);
+  assert.ok(!names.includes("giveaway_manager"));
+  assert.ok(!names.includes("clear_giveaway_manager"));
   assert.ok(names.includes("activity_review"));
   assert.ok(names.includes("giveaway_archives"));
   assert.ok(GuildConfig.schema.path("giveawayArchiveChannelId"));
@@ -70,21 +69,6 @@ test("setup exposes two distinct optional giveaway channel selectors", () => {
     assert.ok(!operation.options.some(o => o.name === "channel"),
       command.toJSON().name + " cannot override its assigned channel");
   }
-});
-
-test("setup explicitly saves and clears the Giveaway Manager role without changing channels",async()=>{
- const changes=[];
- const updated=[];
- try{
-  stub(changes,GuildConfig,"findOneAndUpdate",async (filter,update)=>{
-   updated.push({filter,update});
-  });
-  const role={id:"123456789012345679",managed:false};
-  await setupChannels(setupInteraction({}, {giveaway_manager:role}));
-  assert.deepEqual(updated.at(-1).update.$set,{giveawayManagerRoleId:role.id});
-  await setupChannels(setupInteraction({}, {}, {clear_giveaway_manager:true}));
-  assert.deepEqual(updated.at(-1).update.$set,{giveawayManagerRoleId:""});
- }finally{restore(changes);}
 });
 
 test("setup persists each channel independently, without changing other settings", async () => {
