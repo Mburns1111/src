@@ -132,20 +132,14 @@ test("Next page buttons promptly acknowledge clicks before rendering each screen
   });
 });
 
-test("typed tutorial prefers DM, falls back to a private-button prompt when DMs are closed",async()=>{
+test("typed tutorial always offers the private in-channel button without sending DMs",async()=>{
   const sent=[],replies=[];
   const message={author:{send:async payload=>sent.push(payload)},
     reply:async payload=>replies.push(payload)};
   await sendHatchemTutorial(message);
-  assert.equal(sent.length,1);
-  assert.match(sent[0].embeds[0].toJSON().title,/Welcome/);
-  assert.match(replies[0].content,/DMs/);
-  sent.length=0;replies.length=0;
-  message.author.send=async()=>{throw Error("Cannot send messages to this user");};
-  await sendHatchemTutorial(message);
-  assert.equal(sent.length,0);
+  assert.equal(sent.length,0,"private tutorial must not send a DM");
   assert.equal(replies.length,1);
-  assert.match(replies[0].content,/privat/i);
+  assert.match(replies[0].content,/private Hatchem tutorial/i);
   assert.equal(replies[0].components[0].toJSON().components[0].custom_id,"cards:tutorial:open");
 });
 
