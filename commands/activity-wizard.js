@@ -83,6 +83,15 @@ export const activityWizardPrompts={
     ["Title","title"],["Prize","prize"],["Giveaway Details","detailsChoice"],["Winners","winners"],["Draw time","draw"],["Optional settings","extras"],["Repeat schedule","repeat"],
   ]],
 };
+export function activityWizardNumericOptions(step,maxDays=7){
+ if(step==="minimum")return [...[1,3,5,10,20].map(x=>choice(x+" messages",String(x))),choice("Custom Amount","customMinimum")];
+ if(step==="days")return [...[1,2,3,5,7].filter(x=>x<=maxDays)
+   .map(x=>choice(x+" day"+(x===1?"":"s"),String(x))),choice("Custom Amount","customDays")];
+ if(step==="claim")return [...[12,24,48].map(x=>choice(x+" hours",String(x))),choice("Custom Amount","customClaim")];
+ if(step==="rerollsChoice")return [...activityWizardPrompts.rerollsChoice[1],choice("Custom Amount","customRerolls")];
+ if(step==="winners")return activityWizardPrompts.winners[1];
+ return null;
+}
 function number(input,min,max){
   const value=Number(input);
   if(!/^\d+$/.test(input)||!Number.isSafeInteger(value)||value<min||value>max)
@@ -152,11 +161,10 @@ async function show(session,step){
     ['Max rerolls','rerollsChoice'],['Notification roles','notifyRoles'],
     ['No eligible winners','emptyResults'],['Banner','banner'],['Done','done'],
   ];
-  if(step==="minimum")choices=[...[1,3,5,10,20].map(x=>choice(String(x)+" messages",String(x))),choice("Custom Amount","customMinimum")];
-  if(step==="days")choices=[...[1,2,3,5,7].filter(x=>x<=maxActiveDays(new Date(),windowEnd(s,new Date())))
-    .map(x=>choice(String(x)+" day"+(x===1?"":"s"),String(x))),choice("Custom Amount","customDays")];
-  if(step==="claim")choices=[...[12,24,48].map(x=>choice(String(x)+" hours",String(x))),choice("Custom Amount","customClaim")];
-  if(step==="rerollsChoice")choices=[...activityWizardPrompts.rerollsChoice[1],choice("Custom Amount","customRerolls")];
+  if(step==="minimum")choices=activityWizardNumericOptions(step);
+  if(step==="days")choices=activityWizardNumericOptions(step,maxActiveDays(new Date(),windowEnd(s,new Date())));
+  if(step==="claim")choices=activityWizardNumericOptions(step);
+  if(step==="rerollsChoice")choices=activityWizardNumericOptions(step);
   if(step==="claimPreview")content=['**Example Winner Announcement**',
     ...prizeClaimLines({mode:"activity",winnerIds:[session.owner],
       claimStartedAt:new Date(),claimWindowHours:s.claimHours,autoRerollClaims:true,
