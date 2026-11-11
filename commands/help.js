@@ -58,7 +58,7 @@ const CONTENT=Object.freeze({
   ["Begin","Open the card-game channel and follow registration and tutorial controls."],
   ["Collect","Use egg drops and grabs to collect pets, then view your collection."],
   ["Manage cards","Use the card game's menus for trading, gifting, upgrading, burning and the card shop."],
-  ["Details","Open the card tutorial for card-specific controls, costs, limits and restrictions."],
+  ["More Hatchem help","Type `.help` in the Hatchem channel to open the full card-game command guide. You can also type `.tutorial` there for the beginner walkthrough."],
  ]],
  giveaways:["Giveaways","Entries and qualification depend on the giveaway type.",[
   ["Activity giveaways","Meet the listed message and activity requirements during the entire activity period. No manual entry button is needed."],
