@@ -15,7 +15,8 @@ const expiry=30*60_000;
 const key=(channel,user)=>channel+":"+user;
 const steps=["list","winners","staff","archive","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
 const regularSteps=["regularChannel","staff","archive","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
-const stepsFor=session=>session.mode==="regular"?regularSteps:steps;
+export const giveawaySetupSteps=mode=>mode==="regular"?[...regularSteps]:[...steps];
+const stepsFor=session=>giveawaySetupSteps(session.mode);
 const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",
   regularChannel:"Regular giveaway posts",archive:"Private giveaway archives",
   requiredRole:"Default required role",roleHelp:"Where to get required roles",
@@ -184,12 +185,15 @@ function after(session,step){
  session.editing=false;
  return show(session,session.fromReview?"review":step);
 }
-async function checkChannels(session){
+export async function validateGiveawaySetupChannels(session){
  const s=session.settings;
  const required=session.mode==="regular"?[s.giveawayChannelId,s.activityGiveawayReviewChannelId]:
     [s.activityGiveawayListChannelId,s.activityGiveawayWinnersChannelId,s.activityGiveawayReviewChannelId];
  if(required.some(x=>!x))throw Error("Choose distinct giveaway and private staff channels.");
  const allIds=[...required,...(s.giveawayArchiveChannelId?[s.giveawayArchiveChannelId]:[])];
+ if(s.giveawayArchiveChannelId && [s.giveawayChannelId,s.activityGiveawayListChannelId,
+     s.activityGiveawayWinnersChannelId,s.activityGiveawayReviewChannelId].includes(s.giveawayArchiveChannelId))
+   throw Error("Archives must be separate from all public giveaway channels and active staff controls.");
  if(new Set(allIds).size!==allIds.length)throw Error("Archives must be a different channel from active staff and public giveaway channels.");
  for(const [idx,id] of allIds.entries()){
    const channel=await session.guild.channels.fetch(id).catch(()=>null);
@@ -234,7 +238,7 @@ async function apply(session,verb,value){
      session.fromReview=true;await show(session,value);return;
    }
    if(verb!=="save")throw Error("Choose Save Settings, Preview, or Edit.");
-   await checkChannels(session);
+   await validateGiveawaySetupChannels(session);
    const previous=await GuildConfig.findOne({guildId:session.guild.id}).lean();
    const settings={
      ...Object.fromEntries([
