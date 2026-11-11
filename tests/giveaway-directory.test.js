@@ -148,3 +148,19 @@ test("recurring giveaway public listing displays only the last two winners",()=>
  assert.doesNotMatch(activityPlanListingEmbed({...plan,repeatMode:"once"},rule,
    {recentWinners:history}).toJSON().description,/Recent winners/);
 });
+
+test("activity posters put the announcement heading and chosen title on one line",()=>{
+ const single=activityOneOffListingEmbed({
+   _id:planId,title:"testing new layout",prize:"Pet",activityMinTotalMessages:1,
+   activityChannelIds:["456789012345678901"],winnerCount:1,
+ }).toJSON();
+ assert.equal(single.title,undefined);
+ assert.match(single.description,/^🎁 \*\*Giveaway alert!\*\* · \*\*testing new layout\*\*/);
+ assert.match(single.description,/Send \*\*1 message\*\* in <#456789012345678901>/);
+ assert.doesNotMatch(single.description,/matching message|qualifying message/);
+ const recurring=activityPlanListingEmbed({...plan,title:"Repeat giveaway",
+   minimumTotalMessages:1},{...rule,minimumTotalMessages:1}).toJSON();
+ assert.equal(recurring.title,undefined);
+ assert.match(recurring.description,/^🎁 \*\*Giveaway alert!\*\* · \*\*Repeat giveaway\*\*/);
+ assert.match(recurring.description,/Send \*\*1 message\*\* in <#456789012345678901>/);
+});
