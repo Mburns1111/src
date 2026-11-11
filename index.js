@@ -960,7 +960,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
     if (interaction.commandName === shopCommand.name &&
-        interaction.options.getSubcommand(false) !== "balance" && interaction.guildId) {
+        interaction.guildId) {
       const shopSettings = await GuildConfig.findOne({ guildId: interaction.guildId })
         .select("shopChannelId").lean();
       if (!shopSettings?.shopChannelId) {
@@ -1004,7 +1004,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (profileSettings?.profileChannelId)
         await ensureProfileCard(interaction.guild, interaction.user);
     }
-    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name, cardsReleaseCommand.name, partyCommand.name].includes(interaction.commandName) && interaction.guildId) {
+    if (interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
       const restriction=commandChannelRestriction(interaction.commandName,interaction.channelId,config);
       if (restriction) {
