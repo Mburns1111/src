@@ -75,6 +75,10 @@ const CONTENT=Object.freeze({
  sgiveaways:["Staff · Giveaway Management","Create and manage giveaways through the configured command channel and staff records.",[
   ["Before system setup","First configure the general bot and commands channel with **/setup channels**."],
   ["Set up","Then use **/setup giveaways** or **/setup activity-giveaways** for guided giveaway settings."],
+  ["Channels — public","**Regular giveaway posts** (manual entry); **Activity giveaway list** (activity posters and progress); **Activity winners** (results and claims); **Court's Trial** (trial signup and results, if used). Keep separate public channels for each enabled type."],
+  ["Channels — staff","**Commands channel** (run setup and staff commands); **Private staff controls** (progress, approvals, giveaway records); **Private Archives** (completed records, optional but recommended). Staff controls and Archives must be hidden from @everyone and use separate channels."],
+  ["Bot permissions","In public giveaway, activity list, winners and staff channels: **View Channel**, **Send Messages**, **Embed Links**. For the separate Archives channel, also grant **Attach Files** and **Read Message History**. Allow these last two in staff/public giveaway channels too for normal message updates and history lookup."],
+  ["Staff access","**/setup giveaways** and **/setup activity-giveaways** currently require Manage Server permission. Giveaway Manager access to Staff Help does not override permission checks on actual staff commands."],
   ["Staff records","Review the active directory and each giveaway's separate staff record. Colors: blue active, yellow needs attention, green claimed/delivered, red closed."],
   ["Claims and delivery","Winner claims are separate from delivery. After all prizes are handed out, use **Confirm Prizes Delivered**; an optional private Discord proof link can be added."],
  ]],
