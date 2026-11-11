@@ -68,6 +68,18 @@ test("staff guides cover giveaway claims archives progress and setup",()=>{
  assert.match(JSON.stringify(data(helpTopicPayload("sactivity",userId))),/Refresh Progress/);
  assert.match(JSON.stringify(data(helpTopicPayload("sarchives",userId))),/Archive Giveaway/);
  assert.match(JSON.stringify(data(helpTopicPayload("sgiveaways",userId))),/Confirm Prizes Delivered/);
+ const giveawayGuide=JSON.stringify(data(helpTopicPayload("sgiveaways",userId)));
+ assert.match(giveawayGuide,/\/setup channels/);
+ assert.match(giveawayGuide,/Activity giveaway list/);
+ assert.match(giveawayGuide,/Activity winners/);
+ assert.match(giveawayGuide,/Private staff controls/);
+ assert.match(giveawayGuide,/Private Archives/);
+ assert.match(giveawayGuide,/View Channel/);
+ assert.match(giveawayGuide,/Send Messages/);
+ assert.match(giveawayGuide,/Embed Links/);
+ assert.match(giveawayGuide,/Attach Files/);
+ assert.match(giveawayGuide,/Read Message History/);
+ assert.match(giveawayGuide,/hidden from @everyone/);
 });
 test("staff access includes assigned Giveaway Managers, Manage Server, Administrator but not ordinary members",()=>{
  const cfg={giveawayManagerRoleId:roleId};
