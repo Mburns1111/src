@@ -670,8 +670,9 @@ export async function handleGiveawayStaffAction(interaction){
      if(action==="confirmremove" &&
         interaction.fields?.getTextInputValue("confirm")?.trim().toUpperCase()!=="ARCHIVE")
        return interaction.editReply("Archive not confirmed.");
-     if(!((record.status==="ended"&&completedGiveawayCanDeleteListing(record))||
-          record.publicListingRemovedAt||record.status==="cancelled"))
+     if(!(record.status==="cancelled"||
+       (record.status==="ended"&&record.prizeDeliveredAt&&giveawayClaimsComplete(record)&&
+         (completedGiveawayCanDeleteListing(record)||record.publicListingRemovedAt))))
        return interaction.editReply("Only completed giveaways with confirmed winner claims and prize delivery can be archived. Otherwise cancel with a reason.");
      const config=await GuildConfig.findOne({guildId:record.guildId})
        .select("guildId giveawayArchiveChannelId activityGiveawayReviewChannelId giveawayStaffDirectoryChannelId giveawayStaffDirectoryMessageId giveawayStaffDirectoryFingerprint").lean();
