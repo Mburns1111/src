@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "scannedOn": "2026-10-28",
+  "purpose": "Potential Reddit artist contacts for Adopt Me Series 1 pets whose artwork is not yet registered as approved or selected in AM Isa. This is a research-only outreach list.",
+  "artistClearance": "All newly discovered posts are permission-needed. Posting art publicly or offering commissions does not authorize copying into the bot.",
+  "comparedAgainst": {
+    "series1RosterSize": 100,
+    "previouslySelectedArtist": "reddit-softlambkin",
+    "excludedAlreadyIdentifiedPetTypes": [
+      "Strawberry Shortcake Bat Dragon",
+      "Cute-A-Cabra",
+      "Turtle",
+      "Wolf",
+      "Arctic Fox",
+      "Happy Duckling",
+      "Unicorn"
+    ],
+    "notes": "The excluded pets are already represented by softlambkin research choices, not necessarily approved production art. Canadian Goose and Bunny Swirl are outside the 100 Series 1 roster."
+  },
+  "leads": [
+    {
+      "leadId": "r26-red-panda",
+      "petNames": [
+        "Red Panda"
+      ],
+      "rarity": "Ultra-Rare",
+      "postDate": "2026-09-26",
+      "redditPostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1wqfl8m/red_panda_art/",
+      "artistUsername": null,
+      "authorVerification": "original-poster-username-not-retrieved",
+      "evidence": "Poster describes their own original Red Panda illustration and shading process.",
+      "evidenceStrength": "explicit-original-art",
+      "permissionStatus": "not-contacted",
+      "visualVerificationStatus": "inspect-original-post-before-selection",
+      "outreachPriority": "high"
+    },
+    {
+      "leadId": "r26-ghost-bunny",
+      "petNames": [
+        "Ghost Bunny"
+      ],
+      "rarity": "Ultra-Rare",
+      "postDate": "2026-09-30",
+      "redditPostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1wtu66u/drawing_adopt_me_pets/",
+      "artistUsername": null,
+      "authorVerification": "original-poster-username-not-retrieved",
+      "evidence": "An image reply follows the request 'Ghost bunny :D' in an artist-hosted drawing thread.",
+      "evidenceStrength": "completed-image-reply-context",
+      "permissionStatus": "not-contacted",
+      "visualVerificationStatus": "inspect-image-reply-and-confirm-author",
+      "outreachPriority": "high"
+    },
+    {
+      "leadId": "r26-dalmatian",
+      "petNames": [
+        "Dalmatian"
+      ],
+      "rarity": "Ultra-Rare",
+      "postDate": "2026-10-02",
+      "redditPostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1wtu66u/drawing_adopt_me_pets/",
+      "artistUsername": null,
+      "authorVerification": "original-poster-username-not-retrieved",
+      "evidence": "Artist responded with image to request for a Neon Dalmatian on October 2 and requester thanked them.",
+      "evidenceStrength": "completed-image-reply-context",
+      "permissionStatus": "not-contacted",
+      "visualVerificationStatus": "inspect-image-reply-and-confirm-author",
+      "outreachPriority": "high",
+      "variant": "Neon artwork; base pet Dalmatian"
+    },
+    {
+      "leadId": "r26-silly-duck",
+      "petNames": [
+        "Silly Duck"
+      ],
+      "rarity": "Uncommon",
+      "postDate": "2026-05-10",
+      "redditPostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1t9ij8w/fanart_of_my_favorite_pet/",
+      "artistUsername": null,
+      "authorVerification": "original-poster-username-not-retrieved",
+      "evidence": "Artist explicitly says they drew their favorite Silly Duck called Smelly and asks readers to check before reuse.",
+      "evidenceStrength": "explicit-original-art",
+      "permissionStatus": "not-contacted",
+      "visualVerificationStatus": "inspect-original-post-before-selection",
+      "outreachPriority": "high"
+    },
+    {
+      "leadId": "r26-frost-dragon",
+      "petNames": [
+        "Frost Dragon"
+      ],
+      "rarity": "Legendary",
+      "postDate": "2026-06-03",
+      "redditPostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1tvzvzw/here_are_some_of_my_favs_pets_drawing/",
+      "artistUsername": null,
+      "authorVerification": "original-poster-username-not-retrieved",
+      "evidence": "Artist says the gallery includes their Frost Dragon drawing (along with other species not necessarily on the release list).",
+      "evidenceStrength": "explicit-original-art",
+      "permissionStatus": "not-contacted",
+      "visualVerificationStatus": "inspect-gallery-to-isolate-frost-dragon-image",
+      "outreachPriority": "high"
+    },
+    {
+      "leadId": "r26-hedgehog",
+      "petNames": [
+        "Hedgehog"
+      ],
+      "rarity": "Ultra-Rare",
+      "postDate": "2026-08-04",
+      "redditPostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1veyocd/art_d/",
+      "artistUsername": null,
+      "authorVerification": "original-poster-username-not-retrieved",
+      "evidence": "Post features artwork; a commenter identifies a Hedgehog among the pieces and the artist responds appreciatively.",
+      "evidenceStrength": "species-identified-by-commenter-and-confirmed-reply",
+      "permissionStatus": "not-contacted",
+      "visualVerificationStatus": "inspect-gallery-to-isolate-hedgehog-image",
+      "outreachPriority": "medium"
+    },
+    {
+      "leadId": "r26-african-wild-dog",
+      "petNames": [
+        "African Wild Dog"
+      ],
+      "rarity": "Ultra-Rare",
+      "postDate": "2026-04",
+      "redditPostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1sughhb/drawing_pets_neon_african_wild_dog/",
+      "artistUsername": null,
+      "authorVerification": "original-poster-username-not-retrieved",
+      "evidence": "Dedicated post explicitly titled 'Drawing Pets - (Neon) African Wild Dog', with commenters reacting to the illustration.",
+      "evidenceStrength": "explicit-original-art",
+      "permissionStatus": "not-contacted",
+      "visualVerificationStatus": "inspect-original-post-before-selection",
+      "outreachPriority": "high",
+      "variant": "Neon artwork; base pet African Wild Dog"
+    }
+  ],
+  "artistLeadsWithoutConfirmedRosterArt": [
+    {
+      "artistUsername": "Amphar0s_",
+      "redditProfileUrl": "https://www.reddit.com/user/Amphar0s_/",
+      "sourcePostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1u4tvlh/art_dump_of_some_recent_pet_drawings/",
+      "date": "2026-06-13",
+      "notes": "Artist reports over 100 pet drawings. The text specifically confirms Haetae and Neon Vampire Dragon (neither included in owner's Series 1), but their broader gallery may contain matches. Strong contact for requests. Artwork permission must be requested."
+    }
+  ],
+  "olderSeries1Illustrations": [
+    {
+      "artistUsername": "baryonyxrexyy",
+      "petNames": [
+        "Bat Dragon",
+        "Fairy Bat Dragon"
+      ],
+      "sourcePostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1mfvian/day_7_and_8_of_drawing_every_adopt_me_pet_in_my/",
+      "approximateDate": "2025-08",
+      "notes": "Two separate illustrations named in the post: Day 7 Fairy Bat Dragon and Day 8 original Bat Dragon; outside primary 2026 freshness window."
+    },
+    {
+      "artistUsername": "baryonyxrexyy",
+      "petNames": [
+        "Chocolate Chip Bat Dragon"
+      ],
+      "sourcePostUrl": "https://www.reddit.com/r/AdoptMeRBX/comments/1mii22b/day_10_of_drawing_every_adopt_me_pet_in_my_style/",
+      "approximateDate": "2025-08",
+      "notes": "Artist explicitly identifies Chocolate Chip Bat Dragon as Day 10; outside primary 2026 freshness window."
+    }
+  ],
+  "process": {
+    "approvalRequiredBeforeReuse": true,
+    "recommend": "Contact the original artist on each linked post. Request explicit noncommercial permission for the specific art and any edited/resized/cropped versions used in Discord card images. Ask about signatures/credit and request a high-resolution original. Some commissions may involve requester-specific pet customization or third-party characters: confirm any extra rights.",
+    "statusExplanation": "A lead is not an acquired asset. Do not assign new artwork IDs to CardDefinition or change artStatus to approved based on this list."
+  }
+}
