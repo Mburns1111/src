@@ -37,6 +37,7 @@ test("archiver copies complete record with claims before deleting old staff post
  const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
  const saved=[],removed=[],posts=[];
  const card={id:"789012345678901234",author:{id:"bot"},
+   embeds:[{footer:{text:"Giveaway staff record · "+eventId}}],
    delete:async()=>removed.push("active card")};
  const archiveChannel={id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
    permissionsFor:target=>({has:()=>target?.id!=="everyone"}),
@@ -85,7 +86,9 @@ test("completed activity giveaway archives both staff posts and the final member
    send:async payload=>{sent.push(payload);return{id:sent.length===1?
      "901234567890123456":"912345678901234567",author:{id:"bot"}};}};
  const source={messages:{fetch:async id=>({
-   id,author:{id:"bot"},delete:async()=>deleted.push(id),
+   id,author:{id:"bot"},
+   embeds:[{footer:{text:(id===activeIds[1]?"Activity staff progress · ":"Giveaway staff record · ")+eventId}}],
+   delete:async()=>deleted.push(id),
  })}};
  const activity=record({mode:"activity",status:"ended",winnerIds:[],
    prizeDeliveredAt:null,prizeDeliveredBy:"",
@@ -164,4 +167,28 @@ test("failed final activity count retrieval never archives or removes active rec
   GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;
   GiveawayActivityMinuteCount.aggregate=old.aggregate;
  }
+});
+
+test("archive transfer refuses to delete a different bot-owned moderator post",async()=>{
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const deleted=[],updates=[];
+ try{
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+    giveawayArchiveChannelId:archiveId,activityGiveawayReviewChannelId:staffId,
+  })})});
+  Giveaway.updateOne=async(_q,u)=>updates.push(u.$set);
+  const archiveChannel={id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
+    messages:{fetch:async()=>({find:()=>null})},
+    send:async()=>({id:"890123456789012345",author:{id:"bot"}})};
+  const activeChannel={messages:{fetch:async()=>({
+    author:{id:"bot"},embeds:[{footer:{text:"AM Isa · Active Giveaway Index"}}],
+    delete:async()=>deleted.push(true),
+  })}};
+  const client={user:{id:"bot"},channels:{fetch:async id=>
+    id===archiveId?archiveChannel:activeChannel}};
+  await assert.rejects(archiveGiveawayStaffRecord(client,record(),{staffPayload:payload}),
+    /identity mismatch/);
+  assert.equal(deleted.length,0);
+  assert.equal(updates.at(-1).archiveMovedAt,undefined);
+ }finally{GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;}
 });
