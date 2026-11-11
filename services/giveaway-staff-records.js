@@ -97,7 +97,7 @@ function claimStatus(record,slot,{now=new Date()}={}){
  ].join("\n");
 }
 
-export function giveawayStaffRecordPayload(record,{series=null}={}){
+export function giveawayStaffRecordPayload(record,{series=null,archived=false}={}){
  const cancelled=record.status==="cancelled";
  const completedAndRemoved=record.status==="ended"&&Boolean(record.publicListingRemovedAt);
  const statusMarker=giveawayStaffStatusMarker(record);
@@ -188,8 +188,7 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    }
    if(record.status==="ended"){
      if(completedGiveawayCanDeleteListing(record))
-       controls.push(btn("giveawaystaff:remove:"+record._id,
-         record.mode==="survival"?"Archive Trial":"Delete Listing",ButtonStyle.Secondary));
+       controls.push(btn("giveawaystaff:remove:"+record._id,"Archive Giveaway",ButtonStyle.Secondary));
      if(hasOutstandingTicketClaims(record))
        controls.push(btn("giveawaystaff:reroll:"+record._id,"Manual Reroll",ButtonStyle.Primary));
      if(!completedGiveawayCanDeleteListing(record)&&
@@ -198,6 +197,8 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    }else if(["open","pending_review","running"].includes(record.status))
      controls.push(btn("giveawaystaff:cancel:"+record._id,"Cancel & Remove Giveaway",ButtonStyle.Danger));
  }
+ if(!archived && (cancelled || completedAndRemoved))
+   controls.push(btn("giveawaystaff:remove:"+record._id,"Move to Archive",ButtonStyle.Secondary));
  const components=[];
  for(let i=0;i<controls.length;i+=5)
    components.push(new ActionRowBuilder().addComponents(controls.slice(i,i+5)));
@@ -228,8 +229,13 @@ export async function requirePrivateGiveawayStaffChannel(guild,config){
 export async function ensureGiveawayStaffRecord(client,record){
  if(!record||["draft","publishing","failed"].includes(record.status))return false;
  const config=await GuildConfig.findOne({guildId:record.guildId})
-   .select("activityGiveawayReviewChannelId").lean();
- const channelId=config?.activityGiveawayReviewChannelId;
+   .select("activityGiveawayReviewChannelId giveawayArchiveChannelId").lean();
+ const settled=Boolean(record.publicListingRemovedAt)||record.status==="cancelled";
+ const archiveId=config?.giveawayArchiveChannelId;
+ const channelId=settled&&archiveId?archiveId:config?.activityGiveawayReviewChannelId;
+ const isArchive=Boolean(settled&&archiveId);
+ const oldChannelId=record.staffCardChannelId;
+ const oldMessageId=record.staffCardId;
  if(!channelId)return false;
  const channel=await client.channels.fetch(channelId);
  if(!channel?.send||!channel.messages?.fetch)
@@ -238,7 +244,7 @@ export async function ensureGiveawayStaffRecord(client,record){
     channel.permissionsFor?.(channel.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
    throw Error("The giveaway staff channel must not be accessible to @everyone.");
  const series=record.guidedSeries?await GuidedActivitySeries.findById(record.guidedSeries).lean():null;
- const payload=giveawayStaffRecordPayload(record,{series});
+ const payload=giveawayStaffRecordPayload(record,{series,archived:isArchive});
  let message=record.staffCardId&&record.staffCardChannelId===channelId?
    await channel.messages.fetch(record.staffCardId).catch(error=>{
      if(error.code===10008)return null;
@@ -268,6 +274,19 @@ export async function ensureGiveawayStaffRecord(client,record){
  if(record.staffCardId!==message.id||record.staffCardChannelId!==channelId)
    await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
      {$set:{staffCardId:message.id,staffCardChannelId:channelId}});
+ // Move only after the archive post is saved and its ID persisted.
+ // Never delete a record we did not author; a failed deletion can be retried.
+ if(isArchive&&oldMessageId&&oldChannelId&&
+    (oldMessageId!==message.id||oldChannelId!==channelId)){
+   try{
+     const previousChannel=await client.channels.fetch(oldChannelId);
+     const previous=await previousChannel?.messages?.fetch(oldMessageId).catch(error=>{
+       if(error.code===10008)return null;
+       throw error;
+     });
+     if(previous&&previous.author?.id===client.user?.id)await previous.delete();
+   }catch(error){console.warn("[Giveaways] Archive created but old staff card cleanup failed:",String(record._id),error);}
+ }
  return true;
 }
 export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
@@ -280,7 +299,10 @@ export async function reconcileGiveawayStaffRecords(client,{limit=50}={}){
    status:{$in:["open","closing","rerolling","pending_review","running","ended"]},
    staffCardId:{$ne:""},staffCardChannelId:{$ne:""}
  }).sort({updatedAt:-1}).limit(limit).lean();
- for(const record of [...new Map([...missing,...active].map(x=>[String(x._id),x])).values()]){
+ const archives=await Giveaway.find({
+   $or:[{status:"cancelled"},{status:"ended",publicListingRemovedAt:{$ne:null}}],
+ }).sort({updatedAt:-1}).limit(limit).lean();
+ for(const record of [...new Map([...missing,...active,...archives].map(x=>[String(x._id),x])).values()]){
    try{await ensureGiveawayStaffRecord(client,record);}
    catch(error){console.error("[Giveaways] Staff record sync failed:",String(record._id),error);}
  }
@@ -510,41 +532,51 @@ export async function handleGiveawayStaffAction(interaction){
        ));
    }
    if(action==="remove"){
-     if(!completedGiveawayCanDeleteListing(record))
+     if(!((record.status==="ended"&&completedGiveawayCanDeleteListing(record))||record.publicListingRemovedAt||record.status==="cancelled"))
        return interaction.reply({content:"A completed giveaway can only be removed when no winners were selected, or each prize place has a submitted ticket claim or has passed its deadline with no rerolls left.",...ephemeral});
      return interaction.showModal(new ModalBuilder()
        .setCustomId("giveawaystaff:confirmremove:"+id)
        .setTitle(record.mode==="survival"?"Archive completed Court's Trial":"Delete completed giveaway listing")
        .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
          .setCustomId("confirm")
-         .setLabel(record.mode==="survival"?"Type ARCHIVE to keep Royal Verdict":"Type DELETE to remove public posts")
+         .setLabel("Type ARCHIVE to confirm")
          .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(7))));
    }
    await interaction.deferReply(ephemeral);
    if(action==="confirmremove"){
-     const isTrial=record.mode==="survival";
-     const confirmWord=isTrial?"ARCHIVE":"DELETE";
-     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!==confirmWord)
-       return interaction.editReply("Archive/removal not confirmed. Type "+confirmWord+" to proceed.");
-     if(!completedGiveawayCanDeleteListing(record))
-       return interaction.editReply("Cannot delete listing: some winners still have time to claim or have rerolls remaining. Removal is available after all places are claimed or exhausted, or if no winners were selected.");
-     const archived=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
-       status:"ended",publicListingRemovedAt:null,renderVersion:record.renderVersion??0},
-       {$set:{publicListingRemovedAt:new Date(),publicListingRemovedBy:interaction.user.id,
-         claimCheckAt:null,renderedAt:new Date()},
-        $inc:{renderVersion:1}},{returnDocument:"after"}).lean();
-     if(!archived)
-       return interaction.editReply("The giveaway changed or was already removed. Refresh the staff record.");
+     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="ARCHIVE")
+       return interaction.editReply("Archive not confirmed. Type ARCHIVE to proceed.");
+     const config=await GuildConfig.findOne({guildId:record.guildId})
+       .select("giveawayArchiveChannelId activityGiveawayReviewChannelId").lean();
+     if(!config?.giveawayArchiveChannelId||config.giveawayArchiveChannelId===config.activityGiveawayReviewChannelId)
+       return interaction.editReply("Set a separate private archive channel using /setup archives first.");
+     const archiveChannel=await interaction.client.channels.fetch(config.giveawayArchiveChannelId).catch(()=>null);
+     if(!archiveChannel?.send||!archiveChannel.messages?.fetch||
+        archiveChannel.permissionsFor?.(archiveChannel.guild?.roles?.everyone)?.has(PermissionFlagsBits.ViewChannel))
+       return interaction.editReply("The archive channel is missing, unavailable, or visible to @everyone.");
+     if(record.status!=="cancelled"&&!record.publicListingRemovedAt){
+       if(!completedGiveawayCanDeleteListing(record))
+         return interaction.editReply("Claim deadlines or rerolls are still pending. Archive is available after each winning place is settled.");
+       const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
+         status:"ended",publicListingRemovedAt:null,renderVersion:record.renderVersion??0},
+         {$set:{publicListingRemovedAt:new Date(),publicListingRemovedBy:interaction.user.id,
+           claimCheckAt:null,renderedAt:new Date()},
+          $inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+       if(!updated)return interaction.editReply("The giveaway changed. Refresh its staff record.");
+       record=updated;
+     }
      let cleanupError=null;
-     try{await removeGiveawayPublicPosts(interaction.client,archived);}
-     catch(error){cleanupError=error;}
-     try{await ensureGiveawayStaffRecord(interaction.client,archived);}
-     catch(error){console.error("[Giveaways] Completed listing staff record refresh failed:",error);}
+     try{
+       if(record.status==="ended")await removeGiveawayPublicPosts(interaction.client,record);
+     }catch(error){cleanupError=error;}
+     try{await ensureGiveawayStaffRecord(interaction.client,record);}
+     catch(error){
+       console.error("[Giveaways] Archiving staff record failed:",error);
+       return interaction.editReply("The giveaway has been marked for archiving, but the archive post could not be created. The bot will retry. Do not delete the original staff record.");
+     }
      return interaction.editReply(cleanupError
-       ?"The giveaway was archived (not cancelled), but the signup/listing could not be removed. The bot will retry; check its permissions."
-       :isTrial
-         ?"Court's Trial archived. Signup listing closed; **Royal Verdict remains public**, with winners and claims preserved privately. Staff record is gray."
-         :"Completed giveaway listing deleted from public channels. The giveaway remains **ended** with winners and claims preserved in the staff archive; it was not cancelled.");
+       ?"Staff record moved to the archive channel, but removing the public listing failed. The bot will retry cleanup."
+       :"Giveaway archived in <#"+config.giveawayArchiveChannelId+">. Winner, claim and reroll history is preserved.");
    }
    if(action==="stop"){
      if(record.publicListingRemovedAt||(record.mode==="survival"&&!record.trialTicketClaimsEnabled)||record.status!=="ended"||!record.autoRerollClaims)
