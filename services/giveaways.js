@@ -46,6 +46,7 @@ export function giveawayAnnouncement(record) {
         : `🦊 **The fox sighs:** "No accomplice showed up, so the prize stays tucked in <@${record.creatorId}>'s pocket. Foiled again!"`
     : `🦊 **The fox whispers:** "Psst! I spotted something shiny in <@${record.creatorId}>'s pocket. Enter below and you might be the accomplice I need to swipe the prize!"`;
   const lines = [
+    activity && ended ? `🏆 **${winners.length ? "The Court Has Chosen" : "No Winner Selected"}** · **${String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)}**` :
     `**${String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)}**`,"",
     ...(foxStory ? [foxStory, ""] : []),
     activity ? `🎁 **Prize:** ${record.prize.slice(0, 1700)}` : record.prize.slice(0, 1800),
@@ -64,19 +65,36 @@ export function giveawayAnnouncement(record) {
     ...(record.rules ? ["", "**Rules / Requirements:**", record.rules.slice(0, 1300)] : []),
   ];
   if (ended) {
-    lines.push("", winners.length ? (activity ? "🏆 **The Court Has Chosen**" : "**Winners**") : "**No winner selected**",
-      ...(winners.length ? winners : [activity ? "No qualifying members were found for this drawing." : "No eligible entries — no winner was selected."]));
-    if (record.mode !== "survival" && (record.winnerIds || []).length) {
-      lines.push("", "**Winner ticket claims**");
-      for (let slot=0;slot<record.winnerIds.length;slot++) {
-        const userId=record.winnerIds[slot];
-        const claim=(record.winnerClaims || []).find(c=>c.slot===slot && c.userId===userId);
-        const deadline=winnerClaimDeadline(record,slot);
-        if (claim) {
-          lines.push(`#${slot+1} <@${userId}> — **Claim submitted successfully**`);
-        } else if ((record.claimResolvedSlots || []).includes(slot))
-          lines.push(`#${slot+1} <@${userId}> — Claim expired; no further automatic replacement.`);
-        else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline ? ` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>` : ""}`);
+    if(activity){
+      if(!winners.length)lines.push("","No qualifying members were found for this drawing.");
+      else{
+        lines.push("");
+        for(let slot=0;slot<record.winnerIds.length;slot++){
+          const userId=record.winnerIds[slot];
+          const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===userId);
+          const deadline=winnerClaimDeadline(record,slot);
+          const forfeited=(record.claimResolvedSlots||[]).includes(slot);
+          const state=forfeited?"Claim forfeited — no further automatic replacement":
+            record.prizeDeliveredAt?"Prize delivered":
+            claim?"Claim submitted":
+            "Awaiting ticket claim"+(deadline?" · Due <t:"+Math.floor(deadline.getTime()/1000)+":R>":"");
+          lines.push((record.winnerIds.length>1?"**#"+(slot+1)+"** ":"")+"<@"+userId+"> — "+state);
+        }
+      }
+    }else{
+      lines.push("", winners.length ? "**Winners**" : "**No winner selected**",
+        ...(winners.length ? winners : ["No eligible entries — no winner was selected."]));
+      if(record.mode!=="survival" && (record.winnerIds||[]).length){
+        lines.push("","**Winner ticket claims**");
+        for(let slot=0;slot<record.winnerIds.length;slot++){
+          const userId=record.winnerIds[slot];
+          const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===userId);
+          const deadline=winnerClaimDeadline(record,slot);
+          if(claim)lines.push(`#${slot+1} <@${userId}> — **Claim submitted successfully**`);
+          else if((record.claimResolvedSlots||[]).includes(slot))
+            lines.push(`#${slot+1} <@${userId}> — Claim expired; no further automatic replacement.`);
+          else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline?` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>`:""}`);
+        }
       }
     }
     const claims = !claimsClosed ? prizeClaimLines(record, { finished: true }) : [];
@@ -89,8 +107,6 @@ export function giveawayAnnouncement(record) {
   const description = lines.join("\n").slice(0, 4000);
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x86738d : 0xb47e99)
-    .setTitle(activity ? (ended ? (winners.length ? "✦ Giveaway Results" : "✦ No Winner Selected") : "✦ Activity Giveaway")
-      : (ended ? "🦊 Heist Complete" : "🦊 The Fox’s Giveaway"))
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
   if(ended && record.status==="ended" && (record.winnerIds||[]).length && !claimsClosed){
