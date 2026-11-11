@@ -103,29 +103,41 @@ test("live and unsettled events cannot archive; cancelled and removed records ca
   assert.ok(!buttons(record({status:"ended"})).includes("giveawaystaff:cancel:"+id));
 });
 
-test("Archive Giveaway preserves claims, removes the public listing and moves the staff record",async()=>{
-  let stored=record({winnerClaims:[ticket(0,winnerA)]});
+test("one-click Archive Giveaway moves the staff record and separate review, preserves claims and removes only the public listing",async()=>{
   const archiveId="901234567890123456";
-  const archivedId="912345678901234567";
+  const archivedStaffId="912345678901234567";
+  const archivedReviewId="923456789012345678";
+  const reviewId="934567890123456789";
+  let stored=record({mode:"activity",winnerClaims:[ticket(0,winnerA)],
+    listChannelId:"945678901234567890",listMessageId:"956789012345678901",
+    reviewChannelId:staffId,reviewMessageId:reviewId});
   const old={one:Giveaway.findOne,change:Giveaway.findOneAndUpdate,
     update:Giveaway.updateOne,config:GuildConfig.findOne};
   const deleted=[],responses=[],archivePosts=[],updates=[];
   const originalStaffPost={id:stored.staffCardId,author:{id:"bot"},
     delete:async()=>deleted.push("old staff")};
-  const staffChannel={id:staffId,messages:{fetch:async()=>originalStaffPost},
+  const originalReview={id:reviewId,author:{id:"bot"},content:"",
+    embeds:[{footer:{text:"Activity giveaway review: "+id},
+      description:"Approved. Winner claimed their prize."}],
+    delete:async()=>deleted.push("old review")};
+  const staffChannel={id:staffId,
+    messages:{fetch:async value=>typeof value==="object"?[]:
+      value===originalStaffPost.id?originalStaffPost:value===reviewId?originalReview:null},
     permissionsFor:()=>({has:()=>false})};
   const archiveChannel={
     id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
     permissionsFor:()=>({has:()=>false}),
     messages:{fetch:async()=>[]},
-    send:async payload=>{archivePosts.push(payload);return {id:archivedId,author:{id:"bot"}};},
+    send:async payload=>{
+      archivePosts.push(payload);
+      return {id:archivePosts.length===1?archivedStaffId:archivedReviewId,author:{id:"bot"}};
+    }
   };
   const publicChannel={messages:{fetch:async()=>({
-    author:{id:"bot"},delete:async()=>deleted.push("public")
+    author:{id:"bot"},delete:async()=>deleted.push("public listing")
   })}};
   const client={user:{id:"bot"},channels:{fetch:async channelId=>
     channelId===staffId?staffChannel:channelId===archiveId?archiveChannel:publicChannel}};
-  let modal;
   try{
     Giveaway.findOne=()=>({lean:async()=>stored});
     Giveaway.findOneAndUpdate=(query,change)=>({lean:async()=>{
@@ -137,43 +149,39 @@ test("Archive Giveaway preserves claims, removes the public listing and moves th
     Giveaway.updateOne=async (query,change)=>{
       updates.push({query,change});
       stored={...stored,...change.$set};
+      return {matchedCount:1};
     };
     GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
-      activityGiveawayReviewChannelId:staffId,giveawayArchiveChannelId:archiveId
+      guildId,activityGiveawayReviewChannelId:staffId,giveawayArchiveChannelId:archiveId
     })})});
-    const memberPermissions={has:()=>true};
     await handleGiveawayStaffAction({
-      guildId,channelId:staffId,customId:"giveawaystaff:remove:"+id,
-      message:{id:stored.staffCardId},memberPermissions,
-      showModal:async m=>{modal=m.toJSON()},
-      reply:async error=>{throw Error("Unexpected archive error: "+JSON.stringify(error));}
-    });
-    assert.equal(modal.title,"Archive completed giveaway");
-    assert.equal(modal.components.length,1);
-    await handleGiveawayStaffAction({
-      client,guildId,channelId:staffId,customId:"giveawaystaff:confirmremove:"+id,
-      user:{id:"999999999999999999"},memberPermissions,
-      fields:{getTextInputValue:()=> "ARCHIVE"},
+      client,guildId,channelId:staffId,customId:"giveawaystaff:remove:"+id,
+      user:{id:"999999999999999999"},message:{id:stored.staffCardId},
+      memberPermissions:{has:()=>true},
+      showModal:async()=>assert.fail("Archiving must not open a confirmation modal"),
       deferReply:async()=>{},editReply:async x=>responses.push(x),
-      reply:async error=>{throw Error("Unexpected confirmation error: "+JSON.stringify(error));},
+      reply:async error=>assert.fail("Unexpected archive error: "+JSON.stringify(error)),
     });
-    assert.equal(stored.status,"ended","archiving must not mark a completed giveaway cancelled");
+    assert.equal(stored.status,"ended","archiving must not cancel a completed giveaway");
     assert.equal(stored.publicListingRemovedBy,"999999999999999999");
     assert.ok(stored.publicListingRemovedAt instanceof Date);
     assert.equal(stored.winnerClaims.length,1);
-    assert.deepEqual(deleted,["public","old staff"]);
-    assert.equal(stored.messageId,null);
-    assert.equal(stored.staffCardId,archivedId);
+    assert.deepEqual(deleted,["old staff","old review","public listing"]);
+    assert.equal(stored.listMessageId,"");
+    assert.equal(stored.messageId,"789012345678901234","activity winner results remain public");
+    assert.equal(stored.staffCardId,archivedStaffId);
     assert.equal(stored.staffCardChannelId,archiveId);
-    assert.equal(archivePosts.length,1);
+    assert.equal(stored.reviewMessageId,archivedReviewId);
+    assert.equal(stored.reviewChannelId,archiveId);
+    assert.equal(archivePosts.length,2);
     assert.match(archivePosts[0].embeds[0].data.description,/COMPLETED — PUBLIC LISTING DELETED/);
+    assert.equal(archivePosts[1].components.length,0,"archived review must be read-only");
+    assert.equal(archivePosts[1].embeds[0].footer.text,"Activity giveaway review: "+id);
     assert.match(responses.at(-1),/archived in/);
     assert.ok(updates.every(x=>!Object.hasOwn(x.change.$set||{},"status")));
   }finally{
-    Giveaway.findOne=old.one;
-    Giveaway.findOneAndUpdate=old.change;
-    Giveaway.updateOne=old.update;
-    GuildConfig.findOne=old.config;
+    Giveaway.findOne=old.one;Giveaway.findOneAndUpdate=old.change;
+    Giveaway.updateOne=old.update;GuildConfig.findOne=old.config;
   }
 });
 
