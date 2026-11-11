@@ -1,22 +1,23 @@
-# Phase 6 — Member help and discoverability
+# Help Center — Public and Staff navigation
 
-## Scope
-Keep the current gallery and video arrangement **exactly as tested**: native video attachments appear above the styled card, while photos are displayed in the card. Do not move media, migrate collections, remove attachments, or alter any public listing.
+This replaces the original five-button /help layout on the development branch.
 
-## First slice: private /help navigation
+- **/help** starts with two private buttons: **Public Help** and **Staff Help**.
+- Public Help contains **Getting Started**, **Listings & Trading**, **Shop & Points**, **Collectible Cards**, **Giveaways**, **Games & Activities**, and **Commands**.
+- Staff Help contains **Giveaway Management**, **Activity Tracking**, **Giveaway Archives**, **Card Management**, **Points & Shop**, **Games**, and **Bot Setup**.
+- Each system has **Back to Systems** and **Help Home**, updating the original ephemeral response. The command directory is loaded live from Discord.
+- **Staff Help access:** Discord Administrator / Manage Server, or the explicitly configured Giveaway Manager role. Managers do not need Manage Server to read the help pages. Access is checked on every staff navigation click, not just on /help creation.
+- An authorized admin can assign or clear the giveaway manager help role in **/setup channels giveaway_manager:@Role** or with **clear_giveaway_manager:true**. Existing Discord application command permissions remain separate; granting help access does **not** grant Discord command or action permissions.
+- Every page is read-only. No public posts, shop changes, prizes, profile changes, or giveaway state changes occur when browsing Help.
+- Staff guides describe actual features: total activity messages per period, manual progress refresh without cooldown, claim versus delivery, optional delivery proof and one-click archive eligibility.
 
-- Replace the long feature list shown by /help with a concise private guide containing **Start here**, **Listings**, **Shop**, **Points**, and **Commands** buttons.
-- Members can switch topics on the same ephemeral help response, with no extra public messages and no database updates.
-- Describe existing member-facing features accurately: **My house listings**, **My outfit listings**, **Choose photo**, native videos above cards, the shop directory, customizing appearance, and checking Points with **/shop balance**.
-- Keep the live registered-command list accessible on the Commands topic, including server-specific overrides, subcommands, and administrator setup guidance. Network failures use a friendly fallback instead of breaking the entire guide.
-- Buttons are tied to the initiating member and reject invalid or outdated topics.
+## Replit verification
+1. Pull `feature/activity-giveaways-complete`, restart the development bot.
+2. Run `/help` in the command channel; verify **Public Help** and **Staff Help**.
+3. Follow each Public system button, then **Back to Systems** and **Help Home**.
+4. As a normal member, select **Staff Help** and confirm access is denied.
+5. Assign a Giveaway Manager role with `/setup channels giveaway_manager`; as a member with that role but without Manage Server, open Staff Help and its giveaway pages.
+6. Verify a member without that role still cannot open staff pages or bypass them via old button IDs.
+7. Ensure opening a help page does not execute a privileged management action.
 
-## Replit smoke test
-
-1. Pull `feature/phase-6-member-help`, run `npm run check:source` and `npm test`, then restart the bot.
-2. Run `/help`: it should open a **private** help menu containing five navigation buttons.
-3. Click Listings, Shop, Points, Commands, and Start here. Confirm each changes the same private help response and no message appears in the public channel.
-4. Read the Listings instructions and confirm they match the existing functioning house/outfit buttons and gallery controls.
-5. Use the existing house/outfit controls, shop and profile once to ensure they still work. No media or customization should change simply from opening help.
-
-No merge or Wispbyte deployment until explicit user approval.
+Nothing is merged to production without approval.
