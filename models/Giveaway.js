@@ -63,6 +63,7 @@ const giveawaySchema = new mongoose.Schema({
   archiveProgressMessageId: {type:String,default:""},
   prizeDeliveredAt: {type:Date,default:null},
   prizeDeliveredBy: {type:String,default:""},
+  prizeDeliveryProofUrl: {type:String,default:""},
   staffProgressMessageId:{type:String,default:""},
   staffProgressRefreshedAt:{type:Date,default:null},
   staffProgressStatus:{type:String,default:""},
