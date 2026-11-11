@@ -307,15 +307,15 @@ async function accept(session,input,client){
     case "winners":case "winnerNumber":
       if(v==="customWinners"){next="winnerNumber";break;}
       s.winners=number(v,1,10);next=done("draw");break;
-    case "draw":s.firstDraw=null;next=v==="later"?"later":done("extras");break;
+    case "draw":s.firstDraw=null;next=v==="later"?"later":done("repeat");break;
     case "later":{
       const date=parseEasternAnnouncement(v);
       if(date<windowEnd(s,now))throw Error("Choose a time after activity counting ends.");
-      s.firstDraw=date;next=done("extras");break;
+      s.firstDraw=date;next=done("repeat");break;
     }
     case "extras":
       if(v==="approval"||v==="progress"){s[v]=!s[v];next="extras";}
-      else next=v==="done"?done("repeat"):v;break;
+      else next=v==="done"?done("summary"):v;break;
     case "claim":case "claimCustom":
       if(v==="customClaim"){next="claimCustom";break;}
       s.claimHours=number(v,1,720);next="extras";break;
@@ -381,9 +381,9 @@ async function accept(session,input,client){
       if(bonuses.length>=20)throw Error("At most 20 roles can have bonus chances.");
       s.bonuses=[...bonuses,{roleId:session.role,extraEntries}];next="extras";break;
     }
-    case "repeat":s.repeat=v;next=v==="custom"?"unit":done("summary");break;
+    case "repeat":s.repeat=v;next=v==="custom"?"unit":done("extras");break;
     case "unit":s.unit=v.toLowerCase();next="amount";break;
-    case "amount":s.amount=number(v,1,525600);s.interval=s.amount*({minutes:1,hours:60,days:1440}[s.unit]);next=done("summary");break;
+    case "amount":s.amount=number(v,1,525600);s.interval=s.amount*({minutes:1,hours:60,days:1440}[s.unit]);next=done("extras");break;
     case "edit":session.editing=true;next=v;break;
     case "summary":{
       if(v==="edit"){next="edit";break;}
