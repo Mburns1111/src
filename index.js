@@ -1,3 +1,14 @@
+import { wizardButton, wizardReply } from "./commands/activity-wizard.js";
+import {regularGiveawayWizardInteraction,regularGiveawayWizardReply} from "./commands/regular-giveaway-wizard.js";
+import {handleActivityGiveawaySetupInteraction,activityGiveawaySetupReply} from "./commands/activity-giveaway-setup.js";
+import {handleTrialGiveawaySetupInteraction,trialGiveawaySetupReply} from "./commands/trial-giveaway-setup.js";
+import {guildSetupComplete, cardSetupComplete} from "./services/guild-setup-gate.js";
+import {handleGuidedGuildSetupInteraction} from "./commands/general-card-setup.js";
+import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
+import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
+import {handleGiveawayStaffAction,reconcileGiveawayStaffRecords} from "./services/giveaway-staff-records.js";
+import {commandChannelRestriction} from "./services/command-channel-routing.js";
+import {handleGiveawayStaffDirectoryButton,reconcileGiveawayStaffDirectories} from "./services/giveaway-staff-directory.js";
 import {initializeAchievements} from "./services/card-achievement-engine.js";
 import {deliverAchievementNotices} from "./services/card-achievements.js";
 
@@ -77,8 +88,15 @@ import {
   handleAdminImportModal,
 } from "./commands/admin-import-listing.js";
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
-import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton } from "./commands/giveaway.js";
+import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton, handleGiveawayClaimModal } from "./commands/giveaway.js";
 import { reconcileGiveaways } from "./services/giveaways.js";
+import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
+import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
+import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
+import { handleActivityGiveawayProgress } from "./services/giveaway-progress.js";
+import { handleGiveawayReviewButton,reconcilePendingGiveawayReviews } from "./services/giveaway-review.js";
+import {data as giveawayRoleCommand,executeGiveawayRoleBonusAdmin} from "./commands/giveaway-role-bonuses.js";
+import { recordGiveawayMessage } from "./services/giveaway-activity-counter.js";
 import { reconcileSurvivalTrials } from "./services/survival-giveaways.js";
 import { data as cardsCommand, execute as executeCards, handleCardGrab, handleCardUpgrade, autocompleteCards, handleCardTagDeletion, handleCardTagChange, reconcileCardDropClosures } from "./commands/cards.js";
 import { maybePublishActivityEgg } from "./services/card-automatic-drops.js";
@@ -103,6 +121,8 @@ import { awardMessageActivity, eligibleVoiceStates, recordVoiceMinute } from "./
 import { runBounded, VOICE_TICK_CONCURRENCY } from "./services/bounded-work.js";
 import PointsSettings from "./models/PointsSettings.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
+import { data as partyCommand, execute as executeParty, handlePartyInteraction } from "./commands/party.js";
+import { reconcileCourtGames } from "./services/party-court-engine.js";
 import { execute as executeHelp, data as helpCommand, handleHelpTopicButton } from "./commands/help.js";
 import {
   handleTradingPostCardButton,
@@ -204,6 +224,12 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // Messages are never stored or logged: only a short SHA-256 digest is kept to
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
+  if (regularGiveawayWizardReply(message) || wizardReply(message) || activityGiveawaySetupReply(message) || trialGiveawaySetupReply(message)) return;
+  if (message.guildId && !message.author?.bot && !message.webhookId) {
+    void recordGuidedMessage(message).catch(error => console.error("[Giveaways] Guided activity count failed:",error));
+  }
+  if (message.guildId && !message.author?.bot && !message.webhookId)
+    void recordGiveawayMessage(message).catch(error => console.error("[Giveaways] Activity counter failed:", error));
   if (!message.guildId || message.author?.bot || !message.content) return;
   // Only commands typed in the assigned Hatchem text channel are parsed.
   // Ordinary chat and every other channel are ignored by this handler.
@@ -214,8 +240,8 @@ client.on(Events.MessageCreate, message => {
   if (parsed) {
     void (async () => {
       const config = await GuildConfig.findOne({ guildId: message.guildId })
-        .select("hatchemChannelId").lean();
-      if (config?.hatchemChannelId && message.channelId === config.hatchemChannelId) {
+        .select("hatchemChannelId cardRoleId cardSetupCompletedAt initialSetupCompletedAt commandChannelId").lean();
+      if (cardSetupComplete(config) && message.channelId === config.hatchemChannelId) {
         await runHatchemText(message, parsed);
       }
     })().catch(error => console.error("[Hatchem] Text routing failed:", error));
@@ -310,6 +336,7 @@ const commandHandlers = new Map([
   [adminImportCommand.name, executeAdminImport],
   [shopCommand.name, executeShop],
   [giveawayCommand.name, executeGiveaway],
+  [giveawayRoleCommand.name,executeGiveawayRoleBonusAdmin],
   [trialCommand.name, executeGiveaway],
   [cardsCommand.name, executeCards],
   [cardsAdminCommand.name, executeCardsAdmin],
@@ -319,6 +346,7 @@ const commandHandlers = new Map([
   [pointsAdminCommand.name, executePointsAdmin],
   [pointsObserveCommand.name, executePointsObserve],
   [helpCommand.name, executeHelp],
+  [partyCommand.name, executeParty],
 ]);
 
 // Startup maintenance is best-effort and must never gate a slash command.
@@ -392,12 +420,25 @@ client.once(Events.ClientReady, async (readyClient) => {
     cardDropCloseTimer.unref?.();
     void runCardDropCloseSweep();
   }
-  console.log(`Bot is online as ${readyClient.user.tag}.`);
+  console.log(`Bot is online as ${readyClient.user.tag} (PID ${process.pid}).`);
+  void reconcileCourtGames(readyClient).catch(error => console.error("[Party] Sweep failed:", error));
+  const partyTimer = setInterval(() => void reconcileCourtGames(readyClient).catch(error => console.error("[Party] Sweep failed:", error)), 5000);
+  partyTimer.unref?.();
   let giveawaySweepActive = false;
   const sweepGiveaways = async () => {
     if (giveawaySweepActive) return;
     giveawaySweepActive = true;
-    try { await reconcileGiveaways(readyClient); }
+    try {
+      await openDueActivities();
+      await reconcileGiveawayPlans(readyClient);
+      await reconcileGiveaways(readyClient);
+      await reconcilePendingGiveawayReviews(readyClient);
+      await reconcileGiveawayClaims(readyClient);
+      await reconcileActivityGiveawayListings(readyClient);
+      await reconcileGiveawayStaffRecords(readyClient);
+      // Run last so the sticky directory follows newly posted staff records.
+      await reconcileGiveawayStaffDirectories(readyClient);
+    }
     catch (error) { console.error("[Giveaways] Cleanup sweep failed:", error); }
     finally { giveawaySweepActive = false; }
   };
@@ -486,6 +527,46 @@ client.once(Events.ClientReady, async (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    // A GuildConfig document alone does not prove that setup was completed.
+    // Check before deferring commands (admin-import opens a modal immediately).
+    if (interaction.isChatInputCommand() && interaction.guildId &&
+        interaction.commandName !== setupCommand.name) {
+      const saved = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("initialSetupCompletedAt commandChannelId").lean();
+      if (!guildSetupComplete(saved)) {
+        await interaction.reply({
+          content: "Bot commands are not enabled yet. A server manager must complete **/setup general** (choose a commands channel), **/setup giveaways**, **/setup activity-giveaways**, or **/setup trials** first.",
+          flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] },
+        });
+        return;
+      }
+    }
+    if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
+         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("guildconfig:"))
+      return await handleGuidedGuildSetupInteraction(interaction);
+    if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
+         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("trialconfig:"))
+      return await handleTrialGiveawaySetupInteraction(interaction);
+    if ((interaction.isButton() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("actconfig:"))
+      return await handleActivityGiveawaySetupInteraction(interaction);
+    if ((interaction.isButton()||interaction.isModalSubmit()||interaction.isStringSelectMenu()) && interaction.customId.startsWith("giveawaystaff:"))
+      return await handleGiveawayStaffAction(interaction);
+    if (interaction.isButton() && interaction.customId.startsWith("giveawaydir:"))
+      return await handleGiveawayStaffDirectoryButton(interaction);
+    if ((interaction.isButton()||interaction.isRoleSelectMenu()||interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("regularstart:"))
+      return await regularGiveawayWizardInteraction(interaction);
+    if (interaction.isButton() && interaction.customId.startsWith("activitysetup:"))
+      return await wizardButton(interaction);
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
+        interaction.customId.startsWith("activitystaff:")) {
+      if(interaction.isButton() && /^activitystaff:(view|pause):/.test(interaction.customId))
+        return await staffPreview(interaction);
+      return await handleGuidedStaffAction(interaction);
+    }
     if (interaction.isAutocomplete()) {
       if (interaction.commandName === cardsCommand.name) {
         const config = interaction.guildId
@@ -575,6 +656,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith("cards:grab:")) {
       await handleCardGrab(interaction);
+      return;
+    }
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("party:")) {
+      await handlePartyInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("activity-progress:")) {
+      await handleActivityGiveawayProgress(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("giveaway-review:")) {
+      await handleGiveawayReviewButton(interaction);
+      return;
+    }
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("giveaway:ticket:")) {
+      await handleGiveawayClaimModal(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("giveaway:")) {
@@ -821,6 +918,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (!interaction.isChatInputCommand()) return;
 
+    // The private giveaway staff channel is a record/review area, not a
+    // slash-command or guided-setup workspace. Keep /setup out too after
+    // that private channel has been configured. First-time setup elsewhere
+    // remains unrestricted.
+    if(interaction.commandName===setupCommand.name && interaction.guildId){
+      const privateConfig=await GuildConfig.findOne({guildId:interaction.guildId})
+        .select("activityGiveawayReviewChannelId commandChannelId").lean();
+      if(privateConfig?.activityGiveawayReviewChannelId===interaction.channelId){
+        await interaction.editReply({
+          content:"Use /setup in the designated bot commands channel"+
+            (privateConfig.commandChannelId?" <#"+privateConfig.commandChannelId+">":"")+
+            ". The private giveaway staff channel is reserved for records, reviews and staff buttons.",
+          allowedMentions:{parse:[]}
+        });
+        return;
+      }
+    }
+
     console.log("Command received:", interaction.commandName);
     console.log("Available handlers:", [...commandHandlers.keys()]);
 
@@ -836,6 +951,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
     }
+    if (interaction.commandName === cardsCommand.name && interaction.guildId) {
+      const cardConfig = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("hatchemChannelId cardRoleId cardSetupCompletedAt initialSetupCompletedAt commandChannelId").lean();
+      if (!cardSetupComplete(cardConfig)) {
+        await interaction.editReply("Hatchem is not configured in this server. Ask a server manager to run /setup cards after /setup general.");
+        return;
+      }
+    }
+    if (interaction.commandName === shopCommand.name &&
+        interaction.guildId) {
+      const shopSettings = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("shopChannelId").lean();
+      if (!shopSettings?.shopChannelId) {
+        await interaction.editReply("The customization shop is disabled in this server. A manager can enable it using /setup general.");
+        return;
+      }
+    }
     const handler = commandHandlers.get(interaction.commandName);
     if (!handler) {
       await interaction.editReply({
@@ -844,6 +976,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
       return;
     }
+    // Profiles are optional in a guild that only enables giveaways or
+    // Hatchem. Never create one as a prerequisite to an unrelated command.
     if (
       interaction.guild &&
       ![
@@ -854,23 +988,28 @@ client.on(Events.InteractionCreate, async (interaction) => {
         cardsAdminCommand.name,
         cardsOwnerCommand.name,
         cardsReleaseCommand.name,
+        giveawayCommand.name,
+        trialCommand.name,
         testPointsCommand.name,
         pointsAdminCommand.name,
         pointsObserveCommand.name,
+        partyCommand.name,
+        giveawayRoleCommand.name,
         profileCleanupCommand.name,
         profileRefreshCommand.name,
       ].includes(interaction.commandName)
     ) {
-      await ensureProfileCard(interaction.guild, interaction.user);
+      const profileSettings = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("profileChannelId").lean();
+      if (profileSettings?.profileChannelId)
+        await ensureProfileCard(interaction.guild, interaction.user);
     }
-    if (![setupCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name, cardsReleaseCommand.name].includes(interaction.commandName) && interaction.guildId) {
+    if (interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
-      if (
-        config?.commandChannelId &&
-        interaction.channelId !== config.commandChannelId
-      ) {
+      const restriction=commandChannelRestriction(interaction.commandName,interaction.channelId,config);
+      if (restriction) {
         const response = {
-          content: `Please use bot commands in <#${config.commandChannelId}>.`,
+          content: restriction,
           allowedMentions: { parse: [] },
         };
         if (interaction.deferred) {
