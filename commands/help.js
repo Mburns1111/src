@@ -18,15 +18,22 @@ export const PUBLIC_TOPICS=Object.freeze([
  {id:"games",label:"Games & Activities"},
  {id:"commands",label:"Commands"},
 ]);
-export const STAFF_TOPICS=Object.freeze([
- {id:"ssetup",label:"Bot Setup"},
- {id:"sgiveaways",label:"Giveaway Management"},
- {id:"sactivity",label:"Activity Tracking"},
- {id:"sarchives",label:"Giveaway Archives"},
- {id:"scards",label:"Card Management"},
- {id:"spoints",label:"Points & Shop"},
- {id:"sgames",label:"Games"},
-]);
+const STAFF_GROUPS = [
+ { label: "Server setup", topics: [
+  {"id":"ssetup","label":"Set Up Channels"}
+ ] },
+ { label: "Giveaways", topics: [
+  {"id":"sgiveaways","label":"Run a Giveaway"},
+  {"id":"sactivity","label":"Track Activity"},
+  {"id":"sarchives","label":"Archive Records"}
+ ] },
+ { label: "Other staff tools", topics: [
+  {"id":"scards","label":"Hatchem Cards"},
+  {"id":"spoints","label":"Points & Shop"},
+  {"id":"sgames","label":"Party Games & Trials"}
+ ] }
+];
+export const STAFF_TOPICS = Object.freeze(STAFF_GROUPS.flatMap(group => group.topics));
 export const HELP_TOPICS=Object.freeze([
  {id:"root",label:"Help Home"},{id:"public",label:"Public Help"},
  {id:"staff",label:"Staff Help"},...PUBLIC_TOPICS,...STAFF_TOPICS,
@@ -37,7 +44,8 @@ const PUBLIC_IDS=new Set(["public",...PUBLIC_TOPICS.map(x=>x.id)]);
 const CONTENT=Object.freeze({
  root:["✦ AM Isa · Help Center","Choose **Public Help** for member guides or **Staff Help** for authorized management guides. Everything opens privately." ,[]],
  public:["✦ Public Help","Choose a system below to see how its features work. Most member actions use buttons in their assigned channels.",[]],
- staff:["✦ Staff Help","Guides for authorized server staff. Viewing these pages does not grant command or moderation privileges.",[]],
+ staff:["✦ Staff Help","Choose a task below. Each command uses its own permission checks.",
+  STAFF_GROUPS.map(group => [group.label, group.topics.map(topic => topic.label).join(" · ")])],
  home:["Getting Started","Start with the permanent buttons in each server channel.",[
   ["Profiles","Create or edit your profile from the profile-channel buttons or use **/profile**."],
   ["Inventory","Add inventory media through the inventory channel; your profile can also show inventory links."],
@@ -72,54 +80,43 @@ const CONTENT=Object.freeze({
   ["Activity rewards","Some events may also award Points when enabled by staff."],
  ]],
  commands:["Registered Commands","Current commands are loaded from Discord. Available commands and permissions depend on your server.",[]],
- sgiveaways:["Staff · Giveaway Management","Create and manage giveaways through the configured command channel and staff records.",[
-  ["Before system setup","First configure the general bot and commands channel with **/setup channels**."],
-  ["Set up","Then use **/setup giveaways** or **/setup activity-giveaways** for guided giveaway settings."],
-  ["Channels — public","**Regular giveaway posts** (manual entry); **Activity giveaway list** (activity posters and progress); **Activity winners** (results and claims); **Court's Trial** (trial signup and results, if used). Keep separate public channels for each enabled type."],
-  ["Channels — staff","**Commands channel** (run setup and staff commands); **Private staff controls** (progress, approvals, giveaway records); **Private Archives** (completed records, optional but recommended). Staff controls and Archives must be hidden from @everyone and use separate channels."],
-  ["Bot permissions","In public giveaway, activity list, winners and staff channels: **View Channel**, **Send Messages**, **Embed Links**. For the separate Archives channel, also grant **Attach Files** and **Read Message History**. Allow these last two in staff/public giveaway channels too for normal message updates and history lookup."],
-  ["Staff access","**/setup giveaways** and **/setup activity-giveaways** currently require Manage Server permission. Giveaway Manager access to Staff Help does not override permission checks on actual staff commands."],
-  ["Staff records","Review the active directory and each giveaway's separate staff record. Colors: blue active, yellow needs attention, green claimed/delivered, red closed."],
-  ["Claims and delivery","Winner claims are separate from delivery. After all prizes are handed out, use **Confirm Prizes Delivered**; an optional private Discord proof link can be added."],
+ ssetup:["Staff · Set Up Channels","Start here when adding the bot or enabling a new feature. General setup requires Manage Server.",[
+  ["1. Create the channels in Discord","Start with a member-accessible commands channel. Create the destinations for the features you use. For profiles and trading, these are profiles, inventory showcase, house listings, outfit listings, trade voting and Trading Post. Shop, Hatchem and party games each have their own channel."],
+  ["2. Prepare giveaway channels","Public destinations are regular giveaways, the activity list, activity winners and Court’s Trial. For staff, create a private giveaway controls channel. If you use archives, give them a separate private channel. Hide both staff channels from @everyone and allow the bot access."],
+  ["3. Give the bot access","Allow View Channel, Send Messages and Embed Links in assigned channels. Allow Read Message History and Attach Files where the bot updates posts or shares media, including the archive."],
+  ["4. Assign channels to the bot","Run `/setup channels` and set `commands` first. You can run setup again to assign other destinations. For giveaway defaults and the Giveaway Manager role, continue with **Run a Giveaway**."],
  ]],
- sactivity:["Staff · Activity Tracking","Qualification is counted over each activity period, not per active day unless a separate active-days requirement was configured.",[
-  ["Requirements","Choose watched channels, total messages, optional active days, phrases or mentions."],
-  ["Progress","Use **Preview qualifying members** and **Refresh Progress** on staff records. Manual refresh has no cooldown."],
-  ["Draws","Use activity review and scheduled drawing controls; unqualified members are not entered automatically."],
+ sgiveaways:["Staff · Run a Giveaway","Use the commands channel to set defaults and create a giveaway. Follow it afterward in the private staff controls channel.",[
+  ["Configure defaults","With Manage Server, use `/setup giveaways` for regular giveaways or `/setup activity-giveaways` for activity giveaways. Review channels, claim instructions and defaults before saving."],
+  ["Create the giveaway","For a regular giveaway, use `/giveaway start` and enter the prize and entry details. For an activity giveaway, use `/giveaway activity` and follow the prompts. Open **Track Activity** for qualification and draw details."],
+  ["Find a giveaway in progress","Open the active directory in staff controls and select the giveaway’s record. Blue means active, yellow needs attention, green means claimed or delivered, and red means closed. Read the record for its exact status."],
+  ["Confirm delivery","After winners claim and all prizes have been handed out, select **Confirm Prizes Delivered** on the staff record. You can add a private Discord proof link. See **Archive Records** to file the finished giveaway."],
  ]],
- sarchives:["Staff · Giveaway Archives","Archiving is always a separate moderator action, not automatic on completion.",[
-  ["Eligibility","Closed, cancelled, no-winner, forfeited, or delivered giveaways can become archive-eligible."],
-  ["Archive Giveaway","Click once on the eligible staff record. The bot saves the actor and completion reason without another confirmation form."],
-  ["Records","The private archive keeps winner/claim history, delivery proof when supplied, activity totals, and a full JSON snapshot."],
+ sactivity:["Staff · Track Activity","Start with `/giveaway activity` in the commands channel. Members qualify through their server activity.",[
+  ["Set the requirements","Choose the channels to watch and the total messages required across the activity period. If members must participate on multiple days, set the active-days requirement separately. You can also require a phrase or a mention of a specific member."],
+  ["Review the schedule","Check the start and end times before posting. For repeating giveaways, check the upcoming periods shown in the preview."],
+  ["Check progress","Members can use **Check My Progress** on the activity post. In staff controls, use **Preview qualifying members** to see who qualifies and who is still working toward the requirements. The preview leaves out members who have not posted since the activity started. Use **Refresh Progress** for an updated count."],
+  ["Review the draw","The bot uses qualifying members at draw time. If manual approval is enabled, review the draw in staff controls. When nobody wins, there is no prize to claim."],
  ]],
- scards:["Staff · Card Management","Card management controls are restricted to the permissions assigned for each command.",[
-  ["Before system setup","First configure the general bot and commands channel with **/setup channels**."],
-  ["Setup","Then use authorized card management commands to configure the Card role and launch content."],
-  ["Operations","Review drop, card catalog, trade and upgrade controls in the staff card-game commands."],
-  ["Permissions","Having access to this guide does not grant permission to manage cards."],
+ sarchives:["Staff · Archive Records","Use the private staff record when a giveaway is finished.",[
+  ["Check the status","Closed, cancelled, no-winner, forfeited and delivered giveaways can become eligible. For a claimed prize, confirm delivery after handing out the prize."],
+  ["Archive the giveaway","Select **Archive Giveaway** on the eligible record. One click files it in the configured private archives channel."],
+  ["Look up a past giveaway","The archive records who archived it and why it finished, along with winner and claim history, any delivery proof, activity totals and a JSON snapshot."],
  ]],
- spoints:["Staff · Points & Shop","Use the existing administrator tools for audited Points and shop management.",[
-  ["Points","Use authorized **/points-admin** commands to review and manage eligible awards."],
-  ["Shop","Manage catalog items using your configured shop/owner controls."],
-  ["Audit","Keep prize and participation changes attributable to an authorized staff member."],
+ scards:["Staff · Hatchem Cards","Use the server’s Hatchem channel for registration, drops and player help.",[
+  ["Assign the card role","Set the `hatchem` channel with `/setup channels`. Use `/cards-admin setup-role` to select the server’s card role."],
+  ["Manage releases","Bot owners can use `/cards-owner releases` to review releases and `/cards-owner create-release` to prepare a new one."],
+  ["Help a player","Direct members to `.tutorial` for the beginner walkthrough or `.help` for collection, trade and upgrade commands in the Hatchem channel."],
  ]],
- sgames:["Staff · Games","Manage sessions through the server's game commands and configured channel.",[
-  ["Before system setup","First configure the general bot and commands channel with **/setup channels**."],
-  ["Party games","Then use authorized **/party** controls to configure and host a session."],
-  ["Court's Trial","Use the trial administration commands and keep results in their assigned channel."],
+ spoints:["Staff · Points & Shop","Use `/points-admin` for server rewards and the shop channel for purchases.",[
+  ["Check reward settings","Use `/points-admin settings` to review the server configuration and `/points-admin activity-status` to see the repeatable Points a member has earned this period."],
+  ["Award Points","Use `/points-admin grant` for one member or `/points-admin grant-multiple` for a group. Include the reason for the award."],
+  ["Review an award","Use `/points-admin history` for one member or `/points-admin audit` to review transactions across the server."],
+  ["Open the storefront","Assign the `shop` channel with `/setup channels`. Members can use `/shop browse` to preview purchases and `/shop balance` to check their Points."],
  ]],
- ssetup:["Staff · Bot Setup","**Step 1 — Create your channels in Discord first.** You can choose channel names; these are the purposes you will assign during setup. Create only the channels for systems you intend to use.",[
-  ["① Priority — Commands channel · PUBLIC or member-accessible","Create a **#commands** text channel first. Members and staff use it for most bot slash commands, and staff use it for system setup. Allow the bot to view and send messages here. **/help** works in other channels too."],
-  ["② Profiles & Listings · PUBLIC","**Profiles** — profile cards and editing buttons.\n**House listings** — house posts.\n**Outfit listings** — outfit posts.\n**Inventory showcase** — inventory media.\n**Trade voting** — trade posts and votes.\n**Trading Post** — members' permanent trading cards."],
-  ["③ Shop & Points · PUBLIC","**Shop** — catalog, previews and purchases. Points administration uses the bot's existing commands; there is no separate Points channel option in general setup."],
-  ["④ Collectible Cards · PUBLIC","**Hatchem** — card-game commands, drops, registration and tutorials."],
-  ["⑤ Games · PUBLIC","**Party games** — hosted games and prompts.\n**Court's Trial** — trial signups, eliminations and results (separate from other giveaway channels)."],
-  ["⑥ Giveaways · PUBLIC","**Regular giveaways** — manual-entry giveaway posts.\n**Activity giveaway list** — public activity announcements and progress buttons.\n**Activity winners** — winner results and claim buttons. Use separate channels for these giveaway destinations."],
-  ["⑦ Giveaways · PRIVATE — hide from @everyone","**Staff giveaway controls / review** — qualification previews, staff records, approvals and status.\n**Giveaway Archives** — completed giveaway history (separate channel; optional during initial setup). Restrict both channels to authorized staff and the bot."],
-  ["Bot permissions","Give the bot **View Channel**, **Send Messages** and **Embed Links** in assigned channels. **Archives** additionally requires **Attach Files** and **Read Message History**. Provide access to message history and attachments elsewhere as needed for updates or media. Staff giveaway channels must NOT be visible to @everyone."],
-  ["Step 2 — General setup (after creating channels)","**Only after the channels exist**, run **/setup channels** and assign the channels you created, starting with **commands**. You can set up channels in multiple runs; leave unused systems unassigned."],
-  ["Step 3 — Individual system setup","After general setup, use the relevant system guide (such as **/setup giveaways** or **/setup activity-giveaways**) to configure its additional options. Giveaway Manager roles are selected during giveaway setup, not through a second general-setup role."],
-  ["Who can configure it?","General setup requires the existing **Manage Server** permission. Staff Help is read-only and never grants additional command privileges."],
+ sgames:["Staff · Party Games & Trials","Use the commands channel to launch an event in its assigned game channel.",[
+  ["Host a party game","Assign `party_games` with `/setup channels`. Use `/party host` to open signup and `/party status` to check the session. During play, use `/party pause` and `/party resume` as needed."],
+  ["Run a Court’s Trial","Assign `survival_trials` with `/setup channels`. Use `/trial start` to set the prize and open signup. Use `/trial list` to find a trial or `/trial entrants` to review its players."],
  ]],
 });
 
@@ -201,8 +198,12 @@ export function helpTopicPayload(topicId,ownerId,commandLines=[]){
  let nav=[];
  if(topicId==="root")nav=[{id:"public",label:"Public Help"},{id:"staff",label:"Staff Help"}];
  else if(topicId==="public")nav=[...PUBLIC_TOPICS,{id:"root",label:"Home"}];
- else if(topicId==="staff")nav=[...STAFF_TOPICS,{id:"root",label:"Home"}];
- else nav=[{id:PUBLIC_IDS.has(topicId)?"public":"staff",label:"Back to Systems"},{id:"root",label:"Help Home"}];
+ else if(topicId==="staff"){
+  const rows=STAFF_GROUPS.flatMap(group=>buttons(group.topics,topicId,ownerId));
+  rows.push(...buttons([{id:"root",label:"Help Home"}],topicId,ownerId));
+  return {embeds:[embed],components:rows,allowedMentions:{parse:[]}};
+ }
+ else nav=[{id:PUBLIC_IDS.has(topicId)?"public":"staff",label:PUBLIC_IDS.has(topicId)?"Back to Systems":"Back to Staff Help"},{id:"root",label:"Help Home"}];
  return {embeds:[embed],components:buttons(nav,topicId,ownerId),allowedMentions:{parse:[]}};
 }
 async function showTopic(i,topic,ownerId){
