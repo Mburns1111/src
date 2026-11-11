@@ -72,12 +72,16 @@ test("owner can choose an approved stage illustration or clear it back to Normal
   const cmds = ownerCommands.toJSON().options;
   const assigned = cmds.find(c => c.name === "set-stage-art");
   const cleared = cmds.find(c => c.name === "clear-stage-art");
+  const normalReplacement = cmds.find(c => c.name === "replace-pet-art");
+  assert.ok(normalReplacement);
+  assert.ok(normalReplacement.options.find(o => o.name === "key").required);
   assert.ok(assigned);
   assert.ok(cleared);
   assert.deepEqual(assigned.options.find(o => o.name === "stage").choices.map(o => o.value), ["neon","mega"]);
   assert.ok(assigned.options.find(o => o.name === "key").required);
   assert.ok(cleared.options.find(o => o.name === "pet").required);
   const publicReleaseControls = cardsReleaseCommand.options.map(o => o.name);
+  assert.ok(publicReleaseControls.includes("replace-pet-art"));
   assert.ok(publicReleaseControls.includes("set-stage-art"));
   assert.ok(publicReleaseControls.includes("clear-stage-art"));
 });
