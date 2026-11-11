@@ -1,4 +1,4 @@
-import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,ModalBuilder,
+import {ActionRowBuilder,AttachmentBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,ModalBuilder,
   TextInputBuilder,TextInputStyle,MessageFlags,PermissionFlagsBits,StringSelectMenuBuilder} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
@@ -315,6 +315,11 @@ export async function ensureGiveawayStaffRecord(client,record){
  if(channel.guild?.roles?.everyone &&
     channel.permissionsFor?.(channel.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
    throw Error("The giveaway staff channel must not be accessible to @everyone.");
+ if(isArchive){
+   const permissions=channel.permissionsFor?.(channel.guild?.members?.me);
+   if(permissions&&!permissions.has(PermissionFlagsBits.AttachFiles))
+     throw Error("The bot needs Attach Files permission to preserve the complete archive JSON in the private archive channel.");
+ }
  const series=record.guidedSeries?await GuidedActivitySeries.findById(record.guidedSeries).lean():null;
  const payload=giveawayStaffRecordPayload(record,{series,archived:isArchive});
  let message=record.staffCardId&&record.staffCardChannelId===channelId?
@@ -341,7 +346,16 @@ export async function ensureGiveawayStaffRecord(client,record){
       existing?.footer?.text!==staffRecordMarker(record)||oldButtons!==newButtons)
      await message.edit(payload);
  }else{
-   message=await channel.send(payload);
+   if(isArchive){
+     const snapshot=Buffer.from(JSON.stringify({
+       archivedAt:new Date().toISOString(),giveaway:record,
+     },null,2),"utf8");
+     if(snapshot.length>7_500_000)
+       throw Error("The giveaway archive exceeds Discord's safe file attachment size. No staff records were deleted.");
+     message=await channel.send({...payload,files:[new AttachmentBuilder(snapshot,{
+       name:"giveaway-"+record._id+"-archive.json",
+     })]});
+   }else message=await channel.send(payload);
  }
  if(record.staffCardId!==message.id||record.staffCardChannelId!==channelId)
    await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
