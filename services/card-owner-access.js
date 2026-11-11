@@ -14,11 +14,11 @@ export function assertCardGameOwner(discordUserId, env = process.env) {
 }
 
 /**
- * The production game owner is intentionally unranked. This is tied to the
- * already configured owner ID, never a Discord role or guild administrator.
- * The development/test bot still permits achievement testing by its owner.
+ * In production the designated creator collects shared badges and progress,
+ * but cannot consume player discovery ranks or first-unlock rewards.
+ * The test bot retains ordinary ranked achievement testing.
  */
-export function isUnrankedCardGameCreator(discordUserId, env = process.env) {
+export function isSharedCardGameCreator(discordUserId, env = process.env) {
   return env?.ENABLE_CARD_GAME === "1" &&
     env?.ENABLE_CARD_GAME_TEST !== "1" &&
     isCardGameOwner(discordUserId, env);
