@@ -151,7 +151,9 @@ test("guided activity draw uses same live qualified receipts as staff progress, 
  const original={aggregate:Receipt.aggregate,change:Giveaway.findOneAndUpdate,find:Giveaway.findOne};
  const candidate="234567890123456789";
  let stored=snapshot({mode:"activity",status:"open",guidedSeries:"507f1f77bcf86cd799439012",
-   entrantIds:[],winnerIds:[],winnerCount:1,requiredRoleId:"345678901234567890"});
+   entrantIds:[],winnerIds:[],winnerCount:1,activityMinimum:1,activityDays:1,activityMinTotalMessages:2,
+   activityStartAt:new Date("2026-11-11T11:00:00Z"),activityEndAt:new Date("2026-11-11T12:00:00Z"),
+   requiredRoleId:"345678901234567890"});
  try{
   Receipt.aggregate=async()=>[{_id:candidate,messages:2,days:1}];
   Giveaway.findOneAndUpdate=(filter,update)=>({lean:async()=>{
