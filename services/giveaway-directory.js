@@ -37,7 +37,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",recentWin
   const bonus=[...new Map([...(rule?.roleBonuses||[]),...(plan.roleBonuses||[])]
     .map(b=>[b.roleId,b])).values()];
   const qualifier=[
-    "• Send **"+minimum+" qualifying "+(minimum===1?"message":"messages")+"** in "+channel+".",
+    "• Send **"+minimum+" "+(minimum===1?"message":"messages")+"** in "+channel+".",
   ];
   if(rule?.minimumChars>1)qualifier.push("• Each message must have at least **"+rule.minimumChars+" characters**.");
   if(rule?.minimumMessages>1)qualifier.push("• Send at least **"+rule.minimumMessages+" messages** on each qualifying day.");
@@ -52,7 +52,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",recentWin
     : period==="daily"?"Previous calendar day (Eastern)":"Previous Wednesday–Wednesday week (Eastern)";
   const repeat=humanRepeat(plan);
   const text=[
-    "**"+displayTitle(plan.title)+"**",
+    "🎁 **Giveaway alert!** · **"+displayTitle(plan.title)+"**",
     "",
     "🎁 **Prize**",
     String(prize).slice(0,650),
@@ -72,7 +72,6 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",recentWin
     "*Qualify automatically — no entry button needed.*",
   ].join("\n").slice(0,3900);
   return new EmbedBuilder().setColor(0xb47e99)
-    .setTitle("🎁 Giveaway alert!")
     .setDescription(text)
     .setFooter({text:"✦ Automatic entry · "+shortRef(plan._id)});
 }
@@ -81,7 +80,7 @@ export function activityOneOffListingEmbed(record) {
   const minimum=record.activityMinTotalMessages||record.activityMinimum||1;
   const channels=(record.activityChannelIds||[]).map(id=>"<#"+id+">");
   const qualifier=[
-    "• Send **"+minimum+" matching "+(minimum===1?"message":"messages")+"** in "+
+    "• Send **"+minimum+" "+(minimum===1?"message":"messages")+"** in "+
       qualifyChannel(channels)+" during this activity.",
   ];
   if(record.requiredRoleId){
@@ -107,7 +106,7 @@ export function activityOneOffListingEmbed(record) {
   const validDraw=draw&&Number.isFinite(new Date(draw).getTime());
   const sameTime=validClose&&validDraw&&+new Date(close)===+new Date(draw);
   const lines=[
-    "**"+displayTitle(record.title)+"**",
+    "🎁 **Giveaway alert!** · **"+displayTitle(record.title)+"**",
     "",
     "🎁 **Prize**",
     String(record.prize||"Prize to be announced").slice(0,650),
@@ -130,7 +129,6 @@ export function activityOneOffListingEmbed(record) {
     "*Qualify automatically — no entry button needed.*",
   ];
   return new EmbedBuilder().setColor(0xb47e99)
-    .setTitle("🎁 Giveaway alert!")
     .setDescription(lines.join("\n").slice(0,3900))
     .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)});
 }
