@@ -1,23 +1,44 @@
-# Help Center — Public and Staff navigation
+# AM Isa Help Center — current development design
 
-This replaces the original five-button /help layout on the development branch.
+The `/help` command opens a private, read-only navigation panel. No help interaction changes server configuration, profile media or public listings.
 
-- **/help** starts with two private buttons: **Public Help** and **Staff Help**.
-- Public Help contains **Getting Started**, **Listings & Trading**, **Shop & Points**, **Collectible Cards**, **Giveaways**, **Games & Activities**, and **Commands**.
-- Staff Help contains **Giveaway Management**, **Activity Tracking**, **Giveaway Archives**, **Card Management**, **Points & Shop**, **Games**, and **Bot Setup**.
-- Each system has **Back to Systems** and **Help Home**, updating the original ephemeral response. The command directory is loaded live from Discord.
-- **Staff Help access:** Discord Administrator / Manage Server, or the explicitly configured Giveaway Manager role. Managers do not need Manage Server to read the help pages. Access is checked on every staff navigation click, not just on /help creation.
-- The Giveaway Manager role is chosen in the existing **/setup giveaways** or **/setup activity-giveaways** guided walkthrough, not in `/setup channels`. Existing members with a Discord role named Giveaway Manager are also recognized. Existing Discord application command permissions remain separate; granting help access does **not** grant Discord command or action permissions.
-- Every page is read-only. No public posts, shop changes, prizes, profile changes, or giveaway state changes occur when browsing Help.
-- Staff guides describe actual features: total activity messages per period, manual progress refresh without cooldown, claim versus delivery, optional delivery proof and one-click archive eligibility.
+## Main menu
 
-## Replit verification
-1. Pull `feature/activity-giveaways-complete`, restart the development bot.
-2. Run `/help` in the command channel; verify **Public Help** and **Staff Help**.
-3. Follow each Public system button, then **Back to Systems** and **Help Home**.
-4. As a normal member, select **Staff Help** and confirm access is denied.
-5. Use the Giveaway Manager step in `/setup giveaways` to verify the assigned role; as a member with that role but without Manage Server, open Staff Help and its giveaway pages.
-6. Verify a member without that role still cannot open staff pages or bypass them via old button IDs.
-7. Ensure opening a help page does not execute a privileged management action.
+Choose **Public Help** or **Staff Help**.
 
-Nothing is merged to production without approval.
+**Public Help** topics: Getting Started, Listings & Trading, Shop & Points, Collectible Cards, Giveaways, Games & Activities, and Registered Commands. The Commands topic lists Discord-registered slash commands.
+
+**Staff Help** groups:
+- Server setup: blue **Bot Setup** button, prominently labeled as the first step.
+- Giveaways: Run a Giveaway, Track Activity, Archive Records.
+- Other staff tools: Hatchem Cards, Points & Shop, Party Games.
+
+Only authorized staff can open Staff Help. The giveaway-manager role is allowed to read Staff Help, but the actual `/setup` command still requires Manage Server permission.
+
+## Bot Setup guide
+
+1. Mandatory **private Bot Commands** channel, hidden from `@everyone`, for staff setup and administration.
+2. Public Profiles, Trading, Shop & Points channels grouped as one member system.
+3. Public Hatchem channel and Collector registration role.
+4. Public Party Games channel.
+5. Giveaway public channels (regular, activity list, activity winners and Court's Trials) plus separate **private staff controls** and **required private archive** channels.
+6. Required bot permissions, followed by setup order.
+
+Use `/setup general` first, then feature-specific `/setup cards`, `/setup giveaways`, `/setup activity-giveaways`, or `/setup trials`. Each of the three giveaway setup flows includes the required shared private archive channel. There is no separate `/setup archives` menu option.
+
+## Giveaway help
+
+Run a Giveaway includes regular, activity and Court's Trial giveaways. Status colors distinguish running, pending claims, completed claims, no eligible winners, and archived records. **Claim completed is not synonymous with prize delivered.** Staff use the active private directory and staff records to manage events and archive settled records.
+
+## Smoke-test checklist (development bot only)
+
+1. Run `/help` and verify it stays private. Open Public Help and all seven topics.
+2. Open Staff Help. Verify **Bot Setup** is the blue button and setup-first notice appears.
+3. Open Bot Setup and confirm all seven sections, private commands, public vs private channels, and mandatory archive wording.
+4. Open Run a Giveaway. Confirm all three types and current claim-status wording.
+5. Verify ordinary members cannot access Staff Help, but access to public help remains available.
+6. Use `/setup general` to choose a staff-only commands channel and verify a channel visible to `@everyone` is rejected.
+7. Use each giveaway setup to choose the same separate private archive and verify it is saved and shown in the review.
+8. Ensure profile/gallery media, video order, purchases and published listings remain unchanged by reading help.
+
+No merge into `main` or Wispbyte deployment until all integration conflicts and tests are resolved.
