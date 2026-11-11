@@ -4,7 +4,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import {data as setupCommand} from "../commands/setup.js";
 import {activityWizardPrompts,defaultActivityWizardSettings} from "../commands/activity-wizard.js";
-import {describeActivityGiveawaySetup,claimAnnouncementPreview,currentGiveawayClaimInstructions} from "../commands/activity-giveaway-setup.js";
+import {describeActivityGiveawaySetup,claimAnnouncementPreview,currentGiveawayClaimInstructions,giveawaySetupSteps,validateGiveawaySetupChannels} from "../commands/activity-giveaway-setup.js";
 import {validateTicketClaim} from "../services/giveaway-ticket-claims.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
 import {giveawayStaffRecordPayload} from "../services/giveaway-staff-records.js";
@@ -153,4 +153,41 @@ test("two automatic rerolls per winner by default; no changes to manual rerolls"
  assert.match(output,/2 automatic rerolls/);
  assert.match(output,/Roblox name/);
  assert.doesNotMatch(output,/hammertime\.cyou/, "custom instructions replace defaults");
+});
+
+test("both giveaway walkthroughs offer Archives immediately after active staff selection",()=>{
+ for(const mode of ["regular","activity"]){
+   const steps=giveawaySetupSteps(mode);
+   assert.equal(steps[steps.indexOf("staff")+1],"archive");
+   assert.equal(steps.filter(x=>x==="archive").length,1);
+   const review=describeActivityGiveawaySetup({
+     ...claimSettings,giveawayArchiveChannelId:"567890123456789012",
+   },{mode});
+   assert.match(review,/Giveaway archives/);
+   assert.match(review,/<#567890123456789012>/);
+ }
+});
+
+test("walkthrough validates that Archives is private and distinct from all giveaway destinations",async()=>{
+ const base={giveawayChannelId:"111111111111111111",
+   activityGiveawayListChannelId:"222222222222222222",
+   activityGiveawayWinnersChannelId:"333333333333333333",
+   activityGiveawayReviewChannelId:"444444444444444444",
+   giveawayArchiveChannelId:"555555555555555555"};
+ const permissions={has:()=>true};
+ const guild={roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}},
+   channels:{fetch:async id=>({id,send:async()=>{},
+     permissionsFor:target=>target.id==="everyone"?{has:()=>false}:permissions})}};
+ const session={mode:"activity",settings:{...base},guild};
+ await validateGiveawaySetupChannels(session);
+ await validateGiveawaySetupChannels({...session,mode:"regular"});
+ await assert.rejects(validateGiveawaySetupChannels({
+   ...session,settings:{...base,giveawayArchiveChannelId:base.giveawayChannelId}
+ }),/Archives must be separate/i);
+ const publicArchive={...guild,channels:{fetch:async id=>({id,send:async()=>{},
+   permissionsFor:target=>target.id==="everyone"?{has:()=>id===base.giveawayArchiveChannelId}:permissions})}};
+ await assert.rejects(validateGiveawaySetupChannels({...session,guild:publicArchive}),
+   /hidden from @everyone/i);
+ const noArchive={...base,giveawayArchiveChannelId:""};
+ await validateGiveawaySetupChannels({...session,settings:noArchive});
 });
