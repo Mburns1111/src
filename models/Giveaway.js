@@ -55,6 +55,10 @@ const giveawaySchema = new mongoose.Schema({
   guidedSeries: {type:mongoose.Schema.Types.ObjectId,default:null},
   staffCardId: {type:String,default:""},
   staffCardChannelId: {type:String,default:""},
+  // Staff-confirmed prize delivery is separate from the winner's claim.
+  prizeDeliveredAt: {type:Date,default:null},
+  prizeDeliveredBy: {type:String,default:""},
+  prizeDeliveryProofUrl: {type:String,default:""},
   staffEndedEarly:{type:Boolean,default:false},
   staffEndedBy:{type:String,default:""},
   staffCancelledBy:{type:String,default:""},
