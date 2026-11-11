@@ -19,13 +19,13 @@ export const PUBLIC_TOPICS=Object.freeze([
  {id:"commands",label:"Commands"},
 ]);
 export const STAFF_TOPICS=Object.freeze([
+ {id:"ssetup",label:"Bot Setup"},
  {id:"sgiveaways",label:"Giveaway Management"},
  {id:"sactivity",label:"Activity Tracking"},
  {id:"sarchives",label:"Giveaway Archives"},
  {id:"scards",label:"Card Management"},
  {id:"spoints",label:"Points & Shop"},
  {id:"sgames",label:"Games"},
- {id:"ssetup",label:"Bot Setup"},
 ]);
 export const HELP_TOPICS=Object.freeze([
  {id:"root",label:"Help Home"},{id:"public",label:"Public Help"},
@@ -108,10 +108,18 @@ const CONTENT=Object.freeze({
   ["Party games","Then use authorized **/party** controls to configure and host a session."],
   ["Court's Trial","Use the trial administration commands and keep results in their assigned channel."],
  ]],
- ssetup:["Staff · Bot Setup","Setup requires its own Discord command permissions.",[
-  ["Start here","Run **/setup channels** first to configure the general bot and choose the commands channel. After that, configure individual systems."],
-  ["Giveaway managers","Use your existing giveaway manager assignment from giveaway setup. There is no separate Help-only role to configure."],
-  ["Security","Staff Help is read-only. Editing the server or running commands still requires the permissions enforced by those actions."],
+ ssetup:["Staff · Bot Setup","**Step 1 — Create your channels in Discord first.** You can choose channel names; these are the purposes you will assign during setup. Create only the channels for systems you intend to use.",[
+  ["① Priority — Commands channel · PUBLIC or member-accessible","Create a **#commands** text channel first. Members and staff use it for most bot slash commands, and staff use it for system setup. Allow the bot to view and send messages here. **/help** works in other channels too."],
+  ["② Profiles & Listings · PUBLIC","**Profiles** — profile cards and editing buttons.\n**House listings** — house posts.\n**Outfit listings** — outfit posts.\n**Inventory showcase** — inventory media.\n**Trade voting** — trade posts and votes.\n**Trading Post** — members' permanent trading cards."],
+  ["③ Shop & Points · PUBLIC","**Shop** — catalog, previews and purchases. Points administration uses the bot's existing commands; there is no separate Points channel option in general setup."],
+  ["④ Collectible Cards · PUBLIC","**Hatchem** — card-game commands, drops, registration and tutorials."],
+  ["⑤ Games · PUBLIC","**Party games** — hosted games and prompts.\n**Court's Trial** — trial signups, eliminations and results (separate from other giveaway channels)."],
+  ["⑥ Giveaways · PUBLIC","**Regular giveaways** — manual-entry giveaway posts.\n**Activity giveaway list** — public activity announcements and progress buttons.\n**Activity winners** — winner results and claim buttons. Use separate channels for these giveaway destinations."],
+  ["⑦ Giveaways · PRIVATE — hide from @everyone","**Staff giveaway controls / review** — qualification previews, staff records, approvals and status.\n**Giveaway Archives** — completed giveaway history (separate channel; optional during initial setup). Restrict both channels to authorized staff and the bot."],
+  ["Bot permissions","Give the bot **View Channel**, **Send Messages** and **Embed Links** in assigned channels. **Archives** additionally requires **Attach Files** and **Read Message History**. Provide access to message history and attachments elsewhere as needed for updates or media. Staff giveaway channels must NOT be visible to @everyone."],
+  ["Step 2 — General setup (after creating channels)","**Only after the channels exist**, run **/setup channels** and assign the channels you created, starting with **commands**. You can set up channels in multiple runs; leave unused systems unassigned."],
+  ["Step 3 — Individual system setup","After general setup, use the relevant system guide (such as **/setup giveaways** or **/setup activity-giveaways**) to configure its additional options. Giveaway Manager roles are selected during giveaway setup, not through a second general-setup role."],
+  ["Who can configure it?","General setup requires the existing **Manage Server** permission. Staff Help is read-only and never grants additional command privileges."],
  ]],
 });
 
