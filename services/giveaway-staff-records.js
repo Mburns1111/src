@@ -137,7 +137,7 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
          : "*No eligible members entered or qualified.*",
        completedAndRemoved
          ? "*The public listing was deleted by staff; this private record preserves the outcome.*"
-         : "*The public result remains visible until staff explicitly use Delete Listing.*");
+         : "*The public result remains visible until staff explicitly archive the giveaway.*");
    if(record.winnerIds?.length){
      lines.push("",record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Court\'s Trial winners — staff-managed prize claims**":"**Current winners and ticket claims**");
      for(let slot=0;slot<record.winnerIds.length;slot++)
@@ -156,7 +156,7 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    if(record.staffEndedEarly)lines.push("**Ended early by:** <@"+record.staffEndedBy+">");
    if(record.status==="ended"&&!completedAndRemoved&&record.winnerIds?.length&&
       !completedGiveawayCanDeleteListing(record))
-     lines.push("**Delete Listing:** Available when every current winner has submitted a ticket claim, or each remaining unclaimed prize place is past its deadline with no rerolls left.");
+     lines.push("**Archive Giveaway:** Available when every current winner has submitted a ticket claim, or each remaining unclaimed prize place is past its deadline with no rerolls left.");
  }
  // Ticket message links are placed in dedicated fields so they are never
  // truncated when a giveaway has multiple winners or a long staff timeline.
@@ -170,7 +170,7 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
  const controls=[];
  controls.push(btn("giveawaystaff:entrants:"+record._id+":0",
    record.mode==="survival"?"View Contestants":"View Entrants",ButtonStyle.Primary));
- if(record.guidedSeries&&record.status!=="cancelled"){
+ if(record.guidedSeries&&record.status!=="cancelled"&&!completedAndRemoved&&!archived){
    controls.push(btn("activitystaff:view:"+record._id+":0","Preview qualifying members"));
    if(record.status==="open"){
      controls.push(btn("activitystaff:edit:"+record._id,"Edit Giveaway",ButtonStyle.Primary));
@@ -375,7 +375,7 @@ export async function handleGiveawayStaffAction(interaction){
    const match=/^giveawaystaff:(stop|cancel|confirmcancel|remove|confirmremove|entrants|end|confirmend|edit|editselect|editsave|reroll|rerollselect|confirmreroll|abort):([0-9a-f]{24})(?::([A-Za-z0-9]+))?$/.exec(interaction.customId);
    if(!match)return interaction.reply({content:"Unknown staff action.",...ephemeral});
    const [,action,id,pageText]=match;
-   const record=await Giveaway.findOne({_id:id,guildId:interaction.guildId,
+   let record=await Giveaway.findOne({_id:id,guildId:interaction.guildId,
      staffCardChannelId:interaction.channelId}).lean();
    if(!record)return interaction.reply({content:"This staff record was not found.",...ephemeral});
    if(["stop","cancel","remove","end","edit","reroll"].includes(action) &&
@@ -590,7 +590,7 @@ export async function handleGiveawayStaffAction(interaction){
      return interaction.editReply("Further automatic claim rerolls have been disabled. Current submitted claims remain saved.");
    }
    if(!["open","pending_review","running"].includes(record.status))
-     return interaction.editReply("Only active giveaways may be cancelled. Completed giveaways use Delete Listing after claims are submitted.");
+     return interaction.editReply("Only active giveaways may be cancelled. Completed giveaways can be archived after claims are settled.");
    if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="CANCEL")
      return interaction.editReply("Cancellation not confirmed. Type CANCEL to proceed.");
    const reason=interaction.fields.getTextInputValue("reason").trim();
