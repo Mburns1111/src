@@ -297,3 +297,46 @@ test("staff record embed border uses blue yellow green and red status colors",()
   assert.equal(giveawayStaffRecordPayload(record).embeds[0].toJSON().color,color);
  }
 });
+
+test("delivery confirmation saves optional proof URL and keeps the active staff record",async()=>{
+ const original={find:Giveaway.findOne,update:Giveaway.findOneAndUpdate,
+   config:GuildConfig.findOne,findById:Giveaway.findById,updateOne:Giveaway.updateOne};
+ const proof="https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890";
+ const edits=[],updates=[];
+ try{
+  for(const proofValue of [proof,""]){
+   const baseline={...ended,prizeDeliveredAt:null,prizeDeliveryProofUrl:"",messageId:null};
+   Giveaway.findOne=()=>({lean:async()=>baseline});
+   Giveaway.findOneAndUpdate=(_query,update)=>({lean:async()=>{
+     updates.push(update.$set);return{...baseline,...update.$set};
+   }});
+   Giveaway.findById=()=>({lean:async()=>({messageId:null})});
+   Giveaway.updateOne=async()=>{};
+   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+     activityGiveawayReviewChannelId:ended.staffCardChannelId,
+   })})});
+   const msg={id:ended.staffCardId,author:{id:"bot"},embeds:[{
+     description:"Old staff record",footer:{text:staffRecordMarker(baseline)},fields:[],
+   }],components:[],edit:async payload=>edits.push(payload)};
+   const channel={id:ended.staffCardChannelId,permissionsFor:()=>({has:()=>false}),
+     guild:{roles:{everyone:{id:"everyone"}}},
+     messages:{fetch:async()=>msg},send:async()=>{throw Error("Must update existing staff record");}};
+   let reply="";
+   await handleGiveawayStaffAction({
+     guildId,channelId:ended.staffCardChannelId,customId:"giveawaystaff:confirmdeliver:"+id,
+     memberPermissions:{has:()=>true},user:{id:"999999999999999999"},
+     fields:{getTextInputValue:()=> "DELIVERED",getField:()=>proofValue?{value:proofValue}:null},
+     deferReply:async()=>{},editReply:async text=>{reply=text;},
+     client:{user:{id:"bot"},channels:{fetch:async()=>channel}},
+   });
+   assert.equal(updates.at(-1).prizeDeliveryProofUrl,proofValue);
+   assert.ok(updates.at(-1).prizeDeliveredAt instanceof Date);
+   assert.match(reply,/remains in the active staff channel/);
+   assert.ok(edits.at(-1).embeds[0].data.description.includes(proofValue||"Prize delivery confirmed"));
+  }
+ }finally{
+   Giveaway.findOne=original.find;Giveaway.findOneAndUpdate=original.update;
+   Giveaway.findById=original.findById;Giveaway.updateOne=original.updateOne;
+   GuildConfig.findOne=original.config;
+ }
+});
