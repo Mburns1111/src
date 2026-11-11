@@ -192,6 +192,19 @@ test("walkthrough validates that Archives is private and distinct from all givea
  await validateGiveawaySetupChannels({...session,settings:noArchive});
 });
 
+test("both giveaway setup walkthroughs include Manager role assignment and review",()=>{
+ for(const mode of ["regular","activity"]){
+  const steps=giveawaySetupSteps(mode);
+  assert.equal(steps[steps.indexOf("archive")+1],"manager");
+  assert.equal(steps[steps.indexOf("manager")+1],"requiredRole");
+  const text=describeActivityGiveawaySetup({
+   ...claimSettings,giveawayManagerRoleId:"123456789012345678"
+  },{mode});
+  assert.match(text,/Giveaway Manager role/);
+  assert.match(text,/<@&123456789012345678>/);
+ }
+});
+
 test("every preset-based activity numeric step offers a custom amount",()=>{
  const expected={minimum:"customMinimum",days:"customDays",winners:"customWinners",
    claim:"customClaim",rerollsChoice:"customRerolls"};
