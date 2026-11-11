@@ -534,9 +534,14 @@ export async function handleGiveawayStaffAction(interaction){
    if(action==="remove"){
      if(!((record.status==="ended"&&completedGiveawayCanDeleteListing(record))||record.publicListingRemovedAt||record.status==="cancelled"))
        return interaction.reply({content:"A completed giveaway can only be removed when no winners were selected, or each prize place has a submitted ticket claim or has passed its deadline with no rerolls left.",...ephemeral});
+     const archiveConfig=await GuildConfig.findOne({guildId:record.guildId})
+       .select("giveawayArchiveChannelId activityGiveawayReviewChannelId").lean();
+     if(!archiveConfig?.giveawayArchiveChannelId||
+        archiveConfig.giveawayArchiveChannelId===archiveConfig.activityGiveawayReviewChannelId)
+       return interaction.reply({content:"Configure a separate private archive channel with /setup archives before archiving.",...ephemeral});
      return interaction.showModal(new ModalBuilder()
        .setCustomId("giveawaystaff:confirmremove:"+id)
-       .setTitle(record.mode==="survival"?"Archive completed Court's Trial":"Delete completed giveaway listing")
+       .setTitle("Archive completed giveaway")
        .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
          .setCustomId("confirm")
          .setLabel("Type ARCHIVE to confirm")
