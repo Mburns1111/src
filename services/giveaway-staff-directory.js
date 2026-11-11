@@ -136,7 +136,7 @@ async function removeOld(client,channelId,messageId,currentChannelId,currentMess
   }catch(error){console.error("[Giveaways] Could not remove old staff directory message:",error);}
 }
 
-export async function ensureGiveawayStaffDirectory(client,config,{now=new Date()}={}){
+export async function ensureGiveawayStaffDirectory(client,config,{now=new Date(),forceBump=false}={}){
   const guildId=config.guildId,channelId=config.activityGiveawayReviewChannelId;
   if(!channelId||inFlight.has(guildId))return false;
   inFlight.add(guildId);
@@ -153,13 +153,13 @@ export async function ensureGiveawayStaffDirectory(client,config,{now=new Date()
     if(message&&message.author?.id!==client.user?.id)
       throw Error("The existing giveaway directory belongs to another bot.");
 
-    // At most one bump every three minutes after staff/bot chat pushes this
-    // directory upward. Status changes edit immediately without extra posts.
+    // Normal synchronization limits rebumping after chat activity. An archive
+    // action can request an immediate one-time bump after its records move.
     const latest=channel.lastMessageId || (message?
       (await channel.messages.fetch({limit:1})).first?.()?.id:null);
     const shifted=Boolean(message&&latest&&latest!==message.id);
     const recentlyBumped=now.getTime()-(lastBumped.get(guildId)||0)<STAFF_DIRECTORY_BUMP_COOLDOWN_MS;
-    const bump=shifted&&!recentlyBumped;
+    const bump=shifted&&(forceBump||!recentlyBumped);
     if(message&&!bump){
       if(config.giveawayStaffDirectoryFingerprint!==fingerprint){
         await message.edit(payload);
