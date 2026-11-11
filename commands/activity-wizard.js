@@ -30,8 +30,10 @@ export const activityWizardPrompts={
   startDay:["Which weekday should a regular weekly window start at midnight Eastern?",weekChoices],
   endDay:["Which weekday should counting end at midnight Eastern? Choose the same weekday for a full week.",weekChoices],
   length:["Reply with a positive whole number for the duration."],
-  minimum:["How many qualifying messages must a member send during the entire activity period? Reply with a number, such as 1."],
-  days:["On how many different days must they send at least one matching message? Reply with a number (minimum 1)."],
+  minimum:["How many qualifying messages must a member send during the entire activity period?",[]],
+  minimumCustom:["Reply with your custom total qualifying-message goal (1–10,000)."],
+  days:["On how many different days must they send at least one matching message?",[]],
+  daysCustom:["Reply with your custom number of different active days, from 1 up to the number of days in this activity period."],
   filters:["Which messages should count?",["Any message","Member ping","Word or phrase","Ping and phrase"].map(x=>choice(x))],
   mention:["Which member must the message explicitly ping? Paste their member mention or Discord user ID."],
   phrase:["Enter the **exact required word or phrase**. Members must use the **correct spelling and word order** for their messages to qualify. **Capital letters do not matter.**"],
@@ -44,20 +46,22 @@ export const activityWizardPrompts={
   detailsChoice:["Would you like to add your own giveaway description?",[choice("Write giveaway details","write"),choice("Skip description","skip")]],
   details:["Type your giveaway description (up to 1,000 characters) in this channel.",[
     choice("Keep current / Skip","keep"),choice("Remove description","remove")]],
-  winners:["How many winners should I draw?",["1","2","3","Other"].map(x=>choice(x))],
-  winnerNumber:["Reply with the number of winners, from 1 to 10."],
+  winners:["How many winners should I draw?",[choice("1","1"),choice("2","2"),choice("3","3"),choice("Custom Amount","customWinners")]],
+  winnerNumber:["Reply with your custom number of winners, from 1 to 10."],
   draw:["",[choice("When counting ends","end"),choice("Choose a later time","later")]],
   later:["Enter the first drawing date and time in Eastern time, for example 2026-12-04 19:30. Repeats use the same delay after counting ends."],
   extras:["Optional giveaway settings",[]],
   role:["Paste a role mention or role ID for extra drawing chances."],
   bonus:["How many extra chances does this role add? Reply with a number from 1 to 20."],
-  claim:["How many hours do winners have to claim? Reply with a number from 1 to 720."],
+  claim:["How many hours do winners have to claim?",[]],
+  claimCustom:["Reply with your custom claim window in hours (1–720)."],
   claimChoice:["Choose prize collection instructions for this giveaway.",[
     choice("Use server default","claimDefault"),choice("Write custom instructions","claimCustom"),
     choice("Preview winner announcement","claimPreview"),choice("Back","extras")]],
   claimText:["Reply with your custom prize-collection instructions, up to 1,000 characters. The mandatory claim forfeiture warning is added automatically."],
   claimPreview:["Winner announcement preview",[choice("Back to claim settings","claimChoice"),choice("Back to options","extras")]],
   rerollsChoice:["How many automatic rerolls may this giveaway make for each unclaimed winner?",[0,1,2,3,5,10].map(n=>choice(n+" rerolls",String(n)))],
+  rerollsCustom:["Reply with your custom number of automatic rerolls per unclaimed winning place (0–10)."],
   notifyRoles:["Paste up to 10 notification role mentions or role IDs separated by spaces or commas. Reply none to disable notifications."],
   emptyResults:["If nobody qualifies, announce no winners?",[choice("Announce no winners","announce"),choice("Skip empty announcement","silent")]],
   banner:["Which banner should appear on this giveaway?",[
@@ -148,10 +152,11 @@ async function show(session,step){
     ['Max rerolls','rerollsChoice'],['Notification roles','notifyRoles'],
     ['No eligible winners','emptyResults'],['Banner','banner'],['Done','done'],
   ];
-  if(step==="minimum")choices=[1,3,5,10,20].map(x=>choice(String(x)+" messages",String(x)));
-  if(step==="days")choices=[1,2,3,5,7].filter(x=>x<=maxActiveDays(new Date(),windowEnd(s,new Date())))
-    .map(x=>choice(String(x)+" day"+(x===1?"":"s"),String(x)));
-  if(step==="claim")choices=[12,24,48].map(x=>choice(String(x)+" hours",String(x)));
+  if(step==="minimum")choices=[...[1,3,5,10,20].map(x=>choice(String(x)+" messages",String(x))),choice("Custom Amount","customMinimum")];
+  if(step==="days")choices=[...[1,2,3,5,7].filter(x=>x<=maxActiveDays(new Date(),windowEnd(s,new Date())))
+    .map(x=>choice(String(x)+" day"+(x===1?"":"s"),String(x))),choice("Custom Amount","customDays")];
+  if(step==="claim")choices=[...[12,24,48].map(x=>choice(String(x)+" hours",String(x))),choice("Custom Amount","customClaim")];
+  if(step==="rerollsChoice")choices=[...activityWizardPrompts.rerollsChoice[1],choice("Custom Amount","customRerolls")];
   if(step==="claimPreview")content=['**Example Winner Announcement**',
     ...prizeClaimLines({mode:"activity",winnerIds:[session.owner],
       claimStartedAt:new Date(),claimWindowHours:s.claimHours,autoRerollClaims:true,
@@ -177,7 +182,7 @@ async function show(session,step){
   const payload=step==="summary"?{embeds:[{description:content}]}:{content};
   const message=await session.channel.send({...payload,content:'**Activity setup** · <@'+session.owner+'>\n'+(payload.content||""),components,allowedMentions:{parse:[]}});
   Object.assign(session,{step,messageId:message.id,choices:controls.map(x=>x[1]),
-    acceptText:!choices?.length || ["minimum","days","claim","bannerPick","details"].includes(step),
+    acceptText:!choices?.length || ["bannerPick","details"].includes(step),
     expires:Date.now()+30*60000});
 }
 async function configFor(guild,channelId){
@@ -246,8 +251,12 @@ async function accept(session,input,client){
     case "startDay":s.startDay=Number(v);next="endDay";break;
     case "endDay":s.endDay=Number(v);next="minimum";break;
     case "length":s.hours=number(v,1,s.period==="Custom days"?365:8760)*(s.period==="Custom days"?24:1);next="minimum";break;
-    case "minimum":s.minimum=number(v,1,10000);next=dayStep();break;
-    case "days":s.days=number(v,1,maxActiveDays(now,windowEnd(s,now)));next=done("filters");break;
+    case "minimum":case "minimumCustom":
+      if(v==="customMinimum"){next="minimumCustom";break;}
+      s.minimum=number(v,1,10000);next=dayStep();break;
+    case "days":case "daysCustom":
+      if(v==="customDays"){next="daysCustom";break;}
+      s.days=number(v,1,maxActiveDays(now,windowEnd(s,now)));next=done("filters");break;
     case "filters":s.mention="";s.phrase="";s.both=v==="Ping and phrase";next=s.both||v==="Member ping"?"mention":v==="Word or phrase"?"phrase":done("requiredRoleChoice");break;
     case "mention":{
       const id=/^(?:<@!?(\d{17,20})>|(\d{17,20}))$/.exec(v);
@@ -288,7 +297,8 @@ async function accept(session,input,client){
       else if(v!=="keep")s.description=words(v,1000);
       next=done("winners");break;
     case "winners":case "winnerNumber":
-      if(v==="Other"){next="winnerNumber";break;}s.winners=number(v,1,10);next=done("draw");break;
+      if(v==="customWinners"){next="winnerNumber";break;}
+      s.winners=number(v,1,10);next=done("draw");break;
     case "draw":s.firstDraw=null;next=v==="later"?"later":done("extras");break;
     case "later":{
       const date=parseEasternAnnouncement(v);
@@ -298,7 +308,9 @@ async function accept(session,input,client){
     case "extras":
       if(v==="approval"||v==="progress"){s[v]=!s[v];next="extras";}
       else next=v==="done"?done("repeat"):v;break;
-    case "claim":s.claimHours=number(v,1,720);next="extras";break;
+    case "claim":case "claimCustom":
+      if(v==="customClaim"){next="claimCustom";break;}
+      s.claimHours=number(v,1,720);next="extras";break;
     case "claimChoice":
       if(v==="claimDefault"){s.claimInstructions=s.serverClaimInstructions||"";next="extras";}
       else if(v==="claimCustom")next="claimText";
@@ -306,7 +318,9 @@ async function accept(session,input,client){
       break;
     case "claimText":s.claimInstructions=words(v,1000);next="extras";break;
     case "claimPreview":next=v;break;
-    case "rerollsChoice":s.maxAutoRerolls=number(v,0,10);next="extras";break;
+    case "rerollsChoice":case "rerollsCustom":
+      if(v==="customRerolls"){next="rerollsCustom";break;}
+      s.maxAutoRerolls=number(v,0,10);next="extras";break;
     case "emptyResults":s.announceEmptyResults=v==="announce";next="extras";break;
     case "notifyRoles":{
       if(/^(none|off|clear)$/i.test(v)){s.notificationRoleIds=[];next="extras";break;}
