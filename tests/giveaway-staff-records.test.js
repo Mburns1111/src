@@ -59,7 +59,7 @@ test("claim number, exact message link and submission time are private",()=>{
  assert.doesNotMatch(publicText,/123-ABC|jump=1|How to get the role|Get it in #party|Required to enter/);
 });
 
-test("staff cancellation archive retains staff identity and reason without controls",()=>{
+test("cancelled record stays with staff until an explicit archive action",()=>{
  const cancelled={...ended,status:"cancelled",staffCancelledBy:"999999999999999999",
    staffCancelledAt:new Date("2026-11-09T02:00:00Z"),staffCancelReason:"Host cannot deliver prize",
    autoRerollClaims:false};
@@ -69,7 +69,8 @@ test("staff cancellation archive retains staff identity and reason without contr
  assert.match(body,/<@999999999999999999>/);
  assert.match(body,/Host cannot deliver prize/);
  assert.match(body,/<t:\d+:F>/);
- assert.equal(staff.components.length,0);
+ assert.ok(staff.components.flatMap(r=>r.components).some(b=>
+   b.data.custom_id==="giveawaystaff:archive:"+id && b.data.style===4));
 });
 
 test("cancel and delete requires a written reason and confirmation",async()=>{
@@ -92,7 +93,7 @@ test("cancel and delete requires a written reason and confirmation",async()=>{
 });
 
 
-test("cancelling an ended giveaway archives the reason and removes only its public post",async()=>{
+test("cancelling an ended giveaway keeps the record in active staff and removes only its public post",async()=>{
  const GuildConfig=(await import("../models/GuildConfig.js")).default;
  const original={
    find:Giveaway.findOne,update:Giveaway.findOneAndUpdate,updateOne:Giveaway.updateOne,
@@ -177,4 +178,29 @@ test("delivery action requires explicit staff confirmation, never archives on in
   assert.equal(modal.components[0].components[0].custom_id,"confirm");
   assert.match(modal.components[0].components[0].label,/DELIVERED/i);
  }finally{Giveaway.findOne=original;}
+});
+
+test("completed prize-delivered and no-winner records show explicit archive controls; open records do not",()=>{
+ const delivered=giveawayStaffRecordPayload({...ended,prizeDeliveredAt:new Date()});
+ const completed=giveawayStaffRecordPayload({...ended,winnerIds:[],prizeDeliveredAt:null});
+ const open=giveawayStaffRecordPayload({...ended,status:"open",winnerIds:[]});
+ const pick=p=>p.components.flatMap(r=>r.components).find(x=>x.data.custom_id==="giveawaystaff:archive:"+id);
+ assert.equal(pick(delivered)?.data.style,3,"Delivered giveaways are green");
+ assert.equal(pick(completed)?.data.style,4,"Closed no-winner giveaways are red");
+ assert.equal(pick(open),undefined);
+});
+test("archive asks for reason plus explicit ARCHIVE confirmation; does not move on first click",async()=>{
+ const old=Giveaway.findOne;
+ let modal;
+ try{
+  Giveaway.findOne=()=>({lean:async()=>({...ended,prizeDeliveredAt:new Date()})});
+  await handleGiveawayStaffAction({
+   guildId,channelId:ended.staffCardChannelId,customId:"giveawaystaff:archive:"+id,
+   message:{id:ended.staffCardId},memberPermissions:{has:()=>true},
+   showModal:async m=>{modal=m.toJSON();}
+  });
+  assert.equal(modal.custom_id,"giveawaystaff:confirmarchive:"+id);
+  assert.equal(modal.components[0].components[0].custom_id,"reason");
+  assert.equal(modal.components[1].components[0].custom_id,"confirm");
+ }finally{Giveaway.findOne=old;}
 });
