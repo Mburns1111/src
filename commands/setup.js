@@ -33,11 +33,30 @@ export const data = new SlashCommandBuilder()
     .setDescription("Guided setup for Court\'s Trial channels, prizes and claim defaults"))
   .addSubcommand(command=>command.setName("cards")
     .setDescription("Guided setup for Hatchem\'s dedicated channel, Collector role and wild eggs"))
+  .addSubcommand(command=>command.setName("archives")
+    .setDescription("Select a private channel for completed giveaway staff records")
+    .addChannelOption(option=>option.setName("channel")
+      .setDescription("Private giveaway archive channel").addChannelTypes(ChannelType.GuildText).setRequired(true)))
   .addSubcommand(command=>command.setName("general")
     .setDescription("Guided setup: commands channel first, other features optional"));
 
 export async function execute(interaction) {
   requireGuild(interaction);
+  if(interaction.options.getSubcommand?.()==="archives"){
+    const channel=interaction.options.getChannel("channel");
+    if(channel.permissionsFor?.(interaction.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
+      throw new UserFacingError("The archive channel must be hidden from @everyone.");
+    const bot=interaction.guild.members.me || await interaction.guild.members.fetchMe();
+    const permissions=channel.permissionsFor?.(bot);
+    for(const permission of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks])
+      if(permissions&&!permissions.has(permission))
+        throw new UserFacingError("Give the bot View Channel, Send Messages and Embed Links in the archive channel.");
+    const config=await GuildConfig.findOne({guildId:interaction.guildId}).lean();
+    if(channel.id===config?.activityGiveawayReviewChannelId)
+      throw new UserFacingError("Choose a separate archive channel, not the active giveaway staff channel.");
+    await GuildConfig.updateOne({guildId:interaction.guildId},{$set:{giveawayArchiveChannelId:channel.id}},{upsert:true});
+    return interaction.editReply({content:"Giveaway archives will go to <#"+channel.id+">. Previously archived records will move there during the next giveaway synchronization.",allowedMentions:{parse:[]}});
+  }
   if(interaction.options.getSubcommand?.()==="general")
     return startGuidedGuildSetup(interaction,"general");
   if(interaction.options.getSubcommand?.()==="cards")
