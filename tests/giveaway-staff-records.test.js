@@ -1,9 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
-import GuildConfig from "../models/GuildConfig.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
-import {giveawayStaffRecordPayload,giveawayStaffRecordColor,validPrizeDeliveryProofUrl,giveawayArchiveCompletionReason,staffRecordMarker,handleGiveawayStaffAction,ensureGiveawayStaffRecord} from "../services/giveaway-staff-records.js";
+import {giveawayStaffRecordPayload,staffRecordMarker,handleGiveawayStaffAction} from "../services/giveaway-staff-records.js";
 
 const id="507f1f77bcf86cd799439011",guildId="123456789012345678",
   winner="234567890123456789",ticketLink="https://discord.com/channels/123456789012345678/345678901234567890/456789012345678901?jump=1";
@@ -36,13 +35,14 @@ test("unclaimed winner staff record shows deadline and remaining rerolls",()=>{
  const staff=giveawayStaffRecordPayload(ended);
  const description=staff.embeds[0].toJSON().description;
  assert.match(description,/Not claimed/);
- assert.match(description,/Automatic rerolls left: \*\*1\*\* of 2/);
+ assert.match(description,/Automatic rerolls:\*\*|Automatic rerolls:\s+Enabled/);
  assert.match(description,/Claim deadline:/);
- assert.match(description,/<t:\d+:R>/);
+ assert.match(description,/Expired|<t:\d+:R>/);
  assert.match(description,/Reroll history/);
  const ids=staff.components.flatMap(r=>r.components).map(b=>b.data.custom_id);
  assert.ok(ids.includes("giveawaystaff:stop:"+id));
- assert.ok(ids.includes("giveawaystaff:cancel:"+id));
+ assert.ok(!ids.includes("giveawaystaff:cancel:"+id));
+ assert.ok(!ids.includes("giveawaystaff:remove:"+id), "unclaimed winner still has rerolls remaining");
 });
 
 test("claim number, exact message link and submission time are private",()=>{
@@ -53,14 +53,14 @@ test("claim number, exact message link and submission time are private",()=>{
  assert.ok(fields.some(f=>f.value.includes(ticketLink)));
  assert.ok(fields.some(f=>f.value.includes("123-ABC")));
  assert.match(staff.embeds[0].toJSON().description,/Claim submitted/);
- assert.match(staff.embeds[0].toJSON().description,/Claim submitted.*<t:\d+:F>/i);
+ assert.match(fields.map(f=>f.value).join('\n'),/Submitted:\*\* <t:\d+:F>/i);
  const publicPost=giveawayAnnouncement(claimed).embeds[0].toJSON();
  const publicText=publicPost.description+JSON.stringify(publicPost.fields||[]);
  assert.match(publicText,/Claim submitted successfully/);
  assert.doesNotMatch(publicText,/123-ABC|jump=1|How to get the role|Get it in #party|Required to enter/);
 });
 
-test("cancelled record stays with staff until an explicit archive action",()=>{
+test("staff cancellation archive retains staff identity and reason without controls",()=>{
  const cancelled={...ended,status:"cancelled",staffCancelledBy:"999999999999999999",
    staffCancelledAt:new Date("2026-11-09T02:00:00Z"),staffCancelReason:"Host cannot deliver prize",
    autoRerollClaims:false};
@@ -70,15 +70,15 @@ test("cancelled record stays with staff until an explicit archive action",()=>{
  assert.match(body,/<@999999999999999999>/);
  assert.match(body,/Host cannot deliver prize/);
  assert.match(body,/<t:\d+:F>/);
- assert.ok(staff.components.flatMap(r=>r.components).some(b=>
-   b.data.custom_id==="giveawaystaff:archive:"+id && b.data.style===4));
+ assert.deepEqual(staff.components.flatMap(r=>r.components).map(b=>b.data.custom_id),
+   ["giveawaystaff:entrants:"+id+":0","giveawaystaff:remove:"+id],"cancelled records can be moved to the configured archive");
 });
 
 test("cancel and delete requires a written reason and confirmation",async()=>{
  const previous=Giveaway.findOne;
  let modal;
  try{
-  Giveaway.findOne=()=>({lean:async()=>({...ended})});
+  Giveaway.findOne=()=>({lean:async()=>({...ended,status:"open",winnerIds:[]})});
   await handleGiveawayStaffAction({
     guildId,channelId:ended.staffCardChannelId,
     customId:"giveawaystaff:cancel:"+id,
@@ -94,13 +94,13 @@ test("cancel and delete requires a written reason and confirmation",async()=>{
 });
 
 
-test("cancelling an ended giveaway keeps the record in active staff and removes only its public post",async()=>{
+test("cancelling a live giveaway archives the reason and removes only its public post",async()=>{
  const GuildConfig=(await import("../models/GuildConfig.js")).default;
  const original={
    find:Giveaway.findOne,update:Giveaway.findOneAndUpdate,updateOne:Giveaway.updateOne,
    config:GuildConfig.findOne,
  };
- let stored={...ended,channelId:"101234567890123456",messageId:"112345678901234567",
+ let stored={...ended,status:"open",channelId:"101234567890123456",messageId:"112345678901234567",
    listChannelId:"",listMessageId:""};
  const updated=[],removed=[],staffEdits=[];
  const staffMessage={id:stored.staffCardId,author:{id:"bot"},
@@ -151,192 +151,26 @@ test("cancelling an ended giveaway keeps the record in active staff and removes 
  }
 });
 
-test("finished giveaways with prizes expose delivery confirmation; archived ones no longer do",()=>{
- const ready={...ended,status:"ended",prizeDeliveredAt:null};
- const buttons=giveawayStaffRecordPayload(ready).components.flatMap(r=>r.components)
-   .map(b=>b.data.custom_id);
- assert.ok(buttons.includes("giveawaystaff:deliver:"+id));
- const delivered=giveawayStaffRecordPayload({...ready,prizeDeliveredAt:new Date(),
-   prizeDeliveredBy:"999999999999999999"});
- const finalButtons=delivered.components.flatMap(r=>r.components).map(b=>b.data.custom_id);
- assert.ok(!finalButtons.includes("giveawaystaff:deliver:"+id));
- assert.match(delivered.embeds[0].data.description,/Prize delivery confirmed/);
+test("settled prize claims restore the Archive Giveaway button",()=>{
+ const claim={slot:0,userId:winner,ticketNumber:"123-ABC",ticketUrl:ticketLink,
+   submittedAt:new Date("2026-11-08T13:45:00Z")};
+ const record={...ended,winnerClaims:[claim]};
+ const controls=giveawayStaffRecordPayload(record).components.flatMap(row=>row.components);
+ assert.ok(controls.some(button=>button.data.custom_id==="giveawaystaff:remove:"+id &&
+   button.data.label==="Archive Giveaway"));
 });
 
-test("delivery action requires explicit staff confirmation, never archives on initial click",async()=>{
- const original=Giveaway.findOne;
- try{
-  Giveaway.findOne=()=>({lean:async()=>({...ended,prizeDeliveredAt:null})});
-  let modal;
-  await handleGiveawayStaffAction({
-    guildId,channelId:ended.staffCardChannelId,
-    customId:"giveawaystaff:deliver:"+id,
-    message:{id:ended.staffCardId},
-    memberPermissions:{has:()=>true},
-    showModal:async m=>{modal=m.toJSON();},
-  });
-  assert.equal(modal.custom_id,"giveawaystaff:confirmdeliver:"+id);
-  assert.equal(modal.components[0].components[0].custom_id,"confirm");
-  assert.match(modal.components[0].components[0].label,/DELIVERED/i);
- }finally{Giveaway.findOne=original;}
-});
-
-test("completed prize-delivered and no-winner records show explicit archive controls; open records do not",()=>{
- const delivered=giveawayStaffRecordPayload({...ended,prizeDeliveredAt:new Date()});
- const completed=giveawayStaffRecordPayload({...ended,winnerIds:[],prizeDeliveredAt:null});
- const open=giveawayStaffRecordPayload({...ended,status:"open",winnerIds:[]});
- const pick=p=>p.components.flatMap(r=>r.components).find(x=>x.data.custom_id==="giveawaystaff:archive:"+id);
- assert.equal(pick(delivered)?.data.style,3,"Delivered giveaways are green");
- assert.equal(pick(completed)?.data.style,4,"Closed no-winner giveaways are red");
- assert.equal(pick(open),undefined);
-});
-test("archive button directly records moderator and completion reason without a second confirmation",async()=>{
- const original={find:Giveaway.findOne,update:Giveaway.findOneAndUpdate,config:GuildConfig.findOne};
- const delivered={...ended,prizeDeliveredAt:new Date()};
- let saved=null,modalCalls=0,reply="";
- try{
-  Giveaway.findOne=()=>({lean:async()=>delivered});
-  Giveaway.findOneAndUpdate=(_query,change)=>({lean:async()=>{
-   saved=change.$set;return{...delivered,...change.$set};
-  }});
-  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({giveawayArchiveChannelId:""})})});
-  await handleGiveawayStaffAction({
-   guildId,channelId:ended.staffCardChannelId,customId:"giveawaystaff:archive:"+id,
-   message:{id:ended.staffCardId},memberPermissions:{has:()=>true},
-   user:{id:"999999999999999999"},client:{},
-   showModal:async()=>{modalCalls++;},
-   deferReply:async()=>{},editReply:async value=>{reply=value;},
-  });
-  assert.equal(modalCalls,0);
-  assert.equal(saved.archiveRequestedBy,"999999999999999999");
-  assert.equal(saved.archiveRequestedReason,"All prizes delivered");
-  assert.ok(saved.archiveRequestedAt instanceof Date);
-  assert.match(reply,/Archive request saved/);
- }finally{
-  Giveaway.findOne=original.find;
-  Giveaway.findOneAndUpdate=original.update;
-  GuildConfig.findOne=original.config;
- }
-});
-test("archive reasons are derived from completed giveaway outcomes",()=>{
- assert.match(giveawayArchiveCompletionReason({...ended,status:"cancelled",staffCancelReason:"Prize unavailable"}),/Prize unavailable/);
- assert.equal(giveawayArchiveCompletionReason({...ended,winnerIds:[]}),"Completed — no winners selected");
- assert.equal(giveawayArchiveCompletionReason({...ended,prizeDeliveredAt:new Date()}),"All prizes delivered");
-});
-test("delivery proof is optional, must be a Discord message link, and stays private",async()=>{
- const proof="https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890";
- assert.equal(validPrizeDeliveryProofUrl(""),true);
- assert.equal(validPrizeDeliveryProofUrl(proof),true);
- assert.equal(validPrizeDeliveryProofUrl("https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890?jump=1"),true);
- assert.equal(validPrizeDeliveryProofUrl("https://example.com/channels/123456789012345678/234567890123456789/345678901234567890"),false);
- assert.equal(validPrizeDeliveryProofUrl("not a link"),false);
- const r={...ended,prizeDeliveredAt:new Date(),prizeDeliveryProofUrl:proof};
- assert.match(giveawayStaffRecordPayload(r).embeds[0].toJSON().description,/\\*\\*Proof:\\*\\*/);
- assert.ok(giveawayStaffRecordPayload(r).embeds[0].toJSON().description.includes(proof));
- const publicText=JSON.stringify(giveawayAnnouncement(r).embeds[0].toJSON());
- assert.ok(!publicText.includes(proof),"delivery proof must not leak to public result");
- const original=Giveaway.findOne;
- let modal;
- try{
-  Giveaway.findOne=()=>({lean:async()=>ended});
-  await handleGiveawayStaffAction({
-    guildId,channelId:ended.staffCardChannelId,customId:"giveawaystaff:deliver:"+id,
-    message:{id:ended.staffCardId},memberPermissions:{has:()=>true},
-    showModal:async m=>{modal=m.toJSON();},
-  });
-  assert.equal(modal.components[1].components[0].custom_id,"proof");
-  assert.equal(modal.components[1].components[0].required,false);
-  assert.match(modal.components[1].components[0].label,/Discord message link/);
- }finally{Giveaway.findOne=original;}
-});
-
-test("finished or cancelled staff records stay active without an explicit archive request",async()=>{
- const original={config:GuildConfig.findOne,update:Giveaway.updateOne};
- const destinations=[];
- const channel={id:ended.staffCardChannelId,
-   guild:{roles:{everyone:{id:"everyone"}}},
-   permissionsFor:()=>({has:()=>false}),
-   messages:{fetch:async()=>({
-     id:ended.staffCardId,author:{id:"bot"},
-     embeds:[{description:"old description",footer:{text:staffRecordMarker(ended)},fields:[]}],
-     components:[],edit:async()=>{},
-   })},
-   send:async()=>{throw Error("Should reuse active staff post");}};
- try{
-  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
-    activityGiveawayReviewChannelId:ended.staffCardChannelId,
-    giveawayArchiveChannelId:"912345678901234567",
-  })})});
-  Giveaway.updateOne=async()=>{};
-  const client={user:{id:"bot"},channels:{fetch:async id=>{
-    destinations.push(id);
-    if(id!==ended.staffCardChannelId)throw Error("Automatic archive access is forbidden");
-    return channel;
-  }}};
-  for(const state of [
-    {...ended,prizeDeliveredAt:new Date()},
-    {...ended, winnerIds:[],prizeDeliveredAt:null},
-    {...ended,status:"cancelled"},
-  ])assert.equal(await ensureGiveawayStaffRecord(client,state),true);
-  assert.deepEqual(destinations,Array(3).fill(ended.staffCardChannelId));
- }finally{GuildConfig.findOne=original.config;Giveaway.updateOne=original.update;}
-});
-
-test("staff record embed border uses blue yellow green and red status colors",()=>{
- const base={...ended};
- const samples=[
-  [{...base,status:"open",winnerIds:[]},0x3498db],
-  [{...base,status:"ended",winnerClaims:[]},0xf1c40f],
-  [{...base,status:"ended",winnerClaims:[{slot:0,userId:winner,ticketNumber:"T-123"}]},0x2ecc71],
-  [{...base,status:"ended",prizeDeliveredAt:new Date()},0x2ecc71],
-  [{...base,status:"cancelled"},0xe74c3c],
-  [{...base,status:"ended",winnerIds:[]},0xe74c3c],
- ];
- for(const [record,color] of samples){
-  assert.equal(giveawayStaffRecordColor(record),color);
-  assert.equal(giveawayStaffRecordPayload(record).embeds[0].toJSON().color,color);
- }
-});
-
-test("delivery confirmation saves optional proof URL and keeps the active staff record",async()=>{
- const original={find:Giveaway.findOne,update:Giveaway.findOneAndUpdate,
-   config:GuildConfig.findOne,findById:Giveaway.findById,updateOne:Giveaway.updateOne};
- const proof="https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890";
- const edits=[],updates=[];
- try{
-  for(const proofValue of [proof,""]){
-   const baseline={...ended,prizeDeliveredAt:null,prizeDeliveryProofUrl:"",messageId:null};
-   Giveaway.findOne=()=>({lean:async()=>baseline});
-   Giveaway.findOneAndUpdate=(_query,update)=>({lean:async()=>{
-     updates.push(update.$set);return{...baseline,...update.$set};
-   }});
-   Giveaway.findById=()=>({lean:async()=>({messageId:null})});
-   Giveaway.updateOne=async()=>{};
-   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
-     activityGiveawayReviewChannelId:ended.staffCardChannelId,
-   })})});
-   const msg={id:ended.staffCardId,author:{id:"bot"},embeds:[{
-     description:"Old staff record",footer:{text:staffRecordMarker(baseline)},fields:[],
-   }],components:[],edit:async payload=>edits.push(payload)};
-   const channel={id:ended.staffCardChannelId,permissionsFor:()=>({has:()=>false}),
-     guild:{roles:{everyone:{id:"everyone"}}},
-     messages:{fetch:async()=>msg},send:async()=>{throw Error("Must update existing staff record");}};
-   let reply="";
-   await handleGiveawayStaffAction({
-     guildId,channelId:ended.staffCardChannelId,customId:"giveawaystaff:confirmdeliver:"+id,
-     memberPermissions:{has:()=>true},user:{id:"999999999999999999"},
-     fields:{getTextInputValue:()=> "DELIVERED",getField:()=>proofValue?{value:proofValue}:null},
-     deferReply:async()=>{},editReply:async text=>{reply=text;},
-     client:{user:{id:"bot"},channels:{fetch:async()=>channel}},
-   });
-   assert.equal(updates.at(-1).prizeDeliveryProofUrl,proofValue);
-   assert.ok(updates.at(-1).prizeDeliveredAt instanceof Date);
-   assert.match(reply,/remains in the active staff channel/);
-   assert.ok(edits.at(-1).embeds[0].data.description.includes(proofValue||"Prize delivery confirmed"));
-  }
- }finally{
-   Giveaway.findOne=original.find;Giveaway.findOneAndUpdate=original.update;
-   Giveaway.findById=original.findById;Giveaway.updateOne=original.updateOne;
-   GuildConfig.findOne=original.config;
- }
+test("archived staff records stay read-only and retain prize claim details",()=>{
+ const claim={slot:0,userId:winner,ticketNumber:"123-ABC",ticketUrl:ticketLink,
+   submittedAt:new Date("2026-11-08T13:45:00Z")};
+ const record={...ended,publicListingRemovedAt:new Date("2026-11-11T12:00:00Z"),
+   publicListingRemovedBy:"999999999999999999",winnerClaims:[claim],guidedSeries:id};
+ const archived=giveawayStaffRecordPayload(record,{archived:true});
+ const ids=archived.components.flatMap(row=>row.components).map(button=>button.data.custom_id);
+ assert.deepEqual(ids,["giveawaystaff:entrants:"+id+":0"]);
+ assert.match(archived.embeds[0].toJSON().description,/COMPLETED — PUBLIC LISTING DELETED/);
+ assert.ok(archived.embeds[0].toJSON().fields.some(field=>field.value.includes(ticketLink)));
+ const unmoved=giveawayStaffRecordPayload(record,{archived:false});
+ assert.ok(unmoved.components.flatMap(row=>row.components)
+   .some(button=>button.data.custom_id==="giveawaystaff:remove:"+id));
 });
