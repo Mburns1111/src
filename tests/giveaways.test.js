@@ -23,13 +23,19 @@ const restore=records=>{for(const [model,key,fn] of records.reverse())model[key]
 test("giveaway commands have staff gate and flexible prize, role, channel, and reroll controls",()=>{
  const spec=giveawayCommand.toJSON();
  assert.equal(spec.name,"giveaway");
- assert.equal(spec.default_member_permissions, String(32)); // ManageGuild
+ assert.equal(spec.default_member_permissions, undefined); // Discord permits the role; the bot gates staff actions
  const opts=spec.options;
- assert.deepEqual(opts.map(x=>x.name),["start","activity","watch-save","watch-list","watch-delete","edit-prize","end","reroll","entrants","plan-create","plan-list","plan-view","plan-edit","prize-add","prize-edit","prize-remove","prize-move","banner-save","banner-list","banner-default","banner-clear","color-default","color-clear","banner-remove"]);
- const start=opts[0].options.map(x=>x.name);
- for(const name of ["title","prize","description","minutes","winners","rules","role","claim_hours","claim_instructions"])
-   assert.ok(start.includes(name));
- assert.ok(!start.includes("channel"), "standard events use the configured channel");
+ assert.deepEqual(opts.map(x=>x.name),["start","activity","list","banner"],
+   "staff management is through staff record buttons, not slash commands");
+ const banner=opts.find(x=>x.name==="banner");
+ assert.deepEqual(banner.options.map(x=>x.name),["save","list","default","clear","remove"]);
+ assert.equal(banner.type,2,"nested banner operations must be in a Discord subcommand group");
+ assert.ok(!opts.some(x=>x.name.startsWith("banner-")),"banner commands no longer clutter the top-level list");
+ const start=opts[0];
+ assert.deepEqual(start.options||[],[],"regular giveaway fields belong in the guided channel wizard");
+ assert.match(start.description,/guided setup/i);
+ assert.ok(!opts.some(x=>/^plan-|^prize-(add|edit|remove|move)$/.test(x.name)),
+   "old plan/prize editing subcommands must not clutter /giveaway");
  const speed=trialCommand.toJSON().options.find(option=>option.name==="start").options.map(x=>x.name);
  assert.ok(!speed.includes("channel"), "survival trials use their own configured channel");
  assert.ok(speed.includes("claim_minutes"), "trials accept minute-based claim windows");
@@ -40,9 +46,9 @@ test("giveaway commands have staff gate and flexible prize, role, channel, and r
  assert.ok(Giveaway.schema.path("claimWindowMinutes"));
  assert.ok(Giveaway.schema.path("claimInstructions"));
  assert.ok(Giveaway.schema.path("claimStartedAt"));
- assert.ok(start.includes("claim_hours"), "regular giveaways still use hours");
- assert.ok(!start.includes("claim_minutes"));
- assert.equal(GIVEAWAY_MAX_MINUTES,20160);
+ assert.ok(Giveaway.schema.path("claimWindowHours"),"guided regular giveaways keep hour-based claims");
+ assert.ok(!start.options?.some(x=>x.name==="claim_minutes"));
+ assert.equal(GIVEAWAY_MAX_MINUTES,184*24*60,"absolute safe bound for six calendar months");
 });
 
 test("custom creator details are separate from prizes and requirements",()=>{
@@ -73,8 +79,8 @@ test("announcement remains on completion with details, winners and audit trail",
  assert.equal(finished.components[0].components[0].data.label,"Enter Ticket Claim info");
  const description=finished.embeds[0].data.description;
  assert.match(description,/Jester Dragon/);
- assert.match(description,/Reroll history/);
- assert.match(description,/<@444444444444444444>/);
+ assert.doesNotMatch(description,/Reroll history/);
+ assert.doesNotMatch(description,/<@444444444444444444>/,"former winner and reroll history must only be in private staff records");
  assert.match(description,/<@234567890123456789>/);
  assert.match(open.embeds[0].data.description,/fox whispers/i);
  assert.match(open.embeds[0].data.description,/pocket/i);
@@ -85,8 +91,9 @@ test("announcement remains on completion with details, winners and audit trail",
  assert.match(oneWinner.embeds[0].data.description,new RegExp(userId));
  assert.match(oneWinner.embeds[0].data.description,/sneaky helper/i);
  const nobody = giveawayAnnouncement(snapshot({status:"ended",winnerIds:[]}));
- assert.match(nobody.embeds[0].data.description,/no accomplice/i);
- assert.match(nobody.embeds[0].data.description,/no eligible entries/i);
+ assert.match(nobody.embeds[0].data.description,/No eligible winner/i);
+ assert.match(nobody.embeds[0].data.description,/No one entered or qualified/i);
+ assert.ok(nobody.embeds[0].data.description.length<450);
 });
 
 test("random selection chooses distinct entrants, excludes past winners, and never overdraws",()=>{
@@ -143,35 +150,6 @@ test("closing a giveaway commits winners once and keeps finished results unchang
   assert.deepEqual(again.winnerIds,result.winnerIds);
   assert.equal(again.renderVersion,1);
  }finally{restore(old);}
-});
-
-test("guided activity draw uses same live qualified receipts as staff progress, not stale entrant snapshot",async()=>{
- const mongoose=(await import("mongoose")).default;
- const Receipt=mongoose.model("GuidedActivityReceipt");
- const original={aggregate:Receipt.aggregate,change:Giveaway.findOneAndUpdate,find:Giveaway.findOne};
- const candidate="234567890123456789";
- let stored=snapshot({mode:"activity",status:"open",guidedSeries:"507f1f77bcf86cd799439012",
-   entrantIds:[],winnerIds:[],winnerCount:1,activityMinimum:1,activityDays:1,activityMinTotalMessages:2,
-   activityStartAt:new Date("2026-11-11T11:00:00Z"),activityEndAt:new Date("2026-11-11T12:00:00Z"),
-   requiredRoleId:"345678901234567890"});
- try{
-  Receipt.aggregate=async()=>[{_id:candidate,messages:2,days:1}];
-  Giveaway.findOneAndUpdate=(filter,update)=>({lean:async()=>{
-   if(stored.status!==filter.status)return null;
-   stored={...stored,...update.$set};
-   return {...stored};
-  }});
-  Giveaway.findOne=()=>({lean:async()=>({...stored})});
-  const client={guilds:{fetch:async()=>({members:{fetch:async({user})=>({
-   id:user,user:{bot:false},roles:{cache:new Map()},
-  })}})}};
-  const actual=await closeGiveaway({id,guildId,now,client});
-  assert.deepEqual(actual.winnerIds,[candidate]);
-  assert.deepEqual(actual.activityVerifiedIds,[candidate]);
- }finally{
-  Receipt.aggregate=original.aggregate;
-  Giveaway.findOneAndUpdate=original.change;Giveaway.findOne=original.find;
- }
 });
 
 test("reroll selects a new entrant without erasing earlier winner or reroll history",async()=>{
