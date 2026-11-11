@@ -91,7 +91,7 @@ function layout(session) {
   let description = "**" + (editing ? "Editing " + name : "Step " + (session.index + 1) + " of " + list.length + " · " + name) + "**\n";
   description += "Current: " + label(currentStep, session.settings[field]) + "\n";
   if (field === "commandChannelId")
-    description += "Select the channel where server members should use normal bot slash commands. **Required**, even when the server only uses giveaways or cards.";
+    description += "Choose a **private staff-only Bot Commands channel** for setup, administration and general bot management. Hide this channel from @everyone. **Required** even if you only use giveaways or Hatchem.";
   else if (field === "cardRoleId")
     description += "Choose a non-administrator Collector role. The bot must have Manage Roles and its highest role must be above this role. Members only receive it when they register.";
   else if (field === "hatchemAutoDropsEnabled")
@@ -134,10 +134,12 @@ async function next(session) {
   } else session.index++;
   await show(session);
 }
-async function validateChannel(session, id) {
+async function validateChannel(session, id, {requirePrivate=false}={}) {
   const channel = await session.guild.channels.fetch(id).catch(() => null);
   if (!channel?.isTextBased?.() || !channel?.send || !channel?.permissionsFor)
     throw Error("The selected channel cannot receive bot messages.");
+  if(requirePrivate && channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
+    throw Error("The Bot Commands channel must be hidden from @everyone.");
   const bot = await session.guild.members.fetchMe();
   const perms = channel.permissionsFor(bot);
   for (const flag of [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])
@@ -161,7 +163,7 @@ async function saveGeneral(session) {
   if (!s.commandChannelId) throw Error("Choose the required commands channel.");
   const channels = {};
   for (const [field] of GENERAL_STEPS) {
-    if (s[field]) channels[field] = await validateChannel(session, s[field]);
+    if (s[field]) channels[field] = await validateChannel(session, s[field],{requirePrivate:field==="commandChannelId"});
   }
   // Validate first. Preserve existing posts, IDs, ownership and history. The
   // channel fields alone decide which features can create new content.
