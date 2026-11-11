@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import {data as setupCommand} from "../commands/setup.js";
-import {activityWizardPrompts,defaultActivityWizardSettings} from "../commands/activity-wizard.js";
+import {activityWizardPrompts,defaultActivityWizardSettings,activityWizardNumericOptions} from "../commands/activity-wizard.js";
 import {describeActivityGiveawaySetup,claimAnnouncementPreview,currentGiveawayClaimInstructions,giveawaySetupSteps,validateGiveawaySetupChannels} from "../commands/activity-giveaway-setup.js";
 import {validateTicketClaim} from "../services/giveaway-ticket-claims.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
@@ -190,4 +190,29 @@ test("walkthrough validates that Archives is private and distinct from all givea
    /hidden from @everyone/i);
  const noArchive={...base,giveawayArchiveChannelId:""};
  await validateGiveawaySetupChannels({...session,settings:noArchive});
+});
+
+test("every preset-based activity numeric step offers a custom amount",()=>{
+ const expected={minimum:"customMinimum",days:"customDays",winners:"customWinners",
+   claim:"customClaim",rerollsChoice:"customRerolls"};
+ for(const [step,custom] of Object.entries(expected)){
+   const choices=activityWizardNumericOptions(step,4);
+   assert.ok(choices.some(([label,value])=>label==="Custom Amount"&&value===custom),
+     step+" requires a working custom numeric path");
+ }
+ assert.ok(activityWizardNumericOptions("days",2).every(([,value])=>
+   value==="customDays"||Number(value)<=2));
+ for(const step of ["minimumCustom","daysCustom","winnerNumber","claimCustom","rerollsCustom",
+   "length","bonus","amount"]){
+   assert.ok(activityWizardPrompts[step],step+" must have a typed numerical prompt");
+   assert.equal(activityWizardPrompts[step].length,1,
+     step+" must accept a reply rather than require another preset");
+ }
+});
+
+test("regular and activity default settings offer custom reroll input alongside custom claim hours",()=>{
+ const source=describeActivityGiveawaySetup(claimSettings);
+ assert.match(source,/Automatic rerolls/);
+ assert.match(source,/Default claim window/);
+ assert.equal(new GuildConfig({guildId:guild}).activityMaxAutoRerolls,2);
 });
