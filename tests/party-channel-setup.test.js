@@ -4,6 +4,7 @@ import { PermissionFlagsBits } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import PartyGame from "../models/PartyGame.js";
 import { data as setupCommand, execute as saveChannels } from "../commands/setup.js";
+import {generalSetupFields} from "../commands/general-card-setup.js";
 import { data as partyCommand, execute as runParty, handlePartyInteraction } from "../commands/party.js";
 
 const guildId = "123456789012345678";
@@ -20,11 +21,11 @@ function restore(changes) {
 }
 
 test("Party Games setup defines an independent text-channel setting", () => {
-  const options = setupCommand.toJSON().options.find(opt => opt.name === "channels").options;
-  const party = options.find(opt => opt.name === "party_games");
-  assert.ok(party, "/setup channels must expose party_games");
+  const subcommands=setupCommand.toJSON().options.map(x=>x.name);
+  assert.ok(subcommands.includes("general"));
+  assert.ok(!subcommands.includes("channels"));
+  assert.ok(generalSetupFields.includes("partyGamesChannelId"),"/setup general configures Party Games");
   assert.ok(GuildConfig.schema.path("partyGamesChannelId"));
-  assert.equal(party.type, 7);
   const host = partyCommand.toJSON().options.find(opt => opt.name === "host");
   assert.ok(host && !host.options.some(opt => opt.name === "channel"),
     "Staff must not override the dedicated channel for each new lobby");
@@ -40,6 +41,7 @@ test("setup saves Party Games channel without modifying other channels", async (
       inGuild: () => true,
       guildId,
       options: {
+        getSubcommand:()=> "channels",
         getChannel: name => name === "party_games" ? {
           id: channelId, toString: () => "<#" + channelId + ">",
         } : null,
