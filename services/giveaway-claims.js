@@ -33,6 +33,19 @@ export function winnerClaimDeadline(record, slot) {
 export function winnerHasClaim(record, slot) {
   return (record.winnerClaims || []).some(c => c.slot === slot && c.userId === record.winnerIds?.[slot]);
 }
+export function giveawayArchiveOutcome(record) {
+  if (record?.status === "cancelled") return "Cancelled";
+  if (record?.status !== "ended") return null;
+  if (record.prizeDeliveredAt) return "All prizes delivered";
+  const winners = record.winnerIds || [];
+  if (!winners.length) return "Completed — no winners selected";
+  const closed = new Set(record.claimResolvedSlots || []);
+  if (winners.every((_, slot) => closed.has(slot))) return "All winning places closed";
+  if (record.mode !== "survival" && winners.every((_, slot) => closed.has(slot) || winnerHasClaim(record, slot)))
+    return "Claims complete — delivery unconfirmed";
+  return null;
+}
+
 export function automaticRerollLimit(record) {
   const n=record.maxAutoRerolls;
   return Number.isSafeInteger(n)&&n>=0&&n<=MAX_AUTO_REROLLS?n:DEFAULT_MAX_AUTO_REROLLS;

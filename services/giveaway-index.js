@@ -3,7 +3,7 @@ import {EmbedBuilder} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
-import {winnerHasClaim} from "./giveaway-claims.js";
+import {winnerHasClaim,giveawayArchiveOutcome} from "./giveaway-claims.js";
 
 const MARKER="AM Isa · Active Giveaway Index";
 const LEGACY_MARKER="AM Isa · Active Giveaway Index";
@@ -33,6 +33,7 @@ export function giveawayIndexStatus(record){
    if(record.prizeDeliveredAt)return {color:"🟩",label:"Prizes delivered — confirm archive"};
    if((record.winnerIds||[]).every((_,slot)=>(record.claimResolvedSlots||[]).includes(slot)))
      return {color:"🟥",label:"All winning places closed — confirm archive"};
+   if(giveawayArchiveOutcome(record))return {color:"🟩",label:"Claims complete — ready to archive"};
    if(hasOutstandingClaims(record))return {color:"🟨",label:"Waiting for winner claim"};
    return {color:"🟩",label:"Claim submitted — awaiting prize delivery"};
  }
@@ -84,7 +85,7 @@ export function activeGiveawayIndexEmbed({records=[],plans=[]}={}){
 
 export async function activeGiveawayIndexData(guildId,now=new Date()){
  const [all,plans]=await Promise.all([
-   Giveaway.find({guildId,status:{$in:[
+   Giveaway.find({guildId,archiveMovedAt:null,status:{$in:[
      "open","preparing","running","closing","pending_review","rerolling","ended","cancelled",
    ]}}).sort({createdAt:-1}).limit(400).lean(),
    GiveawayPlan.find({guildId,status:"active"}).sort({nextRunAt:1}).limit(150).lean(),

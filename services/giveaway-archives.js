@@ -1,23 +1,17 @@
+import {giveawayArchiveOutcome} from "./giveaway-claims.js";
 import {AttachmentBuilder,EmbedBuilder,PermissionFlagsBits} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {activityProgressRows,progressPanelPayload} from "./giveaway-staff-progress.js";
 
 export function giveawayReadyToArchive(record){
- if(!record || record.status==="draft" || record.status==="publishing" ||
-    record.status==="failed")return false;
- if(record.status==="cancelled")return true;
- return record.status==="ended" &&
-   (!(record.winnerIds||[]).length || Boolean(record.prizeDeliveredAt) ||
-     (record.winnerIds||[]).every((_,slot)=>(record.claimResolvedSlots||[]).includes(slot)));
+ return Boolean(giveawayArchiveOutcome(record));
 }
 const asDate=date=>date?new Date(date):new Date();
 const marker=record=>"Archived giveaway activity · "+record._id;
 const archiveNote=(record,at)=>[
   "**Archived at:** <t:"+Math.floor(+at/1000)+":F>",
-  "**Outcome:** "+(record.status==="cancelled"?"Cancelled":
-    record.prizeDeliveredAt?"Prize delivery confirmed by staff":
-      record.winnerIds?.length?"All winning places forfeited / closed":"No winners selected"),
+  "**Outcome:** "+giveawayArchiveOutcome(record),
   ...(record.prizeDeliveredBy?["**Delivery confirmed by:** <@"+record.prizeDeliveredBy+">"]:[]),
   ...(record.prizeDeliveryProofUrl?["**Proof:** <"+record.prizeDeliveryProofUrl+">"]:[]),
   ...(record.staffCancelledBy?["**Cancelled by:** <@"+record.staffCancelledBy+">"]:[]),
@@ -56,8 +50,12 @@ async function findOwnedMessage(channel,id,client,footer){
 }
 async function deleteOldMessage(client,channelId,id,archiveChannelId,record,{progress=false}={}){
  if(!channelId||!id||channelId===archiveChannelId)return;
- const channel=await client.channels.fetch(channelId).catch(()=>null);
- if(!channel?.messages?.fetch)return;
+ const channel=await client.channels.fetch(channelId).catch(error=>{
+   if(error.code===10003)return null;
+   throw error;
+ });
+ if(!channel)return;
+ if(!channel.messages?.fetch)throw Error("Cannot read the original staff channel for archive cleanup.");
  const message=await channel.messages.fetch(id).catch(e=>{
    if(e.code===10008)return null;throw e;
  });

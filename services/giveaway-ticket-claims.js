@@ -21,7 +21,7 @@ export function validateTicketClaim(number, link) {
 
 export async function submitGiveawayTicket({id,guildId,userId,ticketNumber,ticketUrl,now=new Date()}) {
   const record=await Giveaway.findOne({_id:id,guildId,status:"ended",mode:{$ne:"survival"}}).lean();
-  if (!record||record.prizeDeliveredAt||record.archivedAt) throw Error("This giveaway is not accepting ticket claims.");
+  if (!record||record.prizeDeliveredAt||record.archiveRequestedAt||record.archivedAt) throw Error("This giveaway is not accepting ticket claims.");
   const slot=record.winnerIds.indexOf(userId);
   if (slot<0) throw Error("Only a current winner may file a ticket claim.");
   if ((record.claimResolvedSlots || []).includes(slot)) throw Error("This winning place has expired.");
@@ -31,7 +31,7 @@ export async function submitGiveawayTicket({id,guildId,userId,ticketNumber,ticke
   if (deadline && now>=deadline) throw Error("Your claim deadline has passed. The bot will process the reroll.");
   const clean=validateTicketClaim(ticketNumber,ticketUrl);
   const updated=await Giveaway.findOneAndUpdate(
-    {_id:id,guildId,status:"ended",prizeDeliveredAt:null,archivedAt:null,[`winnerIds.${slot}`]:userId,
+    {_id:id,guildId,status:"ended",prizeDeliveredAt:null,archiveRequestedAt:null,archivedAt:null,[`winnerIds.${slot}`]:userId,
       winnerClaims:{$not:{$elemMatch:{slot,userId}}},claimResolvedSlots:{$ne:slot}},
     {$push:{winnerClaims:{slot,userId,...clean,submittedAt:now}},
       $set:{renderedAt:null},$inc:{renderVersion:1}},
