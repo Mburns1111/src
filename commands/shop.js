@@ -39,8 +39,7 @@ import { requireGuild } from "./shared.js";
 export const data = new SlashCommandBuilder()
   .setName("shop")
   .setDescription("Browse appearance items and your Points")
-  .addSubcommand(command => command.setName("browse").setDescription("Open the shop flipbook privately"))
-  .addSubcommand(command => command.setName("balance").setDescription("Check your Points balance"));
+  .addSubcommand(command => command.setName("browse").setDescription("Open your private appearance shop from the shop channel"));
 
 const CATEGORY_LABELS = {
   backgrounds: "Backgrounds", panels: "Panels", frames: "Frames",
@@ -434,10 +433,6 @@ async function pageFor(interaction, index, category = null, knownStatus = null) 
 }
 export async function execute(interaction) {
   requireGuild(interaction);
-  if (interaction.options.getSubcommand() === "balance") {
-    await interaction.editReply({ content: `You have **${await walletBalance(interaction.guildId, interaction.user.id)} Points**.` });
-    return;
-  }
   await sendShopDM(interaction, categories()[0]);
 }
 async function previewPayload(context, item, mix = {}) {
