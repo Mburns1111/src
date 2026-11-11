@@ -117,7 +117,7 @@ test("Archive Giveaway preserves claims, removes the public listing and moves th
   const archiveChannel={
     id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
     permissionsFor:()=>({has:()=>false}),
-    messages:{fetch:async()=>new Map()},
+    messages:{fetch:async()=>[]},
     send:async payload=>{archivePosts.push(payload);return {id:archivedId,author:{id:"bot"}};},
   };
   const publicChannel={messages:{fetch:async()=>({
