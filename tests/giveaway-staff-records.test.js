@@ -41,7 +41,7 @@ test("unclaimed winner staff record shows deadline and remaining rerolls",()=>{
  assert.match(description,/Reroll history/);
  const ids=staff.components.flatMap(r=>r.components).map(b=>b.data.custom_id);
  assert.ok(ids.includes("giveawaystaff:stop:"+id));
- assert.ok(!ids.includes("giveawaystaff:cancel:"+id));
+ assert.ok(ids.includes("giveawaystaff:cancel:"+id),"undelivered prizes may be cancelled");
  assert.ok(!ids.includes("giveawaystaff:remove:"+id), "unclaimed winner still has rerolls remaining");
 });
 
@@ -151,12 +151,17 @@ test("cancelling a live giveaway archives the reason and removes only its public
  }
 });
 
-test("settled prize claims restore the Archive Giveaway button",()=>{
+test("claim completion enables delivery confirmation, and only delivery enables archive",()=>{
  const claim={slot:0,userId:winner,ticketNumber:"123-ABC",ticketUrl:ticketLink,
    submittedAt:new Date("2026-11-08T13:45:00Z")};
  const record={...ended,winnerClaims:[claim]};
  const controls=giveawayStaffRecordPayload(record).components.flatMap(row=>row.components);
- assert.ok(controls.some(button=>button.data.custom_id==="giveawaystaff:remove:"+id &&
+ assert.ok(controls.some(button=>button.data.custom_id==="giveawaystaff:deliver:"+id &&
+   button.data.label==="Confirm Prizes Delivered"));
+ assert.ok(!controls.some(button=>button.data.custom_id==="giveawaystaff:remove:"+id));
+ const after=giveawayStaffRecordPayload({...record,prizeDeliveredAt:new Date(),
+   prizeDeliveredBy:record.creatorId}).components.flatMap(row=>row.components);
+ assert.ok(after.some(button=>button.data.custom_id==="giveawaystaff:remove:"+id &&
    button.data.label==="Archive Giveaway"));
 });
 
