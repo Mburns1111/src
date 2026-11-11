@@ -19,6 +19,7 @@ const archiveNote=(record,at)=>[
     record.prizeDeliveredAt?"Prize delivery confirmed by staff":
       record.winnerIds?.length?"All winning places forfeited / closed":"No winners selected"),
   ...(record.prizeDeliveredBy?["**Delivery confirmed by:** <@"+record.prizeDeliveredBy+">"]:[]),
+  ...(record.prizeDeliveryProofUrl?["**Proof:** <"+record.prizeDeliveryProofUrl+">"]:[]),
   ...(record.staffCancelledBy?["**Cancelled by:** <@"+record.staffCancelledBy+">"]:[]),
   ...(record.archiveRequestedBy?["**Archive approved by:** <@"+record.archiveRequestedBy+">"]:[]),
   ...(record.archiveRequestedReason?["**Archive reason:** "+record.archiveRequestedReason.slice(0,450)]:[]),
