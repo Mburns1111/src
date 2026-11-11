@@ -41,7 +41,7 @@ test("guided activity uses period-wide message totals separate from optional act
     activityEndAt:new Date("2026-11-12T00:00:00Z"),
     endsAt:new Date("2026-11-12T00:00:00Z"),activityChannelIds:[],...goals};
   const desc=activityOneOffListingEmbed(event).toJSON().description;
-  assert.match(desc,/10 matching messages/);
+  assert.match(desc,/10 messages/);
   assert.match(desc,/3 different days/i);
   assert.doesNotMatch(desc,/per day/i);
 });
