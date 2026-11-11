@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
-import {giveawayStaffRecordPayload,staffRecordMarker,handleGiveawayStaffAction,ensureGiveawayStaffRecord} from "../services/giveaway-staff-records.js";
+import {giveawayStaffRecordPayload,giveawayStaffRecordColor,staffRecordMarker,handleGiveawayStaffAction,ensureGiveawayStaffRecord} from "../services/giveaway-staff-records.js";
 
 const id="507f1f77bcf86cd799439011",guildId="123456789012345678",
   winner="234567890123456789",ticketLink="https://discord.com/channels/123456789012345678/345678901234567890/456789012345678901?jump=1";
@@ -236,4 +236,20 @@ test("finished or cancelled staff records stay active without an explicit archiv
   ])assert.equal(await ensureGiveawayStaffRecord(client,state),true);
   assert.deepEqual(destinations,Array(3).fill(ended.staffCardChannelId));
  }finally{GuildConfig.findOne=original.config;Giveaway.updateOne=original.update;}
+});
+
+test("staff record embed border uses blue yellow green and red status colors",()=>{
+ const base={...ended};
+ const samples=[
+  [{...base,status:"open",winnerIds:[]},0x3498db],
+  [{...base,status:"ended",winnerClaims:[]},0xf1c40f],
+  [{...base,status:"ended",winnerClaims:[{slot:0,userId:winner,ticketNumber:"T-123"}]},0x2ecc71],
+  [{...base,status:"ended",prizeDeliveredAt:new Date()},0x2ecc71],
+  [{...base,status:"cancelled"},0xe74c3c],
+  [{...base,status:"ended",winnerIds:[]},0xe74c3c],
+ ];
+ for(const [record,color] of samples){
+  assert.equal(giveawayStaffRecordColor(record),color);
+  assert.equal(giveawayStaffRecordPayload(record).embeds[0].toJSON().color,color);
+ }
 });
