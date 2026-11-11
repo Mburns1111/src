@@ -84,7 +84,7 @@ test("deleted completed listings are gray regardless of previous red, yellow or 
       {winnerIds:[],winnerClaims:[]}, // nobody entered
     ]){
       const archived=record({...base,...claims});
-      const payload=giveawayStaffRecordPayload(archived);
+      const payload=giveawayStaffRecordPayload(archived,{archived:true});
       const embed=payload.embeds[0].toJSON();
       assert.match(embed.title,/⬜ ARCHIVED/);
       assert.match(embed.description,mode==="survival"
