@@ -343,7 +343,7 @@ export async function handleGiveawayStaffAction(interaction){
        return interaction.editReply("This giveaway is not awaiting prize-delivery confirmation.");
      if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="DELIVERED")
        return interaction.editReply("Delivery not confirmed. Type DELIVERED to continue.");
-     const proof=interaction.fields.getField?.("proof",false)?.value?.trim()||"";
+     const proof=interaction.fields.getTextInputValue("proof").trim();
      if(!validPrizeDeliveryProofUrl(proof))
        return interaction.editReply("Proof must be a Discord message link (https://discord.com/channels/server-id/channel-id/message-id). Leave it blank if you do not have one.");
      const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
