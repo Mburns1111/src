@@ -83,15 +83,18 @@ test("all prize places must be claimed or past deadline with no replacements lef
   assert.equal(completedGiveawayCanDeleteListing({...multi,claimResolvedSlots:[]},{now:afterDeadline}),false);
 });
 
-test("live, cancelled and removed events cannot archive; completed legacy Trials can archive",()=>{
+test("live and unsettled events cannot archive; cancelled and removed records can move",()=>{
   for(const rec of [
     record({status:"open",winnerIds:[]}),
-    record({status:"cancelled",winnerIds:[]}),
-    record({publicListingRemovedAt:new Date(),winnerClaims:[ticket(0,winnerA)]}),
      record({claimWindowHours:null,claimResolvedSlots:[0]}),
   ]) {
     assert.equal(completedGiveawayCanDeleteListing(rec,{now:afterDeadline}),false);
     assert.ok(!buttons(rec).includes("giveawaystaff:remove:"+id));
+  }
+  for(const archived of [record({status:"cancelled",winnerIds:[]}),record({publicListingRemovedAt:new Date(),winnerClaims:[ticket(0,winnerA)]})]) {
+    assert.equal(completedGiveawayCanDeleteListing(archived),false);
+    assert.ok(buttons(archived).includes("giveawaystaff:remove:"+id));
+    assert.ok(!giveawayStaffRecordPayload(archived,{archived:true}).components.flatMap(row=>row.components).some(button=>button.data.custom_id==="giveawaystaff:remove:"+id));
   }
   const legacyTrial=record({mode:"survival",trialTicketClaimsEnabled:false,winnerClaims:[ticket(0,winnerA)]});
   assert.equal(completedGiveawayCanDeleteListing(legacyTrial,{now:afterDeadline}),true);
