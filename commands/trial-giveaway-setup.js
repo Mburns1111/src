@@ -17,11 +17,11 @@ import { DEFAULT_CLAIM_INSTRUCTIONS, MAX_TRIAL_CLAIM_MINUTES } from "../services
 const sessions = new Map();
 const SESSION_MS = 30 * 60_000;
 const STEPS = [
-  "channel", "staff", "managerRole", "requiredRole", "roleHelp", "roleHelpVisible",
+  "channel", "staff", "archive", "managerRole", "requiredRole", "roleHelp", "roleHelpVisible",
   "instructions", "minutes", "rerolls", "roles", "banner", "review",
 ];
 const STEP_NAMES = {
-  channel: "Court's Trial channel", staff: "Private staff controls",
+  channel: "Court's Trial channel", staff: "Private staff controls",archive: "Private giveaway archive",
   managerRole: "Giveaway Manager role",
   requiredRole: "Default required role", roleHelp: "How to obtain the role",
   roleHelpVisible: "Show role instructions", instructions: "Claim instructions",
@@ -43,6 +43,7 @@ export function trialSetupSummary(settings) {
     "**The Court's Trial — Setup Review**",
     "⚔️ **Signup and eliminations:** " + shown(settings.survivalTrialChannelId),
     "🔒 **Private staff controls:** " + shown(settings.activityGiveawayReviewChannelId),
+    "🗄️ **Private giveaway archive (required):** " + shown(settings.giveawayArchiveChannelId),
     "🔑 **Giveaway Manager role:** " + roleShown(settings.giveawayManagerRoleId),
     "🎟️ **Default required role:** " + roleShown(settings.trialDefaultRequiredRoleId),
     "👁️ **Display role instructions:** " + (settings.trialShowRoleInstructions !== false ? "Yes" : "No"),
@@ -92,18 +93,22 @@ function layout(session,banners=[]) {
         "Banner · "+label) + "**\n";
   const components = [];
   let content = "";
-  if (step === "channel" || step === "staff") {
+  if (step === "channel" || step === "staff" || step === "archive") {
     const staff = step === "staff";
-    content = staff
-      ? "Select the **private staff channel** for live Trials, winner claims and administrative controls. This channel is shared with regular and activity giveaway staff records. It must be hidden from @everyone."
-      : "Select the channel where Court's Trial signups, eliminations and the final Royal Verdict are published. It must be different from regular and activity giveaway channels.";
-    const id = s[staff ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"];
+    const isPrivate = staff || step === "archive";
+    content = step === "archive"
+      ? "Select the required **private giveaway archive channel** for settled regular giveaways, activity giveaways and Court's Trials. The archive is shared by all three types and must be separate from staff controls and hidden from @everyone."
+      : staff
+        ? "Select the **private staff channel** for live Trials, winner claims and administrative controls. This channel is shared with regular and activity giveaway staff records. It must be hidden from @everyone."
+        : "Select the channel where Court's Trial signups, eliminations and the final Royal Verdict are published. It must be different from regular and activity giveaway channels.";
+    const id = s[step === "archive" ? "giveawayArchiveChannelId" :
+      staff ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"];
     content += "\n**Current:** " + shown(id);
     components.push(new ActionRowBuilder().addComponents(
       new ChannelSelectMenuBuilder().setCustomId(selectId(session, "chooseChannel"))
-        .setPlaceholder(staff ? "Private staff channel" : "Court's Trial channel")
+        .setPlaceholder(step === "archive" ? "Private archive channel" : staff ? "Private staff channel" : "Court's Trial channel")
         .setMinValues(1).setMaxValues(1).addChannelTypes(
-          ...(staff ? [ChannelType.GuildText] :
+          ...(isPrivate ? [ChannelType.GuildText] :
             [ChannelType.GuildText, ChannelType.GuildAnnouncement]),
         )));
     if (id) components.push(buttons(session, [["Keep selected channel", "keep"]]));
@@ -211,16 +216,16 @@ async function advance(session) {
 }
 async function validateChannels(session) {
   const s = session.settings;
-  const ids = [s.survivalTrialChannelId, s.activityGiveawayReviewChannelId];
-  if (ids.some(id => !id) || ids[0] === ids[1])
-    throw Error("Select different public Trial and private staff channels.");
+  const ids = [s.survivalTrialChannelId, s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId];
+  if (ids.some(id => !id) || new Set(ids).size !== ids.length)
+    throw Error("Select separate public Trial, private staff, and private archive channels.");
   const config = await GuildConfig.findOne({ guildId: session.guild.id }).lean();
   if ([config?.giveawayChannelId, config?.activityGiveawayListChannelId,
     config?.activityGiveawayWinnersChannelId].includes(ids[0]))
     throw Error("Court's Trials must use a different channel from regular or activity giveaways.");
   if ([config?.giveawayChannelId, config?.activityGiveawayListChannelId,
-    config?.activityGiveawayWinnersChannelId].includes(ids[1]))
-    throw Error("Staff controls need a private channel separate from the public giveaway channels.");
+    config?.activityGiveawayWinnersChannelId].some(id=>id && (id===ids[1]||id===ids[2])))
+    throw Error("Staff controls and archives must be separate from the public giveaway channels.");
   for (const [index, id] of ids.entries()) {
     const channel = await session.guild.channels.fetch(id).catch(() => null);
     if (!channel?.send || !channel?.permissionsFor)
@@ -229,8 +234,8 @@ async function validateChannels(session) {
     for (const permission of [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])
       if (!perms?.has(permission))
         throw Error("Bot needs View Channel, Send Messages, Embed Links in <#" + id + ">.");
-    if (index === 1 && channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
-      throw Error("The staff channel must be hidden from @everyone before saving.");
+    if (index > 0 && channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
+      throw Error("Staff controls and the archive must both be hidden from @everyone before saving.");
   }
 }
 async function process(session, action, value) {
@@ -284,9 +289,9 @@ async function process(session, action, value) {
     return;
   }
   if (action === "keep") return advance(session);
-  if (session.step === "channel" || session.step === "staff") {
+  if (["channel","staff","archive"].includes(session.step)) {
     if (action !== "chooseChannel") throw Error("Choose a channel from the selector.");
-    s[session.step === "staff" ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"] = value;
+    s[session.step === "archive" ? "giveawayArchiveChannelId" : session.step === "staff" ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"] = value;
     return advance(session);
   }
   if (session.step === "managerRole") {
@@ -395,6 +400,7 @@ export async function startTrialGiveawaySetup(interaction) {
   const s = {
     survivalTrialChannelId: config?.survivalTrialChannelId || "",
     activityGiveawayReviewChannelId: config?.activityGiveawayReviewChannelId || "",
+    giveawayArchiveChannelId: config?.giveawayArchiveChannelId || "",
     giveawayManagerRoleId: config?.giveawayManagerRoleId || "",
     trialDefaultRequiredRoleId: config?.trialDefaultRequiredRoleId ?? config?.giveawayDefaultRequiredRoleId ?? "",
     trialRoleInstructions: config?.trialRoleInstructions ?? config?.giveawayRoleInstructions ?? "",
