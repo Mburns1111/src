@@ -230,6 +230,15 @@ export async function startActivityWizard(i){
   sessions.set(key,session);
   return i.editReply("Your activity setup is open in this channel.");
 }
+export function activityWizardFlowNext(step,choice,editing=false){
+ const completed=next=>editing?"summary":next;
+ if(step==="draw")return choice==="later"?"later":completed("repeat");
+ if(step==="later")return completed("repeat");
+ if(step==="repeat")return choice==="custom"?"unit":completed("extras");
+ if(step==="amount")return completed("extras");
+ if(step==="extras"&&choice==="done")return completed("summary");
+ throw Error("No direct flow transition for "+step+" / "+choice);
+}
 const finishGroup=(session,next)=>session.editing?(session.editing=false,"summary"):next;
 async function accept(session,input,client){
   const v=typeof input==="string"?input:input.content;
@@ -307,15 +316,16 @@ async function accept(session,input,client){
     case "winners":case "winnerNumber":
       if(v==="customWinners"){next="winnerNumber";break;}
       s.winners=number(v,1,10);next=done("draw");break;
-    case "draw":s.firstDraw=null;next=v==="later"?"later":done("repeat");break;
+    case "draw":s.firstDraw=null;next=activityWizardFlowNext("draw",v,session.editing);if(next==="summary")session.editing=false;break;
     case "later":{
       const date=parseEasternAnnouncement(v);
       if(date<windowEnd(s,now))throw Error("Choose a time after activity counting ends.");
-      s.firstDraw=date;next=done("repeat");break;
+      s.firstDraw=date;next=activityWizardFlowNext("later",v,session.editing);if(next==="summary")session.editing=false;break;
     }
     case "extras":
       if(v==="approval"||v==="progress"){s[v]=!s[v];next="extras";}
-      else next=v==="done"?done("summary"):v;break;
+      else if(v==="done"){next=activityWizardFlowNext("extras",v,session.editing);session.editing=false;}
+      else next=v;break;
     case "claim":case "claimCustom":
       if(v==="customClaim"){next="claimCustom";break;}
       s.claimHours=number(v,1,720);next="extras";break;
@@ -381,9 +391,9 @@ async function accept(session,input,client){
       if(bonuses.length>=20)throw Error("At most 20 roles can have bonus chances.");
       s.bonuses=[...bonuses,{roleId:session.role,extraEntries}];next="extras";break;
     }
-    case "repeat":s.repeat=v;next=v==="custom"?"unit":done("extras");break;
+    case "repeat":s.repeat=v;next=activityWizardFlowNext("repeat",v,session.editing);if(next==="summary")session.editing=false;break;
     case "unit":s.unit=v.toLowerCase();next="amount";break;
-    case "amount":s.amount=number(v,1,525600);s.interval=s.amount*({minutes:1,hours:60,days:1440}[s.unit]);next=done("extras");break;
+    case "amount":s.amount=number(v,1,525600);s.interval=s.amount*({minutes:1,hours:60,days:1440}[s.unit]);next=activityWizardFlowNext("amount",v,session.editing);if(next==="summary")session.editing=false;break;
     case "edit":session.editing=true;next=v;break;
     case "summary":{
       if(v==="edit"){next="edit";break;}
