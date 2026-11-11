@@ -72,6 +72,21 @@ test("setup exposes two distinct optional giveaway channel selectors", () => {
   }
 });
 
+test("setup explicitly saves and clears the Giveaway Manager role without changing channels",async()=>{
+ const changes=[];
+ const updated=[];
+ try{
+  stub(changes,GuildConfig,"findOneAndUpdate",async (filter,update)=>{
+   updated.push({filter,update});
+  });
+  const role={id:"123456789012345679",managed:false};
+  await setupChannels(setupInteraction({}, {giveaway_manager:role}));
+  assert.deepEqual(updated.at(-1).update.$set,{giveawayManagerRoleId:role.id});
+  await setupChannels(setupInteraction({}, {}, {clear_giveaway_manager:true}));
+  assert.deepEqual(updated.at(-1).update.$set,{giveawayManagerRoleId:""});
+ }finally{restore(changes);}
+});
+
 test("setup persists each channel independently, without changing other settings", async () => {
   const changes = [];
   const updated = [];
