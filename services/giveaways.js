@@ -2,15 +2,31 @@ import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
-import GuildConfig from "../models/GuildConfig.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
 import {qualifyingActivity,qualifyingWatchActivity,countActivityParticipants} from "./giveaway-activity-counter.js";
-import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, automaticRerollLimit, automaticRerollsUsed } from "./giveaway-claims.js";
+import { prizeClaimLines, winnerClaimDeadline, winnerHasClaim, nextClaimCheckAt, hasOutstandingTicketClaims, giveawayHasNoEligibleWinner, automaticRerollLimit, automaticRerollsUsed } from "./giveaway-claims.js";
 import { MAX_TRIAL_ENTRANTS, survivalAnnouncement, publishSurvivalAnnouncement } from "./survival-giveaways.js";
 
-export const GIVEAWAY_MAX_MINUTES = 60 * 24 * 14;
+// Six calendar months (rather than a fixed 180 days) varies with the start date.
+export const GIVEAWAY_MAX_MINUTES = 60 * 24 * 184;
+export function sixCalendarMonthsAfter(value=new Date()){
+  const start=new Date(value);
+  if(!Number.isFinite(start.getTime()))throw Error("Invalid giveaway start date.");
+  const monthIndex=start.getUTCFullYear()*12+start.getUTCMonth()+6;
+  const year=Math.floor(monthIndex/12),month=monthIndex%12;
+  const lastDay=new Date(Date.UTC(year,month+1,0)).getUTCDate();
+  return new Date(Date.UTC(year,month,Math.min(start.getUTCDate(),lastDay),
+    start.getUTCHours(),start.getUTCMinutes(),
+    start.getUTCSeconds(),start.getUTCMilliseconds()));
+}
+export function maxRegularGiveawayMinutes(start=new Date()){
+  const from=new Date(start);
+  return Math.min(GIVEAWAY_MAX_MINUTES,
+    Math.floor((sixCalendarMonthsAfter(from)-from)/60000));
+}
+
 export const GIVEAWAY_MAX_WINNERS = 10;
 
 export function chooseGiveawayWinners(entrantIds, count, excluded = []) {
@@ -28,37 +44,63 @@ export function giveawayAnnouncement(record) {
   if (record.mode === "survival") return survivalAnnouncement(record);
   const ended = record.status === "ended" || record.status === "rerolling";
   const finishing = record.status === "closing";
-  const allSlotsForfeited=Boolean(record.winnerIds?.length)&&record.winnerIds.every((_,slot)=>
-    (record.claimResolvedSlots||[]).includes(slot));
-  const claimsClosed=Boolean(record.prizeDeliveredAt||record.archivedAt||allSlotsForfeited);
-  const pendingClaimSlots=(record.winnerIds||[]).filter((userId,slot)=>
-    !(record.claimResolvedSlots||[]).includes(slot)&&!winnerHasClaim(record,slot)).length;
-  // Keep claims available to anyone still waiting, but remove the instructions
-  // and modal button once every winner has submitted or forfeited their place.
-  const acceptingClaims=ended&&record.status==="ended"&&!claimsClosed&&pendingClaimSlots>0;
   const endUnix = Math.floor(new Date(record.endsAt).getTime() / 1000);
+  const noEligibleWinner=giveawayHasNoEligibleWinner(record);
+  // A finished prize with no eligible winner needs a clear, compact public
+  // result, not the entry rules, old winner audit trail, ticket instructions,
+  // historical rerolls, and multiple contradictory outcome sections.
+  // Private staff records retain the full history.
+  if(noEligibleWinner){
+    const endedAt=new Date(record.endsAt);
+    const when=Number.isFinite(endedAt.getTime())
+      ? "<t:"+Math.floor(endedAt.getTime()/1000)+":F>":"";
+    const noEntries=!(record.winnerIds||[]).length;
+    const lines=[
+      "**"+String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)+"**",
+      "",
+      "🎁 **Prize:** "+String(record.prize||"").slice(0,800),
+      "",
+      "🏁 **Giveaway ended — No eligible winner.**",
+      noEntries?"No one entered or qualified.":
+        "The prize was not claimed and no eligible replacement was available.",
+      ...(when?["","**Ended:** "+when]:[]),
+    ];
+    return {
+      embeds:[new EmbedBuilder().setColor(0x86738d)
+        .setTitle("🏁 Giveaway Ended · No Eligible Winner")
+        .setDescription(lines.join("\n").slice(0,3900))
+        .setFooter({text:"Giveaway ID: "+record._id+" · This announcement is kept after the giveaway ends"})],
+      components:[],allowedMentions:{parse:[]},
+    };
+  }
+  const activeWinners=(record.winnerIds||[]).filter((id,i)=>
+    id && !(record.claimResolvedSlots||[]).includes(i));
   const winners = (record.winnerIds || []).map((id, i) => (record.claimResolvedSlots || []).includes(i)
-    ? `${i + 1}. Claim forfeited (originally <@${id}>) — no further automatic replacement`
+    ? `${i + 1}. **No eligible winner** — <@${id}> did not claim; no replacement available`
     : `${i + 1}. <@${id}>`);
   const changed = (record.rerollHistory || []).slice(-8).map(item =>
     `#${item.slot + 1}: <@${item.previousId}> → <@${item.replacementId}>`);
   const activity = record.mode === "activity";
-  const foxStory = activity ? null : ended
-    ? winners.length === 1
-      ? `🦊 **The fox cackles:** "My sneaky helper <@${record.winnerIds[0]}> distracted <@${record.creatorId}> while I swiped the prize straight from their pocket! What a marvelous heist!"`
-      : winners.length > 1
+  const foxStory = activity ? (ended ? "🥀 Activity giveaway concluded." : "🥀 Activity entries are locked; no manual entry.") : ended
+    ? noEligibleWinner
+      ? ((record.winnerIds||[]).length
+        ? `🦊 **The fox sighs:** "No one could claim this prize, so it stays tucked away for another day."`
+        : `🦊 **The fox sighs:** "No accomplice showed up, so the prize stays tucked away for another day."`)
+      : activeWinners.length === 1
+        ? `🦊 **The fox cackles:** "My sneaky helper <@${activeWinners[0]}> distracted <@${record.creatorId}> while I swiped the prize straight from their pocket! What a marvelous heist!"`
+      : activeWinners.length > 1
         ? `🦊 **The fox cackles:** "My clever helpers pulled off the great pocket heist! We snatched the prizes right out of <@${record.creatorId}>'s pocket. Not a whisker out of place!"`
         : `🦊 **The fox sighs:** "No accomplice showed up, so the prize stays tucked in <@${record.creatorId}>'s pocket. Foiled again!"`
     : `🦊 **The fox whispers:** "Psst! I spotted something shiny in <@${record.creatorId}>'s pocket. Enter below and you might be the accomplice I need to swipe the prize!"`;
   const lines = [
-    activity && ended ? `🏆 **${winners.length ? "The Court Has Chosen" : "No Winner Selected"}** · **${String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)}**` :
     `**${String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)}**`,"",
-    ...(foxStory ? [foxStory, ""] : []),
-    activity ? `🎁 **Prize:** ${record.prize.slice(0, 1700)}` : record.prize.slice(0, 1800),
+    foxStory,
+    "",
+    record.prize.slice(0, 1800),
     ...(record.description ? ["", "**Giveaway Details:**", String(record.description).slice(0,1000)] : []),
     "",
     `**Hosted by:** <@${record.creatorId}>`,
-    ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Winners:** ${winners.length}` : activity ? `**Locked entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
+    ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Eligible winners:** ${activeWinners.length}` : activity ? `**Locked entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
     ended
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
@@ -70,54 +112,39 @@ export function giveawayAnnouncement(record) {
     ...(record.rules ? ["", "**Rules / Requirements:**", record.rules.slice(0, 1300)] : []),
   ];
   if (ended) {
-    if(activity){
-      if(!winners.length)lines.push("","No qualifying members were found for this drawing.");
-      else{
-        lines.push("");
-        for(let slot=0;slot<record.winnerIds.length;slot++){
-          const userId=record.winnerIds[slot];
-          const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===userId);
-          const deadline=winnerClaimDeadline(record,slot);
-          const forfeited=(record.claimResolvedSlots||[]).includes(slot);
-          const state=forfeited?"Claim forfeited — no further automatic replacement":
-            record.prizeDeliveredAt?"Prize delivered":
-            claim?"Claim submitted":
-            "Awaiting ticket claim"+(deadline?" · Due <t:"+Math.floor(deadline.getTime()/1000)+":R>":"");
-          lines.push((record.winnerIds.length>1?"**#"+(slot+1)+"** ":"")+"<@"+userId+"> — "+state);
-        }
-      }
-    }else{
-      lines.push("", winners.length ? "**Winners**" : "**No winner selected**",
-        ...(winners.length ? winners : ["No eligible entries — no winner was selected."]));
-      if(record.mode!=="survival" && (record.winnerIds||[]).length){
-        lines.push("","**Winner ticket claims**");
-        for(let slot=0;slot<record.winnerIds.length;slot++){
-          const userId=record.winnerIds[slot];
-          const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===userId);
-          const deadline=winnerClaimDeadline(record,slot);
-          if(claim)lines.push(`#${slot+1} <@${userId}> — **Claim submitted successfully**`);
-          else if((record.claimResolvedSlots||[]).includes(slot))
-            lines.push(`#${slot+1} <@${userId}> — Claim expired; no further automatic replacement.`);
-          else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline?` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>`:""}`);
-        }
+    if(noEligibleWinner)
+      lines.push("", "🏁 **Final outcome: No eligible winner.**",
+        (record.winnerIds||[]).length
+          ? "*The claim deadline passed and no eligible replacement was available.*"
+          : "*Nobody entered or qualified for this giveaway.*");
+    lines.push("", "**Winners / Results**", ...(winners.length ? winners : ["**No eligible winner** — no eligible entries."]));
+    if (record.mode !== "survival" && (record.winnerIds || []).length) {
+      lines.push("", "**Winner ticket claims**");
+      for (let slot=0;slot<record.winnerIds.length;slot++) {
+        const userId=record.winnerIds[slot];
+        const claim=(record.winnerClaims || []).find(c=>c.slot===slot && c.userId===userId);
+        const deadline=winnerClaimDeadline(record,slot);
+        if (claim) {
+          lines.push(`#${slot+1} <@${userId}> — **Claim submitted successfully**`);
+        } else if ((record.claimResolvedSlots || []).includes(slot))
+          lines.push(`#${slot+1} — **No eligible winner** · <@${userId}> forfeited their claim; no replacement available.`);
+        else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline ? (deadline<=new Date()?` · **Claim deadline expired**`:` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>`) : ""}`);
       }
     }
-    const claims = acceptingClaims ? prizeClaimLines(record, { finished: true }) : [];
-    if(record.prizeDeliveredAt)lines.push("","**Prize delivery:** Confirmed complete.");
-    else if(allSlotsForfeited)lines.push("","**Claims:** All winning places are closed.");
+    const claims = prizeClaimLines(record, { finished: true });
     if (claims.length) lines.push("", "**Claiming your prize:** Follow the instructions below and use the claim button before the deadline.");
-    else if(record.winnerIds?.length && !claimsClosed && pendingClaimSlots===0)
-      lines.push("","**All winner claims received.** Prize delivery is being arranged by staff.");
-    if (changed.length) lines.push("", "**Reroll history**", ...changed);
-    if (winners.length&&acceptingClaims) lines.push("", "*Prize delivery is handled by the giveaway host.*");
+    if(record.mode==="activity" && !record.winnerIds?.length)
+      lines.push("", "**Outcome:** No qualifying members won this drawing.");
+    // Reroll history remains in the private staff record, not the public announcement.
+    lines.push("", "*Prize delivery is handled by the giveaway host.*");
   }
   const description = lines.join("\n").slice(0, 4000);
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x86738d : 0xb47e99)
+    .setTitle(ended ? (noEligibleWinner ? "🦊 Giveaway Ended · No Eligible Winner" : "🦊 Heist Complete") : "🦊 The Fox’s Giveaway")
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
-  if(!activity)embed.setTitle(ended ? "🦊 Heist Complete" : "🦊 The Fox’s Giveaway");
-  if(acceptingClaims){
+  if(ended && record.status==="ended" && (record.winnerIds||[]).length){
     const instructions=prizeClaimLines(record,{finished:true});
     for(const [index,line] of instructions.entries()){
       const headings=["Claim deadline","Prize collection instructions","Required ticket submission","⚠️ Forfeit deadline"];
@@ -127,7 +154,7 @@ export function giveawayAnnouncement(record) {
     }
 
   }
-  const components = acceptingClaims && record.mode !== "survival"
+  const components = ended && record.status === "ended" && record.mode !== "survival" && hasOutstandingTicketClaims(record)
     ? [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`giveaway:claim:${record._id}`).setLabel("Enter Ticket Claim info").setStyle(ButtonStyle.Primary),
       )]
@@ -159,11 +186,9 @@ export async function refreshActiveStandardGiveawayBanners(client,guildId) {
 }
 export async function giveawayAnnouncementWithBanner(record) {
   const announcement=giveawayAnnouncement(record);
-  const config=await GuildConfig.findOne({guildId:record.guildId});
-  if(/^#[0-9a-fA-F]{6}$/.test(config?.giveawayEmbedColor||""))
-    announcement.embeds[0].setColor(parseInt(config.giveawayEmbedColor.slice(1),16));
-  if(record.mode==="survival")return announcement;
-  const banner=await getGiveawayBanner(record.guildId,record.bannerNameKey);
+  // Trial art is independent from the regular giveaway default banner.
+  const banner=record.mode==="survival" && !record.bannerNameKey ? null :
+    await getGiveawayBanner(record.guildId,record.bannerNameKey);
   return attachGiveawayBanner(announcement,banner);
 }
 
@@ -217,18 +242,11 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   if (!item || item.mode === "survival" || !["closing", "ended"].includes(item.status)) return item;
   if (item.status === "ended") return item;
   let eligible = item.entrantIds || [];
-  if(item.mode==="activity"&&item.guidedSeries){
-    // Guided receipts already applied the role/mention/phrase checks when each
-    // message was recorded. Rebuild from the same source as the staff progress
-    // panel when drawing, rather than relying on an earlier entrant snapshot.
-    const roster=await activityRoster(item);
-    eligible=roster.filter(row=>row.qualified).map(row=>String(row._id));
-  }
   if (item.mode==="activity" && !client) throw Error("Discord client required to verify activity entrants.");
   let entries=[];
   if(client){
     const members=await verifyServerMembers(client,item.guildId,eligible,{includeMembers:true});
-    const permitted=members.filter(m=>item.guidedSeries||!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId));
+    const permitted=members.filter(m=>!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId));
     eligible=permitted.map(m=>m.id);
     entries=weightEntriesForMembers(permitted,item.roleBonuses);
   }
@@ -249,9 +267,11 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
 export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "staff", now = new Date(), client = null }) {
   const item = await Giveaway.findOne({ _id: id, guildId, status: "ended" }).lean();
   if (!item) throw Error("That giveaway is not finished or does not exist.");
-  if(item.prizeDeliveredAt||item.archiveRequestedAt||item.archivedAt)throw Error("This giveaway has been fulfilled or archived and cannot be rerolled.");
+  if(item.publicListingRemovedAt) throw Error("This completed giveaway listing has already been deleted and cannot be rerolled.");
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Choose an existing winner number to reroll.");
+  if(reason==="staff" && (winnerHasClaim(item,slot)||(item.claimResolvedSlots||[]).includes(slot)))
+    throw Error("This prize place has already been claimed or permanently resolved. Only unclaimed winners can be manually rerolled.");
   if (reason==="claim-expired") {
     const deadline=winnerClaimDeadline(item,slot);
     if (!item.autoRerollClaims || !deadline || deadline>now || winnerHasClaim(item,slot) ||
@@ -268,8 +288,11 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
     [...new Set(pool)];
   if (!verified.length) throw Error("There are no unused current server members left for a reroll.");
   const reserved = await Giveaway.findOneAndUpdate(
-    { _id: id, guildId, status: "ended",prizeDeliveredAt:null,archiveRequestedAt:null,archivedAt:null,
-      ...(reason==="claim-expired" ? {winnerClaims:{$not:{$elemMatch:{slot,userId:item.winnerIds[slot]}}},claimResolvedSlots:{$ne:slot}} : {}) },
+    { _id: id, guildId, status: "ended",
+      ...(reason==="claim-expired"||reason==="staff"
+        ? {winnerClaims:{$not:{$elemMatch:{slot,userId:item.winnerIds[slot]}}},
+          claimResolvedSlots:{$ne:slot},[`winnerIds.${slot}`]:item.winnerIds[slot]}
+        : {}) },
     { $set: { status: "rerolling", pendingRerollSlot: slot, pendingRerollStaffId: staffId,
       pendingRerollReason:reason,pendingRerollAt:now,pendingRerollEligibleIds:verified,renderedAt:null } },
     { returnDocument: "after" },
@@ -301,6 +324,9 @@ export async function finishPendingReroll(item) {
       pendingRerollReason:"",pendingRerollAt:null,pendingRerollEligibleIds:[],claimCheckAt:nextClaimCheckAt(reissued),renderedAt:null },
     $push: { rerollHistory: { slot,previousId,replacementId,staffId:item.pendingRerollStaffId,
       reason:item.pendingRerollReason||"staff",at:item.pendingRerollAt||new Date() } },
+    // A replacement receives its own claim window. Do not carry forward a
+    // previous winner's exhausted/no-candidates flag to this prize place.
+    $pull: { claimResolvedSlots: slot },
     $inc: { renderVersion: 1 },
   }, { returnDocument: "after" }).lean();
   return changed || Giveaway.findById(item._id).lean();
@@ -311,6 +337,7 @@ export async function publishGiveawayResult(client, item) {
     try{await ensureGiveawayStaffRecord(client,item);}
     catch(error){console.error("[Giveaways] Private staff update failed:",item._id,error);}
   }
+  if(item?.publicListingRemovedAt)return false; // Never republish a completed deleted listing.
   if(item?.mode==="activity" && item.status==="ended" && !item.winnerIds?.length &&
      item.announceEmptyResults===false){
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
