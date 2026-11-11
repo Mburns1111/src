@@ -1,15 +1,20 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
+
 import { submitGiveawayTicket } from "../services/giveaway-ticket-claims.js";
 import { winnerClaimDeadline, winnerHasClaim, DEFAULT_CLAIM_HOURS } from "../services/giveaway-claims.js";
 import { startActivityWizard } from "./activity-wizard.js";
+import {refreshActivityClaimReviewMessage} from "../services/giveaway-review.js";
 import GiveawayWatchRule, { watchNameKey } from "../models/GiveawayWatchRule.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
-import {addGiveawayPlanCommands,executeGiveawayPlanAdmin,PLAN_OPERATIONS} from "./giveaway-plans.js";
-import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,BANNER_OPERATIONS} from "./giveaway-banners.js";
+import {startRegularGiveawayWizard} from "./regular-giveaway-wizard.js";
+import {createRegularGiveaway} from "../services/regular-giveaway-creation.js";
+import {addGiveawayBannerCommands,executeGiveawayBannerAdmin,resolveGiveawayBannerOperation} from "./giveaway-banners.js";
 import {ensureBannerRegistered} from "../services/giveaway-banners.js";
 import {ensureGiveawayStaffRecord,requirePrivateGiveawayStaffChannel} from "../services/giveaway-staff-records.js";
+import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
+import {sharedGiveawayPingRoleId} from "../services/giveaway-notification-roles.js";
 import {publishActivityOneOffListing} from "../services/giveaway-directory.js";
 import {
   GIVEAWAY_MAX_MINUTES, giveawayAnnouncement, joinGiveaway, leaveGiveaway,
@@ -22,57 +27,14 @@ import {
 
 export const data = new SlashCommandBuilder()
   .setName("giveaway").setDescription("Host giveaways that retain their winners and prize details")
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-  .addSubcommand(c => c.setName("start").setDescription("Post a new button-entry giveaway")
-    .addStringOption(o => o.setName("title").setDescription("Giveaway title").setRequired(true).setMinLength(2).setMaxLength(100))
-    .addStringOption(o => o.setName("prize").setDescription("Prize details, including multiple ranked prizes").setRequired(true).setMinLength(2).setMaxLength(1500))
-    .addIntegerOption(o => o.setName("minutes").setDescription("How many minutes it stays open (up to 14 days)").setRequired(true).setMinValue(1).setMaxValue(GIVEAWAY_MAX_MINUTES))
-    .addStringOption(o => o.setName("description").setDescription("Optional custom giveaway description").setMaxLength(1000))
-    .addIntegerOption(o => o.setName("winners").setDescription("Number of winners (default 1)").setMinValue(1).setMaxValue(10))
-    .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
-    .addRoleOption(o => o.setName("role").setDescription("Override the default required role"))
-    .addBooleanOption(o => o.setName("no_required_role").setDescription("Allow entry without a required role"))
-    .addBooleanOption(o => o.setName("show_role_help").setDescription("Show instructions on where to get the required role"))
-    .addIntegerOption(o => o.setName("claim_hours").setDescription("Hours winners have to claim after results (default 12, max 720)").setMinValue(1).setMaxValue(720))
-    .addStringOption(o => o.setName("claim_instructions").setDescription("Optional custom prize collection instructions").setMaxLength(1000))
-    .addStringOption(o => o.setName("banner").setDescription("Optional registered banner image name").setMaxLength(60)))
-  .addSubcommand(c => c.setName("activity").setDescription("Create an activity giveaway with guided questions in the commands channel"))
-  .addSubcommand(c => c.setName("watch-save").setDescription("Save a named channel watched daily or Wednesday–Wednesday")
-    .addStringOption(o => o.setName("name").setDescription("Example: QOTD, Suggestions, Art").setRequired(true).setMinLength(1).setMaxLength(60))
-    .addChannelOption(o => o.setName("channel").setDescription("Channel whose messages count").setRequired(true))
-    .addIntegerOption(o => o.setName("min_chars").setDescription("Minimum characters per qualifying message (default 1)").setMinValue(0).setMaxValue(2000))
-    .addIntegerOption(o => o.setName("messages").setDescription("Total qualifying messages required during this daily/weekly period").setMinValue(1).setMaxValue(10000))
-    .addIntegerOption(o => o.setName("per_day").setDescription("Optional extra minimum messages per active day (default 1)").setMinValue(1).setMaxValue(50))
-    .addIntegerOption(o => o.setName("days").setDescription("Required active days: 1 for daily, up to 7 weekly").setMinValue(1).setMaxValue(7))
-    .addStringOption(o => o.setName("period").setDescription("Daily: prior calendar day; Weekly: prior Wednesday–Wednesday")
-      .addChoices({name:"Daily — previous calendar day",value:"daily"},
-        {name:"Weekly — Wednesday to Wednesday",value:"weekly"}))
-    .addUserOption(o => o.setName("mention_member").setDescription("Require an explicit @mention of this member"))
-    .addStringOption(o => o.setName("phrase").setDescription("Exact spelling and word order required; capitalization ignored").setMinLength(1).setMaxLength(120))
-    .addBooleanOption(o => o.setName("clear_mention").setDescription("Stop requiring a member mention"))
-    .addBooleanOption(o => o.setName("clear_phrase").setDescription("Stop requiring a phrase")))
-  .addSubcommand(c => c.setName("watch-list").setDescription("Review saved named activity channel rules"))
-  .addSubcommand(c => c.setName("watch-delete").setDescription("Remove a named watched channel rule")
-    .addStringOption(o => o.setName("name").setDescription("Saved rule name").setRequired(true)))
-  .addSubcommand(c => c.setName("edit-prize").setDescription("Update a giveaway's prize before winners are drawn")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or existing message link").setRequired(true))
-    .addStringOption(o => o.setName("prize").setDescription("Updated prize details").setRequired(true).setMinLength(2).setMaxLength(1500)))
-  .addSubcommand(c => c.setName("end").setDescription("End a normal giveaway early and retain its results")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true)))
-  .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true))
-    .addIntegerOption(o => o.setName("winner").setDescription("Winner number to replace, starting with 1").setRequired(true).setMinValue(1).setMaxValue(10)))
-  .addSubcommand(c => c.setName("entrants").setDescription("Privately list entrants of any giveaway or trial")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway or trial ID or message link").setRequired(true))
-    .addIntegerOption(o => o.setName("page").setDescription("Page (25 entrants at a time)").setMinValue(1)));
+  .addSubcommand(c => c.setName("start").setDescription("Create a regular giveaway with a guided setup and preview"))
+  .addSubcommand(c => c.setName("activity").setDescription("Create an activity giveaway with guided questions in the current allowed channel"))
+  .addSubcommand(c => c.setName("list").setDescription("Show recent regular giveaways and saved IDs"));
 
-
-addGiveawayPlanCommands(data);
 addGiveawayBannerCommands(data);
 
 export const trialData = new SlashCommandBuilder()
   .setName("trial").setDescription("The Court's Trials: elimination competitions")
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand(c => c.setName("start").setDescription("Open a live Court's Trial with one-by-one eliminations")
     .addStringOption(o => o.setName("title").setDescription("Trial title").setRequired(true).setMinLength(2).setMaxLength(100))
     .addStringOption(o => o.setName("prize").setDescription("Prize details (include ranked prizes if needed)").setRequired(true).setMinLength(2).setMaxLength(1500))
@@ -82,18 +44,15 @@ export const trialData = new SlashCommandBuilder()
     .addIntegerOption(o => o.setName("signup_minutes").setDescription("Minutes to accept entries (default 15, max 1440)").setMinValue(1).setMaxValue(MAX_TRIAL_SIGNUP_MINUTES))
     .addIntegerOption(o => o.setName("winners").setDescription("Number of ranked prize winners (default 1)").setMinValue(1).setMaxValue(10))
     .addStringOption(o => o.setName("rules").setDescription("Optional requirements or entry instructions").setMaxLength(1200))
-    .addRoleOption(o => o.setName("role").setDescription("Optional role required to enter"))
+    .addRoleOption(o => o.setName("role").setDescription("Override the default required role"))
+    .addBooleanOption(o => o.setName("no_required_role").setDescription("Do not require an eligibility role for this Trial"))
+    .addBooleanOption(o => o.setName("show_role_help").setDescription("Override whether role instructions are shown"))
+    .addStringOption(o => o.setName("banner").setDescription("Override the saved default Trial banner").setMaxLength(60))
+    .addIntegerOption(o => o.setName("rerolls").setDescription("Override automatic rerolls (0–10)").setMinValue(0).setMaxValue(10))
+    .addBooleanOption(o => o.setName("disable_auto_rerolls").setDescription("Turn off automatic unclaimed-prize rerolls"))
     .addIntegerOption(o => o.setName("claim_minutes").setDescription("Minutes winners have to claim after trial ends (default 12 hours)").setMinValue(1).setMaxValue(43200))
     .addStringOption(o => o.setName("claim_instructions").setDescription("Optional custom prize collection instructions").setMaxLength(1000)))
-  .addSubcommand(c => c.setName("cancel").setDescription("Cancel a trial without awarding winners; retain its record")
-    .addStringOption(o => o.setName("id").setDescription("Trial ID or original message link").setRequired(true)))
-  .addSubcommand(c => c.setName("reroll").setDescription("Replace one winner, preserving original and reroll history")
-    .addStringOption(o => o.setName("id").setDescription("Giveaway ID or message link/ID").setRequired(true))
-    .addIntegerOption(o => o.setName("winner").setDescription("Winner number to replace, starting with 1").setRequired(true).setMinValue(1).setMaxValue(10)))
-  .addSubcommand(c => c.setName("list").setDescription("Show recent Court's Trials and saved IDs"))
-  .addSubcommand(c => c.setName("entrants").setDescription("Privately list registered Court's Trial contestants")
-    .addStringOption(o => o.setName("id").setDescription("Trial ID or message link").setRequired(true))
-    .addIntegerOption(o => o.setName("page").setDescription("Page (25 contestants at a time)").setMinValue(1)));
+  .addSubcommand(c => c.setName("list").setDescription("Show recent Court's Trials and saved IDs"));
 
 const linkTo = record => `https://discord.com/channels/${record.guildId}/${record.channelId}/${record.messageId}`;
 
@@ -139,16 +98,19 @@ async function findGiveaway(reference, guildId) {
 }
 
 export async function execute(interaction) {
-  if (!interaction.guild || !interaction.guildId ||
-      !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-    return interaction.editReply("Only members with Manage Server can manage giveaways.");
+  if (!interaction.guild || !interaction.guildId || !await canManageGiveaways(interaction))
+    return interaction.editReply(giveawayManagerPermissionMessage);
   const operation = interaction.options.getSubcommand();
   const survivalCommand = interaction.commandName === "trial";
   try {
-    if (!survivalCommand && PLAN_OPERATIONS.has(operation))
-      return await executeGiveawayPlanAdmin(interaction);
-    if (!survivalCommand && BANNER_OPERATIONS.has(operation))
+    if (!survivalCommand && resolveGiveawayBannerOperation(interaction))
       return await executeGiveawayBannerAdmin(interaction);
+    // Older Discord clients can retain cached slash definitions briefly after
+    // re-registration. Show a clear migration hint rather than trying to treat
+    // retired /giveaway plan-* and prize-* fields as a giveaway record ID.
+    if (!survivalCommand && ["plan-create","plan-list","plan-view","plan-edit",
+      "prize-add","prize-edit","prize-remove","prize-move"].includes(operation))
+      return interaction.editReply("The old Giveaway Plan commands have been retired from /giveaway. Use /giveaway activity for recurring activity giveaways or /giveaway start for regular giveaways. Previously saved schedules are not deleted.");
     if (operation === "watch-save") {
       const name=interaction.options.getString("name",true).trim();
       if (watchNameKey(name)==="general") throw Error("The name general is reserved for server-wide activity.");
@@ -206,11 +168,38 @@ export async function execute(interaction) {
     if (operation === "watch-delete") {
       const name=interaction.options.getString("name",true);
       const inUse=await GiveawayPlan.exists({guildId:interaction.guildId,watchNameKey:watchNameKey(name),status:{$in:["active","paused"]}});
-      if(inUse)throw Error("An active giveaway plan uses this watched channel. Pause or edit that plan first.");
+      if(inUse)throw Error("An existing saved giveaway schedule still uses this watched channel. The schedule is preserved and its watch cannot be deleted while it is active or paused.");
       const result=await GiveawayWatchRule.deleteOne({guildId:interaction.guildId,nameKey:watchNameKey(name)});
       return interaction.editReply(result.deletedCount?"Watched channel rule removed. Existing giveaway records are unchanged.":"No rule exists under that name.");
     }
     if (operation === "activity") return await startActivityWizard(interaction);
+    if (operation === "start" && !survivalCommand) {
+      // New command definition has no slash fields: use the same guided
+      // channel workflow as /giveaway activity. The direct option path stays
+      // temporarily readable for already-cached Discord slash registrations.
+      if(!interaction.options.getString("title"))
+        return startRegularGiveawayWizard(interaction);
+      const role=interaction.options.getRole?.("role");
+      const result=await createRegularGiveaway({
+        guild:interaction.guild,client:interaction.client,guildId:interaction.guildId,
+        creatorId:interaction.user.id,
+        settings:{
+          title:interaction.options.getString("title",true),
+          prize:interaction.options.getString("prize",true),
+          minutes:interaction.options.getInteger("minutes",true),
+          description:interaction.options.getString("description")||"",
+          winners:interaction.options.getInteger("winners")||1,
+          rules:interaction.options.getString("rules")||"",
+          requiredRoleMode:interaction.options.getBoolean?.("no_required_role")===true?"none":role?"custom":"default",
+          requiredRoleId:role?.id||"",
+          showRequiredRoleInstructions:interaction.options.getBoolean?.("show_role_help")??null,
+          claimHours:interaction.options.getInteger("claim_hours"),
+          claimInstructions:interaction.options.getString("claim_instructions")||null,
+          bannerNameKey:interaction.options.getString("banner")||"",
+        },
+      });
+      return interaction.editReply(`🥀 Giveaway posted: ${result.message.url}\nSaved giveaway ID: \`${result.record._id}\`\nThe announcement and results will stay visible after it ends.`);
+    }
     if (operation === "start") {
       const survival = survivalCommand;
       const { channel, config } = await getConfiguredTextChannelAndConfig(
@@ -219,8 +208,11 @@ export async function execute(interaction) {
         survival ? "Court's Trial survival giveaway" : "standard giveaway",
       );
       await requirePrivateGiveawayStaffChannel(interaction.guild,config);
-      const pingRoleId = survival ? config?.survivalTrialPingRoleId : config?.giveawayPingRoleId;
-      const bannerNameKey=survival ? "" : await ensureBannerRegistered(interaction.guildId,interaction.options.getString("banner"));
+      const pingRoleId = sharedGiveawayPingRoleId(config);
+      const pingRoleIds = pingRoleId?[pingRoleId]:[];
+      const bannerNameKey = await ensureBannerRegistered(interaction.guildId,
+        interaction.options.getString("banner") ||
+          (survival ? config?.trialDefaultBannerNameKey : ""));
       const minutes = survival
         ? (interaction.options.getInteger("signup_minutes") || 15)
         : interaction.options.getInteger("minutes", true);
@@ -232,18 +224,26 @@ export async function execute(interaction) {
         prize: interaction.options.getString("prize", true).trim(),
         description: interaction.options.getString("description")?.trim() || "",
         rules: interaction.options.getString("rules")?.trim() || "",
-        claimWindowHours: survival
-          ? (interaction.options.getInteger("claim_minutes")==null ? DEFAULT_CLAIM_HOURS : null)
-          : (interaction.options.getInteger("claim_hours") ?? DEFAULT_CLAIM_HOURS),
-        autoRerollClaims: !survival,
-        claimWindowMinutes: survival ? (interaction.options.getInteger("claim_minutes") ?? null) : null,
-        claimInstructions: interaction.options.getString("claim_instructions")?.trim() || "",
-        requiredRoleId: interaction.options.getBoolean?.("no_required_role")===true?"":
-          (interaction.options.getRole("role")?.id||config?.giveawayDefaultRequiredRoleId||""),
-        requiredRoleInstructions:config?.giveawayRoleInstructions||"",
-        showRequiredRoleInstructions:interaction.options.getBoolean?.("show_role_help")??
-          (config?.giveawayShowRoleInstructions!==false),
-        announcementPingRoleId: pingRoleId || "",
+        claimWindowHours: survival ? null
+          : (interaction.options.getInteger("claim_hours") ?? config?.activityClaimWindowHours ?? DEFAULT_CLAIM_HOURS),
+        claimWindowMinutes: survival
+          ? (interaction.options.getInteger("claim_minutes") ?? config?.trialClaimWindowMinutes ?? 720) : null,
+        autoRerollClaims: survival
+          ? interaction.options.getBoolean?.("disable_auto_rerolls") !== true : true,
+        trialTicketClaimsEnabled: survival,
+        maxAutoRerolls: survival
+          ? (interaction.options.getInteger("rerolls") ?? config?.trialMaxAutoRerolls ?? 2)
+          : (config?.activityMaxAutoRerolls ?? 2),
+        claimInstructions: interaction.options.getString("claim_instructions")?.trim() ||
+          (survival ? config?.trialClaimInstructions : config?.activityClaimInstructions) || "",
+        requiredRoleId: interaction.options.getBoolean?.("no_required_role") === true ? "" :
+          (interaction.options.getRole("role")?.id ||
+            (survival ? config?.trialDefaultRequiredRoleId : config?.giveawayDefaultRequiredRoleId) || ""),
+        requiredRoleInstructions: (survival ? config?.trialRoleInstructions : config?.giveawayRoleInstructions) || "",
+        showRequiredRoleInstructions: interaction.options.getBoolean?.("show_role_help") ??
+          (survival ? config?.trialShowRoleInstructions !== false : config?.giveawayShowRoleInstructions !== false),
+        announcementPingRoleId: pingRoleId,
+        announcementPingRoleIds: pingRoleIds,
         winnerCount, endsAt: new Date(Date.now() + minutes * 60_000),
         mode: survival ? "survival" : "standard",
         speedSeconds: survival ? (interaction.options.getInteger("pace") || DEFAULT_TRIAL_SPEED_SECONDS) : DEFAULT_TRIAL_SPEED_SECONDS,
@@ -251,13 +251,12 @@ export async function execute(interaction) {
       });
       let message;
       try {
-        const announcement = survival ? giveawayAnnouncement({ ...record.toObject(), status: "open" }) :
-          await giveawayAnnouncementWithBanner({ ...record.toObject(), status: "open" });
+        const announcement = await giveawayAnnouncementWithBanner({ ...record.toObject(), status: "open" });
         // Only the creation message may ping the assigned notification role.
         // All later edits/results use no allowed mentions and never ping again.
-        if (pingRoleId) {
-          announcement.content = `<@&${pingRoleId}>`;
-          announcement.allowedMentions = { parse: [], roles: [pingRoleId] };
+        if (pingRoleIds.length) {
+          announcement.content = pingRoleIds.map(id => `<@&${id}>`).join(" ");
+          announcement.allowedMentions = { parse: [], roles: pingRoleIds };
         }
         message = await channel.send(announcement);
         await Giveaway.updateOne(
@@ -274,7 +273,7 @@ export async function execute(interaction) {
       return interaction.editReply(`🥀 ${survival ? "Survival trial" : "Giveaway"} posted: ${message.url}\nSaved giveaway ID: \`${record._id}\`\n${survival ? "Members join using the buttons; staff click Start Trial when ready." : "The announcement and results will stay visible after it ends."}`);
     }
 
-    if (survivalCommand && operation === "list") {
+    if (operation === "list") {
       const records = await Giveaway.find({
         guildId: interaction.guildId, status: { $ne: "failed" },
         mode: survivalCommand ? "survival" : { $ne: "survival" },
@@ -368,12 +367,16 @@ export async function handleGiveawayButton(interaction) {
   if (action!=="claim") await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const record = await Giveaway.findOne({ _id: id, guildId: interaction.guildId }).lean();
-    if (!record || (!["confirm","cancel"].includes(action) && (record.messageId !== interaction.message?.id || record.channelId !== interaction.channelId)))
+    const validSignupPost = record?.messageId === interaction.message?.id && record?.channelId === interaction.channelId;
+    const validTrialVerdict = action === "claim" && record?.mode === "survival" &&
+      record?.finaleMessageId === interaction.message?.id && record?.channelId === interaction.channelId;
+    if (!record || (!["confirm","cancel"].includes(action) && !validSignupPost && !validTrialVerdict))
       return action==="claim"
         ? interaction.reply({content:"This giveaway announcement could not be verified.",flags:MessageFlags.Ephemeral})
         : interaction.editReply("This giveaway announcement could not be verified.");
     if (action === "claim") {
-      if (record.mode==="survival" || record.status!=="ended" || !(record.winnerIds || []).includes(interaction.user.id))
+      if (record.status!=="ended" || (record.mode === "survival" && !record.trialTicketClaimsEnabled) ||
+          !(record.winnerIds || []).includes(interaction.user.id))
         return interaction.reply({content:"Only current winners can file ticket claims after the drawing.",flags:MessageFlags.Ephemeral});
       const slot=record.winnerIds.indexOf(interaction.user.id);
       if (winnerHasClaim(record,slot))
@@ -389,8 +392,8 @@ export async function handleGiveawayButton(interaction) {
     }
     if (action === "confirm" || action === "cancel") {
       if (record.mode !== "activity" || record.status !== "draft" || record.creatorId !== interaction.user.id ||
-          !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-        return interaction.editReply("This preview is unavailable or belongs to another staff member.");
+          !await canManageGiveaways(interaction))
+        return interaction.editReply("This preview is unavailable or belongs to another authorized giveaway manager.");
       const updated = await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,status:"draft",creatorId:interaction.user.id},
         {$set:{status:action==="confirm"?"open":"cancelled"}},{returnDocument:"after"}).lean();
       if (!updated) return interaction.editReply("Already handled.");
@@ -404,8 +407,8 @@ export async function handleGiveawayButton(interaction) {
     }
     if (action === "launch") {
       if (record.mode !== "survival") return interaction.editReply("This is not an elimination trial.");
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
-        return interaction.editReply("Only staff with Manage Server permission can start a trial.");
+      if (!await canManageGiveaways(interaction))
+        return interaction.editReply(giveawayManagerPermissionMessage);
       // Show actionable errors on the actual button rather than a generic
       // "couldn't update your entry" message intended for regular entrants.
       if (record.status !== "open") {
@@ -481,6 +484,12 @@ export async function handleGiveawayClaimModal(interaction) {
     });
     try { await publishGiveawayResult(interaction.client,updated); }
     catch(error) { console.error("[Giveaways] Ticket saved but announcement refresh failed:",error); }
+    try { await ensureGiveawayStaffRecord(interaction.client, updated); }
+    catch(error) { console.error("[Giveaways] Ticket saved; staff record will be reconciled later:",error); }
+    if(updated.mode==="activity"){
+      try{await refreshActivityClaimReviewMessage(interaction.client,updated);}
+      catch(error){console.error("[Giveaways] Ticket saved; activity review claim status refresh pending:",error);}
+    }
     return interaction.editReply("Claim submitted successfully.");
   } catch(error) {
     return interaction.editReply(error.message||"Unable to record your ticket claim.");
