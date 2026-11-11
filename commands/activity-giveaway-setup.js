@@ -199,8 +199,12 @@ export async function validateGiveawaySetupChannels(session){
    const channel=await session.guild.channels.fetch(id).catch(()=>null);
    if(!channel?.send||!channel?.permissionsFor)throw Error("The selected channel is unavailable: "+id);
    const bot=channel.permissionsFor(session.guild.members.me);
-   for(const perm of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks]){
-     if(!bot?.has(perm))throw Error("The bot needs View Channel, Send Messages and Embed Links in <#"+id+">.");
+   const perms=[PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks,
+     ...(idx>=required.length ? [PermissionFlagsBits.AttachFiles,PermissionFlagsBits.ReadMessageHistory] : [])];
+   for(const perm of perms){
+     if(!bot?.has(perm))
+       throw Error("The bot needs View Channel, Send Messages, Embed Links"+
+         (idx>=required.length?", Attach Files and Read Message History":"")+" in <#"+id+">.");
    }
    if((idx===required.length-1||idx>=required.length)&&channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
      throw Error("Both active staff and Archives channels must be hidden from @everyone. Change the channel permissions before saving.");
