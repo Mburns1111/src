@@ -6,7 +6,7 @@ Source: `integration/active-development-2026-11-11`. Consolidation in progress; 
 
 | Command | What it configures | Required fields |
 |---|---|---|
-| `/setup general` | Ordinary commands channel, then optional member profiles, houses, outfits, inventory, Trading Posts, trade voting, shop and party games | Commands channel **first** |
+| `/setup general` | Required **private staff-only Bot Commands** channel, then optional member profiles, houses, outfits, inventory, Trading Posts, trade voting, shop and party games | Private commands channel **first** |
 | `/setup giveaways` | Standard giveaway posts, private staff records, shared private archive, Giveaway Manager role, notification role, role/help, claims, rerolls and banner | Public giveaway channel, private staff channel and separate private archive |
 | `/setup activity-giveaways` | Activity directory, separate winners, private staff review, shared private archive, Giveaway Manager role, notification role, role/help, claims, rerolls and banner | Public activity list, public winners, private staff channel and separate private archive |
 | `/setup trials` | Court's Trial signup/elimination channel, private staff records, shared private archive, eligibility role/help, claims, rerolls, notifications, banner | Trial channel, private staff channel and separate private archive |
@@ -14,7 +14,7 @@ Source: `integration/active-development-2026-11-11`. Consolidation in progress; 
 
 `/setup channels` and `/setup archives` have been **retired from Discord's command menu**. Existing MongoDB channel IDs and notification settings are preserved; use the five guided options above to update them. Previously saved guild setups remain recognized without requiring reconfiguration.
 
-Guided flows send numbered messages in the invoking channel, require Manage Server, have Back/Cancel/Keep or Skip actions, support review and editing prior to Save, and store settings only on final Save. The administrator needs to use the configured commands channel for follow-up setup; a never-configured server can start `/setup general` from its initial administrative text channel.
+Guided flows send numbered messages in the invoking channel, require Manage Server, have Back/Cancel/Keep or Skip actions, support review and editing prior to Save, and store settings only on final Save. The commands channel must be hidden from `@everyone` and writable by the bot. Public member actions operate through their designated feature channels and buttons. The administrator needs to use the configured private commands channel for follow-up setup; a never-configured server can start `/setup general` from its initial administrative text channel.
 
 ## Shared giveaway archive channel
 
@@ -24,7 +24,7 @@ The private staff controls and private archive channels must be separate from ea
 
 ## Optional features and Skip behavior
 
-After the mandatory **commands channel** in General setup, every step is optional. **Skip / disable this feature** saves an empty channel assignment so that feature is not configured; **Keep current** preserves an already configured channel. Disabling a feature does not erase profiles, purchases, claims, member inventories or past Discord messages. Staff can return to `/setup general` later to configure or move a feature. For an existing server, a previously posted button in an old channel can remain visible; it is not deleted simply because a feature is skipped.
+After the mandatory **private staff commands channel** in General setup, every step is optional. **Skip / disable this feature** saves an empty channel assignment so that feature is not configured; **Keep current** preserves an already configured channel. Disabling a feature does not erase profiles, purchases, claims, member inventories or past Discord messages. Staff can return to `/setup general` later to configure or move a feature. For an existing server, a previously posted button in an old channel can remain visible; it is not deleted simply because a feature is skipped.
 
 Giveaways, activity giveaways, Trials and Hatchem use **separate** setup commands and are not required for a General-only server. A giveaway-only server may skip every General optional step, then run `/setup giveaways` or `/setup activity-giveaways`. A card-only server may do the same, then run `/setup cards`. General does not force profiles, the shop or the other game modules.
 
