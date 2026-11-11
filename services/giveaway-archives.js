@@ -72,7 +72,16 @@ async function deleteOldMessage(client,channelId,id,archiveChannelId,record,{pro
  * The raw saved giveaway snapshot preserves entrants, claims, rerolls, settings
  * and moderation history. Archival is restart-safe using stored message IDs.
  */
-export async function archiveGiveawayStaffRecord(client,record,{staffPayload}={}){
+const transfers=new Map();
+/** Coalesce overlapping scheduler and moderator archive requests. */
+export async function archiveGiveawayStaffRecord(client,record,options={}){
+ const id=String(record?._id||"");
+ if(transfers.has(id))return transfers.get(id);
+ const work=performArchiveTransfer(client,record,options);
+ transfers.set(id,work);
+ try{return await work;}finally{transfers.delete(id);}
+}
+async function performArchiveTransfer(client,record,{staffPayload}={}){
  if(!giveawayReadyToArchive(record))return false;
  const config=await GuildConfig.findOne({guildId:record.guildId})
    .select("giveawayArchiveChannelId activityGiveawayReviewChannelId").lean();
