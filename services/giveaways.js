@@ -31,6 +31,11 @@ export function giveawayAnnouncement(record) {
   const allSlotsForfeited=Boolean(record.winnerIds?.length)&&record.winnerIds.every((_,slot)=>
     (record.claimResolvedSlots||[]).includes(slot));
   const claimsClosed=Boolean(record.prizeDeliveredAt||record.archivedAt||allSlotsForfeited);
+  const pendingClaimSlots=(record.winnerIds||[]).filter((userId,slot)=>
+    !(record.claimResolvedSlots||[]).includes(slot)&&!winnerHasClaim(record,slot)).length;
+  // Keep claims available to anyone still waiting, but remove the instructions
+  // and modal button once every winner has submitted or forfeited their place.
+  const acceptingClaims=ended&&record.status==="ended"&&!claimsClosed&&pendingClaimSlots>0;
   const endUnix = Math.floor(new Date(record.endsAt).getTime() / 1000);
   const winners = (record.winnerIds || []).map((id, i) => (record.claimResolvedSlots || []).includes(i)
     ? `${i + 1}. Claim forfeited (originally <@${id}>) — no further automatic replacement`
@@ -97,12 +102,14 @@ export function giveawayAnnouncement(record) {
         }
       }
     }
-    const claims = !claimsClosed ? prizeClaimLines(record, { finished: true }) : [];
+    const claims = acceptingClaims ? prizeClaimLines(record, { finished: true }) : [];
     if(record.prizeDeliveredAt)lines.push("","**Prize delivery:** Confirmed complete.");
     else if(allSlotsForfeited)lines.push("","**Claims:** All winning places are closed.");
     if (claims.length) lines.push("", "**Claiming your prize:** Follow the instructions below and use the claim button before the deadline.");
+    else if(record.winnerIds?.length && !claimsClosed && pendingClaimSlots===0)
+      lines.push("","**All winner claims received.** Prize delivery is being arranged by staff.");
     if (changed.length) lines.push("", "**Reroll history**", ...changed);
-    if (winners.length&&!claimsClosed) lines.push("", "*Prize delivery is handled by the giveaway host.*");
+    if (winners.length&&acceptingClaims) lines.push("", "*Prize delivery is handled by the giveaway host.*");
   }
   const description = lines.join("\n").slice(0, 4000);
   const embed = new EmbedBuilder()
@@ -110,7 +117,7 @@ export function giveawayAnnouncement(record) {
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
   if(!activity)embed.setTitle(ended ? "🦊 Heist Complete" : "🦊 The Fox’s Giveaway");
-  if(ended && record.status==="ended" && (record.winnerIds||[]).length && !claimsClosed){
+  if(acceptingClaims){
     const instructions=prizeClaimLines(record,{finished:true});
     for(const [index,line] of instructions.entries()){
       const headings=["Claim deadline","Prize collection instructions","Required ticket submission","⚠️ Forfeit deadline"];
@@ -120,7 +127,7 @@ export function giveawayAnnouncement(record) {
     }
 
   }
-  const components = ended && record.status === "ended" && record.mode !== "survival" && !claimsClosed && (record.winnerIds || []).length
+  const components = acceptingClaims && record.mode !== "survival"
     ? [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`giveaway:claim:${record._id}`).setLabel("Enter Ticket Claim info").setStyle(ButtonStyle.Primary),
       )]
