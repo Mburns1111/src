@@ -192,3 +192,33 @@ test("archive transfer refuses to delete a different bot-owned moderator post",a
   assert.equal(updates.at(-1).archiveMovedAt,undefined);
  }finally{GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;}
 });
+
+test("simultaneous archive requests share one copy and delete old post only once",async()=>{
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const sent=[],deleted=[];
+ let release;
+ const gate=new Promise(resolve=>{release=resolve;});
+ const archived={id:"890123456789012345",author:{id:"bot"}};
+ const channel={id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
+   messages:{fetch:async()=>({find:()=>null})},
+   send:async payload=>{sent.push(payload);await gate;return archived;}};
+ const source={messages:{fetch:async()=>({
+   author:{id:"bot"},embeds:[{footer:{text:"Giveaway staff record · "+eventId}}],
+   delete:async()=>deleted.push(true),
+ })}};
+ try{
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+    giveawayArchiveChannelId:archiveId,activityGiveawayReviewChannelId:staffId,
+  })})});
+  Giveaway.updateOne=async()=>{};
+  const client={user:{id:"bot"},channels:{fetch:async id=>
+    id===archiveId?channel:source}};
+  const recordValue=record();
+  const first=archiveGiveawayStaffRecord(client,recordValue,{staffPayload:payload});
+  const second=archiveGiveawayStaffRecord(client,recordValue,{staffPayload:payload});
+  release();
+  assert.deepEqual(await Promise.all([first,second]),[true,true]);
+  assert.equal(sent.length,1);
+  assert.equal(deleted.length,1);
+ }finally{GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;}
+});
