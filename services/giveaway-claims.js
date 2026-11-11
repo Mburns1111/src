@@ -1,3 +1,4 @@
+import {giveawayClaimsComplete} from "./giveaway-listing-lifecycle.js";
 // Shared prize-claim presentation for ordinary giveaways and Court's Trials.
 // The bot never creates tickets, adjudicates availability, or forfeits prizes.
 export const MAX_CLAIM_HOURS = 24 * 30;
@@ -33,17 +34,39 @@ export function winnerClaimDeadline(record, slot) {
 export function winnerHasClaim(record, slot) {
   return (record.winnerClaims || []).some(c => c.slot === slot && c.userId === record.winnerIds?.[slot]);
 }
-export function giveawayArchiveOutcome(record) {
-  if (record?.status === "cancelled") return "Cancelled";
-  if (record?.status !== "ended") return null;
-  if (record.prizeDeliveredAt) return "All prizes delivered";
-  const winners = record.winnerIds || [];
-  if (!winners.length) return "Completed — no winners selected";
-  const closed = new Set(record.claimResolvedSlots || []);
-  if (winners.every((_, slot) => closed.has(slot))) return "All winning places closed";
-  if (record.mode !== "survival" && winners.every((_, slot) => closed.has(slot) || winnerHasClaim(record, slot)))
-    return "Claims complete — delivery unconfirmed";
+
+export function giveawayArchiveOutcome(record){
+  if(record?.status==="cancelled")return "Cancelled";
+  if(record?.status==="ended"&&record.prizeDeliveredAt&&giveawayClaimsComplete(record))
+    return "All prizes delivered";
   return null;
+}
+// The public post is refreshed as claims arrive. Hide generic deadline,
+// ticket-submission and forfeiture directions once every *current* prize place
+// has a valid claim or is resolved. Claimed winners never need to see a
+// deadline again; other winners must retain their instructions until done.
+// A prize place can be historically assigned to a member but no longer
+// have an eligible winner after a missed deadline and exhausted replacements.
+// Keep winnerIds for the audit record; use this helper for the public outcome.
+export function hasUnforfeitedWinner(record) {
+  return (record?.winnerIds || []).some((id,slot)=>
+    Boolean(id) && !(record.claimResolvedSlots || []).includes(slot));
+}
+export function giveawayHasNoEligibleWinner(record) {
+  return ["ended","rerolling"].includes(record?.status) && !hasUnforfeitedWinner(record);
+}
+
+export function hasOutstandingTicketClaims(record) {
+  return (record?.winnerIds || []).some((id,slot)=>
+    Boolean(id) && !winnerHasClaim(record,slot) &&
+      !(record.claimResolvedSlots || []).includes(slot));
+}
+
+export function showPublicClaimDirections(record) {
+  if (!(record?.winnerIds || []).length) return false;
+  // Older staff-managed Trials do not use bot-submitted ticket claims.
+  if (record.mode==="survival" && !record.trialTicketClaimsEnabled) return true;
+  return hasOutstandingTicketClaims(record);
 }
 
 export function automaticRerollLimit(record) {
@@ -54,7 +77,7 @@ export function automaticRerollsUsed(record,slot) {
   return (record.rerollHistory||[]).filter(r=>r.slot===slot && r.reason==="claim-expired").length;
 }
 export function nextClaimCheckAt(record) {
-  if (!record.autoRerollClaims || record.mode === "survival" || record.status !== "ended") return null;
+  if (!record.autoRerollClaims || record.status !== "ended") return null;
   const deadlines=(record.winnerIds || []).map((_,slot)=>({
     slot,deadline:winnerClaimDeadline(record,slot),
   })).filter(({slot,deadline})=>deadline && !winnerHasClaim(record,slot) && !(record.claimResolvedSlots||[]).includes(slot));
@@ -72,16 +95,22 @@ export function prizeClaimDeadline(record) {
 
 export const DEFAULT_CLAIM_INSTRUCTIONS="Open a support ticket in this server to arrange prize delivery. Keep its ticket number and copy the Discord message link from the ticket. You may share available collection times with staff.";
 export function prizeClaimLines(record,{finished=false}={}){
-  if (finished && !record.winnerIds?.length) return [];
+  if(finished && !showPublicClaimDirections(record))return [];
   const duration=claimDuration(record);
   const instructions=String(record.claimInstructions||"").trim().slice(0,1000)||DEFAULT_CLAIM_INSTRUCTIONS;
   const lines=[];
   if(duration){
-    const deadline=finished?prizeClaimDeadline(record):null;
-    if(deadline){
-      const label=record.mode!=="survival"&&(record.rerollHistory||[]).length?"Original claim deadline":"Claim deadline";
-      lines.push("**"+label+":** <t:"+deadline+":F> (<t:"+deadline+":R>)");
-    }else{
+    const outstanding=finished?(record.winnerIds||[]).map((id,slot)=>({
+      id,slot,deadline:winnerClaimDeadline(record,slot)
+    })).filter(({id,slot,deadline})=>id&&deadline&&!winnerHasClaim(record,slot)&&
+      !(record.claimResolvedSlots||[]).includes(slot)):[];
+    const deadlines=[...new Set(outstanding.map(x=>Math.floor(+x.deadline/1000)))];
+    if(finished&&deadlines.length===1){
+      const deadline=deadlines[0],expired=deadline*1000<=Date.now();
+      lines.push("**Claim deadline:** <t:"+deadline+":F> "+(expired?"— **Expired**":"(<t:"+deadline+":R>)"));
+    }else if(finished&&deadlines.length>1){
+      lines.push("**Claim deadlines:** Check the deadline shown next to your winning place above.");
+    }else if(!finished){
       lines.push("**Claim window:** "+duration.count+" "+duration.unit+(duration.count===1?"":"s")+" after winners are announced");
     }
   }
@@ -91,10 +120,9 @@ export function prizeClaimLines(record,{finished=false}={}){
   }
   if(!(record.winnerIds||[]).length)return lines;
   lines.push("**How to claim:** "+instructions);
-  if(record.mode!=="survival"){
+  if(record.mode!=="survival" || record.trialTicketClaimsEnabled){
     lines.push("**Submit your claim:** Press **Enter Ticket Claim info** and provide your **ticket number** and the **Discord message link** from your ticket. Creating a support ticket alone does not register your claim with the bot.");
-    lines.push("⚠️ **IMPORTANT — CLAIM BEFORE THE DEADLINE OR FORFEIT YOUR WIN.** If your ticket number and message link are not entered into the bot before the claim window closes, your winning place is forfeited."+
-      (record.autoRerollClaims?" The bot can choose another eligible winner (up to "+automaticRerollLimit(record)+" automatic rerolls per place).":""));
+    lines.push("⚠️ **IMPORTANT — CLAIM BEFORE THE DEADLINE OR FORFEIT YOUR WIN.** If your ticket number and message link are not entered into the bot before the claim window closes, your winning place is forfeited.");
   }else lines.push("*Court's Trial claims are coordinated by staff; these deadlines do not trigger automated rerolls.*");
   return lines;
 }
