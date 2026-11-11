@@ -46,8 +46,9 @@ async function findOwnedMessage(channel,id,client,footer){
    message=recent.find(m=>m.author?.id===client.user?.id &&
      m.embeds?.some(e=>e.footer?.text===footer))||null;
  }
- if(message&&message.author?.id!==client.user?.id)
-   throw Error("Cannot modify a giveaway archive created by another user.");
+ if(message&&(message.author?.id!==client.user?.id||
+   !message.embeds?.some(embed=>embed.footer?.text===footer)))
+   throw Error("Archive message identity mismatch; refusing to treat an unrelated post as the saved giveaway record.");
  return message;
 }
 async function deleteOldMessage(client,channelId,id,archiveChannelId,record,{progress=false}={}){
