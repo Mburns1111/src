@@ -117,7 +117,7 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
    components.push(new ActionRowBuilder().addComponents(controls.slice(i,i+5)));
  return {
   embeds:[new EmbedBuilder().setColor(giveawayStaffRecordColor(record))
-    .setTitle(cancelled?"📁 Cancelled giveaway · staff archive":"📋 Giveaway staff record")
+    .setTitle(cancelled?"📋 Cancelled giveaway · awaiting archive":"📋 Giveaway staff record")
     .setDescription(lines.join("\n").slice(0,4000))
     .addFields(claimFields)
     .setFooter({text:staffRecordMarker(record)})],
