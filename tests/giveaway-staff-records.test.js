@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
+import GuildConfig from "../models/GuildConfig.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
-import {giveawayStaffRecordPayload,staffRecordMarker,handleGiveawayStaffAction} from "../services/giveaway-staff-records.js";
+import {giveawayStaffRecordPayload,staffRecordMarker,handleGiveawayStaffAction,ensureGiveawayStaffRecord} from "../services/giveaway-staff-records.js";
 
 const id="507f1f77bcf86cd799439011",guildId="123456789012345678",
   winner="234567890123456789",ticketLink="https://discord.com/channels/123456789012345678/345678901234567890/456789012345678901?jump=1";
@@ -203,4 +204,36 @@ test("archive asks for reason plus explicit ARCHIVE confirmation; does not move 
   assert.equal(modal.components[0].components[0].custom_id,"reason");
   assert.equal(modal.components[1].components[0].custom_id,"confirm");
  }finally{Giveaway.findOne=old;}
+});
+
+test("finished or cancelled staff records stay active without an explicit archive request",async()=>{
+ const original={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const destinations=[];
+ const channel={id:ended.staffCardChannelId,
+   guild:{roles:{everyone:{id:"everyone"}}},
+   permissionsFor:()=>({has:()=>false}),
+   messages:{fetch:async()=>({
+     id:ended.staffCardId,author:{id:"bot"},
+     embeds:[{description:"old description",footer:{text:staffRecordMarker(ended)},fields:[]}],
+     components:[],edit:async()=>{},
+   })},
+   send:async()=>{throw Error("Should reuse active staff post");}};
+ try{
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+    activityGiveawayReviewChannelId:ended.staffCardChannelId,
+    giveawayArchiveChannelId:"912345678901234567",
+  })})});
+  Giveaway.updateOne=async()=>{};
+  const client={user:{id:"bot"},channels:{fetch:async id=>{
+    destinations.push(id);
+    if(id!==ended.staffCardChannelId)throw Error("Automatic archive access is forbidden");
+    return channel;
+  }}};
+  for(const state of [
+    {...ended,prizeDeliveredAt:new Date()},
+    {...ended, winnerIds:[],prizeDeliveredAt:null},
+    {...ended,status:"cancelled"},
+  ])assert.equal(await ensureGiveawayStaffRecord(client,state),true);
+  assert.deepEqual(destinations,Array(3).fill(ended.staffCardChannelId));
+ }finally{GuildConfig.findOne=original.config;Giveaway.updateOne=original.update;}
 });
