@@ -103,7 +103,7 @@ const CONTENT=Object.freeze({
  ]],
  ssetup:["Staff · Bot Setup","Setup requires its own Discord command permissions.",[
   ["Channels","Use **/setup channels** to configure commands, listing, shop, game and giveaway channels."],
-  ["Giveaway managers","Assign the **giveaway_manager** role in **/setup channels** for access to the Giveaway Manager help guides."],
+  ["Giveaway managers","Use your existing giveaway manager assignment from giveaway setup. There is no separate Help-only role to configure."],
   ["Security","Staff Help is read-only. Editing the server or running commands still requires the permissions enforced by those actions."],
  ]],
 });
@@ -111,12 +111,23 @@ const CONTENT=Object.freeze({
 export function helpStaffAccess(interaction,config){
  if(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)||
     interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))return true;
- const roleId=config?.giveawayManagerRoleId;
- if(!roleId)return false;
  const roles=interaction.member?.roles;
- return Boolean(roles?.cache?.has?.(roleId)||
-   (Array.isArray(roles)&&roles.includes(roleId))||
-   (Array.isArray(roles?.value)&&roles.value.includes(roleId)));
+ const assigned=roles?.cache?.values?.()||[];
+ // Reuse a Giveaway Manager role already assigned in Discord. A saved role ID,
+ // if present from earlier configuration, remains supported too.
+ const roleId=config?.giveawayManagerRoleId;
+ if(roleId&&(roles?.cache?.has?.(roleId)||
+    (Array.isArray(roles)&&roles.includes(roleId))||
+    (Array.isArray(roles?.value)&&roles.value.includes(roleId))))return true;
+ for(const role of assigned)
+   if(/^giveaway[\s-]*managers?$/i.test(String(role?.name||"").trim()))return true;
+ if(Array.isArray(roles)){
+   for(const role of roles){
+     const resolved=interaction.guild?.roles?.cache?.get?.(role);
+     if(/^giveaway[\s-]*managers?$/i.test(String(resolved?.name||"").trim()))return true;
+   }
+ }
+ return false;
 }
 function buttons(items,selected,ownerId){
  const rows=[];
