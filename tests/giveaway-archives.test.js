@@ -16,7 +16,7 @@ const record=(more={})=>({
  staffCardChannelId:staffId,staffCardId:"789012345678901234",
  staffProgressMessageId:"",entrantIds:[winner],winnerIds:[winner],
  winnerClaims:[{slot:0,userId:winner,ticketNumber:"ABC-123",
-   ticketUrl:"https://discord.com/channels/1/2/3"}],
+   ticketUrl:"https://discord.com/channels/1/2/3",submittedAt:new Date("2026-11-10T14:00:00Z")}],
  claimResolvedSlots:[],rerollHistory:[],
  prizeDeliveredAt:new Date("2026-11-10T15:00:00Z"),
  prizeDeliveredBy:"999999999999999999",...more,
@@ -25,10 +25,10 @@ const payload={embeds:[new EmbedBuilder().setTitle("Staff record")
  .setDescription("All winners, claims and reroll details")
  .setFooter({text:"Giveaway staff record · "+eventId})],components:[]};
 
-test("only cancelled/no-winner/confirmed-delivered drawings can archive",()=>{
+test("only cancelled and fully claimed, delivered drawings can archive",()=>{
  assert.equal(giveawayReadyToArchive(record({prizeDeliveredAt:null})),false);
  assert.equal(giveawayReadyToArchive(record()),true);
- assert.equal(giveawayReadyToArchive(record({winnerIds:[],prizeDeliveredAt:null})),true);
+ assert.equal(giveawayReadyToArchive(record({winnerIds:[],prizeDeliveredAt:null})),false);
  assert.equal(giveawayReadyToArchive(record({status:"cancelled",prizeDeliveredAt:null})),true);
  assert.equal(giveawayReadyToArchive(record({status:"open"})),false);
 });
@@ -90,8 +90,7 @@ test("completed activity giveaway archives both staff posts and the final member
    embeds:[{footer:{text:(id===activeIds[1]?"Activity staff progress · ":"Giveaway staff record · ")+eventId}}],
    delete:async()=>deleted.push(id),
  })}};
- const activity=record({mode:"activity",status:"ended",winnerIds:[],
-   prizeDeliveredAt:null,prizeDeliveredBy:"",
+ const activity=record({mode:"activity",status:"ended",
    staffProgressMessageId:activeIds[1],
    activityStartAt:new Date("2026-11-01T12:00:00Z"),
    activityEndAt:new Date("2026-11-10T12:00:00Z"),
@@ -155,7 +154,7 @@ test("failed final activity count retrieval never archives or removes active rec
     send:async()=>{writes++;throw Error("Should not post archive");}};
   const client={user:{id:"bot"},channels:{fetch:async id=>id===archiveId?
     archiveChannel:{messages:{fetch:async()=>({delete:async()=>deletes++})}}}};
-  const activity=record({mode:"activity",winnerIds:[],prizeDeliveredAt:null,
+  const activity=record({mode:"activity",
     activityStartAt:new Date("2026-11-01T12:00:00Z"),
     activityEndAt:new Date("2026-11-10T12:00:00Z"),
     activityMinTotalMessages:10,activityDays:1});
