@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
-import {giveawayStaffRecordPayload,giveawayStaffRecordColor,staffRecordMarker,handleGiveawayStaffAction,ensureGiveawayStaffRecord} from "../services/giveaway-staff-records.js";
+import {giveawayStaffRecordPayload,giveawayStaffRecordColor,validPrizeDeliveryProofUrl,giveawayArchiveCompletionReason,staffRecordMarker,handleGiveawayStaffAction,ensureGiveawayStaffRecord} from "../services/giveaway-staff-records.js";
 
 const id="507f1f77bcf86cd799439011",guildId="123456789012345678",
   winner="234567890123456789",ticketLink="https://discord.com/channels/123456789012345678/345678901234567890/456789012345678901?jump=1";
@@ -190,20 +190,64 @@ test("completed prize-delivered and no-winner records show explicit archive cont
  assert.equal(pick(completed)?.data.style,4,"Closed no-winner giveaways are red");
  assert.equal(pick(open),undefined);
 });
-test("archive asks for reason plus explicit ARCHIVE confirmation; does not move on first click",async()=>{
- const old=Giveaway.findOne;
- let modal;
+test("archive button directly records moderator and completion reason without a second confirmation",async()=>{
+ const original={find:Giveaway.findOne,update:Giveaway.findOneAndUpdate,config:GuildConfig.findOne};
+ const delivered={...ended,prizeDeliveredAt:new Date()};
+ let saved=null,modalCalls=0,reply="";
  try{
-  Giveaway.findOne=()=>({lean:async()=>({...ended,prizeDeliveredAt:new Date()})});
+  Giveaway.findOne=()=>({lean:async()=>delivered});
+  Giveaway.findOneAndUpdate=(_query,change)=>({lean:async()=>{
+   saved=change.$set;return{...delivered,...change.$set};
+  }});
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({giveawayArchiveChannelId:""})})});
   await handleGiveawayStaffAction({
    guildId,channelId:ended.staffCardChannelId,customId:"giveawaystaff:archive:"+id,
    message:{id:ended.staffCardId},memberPermissions:{has:()=>true},
-   showModal:async m=>{modal=m.toJSON();}
+   user:{id:"999999999999999999"},client:{},
+   showModal:async()=>{modalCalls++;},
+   deferReply:async()=>{},editReply:async value=>{reply=value;},
   });
-  assert.equal(modal.custom_id,"giveawaystaff:confirmarchive:"+id);
-  assert.equal(modal.components[0].components[0].custom_id,"reason");
-  assert.equal(modal.components[1].components[0].custom_id,"confirm");
- }finally{Giveaway.findOne=old;}
+  assert.equal(modalCalls,0);
+  assert.equal(saved.archiveRequestedBy,"999999999999999999");
+  assert.equal(saved.archiveRequestedReason,"All prizes delivered");
+  assert.ok(saved.archiveRequestedAt instanceof Date);
+  assert.match(reply,/Archive request saved/);
+ }finally{
+  Giveaway.findOne=original.find;
+  Giveaway.findOneAndUpdate=original.update;
+  GuildConfig.findOne=original.config;
+ }
+});
+test("archive reasons are derived from completed giveaway outcomes",()=>{
+ assert.match(giveawayArchiveCompletionReason({...ended,status:"cancelled",staffCancelReason:"Prize unavailable"}),/Prize unavailable/);
+ assert.equal(giveawayArchiveCompletionReason({...ended,winnerIds:[]}),"Completed — no winners selected");
+ assert.equal(giveawayArchiveCompletionReason({...ended,prizeDeliveredAt:new Date()}),"All prizes delivered");
+});
+test("delivery proof is optional, must be a Discord message link, and stays private",async()=>{
+ const proof="https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890";
+ assert.equal(validPrizeDeliveryProofUrl(""),true);
+ assert.equal(validPrizeDeliveryProofUrl(proof),true);
+ assert.equal(validPrizeDeliveryProofUrl("https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890?jump=1"),true);
+ assert.equal(validPrizeDeliveryProofUrl("https://example.com/channels/123456789012345678/234567890123456789/345678901234567890"),false);
+ assert.equal(validPrizeDeliveryProofUrl("not a link"),false);
+ const r={...ended,prizeDeliveredAt:new Date(),prizeDeliveryProofUrl:proof};
+ assert.match(giveawayStaffRecordPayload(r).embeds[0].toJSON().description,/\\*\\*Proof:\\*\\*/);
+ assert.ok(giveawayStaffRecordPayload(r).embeds[0].toJSON().description.includes(proof));
+ const publicText=JSON.stringify(giveawayAnnouncement(r).embeds[0].toJSON());
+ assert.ok(!publicText.includes(proof),"delivery proof must not leak to public result");
+ const original=Giveaway.findOne;
+ let modal;
+ try{
+  Giveaway.findOne=()=>({lean:async()=>ended});
+  await handleGiveawayStaffAction({
+    guildId,channelId:ended.staffCardChannelId,customId:"giveawaystaff:deliver:"+id,
+    message:{id:ended.staffCardId},memberPermissions:{has:()=>true},
+    showModal:async m=>{modal=m.toJSON();},
+  });
+  assert.equal(modal.components[1].components[0].custom_id,"proof");
+  assert.equal(modal.components[1].components[0].required,false);
+  assert.match(modal.components[1].components[0].label,/Discord message link/);
+ }finally{Giveaway.findOne=original;}
 });
 
 test("finished or cancelled staff records stay active without an explicit archive request",async()=>{
