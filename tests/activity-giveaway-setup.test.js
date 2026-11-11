@@ -4,7 +4,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import {data as setupCommand} from "../commands/setup.js";
 import {activityWizardPrompts,defaultActivityWizardSettings,activityWizardNumericOptions} from "../commands/activity-wizard.js";
-import {describeActivityGiveawaySetup,claimAnnouncementPreview,currentGiveawayClaimInstructions,giveawaySetupSteps,validateGiveawaySetupChannels} from "../commands/activity-giveaway-setup.js";
+import {describeActivityGiveawaySetup,claimAnnouncementPreview,currentGiveawayClaimInstructions,giveawaySetupSteps,validateGiveawaySetupChannels,giveawayServerRerollOptions} from "../commands/activity-giveaway-setup.js";
 import {validateTicketClaim} from "../services/giveaway-ticket-claims.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
 import {giveawayStaffRecordPayload} from "../services/giveaway-staff-records.js";
@@ -211,6 +211,7 @@ test("every preset-based activity numeric step offers a custom amount",()=>{
 });
 
 test("regular and activity default settings offer custom reroll input alongside custom claim hours",()=>{
+ assert.ok(giveawayServerRerollOptions().some(([label,value])=>label==="Custom Amount"&&value==="customRerolls"));
  const source=describeActivityGiveawaySetup(claimSettings);
  assert.match(source,/Automatic rerolls/);
  assert.match(source,/Default claim window/);
