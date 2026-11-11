@@ -217,11 +217,18 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   if (!item || item.mode === "survival" || !["closing", "ended"].includes(item.status)) return item;
   if (item.status === "ended") return item;
   let eligible = item.entrantIds || [];
+  if(item.mode==="activity"&&item.guidedSeries){
+    // Guided receipts already applied the role/mention/phrase checks when each
+    // message was recorded. Rebuild from the same source as the staff progress
+    // panel when drawing, rather than relying on an earlier entrant snapshot.
+    const roster=await activityRoster(item);
+    eligible=roster.filter(row=>row.qualified).map(row=>String(row._id));
+  }
   if (item.mode==="activity" && !client) throw Error("Discord client required to verify activity entrants.");
   let entries=[];
   if(client){
     const members=await verifyServerMembers(client,item.guildId,eligible,{includeMembers:true});
-    const permitted=members.filter(m=>!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId));
+    const permitted=members.filter(m=>item.guidedSeries||!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId));
     eligible=permitted.map(m=>m.id);
     entries=weightEntriesForMembers(permitted,item.roleBonuses);
   }
