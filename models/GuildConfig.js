@@ -15,9 +15,43 @@ const guildConfigSchema = new mongoose.Schema(
     inventoryEntryChannelId: { type: String, default: "" },
     inventoryEntryMessageId: { type: String, default: "" },
     giveawayChannelId: { type: String, default: "" },
+    activityGiveawayListChannelId: { type: String, default: "" },
+    activityGiveawayWinnersChannelId: { type: String, default: "" },
+    activityGiveawayReviewChannelId: { type: String, default: "" },
+    giveawayArchiveChannelId: { type: String, default: "" },
+    // Shared staff delegation for regular, activity and Trial giveaway management.
+    giveawayManagerRoleId: { type: String, default: "" },
+    // One auto-updating sticky directory in the configured private staff channel.
+    giveawayStaffDirectoryChannelId: { type: String, default: "" },
+    giveawayStaffDirectoryMessageId: { type: String, default: "" },
+    giveawayStaffDirectoryFingerprint: { type: String, default: "" },
+    activityClaimInstructions:{type:String,default:"",maxlength:1000},
+    giveawayRoleInstructions:{type:String,default:"",maxlength:500},
+    giveawayDefaultRequiredRoleId:{type:String,default:""},
+    giveawayShowRoleInstructions:{type:Boolean,default:true},
+    activityClaimWindowHours:{type:Number,default:12,min:1,max:720},
+    activityMaxAutoRerolls:{type:Number,default:2,min:0,max:10},
+    activityNotificationRoleIds:{type:[String],default:[]},
+    activityAnnounceEmptyResults:{type:Boolean,default:true},
+    giveawayDefaultBannerNameKey: { type: String, default: "" },
     survivalTrialChannelId: { type: String, default: "" },
+    // Regular giveaway role notifications. Legacy singular giveawayPingRoleId
+    // remains readable so old server settings continue to work unchanged.
+    giveawayNotificationRoleIds: { type: [String], default: [] },
     giveawayPingRoleId: { type: String, default: "" },
     survivalTrialPingRoleId: { type: String, default: "" },
+    // A completed /setup channels or guided setup unlocks commands for this guild.
+    // Existing guilds with a command channel are also treated as already set up.
+    initialSetupCompletedAt: { type: Date, default: null },
+    trialSetupCompletedAt: { type: Date, default: null },
+    trialDefaultRequiredRoleId: { type: String, default: "" },
+    trialRoleInstructions: { type: String, default: "", maxlength: 500 },
+    trialShowRoleInstructions: { type: Boolean, default: true },
+    trialClaimInstructions: { type: String, default: "", maxlength: 1000 },
+    trialClaimWindowMinutes: { type: Number, default: 720, min: 1, max: 43200 },
+    trialMaxAutoRerolls: { type: Number, default: 2, min: 0, max: 10 },
+    trialNotificationRoleIds: { type: [String], default: [] },
+    trialDefaultBannerNameKey: { type: String, default: "" },
     tradeVoteChannelId: { type: String, default: "" },
     tradeVoteEntryChannelId: { type: String, default: "" },
     tradeVoteEntryMessageId: { type: String, default: "" },
@@ -26,6 +60,8 @@ const guildConfigSchema = new mongoose.Schema(
     shopCategoryMessageIds: { type: Map, of: String, default: () => ({}) },
     commandChannelId: { type: String, default: "" },
     hatchemChannelId: { type: String, default: "" },
+    cardSetupCompletedAt: { type: Date, default: null },
+    hatchemAutoDropsEnabled: { type: Boolean, default: true },
     partyGamesChannelId: { type: String, default: "" },
     // Legacy timed-drop due date; retained for existing MongoDB documents but
     // deliberately ignored. Wild eggs now come only from server activity.
