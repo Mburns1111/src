@@ -24,15 +24,25 @@ const hasPublicPost=record=>Boolean(publicPost(record));
 const hasOutstandingClaims=record=>
   (record.winnerIds||[]).some((_,slot)=>!winnerHasClaim(record,slot)&&
     !(record.claimResolvedSlots||[]).includes(slot));
-const claimOrActivityStatus=record=>{
-  if(record.status==="ended" || record.status==="rerolling")
-    return hasOutstandingClaims(record)?"Waiting for winner claim":"Claim submitted — staff follow-up";
-  if(record.status==="pending_review")return "Awaiting staff approval";
-  if(record.status==="closing")return "Drawing winners";
-  if(record.status==="running")return "Trial in progress";
-  if(record.status==="preparing")return "Trial preparing";
-  return "Open for entries";
-};
+/** Blue=active, yellow=needs action/claim, green=claimed/delivery,
+ * red=cancelled/closed and ready for moderator archive. */
+export function giveawayIndexStatus(record){
+ if(record.status==="cancelled")return {color:"🟥",label:"Cancelled — confirm archive"};
+ if(record.status==="ended"){
+   if(!(record.winnerIds||[]).length)return {color:"🟥",label:"No winners — confirm archive"};
+   if(record.prizeDeliveredAt)return {color:"🟩",label:"Prizes delivered — confirm archive"};
+   if((record.winnerIds||[]).every((_,slot)=>(record.claimResolvedSlots||[]).includes(slot)))
+     return {color:"🟥",label:"All winning places closed — confirm archive"};
+   if(hasOutstandingClaims(record))return {color:"🟨",label:"Waiting for winner claim"};
+   return {color:"🟩",label:"Claim submitted — awaiting prize delivery"};
+ }
+ if(record.status==="pending_review")return {color:"🟨",label:"Awaiting staff approval"};
+ if(record.status==="closing"||record.status==="rerolling")
+   return {color:"🟨",label:record.status==="closing"?"Drawing winners":"Replacing a winner"};
+ if(record.status==="running")return {color:"🟦",label:"Trial in progress"};
+ if(record.status==="preparing")return {color:"🟦",label:"Trial preparing"};
+ return {color:"🟦",label:"Open for entries"};
+}
 const typeName=record=>record.mode==="survival"?"Court's Trial":
   record.mode==="activity"?"Activity":"Regular";
 
@@ -44,14 +54,14 @@ export const GIVEAWAY_INDEX_STICKY_INTERVAL_MS=60*60*1000;
 export function activeGiveawayIndexEmbed({records=[],plans=[]}={}){
  const candidates=[
    ...records.map(record=>({
-     name:record.title,type:typeName(record),status:claimOrActivityStatus(record),
-     url:link(record.guildId,publicPost(record).channelId,publicPost(record).messageId),
+     name:record.title,type:typeName(record),status:giveawayIndexStatus(record),
+     url:hasPublicPost(record)?link(record.guildId,publicPost(record).channelId,publicPost(record).messageId):"",
      until:record.status==="open"?record.endsAt:null,
      staffUrl:record.staffCardChannelId&&record.staffCardId?
        link(record.guildId,record.staffCardChannelId,record.staffCardId):"",
    })),
    ...plans.map(plan=>({
-     name:plan.title,type:"Activity schedule",status:"Ongoing schedule",
+     name:plan.title,type:"Activity schedule",status:{color:"🟦",label:"Ongoing schedule"},
      url:link(plan.guildId,plan.listChannelId,plan.listMessageId),
      until:plan.nextRunAt,
    })),
@@ -59,7 +69,7 @@ export function activeGiveawayIndexEmbed({records=[],plans=[]}={}){
  const lines=[`**${candidates.length} active or pending giveaways / schedules**`,""];
  let displayed=0;
  for(const item of candidates){
-   const entry=`${displayed+1}. **${safe(item.name)}** · ${item.type}\n🟨 ${item.status}${item.until?" · "+relative(item.until):""}${item.staffUrl?" · [Open staff record]("+item.staffUrl+")":""} · [Public post](${item.url})`;
+   const entry=`${displayed+1}. **${safe(item.name)}** · ${item.type}\n${item.status.color} ${item.status.label}${item.until?" · "+relative(item.until):""}${item.staffUrl?" · [Open staff record]("+item.staffUrl+")":""}${item.url?" · [Public post]("+item.url+")":""}`;
    if(lines.join("\n").length+entry.length+225>3890)break;
    lines.push(entry);displayed++;
  }
@@ -75,18 +85,14 @@ export function activeGiveawayIndexEmbed({records=[],plans=[]}={}){
 export async function activeGiveawayIndexData(guildId,now=new Date()){
  const [all,plans]=await Promise.all([
    Giveaway.find({guildId,status:{$in:[
-     "open","preparing","running","closing","pending_review","rerolling","ended",
+     "open","preparing","running","closing","pending_review","rerolling","ended","cancelled",
    ]}}).sort({createdAt:-1}).limit(400).lean(),
    GiveawayPlan.find({guildId,status:"active"}).sort({nextRunAt:1}).limit(150).lean(),
  ]);
- const records=all.filter(record=>{
-   if(!hasPublicPost(record)||!["open","preparing","running","closing","pending_review","rerolling","ended"].includes(record.status))return false;
-   if(record.archivedAt||record.prizeDeliveredAt)return false;
-   if(record.status==="ended" || record.status==="rerolling")
-     return (record.winnerIds||[]).some((_,slot)=>
-       !(record.claimResolvedSlots||[]).includes(slot));
-   return true;
- });
+ const records=all.filter(record=>
+   !record.archiveMovedAt &&
+   ["open","preparing","running","closing","pending_review","rerolling","ended","cancelled"].includes(record.status) &&
+   (hasPublicPost(record)||Boolean(record.staffCardId)));
  return {records,plans:plans.filter(plan=>plan.listChannelId&&plan.listMessageId)};
 }
 
@@ -110,7 +116,7 @@ async function removeWrongChannelIndex(client,config,targetChannelId){
 }
 
 /** Edit for meaningful content changes; check the last message only hourly.
- * A new position is achieved by sending a replacement then deleting the old
+ * A new position is achieved by sending a replacement on content changes or hourly displacement, then deleting the old
  * bot-owned index, never pinning or moving anyone else's message.
  */
 export async function reconcileActiveGiveawayIndex(client,{guildId=null,now=new Date()}={}){
@@ -147,7 +153,9 @@ export async function reconcileActiveGiveawayIndex(client,{guildId=null,now=new 
        lastId=latest.first?.()?.id||latest.values?.().next().value?.id||null;
      }
      const displaced=Boolean(message&&checkPosition&&lastId&&lastId!==message.id);
-     if(!message||displaced){
+     // New/closed giveaways must bring the refreshed index to the bottom now;
+     // unchanged content is only position-checked once per hour.
+     if(!message||displaced||changed){
        const replacement=await channel.send(payload);
        await GuildConfig.updateOne({guildId:config.guildId},{$set:{
          giveawayIndexChannelId:channel.id,giveawayIndexMessageId:replacement.id,
@@ -158,7 +166,6 @@ export async function reconcileActiveGiveawayIndex(client,{guildId=null,now=new 
          catch(error){console.error("[Giveaways] Could not remove superseded staff index:",error);}
        }
      }else{
-       if(changed)await message.edit(payload);
        if(message.pinned&&message.unpin){
          try{await message.unpin();}catch(error){
            console.error("[Giveaways] Could not unpin legacy staff index:",error);
