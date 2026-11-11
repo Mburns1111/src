@@ -135,7 +135,11 @@ export const data = new SlashCommandBuilder()
       .addBooleanOption((option) =>
         option.setName("clear_trial_ping")
           .setDescription("Disable the Court's Trial notification role"),
-      ),
+      )
+      .addRoleOption(option => option.setName("giveaway_manager")
+        .setDescription("Role allowed to access the Giveaway Manager staff help guides"))
+      .addBooleanOption(option => option.setName("clear_giveaway_manager")
+        .setDescription("Clear the configured Giveaway Manager help role")),
   )
   .addSubcommand(command=>command.setName("activity-giveaways")
     .setDescription("Guided setup for activity giveaway channels, claim instructions and defaults"))
