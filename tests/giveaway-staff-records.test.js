@@ -71,7 +71,7 @@ test("staff cancellation archive retains staff identity and reason without contr
  assert.match(body,/Host cannot deliver prize/);
  assert.match(body,/<t:\d+:F>/);
  assert.deepEqual(staff.components.flatMap(r=>r.components).map(b=>b.data.custom_id),
-   ["giveawaystaff:entrants:"+id+":0"],"cancelled archives retain read-only entrant access without cancel/delete actions");
+   ["giveawaystaff:entrants:"+id+":0","giveawaystaff:remove:"+id],"cancelled records can be moved to the configured archive");
 });
 
 test("cancel and delete requires a written reason and confirmation",async()=>{
@@ -149,4 +149,28 @@ test("cancelling a live giveaway archives the reason and removes only its public
    Giveaway.updateOne=original.updateOne;
    GuildConfig.findOne=original.config;
  }
+});
+
+test("settled prize claims restore the Archive Giveaway button",()=>{
+ const claim={slot:0,userId:winner,ticketNumber:"123-ABC",ticketUrl:ticketLink,
+   submittedAt:new Date("2026-11-08T13:45:00Z")};
+ const record={...ended,winnerClaims:[claim]};
+ const controls=giveawayStaffRecordPayload(record).components.flatMap(row=>row.components);
+ assert.ok(controls.some(button=>button.data.custom_id==="giveawaystaff:remove:"+id &&
+   button.data.label==="Archive Giveaway"));
+});
+
+test("archived staff records stay read-only and retain prize claim details",()=>{
+ const claim={slot:0,userId:winner,ticketNumber:"123-ABC",ticketUrl:ticketLink,
+   submittedAt:new Date("2026-11-08T13:45:00Z")};
+ const record={...ended,publicListingRemovedAt:new Date("2026-11-11T12:00:00Z"),
+   publicListingRemovedBy:"999999999999999999",winnerClaims:[claim],guidedSeries:id};
+ const archived=giveawayStaffRecordPayload(record,{archived:true});
+ const ids=archived.components.flatMap(row=>row.components).map(button=>button.data.custom_id);
+ assert.deepEqual(ids,["giveawaystaff:entrants:"+id+":0"]);
+ assert.match(archived.embeds[0].toJSON().description,/COMPLETED — PUBLIC LISTING DELETED/);
+ assert.ok(archived.embeds[0].toJSON().fields.some(field=>field.value.includes(ticketLink)));
+ const unmoved=giveawayStaffRecordPayload(record,{archived:false});
+ assert.ok(unmoved.components.flatMap(row=>row.components)
+   .some(button=>button.data.custom_id==="giveawaystaff:remove:"+id));
 });
