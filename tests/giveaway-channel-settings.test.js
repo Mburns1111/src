@@ -46,11 +46,11 @@ function setupInteraction(channels, roles = {}, clears = {}) {
 
 test("guided setup replaces legacy /setup channels without dropping saved settings", () => {
   const names=setupCommand.toJSON().options.map(x=>x.name);
-  assert.deepEqual(names,["activity-giveaways","giveaways","trials","cards","general"]);
+  assert.deepEqual(names,["activity-giveaways","giveaways","trials","cards","archives","general"]);
   assert.equal(names.includes("channels"),false,"retired legacy subcommand is absent from Discord registration");
   for(const field of ["commandChannelId","partyGamesChannelId"])
     assert.ok(generalSetupFields.includes(field),field+" is set with /setup general");
-  for(const field of ["giveawayChannelId","survivalTrialChannelId",
+  for(const field of ["giveawayArchiveChannelId","giveawayChannelId","survivalTrialChannelId",
     "activityGiveawayListChannelId","activityGiveawayWinnersChannelId",
     "activityGiveawayReviewChannelId","giveawayPingRoleId","survivalTrialPingRoleId",
     "giveawayNotificationRoleIds","activityNotificationRoleIds"])
