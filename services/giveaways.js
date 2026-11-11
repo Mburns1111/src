@@ -109,6 +109,7 @@ export function giveawayAnnouncement(record) {
     .setColor(ended ? 0x86738d : 0xb47e99)
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
+  if(!activity)embed.setTitle(ended ? "🦊 Heist Complete" : "🦊 The Fox’s Giveaway");
   if(ended && record.status==="ended" && (record.winnerIds||[]).length && !claimsClosed){
     const instructions=prizeClaimLines(record,{finished:true});
     for(const [index,line] of instructions.entries()){
