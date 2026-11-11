@@ -1,31 +1,23 @@
-// Keep public bot commands and guided giveaway creation in the dedicated
-// commands channel. The private giveaway staff channel is reserved for staff
-// records, approval controls and the sticky directory, not slash commands.
-const giveawayNames=new Set(["giveaway","giveaway-role"]);
-
-export function allowedCommandChannels(commandName,config){
-  const ids=[config?.commandChannelId];
-  // Court's Trials have their own dedicated public Trial channel as before;
-  // they are not permitted in the private giveaway staff channel.
-  if(commandName==="trial")ids.push(config?.survivalTrialChannelId);
-  return [...new Set(ids.filter(Boolean))];
+// Public slash commands have their own home channels; staff tools use the
+// private commands channel. Buttons and Hatchem text prefixes are separate.
+const giveawayNames = new Set(["giveaway", "giveaway-role"]);
+export function allowedCommandChannels(commandName, config) {
+  if (commandName === "help") return []; // Unrestricted in server channels.
+  if (commandName === "shop") return [config?.shopChannelId].filter(Boolean);
+  if (commandName === "cards") return [config?.hatchemChannelId].filter(Boolean);
+  return [config?.commandChannelId].filter(Boolean);
 }
-
-export function commandChannelRestriction(commandName,channelId,config){
-  // Even when a server hasn't configured its commands channel yet, never
-  // treat the private giveaway records channel as an alternative.
-  if(config?.activityGiveawayReviewChannelId &&
-      channelId===config.activityGiveawayReviewChannelId &&
-      (giveawayNames.has(commandName)||commandName==="trial"))
-    return "The private giveaway staff channel is reserved for records and staff buttons. Use the commands channel"+
-      (config?.commandChannelId?" <#"+config.commandChannelId+">":" (set one with /setup general)")+
-      (commandName==="trial"&&config?.survivalTrialChannelId?" or Trial channel <#"+config.survivalTrialChannelId+">":"")+".";
-  const allowed=allowedCommandChannels(commandName,config);
-  if(!allowed.length||allowed.includes(channelId))return null;
-  if(giveawayNames.has(commandName))
-    return "Use giveaway commands in "+allowed.map(id=>"<#"+id+">").join(" or ")+
-      ". The private giveaway staff channel is for records and staff buttons only.";
-  if(commandName==="trial")
-    return "Use Court's Trial commands in "+allowed.map(id=>"<#"+id+">").join(" or ")+".";
-  return "Please use bot commands in <#"+config.commandChannelId+">.";
+export function commandChannelRestriction(commandName, channelId, config) {
+  if (commandName === "help") return null;
+  if (commandName === "shop" && !config?.shopChannelId)
+    return "The shop is not configured. Ask staff to run /setup general.";
+  const allowed = allowedCommandChannels(commandName, config);
+  // Initial setup must still be possible before a commands channel exists.
+  if (!allowed.length) return null;
+  if (allowed.includes(channelId)) return null;
+  if (commandName === "shop") return "Use /shop browse in <#" + config.shopChannelId + ">.";
+  if (commandName === "cards") return "Use Hatchem commands in <#" + config.hatchemChannelId + ">.";
+  if (giveawayNames.has(commandName))
+    return "Use giveaway staff commands in <#" + config.commandChannelId + ">.";
+  return "Please use staff commands in <#" + config.commandChannelId + ">.";
 }
