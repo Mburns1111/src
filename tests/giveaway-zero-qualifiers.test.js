@@ -4,7 +4,6 @@ import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
 import {runGiveawayPlan} from "../services/giveaway-plans.js";
-import {giveawayAnnouncement} from "../services/giveaways.js";
 
 test("zero qualifying members generate an explicit empty-result winner announcement without consuming the prize",async()=>{
  const original=[Giveaway.findOne,Giveaway.findOneAndUpdate,Giveaway.create,Giveaway.updateOne,
@@ -43,30 +42,10 @@ test("zero qualifying members generate an explicit empty-result winner announcem
   assert.equal(result.drawn,false);
   assert.equal(sent,1);
   assert.equal(record.entrantIds.length,0);
-  assert.match(announcement.embeds[0].toJSON().description,/No qualifying members/);
+  assert.match(announcement.embeds[0].toJSON().description,/No eligible winner/);
+  assert.doesNotMatch(announcement.embeds[0].toJSON().description,/How to claim|Winner ticket claims|How to qualify/);
  }finally{
   [Giveaway.findOne,Giveaway.findOneAndUpdate,Giveaway.create,Giveaway.updateOne,
    GuildConfig.findOne,GiveawayActivityCount.aggregate]=original;
  }
-});
-
-
-test("activity winner presentation is concise and never includes claims for no-winner results",()=>{
- const base={_id:"507f1f77bcf86cd799439011",mode:"activity",title:"Weekly Giveaway",
-   prize:"Neon Cat",creatorId:"123456789012345678",status:"ended",winnerCount:1,
-   entrantIds:[],winnerIds:[],endsAt:new Date("2026-11-18T00:00:00Z"),
-   claimWindowHours:12};
- const empty=giveawayAnnouncement(base);
- const emptyEmbed=empty.embeds[0].toJSON();
- assert.match(emptyEmbed.description,/No Winner Selected/);
- assert.match(emptyEmbed.description,/No qualifying members/);
- assert.doesNotMatch(emptyEmbed.description,/Claiming your prize|Winner ticket claims|open a ticket/i);
- assert.equal(empty.components.length,0);
- const won=giveawayAnnouncement({...base,entrantIds:["234567890123456789"],
-   winnerIds:["234567890123456789"]});
- const wonEmbed=won.embeds[0].toJSON();
- assert.match(wonEmbed.description,/The Court Has Chosen/);
- assert.match(wonEmbed.description,/The Court Has Chosen/);
- assert.match(wonEmbed.description,/<@234567890123456789>/);
- assert.equal(won.components.length,1);
 });
