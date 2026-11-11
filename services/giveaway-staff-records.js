@@ -6,6 +6,7 @@ import {giveawayReadyToArchive,archiveGiveawayStaffRecord} from "./giveaway-arch
 import GuildConfig from "../models/GuildConfig.js";
 import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline} from "./giveaway-claims.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
+import {giveawayIndexStatus} from "./giveaway-index.js";
 
 const idText=id=>String(id||"");
 const unix=date=>Math.floor(new Date(date).getTime()/1000);
@@ -13,6 +14,8 @@ const when=date=>date&&Number.isFinite(+new Date(date))?"<t:"+unix(date)+":F>":"
 const safe=s=>String(s||"").replace(/@everyone|@here/g,"[mention]").slice(0,900);
 const btn=(id,label,style=ButtonStyle.Secondary)=>new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style);
 export const staffRecordMarker=record=>"Giveaway staff record · "+idText(record._id);
+const STAFF_STATUS_COLORS={"🟦":0x3498db,"🟨":0xf1c40f,"🟩":0x2ecc71,"🟥":0xe74c3c};
+export const giveawayStaffRecordColor=record=>STAFF_STATUS_COLORS[giveawayIndexStatus(record).color]||0x896b88;
 
 function claimStatus(record,slot){
  const id=record.winnerIds?.[slot];
@@ -113,7 +116,7 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
  for(let i=0;i<controls.length;i+=5)
    components.push(new ActionRowBuilder().addComponents(controls.slice(i,i+5)));
  return {
-  embeds:[new EmbedBuilder().setColor(cancelled?0x777777:0x896b88)
+  embeds:[new EmbedBuilder().setColor(giveawayStaffRecordColor(record))
     .setTitle(cancelled?"📁 Cancelled giveaway · staff archive":"📋 Giveaway staff record")
     .setDescription(lines.join("\n").slice(0,4000))
     .addFields(claimFields)
@@ -178,7 +181,8 @@ export async function ensureGiveawayStaffRecord(client,record){
    const oldFields=JSON.stringify(existing?.fields||[]);
    const newFields=JSON.stringify(payload.embeds[0].data.fields||[]);
    const newButtons=payload.components.flatMap(row=>row.components).map(b=>b.data.custom_id).join("|");
-   if(before!==after||oldFields!==newFields||existing?.footer?.text!==staffRecordMarker(record)||oldButtons!==newButtons)
+   if(before!==after||oldFields!==newFields||existing?.footer?.text!==staffRecordMarker(record)||oldButtons!==newButtons||
+     existing?.color!==payload.embeds[0].data.color)
      await message.edit(payload);
  }else{
    message=await channel.send(payload);
