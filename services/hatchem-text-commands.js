@@ -1,6 +1,8 @@
 import { execute as executeCards } from "../commands/cards.js";
 import { listCollectorTags } from "./card-tag-catalog.js";
 import { sendHatchemTutorial } from "../commands/card-tutorial-ui.js";
+import {isSharedCardGameCreator} from "./card-owner-access.js";
+import {previewCreatorSharing,convertCreatorAchievementsToShared} from "./card-creator-sharing.js";
 
 /**
  * User-facing format is .tag <tag name> [pet name or IDs], without quotes.
@@ -54,10 +56,11 @@ export function parseHatchemTagArguments(raw, savedTags = []) {
 export function parseHatchemText(content) {
   const text = String(content || "").trim().slice(0, 1000);
   if (!text.startsWith(".")) return null;
-  const found = /^\.(help|tutorial|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|halloffame|hof|history|show|shop|inventory)(?:\s+([\s\S]*))?$/i.exec(text);
+  const found = /^\.(help|tutorial|register|drop|cooldowns|collection|upgrade|createtag|tagcreate|create-tag|tags|tag|untag|tagmultiple|tag-multiple|untagmultiple|untag-multiple|deletetag|tagdelete|delete-tag|stats|view|trade|give|burn|dust|dustupgrade|lock|unlock|achievements|halloffame|hof|history|show|shop|inventory|creatorshare)(?:\s+([\s\S]*))?$/i.exec(text);
   if (!found) return null;
   const action = ({createtag:"create-tag",tagcreate:"create-tag",tagdelete:"delete-tag",tagmultiple:"tag-multiple",untagmultiple:"untag-multiple",deletetag:"delete-tag"})[found[1].toLowerCase()] || found[1].toLowerCase(), args = String(found[2] || "").trim();
   if (action === "register") return { action, options: {} };
+  if (action === "creatorshare") return {action,options:{mode:args}};
   if (action === "trade") return { action, options: { member: args } };
   if (action === "give") {
     const match = /^(<@!?\d{17,20}>)(?:\s+([\s\S]+))?$/.exec(args);
@@ -99,29 +102,34 @@ export function parseHatchemText(content) {
 }
 
 export const HATCHEM_GUIDE = [
-  "**🥚 Hatchem — Hatch, Collect & Upgrade!**",
-  "Type .register to join Hatchem and receive this server\u2019s Card role.",
-  "New to Hatchem? Click **Learn to Play** below or type .tutorial for a short walkthrough.",
-  "Type a command starting with a dot (.) here, or use /cards:",
-  ".collection [tag] or .collection @member [tag] — filter collection",
-  ".upgrade [pet name or card ID] — combine four matching cards",
-  '.createtag cute · .tags · .tag cute (newest card)',
-  '.tag cute 2D Doggy (all copies) · .untag abys',
-  ".stats [card ID] · .view [card ID]",
-  ".drop — drop an egg (15m global cooldown)",
-  ".cooldowns — see your next drop and this server’s grab",
-  ".shop — buy Extra Grabs (10 Points) and Extra Drops (20 Points)",
-  ".inventory — public card counts, extras, Points and rarity dust",
-  ".help — list more commands",
-  ".trade @member — offer cards on both sides, both confirm twice",
-  ".give @member CARDID CARDID or .give @member tag:cute — gift cards after sender confirmation",
-  ".burn CARDID, .burn ID1 ID2, or .burn tag:burn — burn selected cards for rarity dust after confirmation",
-  ".dust — check your dust by rarity",
-  ".dustupgrade CARDID — spend matching rarity dust to replace missing upgrade cards",
-  ".lock CARDID / .unlock CARDID — protect a favorite card from transfers and consumption",
-  ".history — your recent completed gifts and trades",
-  ".achievements — track and unlock milestone badges",
-  ".show Pet Name — publicly display a pet card; /cards show offers autocomplete",
+  "**🥚 HATCHEM | Hatch • Collect • Trade**",
+  "**Start playing**",
+  "Type `.register` here to join and receive this server’s **Card role**. Your collection carries across Hatchem servers, but you register in each one.",
+  "Tap **Learn to Play** below or type `.tutorial` for six beginner-friendly pages.",
+  "",
+  "**🥚 Eggs & Collecting**",
+  "`.drop` — Hatch an egg (15-minute global cooldown).",
+  "`.cooldowns` — See your next drop and this server’s grab.",
+  "`.collection [tag]` · `.collection @member [tag]` — Browse and filter cards.",
+  "`.view CARDID` · `.stats CARDID` · `.show Pet Name` — Inspect or display a card.",
+  "",
+  "**✨ Upgrades & Organizing**",
+  "`.upgrade CARDID` — Combine 4 matching cards into a Neon or Mega.",
+  "`.dustupgrade CARDID` — Upgrade using matching rarity dust.",
+  "`.burn CARDID` / `.burn tag:burn` — Turn unwanted cards into dust (confirmation required).",
+  "`.dust` — Check your dust balances.",
+  "`.lock CARDID` / `.unlock CARDID` — Protect a favorite.",
+  "`.createtag cute` · `.tags` · `.tag cute CARDID` · `.untag CARDID` — Organize cards.",
+  "",
+  "**🎁 Trading, Extras & Rewards**",
+  "`.trade @member` — Both players choose cards and confirm.",
+  "`.give @member CARDID` / `.give @member tag:cute` — Send a confirmed gift.",
+  "`.shop` — Extra Grab **10 Points** · Extra Drop **20 Points**.",
+  "`.inventory` — Cards, extras, Points, and dust.",
+  "`.history` — Recent completed trades and gifts.",
+  "`.achievements` — Earn and track milestone badges.",
+  "",
+  "**More commands:** `.help` or `/cards` · IDs look like `Abc12`.",
 ].join("\n");
 
 export const HATCHEM_HELP = [
@@ -162,6 +170,52 @@ export const HATCHEM_HELP = [
 
 export async function runHatchemText(message, parsed) {
   if (!parsed) return false;
+  // Owner-only one-time conversion; intentionally not advertised to players.
+  // The previous destructive .creatorreset command has been retired.
+  if (parsed.action === "creatorshare") {
+    if (!isSharedCardGameCreator(message.author.id)) {
+      await message.reply({content:"This creator-only maintenance command is unavailable.",
+        allowedMentions:{parse:[]}});
+      return true;
+    }
+    try {
+      if (parsed.options.mode === "CONFIRM") {
+        const result=await convertCreatorAchievementsToShared(message.author.id);
+        await message.reply({content:[
+          "**Creator achievements are now shared — your badges and progress were preserved.**",
+          "Preserved " + result.badgesPreserved + " earned badges and all recorded progress.",
+          "Released " + result.creatorRanksReleased + " numbered creator places; adjusted " +
+            result.playerRanksAdjusted + " existing member discovery ranks.",
+          "Transferred " + result.firstRewardsTransferred + " first-in-release bonuses to eligible members; " +
+            result.firstSlotsOpened + " first-in-release spots are open for future members.",
+          "Your previous achievement extras, paid extras, cards, dust, tags and Points are untouched.",
+          "Future creator achievements are Creator · Shared, without player ranks or new achievement rewards.",
+        ].join("\n"),allowedMentions:{parse:[]}});
+      } else if (!parsed.options.mode || /^preview$/i.test(parsed.options.mode)) {
+        const preview=await previewCreatorSharing(message.author.id);
+        await message.reply({content:[
+          "**Creator shared achievements preview — no changes yet**",
+          preview.badges + " creator badges stay earned · " + preview.ranked + " numbered creator ranks can be released.",
+          preview.events + " achievement events and " + preview.acquisitions +
+            " acquisition records remain saved.",
+          "Up to " + preview.playerRanks + " existing member rank records may be renumbered.",
+          preview.releaseFirsts + " creator-held first-in-release spots: " +
+            preview.firstRewards + " have an eligible existing member for the extra first bonus.",
+          "No owned cards, Points, extras, or achievement progress will be deleted.",
+          "To convert, type `.creatorshare CONFIRM` (uppercase).",
+        ].join("\n"),allowedMentions:{parse:[]}});
+      } else {
+        await message.reply({content:"Use `.creatorshare preview` or `.creatorshare CONFIRM`.",
+          allowedMentions:{parse:[]}});
+      }
+    } catch (error) {
+      console.error("[Hatchem] Creator achievement sharing failed:",error);
+      await message.reply({content:"Creator sharing conversion failed; no partial changes were saved. Check the bot console.",
+        allowedMentions:{parse:[]}});
+    }
+    return true;
+  }
+
   if (parsed.action === "tutorial") {
     await sendHatchemTutorial(message);
     return true;
