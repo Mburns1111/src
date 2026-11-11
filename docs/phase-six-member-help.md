@@ -1,22 +1,44 @@
-# Phase 6 — Member help and discoverability
+# AM Isa Help Center — current development design
 
-## Scope
-Keep the current gallery and video arrangement **exactly as tested**: native video attachments appear above the styled card, while photos are displayed in the card. Do not move media, migrate collections, remove attachments, or alter any public listing.
+The `/help` command opens a private, read-only navigation panel. No help interaction changes server configuration, profile media or public listings.
 
-## First slice: private /help navigation
+## Main menu
 
-- Replace the long feature list shown by /help with a concise private guide containing **Start here**, **Listings**, **Shop**, **Points**, and **Commands** buttons.
-- Members can switch topics on the same ephemeral help response, with no extra public messages and no database updates.
-- Describe existing member-facing features accurately: **My house listings**, **My outfit listings**, **Choose photo**, native videos above cards, the shop directory, customizing appearance, and checking Points with **/shop balance**.
-- Keep the live registered-command list accessible on the Commands topic, including server-specific overrides, subcommands, and administrator setup guidance. Network failures use a friendly fallback instead of breaking the entire guide.
-- Buttons are tied to the initiating member and reject invalid or outdated topics.
+Choose **Public Help** or **Staff Help**.
 
-## Replit smoke test
+**Public Help** topics: Getting Started, Listings & Trading, Shop & Points, Collectible Cards, Giveaways, Games & Activities, and Registered Commands. The Commands topic lists Discord-registered slash commands.
 
-1. Pull `feature/phase-6-member-help`, run `npm run check:source` and `npm test`, then restart the bot.
-2. Run `/help`: it should open a **private** help menu containing five navigation buttons.
-3. Click Listings, Shop, Points, Commands, and Start here. Confirm each changes the same private help response and no message appears in the public channel.
-4. Read the Listings instructions and confirm they match the existing functioning house/outfit buttons and gallery controls.
-5. Use the existing house/outfit controls, shop and profile once to ensure they still work. No media or customization should change simply from opening help.
+**Staff Help** groups:
+- Server setup: blue **Bot Setup** button, prominently labeled as the first step.
+- Giveaways: Run a Giveaway, Track Activity, Archive Records.
+- Other staff tools: Hatchem Cards, Points & Shop, Party Games.
 
-No merge or Wispbyte deployment until explicit user approval.
+Only authorized staff can open Staff Help. The giveaway-manager role is allowed to read Staff Help, but the actual `/setup` command still requires Manage Server permission.
+
+## Bot Setup guide
+
+1. Mandatory **private Bot Commands** channel, hidden from `@everyone`, for staff setup and administration.
+2. Public Profiles, Trading, Shop & Points channels grouped as one member system.
+3. Public Hatchem channel and Collector registration role.
+4. Public Party Games channel.
+5. Giveaway public channels (regular, activity list, activity winners and Court's Trials) plus separate **private staff controls** and **required private archive** channels.
+6. Required bot permissions, followed by setup order.
+
+Use `/setup general` first, then feature-specific `/setup cards`, `/setup giveaways`, `/setup activity-giveaways`, or `/setup trials`. Each of the three giveaway setup flows includes the required shared private archive channel. There is no separate `/setup archives` menu option.
+
+## Giveaway help
+
+Run a Giveaway includes regular, activity and Court's Trial giveaways. Status colors distinguish running, pending claims, completed claims, no eligible winners, and archived records. **Claim completed is not synonymous with prize delivered.** Staff use the active private directory and staff records to manage events and archive settled records.
+
+## Smoke-test checklist (development bot only)
+
+1. Run `/help` and verify it stays private. Open Public Help and all seven topics.
+2. Open Staff Help. Verify **Bot Setup** is the blue button and setup-first notice appears.
+3. Open Bot Setup and confirm all seven sections, private commands, public vs private channels, and mandatory archive wording.
+4. Open Run a Giveaway. Confirm all three types and current claim-status wording.
+5. Verify ordinary members cannot access Staff Help, but access to public help remains available.
+6. Use `/setup general` to choose a staff-only commands channel and verify a channel visible to `@everyone` is rejected.
+7. Use each giveaway setup to choose the same separate private archive and verify it is saved and shown in the review.
+8. Ensure profile/gallery media, video order, purchases and published listings remain unchanged by reading help.
+
+No merge into `main` or Wispbyte deployment until all integration conflicts and tests are resolved.
