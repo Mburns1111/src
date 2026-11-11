@@ -1,3 +1,4 @@
+import {giveawayClaimsComplete} from "./giveaway-listing-lifecycle.js";
 // Shared prize-claim presentation for ordinary giveaways and Court's Trials.
 // The bot never creates tickets, adjudicates availability, or forfeits prizes.
 export const MAX_CLAIM_HOURS = 24 * 30;
@@ -32,6 +33,13 @@ export function winnerClaimDeadline(record, slot) {
 }
 export function winnerHasClaim(record, slot) {
   return (record.winnerClaims || []).some(c => c.slot === slot && c.userId === record.winnerIds?.[slot]);
+}
+
+export function giveawayArchiveOutcome(record){
+  if(record?.status==="cancelled")return "Cancelled";
+  if(record?.status==="ended"&&record.prizeDeliveredAt&&giveawayClaimsComplete(record))
+    return "All prizes delivered";
+  return null;
 }
 // The public post is refreshed as claims arrive. Hide generic deadline,
 // ticket-submission and forfeiture directions once every *current* prize place
