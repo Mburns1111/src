@@ -56,3 +56,15 @@ test("registration script synchronizes only the planned guild-specific commands"
   assert.match(registration, /body: guildCommands/);
   assert.doesNotMatch(registration, /\[\.\.\.commands,\s*\.\.\.testGuildCardCommands\]/);
 });
+
+test("obsolete member slash commands are no longer registered", () => {
+  const registration = readFileSync(new URL("../register-commands.js", import.meta.url), "utf8");
+  for (const command of ["profileCommand", "houseCommand", "outfitCommand",
+    "inventoryVideoCommand", "tradeCommand"])
+    assert.doesNotMatch(registration, new RegExp("\\b" + command + "\\b"));
+});
+
+test("appearance shop exposes browse only; balance is available through the channel button", async () => {
+  const { data } = await import("../commands/shop.js");
+  assert.deepEqual(data.toJSON().options.map(option => option.name), ["browse"]);
+});
