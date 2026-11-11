@@ -20,6 +20,8 @@ const archiveNote=(record,at)=>[
       record.winnerIds?.length?"All winning places forfeited / closed":"No winners selected"),
   ...(record.prizeDeliveredBy?["**Delivery confirmed by:** <@"+record.prizeDeliveredBy+">"]:[]),
   ...(record.staffCancelledBy?["**Cancelled by:** <@"+record.staffCancelledBy+">"]:[]),
+  ...(record.archiveRequestedBy?["**Archive approved by:** <@"+record.archiveRequestedBy+">"]:[]),
+  ...(record.archiveRequestedReason?["**Archive reason:** "+record.archiveRequestedReason.slice(0,450)]:[]),
   "**Original giveaway ID:** `"+record._id+"`",
 ].join("\n");
 
@@ -89,7 +91,7 @@ async function performArchiveTransfer(client,record,{staffPayload}={}){
  if(config.giveawayArchiveChannelId===config.activityGiveawayReviewChannelId)
    throw Error("Giveaway Archives and active staff channel must be different.");
  const channel=await verifiedPrivateChannel(client,config.giveawayArchiveChannelId);
- const at=asDate(record.archivedAt||record.prizeDeliveredAt||record.staffCancelledAt);
+ const at=asDate(record.archivedAt||record.archiveRequestedAt);
  const oldCardChannel=record.staffCardChannelId||config.activityGiveawayReviewChannelId;
  const oldCardId=record.staffCardId;
  const oldProgressId=record.staffProgressMessageId;
@@ -118,9 +120,8 @@ async function performArchiveTransfer(client,record,{staffPayload}={}){
    })],allowedMentions:{parse:[]},components:[]});
    await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
      {$set:{archiveCardId:archive.id,archivedAt:at,
-       archiveReason:record.status==="cancelled"?"Cancelled":record.prizeDeliveredAt?
-         "Prizes delivered":record.winnerIds?.length?"All winning places forfeited":"No winners",
-       archivedBy:record.prizeDeliveredBy||record.staffCancelledBy||"system"}});
+       archiveReason:record.archiveRequestedReason||"Approved staff archive",
+       archivedBy:record.archiveRequestedBy||"system"}});
  }
 
  let archiveProgressId=record.archiveProgressMessageId||"";
