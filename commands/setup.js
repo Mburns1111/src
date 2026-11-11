@@ -136,10 +136,7 @@ export const data = new SlashCommandBuilder()
         option.setName("clear_trial_ping")
           .setDescription("Disable the Court's Trial notification role"),
       )
-      .addRoleOption(option => option.setName("giveaway_manager")
-        .setDescription("Role allowed to access the Giveaway Manager staff help guides"))
-      .addBooleanOption(option => option.setName("clear_giveaway_manager")
-        .setDescription("Clear the configured Giveaway Manager help role")),
+,
   )
   .addSubcommand(command=>command.setName("activity-giveaways")
     .setDescription("Guided setup for activity giveaway channels, claim instructions and defaults"))
@@ -170,14 +167,8 @@ export async function execute(interaction) {
   const survivalTrialChannel = interaction.options.getChannel("survival_trials");
   const giveawayPingRole = interaction.options.getRole("giveaway_ping");
   const trialPingRole = interaction.options.getRole("trial_ping");
-  const giveawayManagerRole = interaction.options.getRole("giveaway_manager");
-  const clearGiveawayManager = interaction.options.getBoolean("clear_giveaway_manager") === true;
   const clearGiveawayPing = interaction.options.getBoolean("clear_giveaway_ping") === true;
   const clearTrialPing = interaction.options.getBoolean("clear_trial_ping") === true;
-  if(giveawayManagerRole && clearGiveawayManager)
-    throw new UserFacingError("Choose either a Giveaway Manager role or clear it.");
-  if(giveawayManagerRole && (giveawayManagerRole.id===interaction.guildId || giveawayManagerRole.managed))
-    throw new UserFacingError("Choose a regular server role for Giveaway Managers, not @everyone or an integration-managed role.");
   if ((giveawayPingRole && clearGiveawayPing) || (trialPingRole && clearTrialPing)) {
     throw new UserFacingError("Choose a ping role or clear it, not both for the same event type.");
   }
@@ -201,8 +192,6 @@ export async function execute(interaction) {
     !survivalTrialChannel &&
     !giveawayPingRole &&
     !trialPingRole &&
-    !giveawayManagerRole &&
-    !clearGiveawayManager &&
     !clearGiveawayPing &&
     !clearTrialPing
   ) {
@@ -260,7 +249,6 @@ export async function execute(interaction) {
   if (survivalTrialChannel) updates.survivalTrialChannelId = survivalTrialChannel.id;
   if (giveawayPingRole || clearGiveawayPing) updates.giveawayPingRoleId = clearGiveawayPing ? "" : giveawayPingRole.id;
   if (trialPingRole || clearTrialPing) updates.survivalTrialPingRoleId = clearTrialPing ? "" : trialPingRole.id;
-  if (giveawayManagerRole || clearGiveawayManager) updates.giveawayManagerRoleId = clearGiveawayManager ? "" : giveawayManagerRole.id;
 
   // Ensure the shop before updating channel settings so its existing message IDs
   // are checked against the previous channel when a shop is moved.
@@ -332,8 +320,6 @@ export async function execute(interaction) {
   if (trialPingRole) configured.push(`Court's Trial notifications: <@&${trialPingRole.id}>`);
   if (clearGiveawayPing) configured.push("Regular giveaway notifications: disabled");
   if (clearTrialPing) configured.push("Court's Trial notifications: disabled");
-  if (giveawayManagerRole) configured.push(`Giveaway Manager help access: <@&${giveawayManagerRole.id}>`);
-  if (clearGiveawayManager) configured.push("Giveaway Manager help access: disabled");
   if (hatchemChannel) configured.push(`Hatchem card-game commands: ${hatchemChannel}`);
   if (partyGamesChannel) configured.push(`Party Games: ${partyGamesChannel}`);
 
