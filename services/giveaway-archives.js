@@ -32,8 +32,9 @@ async function verifiedPrivateChannel(client,channelId){
  const botMember=channel.guild?.members?.me;
  const perms=botMember?channel.permissionsFor?.(botMember):null;
  if(perms && [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,
-   PermissionFlagsBits.EmbedLinks].some(p=>!perms.has(p)))
-   throw Error("The bot needs View Channel, Send Messages and Embed Links in giveaway Archives.");
+   PermissionFlagsBits.EmbedLinks,PermissionFlagsBits.AttachFiles,
+   PermissionFlagsBits.ReadMessageHistory].some(p=>!perms.has(p)))
+   throw Error("The bot needs View Channel, Send Messages, Embed Links, Attach Files and Read Message History in giveaway Archives.");
  return channel;
 }
 async function findOwnedMessage(channel,id,client,footer){
@@ -82,8 +83,8 @@ export async function archiveGiveawayStaffRecord(client,record,{staffPayload}={}
  if(!archive){
    if(!staffPayload)throw Error("A saved staff record is required to archive a giveaway.");
    if(record.mode==="activity"){
-     try{snapshotRows=await activityProgressRows(record);}
-     catch(error){console.error("[Giveaways] Could not add full roster to archive snapshot:",error);}
+     // Do not remove the active record if the final activity counts cannot be read.
+     snapshotRows=await activityProgressRows(record);
    }
    const snapshot={archivedAt:at.toISOString(),giveaway:record,
      activityProgress:snapshotRows||[]};
@@ -111,9 +112,7 @@ export async function archiveGiveawayStaffRecord(client,record,{staffPayload}={}
    if(!progress){
      let summary=null;
      if(!snapshotRows){
-       try{snapshotRows=await activityProgressRows(record);}catch(error){
-         console.error("[Giveaways] Could not refresh final archive progress:",error);
-       }
+       snapshotRows=await activityProgressRows(record);
      }
      if(snapshotRows)summary=progressPanelPayload(record,snapshotRows,at).embeds[0];
      if(!summary && oldProgressId && oldCardChannel){
