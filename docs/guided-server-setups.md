@@ -1,20 +1,26 @@
 # Guided server setup (development only)
 
-Source: `feature/trials-guided-setup` (draft PR #41). Based on the unmerged activity-giveaway branch. Never deploy Wispbyte or merge to main without approval.
+Source: `integration/active-development-2026-11-11`. Consolidation in progress; never deploy Wispbyte or merge to main without approval.
 
 ## Setup commands
 
 | Command | What it configures | Required fields |
 |---|---|---|
 | `/setup general` | Ordinary commands channel, then optional member profiles, houses, outfits, inventory, Trading Posts, trade voting, shop and party games | Commands channel **first** |
-| `/setup giveaways` | Standard giveaway posts, private staff records, Giveaway Manager role, one shared giveaway notification role, role/help, claims, rerolls and banner | Public giveaway channel and private staff channel |
-| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, Giveaway Manager role, the same shared giveaway notification role, role/help, claims, rerolls and banner | Three distinct channels |
-| `/setup trials` | Court's Trial signup/elimination channel, private staff records, default eligibility role/help, claim instructions and deadlines, notification roles, automatic rerolls, banner | Trial channel and private staff channel |
+| `/setup giveaways` | Standard giveaway posts, private staff records, shared private archive, Giveaway Manager role, notification role, role/help, claims, rerolls and banner | Public giveaway channel, private staff channel and separate private archive |
+| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, shared private archive, Giveaway Manager role, notification role, role/help, claims, rerolls and banner | Public activity list, public winners, private staff channel and separate private archive |
+| `/setup trials` | Court's Trial signup/elimination channel, private staff records, shared private archive, eligibility role/help, claims, rerolls, notifications, banner | Trial channel, private staff channel and separate private archive |
 | `/setup cards` | Hatchem game channel, Collector role, activity-based wild egg toggle | Requires General commands channel; Hatchem channel and manageable Collector role |
 
-`/setup channels` has been **retired from Discord's command menu**. Existing MongoDB channel IDs and notification settings are preserved; use the five guided options above to update them. Previously saved guild setups remain recognized without requiring reconfiguration.
+`/setup channels` and `/setup archives` have been **retired from Discord's command menu**. Existing MongoDB channel IDs and notification settings are preserved; use the five guided options above to update them. Previously saved guild setups remain recognized without requiring reconfiguration.
 
 Guided flows send numbered messages in the invoking channel, require Manage Server, have Back/Cancel/Keep or Skip actions, support review and editing prior to Save, and store settings only on final Save. The administrator needs to use the configured commands channel for follow-up setup; a never-configured server can start `/setup general` from its initial administrative text channel.
+
+## Shared giveaway archive channel
+
+Every giveaway setup (`/setup giveaways`, `/setup activity-giveaways`, and `/setup trials`) includes a **required** archive channel picker immediately after private staff controls. All three use the same `giveawayArchiveChannelId` in the guild configuration. Reopening a setup preselects the existing archive, and **Keep selected channel** preserves it. Select a different archive in any giveaway setup to change the shared destination.
+
+The private staff controls and private archive channels must be separate from each other and from all public giveaway and Trial channels, hidden from `@everyone`, and writable by the bot. A setup cannot be saved without a valid archive. Existing archived records and giveaway histories are not deleted when the archive destination changes.
 
 ## Optional features and Skip behavior
 
