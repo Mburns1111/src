@@ -73,7 +73,8 @@ const CONTENT=Object.freeze({
  ]],
  commands:["Registered Commands","Current commands are loaded from Discord. Available commands and permissions depend on your server.",[]],
  sgiveaways:["Staff · Giveaway Management","Create and manage giveaways through the configured command channel and staff records.",[
-  ["Set up","Use **/setup giveaways** or **/setup activity-giveaways** for the guided channel and default settings."],
+  ["Before system setup","First configure the general bot and commands channel with **/setup channels**."],
+  ["Set up","Then use **/setup giveaways** or **/setup activity-giveaways** for guided giveaway settings."],
   ["Staff records","Review the active directory and each giveaway's separate staff record. Colors: blue active, yellow needs attention, green claimed/delivered, red closed."],
   ["Claims and delivery","Winner claims are separate from delivery. After all prizes are handed out, use **Confirm Prizes Delivered**; an optional private Discord proof link can be added."],
  ]],
@@ -88,7 +89,8 @@ const CONTENT=Object.freeze({
   ["Records","The private archive keeps winner/claim history, delivery proof when supplied, activity totals, and a full JSON snapshot."],
  ]],
  scards:["Staff · Card Management","Card management controls are restricted to the permissions assigned for each command.",[
-  ["Setup","Use authorized card management commands to configure the Card role and launch content."],
+  ["Before system setup","First configure the general bot and commands channel with **/setup channels**."],
+  ["Setup","Then use authorized card management commands to configure the Card role and launch content."],
   ["Operations","Review drop, card catalog, trade and upgrade controls in the staff card-game commands."],
   ["Permissions","Having access to this guide does not grant permission to manage cards."],
  ]],
@@ -98,11 +100,12 @@ const CONTENT=Object.freeze({
   ["Audit","Keep prize and participation changes attributable to an authorized staff member."],
  ]],
  sgames:["Staff · Games","Manage sessions through the server's game commands and configured channel.",[
-  ["Party games","Use authorized **/party** controls to configure and host a session."],
+  ["Before system setup","First configure the general bot and commands channel with **/setup channels**."],
+  ["Party games","Then use authorized **/party** controls to configure and host a session."],
   ["Court's Trial","Use the trial administration commands and keep results in their assigned channel."],
  ]],
  ssetup:["Staff · Bot Setup","Setup requires its own Discord command permissions.",[
-  ["Channels","Use **/setup channels** to configure commands, listing, shop, game and giveaway channels."],
+  ["Start here","Run **/setup channels** first to configure the general bot and choose the commands channel. After that, configure individual systems."],
   ["Giveaway managers","Use your existing giveaway manager assignment from giveaway setup. There is no separate Help-only role to configure."],
   ["Security","Staff Help is read-only. Editing the server or running commands still requires the permissions enforced by those actions."],
  ]],
