@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import {data as setupCommand} from "../commands/setup.js";
-import {activityWizardPrompts,defaultActivityWizardSettings,activityWizardNumericOptions} from "../commands/activity-wizard.js";
+import {activityWizardPrompts,defaultActivityWizardSettings,activityWizardNumericOptions,activityWizardFlowNext} from "../commands/activity-wizard.js";
 import {describeActivityGiveawaySetup,claimAnnouncementPreview,currentGiveawayClaimInstructions,giveawaySetupSteps,validateGiveawaySetupChannels,giveawayServerRerollOptions} from "../commands/activity-giveaway-setup.js";
 import {validateTicketClaim} from "../services/giveaway-ticket-claims.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
@@ -216,4 +216,26 @@ test("regular and activity default settings offer custom reroll input alongside 
  assert.match(source,/Automatic rerolls/);
  assert.match(source,/Default claim window/);
  assert.equal(new GuildConfig({guildId:guild}).activityMaxAutoRerolls,2);
+});
+
+test("activity creation asks recurrence before optional settings, then Done immediately confirms",()=>{
+ for(const repeat of ["once","daily","weekly"]){
+   assert.equal(activityWizardFlowNext("draw","end"),"repeat");
+   assert.equal(activityWizardFlowNext("later","2026-12-04 19:30"),"repeat");
+   assert.equal(activityWizardFlowNext("repeat",repeat),"extras");
+ }
+ assert.equal(activityWizardFlowNext("repeat","custom"),"unit");
+ assert.equal(activityWizardFlowNext("amount","3"),"extras");
+ assert.equal(activityWizardFlowNext("extras","done"),"summary");
+ assert.ok(activityWizardPrompts.summary[1].some(([,value])=>value==="create"));
+ assert.ok(activityWizardPrompts.summary[1].some(([,value])=>value==="edit"));
+});
+
+test("editing repeat schedule or draw time still returns directly to confirmation",()=>{
+ assert.equal(activityWizardFlowNext("draw","end",true),"summary");
+ assert.equal(activityWizardFlowNext("later","2026-12-04 19:30",true),"summary");
+ assert.equal(activityWizardFlowNext("repeat","weekly",true),"summary");
+ assert.equal(activityWizardFlowNext("repeat","custom",true),"unit");
+ assert.equal(activityWizardFlowNext("amount","2",true),"summary");
+ assert.equal(activityWizardFlowNext("extras","done",true),"summary");
 });
