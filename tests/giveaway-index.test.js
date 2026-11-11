@@ -5,7 +5,7 @@ import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {
   activeGiveawayIndexData,activeGiveawayIndexEmbed,reconcileActiveGiveawayIndex,
-  GIVEAWAY_INDEX_STICKY_INTERVAL_MS,
+  GIVEAWAY_INDEX_STICKY_INTERVAL_MS,giveawayIndexStatus,
 } from "../services/giveaway-index.js";
 
 const guildId="123456789012345678",staffChannelId="234567890123456789",
@@ -65,6 +65,7 @@ test("staff index data retains ended winner claims and live trial, but excludes 
   assert.deepEqual(result.records.map(r=>r._id),[
    "111111111111111111","222222222222222222",
    "333333333333333333","444444444444444444",
+   "555555555555555555","777777777777777777",
   ]);
   assert.equal(result.plans.length,1);
  }finally{Giveaway.find=old.find;GiveawayPlan.find=old.plans;}
@@ -161,24 +162,25 @@ test("existing staff directory is reused rather than creating a duplicate",async
  const state={guildId,activityGiveawayReviewChannelId:staffChannelId,
    giveawayIndexChannelId:"",giveawayIndexMessageId:"",
    giveawayIndexFingerprint:"",giveawayIndexCheckedAt:null};
- let edits=0,sends=0;
+ let edits=0,sends=0,deletes=0;
  const legacy={id:legacyId,author:{id:"bot"},
    embeds:[{footer:{text:"Active giveaway staff directory · 908522799285538817 · Page 1/1"}}],
-   edit:async()=>{edits++;},pinned:false};
+   edit:async()=>{edits++;},delete:async()=>{deletes++;},pinned:false};
  try{
   GuildConfig.find=()=>({select:()=>({lean:async()=>[state]})});
   GuildConfig.updateOne=async(q,u)=>Object.assign(state,u.$set);
   Giveaway.find=()=>({sort:()=>({limit:()=>({lean:async()=>[]})})});
   GiveawayPlan.find=()=>({sort:()=>({limit:()=>({lean:async()=>[]})})});
   const client={user:{id:"bot"},channels:{fetch:async()=>({
-    id:staffChannelId,send:async()=>{sends++;},
+    id:staffChannelId,send:async()=>{sends++;return{id:"888888888888888888",author:{id:"bot"}};},
     messages:{fetch:async arg=>arg?.limit===100?{find:predicate=>predicate(legacy)?legacy:null}:
       arg?.limit===1?{first:()=>({id:legacyId})}:null},
   })}};
   await reconcileActiveGiveawayIndex(client,{now});
-  assert.equal(edits,1);
-  assert.equal(sends,0);
-  assert.equal(state.giveawayIndexMessageId,legacyId);
+  assert.equal(edits,0);
+  assert.equal(sends,1);
+  assert.equal(deletes,1);
+  assert.equal(state.giveawayIndexMessageId,"888888888888888888");
  }finally{
   GuildConfig.find=old.config;GuildConfig.updateOne=old.update;
   Giveaway.find=old.records;GiveawayPlan.find=old.plans;
@@ -200,5 +202,57 @@ test("active activity giveaway without a results post links its public activity 
   assert.match(text,/https:\/\/discord.com\/channels\/123456789012345678\/111111111111111111\/222222222222222222/);
  }finally{
   Giveaway.find=old.find;GiveawayPlan.find=old.plans;
+ }
+});
+
+test("four-color staff statuses distinguish entries, pending claims, claimed delivery and closures",()=>{
+ const open=item("111111111111111111","activity","open");
+ const awaiting=item("222222222222222222","activity","ended",{
+   winnerIds:["555555555555555555"]});
+ const claimed={...awaiting,winnerClaims:[{slot:0,userId:"555555555555555555"}]};
+ const delivered={...claimed,prizeDeliveredAt:new Date()};
+ const cancelled=item("333333333333333333","regular","cancelled");
+ const noWinner=item("444444444444444444","activity","ended");
+ const states=[open,awaiting,claimed,delivered,cancelled,noWinner];
+ assert.deepEqual(states.map(x=>giveawayIndexStatus(x).color),
+   ["🟦","🟨","🟩","🟩","🟥","🟥"]);
+ const body=activeGiveawayIndexEmbed({records:states,plans}).toJSON().description;
+ for(const c of ["🟦","🟨","🟩","🟥"])assert.ok(body.includes(c));
+ assert.match(body,/Claim submitted — awaiting prize delivery/);
+ assert.match(body,/Cancelled — confirm archive/);
+});
+
+test("sticky moves immediately on new giveaway even inside its hourly position-check window",async()=>{
+ const old={config:GuildConfig.find,update:GuildConfig.updateOne,
+   records:Giveaway.find,plans:GiveawayPlan.find};
+ const state={guildId,activityGiveawayReviewChannelId:staffChannelId,
+   giveawayIndexChannelId:"",giveawayIndexMessageId:"",
+   giveawayIndexFingerprint:"",giveawayIndexCheckedAt:null};
+ let active=[],sequence=0;
+ const created=[],deleted=[];
+ const messages=new Map();
+ const channel={id:staffChannelId,
+   messages:{fetch:async arg=>arg?.limit===100?{find:()=>null}:
+     arg?.limit===1?{first:()=>({id:created.at(-1)?.id})}:messages.get(arg)},
+   send:async payload=>{
+     const id=String(++sequence).padStart(18,"0");
+     const message={id,author:{id:"bot"},delete:async()=>deleted.push(id)};
+     messages.set(id,message);created.push(message);return message;
+   }};
+ try{
+  GuildConfig.find=()=>({select:()=>({lean:async()=>[state]})});
+  GuildConfig.updateOne=async(_q,u)=>Object.assign(state,u.$set);
+  Giveaway.find=()=>({sort:()=>({limit:()=>({lean:async()=>active})})});
+  GiveawayPlan.find=()=>({sort:()=>({limit:()=>({lean:async()=>[]})})});
+  const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
+  await reconcileActiveGiveawayIndex(client,{now});
+  active=[item("888888888888888888","activity","open")];
+  await reconcileActiveGiveawayIndex(client,{now:new Date(now.getTime()+120000)});
+  assert.equal(created.length,2);
+  assert.deepEqual(deleted,[created[0].id]);
+  assert.equal(state.giveawayIndexMessageId,created[1].id);
+ }finally{
+  GuildConfig.find=old.config;GuildConfig.updateOne=old.update;
+  Giveaway.find=old.records;GiveawayPlan.find=old.plans;
  }
 });
