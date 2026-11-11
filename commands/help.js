@@ -1,185 +1,206 @@
 import {
-  ActionRowBuilder, ApplicationCommandOptionType, ButtonBuilder,
-  ButtonStyle, EmbedBuilder, MessageFlags, SlashCommandBuilder,
+ ActionRowBuilder, ApplicationCommandOptionType, ButtonBuilder, ButtonStyle,
+ EmbedBuilder, MessageFlags, PermissionFlagsBits, SlashCommandBuilder,
 } from "discord.js";
-import { requireGuild } from "./shared.js";
-import { UserFacingError } from "./errors.js";
+import GuildConfig from "../models/GuildConfig.js";
+import {requireGuild} from "./shared.js";
+import {UserFacingError} from "./errors.js";
 
-export const data = new SlashCommandBuilder()
-  .setName("help")
-  .setDescription("Browse a private guide to the bot's features and commands");
+export const data=new SlashCommandBuilder().setName("help")
+ .setDescription("Open the bot's private Public or Staff help center");
 
-export const HELP_TOPICS = Object.freeze([
-  { id: "home", label: "Start here" },
-  { id: "listings", label: "Listings" },
-  { id: "shop", label: "Shop" },
-  { id: "points", label: "Points" },
-  { id: "commands", label: "Commands" },
- ]);
-const VALID_HELP_TOPICS = new Set(HELP_TOPICS.map(topic => topic.id));
-
-// Keep information about the actual saved bot behavior, not future features.
-// Every help section is read-only; it never modifies profiles, listings or media.
-const TOPIC_CONTENT = Object.freeze({
-  home: {
-    title: "AM Isa — Getting started",
-    description: "Choose a topic below. This guide is private; other members cannot see which topic you open.",
-    fields: [
-      ["Your profile", "Use the button in the profile channel to create or edit your card, or run **/profile** to open it. You can view another member's profile using the /profile user option."],
-      ["Inventory", "Use the inventory-channel button to add your inventory video. Profile cards also have an option to add or link inventory media."],
-      ["Find a listing", "Open the house or outfit channel and use **My house listings** or **My outfit listings** to see private links to your active posts. Browse someone else's public listing directly in its channel."],
-      ["Need another feature?", "Use the **Listings**, **Shop**, **Points**, or **Commands** buttons below. Your existing gallery photos and native videos are not changed by using this guide."],
-    ],
-  },
-  listings: {
-    title: "AM Isa — Houses, outfits & trades",
-    description: "Create listings from the permanent channel buttons; manage each listing on its original post.",
-    fields: [
-      ["Create a listing", "Choose **Start a house listing** or **Start an outfit listing** in its channel. Finish the private form and upload photos/videos during creation. The **/house** and **/outfit** commands are also available."],
-      ["Find your active posts", "Use **My house listings** or **My outfit listings**. A private, paginated list links directly to your active published posts."],
-      ["Browse gallery photos", "Use **Previous**, **Next**, or **Choose photo** on a public listing. Choose photo opens a private numbered menu but updates the shared public card. Videos remain playable above the styled card."],
-      ["Interest and seller controls", "Members can select **Interested**. Owners can toggle **Interest DMs**, mark a house sold, or remove an outfit listing on its public post."],
-      ["Trade votes and Trading Post", "The trade-vote channel button creates a trade vote. The Trading Post channel button creates or updates your permanent trading card. See the related controls in those channels."],
-    ],
-  },
-  shop: {
-    title: "AM Isa — Shop & customization",
-    description: "Browse appearance options privately and preview choices before buying.",
-    fields: [
-      ["Open the shop", "Use the shop-channel button or **/shop browse**. Open a category and use its directory to jump to an item instead of browsing one by one."],
-      ["Try an appearance", "Preview supported backgrounds, panels, fonts, colors, frames, and stickers. Review the Points price before purchasing. Shop previews do not equip or purchase items automatically."],
-      ["Customize your posts", "Use the customization controls on your profile or from the listing-style editor for a house or outfit. Saved listing appearances can differ from your profile."],
-      ["Check your balance", "Use **/shop balance** to check your Points privately."],
-    ],
-  },
-  points: {
-    title: "AM Isa — Points",
-    description: "Points can be spent on appearance items in the shop.",
-    fields: [
-      ["Balance", "Run **/shop balance** or open the shop to see your balance privately."],
-      ["Earning Points", "Server events, eligible participation, milestones, and other activities may award Points when enabled by server staff. Availability depends on this server's settings."],
-      ["Spending Points", "Choose an item in the shop, check its price, and confirm the purchase. Browsing or previewing an item does not charge Points."],
-      ["Questions about a reward?", "Ask a server manager about the server's Points settings. Staff can review and manage awards with administrator commands."],
-    ],
-  },
-  commands: {
-    title: "AM Isa — Registered commands",
-    description: "The commands below are read from Discord for this server. Some options are restricted to administrators.",
-    fields: [
-      ["Server tools", "Administrators can use **/setup channels** to configure entry channels. Maintenance commands such as **/profile-refresh** and **/profile-cleanup** are intended for server managers."],
-    ],
-  },
+export const PUBLIC_TOPICS=Object.freeze([
+ {id:"home",label:"Getting Started"},
+ {id:"listings",label:"Listings & Trading"},
+ {id:"shop",label:"Shop & Points"},
+ {id:"cards",label:"Collectible Cards"},
+ {id:"giveaways",label:"Giveaways"},
+ {id:"games",label:"Games & Activities"},
+ {id:"commands",label:"Commands"},
+]);
+export const STAFF_TOPICS=Object.freeze([
+ {id:"sgiveaways",label:"Giveaway Management"},
+ {id:"sactivity",label:"Activity Tracking"},
+ {id:"sarchives",label:"Giveaway Archives"},
+ {id:"scards",label:"Card Management"},
+ {id:"spoints",label:"Points & Shop"},
+ {id:"sgames",label:"Games"},
+ {id:"ssetup",label:"Bot Setup"},
+]);
+export const HELP_TOPICS=Object.freeze([
+ {id:"root",label:"Help Home"},{id:"public",label:"Public Help"},
+ {id:"staff",label:"Staff Help"},...PUBLIC_TOPICS,...STAFF_TOPICS,
+]);
+const VALID=new Set(HELP_TOPICS.map(x=>x.id));
+const STAFF_IDS=new Set(["staff",...STAFF_TOPICS.map(x=>x.id)]);
+const PUBLIC_IDS=new Set(["public",...PUBLIC_TOPICS.map(x=>x.id)]);
+const CONTENT=Object.freeze({
+ root:["✦ AM Isa · Help Center","Choose **Public Help** for member guides or **Staff Help** for authorized management guides. Everything opens privately." ,[]],
+ public:["✦ Public Help","Choose a system below to see how its features work. Most member actions use buttons in their assigned channels.",[]],
+ staff:["✦ Staff Help","Guides for authorized server staff. Viewing these pages does not grant command or moderation privileges.",[]],
+ home:["Getting Started","Start with the permanent buttons in each server channel.",[
+  ["Profiles","Create or edit your profile from the profile-channel buttons or use **/profile**."],
+  ["Inventory","Add inventory media through the inventory channel; your profile can also show inventory links."],
+  ["Find help","Choose a system below to learn its buttons and commands. Help pages never change your settings."],
+ ]],
+ listings:["Houses, Outfits & Trading","Use the buttons in the matching listing channel.",[
+  ["Create","Start a house listing, outfit listing, trade vote, or Trading Post card from its channel."],
+  ["Find your posts","Use **My house listings** or **My outfit listings** to open your existing posts."],
+  ["Photos and video","Use Previous, Next or Choose photo. Uploaded native video appears above the card."],
+  ["Interest and updates","Mark interest with the post buttons; listing owners can update their own published items."],
+ ]],
+ shop:["Shop & Points","Preview before spending. Purchases use the server's Points system.",[
+  ["Shop","Use the shop channel or **/shop browse**. Choose a category and item."],
+  ["Appearance","Browse backgrounds, frames, panels, fonts, colors and stickers; previewing does not purchase an item."],
+  ["Points","Check **/shop balance**. Earned points and enabled participation rewards depend on server configuration."],
+ ]],
+ cards:["Collectible Cards · Hatchem","The card game has its own channel and in-game help.",[
+  ["Begin","Open the card-game channel and follow registration and tutorial controls."],
+  ["Collect","Use egg drops and grabs to collect pets, then view your collection."],
+  ["Manage cards","Use the card game's menus for trading, gifting, upgrading, burning and the card shop."],
+  ["Details","Open the card tutorial for card-specific controls, costs, limits and restrictions."],
+ ]],
+ giveaways:["Giveaways","Entries and qualification depend on the giveaway type.",[
+  ["Activity giveaways","Meet the listed message and activity requirements during the entire activity period. No manual entry button is needed."],
+  ["Regular giveaways","Follow the entry buttons and any eligibility requirements shown on the post."],
+  ["Progress","Use **Check My Progress** when available to see how close you are."],
+  ["Winners","If selected, follow the result post's ticket-claim instructions. Claiming is not the same as prize delivery."],
+ ]],
+ games:["Games & Activities","Discover the party and trial games hosted in your server.",[
+  ["Party games","Join games through the party-game channel when staff opens a session."],
+  ["Court's Trials","Follow the trial announcement and its entry rules. Staff coordinate prize claims."],
+  ["Activity rewards","Some events may also award Points when enabled by staff."],
+ ]],
+ commands:["Registered Commands","Current commands are loaded from Discord. Available commands and permissions depend on your server.",[]],
+ sgiveaways:["Staff · Giveaway Management","Create and manage giveaways through the configured command channel and staff records.",[
+  ["Set up","Use **/setup giveaways** or **/setup activity-giveaways** for the guided channel and default settings."],
+  ["Staff records","Review the active directory and each giveaway's separate staff record. Colors: blue active, yellow needs attention, green claimed/delivered, red closed."],
+  ["Claims and delivery","Winner claims are separate from delivery. After all prizes are handed out, use **Confirm Prizes Delivered**; an optional private Discord proof link can be added."],
+ ]],
+ sactivity:["Staff · Activity Tracking","Qualification is counted over each activity period, not per active day unless a separate active-days requirement was configured.",[
+  ["Requirements","Choose watched channels, total messages, optional active days, phrases or mentions."],
+  ["Progress","Use **Preview qualifying members** and **Refresh Progress** on staff records. Manual refresh has no cooldown."],
+  ["Draws","Use activity review and scheduled drawing controls; unqualified members are not entered automatically."],
+ ]],
+ sarchives:["Staff · Giveaway Archives","Archiving is always a separate moderator action, not automatic on completion.",[
+  ["Eligibility","Closed, cancelled, no-winner, forfeited, or delivered giveaways can become archive-eligible."],
+  ["Archive Giveaway","Click once on the eligible staff record. The bot saves the actor and completion reason without another confirmation form."],
+  ["Records","The private archive keeps winner/claim history, delivery proof when supplied, activity totals, and a full JSON snapshot."],
+ ]],
+ scards:["Staff · Card Management","Card management controls are restricted to the permissions assigned for each command.",[
+  ["Setup","Use authorized card management commands to configure the Card role and launch content."],
+  ["Operations","Review drop, card catalog, trade and upgrade controls in the staff card-game commands."],
+  ["Permissions","Having access to this guide does not grant permission to manage cards."],
+ ]],
+ spoints:["Staff · Points & Shop","Use the existing administrator tools for audited Points and shop management.",[
+  ["Points","Use authorized **/points-admin** commands to review and manage eligible awards."],
+  ["Shop","Manage catalog items using your configured shop/owner controls."],
+  ["Audit","Keep prize and participation changes attributable to an authorized staff member."],
+ ]],
+ sgames:["Staff · Games","Manage sessions through the server's game commands and configured channel.",[
+  ["Party games","Use authorized **/party** controls to configure and host a session."],
+  ["Court's Trial","Use the trial administration commands and keep results in their assigned channel."],
+ ]],
+ ssetup:["Staff · Bot Setup","Setup requires its own Discord command permissions.",[
+  ["Channels","Use **/setup channels** to configure commands, listing, shop, game and giveaway channels."],
+  ["Giveaway managers","Assign the **giveaway_manager** role in **/setup channels** for access to the Giveaway Manager help guides."],
+  ["Security","Staff Help is read-only. Editing the server or running commands still requires the permissions enforced by those actions."],
+ ]],
 });
 
-function formatCommand(command) {
-  const lines = ["• /" + command.name + " — " + (command.description || "Bot command")];
-  for (const option of command.options ?? []) {
-    if (option.type === ApplicationCommandOptionType.Subcommand) {
-      lines.push("  /" + command.name + " " + option.name + " — " +
-        (option.description || "Subcommand"));
-    } else if (option.type === ApplicationCommandOptionType.SubcommandGroup) {
-      for (const sub of option.options ?? []) {
-        if (sub.type !== ApplicationCommandOptionType.Subcommand) continue;
-        lines.push("  /" + command.name + " " + option.name + " " + sub.name +
-          " — " + (sub.description || "Subcommand"));
-      }
-    }
-  }
-  return lines.join("\n");
+export function helpStaffAccess(interaction,config){
+ if(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)||
+    interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))return true;
+ const roleId=config?.giveawayManagerRoleId;
+ if(!roleId)return false;
+ const roles=interaction.member?.roles;
+ return Boolean(roles?.cache?.has?.(roleId)||
+   (Array.isArray(roles)&&roles.includes(roleId))||
+   (Array.isArray(roles?.value)&&roles.value.includes(roleId)));
 }
-
-function splitIntoFields(lines, maxLength = 950) {
-  const fields = [];
-  let current = "";
-  for (const line of lines) {
-    const next = current ? current + "\n" + line : line;
-    if (next.length > maxLength && current) {
-      fields.push(current);
-      current = line;
-    } else {
-      current = next;
-    }
-  }
-  if (current) fields.push(current);
-  return fields;
+function buttons(items,selected,ownerId){
+ const rows=[];
+ for(let i=0;i<items.length;i+=5){
+  rows.push(new ActionRowBuilder().addComponents(items.slice(i,i+5).map(item=>
+   new ButtonBuilder().setCustomId("help:topic:"+item.id+":"+ownerId)
+    .setLabel(item.label).setStyle(item.id===selected?ButtonStyle.Primary:ButtonStyle.Secondary)
+    .setDisabled(item.id===selected))));
+ }
+ return rows;
 }
-
-/** Pure presentation helper for tests. No database or Discord calls. */
-export function helpTopicPayload(topicId, ownerId, commandLines = []) {
-  if (!VALID_HELP_TOPICS.has(topicId) || !/^\d{17,20}$/.test(String(ownerId ?? ""))) {
-    throw new UserFacingError("That help menu is no longer available. Run /help again.");
-  }
-  const topic = TOPIC_CONTENT[topicId];
-  const embed = new EmbedBuilder().setColor(0x5865f2)
-    .setTitle(topic.title).setDescription(topic.description);
-  for (const [name, value] of topic.fields) embed.addFields({ name, value });
-
-  if (topicId === "commands") {
-    if (commandLines.length) {
-      const sections = splitIntoFields(commandLines);
-      sections.slice(0, 20).forEach((value, index) => embed.addFields({
-        name: sections.length > 1
-          ? "Bot commands (" + (index + 1) + "/" + sections.length + ")"
-          : "Bot commands",
-        value,
-      }));
-    } else {
-      embed.addFields({ name: "Bot commands", value: "No command list was available. Try again shortly." });
-    }
-  }
-  return {
-    embeds: [embed],
-    components: [new ActionRowBuilder().addComponents(
-      HELP_TOPICS.map(item => new ButtonBuilder()
-        .setCustomId("help:topic:" + item.id + ":" + ownerId)
-        .setLabel(item.label)
-        .setStyle(item.id === topicId ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setDisabled(item.id === topicId)),
-    )],
-    allowedMentions: { parse: [] },
-  };
+function formatCommand(command){
+ const lines=["• /"+command.name+" — "+(command.description||"Bot command")];
+ for(const option of command.options||[]){
+  if(option.type===ApplicationCommandOptionType.Subcommand)
+   lines.push("  /"+command.name+" "+option.name+" — "+(option.description||"Subcommand"));
+  else if(option.type===ApplicationCommandOptionType.SubcommandGroup)
+   for(const sub of option.options||[])
+    if(sub.type===ApplicationCommandOptionType.Subcommand)
+     lines.push("  /"+command.name+" "+option.name+" "+sub.name+" — "+(sub.description||"Subcommand"));
+ }
+ return lines;
 }
-
-async function currentServerCommands(interaction) {
-  try {
-    const [globalCommands, guildCommands] = await Promise.all([
-      interaction.client.application.commands.fetch(),
-      interaction.guild.commands.fetch(),
-    ]);
-    const byName = new Map();
-    for (const command of globalCommands.values()) byName.set(command.name, command);
-    for (const command of guildCommands.values()) byName.set(command.name, command);
-    return [...byName.values()]
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .flatMap(command => formatCommand(command).split("\n"));
-  } catch (error) {
-    console.warn("Could not fetch registered commands for /help:", error);
-    return ["I couldn't load the registered command list. Please try this topic again."];
-  }
+async function currentServerCommands(i){
+ try{
+  const [global,guild]=await Promise.all([
+   i.client.application.commands.fetch(),i.guild.commands.fetch()]);
+  const commands=new Map();
+  for(const cmd of global.values())commands.set(cmd.name,cmd);
+  for(const cmd of guild.values())commands.set(cmd.name,cmd);
+  return [...commands.values()].sort((a,b)=>a.name.localeCompare(b.name)).flatMap(formatCommand);
+ }catch(error){
+  console.warn("Could not fetch registered commands for /help:",error);
+  return ["I couldn't load the registered command list. Please try this topic again."];
+ }
 }
-
-async function showHelpTopic(interaction, topic, ownerId) {
-  const lines = topic === "commands" ? await currentServerCommands(interaction) : [];
-  await interaction.editReply(helpTopicPayload(topic, ownerId, lines));
-}
-
-export async function execute(interaction) {
-  requireGuild(interaction);
-  if (!interaction.deferred && !interaction.replied) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+export function helpTopicPayload(topicId,ownerId,commandLines=[]){
+ if(!VALID.has(topicId)||!/^\d{17,20}$/.test(String(ownerId||"")))
+  throw new UserFacingError("That help menu is no longer available. Run /help again.");
+ const [title,description,fields]=CONTENT[topicId];
+ const embed=new EmbedBuilder().setColor(STAFF_IDS.has(topicId)?0x2ecc71:0x5865f2)
+  .setTitle(title).setDescription(description);
+ for(const [name,value] of fields)embed.addFields({name,value});
+ if(topicId==="commands"){
+  let section="",index=1;
+  for(const line of commandLines.slice(0,65)){
+   if((section+"\n"+line).length>850){
+    embed.addFields({name:"Commands · "+index++,value:section});section="";
+   }
+   section+=(section?"\n":"")+line.slice(0,830);
+   if(index>17)break;
   }
-  await showHelpTopic(interaction, "home", interaction.user.id);
+  if(section)embed.addFields({name:"Commands · "+index,value:section});
+  if(!commandLines.length)embed.addFields({name:"Commands",value:"No command list is available right now."});
+ }
+ let nav=[];
+ if(topicId==="root")nav=[{id:"public",label:"Public Help"},{id:"staff",label:"Staff Help"}];
+ else if(topicId==="public")nav=[...PUBLIC_TOPICS,{id:"root",label:"Home"}];
+ else if(topicId==="staff")nav=[...STAFF_TOPICS,{id:"root",label:"Home"}];
+ else nav=[{id:PUBLIC_IDS.has(topicId)?"public":"staff",label:"Back to Systems"},{id:"root",label:"Help Home"}];
+ return {embeds:[embed],components:buttons(nav,topicId,ownerId),allowedMentions:{parse:[]}};
 }
-
-export async function handleHelpTopicButton(interaction) {
-  const segments = String(interaction.customId ?? "").split(":");
-  if (segments.length !== 4 || segments[0] !== "help" ||
-      segments[1] !== "topic" || !VALID_HELP_TOPICS.has(segments[2]) ||
-      segments[3] !== interaction.user.id) {
-    throw new UserFacingError("That help menu belongs to another member or has expired. Run /help again.");
-  }
-  requireGuild(interaction);
-  await interaction.deferUpdate();
-  await showHelpTopic(interaction, segments[2], interaction.user.id);
-  return true;
+async function showTopic(i,topic,ownerId){
+ const lines=topic==="commands"?await currentServerCommands(i):[];
+ await i.editReply(helpTopicPayload(topic,ownerId,lines));
+}
+export async function execute(interaction){
+ requireGuild(interaction);
+ if(!interaction.deferred&&!interaction.replied)await interaction.deferReply({flags:MessageFlags.Ephemeral});
+ await showTopic(interaction,"root",interaction.user.id);
+}
+export async function handleHelpTopicButton(interaction){
+ const parts=String(interaction.customId||"").split(":");
+ if(parts.length!==4||parts[0]!=="help"||parts[1]!=="topic"||
+    !VALID.has(parts[2])||parts[3]!==interaction.user.id)
+  throw new UserFacingError("That help menu belongs to another member or has expired. Run /help again.");
+ requireGuild(interaction);
+ if(STAFF_IDS.has(parts[2])){
+  const config=await GuildConfig.findOne({guildId:interaction.guildId})
+   .select("giveawayManagerRoleId").lean();
+  if(!helpStaffAccess(interaction,config))
+   throw new UserFacingError("Staff Help is available only to authorized bot staff and assigned Giveaway Managers.");
+ }
+ await interaction.deferUpdate();
+ await showTopic(interaction,parts[2],interaction.user.id);
+ return true;
 }
