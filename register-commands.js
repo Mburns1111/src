@@ -2,17 +2,13 @@
 import "dotenv/config";
 import { validateRuntimeConfiguration } from "./services/runtime-configuration.js";
 import { REST, Routes } from "discord.js";
-import { data as profileCommand } from "./commands/profile.js";
 import { data as profileCleanupCommand } from "./commands/profile-cleanup.js";
 import { data as profileRefreshCommand } from "./commands/profile-refresh.js";
-import { data as inventoryVideoCommand } from "./commands/inventory-video.js";
-import { data as houseCommand } from "./commands/house.js";
-import { data as outfitCommand } from "./commands/outfit.js";
-import { data as tradeCommand } from "./commands/trade.js";
 import { data as setupCommand } from "./commands/setup.js";
 import { data as adminImportCommand } from "./commands/admin-import-listing.js";
 import { data as shopCommand } from "./commands/shop.js";
 import { data as giveawayCommand, trialData as trialCommand } from "./commands/giveaway.js";
+import {data as giveawayRoleCommand} from "./commands/giveaway-role-bonuses.js";
 import { data as cardsCommand,ownerCardOptions } from "./commands/cards.js";
 import { data as cardsAdminCommand } from "./commands/cards-admin.js";
 import { data as cardsOwnerCommand, cardsReleaseCommand, RELEASE_LIFECYCLE_SUBCOMMANDS } from "./commands/cards-owner.js";
@@ -43,17 +39,13 @@ const { globalCardCommands, testGuildCardCommands } = buildCardCommandRegistrati
 });
 
 const commands = [
-  profileCommand,
   profileCleanupCommand,
   profileRefreshCommand,
-  inventoryVideoCommand,
-  houseCommand,
-  outfitCommand,
-  tradeCommand,
   setupCommand,
   adminImportCommand,
   shopCommand,
   giveawayCommand,
+  giveawayRoleCommand,
   trialCommand,
   ...(process.env.ENABLE_TEST_POINTS === "1" ? [testPointsCommand] : []),
   pointsAdminCommand,
@@ -75,7 +67,7 @@ const { globalCommands, guildCommands } = planCommandScopes({
 await rest.put(Routes.applicationCommands(clientId), { body: globalCommands });
 
 console.log(
-  "Registered global profile, profile-cleanup, profile-refresh, inventory-video, house, outfit, trade-vote, setup, admin-import, shop, giveaway, trial, points-admin, help, party commands.",
+  "Registered global staff maintenance, setup, admin-import, shop browse, giveaway, trial, points-admin, help, and party commands.",
 );
 
 if (guildId) {
