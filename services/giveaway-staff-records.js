@@ -475,7 +475,7 @@ export async function handleGiveawayStaffAction(interaction){
    if(action==="reroll"){
      if(record.mode==="survival"&&!record.trialTicketClaimsEnabled)
        return interaction.reply({content:"Legacy Trials use staff-managed prize follow-up, not ticket-based rerolls.",...ephemeral});
-     if(record.status!=="ended||record.publicListingRemovedAt||
+     if(record.status!=="ended"||record.publicListingRemovedAt||
        !hasOutstandingTicketClaims(record))
        return interaction.reply({content:"A manual reroll is only available while waiting for a current winner to claim.",...ephemeral});
      const slots=(record.winnerIds||[]).map((userId,slot)=>({userId,slot}))
