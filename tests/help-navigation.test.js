@@ -71,13 +71,17 @@ test("staff access includes assigned Giveaway Managers, Manage Server, Administr
  const cfg={giveawayManagerRoleId:roleId};
  const ordinary=interaction(null,{has:()=>false});
  const manager=interaction(null,{has:()=>false},[roleId]);
+ manager.member.roles.cache.set(roleId,{id:roleId,name:"Giveaway Manager"});
  const mod=interaction(null,{has:flag=>flag===PermissionFlagsBits.ManageGuild});
  const admin=interaction(null,{has:flag=>flag===PermissionFlagsBits.Administrator});
  assert.equal(helpStaffAccess(ordinary,cfg),false);
  assert.equal(helpStaffAccess(manager,cfg),true);
  assert.equal(helpStaffAccess(mod,{}),true);
  assert.equal(helpStaffAccess(admin,{}),true);
- assert.equal(helpStaffAccess(manager,{}),false);
+ assert.equal(helpStaffAccess(manager,{}),true);
+ const other=interaction(null,{has:()=>false},["345678901234567890"]);
+ other.member.roles.cache.set("345678901234567890",{name:"Event Staff"});
+ assert.equal(helpStaffAccess(other,{}),false);
 });
 test("staff button is gated, and permission is rechecked for every staff page",async()=>{
  const original=GuildConfig.findOne;
@@ -87,9 +91,11 @@ test("staff button is gated, and permission is rechecked for every staff page",a
   await assert.rejects(handleHelpTopicButton(denied),/authorized bot staff/);
   assert.equal(denied.calls.length,0);
   const manager=interaction("help:topic:staff:"+userId,{has:()=>false},[roleId]);
+  manager.member.roles.cache.set(roleId,{id:roleId,name:"Giveaway Manager"});
   await handleHelpTopicButton(manager);
   assert.deepEqual(manager.calls.map(c=>c.action),["deferUpdate","editReply"]);
   const guide=interaction("help:topic:sarchives:"+userId,{has:()=>false},[roleId]);
+  guide.member.roles.cache.set(roleId,{id:roleId,name:"Giveaway Manager"});
   await handleHelpTopicButton(guide);
   assert.match(data(guide.calls[1].payload).title,/Archives/);
  }finally{GuildConfig.findOne=original;}
