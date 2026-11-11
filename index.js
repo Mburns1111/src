@@ -1,9 +1,14 @@
 import { wizardButton, wizardReply } from "./commands/activity-wizard.js";
+import {regularGiveawayWizardInteraction,regularGiveawayWizardReply} from "./commands/regular-giveaway-wizard.js";
 import {handleActivityGiveawaySetupInteraction,activityGiveawaySetupReply} from "./commands/activity-giveaway-setup.js";
+import {handleTrialGiveawaySetupInteraction,trialGiveawaySetupReply} from "./commands/trial-giveaway-setup.js";
+import {guildSetupComplete, cardSetupComplete} from "./services/guild-setup-gate.js";
+import {handleGuidedGuildSetupInteraction} from "./commands/general-card-setup.js";
 import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
 import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
 import {handleGiveawayStaffAction,reconcileGiveawayStaffRecords} from "./services/giveaway-staff-records.js";
-import {handleStaffProgressRefresh} from "./services/giveaway-staff-progress.js";
+import {commandChannelRestriction} from "./services/command-channel-routing.js";
+import {handleGiveawayStaffDirectoryButton,reconcileGiveawayStaffDirectories} from "./services/giveaway-staff-directory.js";
 import {initializeAchievements} from "./services/card-achievement-engine.js";
 import {deliverAchievementNotices} from "./services/card-achievements.js";
 
@@ -88,7 +93,6 @@ import { reconcileGiveaways } from "./services/giveaways.js";
 import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
 import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
 import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
-import { reconcileActiveGiveawayIndex } from "./services/giveaway-index.js";
 import { handleActivityGiveawayProgress } from "./services/giveaway-progress.js";
 import { handleGiveawayReviewButton,reconcilePendingGiveawayReviews } from "./services/giveaway-review.js";
 import {data as giveawayRoleCommand,executeGiveawayRoleBonusAdmin} from "./commands/giveaway-role-bonuses.js";
@@ -220,7 +224,7 @@ client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answ
 // Messages are never stored or logged: only a short SHA-256 digest is kept to
 // prevent immediately repeating the same message for Points.
 client.on(Events.MessageCreate, message => {
-  if (wizardReply(message) || activityGiveawaySetupReply(message)) return;
+  if (regularGiveawayWizardReply(message) || wizardReply(message) || activityGiveawaySetupReply(message) || trialGiveawaySetupReply(message)) return;
   if (message.guildId && !message.author?.bot && !message.webhookId) {
     void recordGuidedMessage(message).catch(error => console.error("[Giveaways] Guided activity count failed:",error));
   }
@@ -236,8 +240,8 @@ client.on(Events.MessageCreate, message => {
   if (parsed) {
     void (async () => {
       const config = await GuildConfig.findOne({ guildId: message.guildId })
-        .select("hatchemChannelId").lean();
-      if (config?.hatchemChannelId && message.channelId === config.hatchemChannelId) {
+        .select("hatchemChannelId cardRoleId cardSetupCompletedAt initialSetupCompletedAt commandChannelId").lean();
+      if (cardSetupComplete(config) && message.channelId === config.hatchemChannelId) {
         await runHatchemText(message, parsed);
       }
     })().catch(error => console.error("[Hatchem] Text routing failed:", error));
@@ -431,8 +435,9 @@ client.once(Events.ClientReady, async (readyClient) => {
       await reconcilePendingGiveawayReviews(readyClient);
       await reconcileGiveawayClaims(readyClient);
       await reconcileActivityGiveawayListings(readyClient);
-      await reconcileActiveGiveawayIndex(readyClient);
       await reconcileGiveawayStaffRecords(readyClient);
+      // Run last so the sticky directory follows newly posted staff records.
+      await reconcileGiveawayStaffDirectories(readyClient);
     }
     catch (error) { console.error("[Giveaways] Cleanup sweep failed:", error); }
     finally { giveawaySweepActive = false; }
@@ -522,19 +527,43 @@ client.once(Events.ClientReady, async (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    // A GuildConfig document alone does not prove that setup was completed.
+    // Check before deferring commands (admin-import opens a modal immediately).
+    if (interaction.isChatInputCommand() && interaction.guildId &&
+        interaction.commandName !== setupCommand.name) {
+      const saved = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("initialSetupCompletedAt commandChannelId").lean();
+      if (!guildSetupComplete(saved)) {
+        await interaction.reply({
+          content: "Bot commands are not enabled yet. A server manager must complete **/setup general** (choose a commands channel), **/setup giveaways**, **/setup activity-giveaways**, or **/setup trials** first.",
+          flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] },
+        });
+        return;
+      }
+    }
+    if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
+         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("guildconfig:"))
+      return await handleGuidedGuildSetupInteraction(interaction);
+    if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
+         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("trialconfig:"))
+      return await handleTrialGiveawaySetupInteraction(interaction);
     if ((interaction.isButton() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("actconfig:"))
       return await handleActivityGiveawaySetupInteraction(interaction);
-    if ((interaction.isButton()||interaction.isModalSubmit()) && interaction.customId.startsWith("giveawaystaff:"))
+    if ((interaction.isButton()||interaction.isModalSubmit()||interaction.isStringSelectMenu()) && interaction.customId.startsWith("giveawaystaff:"))
       return await handleGiveawayStaffAction(interaction);
+    if (interaction.isButton() && interaction.customId.startsWith("giveawaydir:"))
+      return await handleGiveawayStaffDirectoryButton(interaction);
+    if ((interaction.isButton()||interaction.isRoleSelectMenu()||interaction.isStringSelectMenu()) &&
+        interaction.customId.startsWith("regularstart:"))
+      return await regularGiveawayWizardInteraction(interaction);
     if (interaction.isButton() && interaction.customId.startsWith("activitysetup:"))
       return await wizardButton(interaction);
-    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isUserSelectMenu() || interaction.isModalSubmit()) &&
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
         interaction.customId.startsWith("activitystaff:")) {
-      if(interaction.isButton() && /^activitystaff:refresh:/.test(interaction.customId))
-        return await handleStaffProgressRefresh(interaction);
-      if((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) &&
-        /^activitystaff:(view|pause|qualified|progress|member|find):/.test(interaction.customId))
+      if(interaction.isButton() && /^activitystaff:(view|pause):/.test(interaction.customId))
         return await staffPreview(interaction);
       return await handleGuidedStaffAction(interaction);
     }
@@ -889,6 +918,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (!interaction.isChatInputCommand()) return;
 
+    // The private giveaway staff channel is a record/review area, not a
+    // slash-command or guided-setup workspace. Keep /setup out too after
+    // that private channel has been configured. First-time setup elsewhere
+    // remains unrestricted.
+    if(interaction.commandName===setupCommand.name && interaction.guildId){
+      const privateConfig=await GuildConfig.findOne({guildId:interaction.guildId})
+        .select("activityGiveawayReviewChannelId commandChannelId").lean();
+      if(privateConfig?.activityGiveawayReviewChannelId===interaction.channelId){
+        await interaction.editReply({
+          content:"Use /setup in the designated bot commands channel"+
+            (privateConfig.commandChannelId?" <#"+privateConfig.commandChannelId+">":"")+
+            ". The private giveaway staff channel is reserved for records, reviews and staff buttons.",
+          allowedMentions:{parse:[]}
+        });
+        return;
+      }
+    }
+
     console.log("Command received:", interaction.commandName);
     console.log("Available handlers:", [...commandHandlers.keys()]);
 
@@ -904,6 +951,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
     }
+    if (interaction.commandName === cardsCommand.name && interaction.guildId) {
+      const cardConfig = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("hatchemChannelId cardRoleId cardSetupCompletedAt initialSetupCompletedAt commandChannelId").lean();
+      if (!cardSetupComplete(cardConfig)) {
+        await interaction.editReply("Hatchem is not configured in this server. Ask a server manager to run /setup cards after /setup general.");
+        return;
+      }
+    }
+    if (interaction.commandName === shopCommand.name &&
+        interaction.guildId) {
+      const shopSettings = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("shopChannelId").lean();
+      if (!shopSettings?.shopChannelId) {
+        await interaction.editReply("The customization shop is disabled in this server. A manager can enable it using /setup general.");
+        return;
+      }
+    }
     const handler = commandHandlers.get(interaction.commandName);
     if (!handler) {
       await interaction.editReply({
@@ -912,17 +976,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
       return;
     }
+    // Profiles are optional in a guild that only enables giveaways or
+    // Hatchem. Never create one as a prerequisite to an unrelated command.
     if (
       interaction.guild &&
       ![
         setupCommand.name,
-        helpCommand.name,
         adminImportCommand.name,
         shopCommand.name,
         cardsCommand.name,
         cardsAdminCommand.name,
         cardsOwnerCommand.name,
         cardsReleaseCommand.name,
+        giveawayCommand.name,
+        trialCommand.name,
         testPointsCommand.name,
         pointsAdminCommand.name,
         pointsObserveCommand.name,
@@ -932,16 +999,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
         profileRefreshCommand.name,
       ].includes(interaction.commandName)
     ) {
-      await ensureProfileCard(interaction.guild, interaction.user);
+      const profileSettings = await GuildConfig.findOne({ guildId: interaction.guildId })
+        .select("profileChannelId").lean();
+      if (profileSettings?.profileChannelId)
+        await ensureProfileCard(interaction.guild, interaction.user);
     }
-    if (![setupCommand.name, helpCommand.name, adminImportCommand.name, cardsCommand.name, cardsAdminCommand.name, cardsOwnerCommand.name, cardsReleaseCommand.name, partyCommand.name].includes(interaction.commandName) && interaction.guildId) {
+    if (interaction.guildId) {
       const config = await GuildConfig.findOne({ guildId: interaction.guildId });
-      if (
-        config?.commandChannelId &&
-        interaction.channelId !== config.commandChannelId
-      ) {
+      const restriction=commandChannelRestriction(interaction.commandName,interaction.channelId,config);
+      if (restriction) {
         const response = {
-          content: `Please use bot commands in <#${config.commandChannelId}>.`,
+          content: restriction,
           allowedMentions: { parse: [] },
         };
         if (interaction.deferred) {
