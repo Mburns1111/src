@@ -24,7 +24,14 @@ test("per-winner deadlines stop being checked once claims are filed",()=>{
  const done={...claimed,winnerClaims:[...claimed.winnerClaims,{slot:1,userId:second,ticketNumber:"456",ticketUrl:"https://discord.com/channels/1/3"}]};
  assert.equal(nextClaimCheckAt(done),null);
  assert.match(giveawayAnnouncement(done).embeds[0].data.description,/Claim submitted/);
- assert.equal(giveawayAnnouncement(done).components[0].components[0].data.label,"Enter Ticket Claim info");
+ assert.equal(giveawayAnnouncement(done).components.length,0);
+ const result=giveawayAnnouncement(done).embeds[0].toJSON();
+ assert.match(result.description,/All winner claims received/);
+ assert.doesNotMatch(result.description,/Claiming your prize|Claim before the deadline/i);
+ assert.equal(result.fields?.length||0,0);
+ const partial=giveawayAnnouncement(claimed);
+ assert.equal(partial.components.length,1,"Other unclaimed winners must still be able to submit");
+ assert.ok(partial.embeds[0].toJSON().fields.length>0);
 });
 test("rerolled winners receive new deadlines",()=>{
  const later={...record,winnerAssignedAt:[new Date("2026-11-08T12:00:00Z"),record.winnerAssignedAt[1]]};
@@ -49,4 +56,20 @@ test("public claim buttons disappear after delivery or fully forfeited winning p
  const forfeited=giveawayAnnouncement({...record,claimResolvedSlots:[0,1]});
  assert.equal(forfeited.components.length,0);
  assert.doesNotMatch(forfeited.embeds[0].toJSON().description,/Claiming your prize/);
+});
+
+test("single activity winner appears once and claim instructions disappear after submission",()=>{
+ const id="333333333333333333";
+ const activity={...record,mode:"activity",title:"testing new layout",winnerCount:1,
+   winnerIds:[id],entrantIds:[id],winnerAssignedAt:[record.winnerAssignedAt[0]],
+   winnerClaims:[{slot:0,userId:id,ticketNumber:"Q-7",
+     ticketUrl:"https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890"}]};
+ const result=giveawayAnnouncement(activity);
+ const embed=result.embeds[0].toJSON();
+ assert.match(embed.description,/🏆 \*\*The Court Has Chosen\*\* · \*\*testing new layout\*\*/);
+ assert.equal(embed.description.split("<@"+id+">").length-1,1);
+ assert.match(embed.description,/<@333333333333333333> — Claim submitted/);
+ assert.doesNotMatch(embed.description,/Claiming your prize|Winner ticket claims/);
+ assert.equal(embed.fields?.length||0,0);
+ assert.equal(result.components.length,0);
 });
