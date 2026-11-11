@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {progressPanelPayload,ensureStaffProgressPanel} from "../services/giveaway-staff-progress.js";
+import {progressPanelPayload,ensureStaffProgressPanel,handleStaffProgressRefresh} from "../services/giveaway-staff-progress.js";
+import Giveaway from "../models/Giveaway.js";
+import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
 
 const record={_id:"507f1f77bcf86cd799439011",guildId:"123456789012345678",
  mode:"activity",status:"open",title:"Weekly Giveaway",activityMinTotalMessages:30,
@@ -36,4 +38,35 @@ test("staff progress does not touch Discord between refreshes",async()=>{
  const result=await ensureStaffProgressPanel({},saved,channel,{now:at});
  assert.equal(result,true);
  assert.equal(requested,0);
+});
+
+test("staff may refresh progress repeatedly without a cooldown",async()=>{
+ const prior={findOne:Giveaway.findOne,updateOne:Giveaway.updateOne,
+   aggregate:GiveawayActivityMinuteCount.aggregate};
+ const messageId="345678901234567890",channelId="456789012345678901";
+ const saved={...record,staffProgressMessageId:messageId,staffCardChannelId:channelId,
+   staffProgressStatus:"open",staffProgressRefreshedAt:new Date()};
+ let edits=0,aggregations=0;
+ try{
+   Giveaway.findOne=()=>({lean:async()=>saved});
+   Giveaway.updateOne=async()=>{};
+   GiveawayActivityMinuteCount.aggregate=async()=>{aggregations++;return [];};
+   const message={id:messageId,author:{id:"bot"},edit:async()=>{edits++;}};
+   const channel={id:channelId,messages:{fetch:async()=>message}};
+   const interaction=()=>({
+     customId:"activitystaff:refresh:"+record._id,
+     guildId:record.guildId,channelId,message,channel,
+     client:{user:{id:"bot"}},memberPermissions:{has:()=>true},
+     deferReply:async()=>{},editReply:async result=>{
+       assert.equal(result,"Shared giveaway progress refreshed.");
+     },
+   });
+   await handleStaffProgressRefresh(interaction());
+   await handleStaffProgressRefresh(interaction());
+   assert.equal(edits,2);
+   assert.equal(aggregations,2);
+ }finally{
+   Giveaway.findOne=prior.findOne;Giveaway.updateOne=prior.updateOne;
+   GiveawayActivityMinuteCount.aggregate=prior.aggregate;
+ }
 });
