@@ -125,6 +125,59 @@ test("directory is sent to the private staff channel, reused, then auto-bumped w
  }
 });
 
+test("archiving immediately refreshes and resticks the staff index without carrying archived giveaway entries",async()=>{
+  const old={giveaways:Giveaway.find,plans:GiveawayPlan.find,update:GuildConfig.updateOne};
+  const testGuild="123456789012345681",now=new Date("2026-11-11T18:30:00Z");
+  const config={guildId:testGuild,activityGiveawayReviewChannelId:staff,
+    giveawayStaffDirectoryMessageId:"",giveawayStaffDirectoryChannelId:"",
+    giveawayStaffDirectoryFingerprint:""};
+  const posted=[],deleted=[],stored=new Map();
+  let archived=false;
+  const privateChannel={
+    id:staff,lastMessageId:"",
+    guild:{roles:{everyone:{id:"everyone"}}},
+    permissionsFor:()=>({has:()=>false}),
+    messages:{fetch:async value=>typeof value==="string"?stored.get(value):{
+      first:()=>stored.get(privateChannel.lastMessageId)
+    }},
+    send:async payload=>{
+      posted.push(payload);
+      const message={id:"77777777777777777"+posted.length,author:{id:"bot"},
+        delete:async()=>deleted.push(posted.length===2?1:0),edit:async()=>{}};
+      stored.set(message.id,message);privateChannel.lastMessageId=message.id;
+      return message;
+    }
+  };
+  const client={user:{id:"bot"},channels:{fetch:async channelId=>{
+    assert.equal(channelId,staff,"the sticky stays in the active staff channel");
+    return privateChannel;
+  }}};
+  try{
+    Giveaway.find=()=>({sort:()=>({lean:async()=>[
+      giveaway({guildId:testGuild,title:"Drawing to archive",
+        publicListingRemovedAt:archived?new Date(now):null}),
+      giveaway({_id:activity,guildId:testGuild,title:"Another ongoing giveaway"})
+    ]})});
+    GiveawayPlan.find=()=>({sort:()=>({lean:async()=>[]})});
+    GuildConfig.updateOne=async(_query,update)=>Object.assign(config,update.$set);
+    await ensureGiveawayStaffDirectory(client,config,{now});
+    assert.equal(posted.length,1);
+    assert.match(posted[0].embeds[0].toJSON().description,/Drawing to archive/);
+    archived=true;
+    privateChannel.lastMessageId="888888888888888888";
+    await ensureGiveawayStaffDirectory(client,config,{now:new Date(+now+1000),forceBump:true});
+    assert.equal(posted.length,2,"archive immediately restores sticky to bottom despite cooldown");
+    const updated=posted[1].embeds[0].toJSON().description;
+    assert.doesNotMatch(updated,/Drawing to archive/);
+    assert.match(updated,/Another ongoing giveaway/);
+    assert.deepEqual(deleted,[1]);
+    await ensureGiveawayStaffDirectory(client,config,{now:new Date(+now+2000)});
+    assert.equal(posted.length,2,"ordinary reconciliation must not duplicate the sticky");
+  }finally{
+    Giveaway.find=old.giveaways;GiveawayPlan.find=old.plans;GuildConfig.updateOne=old.update;
+  }
+});
+
 test("staff directory never posts in a channel visible to everyone",async()=>{
  const old={giveaways:Giveaway.find,plans:GiveawayPlan.find};
  const channelInstance={
