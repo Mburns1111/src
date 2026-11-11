@@ -1,3 +1,9 @@
+# HISTORICAL SOURCE — not the active Series 1 setup
+
+This document preserves an earlier artist/roster research draft. The owner has completed Series 1 artwork; do not replace active art assignments, alter credits, or activate releases based on this draft alone.
+
+---
+
 # AM Isa — Series 1 art-first 100-pet roster (DRAFT)
 
 > **Draft only:** the existing runtime card release, original roster, MongoDB data, hatch odds and production branch are unchanged. The owner has explicitly chosen Princess Mare's humanized art and requested both Shark Puppy and Hot Doggo; the other roster swaps remain reviewable.
