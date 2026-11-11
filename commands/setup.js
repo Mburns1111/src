@@ -135,8 +135,7 @@ export const data = new SlashCommandBuilder()
       .addBooleanOption((option) =>
         option.setName("clear_trial_ping")
           .setDescription("Disable the Court's Trial notification role"),
-      )
-,
+      ),
   )
   .addSubcommand(command=>command.setName("activity-giveaways")
     .setDescription("Guided setup for activity giveaway channels, claim instructions and defaults"))
