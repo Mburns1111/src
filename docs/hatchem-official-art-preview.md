@@ -1,4 +1,24 @@
-# Hatchem: provisional artwork on the official draft release
+# Hatchem: official release artwork guide
+
+> **CURRENT OWNER DECISION — November 4, 2026**
+>
+> Series 1 `s1-r1` is a **108-card release**: the 88 original owner-made
+> provisional illustrations plus 20 imported credited artist illustrations.
+> **Hedgehog and Vampire Dragon are deliberately omitted from this release**
+> and must not be treated as missing art or required for activation.
+> The 88 owner-made images do not require off-site artist profile links.
+> The 20 imported images already have artist profile URLs; original-post links
+> can be added individually.
+> Artwork can be replaced after launch through owner-only
+> `/cards-release replace-pet-art` for Normal and
+> `/cards-release set-stage-art` for Neon/Mega, after uploading and
+> approving a new immutable asset. Existing card IDs and ownership stay intact.
+>
+> The remaining list below is an **archive of the original 100-pet planning
+> stage**, not the current production checklist.
+
+
+**Current preview:** `/cards-owner preview-art` also works on active official releases. The Normal art can be replaced after launch using a reviewed new asset; stage art is optional and falls back to Normal.
 
 **Development only:** branch `feature/card-release-art-preview`, based on `feature/card-game-foundation`. Do not merge, activate a release, or deploy Wispbyte without explicit approval.
 
@@ -20,7 +40,7 @@ After registering commands on the Replit **test bot**:
 - `/cards-owner preview-art release:<real-release-id> pet:<pet-id>` — privately renders one actual draft card using current assigned artwork, name, rarity, and the release's assigned background/frame.
 - `/cards-owner preview-drop release:<real-release-id>` — privately renders a three-card composite and egg-banner area. Picks three distinct available definitions, favoring assigned artwork and varied rarities. This is **only a visual sample**, not a real hatch or a weighted probability simulation.
 
-Both commands reject active releases and the `test-*` fixture, and neither writes CardDrop, CardCopy, CardClaim, supply, cooldowns, points or achievements. This is a read-only preview. The image displays a placeholder for pets without assigned artwork.
+The single-card preview supports draft and active official releases; the three-card preview requires a draft. Both reject the `test-*` fixture, and neither writes CardDrop, CardCopy, CardClaim, supply, cooldowns, points or achievements. This is a read-only preview. The image displays a placeholder for pets without assigned artwork.
 
 ### Replit update
 
@@ -39,7 +59,7 @@ Keep `ENABLE_CARD_GAME_TEST=1`, a separate testing Discord token, the intended d
 
 While a release is **draft**, upload a new key such as `cow-v2` with `replaces:cow-v1` and `revision_note:New hand-drawn illustration`; review that version and reassign it to the same pet. Old stored artwork and its credit/review audit remain intact.
 
-**Current limitation:** the existing `/cards-release assign-art` command only accepts **draft releases**, so changing artwork on an *active* release requires a separate safe replacement implementation before launch. Do not create replacement CardCopy records or change public IDs to update artwork. Artwork assignments and preview commands do not themselves prove permission to use third-party art.
+The original `/cards-release assign-art` command only accepts **draft releases**. After launch, use `/cards-release replace-pet-art` for the Normal illustration or `/cards-release set-stage-art` for Neon/Mega. Always approve an immutable new asset first. Existing CardCopy IDs and ownership are unchanged. Artwork assignments and preview commands do not themselves prove permission to use third-party art.
 
 ## Importing the supplied Hatchems.zip (88 provisional pet PNGs)
 
