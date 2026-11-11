@@ -8,6 +8,7 @@ import PetCatalog from "../models/PetCatalog.js";
 import CardArtwork from "../models/CardArtwork.js";
 import CardEggArtwork from "../models/CardEggArtwork.js";
 import { freezeAchievementRelease } from "./card-achievement-engine.js";
+import { inspectReleaseAchievementReadiness } from "./card-release-achievement-readiness.js";
 import { CARD_RARITIES, DEFAULT_HATCH_ODDS, validateHatchOdds } from "./card-hatch-engine.js";
 
 // A series, release, and definition are global across all guilds.
@@ -243,6 +244,39 @@ export async function assignReleaseArtwork({ releaseId: requestedId, kind, key, 
 }
 
 /**
+ * OWNER-ONLY cosmetic replacement for a pet's Normal illustration, even
+ * after publication. The artwork library holds immutable versions with
+ * separate license reviews; no existing CardCopy or hatch rule is touched.
+ */
+export async function replaceReleasePetArtwork({ releaseId: requestedId, petId, key }) {
+  const id = releaseId(requestedId), pid = releaseId(petId);
+  if (id.startsWith("test-")) throw Error("Use an official release, not a test fixture.");
+  const release = await CardRelease.findOne({ releaseId: id }).select("status").lean();
+  if (!release || release.status === "retired") throw Error("Official release is not editable.");
+  const selectedKey = String(key ?? "").trim().toLowerCase();
+  const artwork = await CardArtwork.findOne({
+    key: selectedKey, kind: "pet", licenseReviewStatus: "approved",
+  }).lean();
+  if (!artwork?.artistCredit) throw Error("Replacement pet artwork must be artist-credited and approved.");
+  const prior = await CardDefinition.findOne({ releaseId: id, petId: pid })
+    .select("petArtworkKey artStatus").lean();
+  if (!prior) throw Error("That pet is not part of the release.");
+  if (prior.petArtworkKey === selectedKey) throw Error("That pet already uses this artwork.");
+
+  const updated = await CardDefinition.findOneAndUpdate({
+    _id: prior._id, releaseId: id, petArtworkKey: prior.petArtworkKey,
+  }, { $set: {
+    petArtworkKey: selectedKey,
+    artistCredit: artwork.artistCredit,
+    artistUrl: artwork.artistUrl || "",
+    artSourceUrl: artwork.sourceUrl || "",
+    artStatus: "approved",
+  } }, { new: true, runValidators: true }).lean();
+  if (!updated) throw Error("Artwork changed concurrently. Refresh and try again.");
+  return { releaseId: id, petId: pid, key: selectedKey, previousKey: prior.petArtworkKey };
+}
+
+/**
  * Cosmetic-only artwork assignment. Can be used AFTER a release launches:
  * all existing Neon/Mega copies resolve the art through their CardDefinition
  * at view time. Normal art, card IDs, hatch weights and rarity stay untouched.
@@ -346,10 +380,11 @@ export async function checkOfficialReleaseReadiness({ releaseId: requestedId }) 
     if (key && (approved.get(key)?.kind !== kind || approved.get(key)?.licenseReviewStatus !== "approved"))
       problems.push("Release " + kind + " art must be license-approved: " + key);
   }
-  const secrets = release.achievementSecrets || [];
-  if (secrets.length < 6 || ["basic","medium","advanced"].some(tier => secrets.filter(secret => secret.tier === tier).length < 2))
-    problems.push("Configure six private egg achievements (at least two per tier) before activation.");
-  return { ...base, problems };
+  const achievement = inspectReleaseAchievementReadiness({
+    release, definitions:activeDefs, requireFrozen:true, checkLaunchBoundary:true,
+  });
+  problems.push(...achievement.problems);
+  return { ...base, problems: [...new Set(problems)] };
 }
 
 export async function activateRelease({ releaseId: requestedId }) {
