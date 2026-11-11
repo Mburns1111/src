@@ -5,7 +5,7 @@ import GiveawayPlan from "../models/GiveawayPlan.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import {activityPlanListingEmbed,activityOneOffListingEmbed,
-  publishActivityPlanListing} from "../services/giveaway-directory.js";
+  publishActivityPlanListing,publishActivityOneOffListing} from "../services/giveaway-directory.js";
 
 const guildId="123456789012345678",listId="234567890123456789",winnersId="345678901234567890";
 const planId="507f1f77bcf86cd799439011";
@@ -60,13 +60,13 @@ test("public directory announces watch requirements, next draw and prize without
  assert.match(exactOneOff.description,/Spelling and word order must match; capitals do not matter/);
 });
 test("active plan publishes a member-facing directory listing to list channel, not winners channel",async()=>{
- const old=[GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne,Giveaway.find];
+ const old=[GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne];
  const sent=[],updates=[],fetched=[];
  try {
   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
-    activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId})})});
+    activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId,
+    giveawayPingRoleId:"567890123456789012"})})});
   GiveawayWatchRule.findOne=()=>({lean:async()=>rule});
-  Giveaway.find=()=>({sort:()=>({limit:()=>({select:()=>({lean:async()=>[]})})})});
   GiveawayPlan.updateOne=async (_query,update)=>{updates.push(update.$set);return {modifiedCount:1}};
   const channel={id:listId,messages:{fetch:async()=>({find:()=>null})},
     send:async payload=>{sent.push(payload);return {id:"678901234567890123"}}};
@@ -74,13 +74,15 @@ test("active plan publishes a member-facing directory listing to list channel, n
   assert.equal(await publishActivityPlanListing(client,plan),true);
   assert.deepEqual(fetched,[listId]);
   assert.equal(sent.length,1);
+  assert.equal(sent[0].content,"<@&567890123456789012>");
+  assert.deepEqual(sent[0].allowedMentions,{parse:[],roles:["567890123456789012"]});
   assert.match(sent[0].embeds[0].toJSON().description,/50 messages/);
  assert.equal(sent[0].components[0].components[0].data.label,"Check My Progress");
  assert.equal(sent[0].components[0].components[0].data.custom_id,`activity-progress:plan:${planId}`);
   assert.equal(updates[0].listChannelId,listId);
   assert.equal(updates[0].listMessageId,"678901234567890123");
  }finally{
-  [GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne,Giveaway.find]=old;
+  [GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne]=old;
  }
 });
 test("finished or paused activity plan listing is removed without deleting its actual results",async()=>{
@@ -133,34 +135,92 @@ test("public cards hide internal details while keeping real entry requirements",
  assert.doesNotMatch(advanced.description,/per active day/);
 });
 
-
-test("recurring giveaway public listing displays only the last two winners",()=>{
- const history=[
-   {userId:"111111111111111111",drawnAt:new Date("2026-11-10T19:00:00Z")},
-   {userId:"222222222222222222",drawnAt:new Date("2026-11-09T19:00:00Z")},
-   {userId:"333333333333333333",drawnAt:new Date("2026-11-08T19:00:00Z")},
- ];
- const embed=activityPlanListingEmbed(plan,rule,{recentWinners:history}).toJSON();
- assert.match(embed.description,/Recent winners/);
- assert.match(embed.description,/<@111111111111111111>/);
- assert.match(embed.description,/<@222222222222222222>/);
- assert.doesNotMatch(embed.description,/<@333333333333333333>/);
- assert.doesNotMatch(activityPlanListingEmbed({...plan,repeatMode:"once"},rule,
-   {recentWinners:history}).toJSON().description,/Recent winners/);
+test("ended one-off activity poster stays on public list until staff uses Delete Listing",async()=>{
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const edits=[],deleted=[],updates=[];
+ const event={
+   _id:planId,guildId,mode:"activity",status:"ended",
+   title:"Finished activity",prize:"Special pet",winnerCount:1,
+   winnerIds:["456789012345678901"],channelId:winnersId,
+   endsAt:new Date("2026-11-08T18:00:00Z"),
+   listChannelId:listId,listMessageId:"567890123456789012",
+   listFingerprint:"previous",progressEnabled:true,
+ };
+ try{
+   GuildConfig.findOne=()=>({
+     giveawayDefaultBannerNameKey:"",
+     select:()=>({lean:async()=>({
+       activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId,
+     })}),
+   });
+   Giveaway.updateOne=async (_query,change)=>updates.push(change.$set);
+   const existing={author:{id:"bot"},id:event.listMessageId,
+     embeds:[{footer:{text:"#99439011"}}],edit:async p=>edits.push(p),
+     delete:async()=>deleted.push("activity-list")};
+   const channel={id:listId,messages:{fetch:async()=>existing},send:async()=>{throw Error("Should edit existing completed listing");}};
+   const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
+   assert.equal(await publishActivityOneOffListing(client,event,{now:new Date("2026-11-09T14:00:00Z")}),true);
+   assert.deepEqual(deleted,[],"ending must not automatically remove the public list entry");
+   assert.equal(edits.length,1);
+   assert.match(edits[0].embeds[0].data.description,/Giveaway ended/);
+   assert.doesNotMatch(edits[0].embeds[0].data.description,/Qualify automatically|Draws <t:/);
+   assert.equal(edits[0].components,undefined,"there must be no activity-progress button on a completed listing");
+   assert.ok(updates.some(x=>x.listMessageId===event.listMessageId));
+ }finally{
+   GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;
+ }
 });
 
-test("activity posters put the announcement heading and chosen title on one line",()=>{
- const single=activityOneOffListingEmbed({
-   _id:planId,title:"testing new layout",prize:"Pet",activityMinTotalMessages:1,
-   activityChannelIds:["456789012345678901"],winnerCount:1,
- }).toJSON();
- assert.equal(single.title,undefined);
- assert.match(single.description,/^🎁 \*\*Giveaway alert!\*\* · \*\*testing new layout\*\*/);
- assert.match(single.description,/Send \*\*1 message\*\* in <#456789012345678901>/);
- assert.doesNotMatch(single.description,/matching message|qualifying message/);
- const recurring=activityPlanListingEmbed({...plan,title:"Repeat giveaway",
-   minimumTotalMessages:1},{...rule,minimumTotalMessages:1}).toJSON();
- assert.equal(recurring.title,undefined);
- assert.match(recurring.description,/^🎁 \*\*Giveaway alert!\*\* · \*\*Repeat giveaway\*\*/);
- assert.match(recurring.description,/Send \*\*1 message\*\* in <#456789012345678901>/);
+test("new one-off activity giveaway pings only the shared role, even when old event roles differ",async()=>{
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const sent=[],edits=[];
+ const role="567890123456789012";
+ const event={_id:"507f1f77bcf86cd799439030",guildId,
+   mode:"activity",status:"open",title:"Shared role event",prize:"Pet",winnerCount:1,
+   channelId:winnersId,endsAt:new Date("2026-11-12T19:00:00Z"),
+   notificationRoleIds:["678901234567890123","789012345678901234"],
+   listMessageId:"",listChannelId:"",progressEnabled:true,
+ };
+ try{
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+    activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId,
+    giveawayPingRoleId:role,activityNotificationRoleIds:["678901234567890123"],
+  })})});
+  Giveaway.updateOne=async()=>({});
+  const posted={id:"890123456789012345",author:{id:"bot"},edit:async payload=>edits.push(payload)};
+  const channel={id:listId,messages:{fetch:async v=>
+    typeof v==="string"?posted:{find:()=>null}},
+    send:async p=>{sent.push(p);return posted;}};
+  const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
+  assert.equal(await publishActivityOneOffListing(client,event),true);
+  assert.equal(sent.length,1);
+  assert.equal(sent[0].content,"<@&"+role+">");
+  assert.deepEqual(sent[0].allowedMentions,{parse:[],roles:[role]});
+  // Edits must never ping the role again, including a change in the shared role.
+  const existing={...event,listChannelId:listId,listMessageId:posted.id,listFingerprint:"old"};
+  assert.equal(await publishActivityOneOffListing(client,existing),true);
+  assert.equal(sent.length,1);
+  assert.equal(edits.length,1);
+  assert.equal(edits[0].content,undefined);
+  assert.deepEqual(edits[0].allowedMentions,{parse:[]});
+ }finally{GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;}
+});
+
+test("ended activity poster stays published as No Eligible Winner for zero entrants or all forfeited claims",()=>{
+  const shared={
+    _id:planId,guildId,mode:"activity",status:"ended",title:"Unclaimed activity",
+    prize:"Test-only pet",winnerCount:1,entrantIds:["234567890123456789"],
+    activityPeriod:"daily",activityMinTotalMessages:1,activityChannelIds:[],
+    endsAt:new Date("2026-11-09T19:00:00Z"),
+    channelId:winnersId,listChannelId:listId,listMessageId:"567890123456789012",
+  };
+  const empty=activityOneOffListingEmbed({...shared,entrantIds:[],winnerIds:[]}).toJSON();
+  assert.match(empty.description,/No eligible winner/i);
+  assert.doesNotMatch(empty.description,/How to qualify|Activity:|Required role|Check My Progress/i);
+  const forfeited=activityOneOffListingEmbed({...shared,
+    winnerIds:["234567890123456789"],claimResolvedSlots:[0]}).toJSON();
+  assert.match(forfeited.description,/No eligible winner/i);
+  const pending=activityOneOffListingEmbed({...shared,
+    winnerIds:["234567890123456789"],claimResolvedSlots:[]}).toJSON();
+  assert.doesNotMatch(pending.description,/No eligible winner/i);
 });
