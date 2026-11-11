@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {DEFAULT_CLAIM_HOURS,claimDuration} from "../services/giveaway-claims.js";
-import {guidedActivityRequirements,qualifiesForGuidedActivity,guidedMessageMatches,guidedStaffCardPayload} from "../services/guided-activity.js";
+import {guidedActivityRequirements,qualifiesForGuidedActivity,guidedMessageMatches,guidedStaffCardPayload,canRepeatGuidedActivity} from "../services/guided-activity.js";
 import {activityWizardPrompts,activityWizardInput,defaultActivityWizardSettings,describeActivityWizard} from "../commands/activity-wizard.js";
 import {activityOneOffListingEmbed} from "../services/giveaway-directory.js";
 
@@ -84,6 +84,27 @@ test("progress defaults on for guided activity and scheduled plans",()=>{
     nextRunAt:new Date()});
   assert.equal(plan.progressEnabled,true);
 });
+test("activity minimum text length can require multiple meaningful characters without counting member markup",()=>{
+ const target="123456789012345678",author="234567890123456789";
+ const event={activityMinChars:8,activityRequiredMentionUserId:"",activityRequiredPhrase:""};
+ const message={guildId:"123456789012345678",author:{id:author,bot:false},content:"1234567"};
+ assert.equal(guidedMessageMatches(event,message),false);
+ assert.equal(guidedMessageMatches(event,{...message,content:"12345678"}),true);
+ assert.equal(guidedMessageMatches({...event,activityRequiredMentionUserId:target},{
+   ...message,content:"<@"+target+"> yes",mentions:{users:{has:id=>id===target}}
+ }),false,"a required mention must not satisfy the configured minimum text length");
+ assert.equal(guidedMessageMatches({...event,activityRequiredMentionUserId:target},{
+   ...message,content:"<@"+target+"> thank you",mentions:{users:{has:id=>id===target}}
+ }),true);
+ const defaults=defaultActivityWizardSettings(author);
+ assert.equal(defaults.minChars,1);
+ assert.ok(activityWizardPrompts.minChars[1].some(x=>x[1]==="custom"));
+ assert.ok(activityWizardPrompts.edit[1].some(x=>x[1]==="minChars"));
+ const settings={...defaults,period:"24 hours",hours:24,title:"Short messages",
+   prize:"Test pet",minimum:3,days:1,winners:1};
+ assert.match(describeActivityWizard({settings:{...settings,minChars:25}}),/Minimum message length · 25 characters/);
+ assert.doesNotMatch(describeActivityWizard({settings}),/Minimum message length/);
+});
 test("all new giveaway types default to a 12-hour claim window",()=>{
   assert.equal(DEFAULT_CLAIM_HOURS,12);
   const plan=new GiveawayPlan({guildId:"123456789012345678",name:"A",
@@ -93,4 +114,26 @@ test("all new giveaway types default to a 12-hour claim window",()=>{
   assert.equal(claimDuration({mode:"standard",claimWindowHours:12}).milliseconds,43200000);
   assert.equal(claimDuration({mode:"survival",claimWindowHours:12,claimWindowMinutes:null}).count,12);
   assert.equal(claimDuration({mode:"survival",claimWindowMinutes:15}).count,15);
+});
+
+test("repeating activity has Forever and a finite custom-count cutoff",()=>{
+ const defaults=defaultActivityWizardSettings("123456789012345678");
+ assert.equal(defaults.maxRepeats,null);
+ assert.deepEqual(activityWizardPrompts.repeatLimit[1].map(x=>x[1]),["forever","custom"]);
+ assert.match(activityWizardPrompts.repeatCount[0],/additional giveaways/);
+ const limited={repeat:"daily",maxRepeats:2};
+ assert.equal(canRepeatGuidedActivity(limited,0),true);
+ assert.equal(canRepeatGuidedActivity(limited,1),true);
+ assert.equal(canRepeatGuidedActivity(limited,2),false);
+ assert.equal(canRepeatGuidedActivity({repeat:"daily",maxRepeats:null},5000),true);
+ assert.equal(canRepeatGuidedActivity({repeat:"once",maxRepeats:null},0),false);
+ const settings={...defaults,period:"24 hours",hours:24,title:"Counted repeat",
+   prize:"Test pet",minimum:2,days:1,winners:1,
+   repeat:"daily",maxRepeats:2};
+ const preview=describeActivityWizard({settings});
+ assert.match(preview,/2 additional repeats/);
+ assert.match(preview,/3 total giveaways/);
+ assert.match(preview,/Repeat 1/);
+ assert.match(preview,/Repeat 2/);
+ assert.doesNotMatch(preview,/Repeat 3/);
 });
