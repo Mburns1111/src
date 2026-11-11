@@ -12,6 +12,13 @@ const idText=id=>String(id||"");
 const unix=date=>Math.floor(new Date(date).getTime()/1000);
 const when=date=>date&&Number.isFinite(+new Date(date))?"<t:"+unix(date)+":F>":"Not recorded";
 const safe=s=>String(s||"").replace(/@everyone|@here/g,"[mention]").slice(0,900);
+export const validPrizeDeliveryProofUrl=value=>!value||/^https:\/\/(?:discord\.com|discordapp\.com)\/channels\/(?:@me|\d{15,22})\/\d{15,22}\/\d{15,22}(?:\?[^\s#]*)?$/.test(value);
+export function giveawayArchiveCompletionReason(record){
+ if(record.status==="cancelled")return "Cancelled"+(record.staffCancelReason?" — "+record.staffCancelReason:"");
+ if(record.prizeDeliveredAt)return "All prizes delivered";
+ if(!(record.winnerIds||[]).length)return "Completed — no winners selected";
+ return "Completed — all winning places forfeited or closed";
+}
 const btn=(id,label,style=ButtonStyle.Secondary)=>new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style);
 export const staffRecordMarker=record=>"Giveaway staff record · "+idText(record._id);
 const STAFF_STATUS_COLORS={"🟦":0x3498db,"🟨":0xf1c40f,"🟩":0x2ecc71,"🟥":0xe74c3c};
@@ -77,8 +84,11 @@ export function giveawayStaffRecordPayload(record,{series=null}={}){
          " · "+when(h.at));
    }
    if(record.staffEndedEarly)lines.push("**Ended early by:** <@"+record.staffEndedBy+">");
-   if(record.prizeDeliveredAt)lines.push("**Prize delivery confirmed:** "+when(record.prizeDeliveredAt)+
-     (record.prizeDeliveredBy?" · <@"+record.prizeDeliveredBy+">":""));
+   if(record.prizeDeliveredAt){
+     lines.push("**Prize delivery confirmed:** "+when(record.prizeDeliveredAt)+
+       (record.prizeDeliveredBy?" · <@"+record.prizeDeliveredBy+">":""));
+     if(record.prizeDeliveryProofUrl)lines.push("**Proof:** <"+record.prizeDeliveryProofUrl+">");
+   }
  }
  // Ticket message links are placed in dedicated fields so they are never
  // truncated when a giveaway has multiple winners or a long staff timeline.
@@ -259,36 +269,33 @@ export async function handleGiveawayStaffAction(interaction){
  try{
    if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
      return interaction.reply({content:"Manage Server permission is required.",...ephemeral});
-   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|archive|confirmarchive):([0-9a-f]{24})$/.exec(interaction.customId);
+   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|archive):([0-9a-f]{24})$/.exec(interaction.customId);
    if(!match)return interaction.reply({content:"Unknown staff action.",...ephemeral});
    const [,action,id]=match;
    const record=await Giveaway.findOne({_id:id,guildId:interaction.guildId,
      staffCardChannelId:interaction.channelId}).lean();
    if(!record)return interaction.reply({content:"This staff record was not found.",...ephemeral});
-   if(!["confirmcancel","confirmdeliver","confirmarchive"].includes(action) && record.staffCardId!==interaction.message?.id)
+   if(!["confirmcancel","confirmdeliver"].includes(action) && record.staffCardId!==interaction.message?.id)
      return interaction.reply({content:"Use the current staff record for this giveaway.",...ephemeral});
    if(record.archiveMovedAt)
      return interaction.reply({content:"This giveaway is already archived.",...ephemeral});
-   if(action==="archive"){
-     if(!giveawayReadyToArchive(record))return interaction.reply({content:"This giveaway is still active or has outstanding prizes. Confirm delivery or complete the giveaway first.",...ephemeral});
-     return interaction.showModal(new ModalBuilder().setCustomId("giveawaystaff:confirmarchive:"+id)
-       .setTitle("Confirm giveaway archive").addComponents(
-         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("reason")
-           .setLabel("Archive reason (shown in staff record)")
-           .setStyle(TextInputStyle.Paragraph).setMinLength(3).setMaxLength(500).setRequired(true)),
-         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("confirm")
-           .setLabel("Type ARCHIVE to confirm the move")
-           .setStyle(TextInputStyle.Short).setMaxLength(7).setRequired(true))));
-   }
+   if(action==="archive"&&!giveawayReadyToArchive(record))
+     return interaction.reply({content:"This giveaway is still active or has outstanding prizes. Confirm delivery or complete the giveaway first.",...ephemeral});
    if(action==="deliver"){
      if(record.status!=="ended"||!record.winnerIds?.length||record.prizeDeliveredAt)
        return interaction.reply({content:"This giveaway is not awaiting prize-delivery confirmation.",...ephemeral});
      return interaction.showModal(new ModalBuilder()
        .setCustomId("giveawaystaff:confirmdeliver:"+id)
        .setTitle("Confirm all prizes delivered")
-       .addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder()
-         .setCustomId("confirm").setLabel("Type DELIVERED to confirm prize delivery")
-         .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(9))));
+       .addComponents(
+         new ActionRowBuilder().addComponents(new TextInputBuilder()
+           .setCustomId("confirm").setLabel("Type DELIVERED to confirm prize delivery")
+           .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(9)),
+         new ActionRowBuilder().addComponents(new TextInputBuilder()
+           .setCustomId("proof").setLabel("Proof — Discord message link (optional)")
+           .setPlaceholder("https://discord.com/channels/server/channel/message")
+           .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(300))
+       ));
    }
    if(action==="cancel"){
      if(!["open","pending_review","ended","running"].includes(record.status))
@@ -306,12 +313,9 @@ export async function handleGiveawayStaffAction(interaction){
        ));
    }
    await interaction.deferReply(ephemeral);
-   if(action==="confirmarchive"){
+   if(action==="archive"){
      if(!giveawayReadyToArchive(record))return interaction.editReply("This giveaway is not eligible for archiving.");
-     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="ARCHIVE")
-       return interaction.editReply("Archive not confirmed. Type ARCHIVE to continue.");
-     const reason=interaction.fields.getTextInputValue("reason").trim();
-     if(reason.length<3)return interaction.editReply("Enter an archive reason of at least three characters.");
+     const reason=giveawayArchiveCompletionReason(record).slice(0,500);
      const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
        archiveMovedAt:null,archiveRequestedAt:null,status:record.status},
        {$set:{archiveRequestedAt:new Date(),archiveRequestedBy:interaction.user.id,
@@ -327,10 +331,13 @@ export async function handleGiveawayStaffAction(interaction){
        return interaction.editReply("This giveaway is not awaiting prize-delivery confirmation.");
      if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="DELIVERED")
        return interaction.editReply("Delivery not confirmed. Type DELIVERED to continue.");
+     const proof=interaction.fields.getTextInputValue("proof")?.trim()||"";
+     if(!validPrizeDeliveryProofUrl(proof))
+       return interaction.editReply("Proof must be a Discord message link (https://discord.com/channels/server-id/channel-id/message-id). Leave it blank if you do not have one.");
      const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
        status:"ended",prizeDeliveredAt:null},
        {$set:{prizeDeliveredAt:new Date(),prizeDeliveredBy:interaction.user.id,
-         autoRerollClaims:false,claimCheckAt:null}},
+         prizeDeliveryProofUrl:proof,autoRerollClaims:false,claimCheckAt:null}},
        {returnDocument:"after"}).lean();
      if(!updated)return interaction.editReply("This giveaway was already updated.");
      await ensureGiveawayStaffRecord(interaction.client,updated);
