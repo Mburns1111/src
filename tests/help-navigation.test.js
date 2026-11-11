@@ -54,6 +54,8 @@ test("public system guides cover card game, giveaways, listings, games and shop"
   assert.ok(data(payload).description.length);
  }
  assert.match(JSON.stringify(data(helpTopicPayload("cards",userId))),/egg drops/);
+ assert.match(JSON.stringify(data(helpTopicPayload("cards",userId))),/`\.help` in the Hatchem channel/);
+ assert.match(JSON.stringify(data(helpTopicPayload("cards",userId))),/`\.tutorial`/);
  assert.match(JSON.stringify(data(helpTopicPayload("giveaways",userId))),/Check My Progress/);
  assert.match(JSON.stringify(data(helpTopicPayload("listings",userId))),/Choose photo/);
  assert.match(JSON.stringify(data(helpTopicPayload("shop",userId))),/shop balance/);
