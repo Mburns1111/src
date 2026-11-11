@@ -2,6 +2,8 @@ import {ensureStaffCard} from "./guided-activity.js";
 import {createHash} from "node:crypto";
 import {EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {sharedGiveawayPingRoleId} from "./giveaway-notification-roles.js";
+import {giveawayHasNoEligibleWinner,hasUnforfeitedWinner} from "./giveaway-claims.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
@@ -29,7 +31,7 @@ const qualifyChannel=channels=>channels.length?channels.join(", "):"any eligible
 const giveawayDetails=value=>value?["",String(value).slice(0,1000)]:[];
 const memberSafeText=(value,max=180)=>String(value||"").replace(/[\r\n]+/g," ").slice(0,max);
 
-export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",recentWinners=[]}={}) {
+export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
   const period=plan.activityPeriod||"weekly";
   const minimum=plan.minimumTotalMessages??rule?.minimumTotalMessages??1;
   const channel=rule?.channelId?"<#"+rule.channelId+">":"any eligible server channel";
@@ -37,7 +39,8 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",recentWin
   const bonus=[...new Map([...(rule?.roleBonuses||[]),...(plan.roleBonuses||[])]
     .map(b=>[b.roleId,b])).values()];
   const qualifier=[
-    "• Send **"+minimum+" "+(minimum===1?"message":"messages")+"** in "+channel+".",
+    "• Send **"+minimum+" "+(minimum===1?"message":"messages")+"** in "+channel+
+      (rule?.requiredPhrase?" containing the required phrase":"")+".",
   ];
   if(rule?.minimumChars>1)qualifier.push("• Each message must have at least **"+rule.minimumChars+" characters**.");
   if(rule?.minimumMessages>1)qualifier.push("• Send at least **"+rule.minimumMessages+" messages** on each qualifying day.");
@@ -52,7 +55,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",recentWin
     : period==="daily"?"Previous calendar day (Eastern)":"Previous Wednesday–Wednesday week (Eastern)";
   const repeat=humanRepeat(plan);
   const text=[
-    "🎁 **Giveaway alert!** · **"+displayTitle(plan.title)+"**",
+    "**"+displayTitle(plan.title)+"**",
     "",
     "🎁 **Prize**",
     String(prize).slice(0,650),
@@ -64,24 +67,45 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",recentWin
     "",
     "🏆 **"+winnerLabel(plan.winnerCount||1)+"** · Draws <t:"+stamp(plan.nextRunAt)+":F> (<t:"+stamp(plan.nextRunAt)+":R>)",
     ...(repeat?["🔁 **Repeats:** "+repeat]:[]),
-    ...(repeat && recentWinners.length ? ["", "🏅 **Recent winners**",
-      ...recentWinners.slice(0,2).map(w=>"<@"+w.userId+"> · <t:"+stamp(w.drawnAt)+":d>")] : []),
     ...(winnerChannelId?["📣 **Winners announced in:** <#"+winnerChannelId+">"]:[]),
     ...(plan.requireStaffReview?["*Winners are confirmed after staff review.*"]:[]),
     "",
     "*Qualify automatically — no entry button needed.*",
   ].join("\n").slice(0,3900);
   return new EmbedBuilder().setColor(0xb47e99)
+    .setTitle("🎁 Giveaway alert!")
     .setDescription(text)
     .setFooter({text:"✦ Automatic entry · "+shortRef(plan._id)});
 }
 export function activityOneOffListingEmbed(record) {
   const guided=Boolean(record.guidedSeries);
+  const completed=record.status==="ended";
+  if(completed && giveawayHasNoEligibleWinner(record)){
+    const end=record.endsAt&&Number.isFinite(new Date(record.endsAt).getTime())
+      ? "<t:"+stamp(record.endsAt)+":F>":"";
+    const text=[
+      "**"+displayTitle(record.title)+"**",
+      "",
+      "🎁 **Prize:** "+String(record.prize||"Prize to be announced").slice(0,650),
+      "",
+      "🏁 **Giveaway ended — No eligible winner.**",
+      (record.winnerIds||[]).length
+        ?"The prize was not claimed; no eligible replacement remained."
+        :"Nobody qualified during the activity period.",
+      ...(end?["","**Ended:** "+end]:[]),
+    ].join("\n");
+    return new EmbedBuilder().setColor(0x86738d)
+      .setTitle("🏁 Activity Giveaway Ended · No Eligible Winner")
+      .setDescription(text.slice(0,3900))
+      .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)});
+  }
+  const settling=["pending_review","closing","rerolling"].includes(record.status);
   const minimum=record.activityMinTotalMessages||record.activityMinimum||1;
   const channels=(record.activityChannelIds||[]).map(id=>"<#"+id+">");
   const qualifier=[
     "• Send **"+minimum+" "+(minimum===1?"message":"messages")+"** in "+
-      qualifyChannel(channels)+" during this activity.",
+      qualifyChannel(channels)+" during this activity"+
+      (record.activityRequiredPhrase?" containing the required phrase":"")+".",
   ];
   if(record.requiredRoleId){
     qualifier.push("• **Required role:** <@&"+record.requiredRoleId+">.");
@@ -106,7 +130,7 @@ export function activityOneOffListingEmbed(record) {
   const validDraw=draw&&Number.isFinite(new Date(draw).getTime());
   const sameTime=validClose&&validDraw&&+new Date(close)===+new Date(draw);
   const lines=[
-    "🎁 **Giveaway alert!** · **"+displayTitle(record.title)+"**",
+    "**"+displayTitle(record.title)+"**",
     "",
     "🎁 **Prize**",
     String(record.prize||"Prize to be announced").slice(0,650),
@@ -118,17 +142,26 @@ export function activityOneOffListingEmbed(record) {
     ...(validStart&&validClose?[
       "🗓️ **Activity:** <t:"+stamp(start)+":f> – <t:"+stamp(close)+":f>",
     ]:[]),
-    ...(sameTime?[
+    ...(completed?[
+      "🏁 **Giveaway ended** · "+(giveawayHasNoEligibleWinner(record)
+        ?"**No eligible winner**"
+        :hasUnforfeitedWinner(record)?"Winner(s) selected":"No eligible winner"),
+    ]:settling?[
+      "🏆 **Entries closed** · Winner selection is being finalized",
+    ]:sameTime?[
       "🏆 **"+winnerLabel(record.winnerCount||1)+"** · Ends and draws <t:"+stamp(draw)+":F> (<t:"+stamp(draw)+":R>)",
     ]:validDraw?[
       "🏆 **"+winnerLabel(record.winnerCount||1)+"** · Draws <t:"+stamp(draw)+":F> (<t:"+stamp(draw)+":R>)",
     ]:[]),
     ...(record.channelId?["📣 **Winners announced in:** <#"+record.channelId+">"]:[]),
-    ...(record.requireStaffReview?["*Winners are confirmed after staff review.*"]:[]),
+    ...(!completed&&record.requireStaffReview?["*Winners are confirmed after staff review.*"]:[]),
     "",
-    "*Qualify automatically — no entry button needed.*",
+    ...(completed?["*Entries are closed. This listing stays visible until staff choose Delete Listing.*"]
+      :settling?["*Entries are closed while winner selection is finalized.*"]
+      :["*Qualify automatically — no entry button needed.*"]),
   ];
   return new EmbedBuilder().setColor(0xb47e99)
+    .setTitle("🎁 Giveaway alert!")
     .setDescription(lines.join("\n").slice(0,3900))
     .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)});
 }
@@ -174,11 +207,16 @@ async function deleteListing(client,item,Model) {
 async function syncListing(client,item,kind,{now=new Date()}={}) {
   const isPlan=kind==="plan";
   const Model=isPlan?GiveawayPlan:Giveaway;
+  // Keep existing ended one-off listings visible until staff deliberately
+  // choose Delete Listing. Previously the directory sweep deleted them
+  // immediately after their draw, making the staff button ineffective.
   const visible=isPlan?item.status==="active":
-    item.mode==="activity"&&item.status==="open"&&new Date(item.endsAt)>now;
+    item.mode==="activity"&&!item.publicListingRemovedAt&&(
+      ["open","pending_review","closing","rerolling"].includes(item.status)||
+      (item.status==="ended"&&Boolean(item.listMessageId)));
   if(!visible)return deleteListing(client,item,Model);
   const config=await GuildConfig.findOne({guildId:item.guildId})
-    .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId giveawayEmbedColor").lean();
+    .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId giveawayPingRoleId giveawayNotificationRoleIds activityNotificationRoleIds trialNotificationRoleIds survivalTrialPingRoleId").lean();
   const channelId=config?.activityGiveawayListChannelId;
   if(!channelId)return false;
   if(!config?.activityGiveawayWinnersChannelId)return false;
@@ -190,20 +228,9 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
     ?await GiveawayWatchRule.findOne({guildId:item.guildId,nameKey:item.watchNameKey}).lean()
     :null;
   const banner=await getGiveawayBanner(item.guildId,item.bannerNameKey);
-  let recentWinners=[];
-  if(isPlan && humanRepeat(item)){
-    const history=await Giveaway.find({guildId:item.guildId,scheduleId:item._id,
-      status:"ended",winnerIds:{$exists:true,$ne:[]}})
-      .sort({endsAt:-1}).limit(10).select("winnerIds endsAt").lean();
-    recentWinners=history.flatMap(d=>(d.winnerIds||[]).map(userId=>({
-      userId,drawnAt:d.endsAt,
-    }))).slice(0,2);
-  }
   const embed=isPlan ? activityPlanListingEmbed(item,rule,{
-    winnerChannelId:config.activityGiveawayWinnersChannelId,recentWinners,
+    winnerChannelId:config.activityGiveawayWinnersChannelId,
   }) : activityOneOffListingEmbed(item);
-  if(/^#[0-9a-fA-F]{6}$/.test(config?.giveawayEmbedColor||""))
-    embed.setColor(parseInt(config.giveawayEmbedColor.slice(1),16));
   const payload=attachGiveawayBanner({embeds:[embed],allowedMentions:{parse:[]},attachments:[]},banner);
   if(item.progressEnabled && (isPlan||item.status==="open")){
     payload.components=[new ActionRowBuilder().addComponents(
@@ -217,8 +244,11 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
   })).digest("hex");
   const existing=await findListingMessage(channel,client,item,kind);
   if(!existing) {
-    // Notify each chosen role only on the initial post; updates never repeat pings.
-    const roles=[...new Set(item.notificationRoleIds||[])].slice(0,10);
+    // One server-wide giveaway role for every new regular, activity, and Trial
+    // announcement. Old per-event role lists must never cause extra pings.
+    // Changes/edits to the directory do not ping again.
+    const roleId=sharedGiveawayPingRoleId(config);
+    const roles=roleId?[roleId]:[];
     if(roles.length){
       payload.content=roles.map(id=>"<@&"+id+">").join(" ");
       payload.allowedMentions={parse:[],roles};
