@@ -50,14 +50,21 @@ async function findOwnedMessage(channel,id,client,footer){
    throw Error("Cannot modify a giveaway archive created by another user.");
  return message;
 }
-async function deleteOldMessage(client,channelId,id,archiveChannelId){
+async function deleteOldMessage(client,channelId,id,archiveChannelId,record,{progress=false}={}){
  if(!channelId||!id||channelId===archiveChannelId)return;
  const channel=await client.channels.fetch(channelId).catch(()=>null);
  if(!channel?.messages?.fetch)return;
  const message=await channel.messages.fetch(id).catch(e=>{
    if(e.code===10008)return null;throw e;
  });
- if(message?.author?.id===client.user?.id)await message.delete();
+ if(!message)return;
+ const expected=progress?
+   ["Activity staff progress · "+record._id]:
+   ["Giveaway staff record · "+record._id,"Activity staff preview · "+record._id];
+ if(message.author?.id!==client.user?.id||
+    !message.embeds?.some(embed=>expected.includes(embed.footer?.text)))
+   throw Error("Active staff post identity mismatch; refusing to delete an unrelated Discord message.");
+ await message.delete();
 }
 
 /** Make independent archive copies before deleting any active staff messages.
@@ -135,8 +142,8 @@ export async function archiveGiveawayStaffRecord(client,record,{staffPayload}={}
  await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
    {$set:{archivedAt:at,archiveCardId:archive.id,
      archiveProgressMessageId:archiveProgressId}});
- await deleteOldMessage(client,oldCardChannel,oldProgressId,channel.id);
- await deleteOldMessage(client,oldCardChannel,oldCardId,channel.id);
+ await deleteOldMessage(client,oldCardChannel,oldProgressId,channel.id,record,{progress:true});
+ await deleteOldMessage(client,oldCardChannel,oldCardId,channel.id,record);
  await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
    {$set:{archiveMovedAt:new Date()}});
  return true;
