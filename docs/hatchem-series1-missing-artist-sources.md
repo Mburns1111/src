@@ -1,4 +1,22 @@
-# Remaining Series 1 pet art (12) — owner reference list
+# Historical artist sourcing notes — superseded
+
+> **CURRENT OWNER DECISION — November 4, 2026**
+>
+> Series 1 `s1-r1` is a **108-card release**: the 88 original owner-made
+> provisional illustrations plus 20 imported credited artist illustrations.
+> **Hedgehog and Vampire Dragon are deliberately omitted from this release**
+> and must not be treated as missing art or required for activation.
+> The 88 owner-made images do not require off-site artist profile links.
+> The 20 imported images already have artist profile URLs; original-post links
+> can be added individually.
+> Artwork can be replaced after launch through owner-only
+> `/cards-release replace-pet-art` for Normal and
+> `/cards-release set-stage-art` for Neon/Mega, after uploading and
+> approving a new immutable asset. Existing card IDs and ownership stay intact.
+>
+> The remaining list below is an **archive of the original 100-pet planning
+> stage**, not the current production checklist.
+
 
 The first real Series 1 release (`s1-r1`) has 100 planned pets; the original
 `Hatchems.zip` supplies 88 900x1260 pet illustrations. All 12 names below were
