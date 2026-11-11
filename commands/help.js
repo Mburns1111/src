@@ -25,7 +25,7 @@ const TOPIC_CONTENT = Object.freeze({
     title: "AM Isa — Getting started",
     description: "Choose a topic below. This guide is private; other members cannot see which topic you open.",
     fields: [
-      ["Your profile", "Use the button in the profile channel to create or edit your card, or run **/profile** to open it. You can view another member's profile using the /profile user option."],
+      ["Your profile", "Use the profile-channel buttons to create or edit your card. Browse other member profiles directly in the profile channel."],
       ["Inventory", "Use the inventory-channel button to add your inventory video. Profile cards also have an option to add or link inventory media."],
       ["Find a listing", "Open the house or outfit channel and use **My house listings** or **My outfit listings** to see private links to your active posts. Browse someone else's public listing directly in its channel."],
       ["Need another feature?", "Use the **Listings**, **Shop**, **Points**, or **Commands** buttons below. Your existing gallery photos and native videos are not changed by using this guide."],
@@ -35,7 +35,7 @@ const TOPIC_CONTENT = Object.freeze({
     title: "AM Isa — Houses, outfits & trades",
     description: "Create listings from the permanent channel buttons; manage each listing on its original post.",
     fields: [
-      ["Create a listing", "Choose **Start a house listing** or **Start an outfit listing** in its channel. Finish the private form and upload photos/videos during creation. The **/house** and **/outfit** commands are also available."],
+      ["Create a listing", "Choose **Start a house listing** or **Start an outfit listing** in its channel. Finish the private form and upload photos/videos during creation. "],
       ["Find your active posts", "Use **My house listings** or **My outfit listings**. A private, paginated list links directly to your active published posts."],
       ["Browse gallery photos", "Use **Previous**, **Next**, or **Choose photo** on a public listing. Choose photo opens a private numbered menu but updates the shared public card. Videos remain playable above the styled card."],
       ["Interest and seller controls", "Members can select **Interested**. Owners can toggle **Interest DMs**, mark a house sold, or remove an outfit listing on its public post."],
@@ -49,14 +49,14 @@ const TOPIC_CONTENT = Object.freeze({
       ["Open the shop", "Use the shop-channel button or **/shop browse**. Open a category and use its directory to jump to an item instead of browsing one by one."],
       ["Try an appearance", "Preview supported backgrounds, panels, fonts, colors, frames, and stickers. Review the Points price before purchasing. Shop previews do not equip or purchase items automatically."],
       ["Customize your posts", "Use the customization controls on your profile or from the listing-style editor for a house or outfit. Saved listing appearances can differ from your profile."],
-      ["Check your balance", "Use **/shop balance** to check your Points privately."],
+      ["Check your balance", "Use **See Balance** in the shop channel to check your Points privately."],
     ],
   },
   points: {
     title: "AM Isa — Points",
     description: "Points can be spent on appearance items in the shop.",
     fields: [
-      ["Balance", "Run **/shop balance** or open the shop to see your balance privately."],
+      ["Balance", "Use **See Balance** in the shop channel or open your private shop to see your Points."],
       ["Earning Points", "Server events, eligible participation, milestones, and other activities may award Points when enabled by server staff. Availability depends on this server's settings."],
       ["Spending Points", "Choose an item in the shop, check its price, and confirm the purchase. Browsing or previewing an item does not charge Points."],
       ["Questions about a reward?", "Ask a server manager about the server's Points settings. Staff can review and manage awards with administrator commands."],
