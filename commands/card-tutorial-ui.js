@@ -179,19 +179,11 @@ export async function handleHatchemTutorialButton(interaction) {
 }
 
 export async function sendHatchemTutorial(message) {
-  // Text messages cannot open an ephemeral reply. DM a private tutorial
-  // when possible; if DMs are closed, offer an entry button in this channel.
-  try {
-    await message.author.send(hatchemTutorialPage(0));
-    await message.reply({
-      content: "📖 Your Hatchem tutorial is in your DMs! You can also use **Learn to Play** on the channel guide.",
-      allowedMentions: { parse: [] },
-    });
-  } catch {
-    await message.reply({
-      content: "📖 Tap **Learn to Play** to open your private Hatchem tutorial.",
-      components: [hatchemTutorialEntryRow()],
-      allowedMentions: { parse: [] },
-    });
-  }
+  // Text commands cannot open an ephemeral view directly. The button opens
+  // the existing private in-channel tutorial; never DM members.
+  await message.reply({
+    content: "📖 Tap **Learn to Play** to open your private Hatchem tutorial.",
+    components: [hatchemTutorialEntryRow()],
+    allowedMentions: { parse: [] },
+  });
 }
