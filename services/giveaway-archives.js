@@ -81,7 +81,7 @@ export async function archiveGiveawayStaffRecord(client,record,{staffPayload}={}
    throw Error("Giveaway Archives and active staff channel must be different.");
  const channel=await verifiedPrivateChannel(client,config.giveawayArchiveChannelId);
  const at=asDate(record.archivedAt||record.prizeDeliveredAt||record.staffCancelledAt);
- const oldCardChannel=record.staffCardChannelId;
+ const oldCardChannel=record.staffCardChannelId||config.activityGiveawayReviewChannelId;
  const oldCardId=record.staffCardId;
  const oldProgressId=record.staffProgressMessageId;
  const mainMarker="Giveaway archive · "+record._id;
