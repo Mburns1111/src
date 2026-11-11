@@ -1,58 +1,53 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {allowedCommandChannels,commandChannelRestriction} from "../services/command-channel-routing.js";
+import { allowedCommandChannels, commandChannelRestriction } from "../services/command-channel-routing.js";
 
-const command="123456789012345678";
-const staff="234567890123456789";
-const trial="345678901234567890";
-const general="456789012345678901";
-const settings={commandChannelId:command,activityGiveawayReviewChannelId:staff,survivalTrialChannelId:trial};
+const commands = "123456789012345678";
+const staffRecords = "234567890123456789";
+const trials = "345678901234567890";
+const other = "456789012345678901";
+const shop = "567890123456789012";
+const hatchem = "678901234567890123";
+const config = {
+  commandChannelId: commands,
+  activityGiveawayReviewChannelId: staffRecords,
+  survivalTrialChannelId: trials,
+  shopChannelId: shop,
+  hatchemChannelId: hatchem,
+};
 
-test("giveaway and giveaway-role run only in commands channel, never private staff channel",()=>{
-  for(const name of ["giveaway","giveaway-role"]){
-    assert.deepEqual(allowedCommandChannels(name,settings),[command]);
-    assert.equal(commandChannelRestriction(name,command,settings),null);
-    assert.match(commandChannelRestriction(name,staff,settings),/reserved for records and staff buttons/);
-    assert.match(commandChannelRestriction(name,trial,settings),new RegExp(command));
-    assert.match(commandChannelRestriction(name,general,settings),new RegExp(command));
+test("public help is unrestricted in server channels", () => {
+  assert.deepEqual(allowedCommandChannels("help", config), []);
+  for (const channel of [commands, other, shop, hatchem])
+    assert.equal(commandChannelRestriction("help", channel, config), null);
+});
+
+test("shop browse lives in configured shop channel rather than private commands channel", () => {
+  assert.deepEqual(allowedCommandChannels("shop", config), [shop]);
+  assert.equal(commandChannelRestriction("shop", shop, config), null);
+  assert.match(commandChannelRestriction("shop", commands, config), new RegExp(shop));
+  assert.match(commandChannelRestriction("shop", other, {}), /not configured/);
+});
+
+test("Hatchem public slash commands are limited to the configured Hatchem channel", () => {
+  assert.deepEqual(allowedCommandChannels("cards", config), [hatchem]);
+  assert.equal(commandChannelRestriction("cards", hatchem, config), null);
+  assert.match(commandChannelRestriction("cards", other, config), new RegExp(hatchem));
+});
+
+test("all staff and owner slash commands use private commands channel", () => {
+  for (const name of ["setup", "admin-import", "points-admin", "points-observe",
+    "profile-cleanup", "profile-refresh", "cards-admin", "cards-owner",
+    "cards-release", "party", "giveaway", "giveaway-role", "trial", "test-points"]) {
+    assert.deepEqual(allowedCommandChannels(name, config), [commands]);
+    assert.equal(commandChannelRestriction(name, commands, config), null);
+    assert.match(commandChannelRestriction(name, other, config), new RegExp(commands));
+    assert.match(commandChannelRestriction(name, staffRecords, config), new RegExp(commands));
+    assert.match(commandChannelRestriction(name, trials, config), new RegExp(commands));
   }
 });
 
-test("Court's Trial commands run in the Trial channel and existing commands channel, but not the giveaway staff channel",()=>{
-  assert.deepEqual(allowedCommandChannels("trial",settings),[command,trial]);
-  assert.equal(commandChannelRestriction("trial",command,settings),null);
-  assert.equal(commandChannelRestriction("trial",trial,settings),null);
-  assert.match(commandChannelRestriction("trial",staff,settings),/reserved for records and staff buttons/);
-  assert.match(commandChannelRestriction("trial",staff,settings),new RegExp(trial));
-});
-
-test("unrelated bot commands remain limited to the configured bot commands channel",()=>{
-  for(const name of ["profile","shop","points","help","test-points"]){
-    assert.deepEqual(allowedCommandChannels(name,settings),[command]);
-    assert.equal(commandChannelRestriction(name,command,settings),null);
-    assert.match(commandChannelRestriction(name,staff,settings),/Please use bot commands/);
-    assert.match(commandChannelRestriction(name,trial,settings),new RegExp(command));
-  }
-});
-
-test("a guild with only a staff giveaway channel cannot run giveaway commands there",()=>{
-  const config={activityGiveawayReviewChannelId:staff};
-  assert.match(commandChannelRestriction("giveaway",staff,config),/reserved for records and staff buttons/);
-  assert.match(commandChannelRestriction("giveaway",staff,config),/setup general/);
-});
-
-test("a guild with only a Trial channel can run Trial commands there",()=>{
-  const config={survivalTrialChannelId:trial};
-  assert.equal(commandChannelRestriction("trial",trial,config),null);
-  assert.match(commandChannelRestriction("trial",staff,config),new RegExp(trial));
-});
-
-test("shared channel IDs are not duplicated, and unchanged unset-channel behavior remains",()=>{
-  const duplicate={commandChannelId:command,activityGiveawayReviewChannelId:command,survivalTrialChannelId:command};
-  assert.deepEqual(allowedCommandChannels("giveaway",duplicate),[command]);
-  assert.deepEqual(allowedCommandChannels("trial",duplicate),[command]);
-  assert.equal(commandChannelRestriction("giveaway",general,{}),null);
-  assert.match(commandChannelRestriction("giveaway",command,duplicate),/reserved for records/);
-  assert.equal(commandChannelRestriction("trial",general,{}),null);
-  assert.equal(commandChannelRestriction("shop",general,{}),null);
+test("initial setup remains possible before a commands channel has been configured", () => {
+  assert.equal(commandChannelRestriction("setup", other, {}), null);
+  assert.equal(commandChannelRestriction("giveaway", other, {}), null);
 });
