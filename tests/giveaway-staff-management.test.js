@@ -48,13 +48,13 @@ test("private staff controls offer manual rerolls only while waiting on ticket c
      ticketUrl:"https://discord.com/channels/"+guildId+"/"+staffId+"/"+messageId}]
  })));
  assert.ok(!claimed.some(x=>x.label==="Manual Reroll"));
- assert.ok(claimed.some(x=>x.label==="Delete Listing"));
+ assert.ok(claimed.some(x=>x.label==="Archive Giveaway"));
  const archive=controls(giveawayStaffRecordPayload(example({
    mode:"survival",status:"ended",trialTicketClaimsEnabled:false,
    winnerIds:[userId],originalChampionId:userId
  })));
- assert.ok(archive.some(x=>x.label==="Archive Trial"));
- assert.ok(!archive.some(x=>x.label==="Delete Listing"));
+ assert.ok(archive.some(x=>x.label==="Archive Giveaway"));
+ assert.ok(!archive.some(x=>x.label==="Manual Reroll"));
  const archived=controls(giveawayStaffRecordPayload(example({
    mode:"survival",status:"ended",publicListingRemovedAt:new Date(),
    winnerIds:[userId]
