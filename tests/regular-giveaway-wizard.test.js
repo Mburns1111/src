@@ -328,3 +328,17 @@ test("regular wizard shows saved role instructions and supports a per-giveaway o
     assert.ok(h.publicPosts[0].embeds[0].toJSON().description.includes(customRole));
   }finally{restore();}
 });
+
+test("per-event override lets staff disable the banned role check without changing server settings",async()=>{
+ try{
+  const h=await harness();
+  await h.reachReview();
+  await h.select("edit",["exclusion"]);
+  assert.match(h.prompt().content,/Banned role exclusion/);
+  await h.select("excludeOff");
+  assert.match(h.prompt().content,/Exclude banned role:\*\* Off/);
+  await h.select("post");
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].enforceExclusionRole,false);
+ }finally{restore();}
+});
