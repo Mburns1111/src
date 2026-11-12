@@ -149,21 +149,49 @@ function managementPanel(s){
   ]};
 }
 const showZone=(date,zone)=>formatServerClock(date,zone);
+function activationSetupPanel(s){
+ const missing=s.workingGroups.map((g,i)=>!groupReady(g)?i+1:null).filter(Boolean);
+ const lines=s.workingGroups.map((g,i)=>"**"+(i+1)+". "+g.name+"** · "+
+  (g.messages?.length||0)+" message(s) · "+(g.roleIds?.length||0)+" role(s)"+
+  (groupReady(g)?" · Ready":" · Needs a message or role"));
+ return {content:"**✦ Configure Schedule Messages**\n**Template:** "+s.template.name+
+  "\n**Destination:** <#"+s.destinationChannelId+">"+
+  "\n**Start:** "+showZone(s.startAt,s.timeZone)+"\n\n"+
+  lines.join("\n")+
+  "\n\n*Choose each Ping Group to add, edit, or remove rotating messages. "+
+  "Messages are saved with this schedule, never with the template. "+
+  "A group can send roles only, but every group needs at least one role or message.*"+
+  (missing.length?"\n\n**Before preview:** Configure Group "+missing.join(", ")+".":""),
+  components:[
+   new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
+    .setCustomId("pings:select:activationGroup").setPlaceholder("Choose Ping Group to configure")
+    .addOptions(s.workingGroups.map((g,i)=>({label:g.name.slice(0,100),value:String(i)})))),
+   row(["Review Scheduled Pings","activation:review",ButtonStyle.Success],
+    ["Change Start","activation:start"],["Cancel","activation:cancel",ButtonStyle.Danger])
+  ]};
+}
 function activationGroupPanel(s){
  const g=s.workingGroups[s.selectedGroupIndex];
  if(!g)throw Error("Select a Ping Group.");
- return {content:"**Customize Ping Group "+(s.selectedGroupIndex+1)+"**\n"+
+ const selected=Math.max(0,Math.min(s.selectedMessageIndex||0,(g.messages?.length||1)-1));
+ s.selectedMessageIndex=selected;
+ const messages=g.messages||[];
+ const content="**Configure Ping Group "+(s.selectedGroupIndex+1)+" of "+s.workingGroups.length+"**\n"+
   summaryGroup(g)+"\n\n"+
-  (g.messages.length?g.messages.slice(0,8).map((m,i)=>"Message "+(i+1)+": "+short(m)).join("\n")+
-   (g.messages.length>8?"\n…plus "+(g.messages.length-8)+" more rotating messages.":""):
-   "This group only sends role mentions.")+
-  "\n\n*Edits apply to this activation only. The saved template remains unchanged.*",
-  components:[
-   row(["Set Timing","group:timing"],["Select Roles","group:roles"],
-    ["Replace Messages","group:replaceText"]),
-   row(["Add Rotating Text","group:addText"],["Remove Last Message","group:removeMessage"],
-    ["Back to Preview","group:back"])
-  ]};
+  (messages.length?messages.map((m,i)=>"**"+(i+1)+".** "+short(m).slice(0,60)).join("\n"):
+   "*No messages yet. Add a rotating message below, or use role-only pings.*")+
+  "\n\n*Messages rotate in order each time this group pings. Select a message to edit or remove it. "+
+  "These changes apply only to this schedule.*";
+ const components=[];
+ if(messages.length)components.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
+  .setCustomId("pings:select:groupMessage").setPlaceholder("Select a message to edit or remove")
+  .addOptions(messages.map((m,i)=>({label:"Message "+(i+1)+": "+short(m).slice(0,70),value:String(i),default:i===selected})))));
+ components.push(row(["Set Timing","group:timing"],["Select Roles","group:roles"],
+  ["Add Rotating Message","group:addText"]));
+ components.push(row(
+  ...(messages.length?[["Edit Selected Message","group:editText"],["Remove Selected Message","group:removeSelected"]]:[]),
+  ["Back to Group List","group:back"]));
+ return {content,components};
 }
 async function eventsForActivation(s){
  const raw=planPingDeliveries(s.workingGroups||s.template.groups,s.startAt,{timeZone:s.timeZone});
