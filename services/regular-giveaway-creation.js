@@ -64,6 +64,7 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
     endsAt:new Date(Date.now()+minutes*60000),winnerCount:winners,
     claimWindowHours:claimHours,claimWindowMinutes:null,
     autoRerollClaims:true,
+    winnerCooldownEnabled:settings.winnerCooldownEnabled===true,
     trialTicketClaimsEnabled:false,
     maxAutoRerolls:config?.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
     claimInstructions,
