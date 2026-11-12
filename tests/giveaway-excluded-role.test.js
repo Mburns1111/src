@@ -4,12 +4,11 @@ import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 import {closeGiveaway,rerollGiveaway} from "../services/giveaways.js";
-import {giveawayExclusionEnabled,memberPassesGiveawayExclusion,
- configuredGiveawayExclusionRole} from "../services/giveaway-exclusion.js";
+import {configuredGiveawayBanRole,memberPassesGiveawayBan,giveawayBanMessage} from "../services/giveaway-exclusion.js";
 import {describeActivityGiveawaySetup} from "../commands/activity-giveaway-setup.js";
 import {defaultActivityWizardSettings} from "../commands/activity-wizard.js";
-import {validateGuidedStaffEdit} from "../services/guided-staff-actions.js";
-import {validateGiveawayStaffEdit} from "../services/giveaway-staff-edit.js";
+import {giveawayStaffEditableFields} from "../services/giveaway-staff-edit.js";
+import {GUIDED_EDIT_FIELDS} from "../services/guided-staff-actions.js";
 
 const guildId="123456789012345678",A="234567890123456789",
  B="345678901234567890",bannedRole="456789012345678901",
@@ -19,24 +18,22 @@ const makeClient=()=>({guilds:{fetch:async()=>({members:{fetch:async({user})=>
  user===A?makeMember(A,false):makeMember(B,true)}})}});
 const optIn=()=>({lean:async()=>[A,B].map(userId=>({guildId,userId,active:true}))});
 
-test("banned giveaway role is optional, can be switched off for an event, and never affects Trials",async()=>{
+test("Giveaway Banned role is global and never overridable by event or mode",async()=>{
  const saved=GuildConfig.findOne;
  try{
   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({giveawayExcludedRoleId:bannedRole})})});
-  assert.equal(await configuredGiveawayExclusionRole(guildId,{mode:"standard"}),bannedRole);
-  assert.equal(await configuredGiveawayExclusionRole(guildId,{mode:"activity"}),bannedRole);
-  assert.equal(await configuredGiveawayExclusionRole(guildId,{mode:"standard",enforceExclusionRole:false}),"");
-  assert.equal(await configuredGiveawayExclusionRole(guildId,{mode:"survival"}),"");
-  assert.equal(giveawayExclusionEnabled({mode:"survival"}),false);
-  assert.equal(memberPassesGiveawayExclusion(makeMember(A,false),bannedRole,{mode:"standard"}),true);
-  assert.equal(memberPassesGiveawayExclusion(makeMember(B,true),bannedRole,{mode:"standard"}),false);
-  assert.equal(memberPassesGiveawayExclusion(null,bannedRole,{mode:"activity"}),false);
-  assert.equal(memberPassesGiveawayExclusion(makeMember(B,true),bannedRole,{mode:"standard",enforceExclusionRole:false}),true);
-  assert.equal(memberPassesGiveawayExclusion(makeMember(B,true),bannedRole,{mode:"survival"}),true);
+  assert.equal(await configuredGiveawayBanRole(guildId),bannedRole);
+  assert.equal(await configuredGiveawayBanRole(guildId,{required:true}),bannedRole);
+  assert.equal(memberPassesGiveawayBan(makeMember(A,false),bannedRole),true);
+  assert.equal(memberPassesGiveawayBan(makeMember(B,true),bannedRole),false);
+  assert.equal(memberPassesGiveawayBan(null,bannedRole),false);
+  assert.match(giveawayBanMessage,/cannot enter giveaways/);
+  assert.ok(!GUIDED_EDIT_FIELDS.some(x=>x.value==="enforceExclusionRole"));
+  assert.ok(!giveawayStaffEditableFields({status:"open",mode:"standard"}).includes("enforceExclusionRole"));
  }finally{GuildConfig.findOne=saved;}
 });
 
-test("both regular and activity winner draws silently omit members holding the banned role",async()=>{
+test("both regular and activity winner draws silently omit punished members",async()=>{
  const saved={findOne:Giveaway.findOne,update:Giveaway.findOneAndUpdate,
   config:GuildConfig.findOne,participation:ActivityGiveawayOptIn.find};
  try{
@@ -50,7 +47,7 @@ test("both regular and activity winner draws silently omit members holding the b
    Giveaway.findOneAndUpdate=(query,change)=>({lean:async()=>
     query.status==="open"?null:{...record,...change.$set}});
    const result=await closeGiveaway({id:giveawayId,guildId,client:makeClient()});
-   assert.deepEqual(result.winnerIds,[A],mode+" excluded role must never be drawn");
+   assert.deepEqual(result.winnerIds,[A]);
    assert.deepEqual(result.activityVerifiedIds,[A]);
   }
  }finally{
@@ -59,23 +56,7 @@ test("both regular and activity winner draws silently omit members holding the b
  }
 });
 
-test("per-giveaway exclusion off allows both members while leaving global role unchanged",async()=>{
- const saved={findOne:Giveaway.findOne,update:Giveaway.findOneAndUpdate,config:GuildConfig.findOne};
- try{
-  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({giveawayExcludedRoleId:bannedRole})})});
-  const record={_id:giveawayId,guildId,status:"closing",mode:"standard",
-   enforceExclusionRole:false,entrantIds:[A,B],winnerCount:2,claimWindowHours:24,
-   winnerIds:[],winnerClaims:[],rerollHistory:[]};
-  Giveaway.findOne=()=>({lean:async()=>record});
-  Giveaway.findOneAndUpdate=(query,change)=>({lean:async()=>query.status==="open"?null:{...record,...change.$set}});
-  const result=await closeGiveaway({id:giveawayId,guildId,client:makeClient()});
-  assert.deepEqual([...result.winnerIds].sort(),[A,B].sort());
- }finally{
-  Giveaway.findOne=saved.findOne;Giveaway.findOneAndUpdate=saved.update;GuildConfig.findOne=saved.config;
- }
-});
-
-test("automatic or staff rerolls cannot select a newly banned member",async()=>{
+test("rerolls never choose the banned member",async()=>{
  const saved={findOne:Giveaway.findOne,config:GuildConfig.findOne};
  try{
   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({giveawayExcludedRoleId:bannedRole})})});
@@ -90,20 +71,15 @@ test("automatic or staff rerolls cannot select a newly banned member",async()=>{
  }finally{Giveaway.findOne=saved.findOne;GuildConfig.findOne=saved.config;}
 });
 
-test("setup and staff edit screens show the exclusion choice",()=>{
+test("setup shows mandatory role and individual giveaway models have no override",()=>{
  const settings={giveawayExcludedRoleId:bannedRole,activityClaimWindowHours:12,activityMaxAutoRerolls:2};
  for(const mode of ["activity","regular"]){
-  const text=describeActivityGiveawaySetup(settings,{mode});
-  assert.match(text,/banned giveaway role/i);
-  assert.match(text,new RegExp(bannedRole));
+  const review=describeActivityGiveawaySetup(settings,{mode});
+  assert.match(review,/Giveaway Banned role \(required\)/);
+  assert.match(review,new RegExp(bannedRole));
  }
  assert.equal(new GuildConfig({guildId}).giveawayExcludedRoleId,"");
  assert.equal(new Giveaway({guildId,channelId:A,creatorId:A,title:"test",prize:"test",
-  endsAt:new Date(),winnerCount:1,mode:"standard"}).enforceExclusionRole,true);
- assert.equal(defaultActivityWizardSettings(A).enforceExclusionRole,true);
- const event={activityStartAt:new Date("2026-11-11T00:00:00Z"),
-  activityEndAt:new Date("2026-11-14T00:00:00Z")};
- assert.deepEqual(validateGuidedStaffEdit("enforceExclusionRole","off",event),{enforceExclusionRole:false});
- const regular={mode:"standard",status:"open"};
- assert.deepEqual(validateGiveawayStaffEdit(regular,"enforceExclusionRole","off"),{enforceExclusionRole:false});
+  endsAt:new Date(),winnerCount:1,mode:"standard"}).enforceExclusionRole,undefined);
+ assert.equal(defaultActivityWizardSettings(A).enforceExclusionRole,undefined);
 });
