@@ -127,15 +127,30 @@ function managementPanel(s){
     ["Back to List","manage:list"])
   ]};
 }
+function activationGroupPanel(s){
+ const g=s.workingGroups[s.selectedGroupIndex];
+ if(!g)throw Error("Select a Ping Group.");
+ return {content:"**Customize Ping Group "+(s.selectedGroupIndex+1)+"**\n"+
+  summaryGroup(g)+"\n\n"+
+  (g.messages.length?g.messages.map((m,i)=>"Message "+(i+1)+": "+short(m)).join("\n"):
+   "This group only sends role mentions.")+
+  "\n\n*Edits apply to this activation only. The saved template remains unchanged.*",
+  components:[
+   row(["Set Timing","group:timing"],["Select Roles","group:roles"],
+    ["Replace Messages","group:replaceText"]),
+   row(["Add Rotating Text","group:addText"],["Remove Last Message","group:removeMessage"],
+    ["Back to Preview","group:back"])
+  ]};
+}
 async function eventsForActivation(s){
- const raw=planPingDeliveries(s.template.groups,s.startAt);
+ const raw=planPingDeliveries(s.workingGroups||s.template.groups,s.startAt);
  const custom=new Map((s.overrides||[]).map(e=>[e.sequence,e]));
  return raw.map(e=>({...e,...(custom.get(e.sequence)||{})}))
   .sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt));
 }
 function previewRows(events,page){
- const offset=page*20;
- const items=events.slice(offset,offset+20);
+ const offset=page*10;
+ const items=events.slice(offset,offset+10);
  const lines=items.map(e=>"#"+e.sequence+" "+ts(e.dueAt)+" · Group "+(e.groupIndex+1)+
   " · "+e.roleIds.length+" role(s) · "+short(e.content||"(roles only)"));
  return {items,text:lines.join("\n"),total:events.length};
@@ -149,13 +164,13 @@ async function activationPanel(i,s){
    .setPlaceholder("Select an individual ping to customize")
    .addOptions(items.map(e=>({label:"Ping #"+e.sequence+" · Group "+(e.groupIndex+1),
     value:String(e.sequence),description:new Date(e.dueAt).toISOString().slice(0,16)})))));
- components.push(row(["Earlier","activation:prev"],["Later","activation:next"],["Change Start","activation:start"]));
+ components.push(row(["Earlier","activation:prev"],["Later","activation:next"],["Change Start","activation:start"],["Edit Ping Groups","activation:groups"]));
  components.push(row(["Activate Schedule","activation:confirm",ButtonStyle.Success],
   ["Cancel","activation:cancel",ButtonStyle.Danger]));
  return reply(i,{content:"**✦ Review & Activate**\n**Template:** "+s.template.name+
   "\n**One destination:** <#"+s.destinationChannelId+">"+
   "\n**Start:** "+ts(s.startAt)+"\n**Total messages:** "+total+
-  "\n**Preview page:** "+((s.page||0)+1)+"/"+Math.max(1,Math.ceil(total/20))+
+  "\n**Preview page:** "+((s.page||0)+1)+"/"+Math.max(1,Math.ceil(total/10))+
   "\n\n"+(text||"No pings in this window.")+
   "\n\n*Select a ping to override its text, roles or time. All groups remain in this single channel.*",
   components});
@@ -242,6 +257,32 @@ async function modalSubmit(i,id){
      !Number.isInteger(g.offsetHours)||g.offsetHours<0||g.offsetHours>720)
     throw Error("Interval 1–720, duration 1–365 days, and delay 0–720 hours must be whole numbers.");
   return reply(i,draftPanel(s));
+ }
+ if(id==="groupTiming"){
+  if(s.phase!=="activation")throw Error("Activation expired.");
+  const g=s.workingGroups[s.selectedGroupIndex];
+  Object.assign(g,{
+   name:field(i,"name"),repeatMode:field(i,"repeatMode").toLowerCase(),
+   interval:Number(field(i,"interval")),durationDays:Number(field(i,"days")),
+   offsetHours:Number(field(i,"offset")),
+  });
+  s.workingGroups[s.selectedGroupIndex]=normalizePingGroup(g);
+  // Indexes of newly generated pings may change when frequency is edited.
+  s.overrides=[];s.page=0;
+  return reply(i,activationGroupPanel(s));
+ }
+ if(id==="groupReplaceText"||id==="groupAddText"){
+  if(s.phase!=="activation")throw Error("Activation expired.");
+  const g=s.workingGroups[s.selectedGroupIndex];
+  const value=field(i,"content");
+  if(!value)throw Error("Enter message text.");
+  if(id==="groupReplaceText")g.messages=[value];
+  else{
+   if(g.messages.length>=20)throw Error("This group already has 20 rotating messages.");
+   g.messages.push(value);
+  }
+  s.workingGroups[s.selectedGroupIndex]=normalizePingGroup(g);
+  return reply(i,activationGroupPanel(s));
  }
  if(id==="message"){
   if(s.phase!=="draft")throw Error("This editor is no longer active.");
@@ -353,7 +394,8 @@ export async function handleScheduledPingsInteraction(i){
   const channelId=i.values?.[0];
   await validatePingDestination(i.guild,channelId,s.template.groups.flatMap(g=>g.roleIds||[]));
   Object.assign(s,{phase:"activation",destinationChannelId:channelId,
-   startAt:new Date(Date.now()+5*60_000),page:0,overrides:[]});
+   startAt:new Date(Date.now()+5*60_000),page:0,overrides:[],
+   workingGroups:s.template.groups.map(g=>({...g,roleIds:[...g.roleIds],messages:[...g.messages]}))});
   return activationPanel(i,s);
  }
  if(command==="draft:cancel"){sessions.delete(key(i));return reply(i,{content:"Template editor closed. No changes saved."});}
@@ -421,10 +463,17 @@ export async function handleScheduledPingsInteraction(i){
  if(command.startsWith("activation:")){
   const s=stateFor(i);
   if(s.phase!=="activation")throw Error("Open an activation preview first.");
+  if(command==="activation:groups"){
+   const picker=new StringSelectMenuBuilder().setCustomId("pings:select:activationGroup")
+    .setPlaceholder("Choose a Ping Group to customize")
+    .addOptions(s.workingGroups.map((g,index)=>({label:g.name.slice(0,100),value:String(index)})));
+   return reply(i,{content:"**Customize Ping Groups**\nChange timing, roles or messages in this schedule copy without editing the saved template.",
+    components:[new ActionRowBuilder().addComponents(picker),row(["Back to Preview","group:back"])]});
+  }
   if(command==="activation:prev")s.page=Math.max(0,(s.page||0)-1);
   if(command==="activation:next"){
    const total=(await eventsForActivation(s)).length;
-   s.page=Math.min(Math.ceil(total/20)-1,(s.page||0)+1);
+   s.page=Math.min(Math.ceil(total/10)-1,(s.page||0)+1);
   }
   if(command==="activation:start")return i.showModal(modal("start","Schedule Start Time",[
    ["date","ISO date/time incl timezone","",TextInputStyle.Short,40]
@@ -434,13 +483,57 @@ export async function handleScheduledPingsInteraction(i){
    if(!template)throw Error("This template was removed.");
    const schedule=await activatePingSchedule({guild:i.guild,template,
     channelId:s.destinationChannelId,startAt:s.startAt,actorId:i.user.id,
-    overrides:{events:s.overrides}});
+    overrides:{groups:s.workingGroups,events:s.overrides}});
    sessions.delete(key(i));
    return reply(i,{content:"**Schedule activated!**\n"+schedule.name+
     "\nDestination: <#"+schedule.destinationChannelId+">\n"+
     schedule.plannedCount+" messages planned. The permanent staff dashboard has been updated."});
   }
   return activationPanel(i,s);
+ }
+ if(command==="select:activationGroup"){
+  const s=stateFor(i);
+  if(s.phase!=="activation")throw Error("Open the activation preview first.");
+  s.selectedGroupIndex=Number(i.values?.[0]);
+  return reply(i,activationGroupPanel(s));
+ }
+ if(command.startsWith("group:")){
+  const s=stateFor(i);
+  if(s.phase!=="activation"||!s.workingGroups)throw Error("Open a template activation first.");
+  if(command==="group:back")return activationPanel(i,s);
+  const g=s.workingGroups[s.selectedGroupIndex];
+  if(!g)throw Error("Select a Ping Group first.");
+  if(command==="group:timing")return i.showModal(modal("groupTiming","Customize Group Timing",[
+   ["name","Ping Group Name",g.name,TextInputStyle.Short,60],
+   ["repeatMode","Frequency: once, hours, days",g.repeatMode,TextInputStyle.Short,8],
+   ["interval","Repeat every X hours / days",g.interval,TextInputStyle.Short,3],
+   ["days","Duration in days",g.durationDays,TextInputStyle.Short,3],
+   ["offset","Start delay in hours",g.offsetHours,TextInputStyle.Short,3]
+  ]));
+  if(command==="group:roles")return reply(i,{content:"**Change All Group Roles**\nThese roles apply to every ping in this group's schedule copy.",
+   components:[new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
+    .setCustomId("pings:select:groupRoles").setPlaceholder("Choose up to 10 roles")
+    .setMinValues(1).setMaxValues(10)),
+    row(["No Group Roles","group:clearRoles"],["Back","group:back"])]});
+  if(command==="group:clearRoles"){
+   if(!g.messages.length)throw Error("This group needs text or at least one role.");
+   g.roleIds=[];return reply(i,activationGroupPanel(s));
+  }
+  if(command==="group:replaceText"||command==="group:addText")
+   return i.showModal(modal(command==="group:addText"?"groupAddText":"groupReplaceText",
+    command==="group:addText"?"Add Rotating Message":"Replace Group Messages",[
+     ["content","Message text","",TextInputStyle.Paragraph,1800,true]
+   ]));
+  if(command==="group:removeMessage"){
+   if(g.messages.length===1&&!g.roleIds.length)throw Error("This group needs text or at least one role.");
+   g.messages.pop();return reply(i,activationGroupPanel(s));
+  }
+ }
+ if(command==="select:groupRoles"){
+  const s=stateFor(i),g=s.workingGroups?.[s.selectedGroupIndex];
+  if(s.phase!=="activation"||!g)throw Error("Select a Ping Group first.");
+  g.roleIds=[...i.values];
+  return reply(i,activationGroupPanel(s));
  }
  if(command==="select:planned"){
   const s=stateFor(i);
