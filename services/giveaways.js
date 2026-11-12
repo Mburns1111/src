@@ -1,5 +1,5 @@
 import {activeActivityParticipants} from "./activity-participation.js";
-import {configuredGiveawayExclusionRole,memberPassesGiveawayExclusion} from "./giveaway-exclusion.js";
+import {configuredGiveawayBanRole,memberPassesGiveawayBan} from "./giveaway-exclusion.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
@@ -252,9 +252,9 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   if(client){
     const [members,excludedRoleId]=await Promise.all([
       verifyServerMembers(client,item.guildId,eligible,{includeMembers:true}),
-      configuredGiveawayExclusionRole(item.guildId,item),
+      configuredGiveawayBanRole(item.guildId),
     ]);
-    const permitted=members.filter(m=>memberPassesGiveawayExclusion(m,excludedRoleId,item)&&
+    const permitted=members.filter(m=>memberPassesGiveawayBan(m,excludedRoleId)&&
       (item.mode==="activity"?optedIn.has(String(m.id)):
         (!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId))));
     eligible=permitted.map(m=>m.id);
@@ -297,8 +297,8 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
     throw Error("Activity rerolls require a Discord membership check.");
   const optedIn=item.mode==="activity"?await activeActivityParticipants(item.guildId,pool):null;
   const members=client?await verifyServerMembers(client,item.guildId,pool,{includeMembers:true}):null;
-  const excludedRoleId=client?await configuredGiveawayExclusionRole(item.guildId,item):"";
-  const verified=members?members.filter(m=>memberPassesGiveawayExclusion(m,excludedRoleId,item)&&
+  const excludedRoleId=client?await configuredGiveawayBanRole(item.guildId):"";
+  const verified=members?members.filter(m=>memberPassesGiveawayBan(m,excludedRoleId)&&
     (item.mode==="activity"?optedIn.has(String(m.id)):
       (!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId)))).map(m=>m.id):
     [...new Set(pool)];
