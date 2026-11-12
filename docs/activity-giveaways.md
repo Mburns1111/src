@@ -42,6 +42,16 @@ Members holding this role are **blocked from entering regular giveaways and Cour
 
 Any change to the banned role in server setup applies to all giveaways; no active giveaway can opt out. This is **entirely separate from the optional winner cooldown system** (which remains a design, not implemented).
 
+## Winner cooldowns (separate from punishment bans)
+
+Regular and activity giveaways have an optional **Winner Cooldown check**, which defaults **OFF** and can be toggled ON or OFF per giveaway. Guided recurring activity giveaways carry this option forward into each repeat; legacy scheduled plans store it as well. Staff can edit the setting on an open giveaway. **Court's Trials never use winner cooldowns.** The required Giveaway Banned role is always enforced, regardless of the cooldown setting.
+
+Once staff confirm all prizes delivered, the private staff record shows **Apply Cooldown** beside **Archive Giveaway**. For one winner, the bot opens a duration modal; for multiple winners, staff can select one, several or all. A staff member enters a whole number of days (1–365), reviews the named winners and exact expiration, then confirms. The countdown starts at the **prize-delivery confirmation timestamp** rather than the date staff archive or click Apply. Cooldowns are not created automatically.
+
+Each server/member has one effective MongoDB cooldown with a private application/removal/correction audit. A new application cannot accidentally shorten a longer existing restriction. Cooldowns expire automatically when checked; the bot silently removes active cooldown members from the **winner drawing pool** and from subsequent manual or automatic rerolls when that giveaway has cooldown enforcement ON. No public reroll, announcement, tracking penalty or activity-log change occurs. The final check also happens upon staff approval, if manual drawing approval is enabled. No eligible members produces the existing no-eligible-winner behavior.
+
+After applying a cooldown, the staff record offers **Manage Cooldowns** while it remains active. The private **Active Giveaway Directory** has **Winner Cooldowns** for server-wide active-member lookup, manual correction of remaining days and immediate removal; those actions work even after the source giveaway is archived. All changes are auditable. Archive never resets a cooldown. The staff management controls do not change the separate Discord Giveaway Banned role.
+
 ## Guided activity giveaway: counting rules
 
 ### Message target means the total for the whole activity period
