@@ -2,13 +2,15 @@
 
 Source: `integration/active-development-2026-11-11`. Consolidation in progress; never deploy Wispbyte or merge to main without approval.
 
+**Activity giveaways now use an internal MongoDB Opt In / Opt Out panel beneath the Activity Giveaway List. No Discord role is required for participation.**
+
 ## Setup commands
 
 | Command | What it configures | Required fields |
 |---|---|---|
 | `/setup general` | Required **private staff-only Bot Commands** channel, then optional member profiles, houses, outfits, inventory, Trading Posts, trade voting, shop and party games | Private commands channel **first** |
 | `/setup giveaways` | Standard giveaway posts, private staff records, shared private archive, Giveaway Manager role, notification role, role/help, claims, rerolls and banner | Public giveaway channel, private staff channel and separate private archive |
-| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, shared private archive, Giveaway Manager role, notification role, **dedicated mandatory Activity Participation opt-in role**, opt-in instructions, claims, rerolls and banner | Public activity list, public winners, private staff channel, separate private archive **and Activity Participation role** |
+| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, shared private archive, Giveaway Manager role, notification role, **dedicated mandatory Activity Participation opt-in role**, opt-in instructions, claims, rerolls and banner | Public activity list, public winners, private staff channel, separate private archive **and Activity Giveaway List opt-in panel** |
 | `/setup trials` | Court's Trial signup/elimination channel, private staff records, shared private archive, eligibility role/help, claims, rerolls, notifications, banner | Trial channel, private staff channel and separate private archive |
 | `/setup cards` | Hatchem game channel, Collector role, activity-based wild egg toggle | Requires General commands channel; Hatchem channel and manageable Collector role |
 
@@ -24,7 +26,7 @@ The private staff controls and private archive channels must be separate from ea
 
 ## Separate activity giveaway opt-in role
 
-`/setup activity-giveaways` requires the server manager to choose a distinct **Activity Participation role**. This role is exclusively for opt-in message tracking for activity giveaways. The optional **regular giveaway entry/eligibility role** under `/setup giveaways` remains independent. A regular giveaway can still require no eligibility role, but an activity giveaway **cannot** disable its participation role.
+`/setup activity-giveaways` requires the server manager to choose a distinct **Activity Giveaway List opt-in panel**. This role is exclusively for opt-in message tracking for activity giveaways. The optional **regular giveaway entry/eligibility role** under `/setup giveaways` remains independent. A regular giveaway can still require no eligibility role, but an activity giveaway **cannot** disable its participation role.
 
 The bot checks for Activity Participation before storing guided activity receipts or updating legacy message counters. No role means no giveaway activity record; role removal immediately stops new counting and disqualifies the member from future drawings and rerolls. Activity participation is unrelated to normal Points or Hatchem tracking. Public activity announcements state how to obtain the role.
 
