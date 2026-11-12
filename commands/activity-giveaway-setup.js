@@ -15,10 +15,10 @@ import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS}
 const sessions=new Map();
 const expiry=30*60_000;
 const key=(channel,user)=>channel+":"+user;
-const steps=["list","winners","staff","archive","managerRole","excludedRole","instructions","hours","rerolls","roles","empty","banner","review"];
+const steps=["list","winners","staff","managerRole","excludedRole","instructions","hours","rerolls","roles","empty","banner","review"];
 const regularSteps=["regularChannel","staff","archive","managerRole","excludedRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
 const stepsFor=session=>session.mode==="regular"?regularSteps:steps;
-const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",archive:"Private giveaway archive",
+const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",
   regularChannel:"Regular giveaway posts",managerRole:"Giveaway Manager role",
   excludedRole:"Required Giveaway Banned role",
   requiredRole:"Default regular entry role",roleHelp:"Where to get required roles",
@@ -51,7 +51,7 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   ...(mode==="activity"?["📋 **Activity list:** "+shown(settings.activityGiveawayListChannelId),
      "🏆 **Winners:** "+shown(settings.activityGiveawayWinnersChannelId)]:[]),
   "🔒 **Staff controls:** "+shown(settings.activityGiveawayReviewChannelId),
-   "🗄️ **Private giveaway archive (required):** "+shown(settings.giveawayArchiveChannelId),
+   "🗄️ **Shared staff archive (set in /setup general):** "+shown(settings.giveawayArchiveChannelId),
   "🔑 **Giveaway Manager role:** "+(settings.giveawayManagerRoleId?"<@&"+settings.giveawayManagerRoleId+">":"None — Manage Server only"),
   "🚫 **Giveaway Banned role (required):** "+(settings.giveawayExcludedRoleId?"<@&"+settings.giveawayExcludedRoleId+">":"NOT CONFIGURED — REQUIRED"),
   ...(mode==="activity"?[
@@ -106,19 +106,18 @@ function layout(session,banners=[]) {
  const title="**"+(session.mode==="regular"?"Regular":"Activity")+" giveaway setup** · <@"+session.owner+">\n**"+progress(session)+"**\n";
  const components=[];
  let content="";
- if(["list","winners","staff","archive","regularChannel"].includes(step)){
+ if(["list","winners","staff","regularChannel"].includes(step)){
    const field={list:"activityGiveawayListChannelId",winners:"activityGiveawayWinnersChannelId",
-     staff:"activityGiveawayReviewChannelId",archive:"giveawayArchiveChannelId",regularChannel:"giveawayChannelId"}[step];
+     staff:"activityGiveawayReviewChannelId",regularChannel:"giveawayChannelId"}[step];
    content={
     list:"Choose the public channel where members will see the giveaway posters and **Check My Progress** buttons.",
      regularChannel:"Choose the channel for manual-entry giveaways. Members will click Enter Giveaway here, and results remain on the post.",
     winners:"Choose the public channel where drawn winners, claim deadlines and claim buttons will appear.",
     staff:"Choose a **private, staff-only** text channel for eligibility previews, editing, early ending, cancelling and approval.",
-     archive:"Choose the required **private giveaway archive** channel for completed and cancelled staff records. This is shared by regular giveaways, activity giveaways and Court\'s Trials; it must be different from staff controls and hidden from @everyone.",
    }[step]+"\nCurrent: "+shown(s[field])+"\nThe bot will check its ability to see and post in this channel.";
    const selector=new ChannelSelectMenuBuilder().setCustomId(bind(session,"channel"))
     .setPlaceholder("Choose "+stepName[step]).setMinValues(1).setMaxValues(1)
-    .addChannelTypes(...(["staff","archive"].includes(step)?[ChannelType.GuildText]:
+    .addChannelTypes(...(step==="staff"?[ChannelType.GuildText]:
       [ChannelType.GuildText,ChannelType.GuildAnnouncement]));
    components.push(new ActionRowBuilder().addComponents(selector));
    if(s[field])components.push(row(session.id,[["Keep selected channel","keep"]]));
@@ -237,10 +236,12 @@ function after(session,step){
 }
 async function checkChannels(session){
  const s=session.settings;
+ const existing=await GuildConfig.findOne({guildId:session.guild.id}).lean();
+ s.giveawayArchiveChannelId=existing?.giveawayArchiveChannelId||"";
+ if(!s.giveawayArchiveChannelId)throw Error("Run /setup general to assign the required shared private archive first.");
  const ids=session.mode==="regular"?[s.giveawayChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId]:
     [s.activityGiveawayListChannelId,s.activityGiveawayWinnersChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId];
  if(ids.some(x=>!x)||new Set(ids).size!==ids.length)throw Error("Choose separate public, private staff, and private archive channels for giveaways.");
-  const existing=await GuildConfig.findOne({guildId:session.guild.id}).lean();
   const publicIds=[existing?.giveawayChannelId,existing?.activityGiveawayListChannelId,
     existing?.activityGiveawayWinnersChannelId,existing?.survivalTrialChannelId].filter(Boolean);
   if(publicIds.includes(s.giveawayArchiveChannelId))throw Error("The private giveaway archive must be separate from every public giveaway or Trial channel.");
@@ -302,7 +303,7 @@ async function apply(session,verb,value){
    const previous=await GuildConfig.findOne({guildId:session.guild.id}).lean();
    const settings={
      ...Object.fromEntries([
-      "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId","giveawayArchiveChannelId","giveawayChannelId",
+      "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId","giveawayChannelId",
       "giveawayManagerRoleId","giveawayExcludedRoleId","giveawayDefaultRequiredRoleId","giveawayShowRoleInstructions",
       "giveawayRoleInstructions","activityClaimInstructions","activityClaimWindowHours","activityMaxAutoRerolls",
       "activityAnnounceEmptyResults","giveawayDefaultBannerNameKey"
@@ -366,7 +367,7 @@ async function apply(session,verb,value){
    if(!value||value.length>500)throw Error("Enter 1–500 characters explaining where to obtain the role.");
    s.giveawayRoleInstructions=value;return after(session,"roleHelpVisible");
  }
- const fields={list:"activityGiveawayListChannelId",winners:"activityGiveawayWinnersChannelId",staff:"activityGiveawayReviewChannelId",archive:"giveawayArchiveChannelId",regularChannel:"giveawayChannelId"};
+ const fields={list:"activityGiveawayListChannelId",winners:"activityGiveawayWinnersChannelId",staff:"activityGiveawayReviewChannelId",regularChannel:"giveawayChannelId"};
  if(fields[session.step]){
    if(verb!=="channel")throw Error("Choose a channel from the picker.");
    s[fields[session.step]]=value;return next();
