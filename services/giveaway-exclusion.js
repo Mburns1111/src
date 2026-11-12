@@ -12,7 +12,7 @@ export async function configuredGiveawayBanRole(guildId,{required=false}={}){
  return roleId;
 }
 export function memberPassesGiveawayBan(member,roleId){
- return Boolean(member && member.roles?.cache && (!roleId||!member.roles.cache.has(roleId)));
+ return !roleId?Boolean(member):Boolean(member?.roles?.cache && !member.roles.cache.has(roleId));
 }
 export async function isGiveawayBanned(guildId,member,roleId){
  const banned=roleId??await configuredGiveawayBanRole(guildId);
