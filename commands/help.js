@@ -173,11 +173,11 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Regular Giveaways",
-    "Enter using the buttons on the giveaway announcement. Follow any additional eligibility requirements listed."
+    "Use **Enter Giveaway** on the regular giveaway post. Some regular giveaways require an eligibility role; check the announcement. This is separate from the Activity Participation role."
    ],
    [
     "2. Activity Giveaways",
-    "First, opt in by getting the server’s **Activity Participation** role. Only messages sent while you have this role can count. Once opted in, meet the listed activity requirements for automatic entry; there is no entry button. You can remove the role to opt out."
+    "To join, first get the server's **Activity Participation** role. Activity giveaways are **opt-in only**: messages sent before you have the role, or while you do not have it, do not count. Complete the requirements on the giveaway post; qualified members enter automatically—there is no entry button.\n\nRemoving the role stops counting new giveaway activity and prevents you from winning while opted out. Earlier qualifying messages may remain if you opt in again."
    ],
    [
     "3. Court's Trials",
@@ -185,7 +185,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "4. Check Your Progress",
-    "Use **Check My Progress** on activity giveaways to see how close you are to qualifying."
+    "Use **Check My Progress** on an activity giveaway to view your message total privately. If you have not opted in, the bot will show which role you need and where to get it."
    ],
    [
     "5. Claiming Prizes",
@@ -234,11 +234,11 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Giveaways & Court's Trials · PUBLIC and PRIVATE",
-    "**Required public channels:**\n• **Regular Giveaways** — Standard entry-button giveaways.\n• **Activity Giveaway List** — Activity-based giveaways.\n• **Activity Winners** — Activity giveaway winner announcements.\n• **Court's Trials** — A fast-paced giveaway system with interactive eliminations for prizes.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Manage giveaways, entries, and claims.\n• **Giveaway Archives** — Completed and cancelled records.\n\n**Setup commands:**\n• `/setup giveaways`\n• `/setup activity-giveaways`\n• `/setup trials`"
+    "**Required public channels:**\n• **Regular Giveaways** — Entry-button giveaways.\n• **Activity Giveaway List** — Activity posts and progress checks.\n• **Activity Winners** — Activity results and claims.\n• **Court's Trials** — Signup and elimination events.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Review and manage results.\n• **Giveaway Archives** — Completed and cancelled records.\n\n**Activity opt-in role (required):** Create a dedicated **Activity Participation** role and select it in `/setup activity-giveaways`. Add instructions showing where members can obtain it. This role is separate from the **optional regular giveaway eligibility role** in `/setup giveaways` and the shared announcement ping role.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
    ],
    [
     "6. Bot Permissions",
-    "Ensure the bot has **View Channel**, **Send Messages**, and **Embed Links** in assigned channels. Enable **Read Message History**, **Attach Files**, and **Manage Roles** where needed.\n\nGranting **Administrator** covers these permissions. The bot has no commands to mute, ban, kick, or otherwise moderate members.\n\n**Activity Giveaways:** The bot must view all channels where activity should count so it can accurately track and record activity."
+    "Give the bot **View Channel**, **Send Messages**, and **Embed Links** in assigned channels. Add **Read Message History** and **Attach Files** where needed.\n\n**Activity giveaways:** Enable Message Content Intent, let the bot see watched channels, and allow it to check members' current roles. Staff must configure an Activity Participation role before the bot can track activity for giveaways or select winners.\n\nThe giveaway does not automatically assign the opt-in role; provide members a way to select it."
    ],
    [
     "7. Setup Order",
@@ -252,7 +252,7 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Choose a Giveaway Type",
-    "• **Regular Giveaway** — `/giveaway start`: A traditional giveaway where members enter using a button.\n• **Activity Giveaway** — `/giveaway activity`: Members must obtain the dedicated **Activity Participation** role first, then qualify through activity requirements. Messages from members without this role are never logged for activity giveaways; there is no manual entry button.\n• **Court's Trial** — `/trial start`: A fast-paced elimination-style giveaway.\n\nComplete the matching setup first."
+    "• **Regular Giveaway** — `/giveaway start`: Members click **Enter Giveaway**; an entry role is optional.\n• **Activity Giveaway** — `/giveaway activity`: Members first obtain the separate, mandatory **Activity Participation** role. Only messages sent while they hold it count; eligible members enter automatically with no entry button.\n• **Court's Trial** — `/trial start`: Members join a timed elimination contest.\n\nComplete the matching setup first. Staff cannot disable the activity participation role on individual giveaways."
    ],
    [
     "Court's Trials — Fast-Paced Giveaways",
@@ -278,23 +278,27 @@ const CONTENT=Object.freeze({
  ],
  "sactivity": [
   "Staff · Track Activity",
-  "Run `/giveaway activity` in private Bot Commands. The bot automatically tracks participation and determines who qualifies.",
+  "First select a mandatory Activity Participation role in `/setup activity-giveaways`, then create giveaways with `/giveaway activity` in private Bot Commands.",
   [
    [
+    "Activity Participation · REQUIRED",
+    "Use `/setup activity-giveaways` to select the server's dedicated Activity Participation role and explain where members get it. Without the role set, activity giveaways cannot count or draw participants.\n\nThis is not the optional regular giveaway eligibility role, the Giveaway Manager role, or the shared giveaway announcement ping role. Individual activities cannot bypass the opt-in requirement."
+   ],
+   [
     "1. Set the Requirements",
-    "**Available activity requirements:**\n• **Channels** — Select which channels count toward the giveaway.\n• **Messages** — Set the total required in the activity period, **not per day**.\n• **Active Days** — Optionally require participation on separate days.\n• **Keywords or Phrases** — Track specific words or phrases.\n• **Member Mentions** — Track mentions of a specific member.\n\nThe bot tracks and qualifies members automatically; no manual entry is needed."
+    "**Available activity requirements:**\n• **Channels** — Watch all server channels or selected channels.\n• **Messages** — Set the total needed over the **entire activity period**, not per day.\n• **Active days** — Optionally require messages on separate days.\n• **Message length** — Minimum characters per message.\n• **Keywords or phrases** — Match specific words or phrases.\n• **Member mentions** — Optionally require a particular member ping.\n\nOnly members who have opted in are tracked. Qualified members enter automatically."
    ],
    [
     "2. Review the Schedule",
-    "Before posting, review start and end times. For repeating giveaways, the preview shows the start and end times of the **next two scheduled periods**. Confirm the schedule and requirements before publishing."
+    "Check counting start/end times and the winner announcement time before posting. For repeating giveaways, the preview displays the start and end of the **next two scheduled periods**.\n\nThe Activity Participation role is applied automatically and cannot be changed or disabled for an individual giveaway."
    ],
    [
     "3. Check Progress",
-    "Members can use **Check My Progress** on the activity post.\n\nStaff can use **Preview Qualifying Members** in private Giveaway Staff Controls to:\n• View qualified members.\n• See members still working toward requirements.\n• Exclude members who haven't participated since the period began.\n\nUse **Refresh Progress** for the latest counts."
+    "Members use **Check My Progress** on the activity post to see their own totals privately.\n\nStaff use **Preview Qualifying Members** and **Refresh Progress** in private Giveaway Staff Controls to see:\n• Opted-in members who qualify.\n• Opted-in members making progress.\n\nMembers with no recorded activity are omitted. Those who remove the role are excluded from live previews and winner eligibility."
    ],
    [
     "4. Manual Approval",
-    "When the activity period ends, the bot checks requirements and selects eligible winners.\n\nIf manual approval is enabled, staff review results in private **Giveaway Staff Controls** before announcement.\n\nStaff can also configure how the bot handles a giveaway when no eligible winner is selected."
+    "After counting ends, the bot checks message requirements and whether members **still have Activity Participation** before selecting winners. With manual approval enabled, staff review the results in private Giveaway Staff Controls before announcing them.\n\nRemoving the role stops new activity counting, but old records are not automatically deleted. If a member opts in again, earlier progress may count. Staff can decide what happens when no winner qualifies."
    ]
   ]
  ],
