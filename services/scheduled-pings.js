@@ -27,7 +27,9 @@ export const pingDashboardButtons=()=>[
  )
 ];
 
-export function normalizePingGroup(g){
+// Template drafts may have no content yet. A schedule still must have text or
+// role mentions before a delivery can be planned or activated.
+export function normalizePingGroup(g,{allowEmpty=false}={}){
  const roles=[...new Set((g.roleIds||[]).map(String).filter(Boolean))];
  const messages=(g.messages||[]).map(x=>String(x).trim()).filter(Boolean);
  const group={
@@ -43,7 +45,7 @@ export function normalizePingGroup(g){
  if(!Number.isInteger(group.offsetHours)||group.offsetHours<0||group.offsetHours>720)
    throw Error("Start delay must be 0–720 hours.");
  if(roles.length>10)throw Error("Choose no more than 10 roles per Ping Group.");
- if(!roles.length&&!messages.length)throw Error("Enter message text or select at least one role.");
+ if(!allowEmpty&&!roles.length&&!messages.length)throw Error("Enter message text or select at least one role.");
  if(messages.length>20)throw Error("A Ping Group supports up to 20 rotating messages.");
  if(messages.some(x=>x.length+roles.length*24>1900))
    throw Error("Message text and role mentions together must fit in 1,900 characters.");
