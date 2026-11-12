@@ -127,16 +127,17 @@ export async function activatePingSchedule({guild,template,channelId,startAt,act
 }
 
 async function dashboardPayload(guildId){
- const active=await PingSchedule.find({guildId,status:{$in:["active","paused"]}}).sort({startsAt:1}).limit(15).lean();
+ const active=await PingSchedule.find({guildId,status:{$in:["active","paused"]}}).sort({startsAt:1}).limit(6).lean();
+ const everyActive=await PingSchedule.find({guildId,status:"active"}).select("_id name").lean();
  const totals=await PingSchedule.aggregate([
   {$match:{guildId,status:{$in:["active","paused"]}}},
   {$group:{_id:"$status",count:{$sum:1},sent:{$sum:"$sentCount"}}},
  ]);
  const counts=Object.fromEntries(totals.map(x=>[x._id,x]));
  const due=await PingDelivery.find({guildId,status:"pending",
-  scheduleId:{$in:active.filter(x=>x.status==="active").map(x=>x._id)}})
+  scheduleId:{$in:everyActive.map(x=>x._id)}})
   .sort({dueAt:1}).limit(5).lean();
- const scheduleNames=new Map(active.map(x=>[String(x._id),x.name]));
+ const scheduleNames=new Map(everyActive.map(x=>[String(x._id),x.name]));
  const lines=["**✦ Scheduled Pings — Staff Dashboard**",
   "Saved templates, recurring role mentions and message delivery history.",
   "",
@@ -148,6 +149,8 @@ async function dashboardPayload(guildId){
   lines.push((s.status==="paused"?"⏸️ ":"🟦 ")+"**"+short(s.name)+"** — <#"+s.destinationChannelId+">",
    String(s.sentCount||0)+"/"+s.plannedCount+" sent · "+s.groups.length+" groups · Ends "+ts(s.endsAt));
  }
+ if((counts.active?.count||0)+(counts.paused?.count||0)>active.length)
+  lines.push("…plus "+((counts.active?.count||0)+(counts.paused?.count||0)-active.length)+" more schedules. Use Manage Schedules for the full list.");
  lines.push("","**Next Scheduled Pings**");
  if(!due.length)lines.push("No upcoming pings.");
  for(const d of due)
