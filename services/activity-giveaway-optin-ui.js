@@ -5,6 +5,9 @@ import {setActivityParticipation} from "./activity-participation.js";
 
 const marker="Activity Giveaway Participation · opt-in panel v1";
 const queues=new Map();
+// Avoid reposting the panel every 30-second giveaway sweep if chat continues.
+export const ACTIVITY_OPTIN_STICKY_COOLDOWN_MS=10*60_000;
+const lastStickyBump=new Map();
 
 export function activityOptInPanelPayload(){
  return {embeds:[new EmbedBuilder()
@@ -36,7 +39,7 @@ async function ownedPanel(channel,client,config){
  return recent?.find?.(m=>m.author?.id===client.user?.id &&
   m.embeds?.some(e=>e.footer?.text?.startsWith("Activity Giveaway Participation · opt-in panel")))||null;
 }
-async function ensure(client,guildId,{bump=false}={}){
+async function ensure(client,guildId,{bump=false,now=new Date()}={}){
  const config=await GuildConfig.findOne({guildId})
   .select("activityGiveawayListChannelId activityParticipationPanelChannelId activityParticipationPanelMessageId").lean();
  if(!config?.activityGiveawayListChannelId)return false;
@@ -44,7 +47,17 @@ async function ensure(client,guildId,{bump=false}={}){
  if(!channel?.send||!channel?.messages?.fetch)throw Error("Activity giveaway list channel is unavailable.");
  const previous=await ownedPanel(channel,client,config);
  const payload=activityOptInPanelPayload();
- if(previous&&!bump){
+ // A bottom-of-channel sticky is a replacement message, not a Discord pin.
+ // Check the channel's latest message, and rate-limit bumps caused by chat.
+ let latest=channel.lastMessageId;
+ if(previous&&!latest){
+  const recent=await channel.messages.fetch({limit:1});
+  latest=recent?.first?.()?.id||null;
+ }
+ const shifted=Boolean(previous&&latest&&latest!==previous.id);
+ const throttle=now.getTime()-(lastStickyBump.get(guildId)||0)<ACTIVITY_OPTIN_STICKY_COOLDOWN_MS;
+ const shouldBump=Boolean(bump||(shifted&&!throttle));
+ if(previous&&!shouldBump){
   if(!previous.embeds?.some(e=>e.footer?.text===marker))await previous.edit(payload);
   if(config.activityParticipationPanelMessageId!==previous.id ||
      config.activityParticipationPanelChannelId!==channel.id)
@@ -56,6 +69,7 @@ async function ensure(client,guildId,{bump=false}={}){
  // Publish the replacement before deleting the old one. If the process
  // crashes here, a later reconciliation can recover the newest panel.
  const posted=await channel.send(payload);
+ lastStickyBump.set(guildId,now.getTime());
  await GuildConfig.updateOne({guildId},{$set:{
   activityParticipationPanelChannelId:channel.id,
   activityParticipationPanelMessageId:posted.id}});
