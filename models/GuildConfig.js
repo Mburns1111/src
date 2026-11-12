@@ -37,6 +37,9 @@ const guildConfigSchema = new mongoose.Schema(
     activityParticipationRoleId:{type:String,default:""},
     activityParticipationRoleInstructions:{type:String,default:"",maxlength:500},
     activityParticipationRoleConfiguredAt:{type:Date,default:null},
+    // Permanent MongoDB opt-in controls on the activity giveaway list.
+    activityParticipationPanelChannelId:{type:String,default:""},
+    activityParticipationPanelMessageId:{type:String,default:""},
     giveawayShowRoleInstructions:{type:Boolean,default:true},
     activityClaimWindowHours:{type:Number,default:12,min:1,max:720},
     activityMaxAutoRerolls:{type:Number,default:2,min:0,max:10},
