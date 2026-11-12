@@ -8,7 +8,7 @@ Source: `feature/scheduled-pings-shared-archive`. Development feature; do not de
 
 | Command | What it configures | Required fields |
 |---|---|---|
-| `/setup general` | Required private Bot Commands and Shared Staff Archives channels; optional Scheduled Pings private dashboard, profiles, listings, shops and party games | Private commands and separate shared archive **mandatory** |
+| `/setup general` | Required private Bot Commands and Shared Staff Archives channels and Server Time Zone; optional Scheduled Pings private dashboard, profiles, listings, shops and party games | Private commands, shared archive and time zone **mandatory** |
 | `/setup giveaways` | Standard giveaway channel, private staff records, roles, claims, rerolls and banners; uses shared archive | Public giveaway channel and private staff controls; run General first |
 | `/setup activity-giveaways` | Activity list, winners, staff review and giveaway options; uses shared archive | Public activity list, public winners and private staff controls; run General first |
 | `/setup trials` | Court's Trial channels, roles, claims, rerolls and banners; uses shared archive | Trial channel and private staff controls; run General first |
@@ -34,7 +34,7 @@ When configuring an activity role for the first time or switching to a different
 
 ## Optional features and Skip behavior
 
-After the mandatory **private staff commands channel and shared private archives channel** in General setup, every remaining step is optional. The Scheduled Pings dashboard is an optional private channel. **Skip / disable this feature** saves an empty channel assignment so that feature is not configured; **Keep current** preserves an already configured channel. Disabling a feature does not erase profiles, purchases, claims, member inventories or past Discord messages. Staff can return to `/setup general` later to configure or move a feature. For an existing server, a previously posted button in an old channel can remain visible; it is not deleted simply because a feature is skipped.
+After the mandatory **private staff commands channel, shared private archives channel and server-wide time zone** in General setup, every remaining step is optional. The Scheduled Pings dashboard is an optional private channel. **Skip / disable this feature** saves an empty channel assignment so that feature is not configured; **Keep current** preserves an already configured channel. Disabling a feature does not erase profiles, purchases, claims, member inventories or past Discord messages. Staff can return to `/setup general` later to configure or move a feature. For an existing server, a previously posted button in an old channel can remain visible; it is not deleted simply because a feature is skipped.
 
 Giveaways, activity giveaways, Trials and Hatchem use **separate** setup commands and are not required for a General-only server. A giveaway-only server may skip every General optional step, then run `/setup giveaways` or `/setup activity-giveaways`. A card-only server may do the same, then run `/setup cards`. General does not force profiles, the shop or the other game modules.
 
@@ -141,7 +141,7 @@ npm start
 Discord checklist:
 
 1. In a new test guild, try a non-setup slash command. It must direct staff to initial setup.
-2. Run `/setup general`. Verify the first step requires a commands channel, every later step can be skipped, and the saved setup summary has the intended channels. Confirm unconfigured features do not post their entry panels.
+2. Run `/setup general`. Verify Bot Commands, Shared Staff Archives and Server Time Zone are required; other steps may be skipped, and the saved summary includes the time zone. Confirm unconfigured features do not post their entry panels.
 3. Run `/setup cards`. Choose a manageable Collector role beneath the bot, assign a Hatchem channel, and try both disabled/enabled wild eggs. Register in Hatchem, use `.drop`, and confirm old global cooldowns and owned cards are unchanged.
 4. Run `/setup trials`. Pick a separate Trial channel and private staff channel; choose the shared giveaway ping role, claims, and rerolls; preview the Royal Verdict and save. Verify notifications occur only once. The minimum of two trial contestants is unchanged.
 5. Create a short Trial and let it finish. The winner's ticket form must accept only their claim and privately display it to staff. A second member cannot submit on their behalf. Verify automatic replacement (when enabled), saved history, and a Trial without remaining eligible replacements.
@@ -151,3 +151,9 @@ Discord checklist:
 ## Scheduled Pings staff dashboard
 
 Select an optional private Scheduled Pings dashboard channel in `/setup general`. The bot maintains one permanent message there with controls for creating templates, managing schedules and reviewing history. Each active schedule sends pings to exactly one independently selected channel. Finished schedules are archived in the shared archive chosen in General Setup. The bot must have View Channel, Send Messages and Read Message History in its management channel; Pin Messages is optional.
+
+### Scheduled Pings time zone and delivery notices
+
+The **Server Time Zone** is mandatory in `/setup general` and applies to newly activated schedules. Choose a common zone or enter an IANA identifier (for example `America/New_York` or `Europe/London`). Staff set a calendar date and a readable local clock time such as `9:00 AM`; the bot converts that time to UTC and previews the server-local clock time and Discord timestamp. A schedule preserves its original time zone when the server setting later changes. Hour-based repeats are strict elapsed hours; day-based repeats keep the same wall-clock hour across daylight saving transitions. A nonexistent requested start time (spring DST gap) is rejected. For a repeated occurrence that falls in a spring gap, it moves one hour forward for that day and returns to the specified time on subsequent days; ambiguous fall times use the first occurrence.
+
+The private staff dashboard includes **Delivery Alerts** for failed sends or messages skipped because the bot was offline for more than 20 minutes; the bot will not suddenly ping a large backlog. Archive records remain pending while deliveries are in flight or the archive cannot be reached and are retried automatically. Finished schedules are not falsely reported as still running.
