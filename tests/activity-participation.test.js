@@ -83,6 +83,7 @@ test("rejoining starts a fresh counting window without previous-minute data",asy
   const result=await setActivityParticipation(guildId,userId,true,when);
   assert.equal(result.changed,true);
   assert.equal(recorded.update.$set.active,true);
+  assert.equal(recorded.update.$set.optOutReason,"");
   assert.equal(+recorded.update.$set.optedInAt,+when);
   assert.equal(+recorded.update.$set.countFrom,+startOfMinute(when));
   assert.equal(deletes.length,2);
@@ -109,7 +110,8 @@ test("activity query pipelines join active session before totaling messages",()=
 
 test("punishment ban immediately blocks activity logs even if member was previously opted in",async()=>{
  const before={optin:ActivityGiveawayOptIn.findOne,config:GuildConfig.findOne,
-  minute:GiveawayActivityMinuteCount.updateOne,count:GiveawayActivityCount.updateOne};
+  minute:GiveawayActivityMinuteCount.updateOne,count:GiveawayActivityCount.updateOne,
+  revoke:ActivityGiveawayOptIn.updateOne};
  const bannedRole="345678901234567890";
  let writes=0;
  try{
@@ -117,6 +119,10 @@ test("punishment ban immediately blocks activity logs even if member was previou
   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({giveawayExcludedRoleId:bannedRole})})});
   GiveawayActivityMinuteCount.updateOne=async()=>{writes++;};
   GiveawayActivityCount.updateOne=async()=>{writes++;};
+  const revocations=[];
+  ActivityGiveawayOptIn.updateOne=async(filter,change)=>{
+    revocations.push({filter,change});return {modifiedCount:1};
+  };
   const m={...message(),guild:{members:{fetch:async()=>({
     roles:{cache:new Map([[bannedRole,{}]])},
   })}}};
@@ -124,10 +130,15 @@ test("punishment ban immediately blocks activity logs even if member was previou
   await recordGiveawayMessage(m);
   await recordGuidedMessage(m);
   assert.equal(writes,0);
+  assert.equal(revocations.length,1,"both counters share one consent/ban check");
+  assert.deepEqual(revocations[0].filter,{guildId,userId,active:true});
+  assert.equal(revocations[0].change.$set.optOutReason,"giveaway-ban");
+  assert.equal(revocations[0].change.$set.active,false);
  }finally{
   ActivityGiveawayOptIn.findOne=before.optin;
   GuildConfig.findOne=before.config;
   GiveawayActivityMinuteCount.updateOne=before.minute;
   GiveawayActivityCount.updateOne=before.count;
+  ActivityGiveawayOptIn.updateOne=before.revoke;
  }
 });
