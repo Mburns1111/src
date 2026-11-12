@@ -71,7 +71,7 @@ test("approved help content includes core requirements and public claim instruct
  assert.match(textOf("ssetup"),/Court of Chaos/);
  assert.match(textOf("sgiveaways"),/Royal Verdict/);
  assert.match(textOf("sgiveaways"),/Confirm Prizes Delivered/);
- assert.match(textOf("sgiveaways"),/Giveaway Archives/);
+ assert.match(textOf("sgiveaways"),/Shared Staff Archives/);
  assert.match(textOf("sactivity"),/not per day/);
  assert.match(textOf("sactivity"),/next two scheduled periods/);
  assert.match(textOf("sarchives"),/Only regular giveaways are deleted/);
