@@ -370,8 +370,11 @@ async function modalSubmit(i,id){
   const reason=field(i,"reason");
   if(!reason)throw Error("Enter a reason for ending this schedule.");
   await endPingSchedule(i.client,s.schedule,i.user.id,reason);
+  const after=await PingSchedule.findById(s.schedule._id).lean();
   sessions.delete(key(i));
-  return reply(i,{content:"Schedule ended and sent to the shared archive. Reason: "+reason});
+  return reply(i,{content:"**Schedule ended.** Reason: "+reason+"\n"+
+   (after?.archiveMessageId?"The complete record was posted in Shared Staff Archives.":
+   "**Archive pending:** The bot will retry automatically after any in-progress deliveries finish or archive access recovers.")});
  }
  if(id==="extend"){
   if(s.phase!=="management")throw Error("Select a schedule first.");
