@@ -8,6 +8,18 @@ import {configuredGiveawayBanRole} from "./giveaway-exclusion.js";
 const messageChecks=new WeakMap();
 export const startOfMinute=at=>new Date(Math.floor(+new Date(at)/60000)*60000);
 
+// The banned role ends consent, not merely eligibility. Removing that role
+// later does NOT restore consent: the member must press Opt In again.
+export async function revokeActivityParticipationForBan(guildId,userId,now=new Date()){
+ if(!guildId||!userId)throw Error("Missing server or member.");
+ const changed=await ActivityGiveawayOptIn.updateOne(
+  {guildId,userId,active:true},
+  {$set:{active:false,optedOutAt:now,optOutReason:"giveaway-ban"}},
+ );
+ return Boolean(changed.modifiedCount);
+}
+
+
 export async function eligibleActivityParticipant(message){
  if(!message?.guildId||!message?.author?.id||message.author.bot||message.webhookId)
   return null;
@@ -27,7 +39,11 @@ export async function eligibleActivityParticipant(message){
     const member=message.member?.roles?.cache?message.member:
       await message.guild.members.fetch({user:message.author.id,force:true}).catch(()=>null);
     if(!member?.roles?.cache)return null;
-    return member.roles.cache.has(roleId)?null:entry;
+    if(member.roles.cache.has(roleId)){
+      await revokeActivityParticipationForBan(message.guildId,message.author.id);
+      return null;
+    }
+    return entry;
   })();
   messageChecks.set(message,checked);
  }
@@ -73,14 +89,14 @@ export async function setActivityParticipation(guildId,userId,active,now=new Dat
   ]);
   const p=await ActivityGiveawayOptIn.findOneAndUpdate(
    {guildId,userId,...(existing?{active:false}:{})},
-   {$set:{active:true,optedInAt:now,countFrom:minute,optedOutAt:null}},
+   {$set:{active:true,optedInAt:now,countFrom:minute,optedOutAt:null,optOutReason:""}},
    {upsert:!existing,new:true,runValidators:true}).lean();
   if(!p)return {changed:false,participant:await ActivityGiveawayOptIn.findOne({guildId,userId}).lean()};
   return {changed:true,participant:p};
  }
  if(!existing?.active)return {changed:false,participant:existing};
  const p=await ActivityGiveawayOptIn.findOneAndUpdate(
-  {guildId,userId,active:true},{$set:{active:false,optedOutAt:now}},
+  {guildId,userId,active:true},{$set:{active:false,optedOutAt:now,optOutReason:"member"}},
   {new:true}).lean();
  return {changed:Boolean(p),participant:p||existing};
 }
