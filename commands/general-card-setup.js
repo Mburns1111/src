@@ -21,6 +21,8 @@ const sessions = new Map();
 const SESSION_MS = 30 * 60_000;
 const GENERAL_STEPS = [
   ["commandChannelId", "Bot commands", true],
+  ["giveawayArchiveChannelId", "Shared staff archives", true],
+  ["scheduledPingsChannelId", "Scheduled pings staff dashboard", false],
   ["profileChannelId", "Member profiles", false],
   ["houseChannelId", "House listings", false],
   ["outfitChannelId", "Outfit listings", false],
@@ -57,7 +59,7 @@ export function guidedGuildSetupSummary(mode, settings) {
   for (const step of stepsFor(mode))
     lines.push("**" + step[1] + ":** " + label(step, settings[step[0]]));
   if (mode === "general") {
-    lines.push("", "**Commands channel is mandatory.** Every other feature can be skipped or disabled.",
+    lines.push("", "**Bot Commands and Shared Staff Archives are mandatory.** Every other feature can be skipped or disabled.",
       "A skipped feature will not have a configured post channel. Previously published posts and stored member data are not deleted.",
       "Giveaways, activity giveaways, Court's Trials and Hatchem are configured with their **own** guided setup commands.");
   } else {
@@ -92,6 +94,10 @@ function layout(session) {
   description += "Current: " + label(currentStep, session.settings[field]) + "\n";
   if (field === "commandChannelId")
     description += "Choose a **private staff-only Bot Commands channel** for setup, administration and general bot management. Hide this channel from @everyone. **Required** even if you only use giveaways or Hatchem.";
+  else if (field === "giveawayArchiveChannelId")
+    description += "Choose the **required private shared archive** for completed and cancelled giveaways, Trials, and Scheduled Pings. Hide from @everyone. This must be a separate channel from Bot Commands, giveaway staff controls, and public channels.";
+  else if (field === "scheduledPingsChannelId")
+    description += "Choose an **optional private Scheduled Pings management channel**. The bot creates a permanent dashboard with buttons here. This must be separate from the commands and archive channels.";
   else if (field === "cardRoleId")
     description += "Choose a non-administrator Collector role. The bot must have Manage Roles and its highest role must be above this role. Members only receive it when they register.";
   else if (field === "hatchemAutoDropsEnabled")
@@ -139,7 +145,7 @@ async function validateChannel(session, id, {requirePrivate=false}={}) {
   if (!channel?.isTextBased?.() || !channel?.send || !channel?.permissionsFor)
     throw Error("The selected channel cannot receive bot messages.");
   if(requirePrivate && channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
-    throw Error("The Bot Commands channel must be hidden from @everyone.");
+    throw Error("Private staff channels must be hidden from @everyone.");
   const bot = await session.guild.members.fetchMe();
   const perms = channel.permissionsFor(bot);
   for (const flag of [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])
@@ -160,14 +166,29 @@ async function validateRole(session, roleId) {
 
 async function saveGeneral(session) {
   const s = session.settings;
-  if (!s.commandChannelId) throw Error("Choose the required commands channel.");
+  if (!s.commandChannelId || !s.giveawayArchiveChannelId)
+    throw Error("Choose the required Bot Commands and Shared Staff Archives channels.");
+  if (s.commandChannelId === s.giveawayArchiveChannelId)
+    throw Error("The shared archive must be separate from Bot Commands.");
+  if (s.scheduledPingsChannelId && [s.commandChannelId,s.giveawayArchiveChannelId].includes(s.scheduledPingsChannelId))
+    throw Error("The Scheduled Pings dashboard must have its own private staff channel.");
   const channels = {};
   for (const [field] of GENERAL_STEPS) {
-    if (s[field]) channels[field] = await validateChannel(session, s[field],{requirePrivate:field==="commandChannelId"});
+    if (s[field]) channels[field] = await validateChannel(session, s[field],{requirePrivate:["commandChannelId","giveawayArchiveChannelId","scheduledPingsChannelId"].includes(field)});
   }
   // Validate first. Preserve existing posts, IDs, ownership and history. The
   // channel fields alone decide which features can create new content.
   const previous = await GuildConfig.findOne({ guildId: session.guild.id }).lean();
+  const reserved = [previous?.giveawayChannelId,previous?.activityGiveawayListChannelId,
+    previous?.activityGiveawayWinnersChannelId,previous?.survivalTrialChannelId,
+    previous?.activityGiveawayReviewChannelId].filter(Boolean);
+  if (reserved.includes(s.giveawayArchiveChannelId))
+    throw Error("The shared archive must be separate from all existing giveaway, Trial and staff controls channels.");
+  if (s.scheduledPingsChannelId && reserved.includes(s.scheduledPingsChannelId))
+    throw Error("The Scheduled Pings dashboard must be separate from existing giveaway and Trial channels.");
+  const archivePerms = channels.giveawayArchiveChannelId.permissionsFor(await session.guild.members.fetchMe());
+  for (const permission of [PermissionFlagsBits.AttachFiles,PermissionFlagsBits.ReadMessageHistory])
+    if (!archivePerms?.has(permission)) throw Error("The bot needs Attach Files and Read Message History in the shared archive.");
   if (s.shopChannelId && previous?.shopChannelId !== s.shopChannelId)
     await ensureShopEntry(session.guild, channels.shopChannelId);
   await GuildConfig.findOneAndUpdate({ guildId: session.guild.id },
@@ -251,7 +272,7 @@ async function process(session, action, value) {
     await session.channel.send({ content:
       "**" + (session.mode === "general" ? "General" : "Hatchem Card Game") +
       " setup saved.**\n" + (session.mode === "general"
-        ? "Unselected features were skipped. Run /setup giveaways, /setup activity-giveaways, /setup trials or /setup cards to enable only the extra modules you want."
+        ? "Shared archives are configured. Optional features were skipped if unselected. Run /setup giveaways, /setup activity-giveaways, /setup trials or /setup cards as needed."
         : "Registered members may use cards in <#" + session.settings.hatchemChannelId + ">; the card-game mode must also be enabled in bot settings."),
       allowedMentions: { parse: [] } });
     return;
