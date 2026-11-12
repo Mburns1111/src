@@ -9,6 +9,7 @@ import { easternMidnight, shiftCalendarDay, nextPlanAnnouncement } from "./givea
 import { closeGiveaway, publishGiveawayResult } from "./giveaways.js";
 import {publishGiveawayReview} from "./giveaway-review.js";
 import {normalizeRoleBonuses} from "./giveaway-role-weights.js";
+import {activeActivityParticipants} from "./activity-participation.js";
 
 export function planRepeatMode(plan) {
   return plan.repeatMode || (plan.recurring ? "weekly" : "once");
@@ -69,14 +70,8 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     : {type:"general",channelIds:[],minimum:1,days:1,minimumChars:1};
   const requirement={...qualification,days:activityWindow.period==="daily"?1:qualification.days};
   const minimumTotalMessages=plan.minimumTotalMessages??rule?.minimumTotalMessages??1;
-  const consent=await GuildConfig.findOne({guildId:plan.guildId})
-    .select("activityParticipationRoleId activityParticipationRoleInstructions activityParticipationRoleConfiguredAt").lean();
-  if(!consent?.activityParticipationRoleId||!consent.activityParticipationRoleConfiguredAt)
-    throw Error("Configure the mandatory Activity Participation role in /setup activity-giveaways before legacy activity plans can draw.");
-  // Historical day/week counters may include messages sent before opt-in was
-  // introduced. Query only minute-level counters starting AFTER role setup.
-  const startAt=new Date(Math.max(+activityWindow.startAt,
-    Math.ceil(+new Date(consent.activityParticipationRoleConfiguredAt)/60000)*60000));
+  // Minute-count queries are restricted to each member's current opt-in window.
+  const startAt=new Date(activityWindow.startAt);
   const endAt=activityWindow.endAt;
   const hasConsentWindow=startAt<endAt;
   const windowOptions={startAt,endAt};
@@ -89,12 +84,12 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     }) : await qualifyingActivity({guildId:plan.guildId,...requirement,minimumTotalMessages,
       ...windowOptions});
   const guild=await client.guilds.fetch(plan.guildId);
+  const optedIn=await activeActivityParticipants(plan.guildId,entrants);
   const eligible=[];
-  for(const id of [...new Set(entrants)]) {
+  for(const id of [...new Set(entrants)].filter(id=>optedIn.has(String(id)))) {
     try {
       const member=await guild.members.fetch({user:id,force:true});
-      if (member && !member.user?.bot &&
-          member.roles?.cache?.has(consent.activityParticipationRoleId)) eligible.push(id);
+      if (member && !member.user?.bot) eligible.push(id);
     } catch(error) {
       if (error.code!==10007) throw error; // never discard a member on temporary Discord failures
     }
@@ -122,9 +117,7 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
       record=await Giveaway.create({
         guildId:plan.guildId,channelId:config.activityGiveawayWinnersChannelId,
         creatorId:plan.creatorId,bannerNameKey:plan.bannerNameKey||"",
-        requiredRoleId:consent.activityParticipationRoleId,
-        requiredRoleInstructions:consent.activityParticipationRoleInstructions||"",
-        showRequiredRoleInstructions:true,
+        // Bot-managed activity consent; no Discord role is needed.
         title:plan.title,prize,description:plan.description||"",winnerCount:plan.winnerCount,endsAt:runAt,
         mode:"activity",status:plan.requireStaffReview?"pending_review":"closing",
         requireStaffReview:Boolean(plan.requireStaffReview),progressEnabled:Boolean(plan.progressEnabled),
