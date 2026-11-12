@@ -88,8 +88,19 @@ export async function logPingChange(scheduleId,guildId,actorId,event,details={})
 export async function activatePingSchedule({guild,template,channelId,startAt,actorId,overrides={}}){
  const groups=template.groups.map(g=>({...g.toObject?.()||g}));
  const events=planPingDeliveries(groups,startAt);
+ const overridesBySequence=new Map((overrides.events||[]).map(x=>[Number(x.sequence),x]));
+ for(const event of events){
+  const override=overridesBySequence.get(event.sequence);
+  if(!override)continue;
+  if(override.content!==undefined)event.content=String(override.content).trim();
+  if(override.roleIds!==undefined)event.roleIds=[...new Set(override.roleIds.map(String))];
+  if(override.dueAt!==undefined)event.dueAt=new Date(override.dueAt);
+  if(event.roleIds.length>10||event.content.length+event.roleIds.length*24>1900||(!event.content&&!event.roleIds.length))
+   throw Error("An edited ping is invalid. Keep text and role mentions within Discord limits.");
+  if(!Number.isFinite(nowMs(event.dueAt)))throw Error("Invalid individual ping time.");
+ }
  if(!events.length)throw Error("The schedule does not contain any future pings.");
- await validatePingDestination(guild,channelId,groups.flatMap(g=>g.roleIds||[]));
+ await validatePingDestination(guild,channelId,[...new Set(events.flatMap(e=>e.roleIds||[]))]);
  const start=new Date(startAt);
  if(start.getTime()<Date.now()-60_000)throw Error("The start time must be in the future.");
  const end=new Date(Math.max(...groups.map(g=>start.getTime()+g.durationDays*DAY)));
