@@ -50,7 +50,7 @@ function mockBannerAndStaffConfig(stubs){
   }));
 }
 
-test("zero-entry regular giveaway closes, edits its existing public post and remains until staff Delete Listing",async()=>{
+test("zero-entry regular giveaway announces no winner and requires staff cancellation",async()=>{
   const stubs=[],edits=[],deletions=[],client=mockPublic(edits,deletions);
   let stored=base({status:"open",entrantIds:[],winnerIds:[],claimCheckAt:null});
   try{
@@ -77,11 +77,11 @@ test("zero-entry regular giveaway closes, edits its existing public post and rem
     assert.match(embed.title,/No Eligible Winner/i);
     assert.match(embed.description,/No eligible winner/i);
     assert.equal(edits[0].components.length,0);
-    assert.equal(completedGiveawayCanDeleteListing(result),true);
+    assert.equal(completedGiveawayCanDeleteListing(result),false);
     assert.match(giveawayStaffRecordPayload(result).embeds[0].toJSON().description,
       /No eligible winner/i);
     assert.ok(giveawayStaffRecordPayload(result).components.flatMap(r=>r.components)
-      .some(b=>b.data.custom_id==="giveawaystaff:remove:"+id));
+      .some(b=>b.data.custom_id==="giveawaystaff:cancel:"+id));
   }finally{restore(stubs);}
 });
 
@@ -118,7 +118,7 @@ test("one entrant misses claim: no second eligible member means No Eligible Winn
     assert.doesNotMatch(rendered.embeds[0].toJSON().description,/Ticket claim|Claim deadline|Reroll history|How to claim/i);
     assert.deepEqual(rendered.embeds[0].toJSON().fields||[],[]);
     assert.equal(rendered.components.length,0);
-    assert.equal(completedGiveawayCanDeleteListing(stored,{now}),true);
+    assert.equal(completedGiveawayCanDeleteListing(stored,{now}),false);
     assert.ok(giveawayStaffRecordPayload(stored).components.flatMap(r=>r.components)
       .some(b=>b.data.custom_id==="giveawaystaff:remove:"+id));
     assert.ok(saves.some(x=>x.change.$addToSet?.claimResolvedSlots===0));
