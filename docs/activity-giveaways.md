@@ -34,11 +34,13 @@ Opting out immediately stops new tracking and removes the member from live progr
 
 Activity opt-in is **independent of regular giveaways, Court's Trials, Points and Hatchem**. Existing activity giveaways can keep their schedules and counting requirements; the old participation-role setting is ignored by the new system.
 
-## Optional banned giveaway role (regular and activity only)
+## Required Giveaway Banned role — server-wide punishment
 
-In either `/setup giveaways` or `/setup activity-giveaways`, a manager may select or clear the one shared **Banned Giveaway Role**. There is no required role by default. When configured, current server members holding that role are excluded **silently** from regular and activity winner selection, including manual and automatic rerolls. For recurring activity giveaways, the role is checked when each drawing runs. **Court's Trials ignore this exclusion.**
+The **Giveaway Banned role** must be selected in either `/setup giveaways` or `/setup activity-giveaways` before giveaway setup can be saved. It is a single shared role: the bot does not create or assign it. Staff apply and remove the Discord role manually as a punishment, so there is no time limit, cooldown, or per-giveaway switch.
 
-The per-giveaway **Banned role exclusion** setting defaults **ON**, can be switched OFF during regular or activity giveaway creation, and can be edited on an active giveaway. Disabling it for one giveaway does not remove the global role or change any other giveaway. Members remain eligible to send messages and log activity while the exclusion role is active; the exclusion restricts the *winning draw*, not opting in or message tracking.
+Members holding this role are **blocked from entering regular giveaways and Court's Trials**. Members cannot opt in to activity giveaways, and even previously opted-in members stop generating activity giveaway logs while banned. Previously saved activity cannot make them eligible; the ban is checked again before every regular/activity draw, reroll and Court's Trial start. Banned members are omitted from current staff activity progress. Existing announcements need no public ban message; entry attempts receive a private explanation.
+
+Any change to the banned role in server setup applies to all giveaways; no active giveaway can opt out. This is **entirely separate from the optional winner cooldown system** (which remains a design, not implemented).
 
 ## Guided activity giveaway: counting rules
 
