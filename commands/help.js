@@ -238,7 +238,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "6. Bot Permissions",
-    "Give the bot **View Channel**, **Send Messages**, and **Embed Links** in assigned channels. Add **Read Message History** and **Attach Files** where needed.\n\n**Activity giveaways:** Enable Message Content Intent, let the bot see watched channels, and allow it to check members' current roles. Staff must configure an Activity Participation role before the bot can track activity for giveaways or select winners.\n\nThe giveaway does not automatically assign the opt-in role; provide members a way to select it."
+    "Give the bot **View Channel**, **Send Messages**, and **Embed Links** in assigned channels. Add **Read Message History** and **Attach Files** where needed.\n\n**Activity giveaways:** Enable Message Content Intent, let the bot see watched channels, and allow it to check members' current roles. Staff must configure an Activity Participation role before the bot can track activity for giveaways or select winners.\n\nThe giveaway does not automatically assign the opt-in role; provide members a way to select it. Granting **Administrator** covers standard channel permissions, but the bot does not require it. The bot has no commands to mute, ban, kick, or otherwise moderate members."
    ],
    [
     "7. Setup Order",
@@ -282,7 +282,7 @@ const CONTENT=Object.freeze({
   [
    [
     "Activity Participation · REQUIRED",
-    "Use `/setup activity-giveaways` to select the server's dedicated Activity Participation role and explain where members get it. Without the role set, activity giveaways cannot count or draw participants.\n\nThis is not the optional regular giveaway eligibility role, the Giveaway Manager role, or the shared giveaway announcement ping role. Individual activities cannot bypass the opt-in requirement."
+    "Use `/setup activity-giveaways` to select the server's dedicated Activity Participation role and explain where members get it. Without the role set, activity giveaways cannot count or draw participants.\n\nThis role is separate from the optional regular giveaway eligibility role, the Giveaway Manager role, and the shared giveaway announcement ping role. Individual activities cannot bypass the opt-in requirement."
    ],
    [
     "1. Set the Requirements",
