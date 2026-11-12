@@ -8,7 +8,7 @@ Source: `integration/active-development-2026-11-11`. Consolidation in progress; 
 |---|---|---|
 | `/setup general` | Required **private staff-only Bot Commands** channel, then optional member profiles, houses, outfits, inventory, Trading Posts, trade voting, shop and party games | Private commands channel **first** |
 | `/setup giveaways` | Standard giveaway posts, private staff records, shared private archive, Giveaway Manager role, notification role, role/help, claims, rerolls and banner | Public giveaway channel, private staff channel and separate private archive |
-| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, shared private archive, Giveaway Manager role, notification role, role/help, claims, rerolls and banner | Public activity list, public winners, private staff channel and separate private archive |
+| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, shared private archive, Giveaway Manager role, notification role, **dedicated mandatory Activity Participation opt-in role**, opt-in instructions, claims, rerolls and banner | Public activity list, public winners, private staff channel, separate private archive **and Activity Participation role** |
 | `/setup trials` | Court's Trial signup/elimination channel, private staff records, shared private archive, eligibility role/help, claims, rerolls, notifications, banner | Trial channel, private staff channel and separate private archive |
 | `/setup cards` | Hatchem game channel, Collector role, activity-based wild egg toggle | Requires General commands channel; Hatchem channel and manageable Collector role |
 
@@ -21,6 +21,14 @@ Guided flows send numbered messages in the invoking channel, require Manage Serv
 Every giveaway setup (`/setup giveaways`, `/setup activity-giveaways`, and `/setup trials`) includes a **required** archive channel picker immediately after private staff controls. All three use the same `giveawayArchiveChannelId` in the guild configuration. Reopening a setup preselects the existing archive, and **Keep selected channel** preserves it. Select a different archive in any giveaway setup to change the shared destination.
 
 The private staff controls and private archive channels must be separate from each other and from all public giveaway and Trial channels, hidden from `@everyone`, and writable by the bot. A setup cannot be saved without a valid archive. Existing archived records and giveaway histories are not deleted when the archive destination changes.
+
+## Separate activity giveaway opt-in role
+
+`/setup activity-giveaways` requires the server manager to choose a distinct **Activity Participation role**. This role is exclusively for opt-in message tracking for activity giveaways. The optional **regular giveaway entry/eligibility role** under `/setup giveaways` remains independent. A regular giveaway can still require no eligibility role, but an activity giveaway **cannot** disable its participation role.
+
+The bot checks for Activity Participation before storing guided activity receipts or updating legacy message counters. No role means no giveaway activity record; role removal immediately stops new counting and disqualifies the member from future drawings and rerolls. Activity participation is unrelated to normal Points or Hatchem tracking. Public activity announcements state how to obtain the role.
+
+When configuring an activity role for the first time or switching to a different role, open guided activities restart their counting periods, preserving historical records without counting old-role activity. Older plans use only the post-opt-in minute-level counter window and may have no eligible members in their first partial period.
 
 ## Optional features and Skip behavior
 
