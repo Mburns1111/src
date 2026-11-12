@@ -342,7 +342,21 @@ export async function finishPendingReroll(item,{client=null,now=new Date()}={}) 
     await activeGiveawayCooldownIds(item.guildId,eligible,{now}):new Set();
   const fresh=eligible.filter(userId=>!cooling.has(String(userId)));
   const replacementId=pickWeightedUnique(fresh,1,item.entryWeights,used)[0];
-  if (!replacementId) throw Error("No unused entrants remain.");
+  if(!replacementId){
+    // Between the reservation and completion (or a bot restart), the final
+    // available replacement may acquire a cooldown. Settle this prize place
+    // without announcing an ineligible winner or looping in "rerolling".
+    const claimResolvedSlots=[...new Set([...(item.claimResolvedSlots||[]),slot])];
+    const settled={...item,status:"ended",claimResolvedSlots};
+    const changed=await Giveaway.findOneAndUpdate({
+      _id:item._id,guildId:item.guildId,status:"rerolling",pendingRerollSlot:slot,
+    },{$set:{
+      status:"ended",pendingRerollSlot:null,pendingRerollStaffId:"",
+      pendingRerollReason:"",pendingRerollAt:null,pendingRerollEligibleIds:[],
+      claimResolvedSlots,claimCheckAt:nextClaimCheckAt(settled),renderedAt:null,
+    },$inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+    return changed||Giveaway.findById(item._id).lean();
+  }
   const previousId = item.winnerIds[slot];
   const winnerIds = [...item.winnerIds];
   winnerIds[slot] = replacementId;
