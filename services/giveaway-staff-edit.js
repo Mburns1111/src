@@ -12,14 +12,15 @@ const EDIT_FIELDS={
   claimWindowMinutes:{label:"Trial claim deadline (minutes)",max:5,min:1,type:"integer",lower:1,upper:43200},
   durationMinutes:{label:"Minutes until giveaway ends",max:6,min:1,type:"integer",lower:1},
   bannerNameKey:{label:"Saved banner name (or default)",max:60,min:0},
+  winnerCooldownEnabled:{label:"Enforce Winner Cooldown (on/off)",max:3,min:2},
 };
 
 export function giveawayStaffEditableFields(record) {
   if(record?.status!=="open"||record?.publicListingRemovedAt||record?.guidedSeries)return [];
   const general=["title","prize","description","rules","winnerCount","claimInstructions","bannerNameKey"];
   if(record.mode==="survival")return [...general,"claimWindowMinutes","durationMinutes"];
-  if(record.mode==="standard")return [...general,"claimWindowHours","durationMinutes"];
-  return [...general,"claimWindowHours","durationMinutes"];
+  if(record.mode==="standard")return [...general,"winnerCooldownEnabled","claimWindowHours","durationMinutes"];
+  return [...general,"winnerCooldownEnabled","claimWindowHours","durationMinutes"];
 }
 
 export function giveawayStaffEditModal(record,field) {
@@ -58,6 +59,10 @@ export function validateGiveawayStaffEdit(record,field,raw,{now=new Date()}={}){
         Number(value)<config.lower||Number(value)>config.upper)
       throw Error("Enter a whole number from "+config.lower+" to "+config.upper+".");
     return {[field]:Number(value)};
+  }
+  if(field==="winnerCooldownEnabled"){
+    if(!/^(on|off)$/i.test(value))throw Error('Enter "on" or "off" for winner cooldown.');
+    return {winnerCooldownEnabled:value.toLowerCase()==="on"};
   }
   if(field==="bannerNameKey")
     return {bannerNameKey:/^(default|none|clear)$/i.test(value)?"":value};
