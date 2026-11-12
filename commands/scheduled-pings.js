@@ -12,6 +12,7 @@ import PingAudit from "../models/PingAudit.js";
 import {
  activatePingSchedule,changeFuturePing,endPingSchedule,ensurePingDashboard,
  normalizePingGroup,pausePingSchedule,planPingDeliveries,refreshPingDashboard,
+ extendPingSchedule,
  resumePingSchedule,validatePingDestination,
 } from "../services/scheduled-pings.js";
 
@@ -67,6 +68,9 @@ function draftPanel(s){
   row(["Remove Last Message","draft:removeMessage"],["Add Another Group","draft:add"],["Previous Group","draft:previous"]),
   row(["Save Template","draft:finish",ButtonStyle.Success],["Cancel","draft:cancel",ButtonStyle.Danger]),
  ];
+ if(s.groups.length>1)components.unshift(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
+  .setCustomId("pings:select:group").setPlaceholder("Jump to a Ping Group")
+  .addOptions(s.groups.map((group,i)=>({label:group.name||"Ping Group "+(i+1),value:String(i)})))));
  return {content:lines.filter(Boolean).join("\n"),components};
 }
 function editorState(i){
@@ -74,17 +78,18 @@ function editorState(i){
  if(s.phase!=="draft")throw Error("Open Create Template first.");
  return s;
 }
-async function savedTemplatesPanel(i){
- const templates=await PingTemplate.find({guildId:i.guildId}).sort({updatedAt:-1}).limit(25).lean();
+async function savedTemplatesPanel(i,page=0){
+ const templates=await PingTemplate.find({guildId:i.guildId}).sort({updatedAt:-1}).skip(page*25).limit(25).lean();
  if(!templates.length)return reply(i,{content:"**Saved Templates**\nNo templates yet. Use **Create Template** on the permanent dashboard."});
- const s={phase:"templateList",expires:Date.now()+EXPIRES,templates};
+ const s={phase:"templateList",expires:Date.now()+EXPIRES,templates,page};
  sessions.set(key(i),s);
  const picker=new StringSelectMenuBuilder().setCustomId("pings:select:template")
   .setPlaceholder("Choose a saved template").addOptions(templates.map(t=>({
    label:t.name.slice(0,100),value:String(t._id),description:t.groups.length+" Ping Groups"
   })));
- return reply(i,{content:"**Saved Templates**\nChoose one to inspect, activate, edit or delete. The original stays unchanged when activated.",
-  components:[new ActionRowBuilder().addComponents(picker)]});
+ return reply(i,{content:"**Saved Templates** · Page "+(page+1)+"\nChoose one to inspect, activate, edit or delete. The original stays unchanged when activated.",
+  components:[new ActionRowBuilder().addComponents(picker),
+   row(["Previous","template:pagePrev"],["Next","template:pageNext"])]});
 }
 function templateDetails(s){
  const t=s.template;
@@ -280,7 +285,12 @@ async function modalSubmit(i,id){
   return reply(i,{content:"Schedule ended and sent to the shared archive. Reason: "+reason});
  }
  if(id==="extend"){
-  throw Error("Schedule extension is not yet enabled. For now, duplicate the saved template for another period.");
+  if(s.phase!=="management")throw Error("Select a schedule first.");
+  const days=Number(field(i,"days"));
+  const added=await extendPingSchedule(i.client,s.schedule,i.user.id,days);
+  s.schedule=await PingSchedule.findById(s.schedule._id).lean();
+  return reply(i,{content:"Schedule extended by "+days+" days. "+added+" new pings added.\n\n"+
+   managementPanel(s).content,components:managementPanel(s).components});
  }
  throw Error("Unknown Scheduled Pings form.");
 }
@@ -302,6 +312,10 @@ export async function handleScheduledPingsInteraction(i){
  if(command==="root:active")return activeList(i);
  if(command==="root:upcoming")return upcomingList(i);
  if(command==="root:archives")return archivesList(i);
+ if(command==="template:pagePrev"||command==="template:pageNext"){
+  const s=stateFor(i);
+  return savedTemplatesPanel(i,Math.max(0,(s.page||0)+(command.endsWith("Next")?1:-1)));
+ }
  if(command==="select:template"){
   const s=stateFor(i),id=i.values?.[0];
   const t=await PingTemplate.findOne({_id:id,guildId:i.guildId}).lean();
@@ -392,6 +406,13 @@ export async function handleScheduledPingsInteraction(i){
     " Ping Group(s). No messages have been scheduled. Select Saved Templates on the dashboard to use it."});
   }
  }
+ if(command==="select:group"){
+  const s=editorState(i);
+  const idx=Number(i.values?.[0]);
+  if(!Number.isInteger(idx)||idx<0||idx>=s.groups.length)throw Error("Choose a Ping Group.");
+  s.groupIndex=idx;
+  return reply(i,draftPanel(s));
+ }
  if(command==="select:draftRoles"){
   const s=editorState(i);s.groups[s.groupIndex].roleIds=i.values||[];
   return reply(i,draftPanel(s));
@@ -458,9 +479,12 @@ export async function handleScheduledPingsInteraction(i){
   return reply(i,plannedEventPanel(s,changed));
  }
  if(command==="event:text"){
-  selectedInput(i);
+  const s=selectedInput(i);
+  const e=s.phase==="activation"
+   ?(await eventsForActivation(s)).find(x=>x.sequence===s.selectedEvent)
+   :await PingDelivery.findById(s.selectedEvent).lean();
   return i.showModal(modal("eventText","Edit One Ping Message",[
-   ["content","Message text (blank = roles only)","",TextInputStyle.Paragraph,1800,false]
+   ["content","Message text (blank = roles only)",e?.content||"",TextInputStyle.Paragraph,1800,false]
   ]));
  }
  if(command==="event:time"){
