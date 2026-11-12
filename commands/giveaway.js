@@ -1,3 +1,4 @@
+import {requireMemberNotBanned} from "../services/giveaway-exclusion.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
@@ -443,6 +444,10 @@ export async function handleGiveawayButton(interaction) {
     });
     if (record.status !== "open" || new Date(record.endsAt) <= new Date())
       return interaction.editReply("This giveaway has ended; its results will stay on the original post.");
+    if(action==="enter"){
+      const banned=await requireMemberNotBanned(interaction.guild,interaction.user.id);
+      if(banned)return interaction.editReply(banned);
+    }
     if (action === "enter" && record.requiredRoleId) {
       const member = await interaction.guild.members.fetch({ user: interaction.user.id, force: true }).catch(() => null);
       if (!member?.roles?.cache?.has(record.requiredRoleId))
