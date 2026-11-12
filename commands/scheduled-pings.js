@@ -601,10 +601,10 @@ export async function handleScheduledPingsInteraction(i){
  if(command.startsWith("manage:")){
   const s=stateFor(i);
   if(command==="manage:list")return activeList(i);
-  if(s.phase!=="management")throw Error("Select an active schedule first.");
+  if(!["management","futureList"].includes(s.phase))throw Error("Select an active schedule first.");
   s.schedule=await PingSchedule.findOne({_id:s.schedule._id,guildId:i.guildId}).lean();
   if(!s.schedule)throw Error("Schedule not found.");
-  if(command==="manage:back")return reply(i,managementPanel(s));
+  if(command==="manage:back"){s.phase="management";return reply(i,managementPanel(s));}
   if(command==="manage:toggle"){
    if(s.schedule.status==="active")await pausePingSchedule(i.client,s.schedule,i.user.id);
    else await resumePingSchedule(i.client,s.schedule,i.user.id);
