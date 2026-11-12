@@ -8,6 +8,7 @@ import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import {DEFAULT_CLAIM_HOURS} from "./giveaway-claims.js";
 import { currentActivityDay, messageCharacterCount, messageMatchesGiveawayWatch } from "./giveaway-activity-counter.js";
 import { easternMidnight, shiftCalendarDay, nextWeeklyAnnouncement } from "./giveaway-plan-time.js";
+import {eligibleActivityParticipant} from "./activity-participation.js";
 
 export const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const hour = 3600000;
@@ -80,6 +81,7 @@ async function materialize(series,start,first=false) {
   const s = series.settings, end = windowEnd(s,start);
   const config = await GuildConfig.findOne({guildId:series.guildId}).lean();
   if (!config?.activityGiveawayWinnersChannelId) throw Error("Set the activity winners channel in /setup activity-giveaways.");
+  if(!config.activityParticipationRoleId)throw Error("Configure the required Activity Participation role in /setup activity-giveaways.");
   const query = first ? {_id:series._id} : {guidedSeries:series._id,activityStartAt:start};
   try {
     return await Giveaway.findOneAndUpdate(query, {$setOnInsert:{
@@ -91,8 +93,9 @@ async function materialize(series,start,first=false) {
       activityMinChars:Number.isSafeInteger(s.minChars)&&s.minChars>=1&&s.minChars<=2000?s.minChars:1,
       activityRequiredMentionUserId:s.mention || "", activityRequiredPhrase:s.phrase || "",
       requireStaffReview:s.approval, roleBonuses:s.bonuses || [], progressEnabled:Boolean(s.progress),
-      requiredRoleId:s.requiredRoleId||"",requiredRoleInstructions:s.requiredRoleInstructions||"",
-      showRequiredRoleInstructions:s.showRequiredRoleInstructions!==false,
+      requiredRoleId:config.activityParticipationRoleId,
+      requiredRoleInstructions:config.activityParticipationRoleInstructions||"",
+      showRequiredRoleInstructions:true,
       claimWindowHours:s.claimHours ?? DEFAULT_CLAIM_HOURS, autoRerollClaims:true, bannerNameKey:s.banner || "",
       claimInstructions:s.claimInstructions||"",maxAutoRerolls:s.maxAutoRerolls??2,
       notificationRoleIds:sharedGiveawayPingRoleId(config)?[sharedGiveawayPingRoleId(config)]:[],announceEmptyResults:s.announceEmptyResults!==false,
@@ -161,6 +164,8 @@ export function guidedMessageMatches(event,message) {
 }
 export async function recordGuidedMessage(message) {
   if(!message.guildId || message.author?.bot || message.webhookId || !messageCharacterCount(message))return;
+  const participation=await eligibleActivityParticipant(message);
+  if(!participation)return;
   const time=message.createdAt;
   await openDueActivities(time,message.guildId);
   const events=await Giveaway.find({
@@ -168,14 +173,9 @@ export async function recordGuidedMessage(message) {
     activityStartAt:{$lte:time},activityEndAt:{$gt:time},
     $or:[{activityType:"general"},{activityChannelIds:message.channelId}],
   }).lean();
-  let roleMember;
   for(const event of events){
-    // Required role: check membership before creating activity receipts.
-    if(event.requiredRoleId){
-      if(roleMember===undefined)
-        roleMember=await message.guild?.members.fetch({user:message.author.id,force:true}).catch(()=>null) || null;
-      if(!roleMember?.roles?.cache?.has(event.requiredRoleId))continue;
-    }
+    // Legacy events without this opt-in role may not collect messages.
+    if(event.requiredRoleId!==participation.roleId)continue;
     const matches=guidedMessageMatches(event,message);
     await Receipt.updateOne({_id:event._id+":"+message.id},{$setOnInsert:{
       event:event._id,user:message.author.id,day:currentActivityDay(time),matches:Boolean(matches),at:time,
