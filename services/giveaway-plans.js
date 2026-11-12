@@ -10,6 +10,7 @@ import { closeGiveaway, publishGiveawayResult } from "./giveaways.js";
 import {publishGiveawayReview} from "./giveaway-review.js";
 import {normalizeRoleBonuses} from "./giveaway-role-weights.js";
 import {activeActivityParticipants} from "./activity-participation.js";
+import {configuredGiveawayExclusionRole,memberPassesGiveawayExclusion} from "./giveaway-exclusion.js";
 
 export function planRepeatMode(plan) {
   return plan.repeatMode || (plan.recurring ? "weekly" : "once");
@@ -85,11 +86,14 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
       ...windowOptions});
   const guild=await client.guilds.fetch(plan.guildId);
   const optedIn=await activeActivityParticipants(plan.guildId,entrants);
+  const excludedRoleId=await configuredGiveawayExclusionRole(plan.guildId,{mode:"activity",
+    enforceExclusionRole:plan.enforceExclusionRole});
   const eligible=[];
   for(const id of [...new Set(entrants)].filter(id=>optedIn.has(String(id)))) {
     try {
       const member=await guild.members.fetch({user:id,force:true});
-      if (member && !member.user?.bot) eligible.push(id);
+      if (member && !member.user?.bot && memberPassesGiveawayExclusion(member,excludedRoleId,
+        {mode:"activity",enforceExclusionRole:plan.enforceExclusionRole})) eligible.push(id);
     } catch(error) {
       if (error.code!==10007) throw error; // never discard a member on temporary Discord failures
     }
