@@ -362,16 +362,66 @@ async function deliveryAlerts(i){
   components:[]});
 }
 async function upcomingList(i,page=0){
- const schedules=await PingSchedule.find({guildId:i.guildId,status:"active"}).select("_id name timeZone").lean();
- const allowed=new Map(schedules.map(s=>[String(s._id),s]));
- const all=await PingDelivery.find({guildId:i.guildId,status:"pending",scheduleId:{$in:schedules.map(s=>s._id)}})
-  .sort({dueAt:1}).skip(page*20).limit(20).lean();
+ const schedules=await PingSchedule.find({guildId:i.guildId,status:"active"})
+  .select("_id name timeZone destinationChannelId").lean();
+ const byChannel=new Map();
+ for(const schedule of schedules){
+  if(!schedule.destinationChannelId)continue;
+  const id=String(schedule.destinationChannelId);
+  if(!byChannel.has(id))byChannel.set(id,{id,schedules:[]});
+  byChannel.get(id).schedules.push(schedule);
+ }
+ // Resolve real names for alphabetical channel-first browsing, while using
+ // Discord channel mentions in the display so renamed channels stay current.
+ const channels=await Promise.all([...byChannel.values()].map(async group=>{
+  const channel=i.guild.channels.cache?.get(group.id)||
+   await i.guild.channels.fetch(group.id).catch(()=>null);
+  return {...group,name:channel?.name||group.id};
+ }));
+ channels.sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:"base"})||a.id.localeCompare(b.id));
+ const now=new Date();
+ let total=0;
+ for(const channel of channels){
+  channel.count=await PingDelivery.countDocuments({guildId:i.guildId,status:"pending",
+   dueAt:{$gt:now},scheduleId:{$in:channel.schedules.map(s=>s._id)}});
+  total+=channel.count;
+ }
+ const pageSize=10;
+ const pageCount=Math.max(1,Math.ceil(total/pageSize));
+ page=Math.min(Math.max(0,page),pageCount-1);
+ const position=page*pageSize;
+ let seen=0,remaining=pageSize;
+ const sections=[];
+ for(const channel of channels){
+  const count=channel.count;
+  if(!count){continue;}
+  if(seen+count<=position){seen+=count;continue;}
+  if(!remaining)break;
+  const skip=Math.max(0,position-seen),take=Math.min(remaining,count-skip);
+  const events=await PingDelivery.find({guildId:i.guildId,status:"pending",
+   dueAt:{$gt:now},scheduleId:{$in:channel.schedules.map(s=>s._id)}})
+   .sort({dueAt:1,_id:1}).skip(skip).limit(take).lean();
+  const indexed=new Map(channel.schedules.map(schedule=>[String(schedule._id),schedule]));
+  const lines=events.map(event=>{
+   const schedule=indexed.get(String(event.scheduleId));
+   const time=showZone(event.dueAt,schedule?.timeZone||"UTC");
+   const name=short(schedule?.name||"Untitled schedule").slice(0,48);
+   const snippet=short(event.content||"(role mentions only)").slice(0,55);
+   return "• "+time+" · "+name+" · Group "+(event.groupIndex+1)+"\n  "+snippet;
+  });
+  if(lines.length)sections.push("**<#"+channel.id+">** · "+count+" upcoming ping(s)\n"+lines.join("\n"));
+  remaining-=events.length;
+  seen+=count;
+ }
  const s={phase:"upcoming",page,expires:Date.now()+EXPIRES};
  sessions.set(key(i),s);
- return reply(i,{content:"**Full Upcoming Schedule** · Page "+(page+1)+"\n"+
-  (all.length?all.map(e=>"• "+showZone(e.dueAt,allowed.get(String(e.scheduleId))?.timeZone||"UTC")+" — "+short(allowed.get(String(e.scheduleId))?.name)+
-    " · Group "+(e.groupIndex+1)).join("\n"):"No more upcoming messages."),
-  components:[row(["Previous","upcoming:prev"],["Next","upcoming:next"])]});
+ const controls=row(["Previous","upcoming:prev"],["Next","upcoming:next"]);
+ controls.components[0].setDisabled(page===0);
+ controls.components[1].setDisabled(page>=pageCount-1);
+ return reply(i,{content:"**Full Upcoming Schedule** · Page "+(page+1)+"/"+pageCount+
+  "\nGrouped alphabetically by destination channel. Pings within each channel are in time order.\n\n"+
+  (sections.length?sections.join("\n\n"):"No future scheduled pings found."),
+  components:[controls]});
 }
 function selectedInput(i){
  const s=stateFor(i);
