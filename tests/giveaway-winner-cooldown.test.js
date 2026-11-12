@@ -94,8 +94,8 @@ test("active cooldown is silently excluded before regular and activity winner dr
    assert.deepEqual(result.winnerIds,[A],mode+" must select only eligible winners");
    assert.deepEqual(result.activityVerifiedIds,[A],mode+" must save only eligible draw pool");
    // Restore only the two per-loop stubs.
-   Giveaway.findOne=backups.pop()[2];
    Giveaway.findOneAndUpdate=backups.pop()[2];
+   Giveaway.findOne=backups.pop()[2];
   }
  }finally{restore(backups);}
 });
