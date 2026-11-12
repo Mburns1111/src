@@ -52,6 +52,7 @@ async function harness({defaultRole="",storedBanners=[],
     activityGiveawayReviewChannelId:staffId,
     giveawayPingRoleId:pingId,giveawayDefaultRequiredRoleId:defaultRole,
     giveawayDefaultBannerNameKey:"",activityClaimWindowHours:12,activityMaxAutoRerolls:2,
+    giveawayExcludedRoleId:"789012345678901234",
     activityClaimInstructions:serverClaimInstructions,
     giveawayRoleInstructions:serverRoleInstructions,
   };
@@ -126,7 +127,6 @@ async function harness({defaultRole="",storedBanners=[],
     await select("winners:1");
     await select("roleNone");
     await select("keep"); // Show role help setting
-    await select("excludeOn"); // Banned role check defaults on, with no role configured
     await select("clearRules");
     await select("claim:1");
     await select("claimDefault");
@@ -165,7 +165,7 @@ test("guided regular giveaway posts only after review and produces regular entry
     assert.equal(h.writes[0].mode,"standard");
     assert.equal(h.writes[0].winnerCount,1);
     assert.equal(h.writes[0].requiredRoleId,"");
-    assert.equal(h.writes[0].enforceExclusionRole,true);
+    assert.equal(h.writes[0].enforceExclusionRole,undefined);
     assert.equal(h.writes[0].claimWindowHours,1);
     assert.equal(h.publicPosts.length,1);
     assert.equal(h.publicPosts[0].content,"<@&"+pingId+">");
@@ -329,16 +329,13 @@ test("regular wizard shows saved role instructions and supports a per-giveaway o
   }finally{restore();}
 });
 
-test("per-event override lets staff disable the banned role check without changing server settings",async()=>{
+test("regular giveaway review shows mandatory server banned role without an override",async()=>{
  try{
   const h=await harness();
   await h.reachReview();
-  await h.select("edit",["exclusion"]);
-  assert.match(h.prompt().content,/Banned role exclusion/);
-  await h.select("excludeOff");
-  assert.match(h.prompt().content,/Exclude banned role:\*\* Off/);
-  await h.select("post");
-  assert.equal(h.writes.length,1);
-  assert.equal(h.writes[0].enforceExclusionRole,false);
+  assert.match(h.prompt().content,/Giveaway Banned role/);
+  assert.match(h.prompt().content,/always enforced/);
+  assert.ok(!h.controls().some(x=>x.label==="Allow This Giveaway"));
+  await h.select("cancel");
  }finally{restore();}
 });
