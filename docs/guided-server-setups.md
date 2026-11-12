@@ -1,6 +1,6 @@
 # Guided server setup (development only)
 
-Source: `integration/active-development-2026-11-11`. Consolidation in progress; never deploy Wispbyte or merge to main without approval.
+Source: `feature/scheduled-pings-shared-archive`. Development feature; do not deploy or merge without approval.
 
 **Activity giveaways now use an internal MongoDB Opt In / Opt Out panel beneath the Activity Giveaway List. No Discord role is required for participation.**
 
@@ -8,21 +8,21 @@ Source: `integration/active-development-2026-11-11`. Consolidation in progress; 
 
 | Command | What it configures | Required fields |
 |---|---|---|
-| `/setup general` | Required **private staff-only Bot Commands** channel, then optional member profiles, houses, outfits, inventory, Trading Posts, trade voting, shop and party games | Private commands channel **first** |
-| `/setup giveaways` | Standard giveaway posts, private staff records, shared private archive, Giveaway Manager role, notification role, role/help, claims, rerolls and banner | Public giveaway channel, private staff channel and separate private archive |
-| `/setup activity-giveaways` | Activity directory, separate winners, private staff review, shared private archive, Giveaway Manager role, notification role, **dedicated mandatory Activity Participation opt-in role**, opt-in instructions, claims, rerolls and banner | Public activity list, public winners, private staff channel, separate private archive **and Activity Giveaway List opt-in panel** |
-| `/setup trials` | Court's Trial signup/elimination channel, private staff records, shared private archive, eligibility role/help, claims, rerolls, notifications, banner | Trial channel, private staff channel and separate private archive |
+| `/setup general` | Required private Bot Commands and Shared Staff Archives channels; optional Scheduled Pings private dashboard, profiles, listings, shops and party games | Private commands and separate shared archive **mandatory** |
+| `/setup giveaways` | Standard giveaway channel, private staff records, roles, claims, rerolls and banners; uses shared archive | Public giveaway channel and private staff controls; run General first |
+| `/setup activity-giveaways` | Activity list, winners, staff review and giveaway options; uses shared archive | Public activity list, public winners and private staff controls; run General first |
+| `/setup trials` | Court's Trial channels, roles, claims, rerolls and banners; uses shared archive | Trial channel and private staff controls; run General first |
 | `/setup cards` | Hatchem game channel, Collector role, activity-based wild egg toggle | Requires General commands channel; Hatchem channel and manageable Collector role |
 
-`/setup channels` and `/setup archives` have been **retired from Discord's command menu**. Existing MongoDB channel IDs and notification settings are preserved; use the five guided options above to update them. Previously saved guild setups remain recognized without requiring reconfiguration.
+`/setup channels` and `/setup archives` have been **retired from Discord's command menu**. Existing MongoDB channel IDs and notification settings are preserved; use `/setup general` to change shared archive and the relevant guided setup for each feature to change its own settings. Previously saved guild setups remain recognized without requiring reconfiguration.
 
 Guided flows send numbered messages in the invoking channel, require Manage Server, have Back/Cancel/Keep or Skip actions, support review and editing prior to Save, and store settings only on final Save. The commands channel must be hidden from `@everyone` and writable by the bot. Public member actions operate through their designated feature channels and buttons. The administrator needs to use the configured private commands channel for follow-up setup; a never-configured server can start `/setup general` from its initial administrative text channel.
 
 ## Shared giveaway archive channel
 
-Every giveaway setup (`/setup giveaways`, `/setup activity-giveaways`, and `/setup trials`) includes a **required** archive channel picker immediately after private staff controls. All three use the same `giveawayArchiveChannelId` in the guild configuration. Reopening a setup preselects the existing archive, and **Keep selected channel** preserves it. Select a different archive in any giveaway setup to change the shared destination.
+`/setup general` includes the **required** shared private archive picker immediately after Bot Commands. All giveaway types, Court\'s Trials and Scheduled Pings use the same `giveawayArchiveChannelId` in GuildConfig. Each feature-specific setup reads the saved archive, but cannot replace it. Existing archive history remains intact.
 
-The private staff controls and private archive channels must be separate from each other and from all public giveaway and Trial channels, hidden from `@everyone`, and writable by the bot. A setup cannot be saved without a valid archive. Existing archived records and giveaway histories are not deleted when the archive destination changes.
+The private staff controls and private archive channels must be separate from each other and from all public giveaway and Trial channels, hidden from `@everyone`, and writable by the bot. The general setup cannot be saved without a valid archive. Existing archived records and giveaway histories are not deleted when the archive destination changes.
 
 ## Separate activity giveaway opt-in role
 
@@ -34,7 +34,7 @@ When configuring an activity role for the first time or switching to a different
 
 ## Optional features and Skip behavior
 
-After the mandatory **private staff commands channel** in General setup, every step is optional. **Skip / disable this feature** saves an empty channel assignment so that feature is not configured; **Keep current** preserves an already configured channel. Disabling a feature does not erase profiles, purchases, claims, member inventories or past Discord messages. Staff can return to `/setup general` later to configure or move a feature. For an existing server, a previously posted button in an old channel can remain visible; it is not deleted simply because a feature is skipped.
+After the mandatory **private staff commands channel and shared private archives channel** in General setup, every remaining step is optional. The Scheduled Pings dashboard is an optional private channel. **Skip / disable this feature** saves an empty channel assignment so that feature is not configured; **Keep current** preserves an already configured channel. Disabling a feature does not erase profiles, purchases, claims, member inventories or past Discord messages. Staff can return to `/setup general` later to configure or move a feature. For an existing server, a previously posted button in an old channel can remain visible; it is not deleted simply because a feature is skipped.
 
 Giveaways, activity giveaways, Trials and Hatchem use **separate** setup commands and are not required for a General-only server. A giveaway-only server may skip every General optional step, then run `/setup giveaways` or `/setup activity-giveaways`. A card-only server may do the same, then run `/setup cards`. General does not force profiles, the shop or the other game modules.
 
@@ -147,3 +147,7 @@ Discord checklist:
 5. Create a short Trial and let it finish. The winner's ticket form must accept only their claim and privately display it to staff. A second member cannot submit on their behalf. Verify automatic replacement (when enabled), saved history, and a Trial without remaining eligible replacements.
 6. Re-open each setup and change one setting; verify unrelated features and historical giveaway/Trial records are unchanged.
 7. Test restart recovery. Do not merge or deploy to production without explicit authorization.
+
+## Scheduled Pings staff dashboard
+
+Select an optional private Scheduled Pings dashboard channel in `/setup general`. The bot maintains one permanent message there with controls for creating templates, managing schedules and reviewing history. Each active schedule sends pings to exactly one independently selected channel. Finished schedules are archived in the shared archive chosen in General Setup. The bot must have View Channel, Send Messages and Read Message History in its management channel; Pin Messages is optional.
