@@ -248,8 +248,8 @@ test("Review & Activate shows actual roles for every ping and pages crowded prev
  assert.match(preview.content,/Message: \(roles only\)/);
  assert.doesNotMatch(preview.content,/10 role\(s\)/);
  assert.ok(preview.content.length<=2000,"Discord's 2,000-character limit is respected");
- assert.match(preview.content,/Preview page: 1\//);
- assert.ok(Number(preview.content.match(/Preview page: 1\/(\d+)/)[1])>3,
+ assert.match(preview.content,/Preview page:\*\* 1\//);
+ assert.ok(Number(preview.content.match(/Preview page:\*\* 1\/(\d+)/)[1])>3,
   "long role lists use more preview pages instead of truncating the mentions");
  preview=await click(control(preview,"activation:next"));
  assert.match(preview.content,/Roles: <@&123456789012345678>/);
