@@ -351,6 +351,45 @@ export async function endPingSchedule(client,schedule,actorId,reason){
  await refreshPingDashboard(client,schedule.guildId);
  return result;
 }
+
+export async function extendPingSchedule(client,schedule,actorId,extraDays){
+ if(!Number.isInteger(extraDays)||extraDays<1||extraDays>365)
+  throw Error("Choose 1–365 additional days.");
+ if(!["active","paused"].includes(schedule.status))
+  throw Error("This schedule cannot be extended because it is already closed.");
+ const existingGroups=schedule.groups.map(g=>({...g,roleIds:[...g.roleIds],messages:[...g.messages]}));
+ const nextGroups=existingGroups.map(g=>({...g,durationDays:g.durationDays+extraDays}));
+ if(nextGroups.some(g=>g.durationDays>365))
+  throw Error("The new group duration would exceed 365 days.");
+ const nextPlan=planPingDeliveries(nextGroups,schedule.startsAt);
+ const start=new Date(schedule.startsAt).getTime();
+ const newlyAdded=nextPlan.filter(e=>e.dueAt.getTime()>=start+
+  existingGroups[e.groupIndex].durationDays*DAY);
+ if(!newlyAdded.length)throw Error("There are no additional messages within the extension.");
+ const session=await mongoose.startSession();
+ try{
+  await session.withTransaction(async()=>{
+   const current=await PingSchedule.findOne({_id:schedule._id,
+     status:{$in:["active","paused"]},endsAt:schedule.endsAt}).session(session);
+   if(!current)throw Error("The schedule changed while you were editing. Refresh it.");
+   const last=await PingDelivery.findOne({scheduleId:schedule._id}).sort({sequence:-1}).session(session);
+   let sequence=(last?.sequence||0);
+   await PingDelivery.insertMany(newlyAdded.map(e=>({...e,
+    sequence:++sequence,guildId:schedule.guildId,scheduleId:schedule._id
+   })),{session,ordered:true});
+   current.groups=nextGroups;
+   current.endsAt=new Date(Math.max(...nextGroups.map(g=>start+g.durationDays*DAY)));
+   current.plannedCount+=newlyAdded.length;
+   await current.save({session});
+   await PingAudit.create([{guildId:schedule.guildId,scheduleId:schedule._id,
+    actorId,event:"extended",details:{additionalDays:extraDays,
+     oldEndAt:schedule.endsAt,newEndAt:current.endsAt,addedPings:newlyAdded.length}}],{session});
+  });
+ }finally{await session.endSession();}
+ await refreshPingDashboard(client,schedule.guildId);
+ return newlyAdded.length;
+}
+
 export async function changeFuturePing(client,schedule,event,actorId,{content,roleIds,dueAt}){
  if(!["active","paused"].includes(schedule.status))throw Error("This schedule is closed.");
  if(event.status!=="pending"||new Date(event.dueAt)<=new Date())throw Error("Only future pending pings can be edited.");
