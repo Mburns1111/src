@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
+import GuildConfig from "../models/GuildConfig.js";
 import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
 import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
 import GiveawayActivityRuleMinuteCount from "../models/GiveawayActivityRuleMinuteCount.js";
@@ -104,4 +105,29 @@ test("activity query pipelines join active session before totaling messages",()=
  });
  assert.ok(pipeline.some(stage=>stage.$lookup));
  assert.deepEqual(pipeline.at(-1).$match.activeDays,{$gte:1});
+});
+
+test("punishment ban immediately blocks activity logs even if member was previously opted in",async()=>{
+ const before={optin:ActivityGiveawayOptIn.findOne,config:GuildConfig.findOne,
+  minute:GiveawayActivityMinuteCount.updateOne,count:GiveawayActivityCount.updateOne};
+ const bannedRole="345678901234567890";
+ let writes=0;
+ try{
+  ActivityGiveawayOptIn.findOne=()=>({lean:async()=>active});
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({giveawayExcludedRoleId:bannedRole})})});
+  GiveawayActivityMinuteCount.updateOne=async()=>{writes++;};
+  GiveawayActivityCount.updateOne=async()=>{writes++;};
+  const m={...message(),guild:{members:{fetch:async()=>({
+    roles:{cache:new Map([[bannedRole,{}]])},
+  })}}};
+  assert.equal(await eligibleActivityParticipant(m),null);
+  await recordGiveawayMessage(m);
+  await recordGuidedMessage(m);
+  assert.equal(writes,0);
+ }finally{
+  ActivityGiveawayOptIn.findOne=before.optin;
+  GuildConfig.findOne=before.config;
+  GiveawayActivityMinuteCount.updateOne=before.minute;
+  GiveawayActivityCount.updateOne=before.count;
+ }
 });
