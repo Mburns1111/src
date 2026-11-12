@@ -113,7 +113,7 @@ test("staff-wide cooldown manager lists active members and supports expiry corre
   assert.equal(list.responses.reply.components[0].components[0].toJSON().custom_id,"giveawaydir:cooldownmember");
   const member=makeAction({customId:"giveawaydir:cooldownmember",values:[a]});
   await handleGiveawayCooldownDirectoryAction(member.i);
-  assert.match(member.responses.reply.content,/Correct Expiry/);
+  assert.equal(member.responses.reply.components[0].components[0].toJSON().label,"Correct Expiry");
   const edit=makeAction({customId:"giveawaydir:cooldownedit:"+a});
   await handleGiveawayCooldownDirectoryAction(edit.i);
   assert.match(edit.responses.modal.toJSON().title,/Correct Cooldown/);
