@@ -21,7 +21,7 @@ test("Bot Setup covers the whole bot and includes required private archives",()=
   const embed=payload.embeds[0].toJSON();
   const fields=embed.fields||[];
   assert.equal(fields.length,7);
-  assert.match(fields[0].value,/private \*\*Bot Commands\*\*/i);
+  assert.match(fields[0].value,/\*\*Bot Commands Channel\*\*/i);
   assert.match(fields[1].value,/Profiles/i);
   assert.match(fields[1].value,/Shop/);
   assert.match(fields[2].value,/Hatchem/);
