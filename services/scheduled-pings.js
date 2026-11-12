@@ -148,7 +148,9 @@ export async function activatePingSchedule({guild,template,channelId,startAt,act
 
 async function dashboardPayload(guildId){
  const active=await PingSchedule.find({guildId,status:{$in:["active","paused"]}}).sort({startsAt:1}).limit(6).lean();
- const everyActive=await PingSchedule.find({guildId,status:"active"}).select("_id name").lean();
+ const everyActive=await PingSchedule.find({guildId,status:"active"}).select("_id name timeZone").lean();
+ const config=await GuildConfig.findOne({guildId}).select("serverTimeZone").lean();
+ const configuredZone=config?.serverTimeZone||"UTC";
  const totals=await PingSchedule.aggregate([
   {$match:{guildId,status:{$in:["active","paused"]}}},
   {$group:{_id:"$status",count:{$sum:1},sent:{$sum:"$sentCount"}}},
@@ -157,12 +159,13 @@ async function dashboardPayload(guildId){
  const due=await PingDelivery.find({guildId,status:"pending",
   scheduleId:{$in:everyActive.map(x=>x._id)}})
   .sort({dueAt:1}).limit(5).lean();
- const scheduleNames=new Map(everyActive.map(x=>[String(x._id),x.name]));
+ const scheduleNames=new Map(everyActive.map(x=>[String(x._id),x]));
  const alerts=await PingDelivery.find({guildId,$or:[{status:"failed"},{status:"skipped",error:/Missed while offline/}]})
   .sort({updatedAt:-1}).limit(3).lean();
  const awaitingArchive=await PingSchedule.countDocuments({guildId,status:{$in:["ended","completed"]},archiveMessageId:""});
  const lines=["**✦ Scheduled Pings — Staff Dashboard**",
   "Saved templates, recurring role mentions and message delivery history.",
+  "Server time zone: **"+configuredZone+"**",
   "",
   "**Overview:** "+(counts.active?.count||0)+" active · "+(counts.paused?.count||0)+" paused · "+totals.reduce((n,x)=>n+x.sent,0)+" sent",
   "",
@@ -170,14 +173,16 @@ async function dashboardPayload(guildId){
  if(!active.length)lines.push("No active schedules.");
  for(const s of active){
   lines.push((s.status==="paused"?"⏸️ ":"🟦 ")+"**"+short(s.name)+"** — <#"+s.destinationChannelId+">",
-   String(s.sentCount||0)+"/"+s.plannedCount+" sent · "+s.groups.length+" groups · Ends "+ts(s.endsAt));
+   String(s.sentCount||0)+"/"+s.plannedCount+" sent · "+s.groups.length+" groups · Ends "+formatServerClock(s.endsAt,s.timeZone||configuredZone));
  }
  if((counts.active?.count||0)+(counts.paused?.count||0)>active.length)
   lines.push("…plus "+((counts.active?.count||0)+(counts.paused?.count||0)-active.length)+" more schedules. Use Manage Schedules for the full list.");
  lines.push("","**Next Scheduled Pings**");
  if(!due.length)lines.push("No upcoming pings.");
- for(const d of due)
-  lines.push("• "+ts(d.dueAt)+" — "+short(scheduleNames.get(String(d.scheduleId))||"Schedule")+" · Group "+(d.groupIndex+1));
+ for(const d of due){
+  const item=scheduleNames.get(String(d.scheduleId));
+  lines.push("• "+formatServerClock(d.dueAt,item?.timeZone||configuredZone)+" — "+short(item?.name||"Schedule")+" · Group "+(d.groupIndex+1));
+ }
  if(alerts.length){
   lines.push("","**⚠ Delivery Attention**");
   for(const e of alerts)lines.push("• Ping #"+e.sequence+" · "+short(e.error||"Failed to send").slice(0,84));
