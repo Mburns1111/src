@@ -30,9 +30,15 @@ For a **one-time guided activity giveaway**, its directory post remains visible 
 
 The bot maintains a **per-server MongoDB opt-in list**. The public **Activity Giveaway List** has one permanent participation panel at the bottom with **Opt In**, **Opt Out**, and **My Status** buttons. Members click **Opt In** before their messages can count. The bot checks that active consent record before saving a guided receipt or a legacy giveaway minute count; members without active consent are not logged for activity giveaways. No Discord role is assigned, and regular giveaway eligibility, ping, bonus, or Giveaway Manager roles are unaffected.
 
-Opting out immediately stops new tracking and removes the member from live progress previews and winner selection. A later opt-in starts a **new** counting window; only the new session can qualify. Guided receipts use exact message timestamps, and minute-level counter records filter out earlier sessions. The activity listing footer reminds users to opt in. Historical staff archives preserve past records.
+Opting out immediately stops new tracking and removes the member from live progress previews and winner selection. A later opt-in starts a **new** counting window; only the new session can qualify. Guided receipts use exact message timestamps, and minute-level counter records filter out earlier sessions. The activity listing footer reminds users to opt in. The panel is a **bottom-of-channel sticky**: it is automatically moved down after new giveaway posters, and the recurring sweep moves it beneath newer chat when at least ten minutes have elapsed since the last bump. The bot sends the replacement before removing the old panel and retains only the latest button panel. It does **not** require pinning a Discord message. Historical staff archives preserve past records.
 
 Activity opt-in is **independent of regular giveaways, Court's Trials, Points and Hatchem**. Existing activity giveaways can keep their schedules and counting requirements; the old participation-role setting is ignored by the new system.
+
+## Optional banned giveaway role (regular and activity only)
+
+In either `/setup giveaways` or `/setup activity-giveaways`, a manager may select or clear the one shared **Banned Giveaway Role**. There is no required role by default. When configured, current server members holding that role are excluded **silently** from regular and activity winner selection, including manual and automatic rerolls. For recurring activity giveaways, the role is checked when each drawing runs. **Court's Trials ignore this exclusion.**
+
+The per-giveaway **Banned role exclusion** setting defaults **ON**, can be switched OFF during regular or activity giveaway creation, and can be edited on an active giveaway. Disabling it for one giveaway does not remove the global role or change any other giveaway. Members remain eligible to send messages and log activity while the exclusion role is active; the exclusion restricts the *winning draw*, not opting in or message tracking.
 
 ## Guided activity giveaway: counting rules
 
