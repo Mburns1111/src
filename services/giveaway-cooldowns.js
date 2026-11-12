@@ -53,6 +53,23 @@ export async function applyGiveawayWinnerCooldown({
   extended:+new Date(record.expiresAt)===+requestedExpiresAt};
 }
 
+// Explicit moderator correction. Unlike automatic $max application, this
+// intentionally permits shortening an entry entered with the wrong duration.
+export async function adjustGiveawayWinnerCooldown({
+ guildId,userId,staffId,daysRemaining,now=new Date(),
+}){
+ if(!guildId||!userId||!staffId)throw Error("Missing server, member or moderator.");
+ if(!Number.isSafeInteger(daysRemaining)||daysRemaining<1||daysRemaining>365)
+  throw Error("Remaining days must be between 1 and 365.");
+ const expiresAt=new Date(+now+daysRemaining*ONE_DAY_MS);
+ return GiveawayWinnerCooldown.findOneAndUpdate({
+  guildId,userId,expiresAt:{$gt:now},
+ },{$set:{expiresAt,removedAt:null,removedBy:""},
+   $push:{history:{action:"adjust",at:now,staffId,days:daysRemaining,
+    requestedExpiresAt:expiresAt}}},
+  {new:true}).lean();
+}
+
 export async function removeGiveawayWinnerCooldown({
  guildId,userId,staffId,now=new Date(),
 }){
