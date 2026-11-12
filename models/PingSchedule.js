@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const groupSchema=new mongoose.Schema({
   name:String,repeatMode:String,interval:Number,durationDays:Number,offsetHours:Number,
   roleIds:[String],messages:[String],
-  messageMode:{type:String,enum:["single","rotate","per-ping","roles"],default:"rotate"},
+  messageMode:{type:String,enum:["single","rotate","per-ping","roles"]},
   perPingMessages:{type:[String],default:[]},
 },{_id:false});
 const schema=new mongoose.Schema({
