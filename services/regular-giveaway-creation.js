@@ -35,6 +35,7 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
   const {channel,config}=await getConfiguredTextChannelAndConfig(
     {guild,guildId},"giveawayChannelId","standard giveaway");
   await requirePrivateGiveawayStaffChannel(guild,config);
+  if(!config?.giveawayExcludedRoleId)throw Error("Configure the required Giveaway Banned role in /setup giveaways first.");
 
   const mode=settings.requiredRoleMode||"default";
   if(!["default","none","custom"].includes(mode))throw Error("Invalid giveaway eligibility option.");
