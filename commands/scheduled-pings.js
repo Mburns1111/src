@@ -10,7 +10,7 @@ import PingSchedule from "../models/PingSchedule.js";
 import PingDelivery from "../models/PingDelivery.js";
 import PingAudit from "../models/PingAudit.js";
 import {
- activatePingSchedule,changeFuturePing,endPingSchedule,ensurePingDashboard,
+ activatePingSchedule,changeFuturePing,endPingSchedule,
  normalizePingGroup,pausePingSchedule,planPingDeliveries,refreshPingDashboard,
  extendPingSchedule,
  resumePingSchedule,validatePingDestination,
@@ -30,12 +30,24 @@ const stateFor=i=>{
  return state;
 };
 function reply(i,payload){
+ const state=sessions.get(key(i));
+ if(state && payload.components?.length){
+  // Every rendered view gets its own controls, including forms opened from it.
+  state.viewId=i.id;
+  for(const actionRow of payload.components){
+   for(const component of actionRow.components){
+    component.setCustomId(component.data.custom_id+"|"+state.viewId);
+   }
+  }
+ }
+ if(i.deferred)return i.editReply({...payload,components:payload.components||[],allowedMentions:{parse:[]}});
+
  if(!i.isModalSubmit() && i.message?.flags?.has(MessageFlags.Ephemeral))
   return i.update({...payload,allowedMentions:{parse:[]}});
  return i.reply({...payload,flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
 }
-const modal=(id,title,inputs)=>{
- const m=new ModalBuilder().setCustomId("pings:modal:"+id).setTitle(title);
+const modal=(i,id,title,inputs)=>{
+ const m=new ModalBuilder().setCustomId("pings:modal:"+id+(id==="templateName"?"":"|"+stateFor(i).viewId)).setTitle(title);
  for(const [name,label,value,style,max,required=true]of inputs){
   const input=new TextInputBuilder().setCustomId(name).setLabel(label)
    .setStyle(style||TextInputStyle.Short).setRequired(required).setMaxLength(max||200);
@@ -103,18 +115,22 @@ function templateDetails(s){
   components:[row(["Use Template","template:use",ButtonStyle.Success],
     ["Edit Template","template:edit"],["Delete Template","template:delete",ButtonStyle.Danger])]};
 }
-async function activeList(i){
- const schedules=await PingSchedule.find({guildId:i.guildId,status:{$in:["active","paused"]}})
-  .sort({startsAt:-1}).limit(25).lean();
- if(!schedules.length)return reply(i,{content:"**Active Schedules**\nThere are no active schedules."});
- sessions.set(key(i),{phase:"scheduleList",expires:Date.now()+EXPIRES});
- return reply(i,{content:"**Manage Schedules**\nChoose one schedule. Each schedule posts in only one channel.",
-  components:[new ActionRowBuilder().addComponents(
-   new StringSelectMenuBuilder().setCustomId("pings:select:schedule")
-    .setPlaceholder("Choose an active schedule")
-    .addOptions(schedules.map(s=>({label:s.name.slice(0,100),value:String(s._id),
-     description:s.status+" · "+s.sentCount+"/"+s.plannedCount+" sent"})))
-  )]});
+async function activeList(i,page=0){
+ const filter={guildId:i.guildId,status:{$in:["active","paused"]}};
+ const count=await PingSchedule.countDocuments(filter);
+ page=Math.min(Math.max(0,page),Math.max(0,Math.ceil(count/25)-1));
+ const schedules=await PingSchedule.find(filter).sort({startsAt:-1,_id:-1}).skip(page*25).limit(25).lean();
+ if(!schedules.length)return reply(i,{content:"**Active Schedules**\nThere are no active schedules on this page.",components:[]});
+ sessions.set(key(i),{phase:"scheduleList",page,expires:Date.now()+EXPIRES});
+ const picker=new StringSelectMenuBuilder().setCustomId("pings:select:schedule")
+  .setPlaceholder("Choose an active schedule")
+  .addOptions(schedules.map(s=>({label:s.name.slice(0,100),value:String(s._id),
+   description:s.status+" · "+s.sentCount+"/"+s.plannedCount+" sent"})));
+ const pages=new ActionRowBuilder().addComponents(
+  btn("Previous","list:previous").setDisabled(page===0),
+  btn("Next","list:next").setDisabled((page+1)*25>=count));
+ return reply(i,{content:"**Manage Schedules** · Page "+(page+1)+"/"+Math.max(1,Math.ceil(count/25))+
+  "\nChoose a schedule to manage.",components:[new ActionRowBuilder().addComponents(picker),pages]});
 }
 function managementPanel(s){
  const d=s.schedule;
@@ -170,7 +186,7 @@ async function activationPanel(i,s){
    .addOptions(items.map(e=>({label:"Ping #"+e.sequence+" · Group "+(e.groupIndex+1),
     value:String(e.sequence),description:new Date(e.dueAt).toISOString().slice(0,16)})))));
  components.push(row(["Earlier","activation:prev"],["Later","activation:next"],["Change Start","activation:start"],["Edit Ping Groups","activation:groups"]));
- components.push(row(["Activate Schedule","activation:confirm",ButtonStyle.Success],
+ components.push(row(["Activate Schedule","activation:confirm:"+s.scheduleId,ButtonStyle.Success],
   ["Cancel","activation:cancel",ButtonStyle.Danger]));
  return reply(i,{content:"**✦ Review & Activate**\n**Template:** "+s.template.name+
   "\n**One destination:** <#"+s.destinationChannelId+">"+
@@ -266,14 +282,30 @@ async function modalSubmit(i,id){
  if(id==="groupTiming"){
   if(s.phase!=="activation")throw Error("Activation expired.");
   const g=s.workingGroups[s.selectedGroupIndex];
-  Object.assign(g,{
+  const proposed=normalizePingGroup({...g,
    name:field(i,"name"),repeatMode:field(i,"repeatMode").toLowerCase(),
    interval:Number(field(i,"interval")),durationDays:Number(field(i,"days")),
    offsetHours:Number(field(i,"offset")),
   });
-  s.workingGroups[s.selectedGroupIndex]=normalizePingGroup(g);
-  // Indexes of newly generated pings may change when frequency is edited.
-  s.overrides=[];s.page=0;
+  const groups=s.workingGroups.map((group,index)=>index===s.selectedGroupIndex?proposed:group);
+  const previous=planPingDeliveries(s.workingGroups,s.startAt);
+  const next=planPingDeliveries(groups,s.startAt);
+  const sequences=new Map(next.map(e=>[e.groupIndex+":"+e.ordinal,e.sequence]));
+  const overrides=[];
+  const removed=[];
+  for(const edit of s.overrides){
+   const event=previous[edit.sequence-1];
+   const sequence=sequences.get(event.groupIndex+":"+event.ordinal);
+   if(sequence===undefined)removed.push(edit.sequence);
+   else overrides.push({...edit,sequence});
+  }
+  if(removed.length){
+   s.pendingTiming={groups,overrides};
+   return reply(i,{content:"This timing change removes "+removed.length+" individually edited ping(s), including #"+
+    removed.slice(0,10).join(", #")+". Apply the change and discard those edits?",
+    components:[row(["Apply Timing Change","group:applyTiming",ButtonStyle.Danger],["Keep Original Timing","group:keepTiming"])]});
+  }
+  Object.assign(s,{workingGroups:groups,overrides,page:0});
   return reply(i,activationGroupPanel(s));
  }
  if(id==="groupReplaceText"||id==="groupAddText"){
@@ -298,7 +330,7 @@ async function modalSubmit(i,id){
  }
  if(id==="start"){
   if(s.phase!=="activation")throw Error("Open an activation preview first.");
-  s.startAt=fromDateInput(field(i,"date"));s.page=0;s.overrides=[];
+  s.startAt=fromDateInput(field(i,"date"));s.page=0;
   return activationPanel(i,s);
  }
  if(id==="eventText"||id==="eventTime"){
@@ -341,16 +373,44 @@ async function modalSubmit(i,id){
  throw Error("Unknown Scheduled Pings form.");
 }
 
+const handling=new Set();
 export async function handleScheduledPingsInteraction(i){
+ const owner=key(i);
+ if(handling.has(owner))return i.reply({content:"Your previous action is still processing.",flags:MessageFlags.Ephemeral});
+ handling.add(owner);
+ try{return await handleControl(i);}
+ finally{handling.delete(owner);}
+}
+async function handleControl(i){
  if(!i.guildId||!i.guild)return reply(i,{content:"Scheduled Pings must be managed in a server."});
  if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
   return reply(i,{content:"Manage Server permission is required to control scheduled role mentions."});
  const config=await GuildConfig.findOne({guildId:i.guildId}).lean();
  if(!config?.scheduledPingsChannelId||i.channelId!==config.scheduledPingsChannelId)
   return reply(i,{content:"Use the permanent Scheduled Pings dashboard in the configured private staff channel."});
- if(i.isModalSubmit())return modalSubmit(i,i.customId.split(":").slice(2).join(":"));
- const command=i.customId.replace(/^pings:/,"");
- if(command==="root:create")return i.showModal(modal("templateName","Create Scheduled Ping Template",[
+ const [control,viewId]=i.customId.split("|");
+ let command=control.replace(/^pings:/,"");
+ if(command.startsWith("activation:confirm:")){
+  const id=command.slice("activation:confirm:".length);
+  const state=sessions.get(key(i));
+  if(!mongoose.isObjectIdOrHexString(id))throw Error("Invalid activation preview.");
+  if(!state || state.viewId!==viewId || String(state.scheduleId)!==id){
+   const saved=await PingSchedule.findOne({_id:id,guildId:i.guildId,activatedBy:i.user.id}).lean();
+   if(saved)return i.reply({content:"This preview already activated **"+saved.name+"** in <#"+saved.destinationChannelId+">.",
+    flags:MessageFlags.Ephemeral,allowedMentions:{parse:[]}});
+   throw Error("This activation preview expired. Open the latest preview.");
+  }
+  command="activation:confirm";
+ }
+ if(!command.startsWith("root:") && command!=="modal:templateName"){
+  if(!viewId || sessions.get(key(i))?.viewId!==viewId)
+   return i.reply({content:"This panel has been replaced. Use your latest panel or reopen the staff dashboard.",flags:MessageFlags.Ephemeral});
+  stateFor(i);
+ }
+ if(i.isModalSubmit())return modalSubmit(i,command.slice("modal:".length));
+ if(command==="list:previous"||command==="list:next")
+  return activeList(i,stateFor(i).page+(command==="list:next"?1:-1));
+ if(command==="root:create")return i.showModal(modal(i,"templateName","Create Scheduled Ping Template",[
   ["name","Template name","",TextInputStyle.Short,80],
   ["description","Optional description","",TextInputStyle.Paragraph,300,false],
  ]));
@@ -398,7 +458,7 @@ export async function handleScheduledPingsInteraction(i){
   if(s.phase!=="chooseChannel")throw Error("Choose a template first.");
   const channelId=i.values?.[0];
   await validatePingDestination(i.guild,channelId,s.template.groups.flatMap(g=>g.roleIds||[]));
-  Object.assign(s,{phase:"activation",destinationChannelId:channelId,
+  Object.assign(s,{phase:"activation",scheduleId:new mongoose.Types.ObjectId(),destinationChannelId:channelId,
    startAt:new Date(Date.now()+5*60_000),page:0,overrides:[],
    workingGroups:s.template.groups.map(g=>({...g,roleIds:[...g.roleIds],messages:[...g.messages]}))});
   return activationPanel(i,s);
@@ -406,14 +466,14 @@ export async function handleScheduledPingsInteraction(i){
  if(command==="draft:cancel"){sessions.delete(key(i));return reply(i,{content:"Template editor closed. No changes saved."});}
  if(command.startsWith("draft:")){
   const s=editorState(i),g=s.groups[s.groupIndex];
-  if(command==="draft:timing")return i.showModal(modal("timing","Edit Ping Group Timing",[
+  if(command==="draft:timing")return i.showModal(modal(i,"timing","Edit Ping Group Timing",[
    ["name","Ping Group name",g.name,TextInputStyle.Short,60],
    ["repeatMode","Frequency: once, hours or days",g.repeatMode,TextInputStyle.Short,8],
    ["interval","Repeat every X hours/days",g.interval,TextInputStyle.Short,3],
    ["days","Duration (days, 1–365)",g.durationDays,TextInputStyle.Short,3],
    ["offset","First ping delay (hours)",g.offsetHours,TextInputStyle.Short,3]
   ]));
-  if(command==="draft:message")return i.showModal(modal("message","Add Rotating Message",[
+  if(command==="draft:message")return i.showModal(modal(i,"message","Add Rotating Message",[
    ["content","Message (roles added separately)","",TextInputStyle.Paragraph,1800]
   ]));
   if(command==="draft:removeMessage"){g.messages.pop();return reply(i,draftPanel(s));}
@@ -480,19 +540,21 @@ export async function handleScheduledPingsInteraction(i){
    const total=(await eventsForActivation(s)).length;
    s.page=Math.min(Math.ceil(total/10)-1,(s.page||0)+1);
   }
-  if(command==="activation:start")return i.showModal(modal("start","Schedule Start Time",[
+  if(command==="activation:start")return i.showModal(modal(i,"start","Schedule Start Time",[
    ["date","ISO date/time incl timezone","",TextInputStyle.Short,40]
   ]));
   if(command==="activation:confirm"){
+   await i.deferUpdate();
    const template=await PingTemplate.findOne({_id:s.template._id,guildId:i.guildId});
    if(!template)throw Error("This template was removed.");
-   const schedule=await activatePingSchedule({guild:i.guild,template,
+   const schedule=await activatePingSchedule({guild:i.guild,template,scheduleId:s.scheduleId,
     channelId:s.destinationChannelId,startAt:s.startAt,actorId:i.user.id,
     overrides:{groups:s.workingGroups,events:s.overrides}});
+   const dashboard=await refreshPingDashboard(i.client,i.guildId);
    sessions.delete(key(i));
    return reply(i,{content:"**Schedule activated!**\n"+schedule.name+
     "\nDestination: <#"+schedule.destinationChannelId+">\n"+
-    schedule.plannedCount+" messages planned. The permanent staff dashboard has been updated."});
+    schedule.plannedCount+" messages planned."+(dashboard?"":" The staff dashboard could not be refreshed.")});
   }
   return activationPanel(i,s);
  }
@@ -505,10 +567,16 @@ export async function handleScheduledPingsInteraction(i){
  if(command.startsWith("group:")){
   const s=stateFor(i);
   if(s.phase!=="activation"||!s.workingGroups)throw Error("Open a template activation first.");
+  if(command==="group:applyTiming" || command==="group:keepTiming"){
+   if(!s.pendingTiming)throw Error("Open the timing editor again.");
+   if(command==="group:applyTiming")Object.assign(s,{workingGroups:s.pendingTiming.groups,overrides:s.pendingTiming.overrides,page:0});
+   delete s.pendingTiming;
+   return reply(i,activationGroupPanel(s));
+  }
   if(command==="group:back")return activationPanel(i,s);
   const g=s.workingGroups[s.selectedGroupIndex];
   if(!g)throw Error("Select a Ping Group first.");
-  if(command==="group:timing")return i.showModal(modal("groupTiming","Customize Group Timing",[
+  if(command==="group:timing")return i.showModal(modal(i,"groupTiming","Customize Group Timing",[
    ["name","Ping Group Name",g.name,TextInputStyle.Short,60],
    ["repeatMode","Frequency: once, hours, days",g.repeatMode,TextInputStyle.Short,8],
    ["interval","Repeat every X hours / days",g.interval,TextInputStyle.Short,3],
@@ -525,7 +593,7 @@ export async function handleScheduledPingsInteraction(i){
    g.roleIds=[];return reply(i,activationGroupPanel(s));
   }
   if(command==="group:replaceText"||command==="group:addText")
-   return i.showModal(modal(command==="group:addText"?"groupAddText":"groupReplaceText",
+   return i.showModal(modal(i,command==="group:addText"?"groupAddText":"groupReplaceText",
     command==="group:addText"?"Add Rotating Message":"Replace Group Messages",[
      ["content","Message text","",TextInputStyle.Paragraph,1800,true]
    ]));
@@ -551,7 +619,7 @@ export async function handleScheduledPingsInteraction(i){
  if(command==="event:back"){
   const s=selectedInput(i);
   if(s.phase==="activation")return activationPanel(i,s);
-  if(s.phase==="management")return managementPanel(s);
+  if(s.phase==="management")return reply(i,managementPanel(s));
  }
  if(command==="event:roles"){
   const s=selectedInput(i);
@@ -581,13 +649,13 @@ export async function handleScheduledPingsInteraction(i){
   const e=s.phase==="activation"
    ?(await eventsForActivation(s)).find(x=>x.sequence===s.selectedEvent)
    :await PingDelivery.findById(s.selectedEvent).lean();
-  return i.showModal(modal("eventText","Edit One Ping Message",[
+  return i.showModal(modal(i,"eventText","Edit One Ping Message",[
    ["content","Message text (blank = roles only)",e?.content||"",TextInputStyle.Paragraph,1800,false]
   ]));
  }
  if(command==="event:time"){
   selectedInput(i);
-  return i.showModal(modal("eventTime","Change One Ping's Time",[
+  return i.showModal(modal(i,"eventTime","Change One Ping's Time",[
    ["date","ISO date/time incl timezone","",TextInputStyle.Short,40]
   ]));
  }
@@ -600,7 +668,7 @@ export async function handleScheduledPingsInteraction(i){
  }
  if(command.startsWith("manage:")){
   const s=stateFor(i);
-  if(command==="manage:list")return activeList(i);
+  if(command==="manage:list")return activeList(i,s.page);
   if(!["management","futureList"].includes(s.phase))throw Error("Select an active schedule first.");
   s.schedule=await PingSchedule.findOne({_id:s.schedule._id,guildId:i.guildId}).lean();
   if(!s.schedule)throw Error("Schedule not found.");
@@ -616,10 +684,12 @@ export async function handleScheduledPingsInteraction(i){
    s.futurePage=Math.max(0,(s.futurePage||0)+(command.endsWith("Next")?1:-1));
    return futureList(i,s);
   }
-  if(command==="manage:end")return i.showModal(modal("end","End Schedule Early",[
+  if(command==="manage:end")return reply(i,{content:"End **"+s.schedule.name+"** in <#"+s.schedule.destinationChannelId+"> early?",
+   components:[row(["Continue to Reason","manage:endReason",ButtonStyle.Danger],["Cancel","manage:back"])]});
+  if(command==="manage:endReason")return i.showModal(modal(i,"end","End Schedule Early",[
    ["reason","Reason (required)","",TextInputStyle.Paragraph,500]
   ]));
-  if(command==="manage:extend")return i.showModal(modal("extend","Extend Schedule",[
+  if(command==="manage:extend")return i.showModal(modal(i,"extend","Extend Schedule",[
    ["days","Additional days","",TextInputStyle.Short,3]
   ]));
   if(command==="manage:history"){

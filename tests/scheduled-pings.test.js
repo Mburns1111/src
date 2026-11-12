@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {normalizePingGroup,planPingDeliveries,pingDashboardButtons} from "../services/scheduled-pings.js";
+import mongoose from "mongoose";
+import {handleScheduledPingsInteraction} from "../commands/scheduled-pings.js";
+import {activatePingSchedule,reconcilePingSchedules,normalizePingGroup,planPingDeliveries,pingDashboardButtons} from "../services/scheduled-pings.js";
 import PingTemplate from "../models/PingTemplate.js";
 import PingSchedule from "../models/PingSchedule.js";
 import PingDelivery from "../models/PingDelivery.js";
@@ -92,4 +94,137 @@ test("schedules have independent persistent copy, send history and audit schemas
  for(const f of ["sequence","roleIds","content","dueAt","messageUrl","error","status"])
   assert.ok(PingDelivery.schema.path(f));
  for(const f of ["actorId","event","details"])assert.ok(PingAudit.schema.path(f));
+});
+
+
+function fakeQuery(records){
+ let offset=0,size=records.length;
+ return {
+  sort(){return this;},select(){return this;},
+  skip(value){offset=value;return this;},limit(value){size=value;return this;},
+  async lean(){return records.slice(offset,offset+size);},
+ };
+}
+
+function staffEditor(t){
+ t.mock.method(GuildConfig,"findOne",()=>({lean:async()=>({scheduledPingsChannelId:"staff"})}));
+ let counter=0;
+ return async function click(customId,{values=[],fields}={}){
+  let result;
+  const capture=async payload=>{result=payload;};
+  const i={id:String(++counter),guildId:"server",
+   guild:{channels:{fetch:async()=>({isTextBased:()=>true,send(){},permissionsFor:()=>({has:()=>true})})},
+    members:{fetchMe:async()=>({})}},user:{id:t.name},channelId:"staff",
+   memberPermissions:{has:()=>true},message:{flags:{has:()=>true}},customId,values,
+   fields:{getTextInputValue:key=>fields[key]},isModalSubmit:()=>Boolean(fields),
+   reply:capture,update:capture,showModal:capture};
+  await handleScheduledPingsInteraction(i);
+  return result;
+ };
+}
+function control(panel,prefix){
+ const component=panel.components.flatMap(row=>row.components).find(c=>c.data.custom_id.startsWith("pings:"+prefix));
+ assert.ok(component,"Missing "+prefix);
+ return component.data.custom_id;
+}
+
+test("management pages reach schedule 26 and an old End Early form cannot affect a different schedule",async t=>{
+ const schedules=Array.from({length:26},(_,n)=>({_id:String(n),name:"Event "+n,destinationChannelId:"dest"+n,
+  startsAt:start,endsAt:start,status:"active",groups:[],sentCount:0,plannedCount:1}));
+ t.mock.method(PingSchedule,"countDocuments",async()=>26);
+ t.mock.method(PingSchedule,"find",()=>fakeQuery(schedules));
+ t.mock.method(PingSchedule,"findOne",filter=>({lean:async()=>schedules[Number(filter._id)]}));
+ const click=staffEditor(t);
+ const first=await click("pings:root:active");
+ const last=await click(control(first,"list:next"));
+ assert.equal(last.components[0].components[0].toJSON().options[0].value,"25");
+ const a=await click(control(last,"select:schedule"),{values:["25"]});
+ const confirm=await click(control(a,"manage:end"));
+ assert.match(confirm.content,/Event 25.*<#dest25>/);
+ const form=await click(control(confirm,"manage:endReason"));
+ const list=await click("pings:root:active");
+ await click(control(list,"select:schedule"),{values:["0"]});
+ const stale=await click(form.data.custom_id,{fields:{reason:"Ended"}});
+ assert.match(stale.content,/replaced/);
+});
+
+test("a paused backlog does not consume the worker's active delivery batch",async t=>{
+ const pending=[...Array.from({length:50},()=>({scheduleId:"paused"})),{scheduleId:"active"}];
+ t.mock.method(PingSchedule,"distinct",async(field,filter)=>{
+  assert.equal(field,"_id");assert.deepEqual(filter,{status:"active"});return ["active"];
+ });
+ t.mock.method(PingDelivery,"find",filter=>fakeQuery(filter.status==="pending"
+  ?pending.filter(event=>filter.scheduleId.$in.includes(event.scheduleId)):[]));
+ t.mock.method(PingSchedule,"findById",()=>({select:()=>({lean:async()=>({status:"active",guildId:"guild"})}),lean:async()=>null}));
+ t.mock.method(PingDelivery,"findOneAndUpdate",()=>({lean:async()=>null}));
+ t.mock.method(PingSchedule,"find",()=>fakeQuery([]));
+ t.mock.method(GuildConfig,"findOne",()=>({lean:async()=>null}));
+ assert.equal((await reconcilePingSchedules({})).processed,1);
+});
+
+test("activation retry reuses the committed preview even after a restart",async t=>{
+ const saved={name:"Original schedule"};
+ const identity={_id:"preview-id",guildId:"guild",activatedBy:"staff"};
+ t.mock.method(PingSchedule,"findOne",async filter=>{assert.deepEqual(filter,identity);return saved;});
+ assert.equal(await activatePingSchedule({scheduleId:"preview-id",guild:{id:"guild"},actorId:"staff"}),saved);
+});
+
+test("retiming preserves individual edits and asks before removing an edited occurrence",async t=>{
+ const template={_id:"example",name:"Reminders",groups:[group({roleIds:[],interval:12,durationDays:1}),
+  group({roleIds:[],repeatMode:"once",offsetHours:3,messages:["Other"]})]};
+ t.mock.method(PingTemplate,"find",()=>fakeQuery([template]));
+ t.mock.method(PingTemplate,"findOne",()=>({lean:async()=>template}));
+ const click=staffEditor(t);
+ const list=await click("pings:root:templates");
+ const details=await click(control(list,"select:template"),{values:["example"]});
+ const chooser=await click(control(details,"template:use"));
+ // The test destination supports both posting and viewing.
+ let preview=await click(control(chooser,"select:destination"),{values:["dest"]});
+ const ping=await click(control(preview,"select:planned"),{values:["3"]});
+ const edit=await click(control(ping,"event:text"));
+ const edited=await click(edit.data.custom_id,{fields:{content:"Custom second occurrence"}});
+ preview=await click(control(edited,"event:back"));
+ const startForm=await click(control(preview,"activation:start"));
+ preview=await click(startForm.data.custom_id,{fields:{date:new Date(Date.now()+86400000).toISOString()}});
+ assert.match(preview.content,/Custom second occurrence/);
+ const groups=await click(control(preview,"activation:groups"));
+ let groupPanel=await click(control(groups,"select:activationGroup"),{values:["0"]});
+ let timing=await click(control(groupPanel,"group:timing"));
+ const values={name:"A",repeatMode:"hours",interval:"1",days:"1",offset:"0"};
+ groupPanel=await click(timing.data.custom_id,{fields:values});
+ preview=await click(control(groupPanel,"group:back"));
+ assert.match(preview.content,/#2 [^\n]*Custom second occurrence/);
+ const picker=await click(control(preview,"activation:groups"));
+ groupPanel=await click(control(picker,"select:activationGroup"),{values:["0"]});
+ timing=await click(control(groupPanel,"group:timing"));
+ const warning=await click(timing.data.custom_id,{fields:{...values,repeatMode:"once"}});
+ assert.match(warning.content,/removes 1 individually edited ping/);
+ groupPanel=await click(control(warning,"group:keepTiming"));
+ preview=await click(control(groupPanel,"group:back"));
+ assert.match(preview.content,/Custom second occurrence/);
+});
+
+test("concurrent activations write one batch of deliveries and one audit entry",async t=>{
+ const scheduleId=new mongoose.Types.ObjectId();
+ const actorId="staff";
+ let stored=null;
+ let lookups=0;
+ t.mock.method(PingSchedule,"findOne",async()=>++lookups<=2?null:stored);
+ t.mock.method(mongoose,"startSession",async()=>({withTransaction:async fn=>fn(),endSession:async()=>{}}));
+ t.mock.method(PingSchedule,"create",async ([record])=>{
+  assert.equal(record._id,scheduleId);
+  if(stored)throw Object.assign(new Error("Duplicate _id"),{code:11000});
+  stored=record;
+  return [record];
+ });
+ const deliveries=t.mock.method(PingDelivery,"insertMany",async()=>{});
+ const audit=t.mock.method(PingAudit,"create",async()=>{});
+ const guild={id:"guild",channels:{fetch:async()=>({isTextBased:()=>true,send(){},permissionsFor:()=>({has:()=>true})})},
+  members:{fetchMe:async()=>({})}};
+ const args={scheduleId,guild,actorId,channelId:"dest",startAt:new Date(Date.now()+60000),
+  template:{_id:"template",name:"Reminders",createdBy:actorId,groups:[group({roleIds:[]})]}};
+ const results=await Promise.all([activatePingSchedule(args),activatePingSchedule(args)]);
+ assert.deepEqual(results,[stored,stored]);
+ assert.equal(deliveries.mock.callCount(),1);
+ assert.equal(audit.mock.callCount(),1);
 });

@@ -61,7 +61,7 @@ export function planPingDeliveries(groups,startAt){
   for(let time=first,ordinal=0;time<until;time+=every,ordinal++){
    if(events.length>=MAX_EVENTS)throw Error("Too many scheduled pings. Reduce the duration or frequency (maximum "+MAX_EVENTS+").");
    const content=group.messages.length?group.messages[ordinal%group.messages.length]:"";
-   events.push({groupIndex,dueAt:new Date(time),roleIds:group.roleIds,content});
+   events.push({groupIndex,ordinal,dueAt:new Date(time),roleIds:group.roleIds,content});
    if(group.repeatMode==="once")break;
   }
  }
@@ -86,7 +86,10 @@ export async function validatePingDestination(guild,id,roleIds=[]){
 export async function logPingChange(scheduleId,guildId,actorId,event,details={}){
  return PingAudit.create({scheduleId,guildId,actorId,event,details});
 }
-export async function activatePingSchedule({guild,template,channelId,startAt,actorId,overrides={}}){
+export async function activatePingSchedule({guild,template,channelId,startAt,actorId,overrides={},scheduleId=new mongoose.Types.ObjectId()}){
+ const identity={_id:scheduleId,guildId:guild.id,activatedBy:actorId};
+ const existing=await PingSchedule.findOne(identity);
+ if(existing)return existing;
  const groups=(overrides.groups||template.groups).map(g=>({...g.toObject?.()||g}));
  const events=planPingDeliveries(groups,startAt);
  const overridesBySequence=new Map((overrides.events||[]).map(x=>[Number(x.sequence),x]));
@@ -110,7 +113,7 @@ export async function activatePingSchedule({guild,template,channelId,startAt,act
  try {
   await session.withTransaction(async()=>{
    const [record]=await PingSchedule.create([{
-    guildId:guild.id,templateId:template._id,templateName:template.name,
+    _id:scheduleId,guildId:guild.id,templateId:template._id,templateName:template.name,
     name:overrides.name||template.name,destinationChannelId:channelId,
     createdBy:template.createdBy,activatedBy:actorId,status:"active",
     groups,startsAt:start,endsAt:end,plannedCount:events.length,
@@ -122,8 +125,11 @@ export async function activatePingSchedule({guild,template,channelId,startAt,act
    await PingAudit.create([{guildId:guild.id,scheduleId:record._id,actorId,
     event:"activated",details:{templateId:String(template._id),channelId,startAt:start,groups,plannedCount:events.length}}],{session});
   });
+ }catch(error){
+  if(error.code!==11000)throw error;
+  schedule=await PingSchedule.findOne(identity);
+  if(!schedule)throw error;
  }finally{await session.endSession();}
- await ensurePingDashboard(guild.client,guild.id);
  return schedule;
 }
 
@@ -240,7 +246,8 @@ export async function reconcilePingSchedules(client,{now=new Date()}={}){
    {$set:{status:"failed",error:"Uncertain delivery after interrupted send; not automatically retried to prevent duplicate mentions."}});
   if(result.modifiedCount)await PingSchedule.updateOne({_id:event.scheduleId},{$inc:{failedCount:1}});
  }
- const due=await PingDelivery.find({status:"pending",dueAt:{$lte:now}}).sort({dueAt:1}).limit(50).lean();
+ const activeIds=await PingSchedule.distinct("_id",{status:"active"});
+ const due=await PingDelivery.find({scheduleId:{$in:activeIds},status:"pending",dueAt:{$lte:now}}).sort({dueAt:1}).limit(50).lean();
  const changedGuilds=new Set(),changedSchedules=new Set();
  for(const event of due){
   const s=await PingSchedule.findById(event.scheduleId).select("status guildId").lean();
