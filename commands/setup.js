@@ -39,7 +39,7 @@ export async function execute(interaction) {
   requireGuild(interaction);
   // Compatibility for Discord's cached /setup archives option. It is no longer registered.
   if(interaction.options.getSubcommand?.()==="archives")
-    throw new UserFacingError("Giveaway archives are now set within /setup giveaways, /setup activity-giveaways, or /setup trials. Each setup requires the same shared private archive channel.");
+    throw new UserFacingError("Shared Staff Archives are now configured as a required channel in /setup general. The giveaway and Trial setups reuse that channel automatically.");
   if(interaction.options.getSubcommand?.()==="general")
     return startGuidedGuildSetup(interaction,"general");
   if(interaction.options.getSubcommand?.()==="cards")
