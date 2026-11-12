@@ -219,7 +219,7 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Bot Commands & Shared Archives · PRIVATE / Required",
-    "**Required:**\n• **Bot Commands Channel** — Create a private text channel for setup, administration, and general bot management.\n• **Access** — Give authorized staff and the bot access; hide it from @everyone.\n\n• **Shared Staff Archives Channel** — A second required private channel for completed giveaway, Court\'s Trial and scheduled-ping records. It must be separate from Bot Commands and active giveaway staff controls.\n\n**Both are mandatory in `/setup general`.** All bot setup commands must be run in this channel (Bot Commands)."
+    "**Required:**\n• **Bot Commands Channel** — Create a private text channel for setup, administration, and general bot management.\n• **Access** — Give authorized staff and the bot access; hide it from @everyone.\n\n• **Shared Staff Archives Channel** — A second required private channel for completed giveaway, Court\'s Trial and scheduled-ping records. It must be separate from Bot Commands and active giveaway staff controls.\n\n**Bot Commands, Shared Staff Archives and Server Time Zone are all mandatory in `/setup general`.** All bot setup commands must be run in this channel (Bot Commands)."
    ],
    [
     "2. Profiles, Trading, Shop & Points · PUBLIC",
@@ -243,7 +243,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "7. Setup Order",
-    "First run `/setup general` to assign the required, private **Bot Commands** channel.\n\nSelect both **Bot Commands** and **Shared Staff Archives** in `/setup general`. The optional **Scheduled Pings Dashboard** is a private staff channel with permanent management buttons.\n\nThen configure the features you use:\n1. `/setup cards` — Hatchem.\n2. `/setup giveaways` — Regular giveaways, shared Banned role and staff controls (the archive is set in General).\n3. `/setup activity-giveaways` — Activity list, winners, shared settings.\n4. `/setup trials` — Court's Trials.\n\nSet the **required Giveaway Banned role** in the regular or activity giveaway setup before creating any prize giveaways or Trials. Rerun setup to change future defaults.\n\nUse private **Bot Commands** for staff commands; public participation uses buttons."
+    "First run `/setup general` to assign the required private **Bot Commands** and **Shared Staff Archives** channels and choose your **Server Time Zone**.\n\nSelect **Bot Commands**, **Shared Staff Archives**, and the **Server Time Zone** in `/setup general`. The optional **Scheduled Pings Dashboard** is a private staff channel with permanent management buttons.\n\nThen configure the features you use:\n1. `/setup cards` — Hatchem.\n2. `/setup giveaways` — Regular giveaways, shared Banned role and staff controls (the archive is set in General).\n3. `/setup activity-giveaways` — Activity list, winners, shared settings.\n4. `/setup trials` — Court's Trials.\n\nSet the **required Giveaway Banned role** in the regular or activity giveaway setup before creating any prize giveaways or Trials. Rerun setup to change future defaults.\n\nUse private **Bot Commands** for staff commands; public participation uses buttons."
    ]
   ]
  ],
@@ -317,7 +317,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "3. Archive Setup",
-    "**Required:** A private **Giveaway Archives** channel, different from the private Giveaway Staff Controls channel and hidden from @everyone. The bot needs permission to post embeds and attach records.\n\nAssign the shared channel once in **`/setup general`**. Giveaways, activity giveaways and Trials use it automatically; their individual setup flows cannot change it.\n\nThe bot saves the archived staff record **before** removing its earlier private staff message. It does not erase the archived history when public listings are removed."
+    "**Required:** A private **Shared Staff Archives** channel, different from the private Giveaway Staff Controls channel and hidden from @everyone. The bot needs permission to post embeds and attach records.\n\nAssign the shared channel once in **`/setup general`**. Giveaways, activity giveaways and Trials use it automatically; their individual setup flows cannot change it.\n\nThe bot saves the archived staff record **before** removing its earlier private staff message. It does not erase the archived history when public listings are removed."
    ]
   ]
  ],
@@ -325,10 +325,10 @@ const CONTENT=Object.freeze({
     "Staff · Scheduled Pings",
     "Create saved schedule templates and activate them in one destination channel at a time. Management uses permanent buttons in a private Scheduled Pings dashboard.",
     [
-      ["1. Setup", "Run `/setup general` to select the mandatory **Shared Staff Archives** channel and the optional private **Scheduled Pings Dashboard** channel. Bot Commands remains mandatory."],
+      ["1. Setup", "Run `/setup general` to select the mandatory **Shared Staff Archives** channel, server-wide **Server Time Zone**, and optional private **Scheduled Pings Dashboard** channel. Bot Commands remains mandatory."],
       ["2. Saved Templates", "Use **Create Template** in the dashboard to create one Ping Group at a time. Add more groups as needed. Each group supports up to ten roles and its own recurrence and messages. Templates do not send anything until activated."],
-      ["3. Activate & Manage", "Choose **Saved Templates** to make an independent copy. Select one destination channel, review future pings, and activate. Use the dashboard to pause, edit, resume or end an active schedule."],
-      ["4. Archives", "The permanent dashboard shows active schedules and upcoming pings. When a schedule ends, a complete record of settings, sent messages, failures and staff modifications goes to the shared private archive."]
+      ["3. Activate & Manage", "Choose **Saved Templates** to make an independent copy. Select one destination channel, enter the start date and local clock time (using the saved server time zone), review future pings, and activate. Every X hours is elapsed time; every X days stays at the same local clock time across daylight saving. Use the dashboard to pause, edit, resume or end a schedule."],
+      ["4. Archives", "The dashboard shows active schedules, upcoming pings, and delivery alerts. When a schedule ends, the shared archive preserves messages, settings, failures and staff edits. If a send is in flight or the archive is unavailable, it displays Archive Pending and retries automatically."]
     ]
   ],
  "scards": [
