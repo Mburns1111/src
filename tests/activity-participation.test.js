@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import GuildConfig from "../models/GuildConfig.js";
+import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
+import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
+import {recordGiveawayMessage} from "../services/giveaway-activity-counter.js";
+import {recordGuidedMessage} from "../services/guided-activity.js";
 import {
   activityParticipationRole,memberHasActivityParticipationRole,eligibleActivityParticipant,
 } from "../services/activity-participation.js";
@@ -77,4 +81,29 @@ test("role lookup failures fail closed and never count an unverified participant
     message.guild.members.fetch=async()=>{throw Error("Discord is unavailable");};
     assert.equal(await eligibleActivityParticipant(message),null);
   }finally{restore();}
+});
+
+test("non-opted-in members generate no legacy counters or guided receipts",async()=>{
+  const restore=stubConfig({activityParticipationRoleId:role});
+  const beforeCount=GiveawayActivityCount.updateOne;
+  const beforeMinute=GiveawayActivityMinuteCount.updateOne;
+  let writes=0;
+  try{
+    GiveawayActivityCount.updateOne=async()=>{writes++;};
+    GiveawayActivityMinuteCount.updateOne=async()=>{writes++;};
+    const message={
+      ...testMessage([],[]),
+      channelId:"456789012345678901",channel:{isTextBased:()=>true},
+      content:"Hello from someone who has not opted in.",
+      createdAt:new Date("2026-11-11T16:00:00Z"),
+      id:"567890123456789012",
+    };
+    await recordGiveawayMessage(message);
+    await recordGuidedMessage(message);
+    assert.equal(writes,0);
+  }finally{
+    GiveawayActivityCount.updateOne=beforeCount;
+    GiveawayActivityMinuteCount.updateOne=beforeMinute;
+    restore();
+  }
 });
