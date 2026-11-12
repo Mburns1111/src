@@ -120,7 +120,7 @@ test("one entrant misses claim: no second eligible member means No Eligible Winn
     assert.equal(rendered.components.length,0);
     assert.equal(completedGiveawayCanDeleteListing(stored,{now}),false);
     assert.ok(giveawayStaffRecordPayload(stored).components.flatMap(r=>r.components)
-      .some(b=>b.data.custom_id==="giveawaystaff:remove:"+id));
+      .some(b=>b.data.custom_id==="giveawaystaff:cancel:"+id));
     assert.ok(saves.some(x=>x.change.$addToSet?.claimResolvedSlots===0));
   }finally{restore(stubs);}
 });
