@@ -324,8 +324,14 @@ async function modalSubmit(i,id){
    name:field(i,"name"),repeatMode:field(i,"repeatMode").toLowerCase(),
    interval:Number(field(i,"interval")),durationDays:Number(field(i,"days")),
    offsetHours:Number(field(i,"offset")),
-  });
+  },{allowEmpty:true});
   const groups=s.workingGroups.map((group,index)=>index===s.selectedGroupIndex?proposed:group);
+  // Before the first preview, the group may have no messages or roles.
+  // Only recalculate occurrence overrides when individual edits exist.
+  if(!s.overrides?.length){
+   s.workingGroups=groups;s.page=0;
+   return reply(i,activationGroupPanel(s));
+  }
   const previous=planPingDeliveries(s.workingGroups,s.startAt,{timeZone:s.timeZone});
   const next=planPingDeliveries(groups,s.startAt,{timeZone:s.timeZone});
   const sequences=new Map(next.map(e=>[e.groupIndex+":"+e.ordinal,e.sequence]));
@@ -346,23 +352,27 @@ async function modalSubmit(i,id){
   Object.assign(s,{workingGroups:groups,overrides,page:0});
   return reply(i,activationGroupPanel(s));
  }
- if(id==="groupReplaceText"||id==="groupAddText"){
+ if(id==="groupEditText"||id==="groupAddText"){
   if(s.phase!=="activation")throw Error("Activation expired.");
   const g=s.workingGroups[s.selectedGroupIndex];
   const value=field(i,"content");
   if(!value)throw Error("Enter message text.");
-  if(id==="groupReplaceText")g.messages=[value];
-  else{
-   if(g.messages.length>=20)throw Error("This group already has 20 rotating messages.");
-   g.messages.push(value);
+  const messages=[...(g.messages||[])];
+  if(id==="groupEditText"){
+   if(!Number.isInteger(s.selectedMessageIndex)||!messages[s.selectedMessageIndex])
+    throw Error("Choose an existing message first.");
+   messages[s.selectedMessageIndex]=value;
+  }else{
+   if(messages.length>=20)throw Error("This group already has 20 rotating messages.");
+   messages.push(value);s.selectedMessageIndex=messages.length-1;
   }
-  s.workingGroups[s.selectedGroupIndex]=normalizePingGroup(g);
+  s.workingGroups[s.selectedGroupIndex]=normalizePingGroup({...g,messages},{allowEmpty:true});
   return reply(i,activationGroupPanel(s));
  }
  if(id==="start"){
   if(s.phase!=="activation")throw Error("Open an activation preview first.");
   s.startAt=fromDateInput(field(i,"date"),field(i,"time"),s.timeZone);s.page=0;
-  return activationPanel(i,s);
+  return reply(i,activationSetupPanel(s));
  }
  if(id==="eventText"||id==="eventTime"){
   if(s.phase!=="activation"&&s.phase!=="management")throw Error("Select a future ping first.");
