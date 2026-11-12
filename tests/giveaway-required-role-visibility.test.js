@@ -21,7 +21,7 @@ const event={
   activityEndAt:new Date("2026-12-31T23:59:00Z"),
   claimWindowHours:12,
 };
-test("activity opt-in is mandatory and is separate from the optional regular giveaway entry role",()=>{
+test("activity opt-in is internal and separate from regular giveaway entry roles",()=>{
   const config=new GuildConfig({guildId:event.guildId});
   assert.equal(config.giveawayDefaultRequiredRoleId,"");
   assert.equal(config.activityParticipationRoleId,"");
@@ -39,10 +39,11 @@ test("activity opt-in is mandatory and is separate from the optional regular giv
     "regular giveaways now choose required role and visibility in the guided wizard");
   assert.equal(typeof startRegularGiveawayWizard,"function");
 });
-test("hidden role help stays private, but role requirement remains visible and enforced by its own field",()=>{
+test("activity posters ignore legacy role fields; regular giveaway role visibility is unchanged",()=>{
   const hidden={...event,showRequiredRoleInstructions:false};
   const activity=activityOneOffListingEmbed(hidden).toJSON().description;
-  assert.match(activity,/<@&123456789012345678>/);
+  assert.match(activity,/Opt in first/);
+  assert.doesNotMatch(activity,/<@&123456789012345678>/);
   assert.doesNotMatch(activity,/Where to get/);
   assert.doesNotMatch(activity,/Get the member role/);
   const ordinary=giveawayAnnouncement({...hidden,mode:"standard"}).embeds[0].toJSON().description;
@@ -50,16 +51,16 @@ test("hidden role help stays private, but role requirement remains visible and e
   assert.doesNotMatch(ordinary,/How to get the role/);
   assert.doesNotMatch(ordinary,/Get the member role/);
   const visible=activityOneOffListingEmbed({...event,showRequiredRoleInstructions:true}).toJSON().description;
-  assert.match(visible,/Where to get it/);
-  assert.match(visible,/<#234567890123456789>/);
+  assert.match(visible,/Opt in first/);
+  assert.doesNotMatch(visible,/Where to get it|<@&123456789012345678>|<#234567890123456789>/);
   const visibleOrdinary=giveawayAnnouncement({...event,mode:"standard",showRequiredRoleInstructions:true}).embeds[0].toJSON().description;
   assert.match(visibleOrdinary,/How to get the role/);
 });
-test("activity staff controls cannot remove the opt-in role or hide opt-in instructions",()=>{
+test("activity staff controls never edit the internal opt-in requirement per giveaway",()=>{
   assert.throws(()=>validateGuidedStaffEdit("showRequiredRoleInstructions","off",event),
-    /mandatory Activity Participation role/);
+    /managed internally/i);
   assert.throws(()=>validateGuidedStaffEdit("requiredRoleId","none",event),
-    /mandatory Activity Participation role/);
+    /managed internally/i);
   assert.throws(()=>validateGuidedStaffEdit("requiredRoleId","default",event),
-    /mandatory Activity Participation role/);
+    /managed internally/i);
 });
