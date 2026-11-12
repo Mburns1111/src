@@ -29,14 +29,20 @@ export const pingDashboardButtons=()=>[
 
 // Template drafts may have no content yet. A schedule still must have text or
 // role mentions before a delivery can be planned or activated.
+// Templates may have no messages. Activated schedules must have a valid
+// delivery mode, and per-ping text may not be missing from any occurrence.
 export function normalizePingGroup(g,{allowEmpty=false}={}){
  const roles=[...new Set((g.roleIds||[]).map(String).filter(Boolean))];
  const messages=(g.messages||[]).map(x=>String(x).trim()).filter(Boolean);
+ const perPingMessages=(g.perPingMessages||[]).map(x=>String(x||"").trim());
+ const messageMode=g.messageMode|| (messages.length?"rotate":"roles");
+ if(!["single","rotate","per-ping","roles"].includes(messageMode))
+   throw Error("Choose a valid Ping Group message mode.");
  const group={
   name:String(g.name||"Ping Group").trim().slice(0,60),
   repeatMode:["once","hours","days"].includes(g.repeatMode)?g.repeatMode:"hours",
   interval:Number(g.interval??12),durationDays:Number(g.durationDays??7),
-  offsetHours:Number(g.offsetHours??0),roleIds:roles,messages
+  offsetHours:Number(g.offsetHours??0),roleIds:roles,messages,perPingMessages,messageMode
  };
  if(!Number.isInteger(group.interval)||group.interval<1||group.interval>720)
    throw Error("Repeat interval must be a whole number from 1 to 720.");
@@ -45,21 +51,29 @@ export function normalizePingGroup(g,{allowEmpty=false}={}){
  if(!Number.isInteger(group.offsetHours)||group.offsetHours<0||group.offsetHours>720)
    throw Error("Start delay must be 0–720 hours.");
  if(roles.length>10)throw Error("Choose no more than 10 roles per Ping Group.");
- if(!allowEmpty&&!roles.length&&!messages.length)throw Error("Enter message text or select at least one role.");
  if(messages.length>20)throw Error("A Ping Group supports up to 20 rotating messages.");
- if(messages.some(x=>x.length+roles.length*24>1900))
+ if(perPingMessages.length>4000)throw Error("A Ping Group cannot contain more than 4,000 individual messages.");
+ if([...messages,...perPingMessages].some(x=>x.length+roles.length*24>1900))
    throw Error("Message text and role mentions together must fit in 1,900 characters.");
+ if(!allowEmpty){
+  if(messageMode==="roles"&&!roles.length)
+   throw Error("Select at least one role for role-only pings.");
+  if(["single","rotate"].includes(messageMode)&&!messages.length)
+   throw Error("Enter message text for this Ping Group.");
+  if(messageMode==="per-ping"&&!perPingMessages.some(Boolean))
+   throw Error("Enter a different message for each ping in this Ping Group.");
+ }
  return group;
 }
 export function scheduleGroupEnd(startAt,durationDays,timeZone="UTC"){
  return addServerCalendarDays(startAt,durationDays,validateServerTimeZone(timeZone));
 }
-export function planPingDeliveries(groups,startAt,{timeZone="UTC"}={}){
+export function planPingDeliveries(groups,startAt,{timeZone="UTC",allowIncomplete=false}={}){
  const start=nowMs(startAt);
  const zone=validateServerTimeZone(timeZone);
  if(!Number.isFinite(start))throw Error("Invalid schedule start time.");
  const events=[];
- const normalized=groups.map(normalizePingGroup);
+ const normalized=groups.map(g=>normalizePingGroup(g,{allowEmpty:allowIncomplete}));
  if(normalized.length<1||normalized.length>10)throw Error("Choose 1–10 Ping Groups.");
  for(let groupIndex=0;groupIndex<normalized.length;groupIndex++){
   const group=normalized[groupIndex];
@@ -73,7 +87,14 @@ export function planPingDeliveries(groups,startAt,{timeZone="UTC"}={}){
     :first+ordinal*every;
    if(time>=until)break;
    if(events.length>=MAX_EVENTS)throw Error("Too many scheduled pings. Reduce the duration or frequency (maximum "+MAX_EVENTS+").");
-   const content=group.messages.length?group.messages[ordinal%group.messages.length]:"";
+   const content=group.messageMode==="per-ping"
+    ?group.perPingMessages[ordinal]||""
+    :group.messageMode==="roles"?""
+    :group.messages.length?group.messages[(group.messageMode==="single"?0:ordinal%group.messages.length)]:"";
+   if(!allowIncomplete&&group.messageMode==="per-ping"&&!content)
+    throw Error("Ping Group "+(groupIndex+1)+" needs text for individual ping #"+(ordinal+1)+".");
+   if(!allowIncomplete&&!content&&!group.roleIds.length)
+    throw Error("Ping Group "+(groupIndex+1)+" has an empty ping #"+(ordinal+1)+".");
    events.push({groupIndex,ordinal,dueAt:new Date(time),roleIds:group.roleIds,content});
    if(group.repeatMode==="once")break;
   }
