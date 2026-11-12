@@ -30,6 +30,7 @@ const STAFF_GROUPS = [
  { label: "Other staff tools", topics: [
   {"id":"scards","label":"Hatchem Cards"},
   {"id":"spoints","label":"Points & Shop"},
+  {"id":"spings","label":"Scheduled Pings"},
   {"id":"sgames","label":"Party Games"}
  ] }
 ];
@@ -67,7 +68,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "Other Staff Tools",
-    "Hatchem Cards · Points & Shop · Party Games"
+    "Hatchem Cards · Points & Shop · Scheduled Pings · Party Games"
    ]
   ]
  ],
@@ -217,8 +218,8 @@ const CONTENT=Object.freeze({
   "Create the channels you need, then run guided setup to assign them. Initial setup must be completed before using the bot's other features.",
   [
    [
-    "1. Bot Commands · PRIVATE / Required",
-    "**Required:**\n• **Bot Commands Channel** — Create a private text channel for setup, administration, and general bot management.\n• **Access** — Give authorized staff and the bot access; hide it from @everyone.\n\n**All bot setup commands must be run in this channel.** Use it for normal administrative commands as well."
+    "1. Bot Commands & Shared Archives · PRIVATE / Required",
+    "**Required:**\n• **Bot Commands Channel** — Create a private text channel for setup, administration, and general bot management.\n• **Access** — Give authorized staff and the bot access; hide it from @everyone.\n\n• **Shared Staff Archives Channel** — A second required private channel for completed giveaway, Court\'s Trial and scheduled-ping records. It must be separate from Bot Commands and active giveaway staff controls.\n\n**Both are mandatory in `/setup general`.** All setup commands run in Bot Commands."
    ],
    [
     "2. Profiles, Trading, Shop & Points · PUBLIC",
@@ -234,7 +235,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Giveaways & Court's Trials · PUBLIC and PRIVATE",
-    "**Required public channels:**\n• **Regular Giveaways** — Entry posts and results.\n• **Activity Giveaway List** — Posters, progress, and the Opt In / Opt Out participation panel.\n• **Activity Winners** — Winner announcements and claim buttons.\n• **Court's Trials** — Signups, eliminations and Royal Verdicts.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Staff directory, previews, claims and delivery.\n• **Giveaway Archives** — Completed/cancelled records.\n\n**Required Giveaway Banned role:** Shared punishment across all three giveaway types; overrides entry and activity opt-in. An unbanned member must opt in again.\n\n**Activity opt-in:** MongoDB stores consent; no participation role is required.\n\n**Other roles:** Optional Giveaway Manager, regular entry role, and shared giveaway ping role. No participation role is required.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
+    "**Required public channels:**\n• **Regular Giveaways** — Entry posts and results.\n• **Activity Giveaway List** — Posters, progress, and the Opt In / Opt Out participation panel.\n• **Activity Winners** — Winner announcements and claim buttons.\n• **Court's Trials** — Signups, eliminations and Royal Verdicts.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Staff directory, previews, claims and delivery.\n• **Shared Staff Archives** — Assigned once under `/setup general`; stores completed/cancelled giveaway and Scheduled Pings records.\n\n**Required Giveaway Banned role:** Shared punishment across all three giveaway types; overrides entry and activity opt-in. An unbanned member must opt in again.\n\n**Activity opt-in:** MongoDB stores consent; no participation role is required.\n\n**Other roles:** Optional Giveaway Manager, regular entry role, and shared giveaway ping role. No participation role is required.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
    ],
    [
     "6. Bot Permissions",
@@ -242,7 +243,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "7. Setup Order",
-    "First run `/setup general` to assign the required, private **Bot Commands** channel.\n\nThen configure the features you use:\n1. `/setup cards` — Hatchem.\n2. `/setup giveaways` — Regular giveaways, shared Banned role, staff and archive channels.\n3. `/setup activity-giveaways` — Activity list, winners, shared settings.\n4. `/setup trials` — Court's Trials.\n\nSet the **required Giveaway Banned role** in the regular or activity giveaway setup before creating any prize giveaways or Trials. Rerun setup to change future defaults.\n\nUse private **Bot Commands** for staff commands; public participation uses buttons."
+    "First run `/setup general` to assign the required, private **Bot Commands** channel.\n\nSelect both **Bot Commands** and **Shared Staff Archives** in `/setup general`. The optional **Scheduled Pings Dashboard** is a private staff channel with permanent management buttons.\n\nThen configure the features you use:\n1. `/setup cards` — Hatchem.\n2. `/setup giveaways` — Regular giveaways, shared Banned role and staff controls (the archive is set in General).\n3. `/setup activity-giveaways` — Activity list, winners, shared settings.\n4. `/setup trials` — Court's Trials.\n\nSet the **required Giveaway Banned role** in the regular or activity giveaway setup before creating any prize giveaways or Trials. Rerun setup to change future defaults.\n\nUse private **Bot Commands** for staff commands; public participation uses buttons."
    ]
   ]
  ],
@@ -256,7 +257,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "Court's Trials — Fast-Paced Giveaways",
-    "**Court's Trials** run in their own public channel, separate from regular and activity giveaways. Members press **Join Trial**, and staff select **Start Trial**. The bot posts randomized eliminations and a ranked **Royal Verdict**.\n\n**Options:** 1–10 ranked prize places, up to 120 entrants, elimination pace (2, 3 or 5 seconds), optional required entry role, banners, shared announcement ping and claim instructions.\n\n**Claims:** New Trials use claim deadlines in **minutes**, ticket number and Discord ticket-message link, with configurable rerolls for missed claims. Older staff-managed Trials may use manual claims instead.\n\n**Private channels:** Shared Giveaway Staff Controls and Giveaway Archives. Configure with `/setup trials` in Bot Commands."
+    "**Court's Trials** run in their own public channel, separate from regular and activity giveaways. Members press **Join Trial**, and staff select **Start Trial**. The bot posts randomized eliminations and a ranked **Royal Verdict**.\n\n**Options:** 1–10 ranked prize places, up to 120 entrants, elimination pace (2, 3 or 5 seconds), optional required entry role, banners, shared announcement ping and claim instructions.\n\n**Claims:** New Trials use claim deadlines in **minutes**, ticket number and Discord ticket-message link, with configurable rerolls for missed claims. Older staff-managed Trials may use manual claims instead.\n\n**Private channels:** Shared Giveaway Staff Controls and Shared Staff Archives. Assign the archive in `/setup general`, then configure Trials with `/setup trials` in Bot Commands."
    ],
    [
     "2. Create and Post",
@@ -304,7 +305,7 @@ const CONTENT=Object.freeze({
  ],
  "sarchives": [
   "Staff · Archive Records",
-  "Completed and cancelled giveaway history is stored in the required private archive channel.",
+  "Completed and cancelled giveaway history and finished Scheduled Pings records are stored in the required private Shared Staff Archives channel.",
   [
    [
     "1. Archive or Cancel",
@@ -312,14 +313,24 @@ const CONTENT=Object.freeze({
    ],
    [
     "2. Preserved Information",
-    "The private **Giveaway Archives** channel preserves:\n• Giveaway settings, requirements and participants.\n• Winner placements, claim tickets, ticket-message links and timestamps.\n• Prize-delivery confirmation, staff actions and cancellation reasons.\n• Manual/automatic reroll history and no-eligible outcomes.\n• Final activity progress snapshots and relevant review records.\n• Full giveaway data in an attached JSON record.\n\n**Only regular giveaways are deleted from their public channel when archived.** Activity winner announcements and Court's Trial Royal Verdicts remain public."
+    "The private **Shared Staff Archives** channel preserves:\n• Giveaway settings, requirements and participants.\n• Winner placements, claim tickets, ticket-message links and timestamps.\n• Prize-delivery confirmation, staff actions and cancellation reasons.\n• Manual/automatic reroll history and no-eligible outcomes.\n• Final activity progress snapshots and relevant review records.\n• Full giveaway data in an attached JSON record.\n\n**Only regular giveaways are deleted from their public channel when archived.** Activity winner announcements and Court's Trial Royal Verdicts remain public."
    ],
    [
     "3. Archive Setup",
-    "**Required:** A private **Giveaway Archives** channel, different from the private Giveaway Staff Controls channel and hidden from @everyone. The bot needs permission to post embeds and attach records.\n\nAssign the shared channel through `/setup giveaways`, `/setup activity-giveaways` or `/setup trials`.\n\nThe bot saves the archived staff record **before** removing its earlier private staff message. It does not erase the archived history when public listings are removed."
+    "**Required:** A private **Giveaway Archives** channel, different from the private Giveaway Staff Controls channel and hidden from @everyone. The bot needs permission to post embeds and attach records.\n\nAssign the shared channel once in **`/setup general`**. Giveaways, activity giveaways and Trials use it automatically; their individual setup flows cannot change it.\n\nThe bot saves the archived staff record **before** removing its earlier private staff message. It does not erase the archived history when public listings are removed."
    ]
   ]
  ],
+ "spings": [
+    "Staff · Scheduled Pings",
+    "Create saved schedule templates and activate them in one destination channel at a time. Management uses permanent buttons in a private Scheduled Pings dashboard.",
+    [
+      ["1. Setup", "Run `/setup general` to select the mandatory **Shared Staff Archives** channel and the optional private **Scheduled Pings Dashboard** channel. Bot Commands remains mandatory."],
+      ["2. Saved Templates", "Use **Create Template** in the dashboard to create one Ping Group at a time. Add more groups as needed. Each group supports up to ten roles and its own recurrence and messages. Templates do not send anything until activated."],
+      ["3. Activate & Manage", "Choose **Saved Templates** to make an independent copy. Select one destination channel, review future pings, and activate. Use the dashboard to pause, edit, resume or end an active schedule."],
+      ["4. Archives", "The permanent dashboard shows active schedules and upcoming pings. When a schedule ends, a complete record of settings, sent messages, failures and staff modifications goes to the shared private archive."]
+    ]
+  ],
  "scards": [
   "Staff · Hatchem Cards",
   "Hatchem registration, Points integration, and member help.",
