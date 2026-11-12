@@ -2,10 +2,11 @@ import mongoose from "mongoose";
 import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder,
   ChannelType, MessageFlags, PermissionFlagsBits, RoleSelectMenuBuilder,
-  StringSelectMenuBuilder,
+  StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {ensurePingDashboard} from "../services/scheduled-pings.js";
+import {COMMON_SERVER_TIME_ZONES,validateServerTimeZone} from "../services/schedule-timezone.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
 import { ensureProfileEntry } from "./profile.js";
@@ -23,6 +24,7 @@ const SESSION_MS = 30 * 60_000;
 const GENERAL_STEPS = [
   ["commandChannelId", "Bot commands", true],
   ["giveawayArchiveChannelId", "Shared staff archives", true],
+  ["serverTimeZone", "Server time zone", true],
   ["scheduledPingsChannelId", "Scheduled pings staff dashboard", false],
   ["profileChannelId", "Member profiles", false],
   ["houseChannelId", "House listings", false],
@@ -43,7 +45,9 @@ export const cardSetupFields = CARD_STEPS.map(step => step[0]);
 const stepsFor = mode => mode === "general" ? GENERAL_STEPS : CARD_STEPS;
 const sessionKey = (guild, member) => guild + ":" + member;
 const shown = id => id ? "<#" + id + ">" : "Disabled / skipped";
-const label = (item, value) => item[0] === "cardRoleId"
+const label = (item, value) => item[0] === "serverTimeZone"
+  ? (value ? value + " (all scheduled announcements use this zone)" : "NOT CONFIGURED — REQUIRED")
+  : item[0] === "cardRoleId"
   ? (value ? "<@&" + value + ">" : "Not configured")
   : item[0] === "hatchemAutoDropsEnabled"
     ? (value === false ? "Disabled" : "Enabled") : shown(value);
@@ -60,7 +64,7 @@ export function guidedGuildSetupSummary(mode, settings) {
   for (const step of stepsFor(mode))
     lines.push("**" + step[1] + ":** " + label(step, settings[step[0]]));
   if (mode === "general") {
-    lines.push("", "**Bot Commands and Shared Staff Archives are mandatory.** Every other feature can be skipped or disabled.",
+    lines.push("", "**Bot Commands, Shared Staff Archives and Server Time Zone are mandatory.** Every other feature can be skipped or disabled.",
       "A skipped feature will not have a configured post channel. Previously published posts and stored member data are not deleted.",
       "Giveaways, activity giveaways, Court's Trials and Hatchem are configured with their **own** guided setup commands.");
   } else {
@@ -97,6 +101,8 @@ function layout(session) {
     description += "Choose a **private staff-only Bot Commands channel** for setup, administration and general bot management. Hide this channel from @everyone. **Required** even if you only use giveaways or Hatchem.";
   else if (field === "giveawayArchiveChannelId")
     description += "Choose the **required private shared archive** for completed and cancelled giveaways, Trials, and Scheduled Pings. Hide from @everyone. This must be a separate channel from Bot Commands, giveaway staff controls, and public channels.";
+  else if (field === "serverTimeZone")
+    description += "Choose the **server-wide time zone** used when scheduling announcements and pings. Staff will enter dates and clock times in this zone, not UTC offsets. Daily schedules stay at the same local clock time across daylight saving changes. Time-zone changes do not move schedules already active.";
   else if (field === "scheduledPingsChannelId")
     description += "Choose an **optional private Scheduled Pings management channel**. The bot creates a permanent dashboard with buttons here. This must be separate from the commands and archive channels.";
   else if (field === "cardRoleId")
@@ -107,7 +113,13 @@ function layout(session) {
     description += "Choose Hatchem's dedicated text-command and egg channel. Cards will not operate in other channels.";
   else
     description += "Choose a public channel for this feature, or **Skip / disable** to leave it off. Optional features never prevent setup completion.";
-  if (field === "hatchemAutoDropsEnabled") {
+  if (field === "serverTimeZone") {
+    controls.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId(selectedCustomId(session,"timezone"))
+        .setPlaceholder("Choose the server time zone").addOptions(COMMON_SERVER_TIME_ZONES.map(z=>({label:z.label,value:z.value})))));
+    controls.push(row(session,[["Enter a different time zone","customTimezone"]]));
+    if(session.settings.serverTimeZone)controls.push(row(session,[["Keep current time zone","keep"]]));
+  } else if (field === "hatchemAutoDropsEnabled") {
     controls.push(row(session, [["Enable wild eggs", "enable"],
       ["Disable wild eggs", "disable"], ["Keep current", "keep"]]));
   } else if (field === "cardRoleId") {
@@ -167,8 +179,9 @@ async function validateRole(session, roleId) {
 
 async function saveGeneral(session) {
   const s = session.settings;
-  if (!s.commandChannelId || !s.giveawayArchiveChannelId)
-    throw Error("Choose the required Bot Commands and Shared Staff Archives channels.");
+  if (!s.commandChannelId || !s.giveawayArchiveChannelId || !s.serverTimeZone)
+    throw Error("Choose required Bot Commands, Shared Staff Archives and Server Time Zone settings.");
+  s.serverTimeZone=validateServerTimeZone(s.serverTimeZone);
   if (s.commandChannelId === s.giveawayArchiveChannelId)
     throw Error("The shared archive must be separate from Bot Commands.");
   if (s.scheduledPingsChannelId && [s.commandChannelId,s.giveawayArchiveChannelId].includes(s.scheduledPingsChannelId))
@@ -311,6 +324,10 @@ async function process(session, action, value) {
     session.settings[field] = field === "hatchemAutoDropsEnabled" ? false : "";
     return next(session);
   }
+  if (field === "serverTimeZone" && action === "timezone") {
+    session.settings.serverTimeZone=validateServerTimeZone(value);
+    return next(session);
+  }
   if (field === "hatchemAutoDropsEnabled" && ["enable", "disable"].includes(action)) {
     session.settings[field] = action === "enable";
     return next(session);
@@ -320,7 +337,7 @@ async function process(session, action, value) {
     session.settings[field] = value;
     return next(session);
   }
-  if (field !== "cardRoleId" && field !== "hatchemAutoDropsEnabled" && action === "channel") {
+  if (field !== "cardRoleId" && field !== "hatchemAutoDropsEnabled" && field !== "serverTimeZone" && action === "channel") {
     await validateChannel(session, value);
     session.settings[field] = value;
     return next(session);
@@ -361,16 +378,32 @@ export async function handleGuidedGuildSetupInteraction(interaction) {
   const match = /^guildconfig:([0-9a-f]{24}):(.+)$/.exec(interaction.customId);
   const session = match && sessions.get(sessionKey(interaction.guildId, interaction.user.id));
   if (!session || session.id !== match[1] || session.expiresAt < Date.now() ||
-      session.messageId !== interaction.message?.id)
+      (!interaction.isModalSubmit() && session.messageId !== interaction.message?.id))
     return interaction.reply({ content: "That setup prompt is no longer active or belongs to someone else.",
       flags: MessageFlags.Ephemeral });
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
     return interaction.reply({ content: "Manage Server permission is required.",
       flags: MessageFlags.Ephemeral });
+  const action=match[2];
+  if(action==="customTimezone" && session.mode==="general" && stepsFor(session.mode)[session.index]?.[0]==="serverTimeZone"){
+    const prompt=new ModalBuilder().setCustomId(selectedCustomId(session,"timezoneModal"))
+      .setTitle("Server Time Zone");
+    const input=new TextInputBuilder().setCustomId("zone").setLabel("IANA zone, e.g. Europe/London")
+      .setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(80)
+      .setRequired(true).setPlaceholder("America/New_York");
+    prompt.addComponents(new ActionRowBuilder().addComponents(input));
+    return interaction.showModal(prompt);
+  }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
-    const action = match[2];
-    const value = ["channel", "role", "edit"].includes(action) ? interaction.values?.[0] : null;
+    const value=action==="timezoneModal" ? interaction.fields.getTextInputValue("zone") :
+      ["channel", "role", "edit", "timezone"].includes(action) ? interaction.values?.[0] : null;
+    if(action==="timezoneModal"){
+      if(session.mode!=="general" || stepsFor(session.mode)[session.index]?.[0]!=="serverTimeZone")
+        throw Error("Open the Server Time Zone setup step first.");
+      await process(session,"timezone",value);
+      return interaction.editReply("Server time zone saved in the setup draft.");
+    }
     await process(session, action, value);
     return interaction.editReply("Setup step updated.");
   } catch (error) {
