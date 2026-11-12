@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
+import {parseServerDateTime,formatServerClock,addServerCalendarDays,validateServerTimeZone} from "../services/schedule-timezone.js";
 import {handleScheduledPingsInteraction} from "../commands/scheduled-pings.js";
 import {activatePingSchedule,reconcilePingSchedules,normalizePingGroup,planPingDeliveries,pingDashboardButtons} from "../services/scheduled-pings.js";
 import PingTemplate from "../models/PingTemplate.js";
@@ -17,6 +18,38 @@ const group=(override={})=>({
  roleIds:["123456789012345678"],messages:["Hello world"],...override
 });
 
+test("server time zone accepts common names and rejects invalid zones",()=>{
+ assert.equal(validateServerTimeZone("Eastern"),"America/New_York");
+ assert.equal(validateServerTimeZone("America/Chicago"),"America/Chicago");
+ assert.throws(()=>validateServerTimeZone("Mars/Unspecified"),/Unknown time zone/);
+});
+test("staff enters date and local AM/PM clock time using the configured time zone",()=>{
+ const date=parseServerDateTime("2026-11-20","9:00 AM","America/New_York");
+ assert.equal(date.toISOString(),"2026-11-20T14:00:00.000Z");
+ assert.match(formatServerClock(date,"America/New_York"),/9:00 AM/);
+ assert.throws(()=>parseServerDateTime("2026-02-30","9:00 AM","America/New_York"),/real calendar/);
+ assert.throws(()=>parseServerDateTime("2027-03-14","2:30 AM","America/New_York"),/does not exist/);
+ assert.equal(parseServerDateTime("2027-11-07","1:30 AM","America/New_York").toISOString(),
+  "2027-11-07T05:30:00.000Z");
+});
+test("daily recurrence stays at the same server clock hour across daylight saving",()=>{
+ const start=parseServerDateTime("2027-03-12","9:00 AM","America/New_York");
+ const daily=planPingDeliveries([group({repeatMode:"days",interval:1,durationDays:5})],start,
+  {timeZone:"America/New_York"});
+ assert.equal(daily.length,5);
+ assert.deepEqual(daily.map(e=>e.dueAt.toISOString()),[
+  "2027-03-12T14:00:00.000Z","2027-03-13T14:00:00.000Z",
+  "2027-03-14T13:00:00.000Z","2027-03-15T13:00:00.000Z","2027-03-16T13:00:00.000Z"
+ ]);
+ const elapsed=planPingDeliveries([group({repeatMode:"hours",interval:24,durationDays:5})],start,
+  {timeZone:"America/New_York"});
+ assert.equal(elapsed[2].dueAt.toISOString(),"2027-03-14T14:00:00.000Z");
+ assert.equal(addServerCalendarDays(start,2,"America/New_York").toISOString(),"2027-03-14T13:00:00.000Z");
+});
+test("no group may start after its duration finishes",()=>{
+ assert.throws(()=>planPingDeliveries([group({durationDays:1,offsetHours:48})],start),
+  /has no messages within its duration/);
+});
 test("12-hour and 24-hour groups overlap in one schedule without merging messages",()=>{
  const deliveries=planPingDeliveries([
   group({name:"A",interval:12,durationDays:7}),
@@ -65,24 +98,24 @@ test("the persistent dashboard has five staff controls and no publicly visible s
  const rows=pingDashboardButtons();
  assert.equal(rows.length,2);
  const controls=rows.flatMap(r=>r.components.map(c=>c.toJSON()));
- assert.equal(controls.length,5);
+ assert.equal(controls.length,6);
  assert.deepEqual(controls.map(c=>c.label),[
-  "Create Template","Saved Templates","Manage Schedules","View Full Schedule","View Archives"
+  "Create Template","Saved Templates","Manage Schedules","View Full Schedule","View Archives","Delivery Alerts"
  ]);
  assert.ok(controls.every(c=>c.custom_id.startsWith("pings:root:")));
 });
 
 test("shared archives are required in General Setup; Scheduled Pings dashboard is optional",()=>{
- assert.deepEqual(generalSetupFields.slice(0,3),[
-  "commandChannelId","giveawayArchiveChannelId","scheduledPingsChannelId"
+ assert.deepEqual(generalSetupFields.slice(0,4),[
+  "commandChannelId","giveawayArchiveChannelId","serverTimeZone","scheduledPingsChannelId"
  ]);
  const summary=guidedGuildSetupSummary("general",{
   commandChannelId:"123456789012345678",giveawayArchiveChannelId:"234567890123456789",
-  scheduledPingsChannelId:"",
+  serverTimeZone:"America/New_York",scheduledPingsChannelId:"",
  });
- assert.match(summary,/Shared Staff Archives are mandatory/);
+ assert.match(summary,/Server Time Zone are mandatory/);
  assert.match(summary,/Scheduled pings staff dashboard/);
- for(const field of ["giveawayArchiveChannelId","scheduledPingsChannelId","scheduledPingsDashboardMessageId"])
+ for(const field of ["giveawayArchiveChannelId","serverTimeZone","scheduledPingsChannelId","scheduledPingsDashboardMessageId"])
   assert.ok(GuildConfig.schema.path(field),field);
  assert.ok(STAFF_TOPICS.some(t=>t.id==="spings"));
 });
@@ -107,7 +140,7 @@ function fakeQuery(records){
 }
 
 function staffEditor(t){
- t.mock.method(GuildConfig,"findOne",()=>({lean:async()=>({scheduledPingsChannelId:"staff"})}));
+ t.mock.method(GuildConfig,"findOne",()=>({lean:async()=>({scheduledPingsChannelId:"staff",serverTimeZone:"America/New_York"})}));
  let counter=0;
  return async function click(customId,{values=[],fields}={}){
   let result;
@@ -185,7 +218,10 @@ test("retiming preserves individual edits and asks before removing an edited occ
  const edited=await click(edit.data.custom_id,{fields:{content:"Custom second occurrence"}});
  preview=await click(control(edited,"event:back"));
  const startForm=await click(control(preview,"activation:start"));
- preview=await click(startForm.data.custom_id,{fields:{date:new Date(Date.now()+86400000).toISOString()}});
+ const future=new Date(Date.now()+86400000);
+ const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(future);
+ const by=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+ preview=await click(startForm.data.custom_id,{fields:{date:by.year+"-"+by.month+"-"+by.day,time:by.hour+":"+by.minute}});
  assert.match(preview.content,/Custom second occurrence/);
  const groups=await click(control(preview,"activation:groups"));
  let groupPanel=await click(control(groups,"select:activationGroup"),{values:["0"]});
