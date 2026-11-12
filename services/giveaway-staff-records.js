@@ -5,6 +5,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline,winnerHasClaim,hasOutstandingTicketClaims,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
 import {completedGiveawayCanDeleteListing,giveawayClaimsComplete} from "./giveaway-listing-lifecycle.js";
 import {ensureGiveawayStaffDirectory} from "./giveaway-staff-directory.js";
+import {ensureStaffProgressPanel} from "./giveaway-staff-progress.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import {closeGiveaway,rerollGiveaway,publishGiveawayResult} from "./giveaways.js";
@@ -301,7 +302,7 @@ async function cleanupArchivedStaffMessages(client,record,staffId,{reviewArchive
 export async function ensureGiveawayStaffRecord(client,record){
  if(!record||["draft","publishing","failed"].includes(record.status))return false;
  const config=await GuildConfig.findOne({guildId:record.guildId})
-   .select("activityGiveawayReviewChannelId giveawayArchiveChannelId").lean();
+   .select("activityGiveawayReviewChannelId giveawayArchiveChannelId activityParticipationRoleId").lean();
  const settled=Boolean(record.publicListingRemovedAt)||record.status==="cancelled";
  const archiveId=config?.giveawayArchiveChannelId;
  const channelId=settled&&archiveId?archiveId:config?.activityGiveawayReviewChannelId;
@@ -376,6 +377,13 @@ export async function ensureGiveawayStaffRecord(client,record){
  if(isArchive){
    const reviewArchived=await archiveGiveawayReview(client,record,config);
    await cleanupArchivedStaffMessages(client,record,config.activityGiveawayReviewChannelId,{reviewArchived});
+ }
+ // Every new active activity giveaway gets its own staff progress post.
+ // This is separate from the permanent management card and omits members
+ // who have not opted in to activity tracking.
+ if(record.mode==="activity" && record.status==="open" && !isArchive &&
+    config?.activityParticipationRoleId){
+   await ensureStaffProgressPanel(client,record,channel);
  }
  return true;
 }
