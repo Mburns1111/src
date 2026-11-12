@@ -173,11 +173,11 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Regular Giveaways",
-    "Use **Enter Giveaway** on the regular giveaway post. Some giveaways require a particular server role; follow the instructions on that post. Activity opt-in is not required for regular giveaways.\n\nThe server-wide **Giveaway Banned** role prevents entry into every prize giveaway."
+    "Use **Enter Giveaway** on the regular giveaway post. Some giveaways require a particular server role; follow the instructions on that post. Activity opt-in is separate and not required for regular giveaways.\n\nThe server-wide **Giveaway Banned** role prevents entry into every prize giveaway."
    ],
    [
     "2. Activity Giveaways",
-    "Find **Activity Giveaway Participation** at the bottom of the **Activity Giveaway List** and press **Opt In**. No Discord participation role or separate giveaway entry button is required; qualifying messages enter you automatically.\n\nUse **Opt Out** to stop tracking. If you opt in again, earlier activity does not carry over. **My Status** shows your current choice.\n\n**Giveaway Banned role:** Receiving it revokes your opt-in. After staff remove the role, you must manually press **Opt In** again to start fresh."
+    "Find **Activity Giveaway Participation** at the bottom of the **Activity Giveaway List** and press **Opt In**. No Discord role is required for activity participation, and there is no entry button for each giveaway; qualifying messages enter you automatically.\n\nUse **Opt Out** to stop tracking. If you opt in again, earlier activity does not carry over. **My Status** shows your current choice.\n\n**Giveaway Banned role:** Receiving it revokes your opt-in. After staff remove the role, you must manually press **Opt In** again to start fresh."
    ],
    [
     "3. Court's Trials",
@@ -189,7 +189,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Claiming Prizes",
-    "**Winners must submit a claim using the button below the winner announcement before the deadline, or the prize is forfeited.** Opening a ticket alone does not submit your claim.\n\nPress **Enter Ticket Claim info** and provide your **ticket number** and the **Discord message link** to that ticket. Staff verify your claim and deliver prizes manually. If a winner misses the deadline, the bot may select a replacement.\n\nOlder staff-managed Court's Trials may use a different claim process; follow that Trial's announcement."
+    "**Winners must submit a claim using the button below the winner announcement before the claim deadline, or the prize is forfeited.** Opening a ticket alone does not submit your claim.\n\nPress **Enter Ticket Claim info** and provide your **ticket number** and the **Discord message link** to that ticket. Staff verify your claim and deliver prizes manually. If a winner misses the deadline, the bot may select a replacement.\n\nOlder staff-managed Court's Trials may use a different claim process; follow that Trial's announcement."
    ]
   ]
  ],
@@ -234,7 +234,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Giveaways & Court's Trials · PUBLIC and PRIVATE",
-    "**Required public channels:**\n• **Regular Giveaways** — Entry posts and results.\n• **Activity Giveaway List** — Posters, progress, and participation panel.\n• **Activity Winners** — Winner announcements and claim buttons.\n• **Court's Trials** — Signups, eliminations and Royal Verdicts.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Staff directory, previews, claims and delivery.\n• **Giveaway Archives** — Completed/cancelled records.\n\n**Required Giveaway Banned role:** Shared punishment across all three giveaway types; overrides entry and activity opt-in. An unbanned member must opt in again.\n\n**Other roles:** Optional Giveaway Manager, regular entry role, and shared giveaway ping role. No activity participation role is required.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
+    "**Required public channels:**\n• **Regular Giveaways** — Entry posts and results.\n• **Activity Giveaway List** — Posters, progress, and the Opt In / Opt Out participation panel.\n• **Activity Winners** — Winner announcements and claim buttons.\n• **Court's Trials** — Signups, eliminations and Royal Verdicts.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Staff directory, previews, claims and delivery.\n• **Giveaway Archives** — Completed/cancelled records.\n\n**Required Giveaway Banned role:** Shared punishment across all three giveaway types; overrides entry and activity opt-in. An unbanned member must opt in again.\n\n**Activity opt-in:** MongoDB stores consent; no participation role is required.\n\n**Other roles:** Optional Giveaway Manager, regular entry role, and shared giveaway ping role. No participation role is required.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
    ],
    [
     "6. Bot Permissions",
@@ -282,7 +282,7 @@ const CONTENT=Object.freeze({
   [
    [
     "Activity Participation · REQUIRED",
-    "Members explicitly press **Opt In** on the permanent participation panel at the bottom of the **Activity Giveaway List**. MongoDB stores their choice; **no Discord participation role** is needed. **My Status** reports whether they are opted in.\n\n**Opt Out** stops new activity tracking and excludes them from drawings. Rejoining starts a **fresh counting window**: previous messages do not carry over.\n\n**Giveaway Banned role:** Receiving it revokes MongoDB opt-in. Removing the role does not restore participation; the member must press **Opt In** again. The bot checks message activity, role updates when enabled, and periodically reconciles missed bans.\n\nThe panel is kept below new activity listings and refreshed beneath later chat with a posting cooldown."
+    "Members explicitly press **Opt In** on the permanent participation panel at the bottom of the **Activity Giveaway List**. MongoDB stores their choice; **No Discord role** is needed for activity participation. **My Status** reports whether they are opted in.\n\n**Opt Out** stops new activity tracking and excludes them from drawings. Rejoining starts a **fresh counting window**: previous messages do not carry over.\n\n**Giveaway Banned role:** Receiving it revokes MongoDB opt-in. Removing the role does not restore participation; the member must press **Opt In** again. The bot checks message activity, role updates when enabled, and periodically reconciles missed bans.\n\nThe panel is kept below new activity listings and refreshed beneath later chat with a posting cooldown."
    ],
    [
     "1. Set the Requirements",
