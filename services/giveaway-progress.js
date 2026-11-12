@@ -1,5 +1,5 @@
 import {activityRoster} from "./guided-activity.js";
-import GuildConfig from "../models/GuildConfig.js";
+import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 import {MessageFlags} from "discord.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import Giveaway from "../models/Giveaway.js";
@@ -21,27 +21,12 @@ export async function handleActivityGiveawayProgress(interaction) {
      item.listChannelId!==interaction.channelId ||
      (isPlan?item.status!=="active":item.status!=="open"))
     return interaction.editReply("Progress tracking is unavailable for this giveaway.");
-  const config=await GuildConfig.findOne({guildId:interaction.guildId})
-    .select("activityParticipationRoleId activityParticipationRoleConfiguredAt activityParticipationRoleInstructions").lean();
-  const optInRole=config?.activityParticipationRoleId;
-  if(!optInRole)
-    return interaction.editReply("Activity giveaways are paused until staff configure an Activity Participation role in /setup activity-giveaways.");
-  const currentMember=await interaction.guild.members.fetch({user:interaction.user.id,force:true}).catch(()=>null);
-  if(!currentMember?.roles?.cache?.has(optInRole))
-    return interaction.editReply({content:"**Opt in first:** Get the Activity Participation role <@&"+optInRole+">.\n"+
-      (config?.activityParticipationRoleInstructions||"Ask staff where to select this role.")+
-      "\nOnly messages sent while holding the role count toward activity giveaways.",allowedMentions:{parse:[]}});
+  const participation=await ActivityGiveawayOptIn.findOne({
+    guildId:interaction.guildId,userId:interaction.user.id,active:true,
+  }).lean();
+  if(!participation)
+    return interaction.editReply("**Opt in first:** Use **Opt In** on the permanent participation panel at the bottom of the Activity Giveaway List. Only messages sent while opted in count.");
   if(item.guidedSeries){
-    if(item.requiredRoleId!==optInRole)
-      return interaction.editReply("This older activity needs to be updated to the current Activity Participation role before counting can resume.");
-    if(item.requiredRoleId){
-      const member=await interaction.guild.members.fetch({user:interaction.user.id,force:true}).catch(()=>null);
-      if(!member?.roles?.cache?.has(item.requiredRoleId))
-        return interaction.editReply({content:"**Required role:** <@&"+item.requiredRoleId+">\n"+
-          (item.showRequiredRoleInstructions!==false&&item.requiredRoleInstructions?
-            "**Where to get it:** "+item.requiredRoleInstructions+"\n":"")+
-          "Activity messages do not count until you hold this role.",allowedMentions:{parse:[]}});
-    }
     const [row]=await activityRoster(item,interaction.user.id);
     return interaction.editReply({content:[
       "**"+item.title+"** · "+(row?.qualified?"Qualified":"Not yet qualified"),
@@ -83,9 +68,7 @@ export async function handleActivityGiveawayProgress(interaction) {
       new Date(item.activityStartAt);
   const periodEnd=custom?new Date(customEnd):
     isPlan?nextWindow.endAt:new Date(item.activityEndAt);
-  const configuredAt=config.activityParticipationRoleConfiguredAt;
-  const roleStart=configuredAt?Math.ceil(+new Date(configuredAt)/60000)*60000:Infinity;
-  const startAt=new Date(Math.max(+periodStart,roleStart));
+  const startAt=new Date(Math.max(+periodStart,+new Date(participation.countFrom||participation.optedInAt)));
   const endAt=new Date(Math.min(+periodEnd,+now));
   const window={startAt,endAt};
   // Custom window has not opened yet. No activity can have been credited.
