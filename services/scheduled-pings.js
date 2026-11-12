@@ -160,7 +160,9 @@ async function dashboardPayload(guildId){
   scheduleId:{$in:everyActive.map(x=>x._id)}})
   .sort({dueAt:1}).limit(5).lean();
  const scheduleNames=new Map(everyActive.map(x=>[String(x._id),x]));
- const alerts=await PingDelivery.find({guildId,$or:[{status:"failed"},{status:"skipped",error:/Missed while offline/}]})
+ const watchIds=await PingSchedule.distinct("_id",{guildId,status:{$in:["active","paused","ended","completed"]}});
+ const alerts=await PingDelivery.find({guildId,scheduleId:{$in:watchIds},
+  $or:[{status:"failed"},{status:"skipped",error:/Missed while offline/}]})
   .sort({updatedAt:-1}).limit(3).lean();
  const awaitingArchive=await PingSchedule.countDocuments({guildId,status:{$in:["ended","completed"]},archiveMessageId:""});
  const lines=["**✦ Scheduled Pings — Staff Dashboard**",
