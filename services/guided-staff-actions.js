@@ -40,9 +40,9 @@ export const GUIDED_EDIT_FIELDS=[
 const criteriaFields=new Set(["activityChannelIds","activityRequiredMentionUserId","activityRequiredPhrase","activityMinChars"]);
 const inputMax={title:100,prize:1500,description:1000,winnerCount:2,
   activityMinTotalMessages:5,activityMinChars:4,activityDays:3,claimWindowHours:3,bannerNameKey:60,
-  requireStaffReview:3,progressEnabled:3,showRequiredRoleInstructions:3,
+  requireStaffReview:3,progressEnabled:3,
   roleBonuses:350,activityChannelIds:100,
-  activityRequiredMentionUserId:100,activityRequiredPhrase:120,requiredRoleId:100,
+  activityRequiredMentionUserId:100,activityRequiredPhrase:120,
   endsAt:16,activityEndAt:16,repeatSchedule:80,
   claimInstructions:1000,maxAutoRerolls:2,announceEmptyResults:3};
 const inputHint={
@@ -50,11 +50,9 @@ const inputHint={
   bannerNameKey:"Saved banner name or default",
   requireStaffReview:"on or off",
   progressEnabled:"on or off",
-  showRequiredRoleInstructions:"on or off (hide for restricted giveaways)",
   roleBonuses:"@role 2  /  @role remove  /  clear",
   activityChannelIds:"#channel, channel ID, or all",
   activityRequiredMentionUserId:"@member, user ID, or none",
-  requiredRoleId:"@role, role ID, default, or none; resets counting",
   activityRequiredPhrase:"Exact spelling and word order; capitals ignored",
   activityMinChars:"1–2000 text characters per counted message, excludes mentions; RESET required",
   activityEndAt:"YYYY-MM-DD HH:mm Eastern",
@@ -68,7 +66,7 @@ const inputHint={
 export function validateGuidedStaffEdit(field,raw,event,{now=new Date()}={}){
   const value=String(raw??"").trim();
   if(field==="requiredRoleId"||field==="showRequiredRoleInstructions")
-    throw Error("The mandatory Activity Participation role is managed in /setup activity-giveaways, not per giveaway.");
+    throw Error("Activity participation is managed internally through the Opt In panel, not per giveaway.");
   if(!GUIDED_EDIT_FIELDS.some(x=>x.value===field)||field==="activityStartAt")
     throw Error("This setting cannot be edited after the activity begins.");
   if(field==="claimInstructions"){
@@ -224,7 +222,7 @@ export function describeGuidedStaffOptions(event){
  return [
    "**Edit this activity giveaway**",
    "**Giveaway post:** Title · Prize · Giveaway Details · Banner",
-   "**Qualification:** Total message goal · Minimum characters per message · Active days · Watched channel · Member ping · Required phrase · Required role · Role instructions visibility",
+   "**Qualification:** Internal MongoDB opt-in · Total message goal · Minimum characters per message · Active days · Watched channel · Member ping · Required phrase",
    "*Exact phrases require correct spelling and word order; capitalization does not matter.*",
    "**Timing:** Activity cutoff · Winner announcement",
    "**Drawing:** Winners · Manual approval · Bonus roles · Claim time · Max rerolls · Member progress",
@@ -234,8 +232,7 @@ export function describeGuidedStaffOptions(event){
    "**Current settings**",
    "Watch: "+channel+" · Goal: "+(event.activityMinTotalMessages||1)+" total message(s)"+
      " · Minimum length: "+(event.activityMinChars||1)+" character(s) per message",
-   "Required role: "+(event.requiredRoleId?"<@&"+event.requiredRoleId+">":"None")+
-     " · Acquisition instructions: "+(event.showRequiredRoleInstructions!==false?"Shown to members":"Hidden from members"),
+   "Activity participation: Bot-managed Opt In / Opt Out (no role)",
    "Counting ends: "+fmt(event.activityEndAt)+" · Draws: "+fmt(event.endsAt),
    "Approval: "+(event.requireStaffReview?"On":"Off")+" · Progress: "+(event.progressEnabled?"On":"Off"),
    "",
