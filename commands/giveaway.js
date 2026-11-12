@@ -422,7 +422,7 @@ export async function handleGiveawayButton(interaction) {
         return interaction.editReply("At least two members must join before you can start the trial.");
       let started;
       try {
-        started = await beginSurvivalTrial({ id, guildId: interaction.guildId });
+        started = await beginSurvivalTrial({ id, guildId: interaction.guildId, client: interaction.client });
       } catch (error) {
         console.error("[Trials] Start button could not begin trial:", error);
         return interaction.editReply("The trial could not start: " + (error.message || "Please retry."));
