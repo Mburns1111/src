@@ -56,8 +56,9 @@ test("page controls expose all entries while keeping primary sticky message comp
    label:"Regular",status:"Open for entries",detail:"Ends soon",timestamp:i,
  }));
  const first=giveawayStaffDirectoryPayload(guild,entries);
- assert.equal(buttons(first).length,1);
- assert.equal(buttons(first)[0],"giveawaydir:page:1");
+ assert.equal(buttons(first).length,2);
+ assert.ok(buttons(first).includes("giveawaydir:cooldowns"));
+ assert.ok(buttons(first).includes("giveawaydir:page:1"));
  assert.match(first.embeds[0].toJSON().description,/19 active or pending giveaways/);
  assert.match(first.embeds[0].toJSON().description,/Giveaway 14/);
  assert.doesNotMatch(first.embeds[0].toJSON().description,/Giveaway 15/);
@@ -66,7 +67,8 @@ test("page controls expose all entries while keeping primary sticky message comp
  assert.ok(buttons(second).includes("giveawaydir:page:0"));
  const empty=giveawayStaffDirectoryPayload(guild,[]);
  assert.match(empty.embeds[0].toJSON().description,/no active or pending-claim giveaways/i);
- assert.equal(empty.components.length,0);
+ assert.equal(empty.components.length,1);
+ assert.deepEqual(buttons(empty),["giveawaydir:cooldowns"]);
 });
 
 test("directory is sent to the private staff channel, reused, then auto-bumped without duplicates",async()=>{
