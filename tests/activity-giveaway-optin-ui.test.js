@@ -102,3 +102,43 @@ test("activity panel follows new listings and is reused between sweeps",async()=
   GuildConfig.findOne=saved.findOne;GuildConfig.updateOne=saved.updateOne;
  }
 });
+
+test("activity opt-in panel reappears below new channel chat, no more than once per ten minutes",async()=>{
+ const uniqueGuild="123456789012345679";
+ const saved={findOne:GuildConfig.findOne,updateOne:GuildConfig.updateOne};
+ const state={activityGiveawayListChannelId:channelId,
+  activityParticipationPanelChannelId:"",activityParticipationPanelMessageId:""};
+ const messages=new Map(),sent=[],deleted=[];
+ let sequence=0,lastMessageId=null;
+ try{
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({...state})})});
+  GuildConfig.updateOne=async(_query,change)=>{Object.assign(state,change.$set);};
+  const channel={id:channelId,
+   get lastMessageId(){return lastMessageId;},
+   messages:{fetch:async query=>typeof query==="string"?messages.get(query)||null:{
+    find:fn=>[...messages.values()].find(fn)||null,
+    first:()=>messages.get(lastMessageId)||null,
+   }},
+   send:async payload=>{
+    const id=String(700000000000000000n+BigInt(++sequence));
+    const item={id,author:{id:"bot"},embeds:payload.embeds.map(e=>e.toJSON()),
+      delete:async()=>{deleted.push(id);messages.delete(id);},
+      edit:async()=>{}};
+    messages.set(id,item);lastMessageId=id;sent.push(id);return item;
+   },
+  };
+  const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
+  const initial=new Date("2026-11-12T12:00:00Z");
+  await ensureActivityOptInPanel(client,uniqueGuild,{now:initial});
+  assert.equal(sent.length,1);
+  lastMessageId="888888888888888888"; // A member posted below the panel.
+  await ensureActivityOptInPanel(client,uniqueGuild,{now:new Date(+initial+60_000)});
+  assert.equal(sent.length,1,"regular sweeps should not spam a new panel within ten minutes");
+  await ensureActivityOptInPanel(client,uniqueGuild,{now:new Date(+initial+11*60_000)});
+  assert.equal(sent.length,2,"once the throttle expires the panel is bumped to the bottom");
+  assert.deepEqual(deleted,[sent[0]]);
+  assert.equal(state.activityParticipationPanelMessageId,sent[1]);
+ }finally{
+  GuildConfig.findOne=saved.findOne;GuildConfig.updateOne=saved.updateOne;
+ }
+});
