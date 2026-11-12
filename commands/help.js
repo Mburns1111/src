@@ -464,10 +464,10 @@ export function helpTopicPayload(topicId,ownerId,commandLines=[],commandPage=0,s
   embed.addFields({name,value});
   if(topicId==="giveaways"&&name==="2. Activity Giveaways"){
    const roleId=String(serverConfig?.activityParticipationRoleId||"");
-   const valid=/^\\d{17,20}$/.test(roleId);
+   const valid=/^\d{17,20}$/.test(roleId);
    const where=String(serverConfig?.activityParticipationRoleInstructions||"").trim().slice(0,500);
    const instructions=valid
-     ?"**Required role:** <@&"+roleId+">\\n**Where to get it:** "+
+     ?"**Required role:** <@&"+roleId+">\n**Where to get it:** "+
        (where||"Follow the instructions on the activity giveaway post, or ask staff.")
      :"Staff have not configured the Activity Participation role yet. Ask them where to opt in.";
    embed.addFields({name:"How to opt in on this server",value:instructions});
