@@ -158,6 +158,9 @@ async function dashboardPayload(guildId){
   scheduleId:{$in:everyActive.map(x=>x._id)}})
   .sort({dueAt:1}).limit(5).lean();
  const scheduleNames=new Map(everyActive.map(x=>[String(x._id),x.name]));
+ const alerts=await PingDelivery.find({guildId,$or:[{status:"failed"},{status:"skipped",error:/Missed while offline/}]})
+  .sort({updatedAt:-1}).limit(3).lean();
+ const awaitingArchive=await PingSchedule.countDocuments({guildId,status:{$in:["ended","completed"]},archiveMessageId:""});
  const lines=["**✦ Scheduled Pings — Staff Dashboard**",
   "Saved templates, recurring role mentions and message delivery history.",
   "",
@@ -175,6 +178,11 @@ async function dashboardPayload(guildId){
  if(!due.length)lines.push("No upcoming pings.");
  for(const d of due)
   lines.push("• "+ts(d.dueAt)+" — "+short(scheduleNames.get(String(d.scheduleId))||"Schedule")+" · Group "+(d.groupIndex+1));
+ if(alerts.length){
+  lines.push("","**⚠ Delivery Attention**");
+  for(const e of alerts)lines.push("• Ping #"+e.sequence+" · "+short(e.error||"Failed to send").slice(0,84));
+ }
+ if(awaitingArchive)lines.push("","**Archive pending:** "+awaitingArchive+" schedule(s). The bot will retry automatically.");
  lines.push("","*Staff only · Use the buttons below to create or manage schedules.*");
  return {content:lines.join("\n").slice(0,1950),components:pingDashboardButtons(),
    allowedMentions:{parse:[]}};
@@ -285,66 +293,84 @@ export async function reconcilePingSchedules(client,{now=new Date()}={}){
 }
 
 export async function archivePingSchedule(client,schedule){
- if(schedule.archiveMessageId)return;
- const config=await GuildConfig.findOne({guildId:schedule.guildId}).lean();
- if(!config?.giveawayArchiveChannelId)throw Error("No shared archive is configured; archive remains pending.");
- const guild=await client.guilds.fetch(schedule.guildId);
- const channel=await guild.channels.fetch(config.giveawayArchiveChannelId);
- if(!channel?.send)throw Error("Shared archive is inaccessible.");
- const deliveries=await PingDelivery.find({scheduleId:schedule._id}).sort({sequence:1}).lean();
- const edits=await PingAudit.find({scheduleId:schedule._id}).sort({createdAt:1}).lean();
- const counts={
-  planned:deliveries.length,sent:deliveries.filter(d=>d.status==="sent").length,
-  failed:deliveries.filter(d=>d.status==="failed").length,
-  skipped:deliveries.filter(d=>d.status==="skipped").length,
- };
- const report={
-  scheduleId:String(schedule._id),status:schedule.status,
-  name:schedule.name,template:schedule.templateName,
-  createdBy:schedule.createdBy,activatedBy:schedule.activatedBy,
-  destinationChannelId:schedule.destinationChannelId,timeZone:schedule.timeZone||"UTC",
-  startsAt:schedule.startsAt,endsAt:schedule.endsAt,
-  stoppedAt:schedule.stoppedAt,stopReason:schedule.stopReason,
-  groups:schedule.groups,counts,
-  deliveries:deliveries.map(d=>({
-   sequence:d.sequence,groupIndex:d.groupIndex,dueAt:d.dueAt,
-   sentAt:d.sentAt,roleIds:d.roleIds,content:d.content,
-   status:d.status,messageId:d.messageId,messageUrl:d.messageUrl,error:d.error,
-   changedBy:d.changedBy,
-  })),
-  changeHistory:edits.map(e=>({at:e.createdAt,by:e.actorId,event:e.event,details:e.details})),
- };
- // A full JSON file preserves all delivered messages and every edit. The
- // short Discord message remains legible even for a month-long schedule.
- const json=JSON.stringify(report,null,2);
- const summary="**🗄️ Scheduled Pings Archive — "+short(schedule.name)+"**\n"+
-   "**Schedule ID:** "+String(schedule._id)+"\n"+
-   "**Status:** "+schedule.status+"\n"+
-   "**Created by:** <@"+schedule.createdBy+"> · **Activated by:** <@"+schedule.activatedBy+">\n"+
-   "**Destination:** <#"+schedule.destinationChannelId+">\n"+
-   "**Time zone:** "+(schedule.timeZone||"UTC")+"\n"+
-   "**Ran:** "+ts(schedule.startsAt)+" to "+ts(schedule.stoppedAt||schedule.endsAt)+"\n"+
-   "**Ping Groups:** "+schedule.groups.length+
+ if(schedule.archiveMessageId||!["completed","ended"].includes(schedule.status))return null;
+ const leaseUntil=new Date(Date.now()+120_000);
+ // At most one worker may publish an archive at a time.
+ const locked=await PingSchedule.findOneAndUpdate({
+  _id:schedule._id,archiveMessageId:"",status:{$in:["completed","ended"]},
+  $or:[{archiveLeaseUntil:null},{archiveLeaseUntil:{$lte:new Date()}}],
+ },{$set:{archiveLeaseUntil:leaseUntil}},{new:true}).lean();
+ if(!locked)return null;
+ try{
+  // A staff end can race a Discord send already underway. The archive must
+  // never claim final statistics until all such sends have resolved.
+  const outstanding=await PingDelivery.countDocuments({
+   scheduleId:locked._id,status:{$in:["pending","sending"]},
+  });
+  if(outstanding)return null;
+  const config=await GuildConfig.findOne({guildId:locked.guildId}).lean();
+  if(!config?.giveawayArchiveChannelId)throw Error("No shared archive is configured; archive remains pending.");
+  const guild=await client.guilds.fetch(locked.guildId);
+  const channel=await guild.channels.fetch(config.giveawayArchiveChannelId);
+  if(!channel?.send)throw Error("Shared archive is inaccessible.");
+  const deliveries=await PingDelivery.find({scheduleId:locked._id}).sort({sequence:1}).lean();
+  const edits=await PingAudit.find({scheduleId:locked._id}).sort({createdAt:1}).lean();
+  const counts={
+   planned:deliveries.length,sent:deliveries.filter(d=>d.status==="sent").length,
+   failed:deliveries.filter(d=>d.status==="failed").length,
+   skipped:deliveries.filter(d=>d.status==="skipped").length,
+  };
+  const report={
+   scheduleId:String(locked._id),status:locked.status,
+   name:locked.name,template:locked.templateName,
+   createdBy:locked.createdBy,activatedBy:locked.activatedBy,
+   destinationChannelId:locked.destinationChannelId,timeZone:locked.timeZone||"UTC",
+   startsAt:locked.startsAt,endsAt:locked.endsAt,stoppedAt:locked.stoppedAt,
+   stopReason:locked.stopReason,groups:locked.groups,counts,
+   deliveries:deliveries.map(d=>({
+    sequence:d.sequence,groupIndex:d.groupIndex,dueAt:d.dueAt,
+    sentAt:d.sentAt,roleIds:d.roleIds,content:d.content,
+    status:d.status,messageId:d.messageId,messageUrl:d.messageUrl,error:d.error,
+    changedBy:d.changedBy,
+   })),
+   changeHistory:edits.map(e=>({at:e.createdAt,by:e.actorId,event:e.event,details:e.details})),
+  };
+  const json=JSON.stringify(report,null,2);
+  const summary="**🗄️ Scheduled Pings Archive — "+short(locked.name)+"**\n"+
+   "**Schedule ID:** "+String(locked._id)+"\n"+
+   "**Status:** "+locked.status+"\n"+
+   "**Created by:** <@"+locked.createdBy+"> · **Activated by:** <@"+locked.activatedBy+">\n"+
+   "**Destination:** <#"+locked.destinationChannelId+">\n"+
+   "**Time zone:** "+(locked.timeZone||"UTC")+"\n"+
+   "**Ran:** "+ts(locked.startsAt)+" to "+ts(locked.stoppedAt||locked.endsAt)+"\n"+
+   "**Ping Groups:** "+locked.groups.length+
    " · **Sent:** "+counts.sent+" · **Failed:** "+counts.failed+" · **Skipped:** "+counts.skipped+
    "\n**Staff changes:** "+edits.filter(e=>e.event!=="activated").length+
-   "\nFull roles, message text, send links, timestamps and modifications are attached.";
- const found=await channel.messages.fetch({limit:100}).catch(()=>null);
- let existing=found?.find(m=>m.author?.id===client.user.id&&m.content?.includes("**Schedule ID:** "+String(schedule._id)));
- let message=existing;
- if(!message){
-  let bytes=Buffer.from(json,"utf8");
-  let extension=".json";
-  if(bytes.length>7_000_000){bytes=gzipSync(bytes,{level:9});extension=".json.gz";}
-  if(bytes.length>7_000_000)throw Error("Archive log exceeds the attachment limit even after compression; full history is still retained in MongoDB.");
-  message=await channel.send({content:summary+(extension.endsWith(".gz")?"\nAttached JSON log is gzip-compressed.":""),
-   files:[new AttachmentBuilder(bytes,{name:"scheduled-pings-"+String(schedule._id)+extension})],
-   allowedMentions:{parse:[]}});
+   "\nComplete role mentions, message texts, send links, timestamps and modifications are attached.";
+  // A crashed process may have already sent the archive before recording the
+  // Discord message ID; recover it rather than posting a duplicate.
+  const recent=await channel.messages.fetch({limit:100}).catch(()=>null);
+  let message=recent?.find(m=>m.author?.id===client.user.id&&
+   m.content?.includes("**Schedule ID:** "+String(locked._id)));
+  if(!message){
+   let bytes=Buffer.from(json,"utf8");
+   let extension=".json";
+   if(bytes.length>7_000_000){bytes=gzipSync(bytes,{level:9});extension=".json.gz";}
+   if(bytes.length>7_000_000)throw Error("Archive exceeds attachment limit; MongoDB retains all records.");
+   message=await channel.send({content:summary+(extension.endsWith(".gz")?"\nJSON log is gzip-compressed.":""),
+    files:[new AttachmentBuilder(bytes,{name:"scheduled-pings-"+String(locked._id)+extension})],
+    allowedMentions:{parse:[]}});
+  }
+  await PingSchedule.updateOne({_id:locked._id,archiveMessageId:"",archiveLeaseUntil:leaseUntil},{$set:{
+   archiveMessageId:message.id,archivedAt:new Date(),status:"archived",archiveLeaseUntil:null,
+  }});
+  await refreshPingDashboard(client,locked.guildId);
+  return message;
+ }finally{
+  // Keep the schedule retriable if posting fails or deliveries are in-flight.
+  await PingSchedule.updateOne({_id:locked._id,archiveLeaseUntil:leaseUntil},
+   {$set:{archiveLeaseUntil:null}});
  }
- await PingSchedule.updateOne({_id:schedule._id,archiveMessageId:""},{$set:{
-  archiveMessageId:message.id,archivedAt:new Date(),status:"archived",
- }});
- await refreshPingDashboard(client,schedule.guildId);
- return message;
 }
 
 export async function pausePingSchedule(client,schedule,actorId){
@@ -385,7 +411,8 @@ export async function endPingSchedule(client,schedule,actorId,reason){
   {$set:{status:"skipped",error:"Ended early by staff."}});
  if(changed.modifiedCount)await PingSchedule.updateOne({_id:schedule._id},{$inc:{skippedCount:changed.modifiedCount}});
  await logPingChange(schedule._id,schedule.guildId,actorId,"ended early",{reason,skipped:changed.modifiedCount});
- await archivePingSchedule(client,result);
+ try{await archivePingSchedule(client,result);}
+ catch(error){console.error("[Scheduled Pings] Schedule ended, archive pending:",error);}
  await refreshPingDashboard(client,schedule.guildId);
  return result;
 }
