@@ -4,7 +4,7 @@ import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 import GiveawayWinnerCooldown from "../models/GiveawayWinnerCooldown.js";
-import {closeGiveaway,rerollGiveaway} from "../services/giveaways.js";
+import {closeGiveaway,rerollGiveaway,finishPendingReroll} from "../services/giveaways.js";
 import {giveawayStaffRecordPayload} from "../services/giveaway-staff-records.js";
 import {
  cooldownExpiration,giveawayUsesCooldown,activeGiveawayCooldownIds,
@@ -146,4 +146,27 @@ test("Apply Cooldown is beside Archive only after delivery for non-Trials",()=>{
  assert.ok(!labels({...record,publicListingRemovedAt:now}).includes("Apply Cooldown"));
  assert.ok(labels({...record,cooldownAssignments:[{userId:A,days:3,expiresAt:now,
   appliedAt:now,appliedBy:staff}]}).includes("Manage Cooldowns"));
+});
+
+test("crash-recovered reroll settles without a winner if the last replacement is now cooled down",async()=>{
+ const backups=[],priorWinner=A;
+ try{
+  replace(GiveawayWinnerCooldown,"find",()=>({lean:async()=>[{userId:B}]}),backups);
+  const pending={
+   _id:id,guildId,mode:"standard",status:"rerolling",winnerCooldownEnabled:true,
+   winnerIds:[priorWinner],winnerClaims:[],claimResolvedSlots:[],entrantIds:[A,B],
+   pendingRerollSlot:0,pendingRerollEligibleIds:[B],claimWindowHours:1,
+   claimStartedAt:now,autoRerollClaims:true,
+  };
+  let set;
+  replace(Giveaway,"findOneAndUpdate",(_filter,update)=>({lean:async()=>{
+   set=update.$set;return {...pending,...set};
+  }}),backups);
+  const ended=await finishPendingReroll(pending,{now:new Date(+now+2*3600000)});
+  assert.equal(ended.status,"ended");
+  assert.deepEqual(ended.winnerIds,[priorWinner],"the original winner remains in the private history");
+  assert.deepEqual(ended.claimResolvedSlots,[0]);
+  assert.deepEqual(ended.pendingRerollEligibleIds,[]);
+  assert.equal(set.pendingRerollSlot,null);
+ }finally{restore(backups);}
 });
