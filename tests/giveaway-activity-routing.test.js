@@ -2,12 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
+import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
 import {runGiveawayPlan} from "../services/giveaway-plans.js";
 
 test("scheduled activity drawing announces winners exclusively in the configured results channel",async()=>{
  const original=[Giveaway.findOne,Giveaway.findOneAndUpdate,Giveaway.create,Giveaway.updateOne,
-   GuildConfig.findOne,GiveawayActivityMinuteCount.aggregate];
+   GuildConfig.findOne,GiveawayActivityMinuteCount.aggregate,ActivityGiveawayOptIn.find];
  const guildId="123456789012345678",listId="234567890123456789",
    winnersId="345678901234567890",userId="456789012345678901",
    planId="507f1f77bcf86cd799439011",eventId="507f1f77bcf86cd799439012";
@@ -15,9 +16,11 @@ test("scheduled activity drawing announces winners exclusively in the configured
  try {
   Giveaway.findOne=()=>({lean:async()=>null});
   GiveawayActivityMinuteCount.aggregate=async()=>[{_id:userId}];
+  ActivityGiveawayOptIn.find=()=>({lean:async()=>[{
+    guildId,userId,active:true,optedInAt:new Date("2026-11-11T00:00:00Z")}]});
   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
     activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId,
-    activityParticipationRoleId:"567890123456789012",activityParticipationRoleConfiguredAt:new Date("2026-11-09T00:00:00Z"),
+
   })})});
   Giveaway.create=async data=>{
     created={...data,_id:eventId,renderVersion:0,rerollHistory:[]};
@@ -54,6 +57,6 @@ test("scheduled activity drawing announces winners exclusively in the configured
   assert.match(sent[0].embeds[0].toJSON().description,/456789012345678901/);
  }finally{
   [Giveaway.findOne,Giveaway.findOneAndUpdate,Giveaway.create,Giveaway.updateOne,
-   GuildConfig.findOne,GiveawayActivityMinuteCount.aggregate]=original;
+   GuildConfig.findOne,GiveawayActivityMinuteCount.aggregate,ActivityGiveawayOptIn.find]=original;
  }
 });
