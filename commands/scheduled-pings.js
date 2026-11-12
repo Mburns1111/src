@@ -63,22 +63,22 @@ const cleanName=x=>String(x||"").trim().slice(0,80);
 const newGroup=n=>({name:"Ping Group "+n,repeatMode:"hours",interval:12,durationDays:7,
  offsetHours:0,roleIds:[],messages:[]});
 const showRoles=roles=>roles?.length?roles.map(id=>"<@&"+id+">").join(" "):"None";
-const summaryGroup=g=>"**"+g.name+"** · "+(g.repeatMode==="once"?"Once":"Every "+g.interval+" "+(g.repeatMode==="days"?"days":"hours"))+
+const summaryGroup=(g,{template=false}={})=>"**"+g.name+"** · "+(g.repeatMode==="once"?"Once":"Every "+g.interval+" "+(g.repeatMode==="days"?"days":"hours"))+
  " · "+g.durationDays+" days · Delay "+g.offsetHours+"h\n"+
- "Roles: "+showRoles(g.roleIds)+"\nMessages: "+g.messages.length+
- (g.messages.length?" · "+short(g.messages[0]):" · role-only");
+ "Roles: "+showRoles(g.roleIds)+(template?"":"\nRotating messages: "+(g.messages?.length||0));
+const groupReady=g=>Boolean(g.roleIds?.length||g.messages?.length);
 function draftPanel(s){
  const g=s.groups[s.groupIndex],lines=[
   "**✦ "+(s.editId?"Edit Saved Template":"Create Template")+"**",
   "**Name:** "+s.name,
   s.description?short(s.description):"",
   "**Ping Group "+(s.groupIndex+1)+" of "+s.groups.length+"**",
-  summaryGroup(g),"",
-  "*Configure this group, then add another or save the template.*"
+  summaryGroup(g,{template:true}),"",
+  "*Templates save timing and roles only. Add and edit messages when using the template.*"
  ];
  const components=[
-  row(["Set Timing","draft:timing"],["Select Roles","draft:roles"],["Add Message","draft:message"]),
-  row(["Remove Last Message","draft:removeMessage"],["Add Another Group","draft:add"],["Previous Group","draft:previous"]),
+  row(["Set Timing","draft:timing"],["Select Roles","draft:roles"]),
+  row(["Add Another Group","draft:add"],["Previous Group","draft:previous"]),
   row(["Save Template","draft:finish",ButtonStyle.Success],["Cancel","draft:cancel",ButtonStyle.Danger]),
  ];
  if(s.groups.length>1)components.unshift(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
@@ -111,8 +111,8 @@ function templateDetails(s){
  return {content:"**✦ "+t.name+"**\n"+(t.description||"")+"\n\n"+
   t.groups.map((g,i)=>"**Group "+(i+1)+": "+g.name+"** · "+
    (g.repeatMode==="once"?"Once":"Every "+g.interval+" "+(g.repeatMode==="days"?"days":"hours"))+
-   " · "+g.durationDays+" days · "+g.roleIds.length+" role(s) · "+g.messages.length+" message(s)").join("\n")+
-  "\n\n*Using a template creates an independent schedule in one channel.*",
+   " · "+g.durationDays+" days · "+g.roleIds.length+" role(s)").join("\n")+
+  "\n\n*Messages are added and edited when you use this template. Each activation has its own messages and schedule.*",
   components:[row(["Use Template","template:use",ButtonStyle.Success],
     ["Edit Template","template:edit"],["Delete Template","template:delete",ButtonStyle.Danger])]};
 }
