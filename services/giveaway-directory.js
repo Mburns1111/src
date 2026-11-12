@@ -1,4 +1,5 @@
 import {ensureStaffCard} from "./guided-activity.js";
+import {ensureActivityOptInPanel} from "./activity-giveaway-optin-ui.js";
 import {createHash} from "node:crypto";
 import {EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
@@ -31,7 +32,7 @@ const qualifyChannel=channels=>channels.length?channels.join(", "):"any eligible
 const giveawayDetails=value=>value?["",String(value).slice(0,1000)]:[];
 const memberSafeText=(value,max=180)=>String(value||"").replace(/[\r\n]+/g," ").slice(0,max);
 
-export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",participationRoleId="",participationInstructions=""}={}) {
+export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
   const period=plan.activityPeriod||"weekly";
   const minimum=plan.minimumTotalMessages??rule?.minimumTotalMessages??1;
   const channel=rule?.channelId?"<#"+rule.channelId+">":"any eligible server channel";
@@ -42,10 +43,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",participa
     "• Send **"+minimum+" "+(minimum===1?"message":"messages")+"** in "+channel+
       (rule?.requiredPhrase?" containing the required phrase":"")+".",
   ];
-  if(participationRoleId){
-    qualifier.unshift("• **Opt in first:** Get the Activity Participation role <@&"+participationRoleId+">. Messages sent without it do not count.");
-    if(participationInstructions)qualifier.splice(1,0,"• **Where to opt in:** "+String(participationInstructions).slice(0,500));
-  }else qualifier.unshift("• **Activity entries are paused until staff configure an opt-in role.**");
+  qualifier.unshift("• **Opt in first:** Use the **Opt In** button on the participation panel below the activity listings. Only messages sent while opted in count.");
   if(rule?.minimumChars>1)qualifier.push("• Each message must have at least **"+rule.minimumChars+" characters**.");
   if(rule?.minimumMessages>1)qualifier.push("• Send at least **"+rule.minimumMessages+" messages** on each qualifying day.");
   if(period==="weekly"&&rule?.activeDays>1)qualifier.push("• Be active on **"+rule.activeDays+" different days**.");
@@ -79,7 +77,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",participa
   return new EmbedBuilder().setColor(0xb47e99)
     .setTitle("🎁 Giveaway alert!")
     .setDescription(text)
-    .setFooter({text:"✦ Automatic entry · "+shortRef(plan._id)});
+    .setFooter({text:"✦ Automatic entry · "+shortRef(plan._id)+" · Don\u2019t forget to opt in!"});
 }
 export function activityOneOffListingEmbed(record) {
   const guided=Boolean(record.guidedSeries);
@@ -101,7 +99,7 @@ export function activityOneOffListingEmbed(record) {
     return new EmbedBuilder().setColor(0x86738d)
       .setTitle("🏁 Activity Giveaway Ended · No Eligible Winner")
       .setDescription(text.slice(0,3900))
-      .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)});
+      .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)+" · Don\u2019t forget to opt in!"});
   }
   const settling=["pending_review","closing","rerolling"].includes(record.status);
   const minimum=record.activityMinTotalMessages||record.activityMinimum||1;
@@ -111,11 +109,7 @@ export function activityOneOffListingEmbed(record) {
       qualifyChannel(channels)+" during this activity"+
       (record.activityRequiredPhrase?" containing the required phrase":"")+".",
   ];
-  if(record.requiredRoleId){
-    qualifier.push("• **Activity participation (opt in):** <@&"+record.requiredRoleId+">. Only messages sent while holding this role count.");
-    if(record.showRequiredRoleInstructions!==false&&record.requiredRoleInstructions)
-      qualifier.push("• **Where to get it:** "+String(record.requiredRoleInstructions).slice(0,500));
-  }
+  qualifier.push("• **Opt in first:** Use the **Opt In** button on the participation panel below the activity listings. Only messages sent while opted in count.");
   if(record.activityMinChars>1)qualifier.push("• Each message must have at least **"+record.activityMinChars+" characters**.");
   if(!guided&&record.activityMinimum>1)
     qualifier.push("• At least **"+record.activityMinimum+" messages** on each qualifying day.");
@@ -167,7 +161,7 @@ export function activityOneOffListingEmbed(record) {
   return new EmbedBuilder().setColor(0xb47e99)
     .setTitle("🎁 Giveaway alert!")
     .setDescription(lines.join("\n").slice(0,3900))
-    .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)});
+    .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)+" · Don\u2019t forget to opt in!"});
 }
 
 // Footer carries only a short reference for members; the full identifier stays
@@ -220,7 +214,7 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
       (item.status==="ended"&&Boolean(item.listMessageId)));
   if(!visible)return deleteListing(client,item,Model);
   const config=await GuildConfig.findOne({guildId:item.guildId})
-    .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId activityParticipationRoleId activityParticipationRoleInstructions giveawayPingRoleId giveawayNotificationRoleIds activityNotificationRoleIds trialNotificationRoleIds survivalTrialPingRoleId").lean();
+    .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId giveawayPingRoleId giveawayNotificationRoleIds activityNotificationRoleIds trialNotificationRoleIds survivalTrialPingRoleId").lean();
   const channelId=config?.activityGiveawayListChannelId;
   if(!channelId)return false;
   if(!config?.activityGiveawayWinnersChannelId)return false;
@@ -234,8 +228,6 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
   const banner=await getGiveawayBanner(item.guildId,item.bannerNameKey);
   const embed=isPlan ? activityPlanListingEmbed(item,rule,{
     winnerChannelId:config.activityGiveawayWinnersChannelId,
-    participationRoleId:config.activityParticipationRoleId,
-    participationInstructions:config.activityParticipationRoleInstructions,
   }) : activityOneOffListingEmbed(item);
   const payload=attachGiveawayBanner({embeds:[embed],allowedMentions:{parse:[]},attachments:[]},banner);
   if(item.progressEnabled && (isPlan||item.status==="open")){
@@ -263,6 +255,9 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
     await Model.updateOne({_id:item._id},{$set:{
       listMessageId:message.id,listChannelId:channel.id,listFingerprint:fingerprint,
     }});
+    // Move the persistent participation panel below each new listing.
+    try{await ensureActivityOptInPanel(client,item.guildId,{bump:true});}
+    catch(error){console.error("[Giveaways] Opt-in panel refresh failed:",error);}
   }else {
     if(item.listChannelId!==channel.id || item.listFingerprint!==fingerprint)
       await existing.edit(payload);
