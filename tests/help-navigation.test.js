@@ -61,7 +61,7 @@ test("staff topics are organized into three dropdown groups",()=>{
  const payload=helpTopicPayload("staff",userId);
  const selects=controls(payload).filter(c=>c.type===3);
  assert.equal(selects.length,3);
- assert.deepEqual(selects.map(c=>c.options.length),[1,3,3]);
+ assert.deepEqual(selects.map(c=>c.options.length),[1,3,4]);
  assert.deepEqual(selects.flatMap(c=>c.options.map(o=>o.value)),STAFF_TOPICS.map(t=>t.id));
  assert.ok(controls(helpTopicPayload("sgiveaways",userId)).some(c=>c.custom_id==="help:topic:root:"+userId));
 });
