@@ -252,7 +252,7 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Choose a Giveaway Type",
-    "• **Regular Giveaway** — `/giveaway start`: Members click **Enter Giveaway**; a regular eligibility role is optional.\n• **Activity Giveaway** — `/giveaway activity`: Members press **Opt In** on the panel below the Activity Giveaway List. The bot counts only their qualifying messages while opted in, and enters qualified members automatically. No participation role or entry button on each giveaway.\n• **Court's Trial** — `/trial start`: Members join a timed elimination contest.\n\nComplete the matching setup first. Opt-in is always required for activity giveaways only.\n\n**Giveaway Banned role:** Mandatory server-wide punishment. Blocks entries, activity logs, and draws. No per-event overrides; includes Trials."
+    "• **Regular Giveaway** — `/giveaway start`: Members click **Enter Giveaway**; a regular eligibility role is optional.\n• **Activity Giveaway** — `/giveaway activity`: Members press **Opt In** on the panel below the Activity Giveaway List. The bot counts only their qualifying messages while opted in, and enters qualified members automatically. No participation role or entry button on each giveaway.\n• **Court's Trial** — `/trial start`: Members join a timed elimination contest.\n\nComplete the matching setup first. Opt-in is always required for activity giveaways only.\n\n**Giveaway Banned role:** Mandatory server-wide punishment. Blocks entries, activity logs, and draws. No per-event overrides; includes Trials.\\n\\n**Winner cooldown:** In regular and activity giveaway creation, staff choose ON or OFF. If ON, the bot silently skips active cooldowns at winner selection. Trials never use winner cooldowns; the required Giveaway Banned role is always enforced."
    ],
    [
     "Court's Trials — Fast-Paced Giveaways",
@@ -272,7 +272,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Archive a Giveaway",
-    "After **all winners have claimed** and staff use **Confirm Prizes Delivered**, select **Archive Giveaway** in staff controls. If delivery cannot be completed, use **Cancel Giveaway** with a reason.\n\n**When archived:**\n• Regular giveaway posts are removed.\n• Activity winner announcements and Court's Trial verdicts remain public.\n• Completed and cancelled records are saved in private **Giveaway Archives**.\n\n**Archive History:** The archive will maintain who cancelled, who confirmed delivery, winner claim tickets, giveaway settings, and other relevant information for future review."
+    "After **all winners have claimed** and staff use **Confirm Prizes Delivered**, select **Archive Giveaway** in staff controls. If delivery cannot be completed, use **Cancel Giveaway** with a reason.\n\n**When archived:**\n• Regular giveaway posts are removed.\n• Activity winner announcements and Court's Trial verdicts remain public.\n• Completed and cancelled records are saved in private **Giveaway Archives**.\n\n**Archive History:** The archive will maintain who cancelled, who confirmed delivery, winner claim tickets, giveaway settings, and other relevant information for future review.\\n\\n**Apply Cooldown:** After confirming prize delivery, staff may click **Apply Cooldown** beside Archive, select one or several winners, enter 1–365 days, and confirm privately. Cooldowns start from the prize-delivery timestamp, survive archiving and never replace the banned role. The staff giveaway directory has **Winner Cooldowns** to view, correct or remove active restrictions."
    ]
   ]
  ],
@@ -298,7 +298,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "4. Manual Approval",
-    "After counting ends, the bot checks the activity requirements and whether each member **is still opted in** before selecting winners. With manual approval enabled, staff review the results in private Giveaway Staff Controls before announcement.\\n\\nOpting out stops new tracking immediately. On re-entry, earlier messages are excluded from the new session. Staff can choose what happens if nobody qualifies."
+    "After counting ends, the bot checks the activity requirements and whether each member **is still opted in** before selecting winners. With manual approval enabled, staff review the results in private Giveaway Staff Controls before announcement.\\n\\nOpting out stops new tracking immediately. On re-entry, earlier messages are excluded from the new session. Staff can choose what happens if nobody qualifies.\\n\\nIf Winner Cooldown is ON, active cooldowns are rechecked before approval completes the drawing. Repeating giveaways inherit the setting."
    ]
   ]
  ],
