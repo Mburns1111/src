@@ -418,11 +418,32 @@ async function modalSubmit(i,id){
   Object.assign(s,{workingGroups:groups,overrides,page:0});
   return reply(i,activationGroupPanel(s));
  }
- if(id==="groupEditText"||id==="groupAddText"){
+ if(["groupEditText","groupAddText","groupSingleText","groupPerPingText"].includes(id)){
   if(s.phase!=="activation")throw Error("Activation expired.");
   const g=s.workingGroups[s.selectedGroupIndex];
   const value=field(i,"content");
   if(!value)throw Error("Enter message text.");
+  if(id==="groupSingleText"){
+   if(g.messageMode!=="single")throw Error("Select Repeat One Message first.");
+   s.workingGroups[s.selectedGroupIndex]=normalizePingGroup({...g,messages:[value]},{allowEmpty:true});
+   return reply(i,activationGroupPanel(s));
+  }
+  if(id==="groupPerPingText"){
+   if(g.messageMode!=="per-ping")throw Error("Select Different Message Per Ping first.");
+   const events=groupEvents(s,s.selectedGroupIndex);
+   if(!events.some(e=>e.ordinal===s.selectedPerPingOrdinal))
+    throw Error("Choose a scheduled ping first.");
+   const perPingMessages=[...(g.perPingMessages||[])];
+   perPingMessages[s.selectedPerPingOrdinal]=value;
+   s.workingGroups[s.selectedGroupIndex]=normalizePingGroup({...g,perPingMessages},{allowEmpty:true});
+   const next=events.find(e=>!perPingMessages[e.ordinal]);
+   if(next){
+    s.selectedPerPingOrdinal=next.ordinal;
+    s.perPingPage=Math.floor(next.ordinal/10);
+   }
+   return reply(i,perPingPanel(s));
+  }
+  if(g.messageMode!=="rotate")throw Error("Select Rotate Messages first.");
   const messages=[...(g.messages||[])];
   if(id==="groupEditText"){
    if(!Number.isInteger(s.selectedMessageIndex)||!messages[s.selectedMessageIndex])
