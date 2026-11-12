@@ -9,7 +9,7 @@ Configure the server through the current guided commands:
 
 1. `/setup general` — set the bot **commands channel** first; unrelated modules are optional.
 2. `/setup giveaways` — set regular giveaway channels and shared defaults.
-3. `/setup activity-giveaways` — set the **public activity directory**, the **separate activity winners/results channel**, a **private staff/review channel**, and the **mandatory, separate Activity Participation role**. Set claim instructions/defaults and notification settings here.
+3. `/setup activity-giveaways` — set the **public activity directory**, the **separate activity winners/results channel**, a **private staff/review channel**, and the **bot-managed Opt In / Opt Out participation panel**. Set claim instructions/defaults and notification settings here.
 4. `/setup trials` — set the Court's Trials channel, trial eligibility/claim defaults, and related settings.
 5. Start a regular giveaway with `/giveaway start`, or start an activity giveaway with **`/giveaway activity`**. Both use guided setup; `/trial start` starts a Court's Trial.
 
@@ -25,6 +25,14 @@ The old `/setup channels` path is retained only for compatibility with already c
 - **Existing regular giveaways and Trials:** retain their separately configured destinations. The Court's Trial Royal Verdict remains public after staff archive the trial.
 
 For a **one-time guided activity giveaway**, its directory post remains visible after drawing, including while a winner has a claim pending, until staff deliberately use **Delete Listing** when that action becomes eligible. Ending a giveaway is not the same as deleting its listing. A recurring plan's ongoing directory listing can be updated for new rounds; legacy schedules and completed posts should not be silently discarded.
+
+## Internal activity participation (no Discord role)
+
+The bot maintains a **per-server MongoDB opt-in list**. The public **Activity Giveaway List** has one permanent participation panel at the bottom with **Opt In**, **Opt Out**, and **My Status** buttons. Members click **Opt In** before their messages can count. The bot checks that active consent record before saving a guided receipt or a legacy giveaway minute count; members without active consent are not logged for activity giveaways. No Discord role is assigned, and regular giveaway eligibility, ping, bonus, or Giveaway Manager roles are unaffected.
+
+Opting out immediately stops new tracking and removes the member from live progress previews and winner selection. A later opt-in starts a **new** counting window; only the new session can qualify. Guided receipts use exact message timestamps, and minute-level counter records filter out earlier sessions. The activity listing footer reminds users to opt in. Historical staff archives preserve past records.
+
+Activity opt-in is **independent of regular giveaways, Court's Trials, Points and Hatchem**. Existing activity giveaways can keep their schedules and counting requirements; the old participation-role setting is ignored by the new system.
 
 ## Guided activity giveaway: counting rules
 
