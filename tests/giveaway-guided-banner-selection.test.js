@@ -38,7 +38,8 @@ async function harness(mode,{banners=[]}={}){
     giveawayChannelId:trialId,giveawayArchiveChannelId:"678901234567890123",
     activityGiveawayListChannelId:listId,
     activityGiveawayWinnersChannelId:winnersId,
-    activityParticipationRoleId:"678901234567890123",trialDefaultBannerNameKey:"",
+    activityParticipationRoleId:"678901234567890123",
+    giveawayExcludedRoleId:"789012345678901234",trialDefaultBannerNameKey:"",
     giveawayDefaultBannerNameKey:""};
   GuildConfig.findOne=()=>({lean:async()=>config});
   GiveawayBanner.find=()=>({sort:()=>({limit:()=>({select:()=>({
