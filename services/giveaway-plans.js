@@ -9,6 +9,8 @@ import { easternMidnight, shiftCalendarDay, nextPlanAnnouncement } from "./givea
 import { closeGiveaway, publishGiveawayResult } from "./giveaways.js";
 import {publishGiveawayReview} from "./giveaway-review.js";
 import {normalizeRoleBonuses} from "./giveaway-role-weights.js";
+import {activeActivityParticipants} from "./activity-participation.js";
+import {configuredGiveawayBanRole,memberPassesGiveawayBan} from "./giveaway-exclusion.js";
 
 export function planRepeatMode(plan) {
   return plan.repeatMode || (plan.recurring ? "weekly" : "once");
@@ -69,10 +71,12 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     : {type:"general",channelIds:[],minimum:1,days:1,minimumChars:1};
   const requirement={...qualification,days:activityWindow.period==="daily"?1:qualification.days};
   const minimumTotalMessages=plan.minimumTotalMessages??rule?.minimumTotalMessages??1;
-  const windowOptions=activityWindow.custom ?
-    {startAt:activityWindow.startAt,endAt:activityWindow.endAt}:
-    activityWindow.period==="daily"?{day:activityWindow.key}:{week:activityWindow.key};
-  const entrants=rule ? await qualifyingWatchActivity({
+  // Minute-count queries are restricted to each member's current opt-in window.
+  const startAt=new Date(activityWindow.startAt);
+  const endAt=activityWindow.endAt;
+  const hasConsentWindow=startAt<endAt;
+  const windowOptions={startAt,endAt};
+  const entrants=!hasConsentWindow?[]:rule ? await qualifyingWatchActivity({
       guildId:plan.guildId,rule,period:activityWindow.period,key:activityWindow.key,
       minimum:requirement.minimum,
       days:activityWindow.custom?qualification.days:requirement.days,
@@ -81,11 +85,13 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     }) : await qualifyingActivity({guildId:plan.guildId,...requirement,minimumTotalMessages,
       ...windowOptions});
   const guild=await client.guilds.fetch(plan.guildId);
+  const optedIn=await activeActivityParticipants(plan.guildId,entrants);
+  const excludedRoleId=await configuredGiveawayBanRole(plan.guildId);
   const eligible=[];
-  for(const id of [...new Set(entrants)]) {
+  for(const id of [...new Set(entrants)].filter(id=>optedIn.has(String(id)))) {
     try {
       const member=await guild.members.fetch({user:id,force:true});
-      if (member && !member.user?.bot) eligible.push(id);
+      if (member && !member.user?.bot && memberPassesGiveawayBan(member,excludedRoleId)) eligible.push(id);
     } catch(error) {
       if (error.code!==10007) throw error; // never discard a member on temporary Discord failures
     }
@@ -101,10 +107,9 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
     throw Error("Configure the activity winners channel with /setup activity-giveaways before scheduled activity drawings.");
   if(plan.requireStaffReview&&!config.activityGiveawayReviewChannelId)
     throw Error("Configure the private staff review channel with /setup activity-giveaways before using staff review.");
-  const candidateCount=plan.requireStaffReview?await countActivityParticipants({
+  const candidateCount=plan.requireStaffReview&&hasConsentWindow?await countActivityParticipants({
     guildId:plan.guildId,type:qualification.type,channelIds:qualification.channelIds,
-    period:activityWindow.period,key:activityWindow.key,
-    ...(activityWindow.custom?{startAt:activityWindow.startAt,endAt:activityWindow.endAt}:{}),
+    ...windowOptions,
   }):0;
   const roleBonuses=normalizeRoleBonuses([...new Map([...(rule?.roleBonuses||[]),
     ...(plan.roleBonuses||[])].map(b=>[b.roleId,{roleId:b.roleId,extraEntries:b.extraEntries}])).values()]);
@@ -114,9 +119,11 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
       record=await Giveaway.create({
         guildId:plan.guildId,channelId:config.activityGiveawayWinnersChannelId,
         creatorId:plan.creatorId,bannerNameKey:plan.bannerNameKey||"",
+        // Bot-managed activity consent; no Discord role is needed.
         title:plan.title,prize,description:plan.description||"",winnerCount:plan.winnerCount,endsAt:runAt,
         mode:"activity",status:plan.requireStaffReview?"pending_review":"closing",
         requireStaffReview:Boolean(plan.requireStaffReview),progressEnabled:Boolean(plan.progressEnabled),
+        winnerCooldownEnabled:plan.winnerCooldownEnabled===true,
         announceEmptyResults:Boolean(plan.announceEmptyResults),
         roleBonuses,customActivityStartAt:plan.customActivityStartAt||null,
         customActivityEndAt:plan.customActivityEndAt||null,

@@ -15,12 +15,13 @@ import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS}
 const sessions=new Map();
 const expiry=30*60_000;
 const key=(channel,user)=>channel+":"+user;
-const steps=["list","winners","staff","archive","managerRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
-const regularSteps=["regularChannel","staff","archive","managerRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
+const steps=["list","winners","staff","archive","managerRole","excludedRole","instructions","hours","rerolls","roles","empty","banner","review"];
+const regularSteps=["regularChannel","staff","archive","managerRole","excludedRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
 const stepsFor=session=>session.mode==="regular"?regularSteps:steps;
 const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",archive:"Private giveaway archive",
   regularChannel:"Regular giveaway posts",managerRole:"Giveaway Manager role",
-  requiredRole:"Default required role",roleHelp:"Where to get required roles",
+  excludedRole:"Required Giveaway Banned role",
+  requiredRole:"Default regular entry role",roleHelp:"Where to get required roles",
   roleHelpVisible:"Show role instructions",instructions:"Claim instructions",hours:"Claim deadline",rerolls:"Automatic rerolls",
   roles:"Shared giveaway ping role",empty:"No eligible winners",banner:"Default banner"};
 const button=(id,label,value,style=ButtonStyle.Secondary)=>new ButtonBuilder()
@@ -52,9 +53,14 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   "🔒 **Staff controls:** "+shown(settings.activityGiveawayReviewChannelId),
    "🗄️ **Private giveaway archive (required):** "+shown(settings.giveawayArchiveChannelId),
   "🔑 **Giveaway Manager role:** "+(settings.giveawayManagerRoleId?"<@&"+settings.giveawayManagerRoleId+">":"None — Manage Server only"),
-  "🎟️ **Default required role:** "+(settings.giveawayDefaultRequiredRoleId?"<@&"+settings.giveawayDefaultRequiredRoleId+">":"None"),
-  "👁️ **Show role instructions publicly:** "+(settings.giveawayShowRoleInstructions!==false?"Yes":"No"),
-  "🎟️ **Role acquisition instructions (saved):** "+(settings.giveawayRoleInstructions||"Not set"),
+  "🚫 **Giveaway Banned role (required):** "+(settings.giveawayExcludedRoleId?"<@&"+settings.giveawayExcludedRoleId+">":"NOT CONFIGURED — REQUIRED"),
+  ...(mode==="activity"?[
+    "✅ **Activity participation:** Members use **Opt In / Opt Out** at the bottom of the Activity Giveaway List. Stored in MongoDB; no Discord role required.",
+  ]:[
+    "🎟️ **Optional regular giveaway entry role:** "+(settings.giveawayDefaultRequiredRoleId?"<@&"+settings.giveawayDefaultRequiredRoleId+">":"None"),
+    "👁️ **Show regular role instructions publicly:** "+(settings.giveawayShowRoleInstructions!==false?"Yes":"No"),
+    "🎟️ **Regular role acquisition instructions:** "+(settings.giveawayRoleInstructions||"Not set"),
+  ]),
   "📝 **Current prize-claim instructions ("+(settings.activityClaimInstructions?"Saved server custom":"Built-in default")+"):**",
   currentGiveawayClaimInstructions(settings),
   "⏰ **Default claim window:** "+settings.activityClaimWindowHours+" hours",
@@ -82,9 +88,9 @@ export function claimAnnouncementPreview(settings,{
   claimInstructions:settings.activityClaimInstructions||"",
   maxAutoRerolls:settings.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
   autoRerollClaims:true,
-  requiredRoleId:settings.giveawayDefaultRequiredRoleId||"",
-  requiredRoleInstructions:settings.giveawayRoleInstructions||"",
-  showRequiredRoleInstructions:settings.giveawayShowRoleInstructions!==false,
+  requiredRoleId:mode==="regular"?settings.giveawayDefaultRequiredRoleId||"":"",
+  requiredRoleInstructions:mode==="regular"?settings.giveawayRoleInstructions||"":"",
+  showRequiredRoleInstructions:mode==="regular"?settings.giveawayShowRoleInstructions!==false:false,
  };
  const payload=giveawayAnnouncement(sample);
  payload.embeds[0].setFooter({text:"PREVIEW ONLY · No giveaway created or modified"});
@@ -123,9 +129,18 @@ function layout(session,banners=[]) {
      .setCustomId(bind(session,"managerRole")).setPlaceholder("Choose Giveaway Manager role")
      .setMinValues(1).setMaxValues(1)));
    components.push(row(session.id,[["No manager role","clearManagerRole"],["Keep Current","keep"]]));
+ }else if(step==="excludedRole"){
+   content="Choose the **required Giveaway Banned role** shared by all prize giveaways. "+
+     "Anyone holding this punishment role cannot enter regular giveaways, Court's Trials, or collect activity giveaway progress; they cannot win or be rerolled into any giveaway. "+
+     "The restriction is always enforced, never optional, and has no cooldown.\\nCurrent: "+
+     (s.giveawayExcludedRoleId?"<@&"+s.giveawayExcludedRoleId+">":"NOT CONFIGURED — REQUIRED");
+   components.push(new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
+     .setCustomId(bind(session,"excludedRole")).setPlaceholder("Select required banned role")
+     .setMinValues(1).setMaxValues(1)));
+   if(s.giveawayExcludedRoleId)components.push(row(session.id,[["Keep Current","keep"]]));
  }else if(step==="requiredRole"){
-   content="Choose a **default required role** for regular and activity giveaways. "+
-     "Staff can keep this default, choose a different role, or disable the role requirement for each giveaway.\n"+
+   content="Choose an **optional default required role** for regular giveaways only. "+
+     "Staff can keep this default, choose a different role, or disable the role requirement for each regular giveaway.\n"+
      "Current: "+(s.giveawayDefaultRequiredRoleId?"<@&"+s.giveawayDefaultRequiredRoleId+">":"None");
    components.push(new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
      .setCustomId(bind(session,"requiredRole")).setPlaceholder("Choose default required role")
@@ -260,7 +275,7 @@ async function apply(session,verb,value){
      await show(session,"review");return;
    }
    const ordered=stepsFor(session),index=ordered.indexOf(session.step);
-   const back=({roleHelpText:"roleHelp",instructionsText:"instructions",hoursText:"hours"})[session.step]||ordered[Math.max(0,index-1)];
+   const back=({participationHelpText:"participationHelp",roleHelpText:"roleHelp",instructionsText:"instructions",hoursText:"hours"})[session.step]||ordered[Math.max(0,index-1)];
    await show(session,back);return;
  }
  if(session.step==="review"){
@@ -280,12 +295,15 @@ async function apply(session,verb,value){
      session.fromReview=true;await show(session,value);return;
    }
    if(verb!=="save")throw Error("Choose Save Settings, Preview, or Edit.");
+   if(!s.giveawayExcludedRoleId)throw Error("Select the required Giveaway Banned role before saving setup.");
+   const banRole=await session.guild.roles.fetch(s.giveawayExcludedRoleId).catch(()=>null);
+   if(!banRole||banRole.id===session.guild.id)throw Error("The required Giveaway Banned role no longer exists. Select a current role.");
    await checkChannels(session);
    const previous=await GuildConfig.findOne({guildId:session.guild.id}).lean();
    const settings={
      ...Object.fromEntries([
       "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId","giveawayArchiveChannelId","giveawayChannelId",
-      "giveawayManagerRoleId","giveawayDefaultRequiredRoleId","giveawayShowRoleInstructions",
+      "giveawayManagerRoleId","giveawayExcludedRoleId","giveawayDefaultRequiredRoleId","giveawayShowRoleInstructions",
       "giveawayRoleInstructions","activityClaimInstructions","activityClaimWindowHours","activityMaxAutoRerolls",
       "activityAnnounceEmptyResults","giveawayDefaultBannerNameKey"
      ].map(field=>[field,s[field]])),
@@ -304,7 +322,10 @@ async function apply(session,verb,value){
      allowedMentions:{parse:[]}});
    return;
  }
- if(verb==="keep")return next();
+ if(verb==="keep"){
+   if(session.step==="excludedRole"&&!s.giveawayExcludedRoleId)throw Error("Choose the required Giveaway Banned role first.");
+   return next();
+ }
  if(session.step==="managerRole"){
    if(verb==="clearManagerRole"){s.giveawayManagerRoleId="";return next();}
    if(verb==="managerRole"){
@@ -313,6 +334,14 @@ async function apply(session,verb,value){
      if(!role||role.id===session.guild.id||role.managed)
        throw Error("Choose a real, assignable server role for Giveaway Managers.");
      s.giveawayManagerRoleId=role.id;return next();
+   }
+ }
+ if(session.step==="excludedRole"){
+   if(verb==="excludedRole"){
+     const id=Array.isArray(value)?value[0]:value;
+     const role=await session.guild.roles.fetch(id).catch(()=>null);
+     if(!role||role.id===session.guild.id)throw Error("Choose an existing server role.");
+     s.giveawayExcludedRoleId=role.id;return next();
    }
  }
  if(session.step==="requiredRole"){
@@ -411,6 +440,7 @@ async function startGiveawaySetup(interaction,mode="activity"){
    activityGiveawayReviewChannelId:config?.activityGiveawayReviewChannelId||"",
     giveawayArchiveChannelId:config?.giveawayArchiveChannelId||"",
    giveawayManagerRoleId:config?.giveawayManagerRoleId||"",
+   giveawayExcludedRoleId:config?.giveawayExcludedRoleId||"",
    giveawayDefaultRequiredRoleId:config?.giveawayDefaultRequiredRoleId||"",
    giveawayShowRoleInstructions:config?.giveawayShowRoleInstructions!==false,
    giveawayRoleInstructions:config?.giveawayRoleInstructions||"",
@@ -439,7 +469,7 @@ export async function handleActivityGiveawaySetupInteraction(interaction){
    return interaction.reply({content:"Manage Server permission is required.",flags:MessageFlags.Ephemeral});
  await interaction.deferReply({flags:MessageFlags.Ephemeral});
  try{
-   const verb=match[2],value=["channel","roles","requiredRole","managerRole","edit","selectSavedBanner"].includes(verb)?interaction.values:null;
+   const verb=match[2],value=["channel","roles","requiredRole","managerRole","excludedRole","edit","selectSavedBanner"].includes(verb)?interaction.values:null;
    await apply(session,verb,["channel","selectSavedBanner","edit"].includes(verb)?value?.[0]:value);
    return interaction.editReply("Updated setup step.");
  }catch(error){return interaction.editReply("Couldn't save that choice: "+String(error.message||error));}

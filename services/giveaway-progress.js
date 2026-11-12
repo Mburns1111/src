@@ -1,4 +1,5 @@
 import {activityRoster} from "./guided-activity.js";
+import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 import {MessageFlags} from "discord.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import Giveaway from "../models/Giveaway.js";
@@ -20,15 +21,12 @@ export async function handleActivityGiveawayProgress(interaction) {
      item.listChannelId!==interaction.channelId ||
      (isPlan?item.status!=="active":item.status!=="open"))
     return interaction.editReply("Progress tracking is unavailable for this giveaway.");
+  const participation=await ActivityGiveawayOptIn.findOne({
+    guildId:interaction.guildId,userId:interaction.user.id,active:true,
+  }).lean();
+  if(!participation)
+    return interaction.editReply("**Opt in first:** Use **Opt In** on the permanent participation panel at the bottom of the Activity Giveaway List. Only messages sent while opted in count.");
   if(item.guidedSeries){
-    if(item.requiredRoleId){
-      const member=await interaction.guild.members.fetch({user:interaction.user.id,force:true}).catch(()=>null);
-      if(!member?.roles?.cache?.has(item.requiredRoleId))
-        return interaction.editReply({content:"**Required role:** <@&"+item.requiredRoleId+">\n"+
-          (item.showRequiredRoleInstructions!==false&&item.requiredRoleInstructions?
-            "**Where to get it:** "+item.requiredRoleInstructions+"\n":"")+
-          "Activity messages do not count until you hold this role.",allowedMentions:{parse:[]}});
-    }
     const [row]=await activityRoster(item,interaction.user.id);
     return interaction.editReply({content:[
       "**"+item.title+"** · "+(row?.qualified?"Qualified":"Not yet qualified"),
@@ -64,13 +62,18 @@ export async function handleActivityGiveawayProgress(interaction) {
     type:item.activityType||"general",
     channelIds:item.activityChannelIds||[],
   };
-  const endAt=custom?new Date(Math.min(new Date(customEnd).getTime(),now.getTime())):null;
   const nextWindow=isPlan?planActivityWindow(item,item.nextRunAt):null;
-  const window=custom ? {startAt:new Date(customStart),endAt} :
-    {period,key:isPlan?nextWindow.key:item.activityPeriodKey};
+  const periodStart=custom?new Date(customStart):
+    isPlan?nextWindow.startAt:
+      new Date(item.activityStartAt);
+  const periodEnd=custom?new Date(customEnd):
+    isPlan?nextWindow.endAt:new Date(item.activityEndAt);
+  const startAt=new Date(Math.max(+periodStart,+new Date(participation.countFrom||participation.optedInAt)));
+  const endAt=new Date(Math.min(+periodEnd,+now));
+  const window={startAt,endAt};
   // Custom window has not opened yet. No activity can have been credited.
   let progress={messages:0,activeDays:0,target:settings.minimumTotalMessages,qualified:false};
-  if(!custom||endAt>new Date(customStart))
+  if(endAt>startAt)
     progress=await memberActivityProgress({guildId:interaction.guildId,userId:interaction.user.id,
       rule,period,...settings,...window});
   const qualifying=progress.qualified?"**Goal reached!**":"Not qualified yet";

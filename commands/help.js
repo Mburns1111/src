@@ -173,11 +173,11 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Regular Giveaways",
-    "Enter using the buttons on the giveaway announcement. Follow any additional eligibility requirements listed."
+    "Use **Enter Giveaway** on the regular giveaway post. Some regular giveaways require an eligibility role; check the announcement. The Activity Giveaway opt-in system is separate and does not affect regular giveaways."
    ],
    [
     "2. Activity Giveaways",
-    "Qualify automatically by meeting the listed activity requirements. The bot tracks your participation, so no entry button is needed."
+    "To participate, find the permanent **Activity Giveaway Participation** panel at the bottom of the **Activity Giveaway List** channel and press **Opt In**. No Discord role is needed. Messages sent while opted in can count toward posted activity requirements; qualified members enter drawings automatically with no entry button.\n\nPress **Opt Out** to stop new activity tracking and leave current activity drawings. If you opt in again, earlier activity does not carry over.\n\n**Giveaway Banned role:** Receiving this role revokes your opt-in. If staff remove the role, you must press **Opt In** again to restart activity counting; old progress does not return."
    ],
    [
     "3. Court's Trials",
@@ -185,7 +185,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "4. Check Your Progress",
-    "Use **Check My Progress** on activity giveaways to see how close you are to qualifying."
+    "Use **Check My Progress** on an activity giveaway to view your message total privately. If you have not opted in, the bot will direct you to the participation buttons below the Activity Giveaway List."
    ],
    [
     "5. Claiming Prizes",
@@ -234,11 +234,11 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Giveaways & Court's Trials · PUBLIC and PRIVATE",
-    "**Required public channels:**\n• **Regular Giveaways** — Standard entry-button giveaways.\n• **Activity Giveaway List** — Activity-based giveaways.\n• **Activity Winners** — Activity giveaway winner announcements.\n• **Court's Trials** — A fast-paced giveaway system with interactive eliminations for prizes.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Manage giveaways, entries, and claims.\n• **Giveaway Archives** — Completed and cancelled records.\n\n**Setup commands:**\n• `/setup giveaways`\n• `/setup activity-giveaways`\n• `/setup trials`"
+    "**Required public channels:**\n• **Regular Giveaways** — Enter giveaways through buttons.\n• **Activity Giveaway List** — Posters, progress, and Opt In / Opt Out panel.\n• **Activity Winners** — Results and claims.\n• **Court's Trials** — Signups and eliminations.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Management and prize delivery.\n• **Giveaway Archives** — Completed and cancelled records.\n\n**Activity opt-in:** Members choose Opt In at the bottom of the Activity Giveaway List. Consent is stored in MongoDB; no participation role is required.\n\n**Giveaway Banned role (required):** Set this server-wide punishment role. Members holding it cannot enter or win any giveaway or Trial, or count activity. It has no cooldown or individual override.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
    ],
    [
     "6. Bot Permissions",
-    "Ensure the bot has **View Channel**, **Send Messages**, and **Embed Links** in assigned channels. Enable **Read Message History**, **Attach Files**, and **Manage Roles** where needed.\n\nGranting **Administrator** covers these permissions. The bot has no commands to mute, ban, kick, or otherwise moderate members.\n\n**Activity Giveaways:** The bot must view all channels where activity should count so it can accurately track and record activity."
+    "Give the bot **View Channel**, **Send Messages**, and **Embed Links** in assigned channels. Add **Read Message History** and **Attach Files** where needed.\n\n**Activity giveaways:** Enable Message Content Intent and let the bot see the channels being watched. The bot checks the member's MongoDB opt-in before writing any activity giveaway count or receipt. No role assignment or role selection is needed.\n\nGranting **Administrator** covers standard channel permissions, but the bot does not require it. The bot has no commands to mute, ban, kick, or otherwise moderate members."
    ],
    [
     "7. Setup Order",
@@ -252,7 +252,7 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Choose a Giveaway Type",
-    "• **Regular Giveaway** — `/giveaway start`: A traditional giveaway where members enter using a button.\n• **Activity Giveaway** — `/giveaway activity`: Members qualify through activity requirements. The bot automatically tracks and logs participation and enters eligible members without manual entry.\n• **Court's Trial** — `/trial start`: A fast-paced elimination-style giveaway.\n\nComplete the matching setup first."
+    "• **Regular Giveaway** — `/giveaway start`: Members click **Enter Giveaway**; a regular eligibility role is optional.\n• **Activity Giveaway** — `/giveaway activity`: Members press **Opt In** on the panel below the Activity Giveaway List. The bot counts only their qualifying messages while opted in, and enters qualified members automatically. No participation role or entry button on each giveaway.\n• **Court's Trial** — `/trial start`: Members join a timed elimination contest.\n\nComplete the matching setup first. Opt-in is always required for activity giveaways only.\n\n**Giveaway Banned role:** Mandatory server-wide punishment. Blocks entries, activity logs, and draws. No per-event overrides; includes Trials.\\n\\n**Winner cooldown:** In regular and activity giveaway creation, staff choose ON or OFF. If ON, the bot silently skips active cooldowns at winner selection. Trials never use winner cooldowns; the required Giveaway Banned role is always enforced."
    ],
    [
     "Court's Trials — Fast-Paced Giveaways",
@@ -272,29 +272,33 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Archive a Giveaway",
-    "Archive once **all winners have claimed** and staff use **Confirm Prizes Delivered**. If it cannot be completed, use **Cancel Giveaway** with a reason.\n\n**When archived:**\n• Regular giveaway posts are removed.\n• Activity winner announcements and Court's Trial verdicts remain public.\n• Completed and cancelled records are saved in private **Giveaway Archives**.\n\n**Archive History:** The archive will maintain who cancelled, who confirmed delivery, winner claim tickets, giveaway settings, and other relevant information for future review."
+    "After **all winners have claimed** and staff use **Confirm Prizes Delivered**, select **Archive Giveaway** in staff controls. If delivery cannot be completed, use **Cancel Giveaway** with a reason.\n\n**When archived:**\n• Regular giveaway posts are removed.\n• Activity winner announcements and Court's Trial verdicts remain public.\n• Completed and cancelled records are saved in private **Giveaway Archives**.\n\n**Archive History:** The archive will maintain who cancelled, who confirmed delivery, winner claim tickets, giveaway settings, and other relevant information for future review.\\n\\n**Apply Cooldown:** After confirming prize delivery, staff may click **Apply Cooldown** beside Archive, select one or several winners, enter 1–365 days, and confirm privately. Cooldowns start from the prize-delivery timestamp, survive archiving and never replace the banned role. The staff giveaway directory has **Winner Cooldowns** to view, correct or remove active restrictions."
    ]
   ]
  ],
  "sactivity": [
   "Staff · Track Activity",
-  "Run `/giveaway activity` in private Bot Commands. The bot automatically tracks participation and determines who qualifies.",
+  "Use `/setup activity-giveaways` to choose the public Activity Giveaway List, where the bot maintains its Opt In / Opt Out panel. Create activity giveaways with `/giveaway activity` in private Bot Commands.",
   [
    [
+    "Activity Participation · REQUIRED",
+    "Members must explicitly opt in through the **Opt In** button on the permanent participation panel below the **Activity Giveaway List**. The bot stores their choice in MongoDB and checks it before writing any activity giveaway logs. No Discord role is used.\n\n**Opt Out** immediately stops new tracking and excludes the member from activity draws. Opting in again starts a fresh counting window; previously recorded messages do not contribute.\n\n**Ban reset:** When a member receives the Giveaway Banned role, the bot revokes their MongoDB opt-in. Removing the role never reactivates it. They must manually press Opt In to begin a fresh counting window."
+   ],
+   [
     "1. Set the Requirements",
-    "**Available activity requirements:**\n• **Channels** — Select which channels count toward the giveaway.\n• **Messages** — Set the total required in the activity period, **not per day**.\n• **Active Days** — Optionally require participation on separate days.\n• **Keywords or Phrases** — Track specific words or phrases.\n• **Member Mentions** — Track mentions of a specific member.\n\nThe bot tracks and qualifies members automatically; no manual entry is needed."
+    "**Available activity requirements:**\n• **Channels** — Watch all server channels or selected channels.\n• **Messages** — Set the total needed over the **entire activity period**, not per day.\n• **Active days** — Optionally require messages on separate days.\n• **Message length** — Minimum characters per message.\n• **Keywords or phrases** — Match specific words or phrases.\n• **Member mentions** — Optionally require a particular member ping.\n\nOnly members who have opted in are tracked. Qualified members enter automatically."
    ],
    [
     "2. Review the Schedule",
-    "Before posting, review start and end times. For repeating giveaways, the preview shows the start and end times of the **next two scheduled periods**. Confirm the schedule and requirements before publishing."
+    "Check counting start/end times and the winner announcement time before posting. For repeating giveaways, the preview displays the start and end of the **next two scheduled periods**.\\n\\nMembers' opt-in status applies to all activity giveaways in this server. There is no role or per-giveaway opt-in to configure."
    ],
    [
     "3. Check Progress",
-    "Members can use **Check My Progress** on the activity post.\n\nStaff can use **Preview Qualifying Members** in private Giveaway Staff Controls to:\n• View qualified members.\n• See members still working toward requirements.\n• Exclude members who haven't participated since the period began.\n\nUse **Refresh Progress** for the latest counts."
+    "Members use **Check My Progress** on the activity post to see their own totals privately.\\n\\nStaff use **Preview Qualifying Members** and **Refresh Progress** in private Giveaway Staff Controls to see opted-in members who qualify or are making progress.\\n\\nMembers without recorded activity are omitted. Those who opt out are excluded from live previews and winner eligibility."
    ],
    [
     "4. Manual Approval",
-    "When the activity period ends, the bot checks requirements and selects eligible winners.\n\nIf manual approval is enabled, staff review results in private **Giveaway Staff Controls** before announcement.\n\nStaff can also configure how the bot handles a giveaway when no eligible winner is selected."
+    "After counting ends, the bot checks the activity requirements and whether each member **is still opted in** before selecting winners. With manual approval enabled, staff review the results in private Giveaway Staff Controls before announcement.\\n\\nOpting out stops new tracking immediately. On re-entry, earlier messages are excluded from the new session. Staff can choose what happens if nobody qualifies.\\n\\nIf Winner Cooldown is ON, active cooldowns are rechecked before approval completes the drawing. Repeating giveaways inherit the setting."
    ]
   ]
  ],
@@ -450,13 +454,19 @@ async function currentServerCommands(i){
  }
 }
 const COMMAND_LINES_PER_PAGE=16;
-export function helpTopicPayload(topicId,ownerId,commandLines=[],commandPage=0){
+export function helpTopicPayload(topicId,ownerId,commandLines=[],commandPage=0,serverConfig=null){
  if(!VALID.has(topicId)||!/^\d{17,20}$/.test(String(ownerId||"")))
   throw new UserFacingError("That help menu is no longer available. Run /help again.");
  const [title,description,fields]=CONTENT[topicId];
  const embed=new EmbedBuilder().setColor(STAFF_IDS.has(topicId)?0x2ecc71:0x5865f2)
   .setTitle(title).setDescription(description);
- for(const [name,value] of fields)embed.addFields({name,value});
+ for(const [name,value] of fields){
+  embed.addFields({name,value});
+  if(topicId==="giveaways"&&name==="2. Activity Giveaways"){
+   const instructions="Use **Opt In** on the permanent participation panel below the Activity Giveaway List. The bot stores your choice privately; no Discord role is required.";
+   embed.addFields({name:"How to opt in on this server",value:instructions});
+  }
+ }
  let nav=topicNav(topicId,ownerId);
  if(topicId==="commands"){
   const pages=Math.max(1,Math.ceil(commandLines.length/COMMAND_LINES_PER_PAGE));
@@ -486,7 +496,11 @@ export function helpTopicPayload(topicId,ownerId,commandLines=[],commandPage=0){
 }
 async function showTopic(i,topic,ownerId,commandPage=0){
  const lines=topic==="commands"?await currentServerCommands(i):[];
- await i.editReply(helpTopicPayload(topic,ownerId,lines,commandPage));
+ let serverConfig=null;
+ if(topic==="giveaways"){
+  // Participation instructions are the same for every server; the panel is in its configured activity list.
+ }
+ await i.editReply(helpTopicPayload(topic,ownerId,lines,commandPage,serverConfig));
 }
 export async function execute(interaction){
  requireGuild(interaction);

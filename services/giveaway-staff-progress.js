@@ -1,5 +1,7 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,PermissionFlagsBits,UserSelectMenuBuilder} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {configuredGiveawayBanRole,memberPassesGiveawayBan} from "./giveaway-exclusion.js";
+
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
 import GiveawayActivityRuleMinuteCount from "../models/GiveawayActivityRuleMinuteCount.js";
@@ -11,14 +13,21 @@ const dayKey=date=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",
 const button=(id,label,style=ButtonStyle.Secondary)=>new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style);
 const time=date=>date?"<t:"+Math.floor(+new Date(date)/1000)+":f>":"Not recorded";
 
-export async function activityProgressRows(record){
+export async function activityProgressRows(record,guild=null,{historical=false}={}){
+ // The active staff panel shows only currently opted-in members; finalized
+ // archival snapshots preserve what was recorded during the giveaway.
+ if(!historical&&!guild?.members?.fetch)
+   throw Error("Discord membership verification is required for live activity progress.");
+
  if(record.guidedSeries){
-   const rows=await activityRoster(record);
+   const rows=await activityRoster(record,null,historical?null:guild,{historical});
    return rows.filter(r=>r.messages>0).map(r=>({userId:String(r._id),messages:r.messages,days:r.days,qualified:r.qualified}));
  }
- const start=record.activityStartAt||record.customActivityStartAt;
+ const periodStart=record.activityStartAt||record.customActivityStartAt;
  const end=record.activityEndAt||record.customActivityEndAt;
- if(!start||!end)return [];
+ if(!periodStart||!end)return [];
+ const start=new Date(periodStart);
+ if(start>=new Date(end))return [];
  const minimum=Math.max(1,record.activityMinimum||1);
  const target=Math.max(1,record.activityMinTotalMessages||minimum);
  const days=Math.max(1,record.activityDays||1);
@@ -27,16 +36,22 @@ export async function activityProgressRows(record){
  if(special&&!rule)throw Error("Watched phrase/mention rule is unavailable for staff progress.");
  const pipeline=special?qualifyingWatchRulePipeline({
    guildId:record.guildId,rule,startAt:start,endAt:end,minimum,days,minimumTotalMessages:target,
+   consent:!historical,
  }):qualifyingActivityPipeline({
    guildId:record.guildId,type:record.activityChannelIds?.length?"channels":"general",
    channelIds:record.activityChannelIds||[],minimum,days,
    minimumChars:record.activityMinChars||0,minimumTotalMessages:target,
-   startAt:start,endAt:end,
+   startAt:start,endAt:end,consent:!historical,
  });
  pipeline.pop(); // Keep partial progress: do not filter out members still working.
  const Model=special?GiveawayActivityRuleMinuteCount:GiveawayActivityMinuteCount;
  const rows=await Model.aggregate(pipeline);
- return rows.filter(r=>r.totalMessages>0).map(r=>({
+ const bannedRoleId=historical?"":await configuredGiveawayBanRole(record.guildId);
+ const verified=historical?rows.map(()=>true):await Promise.all(rows.map(async row=>{
+   const member=await guild.members.fetch({user:row._id,force:true}).catch(()=>null);
+   return Boolean(member&&!member.user?.bot&&memberPassesGiveawayBan(member,bannedRoleId));
+ }));
+ return rows.filter((r,n)=>r.totalMessages>0&&verified[n]).map(r=>({
    userId:String(r._id),messages:r.totalMessages,days:r.activeDays,
    qualified:r.totalMessages>=target&&r.activeDays>=days,
  })).sort((a,b)=>Number(b.qualified)-Number(a.qualified)||b.messages-a.messages||a.userId.localeCompare(b.userId));
@@ -81,7 +96,8 @@ export async function ensureStaffProgressPanel(client,record,channel,{force=fals
  }
  if(message&&message.author?.id!==client.user?.id)throw Error("Progress message does not belong to this bot.");
  if(!due&&message)return true;
- const rows=await activityProgressRows(record);
+ const guild=channel.guild || await client.guilds?.fetch?.(record.guildId);
+ const rows=await activityProgressRows(record,guild);
  const payload=progressPanelPayload(record,rows,now);
  if(message)await message.edit(payload);
  else message=await channel.send(payload);

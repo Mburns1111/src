@@ -1,4 +1,5 @@
 import {ensureStaffCard} from "./guided-activity.js";
+import {ensureActivityOptInPanel} from "./activity-giveaway-optin-ui.js";
 import {createHash} from "node:crypto";
 import {EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
@@ -42,6 +43,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
     "• Send **"+minimum+" "+(minimum===1?"message":"messages")+"** in "+channel+
       (rule?.requiredPhrase?" containing the required phrase":"")+".",
   ];
+  qualifier.unshift("• **Opt in first:** Use the **Opt In** button on the participation panel below the activity listings. Only messages sent while opted in count.");
   if(rule?.minimumChars>1)qualifier.push("• Each message must have at least **"+rule.minimumChars+" characters**.");
   if(rule?.minimumMessages>1)qualifier.push("• Send at least **"+rule.minimumMessages+" messages** on each qualifying day.");
   if(period==="weekly"&&rule?.activeDays>1)qualifier.push("• Be active on **"+rule.activeDays+" different days**.");
@@ -75,7 +77,7 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
   return new EmbedBuilder().setColor(0xb47e99)
     .setTitle("🎁 Giveaway alert!")
     .setDescription(text)
-    .setFooter({text:"✦ Automatic entry · "+shortRef(plan._id)});
+    .setFooter({text:"✦ Automatic entry · "+shortRef(plan._id)+" · Don\u2019t forget to opt in!"});
 }
 export function activityOneOffListingEmbed(record) {
   const guided=Boolean(record.guidedSeries);
@@ -97,7 +99,7 @@ export function activityOneOffListingEmbed(record) {
     return new EmbedBuilder().setColor(0x86738d)
       .setTitle("🏁 Activity Giveaway Ended · No Eligible Winner")
       .setDescription(text.slice(0,3900))
-      .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)});
+      .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)+" · Don\u2019t forget to opt in!"});
   }
   const settling=["pending_review","closing","rerolling"].includes(record.status);
   const minimum=record.activityMinTotalMessages||record.activityMinimum||1;
@@ -107,11 +109,7 @@ export function activityOneOffListingEmbed(record) {
       qualifyChannel(channels)+" during this activity"+
       (record.activityRequiredPhrase?" containing the required phrase":"")+".",
   ];
-  if(record.requiredRoleId){
-    qualifier.push("• **Required role:** <@&"+record.requiredRoleId+">.");
-    if(record.showRequiredRoleInstructions!==false&&record.requiredRoleInstructions)
-      qualifier.push("• **Where to get it:** "+String(record.requiredRoleInstructions).slice(0,500));
-  }
+  qualifier.push("• **Opt in first:** Use the **Opt In** button on the participation panel below the activity listings. Only messages sent while opted in count.");
   if(record.activityMinChars>1)qualifier.push("• Each message must have at least **"+record.activityMinChars+" characters**.");
   if(!guided&&record.activityMinimum>1)
     qualifier.push("• At least **"+record.activityMinimum+" messages** on each qualifying day.");
@@ -163,7 +161,7 @@ export function activityOneOffListingEmbed(record) {
   return new EmbedBuilder().setColor(0xb47e99)
     .setTitle("🎁 Giveaway alert!")
     .setDescription(lines.join("\n").slice(0,3900))
-    .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)});
+    .setFooter({text:"✦ Automatic entry · "+shortRef(record._id)+" · Don\u2019t forget to opt in!"});
 }
 
 // Footer carries only a short reference for members; the full identifier stays
@@ -257,6 +255,9 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
     await Model.updateOne({_id:item._id},{$set:{
       listMessageId:message.id,listChannelId:channel.id,listFingerprint:fingerprint,
     }});
+    // Move the persistent participation panel below each new listing.
+    try{await ensureActivityOptInPanel(client,item.guildId,{bump:true});}
+    catch(error){console.error("[Giveaways] Opt-in panel refresh failed:",error);}
   }else {
     if(item.listChannelId!==channel.id || item.listFingerprint!==fingerprint)
       await existing.edit(payload);

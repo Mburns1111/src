@@ -1,3 +1,4 @@
+import {eligibleActivityParticipant,activityConsentStages} from "./activity-participation.js";
 import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import GiveawayActivityRuleCount from "../models/GiveawayActivityRuleCount.js";
@@ -71,6 +72,8 @@ export function messageMatchesGiveawayWatch(message,rule) {
 export async function recordGiveawayMessage(message) {
   if (!message.guildId || !message.author?.id || message.author.bot || message.webhookId ||
       !message.channelId || !message.channel?.isTextBased?.()) return;
+  // Legacy watches must also respect the explicit opt-in before writing.
+  if(!await eligibleActivityParticipant(message))return;
   const length=messageCharacterCount(message);
   if (!length) return;
   const date=message.createdAt || new Date();
@@ -102,7 +105,7 @@ export async function recordGiveawayMessage(message) {
   }));
 }
 export function qualifyingActivityPipeline({guildId,type,channelIds=[],minimum=1,days=1,minimumChars=0,
-  minimumTotalMessages=0,week=completedActivityWeek(),day=null,startAt=null,endAt=null,userId=null}) {
+  minimumTotalMessages=0,week=completedActivityWeek(),day=null,startAt=null,endAt=null,userId=null,consent=true}) {
   if (!["channels","general"].includes(type)) throw Error("Invalid activity scope.");
   if (type==="channels" && !channelIds.length) throw Error("Choose a watched channel.");
   if (!Number.isInteger(minimumChars) || minimumChars < 0 || minimumChars > 2000) throw Error("Character count must be 0–2000.");
@@ -125,6 +128,7 @@ export function qualifyingActivityPipeline({guildId,type,channelIds=[],minimum=1
   };
   return [
     {$match:match},
+    ...(consent?activityConsentStages(guildId,{timeField:custom?"minute":null}):[]),
     {$project:{userId:1,day:1,messages}},
     {$group:{_id:{userId:"$userId",day:"$day"},messages:{$sum:"$messages"}}},
     {$group:{_id:"$_id.userId",totalMessages:{$sum:"$messages"},
@@ -143,7 +147,7 @@ export async function qualifyingActivity(options) {
  * The daily and weekly scopes use the same boundaries as regular activity. */
 export function qualifyingWatchRulePipeline({guildId,rule,day=null,week=completedActivityWeek(),
     minimum=rule.minimumMessages||1,days=rule.activeDays||1,
-    minimumTotalMessages=rule.minimumTotalMessages||0,startAt=null,endAt=null,userId=null}) {
+    minimumTotalMessages=rule.minimumTotalMessages||0,startAt=null,endAt=null,userId=null,consent=true}) {
   if(day!==null && days!==1) throw Error("Daily watches require a single active day.");
   if((startAt!==null)!==(endAt!==null))throw Error("A custom watch window needs both endpoints.");
   const match={guildId,ruleId:rule._id,criteriaVersion:rule.criteriaVersion||0,
@@ -151,6 +155,7 @@ export function qualifyingWatchRulePipeline({guildId,rule,day=null,week=complete
     ...(startAt!==null?{minute:{$gte:new Date(startAt),$lt:new Date(endAt)}}:day!==null?{day}:{week})};
   return [
     {$match:match},
+    ...(consent?activityConsentStages(guildId,{timeField:startAt!==null?"minute":null}):[]),
     {$group:{_id:{userId:"$userId",day:"$day"},messages:{$sum:"$count"}}},
     {$group:{_id:"$_id.userId",totalMessages:{$sum:"$messages"},
       activeDays:{$sum:{$cond:[{$gte:["$messages",minimum]},1,0]}}}},

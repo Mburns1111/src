@@ -1,3 +1,4 @@
+import {requireMemberNotBanned} from "../services/giveaway-exclusion.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
@@ -208,6 +209,8 @@ export async function execute(interaction) {
         survival ? "Court's Trial survival giveaway" : "standard giveaway",
       );
       await requirePrivateGiveawayStaffChannel(interaction.guild,config);
+      if(!config?.giveawayExcludedRoleId)
+        throw Error("Configure the required Giveaway Banned role in /setup giveaways or /setup activity-giveaways before creating prize giveaways or Trials.");
       const pingRoleId = sharedGiveawayPingRoleId(config);
       const pingRoleIds = pingRoleId?[pingRoleId]:[];
       const bannerNameKey = await ensureBannerRegistered(interaction.guildId,
@@ -421,7 +424,7 @@ export async function handleGiveawayButton(interaction) {
         return interaction.editReply("At least two members must join before you can start the trial.");
       let started;
       try {
-        started = await beginSurvivalTrial({ id, guildId: interaction.guildId });
+        started = await beginSurvivalTrial({ id, guildId: interaction.guildId, client: interaction.client });
       } catch (error) {
         console.error("[Trials] Start button could not begin trial:", error);
         return interaction.editReply("The trial could not start: " + (error.message || "Please retry."));
@@ -443,6 +446,10 @@ export async function handleGiveawayButton(interaction) {
     });
     if (record.status !== "open" || new Date(record.endsAt) <= new Date())
       return interaction.editReply("This giveaway has ended; its results will stay on the original post.");
+    if(action==="enter"){
+      const banned=await requireMemberNotBanned(interaction.guild,interaction.user.id);
+      if(banned)return interaction.editReply(banned);
+    }
     if (action === "enter" && record.requiredRoleId) {
       const member = await interaction.guild.members.fetch({ user: interaction.user.id, force: true }).catch(() => null);
       if (!member?.roles?.cache?.has(record.requiredRoleId))

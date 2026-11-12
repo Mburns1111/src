@@ -619,12 +619,13 @@ test("Start Trial button acknowledges a saved game even if the original post can
     memberPermissions: { has: () => true },
     deferReply: async () => {},
     editReply: async text => { response = text; },
-    client: { channels: { fetch: async () => ({
+    client: { guilds:{fetch:async()=>({members:{fetch:async({user})=>({id:user,user:{bot:false},roles:{cache:new Map()}})}})}, channels: { fetch: async () => ({
       messages: { fetch: async () => { throw Error("Missing Messages permission"); } },
     }) } },
   };
   const previousError = console.error;
   try {
+    patch(original, GuildConfig, "findOne",()=>({select:()=>({lean:async()=>({giveawayExcludedRoleId:"789012345678901234"})})}));
     patch(original, Giveaway, "findOne", () => ({ lean: async () => ({ ...stored }) }));
     patch(original, Giveaway, "findOneAndUpdate", (query, update) => ({
       lean: async () => {

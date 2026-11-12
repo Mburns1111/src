@@ -33,6 +33,15 @@ const guildConfigSchema = new mongoose.Schema(
     activityClaimInstructions:{type:String,default:"",maxlength:1000},
     giveawayRoleInstructions:{type:String,default:"",maxlength:500},
     giveawayDefaultRequiredRoleId:{type:String,default:""},
+    // Optional exclusion from regular and activity drawings; Trials are exempt.
+    giveawayExcludedRoleId:{type:String,default:""},
+    // Required explicit opt-in for all activity giveaways; independent of regular giveaway roles.
+    activityParticipationRoleId:{type:String,default:""},
+    activityParticipationRoleInstructions:{type:String,default:"",maxlength:500},
+    activityParticipationRoleConfiguredAt:{type:Date,default:null},
+    // Permanent MongoDB opt-in controls on the activity giveaway list.
+    activityParticipationPanelChannelId:{type:String,default:""},
+    activityParticipationPanelMessageId:{type:String,default:""},
     giveawayShowRoleInstructions:{type:Boolean,default:true},
     activityClaimWindowHours:{type:Number,default:12,min:1,max:720},
     activityMaxAutoRerolls:{type:Number,default:2,min:0,max:10},

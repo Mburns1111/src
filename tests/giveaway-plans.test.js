@@ -4,7 +4,8 @@ import {parseEasternAnnouncement,nextWeeklyAnnouncement,nextDailyAnnouncement,ne
 import {nextGiveawayPlanCycle,runGiveawayPlan,planActivityWindow} from "../services/giveaway-plans.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
-import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
+import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
+import GuildConfig from "../models/GuildConfig.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import {addGiveawayPlanCommands,validatePlanSchedule} from "../commands/giveaway-plans.js";
 import {SlashCommandBuilder} from "discord.js";
@@ -106,14 +107,17 @@ test("repeat choices support fixed same-time Eastern schedules or fixed hour int
 });
 
 test("daily QOTD plans query each prior day independently, even if watch has weekly days:3",async()=>{
- const originals=[Giveaway.findOne,GiveawayWatchRule.findOne,GiveawayActivityCount.aggregate];
+ const originals=[Giveaway.findOne,GiveawayWatchRule.findOne,GiveawayActivityMinuteCount.aggregate,GuildConfig.findOne];
  const matches=[];
  try{
    Giveaway.findOne=()=>({lean:async()=>null});
+   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+     activityParticipationRoleId:"567890123456789012",activityParticipationRoleConfiguredAt:new Date("2026-11-09T00:00:00Z"),
+   })})});
    GiveawayWatchRule.findOne=()=>({lean:async()=>({
      channelId:"qotd",minimumChars:25,minimumMessages:1,activeDays:3,
    })});
-   GiveawayActivityCount.aggregate=async pipeline=>{
+   GiveawayActivityMinuteCount.aggregate=async pipeline=>{
      matches.push(pipeline);
      return [];
    };
@@ -126,11 +130,12 @@ test("daily QOTD plans query each prior day independently, even if watch has wee
      {now:new Date("2026-11-13T00:35:00Z")});
    assert.equal(first.activityKey,"2026-11-10");
    assert.equal(second.activityKey,"2026-11-11");
-   assert.deepEqual(matches.map(p=>p[0].$match.day),["2026-11-10","2026-11-11"]);
-   assert.equal(matches.every(p=>!Object.hasOwn(p[0].$match,"week")),true);
+   assert.deepEqual(matches.map(p=>p[0].$match.minute.$gte.toISOString()),
+     ["2026-11-10T05:00:00.000Z","2026-11-11T05:00:00.000Z"]);
+   assert.equal(matches.every(p=>!Object.hasOwn(p[0].$match,"week")&&!Object.hasOwn(p[0].$match,"day")),true);
    assert.equal(matches.every(p=>p.at(-1).$match.activeDays.$gte===1),true);
  }finally{
-   [Giveaway.findOne,GiveawayWatchRule.findOne,GiveawayActivityCount.aggregate]=originals;
+   [Giveaway.findOne,GiveawayWatchRule.findOne,GiveawayActivityMinuteCount.aggregate,GuildConfig.findOne]=originals;
  }
 });
 test("a scheduled plan never redraws the same activity day at another hour",async()=>{

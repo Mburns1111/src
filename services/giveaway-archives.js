@@ -102,7 +102,7 @@ async function performArchiveTransfer(client,record,{staffPayload}={}){
    if(!staffPayload)throw Error("A saved staff record is required to archive a giveaway.");
    if(record.mode==="activity"){
      // Do not remove the active record if the final activity counts cannot be read.
-     snapshotRows=await activityProgressRows(record);
+     snapshotRows=await activityProgressRows(record,null,{historical:true});
    }
    const snapshot={archivedAt:at.toISOString(),giveaway:record,
      activityProgress:snapshotRows||[]};
@@ -129,7 +129,7 @@ async function performArchiveTransfer(client,record,{staffPayload}={}){
    if(!progress){
      let summary=null;
      if(!snapshotRows){
-       snapshotRows=await activityProgressRows(record);
+       snapshotRows=await activityProgressRows(record,null,{historical:true});
      }
      if(snapshotRows)summary=progressPanelPayload(record,snapshotRows,at).embeds[0];
      if(!summary && oldProgressId && oldCardChannel){

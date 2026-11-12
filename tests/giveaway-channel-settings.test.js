@@ -46,7 +46,7 @@ function setupInteraction(channels, roles = {}, clears = {}) {
 
 test("guided setup replaces legacy /setup channels without dropping saved settings", () => {
   const names=setupCommand.toJSON().options.map(x=>x.name);
-  assert.deepEqual(names,["activity-giveaways","giveaways","trials","cards","archives","general"]);
+  assert.deepEqual(names,["activity-giveaways","giveaways","trials","cards","general"]);
   assert.equal(names.includes("channels"),false,"retired legacy subcommand is absent from Discord registration");
   for(const field of ["commandChannelId","partyGamesChannelId"])
     assert.ok(generalSetupFields.includes(field),field+" is set with /setup general");
@@ -88,7 +88,7 @@ test("setup refuses using one channel for both giveaway types, including a previ
   try {
     stub(changes, GuildConfig, "findOne", () => ({
       select: () => ({ lean: async () => ({
-        giveawayChannelId: normalId, survivalTrialChannelId: trialId,
+        giveawayChannelId: normalId,giveawayExcludedRoleId:"789012345678901234", survivalTrialChannelId: trialId,
       }) }),
     }));
     stub(changes, GuildConfig, "findOneAndUpdate", async () => {
@@ -143,7 +143,7 @@ test("starts always publish to their own assigned channels", async () => {
   });
   try {
     stub(changes, GuildConfig, "findOne", async () => ({
-      giveawayChannelId: normalId, survivalTrialChannelId: trialId, activityGiveawayReviewChannelId:staffId,
+      giveawayChannelId: normalId,giveawayExcludedRoleId:"789012345678901234", survivalTrialChannelId: trialId, activityGiveawayReviewChannelId:staffId,
     }));
     stub(changes, Giveaway, "create", async values => ({
       ...values, _id: giveawayId, toObject: () => ({ ...values, _id: giveawayId }),
@@ -167,7 +167,7 @@ test("trial start saves claim minutes, while regular start saves claim hours", a
   const created = [];
   try {
     stub(changes, GuildConfig, "findOne", async () => ({
-      giveawayChannelId: normalId,
+      giveawayChannelId: normalId,giveawayExcludedRoleId:"789012345678901234",
       survivalTrialChannelId: trialId,activityGiveawayReviewChannelId:staffId,
     }));
     stub(changes, Giveaway, "create", async values => {
@@ -247,7 +247,7 @@ test("new event posts ping their configured role only at creation, not a require
   });
   try {
     stub(patches, GuildConfig, "findOne", async () => ({
-      giveawayChannelId: normalId, survivalTrialChannelId: trialId,activityGiveawayReviewChannelId:staffId,
+      giveawayChannelId: normalId,giveawayExcludedRoleId:"789012345678901234", survivalTrialChannelId: trialId,activityGiveawayReviewChannelId:staffId,
       giveawayPingRoleId:sharedRole, survivalTrialPingRoleId:"246802468024680246",
     }));
     const saved = [];
@@ -274,7 +274,7 @@ test("no configured ping role produces no mention and no role ping allowed", asy
   let payload;
   try {
     stub(patches, GuildConfig, "findOne", async () => ({
-      giveawayChannelId: normalId, giveawayPingRoleId: "",activityGiveawayReviewChannelId:staffId,
+      giveawayChannelId: normalId,giveawayExcludedRoleId:"789012345678901234", giveawayPingRoleId: "",activityGiveawayReviewChannelId:staffId,
     }));
     stub(patches, Giveaway, "create", async values => ({
       ...values, _id: giveawayId, toObject: () => ({ ...values, _id: giveawayId }),
@@ -299,7 +299,7 @@ test("activity giveaway listing and winners can be saved independently from stan
  try {
   stub(changes,GuildConfig,"findOne",()=>({
    select:()=>({lean:async()=>({
-    giveawayChannelId:normalId,survivalTrialChannelId:trialId,
+    giveawayChannelId:normalId,giveawayExcludedRoleId:"789012345678901234",survivalTrialChannelId:trialId,
     activityGiveawayListChannelId:"",activityGiveawayWinnersChannelId:"",
    })}),
   }));
@@ -359,7 +359,7 @@ test("standard giveaway ignores stale multi-role selections and pings only the s
  const shared="135791357913579135";
  try{
    stub(changes,GuildConfig,"findOne",async()=>({
-     giveawayChannelId:normalId,activityGiveawayReviewChannelId:staffId,
+     giveawayChannelId:normalId,giveawayExcludedRoleId:"789012345678901234",activityGiveawayReviewChannelId:staffId,
      giveawayPingRoleId:shared,
      giveawayNotificationRoleIds:["246802468024680246","357913579135791357"],
    }));

@@ -9,7 +9,7 @@ Configure the server through the current guided commands:
 
 1. `/setup general` — set the bot **commands channel** first; unrelated modules are optional.
 2. `/setup giveaways` — set regular giveaway channels and shared defaults.
-3. `/setup activity-giveaways` — set the **public activity directory**, the **separate activity winners/results channel**, and a **private staff/review channel**. Set claim instructions/defaults and notification settings here.
+3. `/setup activity-giveaways` — set the **public activity directory**, the **separate activity winners/results channel**, a **private staff/review channel**, and the **bot-managed Opt In / Opt Out participation panel**. Set claim instructions/defaults and notification settings here.
 4. `/setup trials` — set the Court's Trials channel, trial eligibility/claim defaults, and related settings.
 5. Start a regular giveaway with `/giveaway start`, or start an activity giveaway with **`/giveaway activity`**. Both use guided setup; `/trial start` starts a Court's Trial.
 
@@ -26,6 +26,34 @@ The old `/setup channels` path is retained only for compatibility with already c
 
 For a **one-time guided activity giveaway**, its directory post remains visible after drawing, including while a winner has a claim pending, until staff deliberately use **Delete Listing** when that action becomes eligible. Ending a giveaway is not the same as deleting its listing. A recurring plan's ongoing directory listing can be updated for new rounds; legacy schedules and completed posts should not be silently discarded.
 
+## Internal activity participation (no Discord role)
+
+The bot maintains a **per-server MongoDB opt-in list**. The public **Activity Giveaway List** has one permanent participation panel at the bottom with **Opt In**, **Opt Out**, and **My Status** buttons. Members click **Opt In** before their messages can count. The bot checks that active consent record before saving a guided receipt or a legacy giveaway minute count; members without active consent are not logged for activity giveaways. No Discord role is assigned, and regular giveaway eligibility, ping, bonus, or Giveaway Manager roles are unaffected.
+
+Opting out immediately stops new tracking and removes the member from live progress previews and winner selection. A later opt-in starts a **new** counting window; only the new session can qualify. Guided receipts use exact message timestamps, and minute-level counter records filter out earlier sessions. The activity listing footer reminds users to opt in. The panel is a **bottom-of-channel sticky**: it is automatically moved down after new giveaway posters, and the recurring sweep moves it beneath newer chat when at least ten minutes have elapsed since the last bump. The bot sends the replacement before removing the old panel and retains only the latest button panel. It does **not** require pinning a Discord message. Historical staff archives preserve past records.
+
+Activity opt-in is **independent of regular giveaways, Court's Trials, Points and Hatchem**. Existing activity giveaways can keep their schedules and counting requirements; the old participation-role setting is ignored by the new system.
+
+## Required Giveaway Banned role — server-wide punishment
+
+The **Giveaway Banned role** must be selected in either `/setup giveaways` or `/setup activity-giveaways` before giveaway setup can be saved. It is a single shared role: the bot does not create or assign it. Staff apply and remove the Discord role manually as a punishment, so there is no time limit, cooldown, or per-giveaway switch.
+
+When a member receives the Giveaway Banned role, the bot **revokes their existing MongoDB activity opt-in**, recording why the current consent window ended. Removing the role **does not automatically opt them back in**. They must personally press **Opt In** again; previous activity cannot carry over. The bot checks bans when a member sends an activity message, on an available member-update event, and in incremental background reconciliation that catches missed updates or bot downtime. For immediate gateway member-update events, enable the optional Guild Members Intent both in the Discord Developer Portal and with `ENABLE_GUILD_MEMBERS_INTENT=1`; periodic checks work without it.
+
+Members holding this role are **blocked from entering regular giveaways and Court's Trials**. Members cannot opt in to activity giveaways, and even previously opted-in members stop generating activity giveaway logs while banned. Previously saved activity cannot make them eligible; the ban is checked again before every regular/activity draw, reroll and Court's Trial start. Banned members are omitted from current staff activity progress. Existing announcements need no public ban message; entry attempts receive a private explanation.
+
+Any change to the banned role in server setup applies to all giveaways; no active giveaway can opt out. This is **entirely separate from the optional winner cooldown system** (which remains a design, not implemented).
+
+## Winner cooldowns (separate from punishment bans)
+
+Regular and activity giveaways have an optional **Winner Cooldown check**, which defaults **OFF** and can be toggled ON or OFF per giveaway. Guided recurring activity giveaways carry this option forward into each repeat; legacy scheduled plans store it as well. Staff can edit the setting on an open giveaway. **Court's Trials never use winner cooldowns.** The required Giveaway Banned role is always enforced, regardless of the cooldown setting.
+
+Once staff confirm all prizes delivered, the private staff record shows **Apply Cooldown** beside **Archive Giveaway**. For one winner, the bot opens a duration modal; for multiple winners, staff can select one, several or all. A staff member enters a whole number of days (1–365), reviews the named winners and exact expiration, then confirms. The countdown starts at the **prize-delivery confirmation timestamp** rather than the date staff archive or click Apply. Cooldowns are not created automatically.
+
+Each server/member has one effective MongoDB cooldown with a private application/removal/correction audit. A new application cannot accidentally shorten a longer existing restriction. Cooldowns expire automatically when checked; the bot silently removes active cooldown members from the **winner drawing pool** and from subsequent manual or automatic rerolls when that giveaway has cooldown enforcement ON. No public reroll, announcement, tracking penalty or activity-log change occurs. The final check also happens upon staff approval, if manual drawing approval is enabled. No eligible members produces the existing no-eligible-winner behavior.
+
+After applying a cooldown, the staff record offers **Manage Cooldowns** while it remains active. The private **Active Giveaway Directory** has **Winner Cooldowns** for server-wide active-member lookup, manual correction of remaining days and immediate removal; those actions work even after the source giveaway is archived. All changes are auditable. Archive never resets a cooldown. The staff management controls do not change the separate Discord Giveaway Banned role.
+
 ## Guided activity giveaway: counting rules
 
 ### Message target means the total for the whole activity period
@@ -37,7 +65,10 @@ For a **one-time guided activity giveaway**, its directory post remains visible 
 - **Minimum characters per message** is yet another independent option: none / 5 / 10 / 25 / 50 / Custom (1–2,000). The length rule applies to each counted message; explicit member mentions do not satisfy a custom text-length threshold.
 - The wizard can count messages in **all eligible server channels** or **one chosen channel**.
 - Optional matching filters are **Any message**, **Member ping**, **Word or phrase**, or **Ping and phrase**. A required member ping must be a real explicit user mention; a plain name or role ping is insufficient. Phrase spelling and word order must match; capitalization does not matter. When both are selected, the **same counted message** must meet both rules.
-- A giveaway may require a specific role before messages can count. Staff can use the default role, choose another, or require none, and decide whether to show instructions about obtaining it.
+- **Activity Participation is mandatory.** In `/setup activity-giveaways`, staff must select a dedicated opt-in role (and may provide instructions for where to obtain it). Members must actively obtain this role **before** any messages count. Without the role, neither guided activity receipts nor legacy activity giveaway counters record their messages. This is **not** the optional regular giveaway eligibility role configured through `/setup giveaways`.
+- No individual activity giveaway can disable, hide, or replace the Activity Participation requirement. The creation wizard automatically uses the server's current opt-in role and displays how to obtain it. Regular giveaways and Court's Trials keep their own independent eligibility settings.
+- Removing Activity Participation stops new activity logging and excludes the member from staff previews and subsequent winner draws/rerolls; restoring it only counts newly sent messages. If staff change the configured participation role, open guided activity periods restart counting to avoid carrying over messages from the previous role. Old receipt records remain subject to their normal expiry, not retroactively redistributed.
+- Older saved activity schedules continue to work only with a configured participation role. Their historical counters cannot be assumed consented: the bot restricts legacy calculations to the post-configuration minute-level activity window.
 - Bots, webhooks and otherwise ineligible messages are excluded. Activity counts are recorded as qualifying events/counters rather than storing message bodies; a change in important matching conditions can restart the current activity window instead of retroactively counting prior messages.
 
 **Progress preview:** The staff-only **Preview qualifying members** button displays members with recorded participation since the current activity started, including qualifying and not-yet-qualifying progress. It omits people with **no recorded activity** in that window; it should never list the entire server membership just to show zeros. Each person appears once, even if they sent many messages or met several filters. A private **Check My Progress** button can be enabled for members (on by default in the guided activity wizard); it shows only the requesting person's progress.

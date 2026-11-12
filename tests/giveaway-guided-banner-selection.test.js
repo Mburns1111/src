@@ -35,8 +35,11 @@ async function harness(mode,{banners=[]}={}){
   }};
   const config={guildId,commandChannelId:channelId,
     survivalTrialChannelId:trialId,activityGiveawayReviewChannelId:staffId,
-    giveawayChannelId:trialId,activityGiveawayListChannelId:listId,
-    activityGiveawayWinnersChannelId:winnersId,trialDefaultBannerNameKey:"",
+    giveawayChannelId:trialId,giveawayArchiveChannelId:"678901234567890123",
+    activityGiveawayListChannelId:listId,
+    activityGiveawayWinnersChannelId:winnersId,
+    activityParticipationRoleId:"678901234567890123",
+    giveawayExcludedRoleId:"789012345678901234",trialDefaultBannerNameKey:"",
     giveawayDefaultBannerNameKey:""};
   GuildConfig.findOne=()=>({lean:async()=>config});
   GiveawayBanner.find=()=>({sort:()=>({limit:()=>({select:()=>({
@@ -73,9 +76,15 @@ async function harness(mode,{banners=[]}={}){
       reply:async x=>responses.push(x)});
   };
   const goToBanner=async()=>{
-    const count=mode==="trial"?10:mode==="regular"?11:12;
-    for(let i=0;i<count;i++)await step("keep");
-    assert.match(current().content,/Default banner|default giveaway banner/i);
+    // Traverse the actual guided steps instead of assuming a fixed count:
+    // the activity setup now includes a mandatory opt-in role.
+    const atBanner=()=>controls().some(c=>c.label==="Upload New Banner");
+    for(let i=0;i<24&&!atBanner();i++){
+      assert.ok(controls().some(c=>/^Keep\b/i.test(c.label)),
+        "Cannot advance through setup step: "+current().content);
+      await step("keep");
+    }
+    assert.ok(atBanner(),"Wizard never reached the Default banner step: "+current().content);
     return current();
   };
   const sendReply=async({content="",attachment:upload=null})=>{

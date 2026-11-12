@@ -1,3 +1,7 @@
+import {activeActivityParticipants} from "./activity-participation.js";
+import {configuredGiveawayBanRole,memberPassesGiveawayBan} from "./giveaway-exclusion.js";
+import {giveawayUsesCooldown,activeGiveawayCooldownIds} from "./giveaway-cooldowns.js";
+import GuildConfig from "../models/GuildConfig.js";
 import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
@@ -104,7 +108,7 @@ export function giveawayAnnouncement(record) {
     ended
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
-    ...(!ended&&record.requiredRoleId ? [`**Required to enter:** <@&${record.requiredRoleId}>`,
+    ...(!ended&&record.mode!=="activity"&&record.requiredRoleId ? [`**Required to enter:** <@&${record.requiredRoleId}>`,
       ...(record.showRequiredRoleInstructions!==false&&record.requiredRoleInstructions?
         [`**How to get the role:** ${String(record.requiredRoleInstructions).slice(0,500)}`]:[])] : []),
     ...(!ended&&record.roleBonuses?.length?["**Bonus drawing chances:** "+record.roleBonuses.map(b=>`<@&${b.roleId}> +${b.extraEntries}`).join(" · ")]:[]),
@@ -243,12 +247,26 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   if (item.status === "ended") return item;
   let eligible = item.entrantIds || [];
   if (item.mode==="activity" && !client) throw Error("Discord client required to verify activity entrants.");
+  const optedIn=item.mode==="activity"?await activeActivityParticipants(guildId,eligible):null;
+  if(optedIn)eligible=eligible.filter(id=>optedIn.has(String(id)));
   let entries=[];
   if(client){
-    const members=await verifyServerMembers(client,item.guildId,eligible,{includeMembers:true});
-    const permitted=members.filter(m=>!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId));
+    const [members,excludedRoleId]=await Promise.all([
+      verifyServerMembers(client,item.guildId,eligible,{includeMembers:true}),
+      configuredGiveawayBanRole(item.guildId),
+    ]);
+    const permitted=members.filter(m=>memberPassesGiveawayBan(m,excludedRoleId)&&
+      (item.mode==="activity"?optedIn.has(String(m.id)):
+        (!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId))));
     eligible=permitted.map(m=>m.id);
     entries=weightEntriesForMembers(permitted,item.roleBonuses);
+  }
+  // Perform silent filtering BEFORE the weighted winner draw. Cooldowns are
+  // checked at the actual draw/approval time; they do not consume rerolls.
+  if(giveawayUsesCooldown(item)){
+    const cooling=await activeGiveawayCooldownIds(guildId,eligible,{now});
+    eligible=eligible.filter(userId=>!cooling.has(String(userId)));
+    entries=entries.filter(entry=>!cooling.has(String(entry.userId)));
   }
   const winnerIds=client||item.roleBonuses?.length
     ?pickWeightedUnique(eligible,item.winnerCount,entries)
@@ -283,9 +301,20 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
   const pool=(item.activityVerifiedIds?.length ? item.activityVerifiedIds : item.entrantIds || [])
     .filter(id=>!used.includes(id));
+  if(item.mode==="activity"&&!client)
+    throw Error("Activity rerolls require a Discord membership check.");
+  const optedIn=item.mode==="activity"?await activeActivityParticipants(item.guildId,pool):null;
   const members=client?await verifyServerMembers(client,item.guildId,pool,{includeMembers:true}):null;
-  const verified=members?members.filter(m=>!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId)).map(m=>m.id):
+  const excludedRoleId=client?await configuredGiveawayBanRole(item.guildId):"";
+  const verified=members?members.filter(m=>memberPassesGiveawayBan(m,excludedRoleId)&&
+    (item.mode==="activity"?optedIn.has(String(m.id)):
+      (!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId)))).map(m=>m.id):
     [...new Set(pool)];
+  if(giveawayUsesCooldown(item)){
+    const cooling=await activeGiveawayCooldownIds(guildId,verified,{now});
+    for(let n=verified.length-1;n>=0;n--)
+      if(cooling.has(String(verified[n])))verified.splice(n,1);
+  }
   if (!verified.length) throw Error("There are no unused current server members left for a reroll.");
   const reserved = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "ended",
@@ -298,10 +327,10 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
     { returnDocument: "after" },
   ).lean();
   if (!reserved) throw Error("Another staff member is updating this giveaway. Try again.");
-  return finishPendingReroll(reserved);
+  return finishPendingReroll(reserved,{client,now});
 }
 
-export async function finishPendingReroll(item) {
+export async function finishPendingReroll(item,{client=null,now=new Date()}={}) {
   if (item.status !== "rerolling") return item;
   const slot = item.pendingRerollSlot;
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
@@ -309,8 +338,25 @@ export async function finishPendingReroll(item) {
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
   const eligible=item.pendingRerollEligibleIds?.length ? item.pendingRerollEligibleIds :
     (item.activityVerifiedIds?.length ? item.activityVerifiedIds : item.entrantIds||[]);
-  const replacementId=pickWeightedUnique(eligible,1,item.entryWeights,used)[0];
-  if (!replacementId) throw Error("No unused entrants remain.");
+  const cooling=giveawayUsesCooldown(item)?
+    await activeGiveawayCooldownIds(item.guildId,eligible,{now}):new Set();
+  const fresh=eligible.filter(userId=>!cooling.has(String(userId)));
+  const replacementId=pickWeightedUnique(fresh,1,item.entryWeights,used)[0];
+  if(!replacementId){
+    // Between the reservation and completion (or a bot restart), the final
+    // available replacement may acquire a cooldown. Settle this prize place
+    // without announcing an ineligible winner or looping in "rerolling".
+    const claimResolvedSlots=[...new Set([...(item.claimResolvedSlots||[]),slot])];
+    const settled={...item,status:"ended",claimResolvedSlots};
+    const changed=await Giveaway.findOneAndUpdate({
+      _id:item._id,guildId:item.guildId,status:"rerolling",pendingRerollSlot:slot,
+    },{$set:{
+      status:"ended",pendingRerollSlot:null,pendingRerollStaffId:"",
+      pendingRerollReason:"",pendingRerollAt:null,pendingRerollEligibleIds:[],
+      claimResolvedSlots,claimCheckAt:nextClaimCheckAt(settled),renderedAt:null,
+    },$inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+    return changed||Giveaway.findById(item._id).lean();
+  }
   const previousId = item.winnerIds[slot];
   const winnerIds = [...item.winnerIds];
   winnerIds[slot] = replacementId;
@@ -385,9 +431,10 @@ export async function publishGiveawayResult(client, item) {
   return true;
 }
 
-async function refreshCustomOneOffEntries(record,now){
+async function refreshCustomOneOffEntries(record,now,client){
   if(record.guidedSeries){
-    const roster=await activityRoster(record);
+    const guild=await client.guilds.fetch(record.guildId);
+    const roster=await activityRoster(record,null,guild);
     const entrantIds=roster.filter(row=>row.qualified).map(row=>row._id);
     return await Giveaway.findOneAndUpdate({_id:record._id,status:"open"},
       {$set:{entrantIds,activityCheckedAt:now,activityCandidateCount:roster.length}},
@@ -441,9 +488,9 @@ export async function reconcileGiveaways(client, { now = new Date(), limit = 30 
   for (const candidate of pending) {
     try {
       let latest = candidate;
-      if (candidate.status === "rerolling") latest = await finishPendingReroll(candidate);
+      if (candidate.status === "rerolling") latest = await finishPendingReroll(candidate,{client,now});
       if(candidate.status==="open"&&candidate.mode==="activity"){
-        latest=await refreshCustomOneOffEntries(candidate,now);
+        latest=await refreshCustomOneOffEntries(candidate,now,client);
         if(latest.requireStaffReview){
           latest=await stageOneOffForReview(latest,now);
           continue; // Staff channel sweep posts an approval preview, not results.

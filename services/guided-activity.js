@@ -8,6 +8,8 @@ import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import {DEFAULT_CLAIM_HOURS} from "./giveaway-claims.js";
 import { currentActivityDay, messageCharacterCount, messageMatchesGiveawayWatch } from "./giveaway-activity-counter.js";
 import { easternMidnight, shiftCalendarDay, nextWeeklyAnnouncement } from "./giveaway-plan-time.js";
+import {eligibleActivityParticipant} from "./activity-participation.js";
+import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 
 export const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const hour = 3600000;
@@ -80,6 +82,7 @@ async function materialize(series,start,first=false) {
   const s = series.settings, end = windowEnd(s,start);
   const config = await GuildConfig.findOne({guildId:series.guildId}).lean();
   if (!config?.activityGiveawayWinnersChannelId) throw Error("Set the activity winners channel in /setup activity-giveaways.");
+
   const query = first ? {_id:series._id} : {guidedSeries:series._id,activityStartAt:start};
   try {
     return await Giveaway.findOneAndUpdate(query, {$setOnInsert:{
@@ -91,8 +94,8 @@ async function materialize(series,start,first=false) {
       activityMinChars:Number.isSafeInteger(s.minChars)&&s.minChars>=1&&s.minChars<=2000?s.minChars:1,
       activityRequiredMentionUserId:s.mention || "", activityRequiredPhrase:s.phrase || "",
       requireStaffReview:s.approval, roleBonuses:s.bonuses || [], progressEnabled:Boolean(s.progress),
-      requiredRoleId:s.requiredRoleId||"",requiredRoleInstructions:s.requiredRoleInstructions||"",
-      showRequiredRoleInstructions:s.showRequiredRoleInstructions!==false,
+      winnerCooldownEnabled:s.winnerCooldownEnabled===true,
+      // Activity participation is recorded by MongoDB opt-in, not a role.
       claimWindowHours:s.claimHours ?? DEFAULT_CLAIM_HOURS, autoRerollClaims:true, bannerNameKey:s.banner || "",
       claimInstructions:s.claimInstructions||"",maxAutoRerolls:s.maxAutoRerolls??2,
       notificationRoleIds:sharedGiveawayPingRoleId(config)?[sharedGiveawayPingRoleId(config)]:[],announceEmptyResults:s.announceEmptyResults!==false,
@@ -161,6 +164,7 @@ export function guidedMessageMatches(event,message) {
 }
 export async function recordGuidedMessage(message) {
   if(!message.guildId || message.author?.bot || message.webhookId || !messageCharacterCount(message))return;
+  if(!await eligibleActivityParticipant(message))return;
   const time=message.createdAt;
   await openDueActivities(time,message.guildId);
   const events=await Giveaway.find({
@@ -168,14 +172,7 @@ export async function recordGuidedMessage(message) {
     activityStartAt:{$lte:time},activityEndAt:{$gt:time},
     $or:[{activityType:"general"},{activityChannelIds:message.channelId}],
   }).lean();
-  let roleMember;
   for(const event of events){
-    // Required role: check membership before creating activity receipts.
-    if(event.requiredRoleId){
-      if(roleMember===undefined)
-        roleMember=await message.guild?.members.fetch({user:message.author.id,force:true}).catch(()=>null) || null;
-      if(!roleMember?.roles?.cache?.has(event.requiredRoleId))continue;
-    }
     const matches=guidedMessageMatches(event,message);
     await Receipt.updateOne({_id:event._id+":"+message.id},{$setOnInsert:{
       event:event._id,user:message.author.id,day:currentActivityDay(time),matches:Boolean(matches),at:time,
@@ -196,16 +193,30 @@ export async function resetGuidedActivityCriteria(event,changes,when=new Date())
     {returnDocument:"after"}).lean();
 }
 
-export async function activityRoster(event,user) {
+export async function activityRoster(event,user=null,guild=null,{historical=false}={}) {
   const short=event.activityEndAt-event.activityStartAt<=24*hour;
   const rows=await Receipt.aggregate([
     {$match:{event:event._id,...(user?{user}:{}),
       ...(event.activityResetAt?{at:{$gte:new Date(event.activityResetAt)}}:{})}},
+    ...(historical?[]:[
+      {$lookup:{from:ActivityGiveawayOptIn.collection.name,localField:"user",foreignField:"userId",
+        as:"activityConsent",pipeline:[{$match:{guildId:event.guildId,active:true}}]}},
+      {$unwind:"$activityConsent"},
+      {$match:{$expr:{$gte:["$at","$activityConsent.optedInAt"]}}},
+    ]),
     {$group:{_id:{user:"$user",day:short?{$literal:"window"}:"$day"},matches:{$sum:{$cond:["$matches",1,0]}}}},
     {$group:{_id:"$_id.user",messages:{$sum:"$matches"},days:{$sum:{$cond:[{$gte:["$matches",event.activityMinimum]},1,0]}}}},
     {$sort:{days:-1,messages:-1,_id:1}},
   ]);
-  return rows.map(row=>({...row,qualified:qualifiesForGuidedActivity(row,event)}));
+  let visible=rows;
+  if(guild){
+    const checks=await Promise.all(rows.map(async row=>{
+      const member=await guild.members.fetch({user:row._id,force:true}).catch(()=>null);
+      return Boolean(member&&!member.user?.bot);
+    }));
+    visible=rows.filter((_,n)=>checks[n]);
+  }
+  return visible.map(row=>({...row,qualified:qualifiesForGuidedActivity(row,event)}));
 }
 
 const btn=(id,label,style=ButtonStyle.Secondary)=>
@@ -249,7 +260,7 @@ export async function staffPreview(i) {
     await ensureStaffCard(i.client,event);
     return i.editReply("Future repeats stopped. The current activity will finish as scheduled.");
   }
-  const rows=await activityRoster(event);
+  const rows=await activityRoster(event,null,i.guild);
   const page=Math.min(Number(rawPage)||0,Math.max(0,Math.ceil(rows.length/12)-1));
   const controls=[];
   if(page>0)controls.push(btn('activitystaff:view:'+id+':'+(page-1),"Previous"));

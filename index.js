@@ -94,6 +94,8 @@ import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
 import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
 import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
 import { handleActivityGiveawayProgress } from "./services/giveaway-progress.js";
+import {handleActivityOptInButton,reconcileActivityOptInPanels} from "./services/activity-giveaway-optin-ui.js";
+import {handleActivityGiveawayBanRoleUpdate,reconcileBannedActivityOptIns} from "./services/activity-participation-ban-reconcile.js";
 import { handleGiveawayReviewButton,reconcilePendingGiveawayReviews } from "./services/giveaway-review.js";
 import {data as giveawayRoleCommand,executeGiveawayRoleBonusAdmin} from "./commands/giveaway-role-bonuses.js";
 import { recordGiveawayMessage } from "./services/giveaway-activity-counter.js";
@@ -162,6 +164,8 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages,
     GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMessagePolls,
     GatewayIntentBits.GuildVoiceStates,
+    // Optional: instant ban-role updates if Guild Members Intent is also enabled in Discord Developer Portal.
+    ...(process.env.ENABLE_GUILD_MEMBERS_INTENT==="1" ? [GatewayIntentBits.GuildMembers] : []),
     ...(shouldRequestMessageContent() ? [GatewayIntentBits.MessageContent] : [])],
   partials: [Partials.Channel, Partials.Message, Partials.Poll, Partials.PollAnswer],
 });
@@ -220,6 +224,13 @@ function handlePollEvent(pollAnswer, userId, added) {
 }
 client.on(Events.MessagePollVoteAdd, (answer, userId) => handlePollEvent(answer, userId, true));
 client.on(Events.MessagePollVoteRemove, (answer, userId) => handlePollEvent(answer, userId, false));
+
+// An added Giveaway Banned role revokes participation. The periodic check
+// below covers guilds without the privileged Guild Members gateway intent.
+client.on(Events.GuildMemberUpdate,(previous,current)=>{
+  void handleActivityGiveawayBanRoleUpdate(previous,current)
+    .catch(error=>console.error("[Giveaways] Giveaway ban opt-in revocation failed:",error));
+});
 
 // Messages are never stored or logged: only a short SHA-256 digest is kept to
 // prevent immediately repeating the same message for Points.
@@ -435,6 +446,8 @@ client.once(Events.ClientReady, async (readyClient) => {
       await reconcilePendingGiveawayReviews(readyClient);
       await reconcileGiveawayClaims(readyClient);
       await reconcileActivityGiveawayListings(readyClient);
+      // Recreate the participation panel even in an empty activity-list channel.
+      await reconcileActivityOptInPanels(readyClient);
       await reconcileGiveawayStaffRecords(readyClient);
       // Run last so the sticky directory follows newly posted staff records.
       await reconcileGiveawayStaffDirectories(readyClient);
@@ -445,6 +458,14 @@ client.once(Events.ClientReady, async (readyClient) => {
   void sweepGiveaways();
   const giveawayTimer = setInterval(() => void sweepGiveaways(), 30_000);
   giveawayTimer.unref?.();
+  // Incrementally verify active MongoDB opt-ins against current Discord bans.
+  // Unlike gateway member updates, this still works after restarts or without
+  // the optional privileged Guild Members intent.
+  const reconcileParticipationBans=()=>void reconcileBannedActivityOptIns(readyClient)
+    .catch(error=>console.error("[Giveaways] Activity opt-in ban reconciliation failed:",error));
+  reconcileParticipationBans();
+  const participationBanTimer=setInterval(reconcileParticipationBans,60_000);
+  participationBanTimer.unref?.();
   let trialSweepActive = false;
   const sweepSurvivalTrials = async () => {
     if (trialSweepActive) return;
@@ -554,7 +575,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return await handleActivityGiveawaySetupInteraction(interaction);
     if ((interaction.isButton()||interaction.isModalSubmit()||interaction.isStringSelectMenu()) && interaction.customId.startsWith("giveawaystaff:"))
       return await handleGiveawayStaffAction(interaction);
-    if (interaction.isButton() && interaction.customId.startsWith("giveawaydir:"))
+    if ((interaction.isButton()||interaction.isUserSelectMenu()||interaction.isModalSubmit()) && interaction.customId.startsWith("giveawaydir:"))
       return await handleGiveawayStaffDirectoryButton(interaction);
     if ((interaction.isButton()||interaction.isRoleSelectMenu()||interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("regularstart:"))
@@ -660,6 +681,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("party:")) {
       await handlePartyInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("activity-optin:")) {
+      await handleActivityOptInButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("activity-progress:")) {

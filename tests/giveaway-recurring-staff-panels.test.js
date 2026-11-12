@@ -23,13 +23,15 @@ test("recurring drawings each receive new permanent staff control and progress p
    status:"open",winnerCount:1,entrantIds:[],winnerIds:[],endsAt:new Date("2026-11-18T23:00:00Z"),
    staffCardId:"",staffCardChannelId:""};
  const sent=[],updates=[];
- const channel={id:channelId,guild:{roles:{everyone:{id:"everyone"}}},
+ const channel={id:channelId,guild:{roles:{everyone:{id:"everyone"}},members:{fetch:async()=>({roles:{cache:new Map([["567890123456789012",{}]])}})}},
    permissionsFor:()=>({has:()=>false}),
    messages:{fetch:async()=>({find:()=>null})},
    send:async payload=>{sent.push(payload);return {id:sent.length===1?mainId:progressId,author:{id:"bot"}};}};
  try{
   Giveaway.updateOne=async(query,update)=>{updates.push({query,update});};
-  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({activityGiveawayReviewChannelId:channelId})})});
+  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({activityGiveawayReviewChannelId:channelId,
+    activityParticipationRoleId:"567890123456789012",
+    activityParticipationRoleConfiguredAt:new Date("2026-11-10T05:00:00Z")})})});
   GiveawayActivityMinuteCount.aggregate=async()=>[{_id:"567890123456789012",totalMessages:8,activeDays:1}];
   const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
   assert.equal(await ensureGiveawayStaffRecord(client,current),true);
