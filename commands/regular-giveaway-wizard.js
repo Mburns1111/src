@@ -20,11 +20,11 @@ import {DEFAULT_CLAIM_HOURS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaw
 const sessions=new Map();
 const SESSION_MS=30*60_000;
 const steps=["title","prize","description","minutes","winners","role","roleHelp",
-  "exclusion","rules","claimHours","claimInstructions","banner","review"];
+  "rules","claimHours","claimInstructions","banner","review"];
 const name={
   title:"Giveaway title",prize:"Prize details",description:"Giveaway description",
   minutes:"Entry duration",winners:"Number of winners",role:"Required entry role",
-  roleHelp:"Role instructions",exclusion:"Banned role exclusion",rules:"Rules and requirements",
+  roleHelp:"Role instructions",rules:"Rules and requirements",
   claimHours:"Claim deadline",claimInstructions:"Prize collection instructions",
   banner:"Banner",review:"Review and post"
 };
@@ -79,8 +79,7 @@ const summary=(session)=>{
     "**Duration:** "+regularGiveawayDurationLabel(s.minutes)+" · Ends approximately <t:"+Math.floor(+ending/1000)+":F>",
     "**Winners:** "+s.winners,
     "**Required role:** "+roleDescription(s),
-    "**Exclude banned role:** "+(s.enforceExclusionRole!==false?"On":"Off")+
-      (s.serverExcludedRoleId?" · "+mention(s.serverExcludedRoleId):" · No server role configured"),
+    "**Giveaway Banned role:** "+mention(s.serverExcludedRoleId)+" (always enforced)",
     role?"**Show where to get role:** "+(roleVisible(s)?"Yes":"No"):"",
     role?"**Role instructions ("+roleInstructionSource(s)+"):** "+
       (effectiveRoleInstructions(s)||"None"):null,
@@ -161,14 +160,6 @@ function layout(session,banners=[]){
   }
   if(step==="roleHelpText")
     content="Type your custom instructions for obtaining the required entry role (1–500 characters). Include a channel mention or link if helpful.";
-  if(step==="exclusion"){
-    content="Should this giveaway exclude members holding the server-wide banned giveaway role? "+
-      "It is configured in /setup giveaways or /setup activity-giveaways and checked when winners are drawn and rerolled. "+
-      "Court's Trials are unaffected.\nCurrent role: "+mention(s.serverExcludedRoleId)+
-      "\nExclusion: "+(s.enforceExclusionRole!==false?"ON":"OFF");
-    components.push(buttons(session,[["Exclude Banned Role","excludeOn"],
-      ["Allow This Giveaway","excludeOff"],["Keep Current","keep"]]));
-  }
   if(step==="rules"){
     content="Optional rules or entry requirements displayed on the giveaway. They are informational; staff must verify external requirements.\n"+
       "Current: "+(s.rules?safe(s.rules).slice(0,220):"None");
@@ -367,10 +358,6 @@ async function apply(session,action,value,client){
   if(step==="winnerText"&&action==="text"){
     s.winners=int(value,1,10,"Winner count");return finishStep(session);
   }
-  if(step==="exclusion"&&["excludeOn","excludeOff"].includes(action)){
-    s.enforceExclusionRole=action==="excludeOn";
-    return finishStep(session);
-  }
   if(step==="role"){
     if(action==="roleDefault"){s.requiredRoleMode="default";s.requiredRoleId="";return finishStep(session);}
     if(action==="roleNone"){s.requiredRoleMode="none";s.requiredRoleId="";return finishStep(session);}
@@ -478,7 +465,7 @@ export async function startRegularGiveawayWizard(interaction){
     settings:{
       title:"",prize:"",description:"",rules:"",
       minutes:60,winners:1,requiredRoleMode:"default",requiredRoleId:"",
-      enforceExclusionRole:true,serverExcludedRoleId:config.giveawayExcludedRoleId||"",
+      serverExcludedRoleId:config.giveawayExcludedRoleId||"",
       serverRequiredRoleId:config.giveawayDefaultRequiredRoleId||"",
       showRequiredRoleInstructions:null,
       serverShowRoleInstructions:config.giveawayShowRoleInstructions!==false,
