@@ -196,7 +196,7 @@ export async function resetGuidedActivityCriteria(event,changes,when=new Date())
     {returnDocument:"after"}).lean();
 }
 
-export async function activityRoster(event,user) {
+export async function activityRoster(event,user=null,guild=null) {
   const short=event.activityEndAt-event.activityStartAt<=24*hour;
   const rows=await Receipt.aggregate([
     {$match:{event:event._id,...(user?{user}:{}),
@@ -205,7 +205,16 @@ export async function activityRoster(event,user) {
     {$group:{_id:"$_id.user",messages:{$sum:"$matches"},days:{$sum:{$cond:[{$gte:["$matches",event.activityMinimum]},1,0]}}}},
     {$sort:{days:-1,messages:-1,_id:1}},
   ]);
-  return rows.map(row=>({...row,qualified:qualifiesForGuidedActivity(row,event)}));
+  let visible=rows;
+  if(guild){
+    if(!event.requiredRoleId)return [];
+    const checks=await Promise.all(rows.map(async row=>{
+      const member=await guild.members.fetch({user:row._id,force:true}).catch(()=>null);
+      return Boolean(member?.roles?.cache?.has(event.requiredRoleId));
+    }));
+    visible=rows.filter((_,n)=>checks[n]);
+  }
+  return visible.map(row=>({...row,qualified:qualifiesForGuidedActivity(row,event)}));
 }
 
 const btn=(id,label,style=ButtonStyle.Secondary)=>
@@ -249,7 +258,7 @@ export async function staffPreview(i) {
     await ensureStaffCard(i.client,event);
     return i.editReply("Future repeats stopped. The current activity will finish as scheduled.");
   }
-  const rows=await activityRoster(event);
+  const rows=await activityRoster(event,null,i.guild);
   const page=Math.min(Number(rawPage)||0,Math.max(0,Math.ceil(rows.length/12)-1));
   const controls=[];
   if(page>0)controls.push(btn('activitystaff:view:'+id+':'+(page-1),"Previous"));
