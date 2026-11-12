@@ -26,6 +26,7 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Manual approval",value:"requireStaffReview",description:"On or off: staff approve winners"},
   {label:"Check My Progress",value:"progressEnabled",description:"On or off: members see private progress"},
   {label:"Bonus roles",value:"roleBonuses",description:"Add, change or clear bonus chances"},
+  {label:"Winner cooldown check",value:"winnerCooldownEnabled",description:"On/off: exclude active cooldowns at draw"},
   {label:"Claim time",value:"claimWindowHours",description:"Hours a winner has to claim"},
   {label:"Claim instructions",value:"claimInstructions",description:"Replace or reset the prize collection message"},
   {label:"Maximum auto rerolls",value:"maxAutoRerolls",description:"0–10 replacements for each unclaimed winner"},
@@ -40,7 +41,7 @@ export const GUIDED_EDIT_FIELDS=[
 const criteriaFields=new Set(["activityChannelIds","activityRequiredMentionUserId","activityRequiredPhrase","activityMinChars"]);
 const inputMax={title:100,prize:1500,description:1000,winnerCount:2,
   activityMinTotalMessages:5,activityMinChars:4,activityDays:3,claimWindowHours:3,bannerNameKey:60,
-  requireStaffReview:3,progressEnabled:3,
+  requireStaffReview:3,progressEnabled:3,winnerCooldownEnabled:3,
   roleBonuses:350,activityChannelIds:100,
   activityRequiredMentionUserId:100,activityRequiredPhrase:120,
   endsAt:16,activityEndAt:16,repeatSchedule:80,
@@ -50,6 +51,7 @@ const inputHint={
   bannerNameKey:"Saved banner name or default",
   requireStaffReview:"on or off",
   progressEnabled:"on or off",
+  winnerCooldownEnabled:"on or off (exclude active winner cooldowns)",
   roleBonuses:"@role 2  /  @role remove  /  clear",
   activityChannelIds:"#channel, channel ID, or all",
   activityRequiredMentionUserId:"@member, user ID, or none",
@@ -81,7 +83,7 @@ export function validateGuidedStaffEdit(field,raw,event,{now=new Date()}={}){
     if(value.length>60)throw Error("Banner name cannot exceed 60 characters.");
     return {bannerNameKey:/^(default|none|clear)$/i.test(value)?"":value};
   }
-  if(["requireStaffReview","progressEnabled","announceEmptyResults"].includes(field)){
+  if(["requireStaffReview","progressEnabled","announceEmptyResults","winnerCooldownEnabled"].includes(field)){
     if(!/^(on|off)$/i.test(value))throw Error('Enter "on" or "off".');
     return {[field]:value.toLowerCase()==="on"};
   }
