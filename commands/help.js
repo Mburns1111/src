@@ -1,6 +1,7 @@
 import {
  ActionRowBuilder, ApplicationCommandOptionType, ButtonBuilder, ButtonStyle,
  EmbedBuilder, MessageFlags, PermissionFlagsBits, SlashCommandBuilder,
+ StringSelectMenuBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {requireGuild} from "./shared.js";
@@ -16,7 +17,6 @@ export const PUBLIC_TOPICS=Object.freeze([
  {id:"cards",label:"Collectible Cards"},
  {id:"giveaways",label:"Giveaways"},
  {id:"games",label:"Games & Activities"},
- {id:"commands",label:"Commands"},
 ]);
 const STAFF_GROUPS = [
  { label: "Server setup", topics: [
@@ -36,7 +36,8 @@ const STAFF_GROUPS = [
 export const STAFF_TOPICS = Object.freeze(STAFF_GROUPS.flatMap(group => group.topics));
 export const HELP_TOPICS=Object.freeze([
  {id:"root",label:"Help Home"},{id:"public",label:"Public Help"},
- {id:"staff",label:"Staff Help"},...PUBLIC_TOPICS,...STAFF_TOPICS,
+ {id:"staff",label:"Staff Help"},{id:"commands",label:"Command Index"},
+ ...PUBLIC_TOPICS,...STAFF_TOPICS,
 ]);
 const VALID=new Set(HELP_TOPICS.map(x=>x.id));
 const STAFF_IDS=new Set(["staff",...STAFF_TOPICS.map(x=>x.id)]);
@@ -118,13 +119,46 @@ export function helpStaffAccess(interaction,config){
 }
 function buttons(items,selected,ownerId){
  const rows=[];
- for(let i=0;i<items.length;i+=5){
+ for(let i=0;i<items.length;i+=5)
   rows.push(new ActionRowBuilder().addComponents(items.slice(i,i+5).map(item=>
    new ButtonBuilder().setCustomId("help:topic:"+item.id+":"+ownerId)
-    .setLabel(item.label).setStyle(item.id==="ssetup"||item.id===selected?ButtonStyle.Primary:ButtonStyle.Secondary)
+    .setLabel(item.label).setStyle(item.id===selected?ButtonStyle.Primary:ButtonStyle.Secondary)
     .setDisabled(item.id===selected))));
- }
  return rows;
+}
+const SELECT_GROUPS=Object.freeze({
+ public:PUBLIC_TOPICS,
+ server:STAFF_GROUPS[0].topics,
+ giveaways:STAFF_GROUPS[1].topics,
+ tools:STAFF_GROUPS[2].topics,
+});
+function topicDropdown(scope,ownerId,selected){
+ const titles={public:"Choose a Public Help topic",server:"Server Setup",
+  giveaways:"Giveaways",tools:"Other Staff Tools"};
+ return new ActionRowBuilder().addComponents(
+  new StringSelectMenuBuilder().setCustomId("help:select:"+scope+":"+ownerId)
+   .setPlaceholder(titles[scope])
+   .addOptions(SELECT_GROUPS[scope].map(item=>({
+    label:item.label,value:item.id,default:item.id===selected,
+   }))));
+}
+function topicNav(topicId,ownerId){
+ if(topicId==="root")return buttons([
+   {id:"public",label:"Public Help"},
+   {id:"staff",label:"Staff Help"},
+   {id:"commands",label:"Command Index"},
+  ],topicId,ownerId);
+ if(topicId==="commands")return buttons([{id:"root",label:"Help Home"}],topicId,ownerId);
+ if(topicId==="public"||PUBLIC_IDS.has(topicId))return [
+  topicDropdown("public",ownerId,topicId),
+  ...buttons([{id:"public",label:"Public Help"},{id:"root",label:"Help Home"}],topicId,ownerId),
+ ];
+ return [
+  topicDropdown("server",ownerId,topicId),
+  topicDropdown("giveaways",ownerId,topicId),
+  topicDropdown("tools",ownerId,topicId),
+  ...buttons([{id:"staff",label:"Staff Help"},{id:"root",label:"Help Home"}],topicId,ownerId),
+ ];
 }
 function formatCommand(command){
  const lines=["• /"+command.name+" — "+(command.description||"Bot command")];
@@ -151,58 +185,81 @@ async function currentServerCommands(i){
   return ["I couldn't load the registered command list. Please try this topic again."];
  }
 }
-export function helpTopicPayload(topicId,ownerId,commandLines=[]){
+const COMMAND_LINES_PER_PAGE=16;
+export function helpTopicPayload(topicId,ownerId,commandLines=[],commandPage=0){
  if(!VALID.has(topicId)||!/^\d{17,20}$/.test(String(ownerId||"")))
   throw new UserFacingError("That help menu is no longer available. Run /help again.");
  const [title,description,fields]=CONTENT[topicId];
  const embed=new EmbedBuilder().setColor(STAFF_IDS.has(topicId)?0x2ecc71:0x5865f2)
   .setTitle(title).setDescription(description);
  for(const [name,value] of fields)embed.addFields({name,value});
+ let nav=topicNav(topicId,ownerId);
  if(topicId==="commands"){
+  const pages=Math.max(1,Math.ceil(commandLines.length/COMMAND_LINES_PER_PAGE));
+  const page=Math.min(Math.max(0,Number(commandPage)||0),pages-1);
+  const lines=commandLines.slice(page*COMMAND_LINES_PER_PAGE,(page+1)*COMMAND_LINES_PER_PAGE);
+  embed.setFooter({text:"Page "+(page+1)+" of "+pages+" · Commands shown for reference"});
   let section="",index=1;
-  for(const line of commandLines.slice(0,65)){
-   if((section+"\n"+line).length>850){
+  for(const line of lines){
+   const safe=String(line).slice(0,240);
+   if(section&&section.length+safe.length+1>920){
     embed.addFields({name:"Commands · "+index++,value:section});section="";
    }
-   section+=(section?"\n":"")+line.slice(0,830);
-   if(index>17)break;
+   section+=(section?"\n":"")+safe;
   }
   if(section)embed.addFields({name:"Commands · "+index,value:section});
   if(!commandLines.length)embed.addFields({name:"Commands",value:"No command list is available right now."});
+  if(pages>1){
+   const row=new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("help:page:"+(page-1)+":"+ownerId)
+     .setLabel("Previous").setStyle(ButtonStyle.Secondary).setDisabled(page===0),
+    new ButtonBuilder().setCustomId("help:page:"+(page+1)+":"+ownerId)
+     .setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(page===pages-1));
+   nav=[row,...nav];
+  }
  }
- let nav=[];
- if(topicId==="root")nav=[{id:"public",label:"Public Help"},{id:"staff",label:"Staff Help"}];
- else if(topicId==="public")nav=[...PUBLIC_TOPICS,{id:"root",label:"Home"}];
- else if(topicId==="staff"){
-  const rows=STAFF_GROUPS.flatMap(group=>buttons(group.topics,topicId,ownerId));
-  rows.push(...buttons([{id:"root",label:"Help Home"}],topicId,ownerId));
-  return {embeds:[embed],components:rows,allowedMentions:{parse:[]}};
- }
- else nav=[{id:PUBLIC_IDS.has(topicId)?"public":"staff",label:PUBLIC_IDS.has(topicId)?"Back to Systems":"Back to Staff Help"},{id:"root",label:"Help Home"}];
- return {embeds:[embed],components:buttons(nav,topicId,ownerId),allowedMentions:{parse:[]}};
+ return {embeds:[embed],components:nav,allowedMentions:{parse:[]}};
 }
-async function showTopic(i,topic,ownerId){
+async function showTopic(i,topic,ownerId,commandPage=0){
  const lines=topic==="commands"?await currentServerCommands(i):[];
- await i.editReply(helpTopicPayload(topic,ownerId,lines));
+ await i.editReply(helpTopicPayload(topic,ownerId,lines,commandPage));
 }
 export async function execute(interaction){
  requireGuild(interaction);
- if(!interaction.deferred&&!interaction.replied)await interaction.deferReply({flags:MessageFlags.Ephemeral});
+ if(!interaction.deferred&&!interaction.replied)
+  await interaction.deferReply({flags:MessageFlags.Ephemeral});
  await showTopic(interaction,"root",interaction.user.id);
+}
+async function checkHelpStaffAccess(interaction,topic){
+ if(!STAFF_IDS.has(topic))return;
+ const config=await GuildConfig.findOne({guildId:interaction.guildId})
+  .select("giveawayManagerRoleId").lean();
+ if(!helpStaffAccess(interaction,config))
+  throw new UserFacingError("Staff Help is available only to authorized bot staff and assigned Giveaway Managers.");
 }
 export async function handleHelpTopicButton(interaction){
  const parts=String(interaction.customId||"").split(":");
- if(parts.length!==4||parts[0]!=="help"||parts[1]!=="topic"||
-    !VALID.has(parts[2])||parts[3]!==interaction.user.id)
+ const topic=parts[2],owner=parts[3];
+ const isTopic=parts.length===4&&parts[0]==="help"&&parts[1]==="topic"&&VALID.has(topic);
+ const isPage=parts.length===4&&parts[0]==="help"&&parts[1]==="page"&&/^\d{1,5}$/.test(topic);
+ if((!isTopic&&!isPage)||owner!==interaction.user.id)
   throw new UserFacingError("That help menu belongs to another member or has expired. Run /help again.");
  requireGuild(interaction);
- if(STAFF_IDS.has(parts[2])){
-  const config=await GuildConfig.findOne({guildId:interaction.guildId})
-   .select("giveawayManagerRoleId").lean();
-  if(!helpStaffAccess(interaction,config))
-   throw new UserFacingError("Staff Help is available only to authorized bot staff and assigned Giveaway Managers.");
- }
+ if(isTopic)await checkHelpStaffAccess(interaction,topic);
  await interaction.deferUpdate();
- await showTopic(interaction,parts[2],interaction.user.id);
+ await showTopic(interaction,isPage?"commands":topic,interaction.user.id,isPage?Number(topic):0);
+ return true;
+}
+export async function handleHelpTopicSelect(interaction){
+ const parts=String(interaction.customId||"").split(":");
+ const scope=parts[2],owner=parts[3],topic=interaction.values?.[0];
+ if(parts.length!==4||parts[0]!=="help"||parts[1]!=="select"||
+    !Object.hasOwn(SELECT_GROUPS,scope)||owner!==interaction.user.id||
+    !SELECT_GROUPS[scope].some(item=>item.id===topic))
+  throw new UserFacingError("That help menu belongs to another member or has expired. Run /help again.");
+ requireGuild(interaction);
+ await checkHelpStaffAccess(interaction,topic);
+ await interaction.deferUpdate();
+ await showTopic(interaction,topic,interaction.user.id);
  return true;
 }
