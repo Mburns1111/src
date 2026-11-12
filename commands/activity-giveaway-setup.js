@@ -29,6 +29,7 @@ const row=(id,items)=>new ActionRowBuilder().addComponents(items.map(([label,val
 const shown=id=>id?"<#"+id+">":"Not set";
 const progress=session=>(session.editing||session.fromReview)?"Editing "+(stepName[session.step]||"Default banner"):
   stepsFor(session).includes(session.step)?"Step "+(stepsFor(session).indexOf(session.step)+1)+" of "+stepsFor(session).length:
+    session.step==="participationHelpText"?"Editing Activity Participation role instructions":
     "Banner · "+(session.step==="bannerUpload"?"Upload new banner":"Choose a saved banner");
 const mainSetting=session=>session.settings;
 // Both guided giveaway setups configure the same single announcement role.
