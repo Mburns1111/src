@@ -173,7 +173,7 @@ function staffEditor(t){
   const capture=async payload=>{result=payload;};
   const i={id:String(++counter),guildId:"server",
    guild:{channels:{fetch:async()=>({isTextBased:()=>true,send(){},permissionsFor:()=>({has:()=>true})})},
-    members:{fetchMe:async()=>({})}},user:{id:t.name},channelId:"staff",
+    members:{fetchMe:async()=>({})},roles:{fetch:async id=>({id,mentionable:true})}},user:{id:t.name},channelId:"staff",
    memberPermissions:{has:()=>true},message:{flags:{has:()=>true}},customId,values,
    fields:{getTextInputValue:key=>fields[key]},isModalSubmit:()=>Boolean(fields),
    reply:capture,update:capture,showModal:capture};
@@ -226,6 +226,35 @@ test("activation retry reuses the committed preview even after a restart",async 
  const identity={_id:"preview-id",guildId:"guild",activatedBy:"staff"};
  t.mock.method(PingSchedule,"findOne",async filter=>{assert.deepEqual(filter,identity);return saved;});
  assert.equal(await activatePingSchedule({scheduleId:"preview-id",guild:{id:"guild"},actorId:"staff"}),saved);
+});
+
+test("Review & Activate shows actual roles for every ping and pages crowded previews safely",async t=>{
+ const roles=Array.from({length:10},(_,i)=>String(123456789012345678n+BigInt(i)));
+ const template={_id:"role-preview",name:"Role Preview",groups:[group({
+  roleIds:roles,messages:[],interval:1,durationDays:1,
+ })]};
+ t.mock.method(PingTemplate,"find",()=>fakeQuery([template]));
+ t.mock.method(PingTemplate,"findOne",()=>({lean:async()=>template}));
+ const click=staffEditor(t);
+ const list=await click("pings:root:templates");
+ const details=await click(control(list,"select:template"),{values:["role-preview"]});
+ const chooser=await click(control(details,"template:use"));
+ let setup=await click(control(chooser,"select:destination"),{values:["dest"]});
+ let panel=await click(control(setup,"select:activationGroup"),{values:["0"]});
+ panel=await click(control(panel,"group:mode:roles"));
+ setup=await click(control(panel,"group:back"));
+ let preview=await click(control(setup,"activation:review"));
+ assert.match(preview.content,/Roles: <@&123456789012345678>/);
+ assert.match(preview.content,/Message: \(roles only\)/);
+ assert.doesNotMatch(preview.content,/10 role\(s\)/);
+ assert.ok(preview.content.length<=2000,"Discord's 2,000-character limit is respected");
+ assert.match(preview.content,/Preview page: 1\//);
+ assert.ok(Number(preview.content.match(/Preview page: 1\/(\d+)/)[1])>3,
+  "long role lists use more preview pages instead of truncating the mentions");
+ preview=await click(control(preview,"activation:next"));
+ assert.match(preview.content,/Roles: <@&123456789012345678>/);
+ assert.ok(preview.content.length<=2000);
+ assert.deepEqual(preview.allowedMentions,{parse:[]},"role mentions in a preview never notify members");
 });
 
 test("templates save without message text; activation has editable independent rotation",async t=>{
@@ -366,7 +395,7 @@ test("retiming preserves individual edits and asks before removing an edited occ
  groupPanel=await click(timing.data.custom_id,{fields:values});
  setup=await click(control(groupPanel,"group:back"));
  preview=await click(control(setup,"activation:review"));
- assert.match(preview.content,/#2 [^\n]*Custom second occurrence/);
+ assert.match(preview.content,/#2 [^\n]*\n  Roles: [^\n]*\n  Message: Custom second occurrence/);
  const picker=await click(control(preview,"activation:groups"));
  groupPanel=await click(control(picker,"select:activationGroup"),{values:["0"]});
  timing=await click(control(groupPanel,"group:timing"));
