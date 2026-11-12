@@ -15,12 +15,12 @@ import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS}
 const sessions=new Map();
 const expiry=30*60_000;
 const key=(channel,user)=>channel+":"+user;
-const steps=["list","winners","staff","archive","managerRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
+const steps=["list","winners","staff","archive","managerRole","participationRole","participationHelp","instructions","hours","rerolls","roles","empty","banner","review"];
 const regularSteps=["regularChannel","staff","archive","managerRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
 const stepsFor=session=>session.mode==="regular"?regularSteps:steps;
 const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",archive:"Private giveaway archive",
   regularChannel:"Regular giveaway posts",managerRole:"Giveaway Manager role",
-  requiredRole:"Default required role",roleHelp:"Where to get required roles",
+  requiredRole:"Default regular entry role",participationRole:"Activity opt-in role (required)",participationHelp:"How to opt in",roleHelp:"Where to get required roles",
   roleHelpVisible:"Show role instructions",instructions:"Claim instructions",hours:"Claim deadline",rerolls:"Automatic rerolls",
   roles:"Shared giveaway ping role",empty:"No eligible winners",banner:"Default banner"};
 const button=(id,label,value,style=ButtonStyle.Secondary)=>new ButtonBuilder()
@@ -52,9 +52,14 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   "🔒 **Staff controls:** "+shown(settings.activityGiveawayReviewChannelId),
    "🗄️ **Private giveaway archive (required):** "+shown(settings.giveawayArchiveChannelId),
   "🔑 **Giveaway Manager role:** "+(settings.giveawayManagerRoleId?"<@&"+settings.giveawayManagerRoleId+">":"None — Manage Server only"),
-  "🎟️ **Default required role:** "+(settings.giveawayDefaultRequiredRoleId?"<@&"+settings.giveawayDefaultRequiredRoleId+">":"None"),
-  "👁️ **Show role instructions publicly:** "+(settings.giveawayShowRoleInstructions!==false?"Yes":"No"),
-  "🎟️ **Role acquisition instructions (saved):** "+(settings.giveawayRoleInstructions||"Not set"),
+  ...(mode==="activity"?[
+    "🎟️ **Activity participation role (required to count messages):** "+(settings.activityParticipationRoleId?"<@&"+settings.activityParticipationRoleId+">":"NOT CONFIGURED — REQUIRED"),
+    "📍 **Where to opt in:** "+(settings.activityParticipationRoleInstructions||"Use your server's role selection to opt in."),
+  ]:[
+    "🎟️ **Optional regular giveaway entry role:** "+(settings.giveawayDefaultRequiredRoleId?"<@&"+settings.giveawayDefaultRequiredRoleId+">":"None"),
+    "👁️ **Show regular role instructions publicly:** "+(settings.giveawayShowRoleInstructions!==false?"Yes":"No"),
+    "🎟️ **Regular role acquisition instructions:** "+(settings.giveawayRoleInstructions||"Not set"),
+  ]),
   "📝 **Current prize-claim instructions ("+(settings.activityClaimInstructions?"Saved server custom":"Built-in default")+"):**",
   currentGiveawayClaimInstructions(settings),
   "⏰ **Default claim window:** "+settings.activityClaimWindowHours+" hours",
@@ -82,9 +87,9 @@ export function claimAnnouncementPreview(settings,{
   claimInstructions:settings.activityClaimInstructions||"",
   maxAutoRerolls:settings.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
   autoRerollClaims:true,
-  requiredRoleId:settings.giveawayDefaultRequiredRoleId||"",
-  requiredRoleInstructions:settings.giveawayRoleInstructions||"",
-  showRequiredRoleInstructions:settings.giveawayShowRoleInstructions!==false,
+  requiredRoleId:mode==="regular"?settings.giveawayDefaultRequiredRoleId||"":settings.activityParticipationRoleId||"",
+  requiredRoleInstructions:mode==="regular"?settings.giveawayRoleInstructions||"":settings.activityParticipationRoleInstructions||"",
+  showRequiredRoleInstructions:mode==="regular"?settings.giveawayShowRoleInstructions!==false:true,
  };
  const payload=giveawayAnnouncement(sample);
  payload.embeds[0].setFooter({text:"PREVIEW ONLY · No giveaway created or modified"});
@@ -123,9 +128,22 @@ function layout(session,banners=[]) {
      .setCustomId(bind(session,"managerRole")).setPlaceholder("Choose Giveaway Manager role")
      .setMinValues(1).setMaxValues(1)));
    components.push(row(session.id,[["No manager role","clearManagerRole"],["Keep Current","keep"]]));
+ }else if(step==="participationRole"){
+   content="Choose the **mandatory Activity Participation role**. Members opt in by obtaining this role. Only messages sent while they have it are counted for activity giveaways. This is separate from the optional regular giveaway entry role and cannot be skipped.\nCurrent: "+
+     (s.activityParticipationRoleId?"<@&"+s.activityParticipationRoleId+">":"Not set — required");
+   components.push(new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
+     .setCustomId(bind(session,"participationRole")).setPlaceholder("Choose mandatory Activity Participation role")
+     .setMinValues(1).setMaxValues(1)));
+   if(s.activityParticipationRoleId)components.push(row(session.id,[["Keep current role","keep"]]));
+ }else if(step==="participationHelp"){
+   content="Where should members go to **opt in** to activity giveaways? Include the channel where they can select the Activity Participation role. These instructions are always displayed with activity giveaways.\nCurrent: "+
+     (s.activityParticipationRoleInstructions||"Not set");
+   components.push(row(session.id,[["Write instructions","writeParticipationHelp"],["Keep current","keep"],["Clear","clearParticipationHelp"]]));
+ }else if(step==="participationHelpText"){
+   content="Type instructions for opting into activity giveaways (1–500 characters), such as where to select the role.";
  }else if(step==="requiredRole"){
-   content="Choose a **default required role** for regular and activity giveaways. "+
-     "Staff can keep this default, choose a different role, or disable the role requirement for each giveaway.\n"+
+   content="Choose an **optional default required role** for regular giveaways only. "+
+     "Staff can keep this default, choose a different role, or disable the role requirement for each regular giveaway.\n"+
      "Current: "+(s.giveawayDefaultRequiredRoleId?"<@&"+s.giveawayDefaultRequiredRoleId+">":"None");
    components.push(new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
      .setCustomId(bind(session,"requiredRole")).setPlaceholder("Choose default required role")
@@ -225,6 +243,14 @@ async function checkChannels(session){
  const ids=session.mode==="regular"?[s.giveawayChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId]:
     [s.activityGiveawayListChannelId,s.activityGiveawayWinnersChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId];
  if(ids.some(x=>!x)||new Set(ids).size!==ids.length)throw Error("Choose separate public, private staff, and private archive channels for giveaways.");
+ if(session.mode==="activity"){
+   if(!s.activityParticipationRoleId)throw Error("Choose an Activity Participation role. Activity giveaways cannot run without an opt-in role.");
+   const role=await session.guild.roles.fetch(s.activityParticipationRoleId).catch(()=>null);
+   if(!role||role.id===session.guild.id)throw Error("Choose an existing Activity Participation role.");
+ }
+ if(s.activityParticipationRoleId&&s.giveawayDefaultRequiredRoleId&&
+    s.activityParticipationRoleId===s.giveawayDefaultRequiredRoleId)
+   throw Error("Activity Participation and the regular giveaway entry role must be separate Discord roles.");
   const existing=await GuildConfig.findOne({guildId:session.guild.id}).lean();
   const publicIds=[existing?.giveawayChannelId,existing?.activityGiveawayListChannelId,
     existing?.activityGiveawayWinnersChannelId,existing?.survivalTrialChannelId].filter(Boolean);
@@ -260,7 +286,7 @@ async function apply(session,verb,value){
      await show(session,"review");return;
    }
    const ordered=stepsFor(session),index=ordered.indexOf(session.step);
-   const back=({roleHelpText:"roleHelp",instructionsText:"instructions",hoursText:"hours"})[session.step]||ordered[Math.max(0,index-1)];
+   const back=({participationHelpText:"participationHelp",roleHelpText:"roleHelp",instructionsText:"instructions",hoursText:"hours"})[session.step]||ordered[Math.max(0,index-1)];
    await show(session,back);return;
  }
  if(session.step==="review"){
@@ -289,15 +315,38 @@ async function apply(session,verb,value){
       "giveawayRoleInstructions","activityClaimInstructions","activityClaimWindowHours","activityMaxAutoRerolls",
       "activityAnnounceEmptyResults","giveawayDefaultBannerNameKey"
      ].map(field=>[field,s[field]])),
+     ...(session.mode==="activity"?{
+       activityParticipationRoleId:s.activityParticipationRoleId,
+       activityParticipationRoleInstructions:s.activityParticipationRoleInstructions,
+       ...(previous?.activityParticipationRoleId!==s.activityParticipationRoleId?
+         {activityParticipationRoleConfiguredAt:new Date()}:{}),
+     }:{}),
      ...giveawaySetupNotificationFields(s,session.mode),
      commandChannelId:previous?.commandChannelId||session.channel.id,
    };
    await GuildConfig.findOneAndUpdate({guildId:session.guild.id},{$set:settings},
       {upsert:true,new:true,runValidators:true});
+   // A change of opt-in role invalidates earlier guided activity receipts.
+   // Preserve them for audit/expiry, but restart the active counting window.
+   if(session.mode==="activity"&&previous?.activityParticipationRoleId!==s.activityParticipationRoleId){
+     const resetAt=settings.activityParticipationRoleConfiguredAt;
+     await Giveaway.updateMany({guildId:session.guild.id,mode:"activity",status:"open",
+       guidedSeries:{$type:"objectId"},activityEndAt:{$gt:resetAt}},
+       {$set:{requiredRoleId:s.activityParticipationRoleId,
+         requiredRoleInstructions:s.activityParticipationRoleInstructions||"",
+         showRequiredRoleInstructions:true,activityResetAt:resetAt,
+         activityStartAt:resetAt,customActivityStartAt:resetAt}});
+     await GuidedActivitySeries.updateMany({guildId:session.guild.id,enabled:true},
+       {$set:{"settings.requiredRoleId":s.activityParticipationRoleId,
+         "settings.requiredRoleInstructions":s.activityParticipationRoleInstructions||"",
+         "settings.showRequiredRoleInstructions":true}});
+   }
    let modified=0;
    if(session.updateExisting)modified=await updateExistingActivityClaimInstructions(session.guild.id,s.activityClaimInstructions);
    sessions.delete(session.key);
    await session.channel.send({content:("**"+(session.mode==="regular"?"Regular":"Activity")+" giveaway setup saved.** ")+
+     (session.mode==="activity"&&previous?.activityParticipationRoleId!==s.activityParticipationRoleId?
+       "The activity opt-in role was changed; active guided activity counting restarted for consent. ":"")+
      (session.updateExisting?"Claim instructions were also updated for "+modified+" existing standard/activity giveaways. "+
        "Announcements will refresh as the bot reconciles them.":"New giveaways will use these defaults; existing claim deadlines and ticket claims were not changed.")+
      "\nUse **/giveaway "+(session.mode==="regular"?"start":"activity")+"** to create a giveaway with per-event overrides.",
@@ -314,6 +363,20 @@ async function apply(session,verb,value){
        throw Error("Choose a real, assignable server role for Giveaway Managers.");
      s.giveawayManagerRoleId=role.id;return next();
    }
+ }
+ if(session.step==="participationRole"&&verb==="participationRole"){
+   const id=Array.isArray(value)?value[0]:value;
+   const role=await session.guild.roles.fetch(id).catch(()=>null);
+   if(!role||role.id===session.guild.id)throw Error("Choose a real Activity Participation role.");
+   s.activityParticipationRoleId=role.id;return next();
+ }
+ if(session.step==="participationHelp"){
+   if(verb==="clearParticipationHelp"){s.activityParticipationRoleInstructions="";return next();}
+   if(verb==="writeParticipationHelp"){await show(session,"participationHelpText");return;}
+ }
+ if(session.step==="participationHelpText"&&verb==="text"){
+   if(!value||value.length>500)throw Error("Enter 1–500 characters on where to get the Activity Participation role.");
+   s.activityParticipationRoleInstructions=value;return after(session,"instructions");
  }
  if(session.step==="requiredRole"){
    if(verb==="noneRequiredRole"){s.giveawayDefaultRequiredRoleId="";return next();}
@@ -412,6 +475,8 @@ async function startGiveawaySetup(interaction,mode="activity"){
     giveawayArchiveChannelId:config?.giveawayArchiveChannelId||"",
    giveawayManagerRoleId:config?.giveawayManagerRoleId||"",
    giveawayDefaultRequiredRoleId:config?.giveawayDefaultRequiredRoleId||"",
+   activityParticipationRoleId:config?.activityParticipationRoleId||"",
+   activityParticipationRoleInstructions:config?.activityParticipationRoleInstructions||"",
    giveawayShowRoleInstructions:config?.giveawayShowRoleInstructions!==false,
    giveawayRoleInstructions:config?.giveawayRoleInstructions||"",
    activityClaimInstructions:config?.activityClaimInstructions||"",
