@@ -14,6 +14,7 @@ import {weekdays,windowEnd,nextOpening,maxActiveDays,repeatText,createGuidedActi
 const sessions=new Map();
 export const defaultActivityWizardSettings=creator=>({
   creator,days:1,approval:false,bonuses:[],progress:true,description:"",
+  winnerCooldownEnabled:false,
   requiredRoleId:"",requiredRoleInstructions:"",showRequiredRoleInstructions:true,
   claimHours:DEFAULT_CLAIM_HOURS,claimInstructions:"",serverClaimInstructions:"",
   maxAutoRerolls:DEFAULT_MAX_AUTO_REROLLS,notificationRoleIds:[],announceEmptyResults:true,
@@ -143,6 +144,7 @@ export function describeActivityWizard(session){
     s.mention?'Required ping · <@'+s.mention+'>':null,s.phrase?'Required exact phrase · '+s.phrase+' (correct spelling and word order; capitalization does not matter)':null,
     'Winners · '+s.winners+' · Draw '+stamp(s.firstDraw?new Date(s.firstDraw):end),
     'Manual approval '+(s.approval?'on':'off')+' · Member progress '+(s.progress?'on':'off'),
+    'Winner cooldown check · '+(s.winnerCooldownEnabled?'ON':'OFF')+' (silently exclude active cooldowns)',
     'Claim time · '+s.claimHours+' hours · Max automatic rerolls · '+s.maxAutoRerolls+
       ' · Banner · '+(s.banner||'Server default'),
     'Claim instructions ('+claimSource(s)+') · '+effectiveClaimInstructions(s).slice(0,800),
@@ -166,6 +168,7 @@ async function show(session,step){
   if(step==="repeatCount")content='Enter a whole number from 1 to 1,000. This counts **additional repeats after the first giveaway**.';
   if(step==="extras")choices=[
     ['Manual approval '+(s.approval?'ON':'OFF'),'approval'],['Member progress '+(s.progress?'ON':'OFF'),'progress'],
+    ['Winner cooldown '+(s.winnerCooldownEnabled?'ON':'OFF'),'winnerCooldown'],
     ['Add bonus role','role'],['Claim time','claim'],['Claim instructions','claimChoice'],
     ['Max rerolls','rerollsChoice'],
     ['No eligible winners','emptyResults'],['Banner','banner'],['Done','done'],
@@ -314,6 +317,7 @@ async function accept(session,input,client){
     }
     case "extras":
       if(v==="approval"||v==="progress"){s[v]=!s[v];next="extras";}
+      else if(v==="winnerCooldown"){s.winnerCooldownEnabled=!s.winnerCooldownEnabled;next="extras";}
       else next=v==="done"?done("repeat"):v;break;
     case "claim":
       if(v==="custom"){next="claimTextHours";break;}
