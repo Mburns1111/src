@@ -254,7 +254,7 @@ test("activation retry reuses the committed preview even after a restart",async 
  assert.equal(await activatePingSchedule({scheduleId:"preview-id",guild:{id:"guild"},actorId:"staff"}),saved);
 });
 
-test("full schedule is grouped by alphabetical channel name before time and paginates by channel",async t=>{
+test("full schedule uses channel, roles, abbreviated message and date-last lines on every page",async t=>{
  const now=Date.now();
  const schedules=[
   {_id:"s-z",name:"Early Event",timeZone:"America/New_York",destinationChannelId:"chan-z"},
@@ -262,12 +262,14 @@ test("full schedule is grouped by alphabetical channel name before time and pagi
  ];
  const future=hours=>new Date(now+hours*3600000);
  const data=[
-  {scheduleId:"s-z",dueAt:future(1),content:"Z first",groupIndex:0,sequence:1,status:"pending"},
+  {scheduleId:"s-z",dueAt:future(1),roleIds:["333333333333333333"],content:"Z first",groupIndex:0,sequence:1,status:"pending"},
   ...Array.from({length:11},(_,i)=>({
-   scheduleId:"s-a",dueAt:future(i+2),content:"Chat "+String(i+1),
+   scheduleId:"s-a",dueAt:future(i+2),roleIds:["444444444444444444"],
+   content:i===1?"Long announcement ".repeat(7).trim():"Chat "+String(i+1),
    groupIndex:0,sequence:i+1,status:"pending",
   })),
-  {scheduleId:"s-a",dueAt:new Date(now-3600000),content:"Past pending",groupIndex:0,status:"pending"},
+  {scheduleId:"s-a",dueAt:new Date(now-3600000),roleIds:[],content:"Past pending",
+   groupIndex:0,status:"pending"},
  ];
  t.mock.method(PingSchedule,"find",()=>fakeQuery(schedules));
  const matches=filter=>data.filter(d=>d.status===filter.status&&
@@ -278,20 +280,26 @@ test("full schedule is grouped by alphabetical channel name before time and pagi
  const click=staffEditor(t,{channelNames:{"chan-a":"alpha-chat","chan-z":"zeta-events"}});
  let panel=await click("pings:root:upcoming");
  assert.match(panel.content,/Full Upcoming Schedule/);
- assert.match(panel.content,/\*\*<#chan-a>\*\*/);
+ assert.match(panel.content,/• <#chan-a> <@&444444444444444444> · Chat 1 — Nov|• <#chan-a> <@&444444444444444444> · Chat 1 — Dec|• <#chan-a> <@&444444444444444444> · Chat 1 —/);
  assert.doesNotMatch(panel.content,/<#chan-z>/,
-  "all alpha-channel pings precede zeta-channel pings, even if they occur later");
- assert.match(panel.content,/Chat 1/);
+  "alpha-channel pings precede zeta-channel pings, even if due later");
  assert.doesNotMatch(panel.content,/Past pending/);
- assert.match(panel.content,/Page 1\/2/);
+ assert.doesNotMatch(panel.content,/Group 1|Group 2|upcoming ping\(s\)/);
+ assert.match(panel.content,/Long announcement .*… — /);
+ assert.match(panel.content,/Page 1\/3/);
+ assert.ok(panel.content.length<=2000,"the formatted page must fit Discord");
+ assert.deepEqual(panel.allowedMentions,{parse:[]},"staff viewing a schedule never pings roles");
+ panel=await click(control(panel,"upcoming:next"));
+ assert.match(panel.content,/• <#chan-a> <@&444444444444444444> · Chat 6 — /);
+ assert.doesNotMatch(panel.content,/<#chan-z>/);
+ assert.match(panel.content,/Page 2\/3/);
  panel=await click(control(panel,"upcoming:next"));
  assert.match(panel.content,/<#chan-a>/);
- assert.match(panel.content,/<#chan-z>/);
+ assert.match(panel.content,/• <#chan-z> <@&333333333333333333> · Z first — /);
  assert.ok(panel.content.indexOf("<#chan-a>")<panel.content.indexOf("<#chan-z>"));
- assert.match(panel.content,/Z first/);
- assert.match(panel.content,/Page 2\/2/);
+ assert.match(panel.content,/Page 3\/3/);
  panel=await click(control(panel,"upcoming:prev"));
- assert.match(panel.content,/Page 1\/2/);
+ assert.match(panel.content,/Page 2\/3/);
 });
 
 test("Review & Activate shows actual roles for every ping and pages crowded previews safely",async t=>{
