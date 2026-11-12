@@ -1,5 +1,6 @@
 import {createHash} from "node:crypto";
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,PermissionFlagsBits} from "discord.js";
+import {handleGiveawayCooldownDirectoryAction} from "./giveaway-cooldown-directory.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GuildConfig from "../models/GuildConfig.js";
@@ -101,6 +102,8 @@ export function giveawayStaffDirectoryPayload(guildId,entries,{page=0}={}){
     .setDescription(description)
     .setFooter({text:giveawayDirectoryMarker(guildId)+` · Page ${selectedPage+1}/${totalPages}`});
   const buttons=[];
+  buttons.push(new ButtonBuilder()
+    .setCustomId("giveawaydir:cooldowns").setLabel("Winner Cooldowns").setStyle(ButtonStyle.Primary));
   if(selectedPage>0)buttons.push(new ButtonBuilder()
     .setCustomId(`giveawaydir:page:${selectedPage-1}`).setLabel("Previous page").setStyle(ButtonStyle.Secondary));
   if(selectedPage+1<totalPages)buttons.push(new ButtonBuilder()
@@ -147,7 +150,7 @@ export async function ensureGiveawayStaffDirectory(client,config,{now=new Date()
       throw Error("The giveaway staff directory channel is accessible to @everyone.");
     const entries=await loadEntries(guildId);
     const payload=giveawayStaffDirectoryPayload(guildId,entries);
-    const fingerprint=createHash("sha256").update(JSON.stringify(entries)).digest("hex");
+    const fingerprint=createHash("sha256").update(JSON.stringify({v:"winner-cooldowns-1",entries})).digest("hex");
     let message=config.giveawayStaffDirectoryChannelId===channelId?
       await fetchStored(channel,config.giveawayStaffDirectoryMessageId):null;
     if(message&&message.author?.id!==client.user?.id)
@@ -203,11 +206,20 @@ export async function handleGiveawayStaffDirectoryButton(interaction){
   if(!await canManageGiveaways(interaction))
     return interaction.reply({content:giveawayManagerPermissionMessage,...ephemeral});
   const match=/^giveawaydir:page:(\d{1,6})$/.exec(interaction.customId);
-  if(!match)return interaction.reply({content:"Unknown giveaway directory page.",...ephemeral});
+  const isCooldown=interaction.customId.startsWith("giveawaydir:cooldown");
+  if(!match&&!isCooldown)return interaction.reply({content:"Unknown giveaway directory action.",...ephemeral});
   const config=await GuildConfig.findOne({guildId:interaction.guildId})
     .select("activityGiveawayReviewChannelId").lean();
   if(!config?.activityGiveawayReviewChannelId||config.activityGiveawayReviewChannelId!==interaction.channelId)
     return interaction.reply({content:"Use the giveaway directory in its configured private staff channel.",...ephemeral});
+  if(isCooldown){
+    try{return await handleGiveawayCooldownDirectoryAction(interaction);}
+    catch(error){
+      console.error("[Giveaways] Staff cooldown management failed:",error);
+      if(interaction.replied||interaction.deferred)return interaction.editReply("Couldn't manage the winner cooldown. Please try again.");
+      return interaction.reply({content:"Couldn't manage the winner cooldown. Please try again.",...ephemeral});
+    }
+  }
   await interaction.deferReply(ephemeral);
   try{
     const entries=await loadEntries(interaction.guildId);
