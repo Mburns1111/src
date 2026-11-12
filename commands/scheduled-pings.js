@@ -90,6 +90,17 @@ function groupProgress(s,index){
  return {ready:count>0,status:count+(g.messageMode==="single"?" repeating message":" rotating messages")};
 }
 const groupReady=(s,index)=>groupProgress(s,index).ready;
+function applyMessageMode(s,mode){
+ const index=s.selectedGroupIndex;
+ const g=s.workingGroups[index];
+ // Clear one-off overrides from this group so an older mode cannot leak text
+ // into a newly selected message mode. Other groups' edits stay untouched.
+ const ids=new Set(groupEvents(s,index).map(e=>e.sequence));
+ s.overrides=(s.overrides||[]).filter(e=>!ids.has(e.sequence));
+ s.workingGroups[index]=normalizePingGroup({...g,messageMode:mode,messages:[],perPingMessages:[]},{allowEmpty:true});
+ s.selectedMessageIndex=0;s.selectedPerPingOrdinal=0;s.perPingPage=0;s.page=0;
+}
+
 function draftPanel(s){
  const g=s.groups[s.groupIndex],lines=[
   "**✦ "+(s.editId?"Edit Saved Template":"Create Template")+"**",
@@ -714,8 +725,47 @@ async function handleControl(i){
   }
   if(command==="group:back")return reply(i,activationSetupPanel(s));
   if(command==="group:return")return reply(i,activationGroupPanel(s));
-  const g=s.workingGroups[s.selectedGroupIndex];
-  if(!g)throw Error("Select a Ping Group first.");
+  if(command==="group:perPing")return reply(i,perPingPanel(s));
+  if(command==="group:perPingPrev"||command==="group:perPingNext"){
+   s.perPingPage=Math.max(0,(s.perPingPage||0)+(command==="group:perPingNext"?1:-1));
+   return reply(i,perPingPanel(s));
+  }
+  if(command==="group:perPingEdit"){
+   if(g.messageMode!=="per-ping")throw Error("Select Different Message Per Ping first.");
+   const occurrence=groupEvents(s,s.selectedGroupIndex).find(e=>e.ordinal===s.selectedPerPingOrdinal);
+   if(!occurrence)throw Error("Select a scheduled ping first.");
+   return i.showModal(modal(i,"groupPerPingText","Message for Ping "+(occurrence.ordinal+1),[
+    ["content","Text for this one ping",g.perPingMessages?.[occurrence.ordinal]||"",TextInputStyle.Paragraph,1800,true]
+   ]));
+  }
+  if(command.startsWith("group:mode:")){
+   const mode=command.slice("group:mode:".length);
+   if(!MESSAGE_MODES[mode])throw Error("Choose a message style.");
+   if(g.messageMode===mode)return reply(i,activationGroupPanel(s));
+   const groupIds=new Set(groupEvents(s,s.selectedGroupIndex).map(e=>e.sequence));
+   const hasText=g.messages?.length||g.perPingMessages?.some(Boolean)||
+    s.overrides?.some(e=>groupIds.has(e.sequence)&&e.content!==undefined);
+   if(hasText){
+    s.pendingMessageMode=mode;
+    return reply(i,{content:"**Change to "+MESSAGE_MODES[mode]+"?**\n"+
+     "Changing styles clears existing message text and any individual edits for this Ping Group. "+
+     "Other Ping Groups and the saved template are unaffected.",
+     components:[row(["Change Style & Clear Text","group:modeConfirm",ButtonStyle.Danger],
+      ["Keep Current Style","group:modeCancel"])]});
+   }
+   applyMessageMode(s,mode);
+   return reply(i,activationGroupPanel(s));
+  }
+  if(command==="group:modeCancel"){
+   delete s.pendingMessageMode;
+   return reply(i,activationGroupPanel(s));
+  }
+  if(command==="group:modeConfirm"){
+   if(!MESSAGE_MODES[s.pendingMessageMode])throw Error("Choose a new message style first.");
+   applyMessageMode(s,s.pendingMessageMode);
+   delete s.pendingMessageMode;
+   return reply(i,activationGroupPanel(s));
+  }
   if(command==="group:timing")return i.showModal(modal(i,"groupTiming","Customize Group Timing",[
    ["name","Ping Group Name",g.name,TextInputStyle.Short,60],
    ["repeatMode","Frequency: once, hours, days",g.repeatMode,TextInputStyle.Short,8],
@@ -731,7 +781,14 @@ async function handleControl(i){
   if(command==="group:clearRoles"){
    g.roleIds=[];return reply(i,activationGroupPanel(s));
   }
+  if(command==="group:singleText"){
+   if(g.messageMode!=="single")throw Error("Select Repeat One Message first.");
+   return i.showModal(modal(i,"groupSingleText","Repeating Message",[
+    ["content","Message used for every ping",g.messages?.[0]||"",TextInputStyle.Paragraph,1800,true]
+   ]));
+  }
   if(command==="group:addText"||command==="group:editText"){
+   if(g.messageMode!=="rotate")throw Error("Select Rotate Messages first.");
    const selected=s.selectedMessageIndex||0;
    if(command==="group:editText"&&!g.messages[selected])throw Error("Choose a message first.");
    return i.showModal(modal(i,command==="group:addText"?"groupAddText":"groupEditText",
@@ -747,6 +804,16 @@ async function handleControl(i){
    s.selectedMessageIndex=Math.max(0,Math.min(selected,messages.length-1));
    return reply(i,activationGroupPanel(s));
   }
+ }
+ if(command==="select:perPing"){
+  const s=stateFor(i),g=s.workingGroups?.[s.selectedGroupIndex];
+  if(s.phase!=="activation"||g?.messageMode!=="per-ping")throw Error("Open a per-ping editor first.");
+  const selected=Number(i.values?.[0]);
+  if(!Number.isInteger(selected)||!groupEvents(s,s.selectedGroupIndex).some(e=>e.ordinal===selected))
+   throw Error("Select a valid ping.");
+  s.selectedPerPingOrdinal=selected;
+  s.perPingPage=Math.floor(selected/10);
+  return reply(i,perPingPanel(s));
  }
  if(command==="select:groupMessage"){
   const s=stateFor(i),g=s.workingGroups?.[s.selectedGroupIndex];
