@@ -9,6 +9,7 @@ import PingTemplate from "../models/PingTemplate.js";
 import PingSchedule from "../models/PingSchedule.js";
 import PingDelivery from "../models/PingDelivery.js";
 import PingAudit from "../models/PingAudit.js";
+import {formatServerClock,inputParts,parseServerDateTime,validateServerTimeZone} from "../services/schedule-timezone.js";
 import {
  activatePingSchedule,changeFuturePing,endPingSchedule,
  normalizePingGroup,pausePingSchedule,planPingDeliveries,refreshPingDashboard,
@@ -136,7 +137,7 @@ function managementPanel(s){
  const d=s.schedule;
  return {content:"**✦ "+d.name+"**\n**Status:** "+d.status+
   "\n**Destination:** <#"+d.destinationChannelId+">"+
-  "\n**Started:** "+ts(d.startsAt)+" · **Ends:** "+ts(d.endsAt)+
+  "\n**Server time zone:** "+(d.timeZone||"UTC")+"\n**Started:** "+showZone(d.startsAt,d.timeZone||"UTC")+" · **Ends:** "+showZone(d.endsAt,d.timeZone||"UTC")+
   "\n**Progress:** "+d.sentCount+"/"+d.plannedCount+" sent, "+d.failedCount+" failed, "+d.skippedCount+" skipped"+
   "\n**Ping Groups:** "+d.groups.length+
   "\n\nEdits to future messages are logged and do not change the saved template.",
@@ -147,6 +148,7 @@ function managementPanel(s){
     ["Back to List","manage:list"])
   ]};
 }
+const showZone=(date,zone)=>formatServerClock(date,zone);
 function activationGroupPanel(s){
  const g=s.workingGroups[s.selectedGroupIndex];
  if(!g)throw Error("Select a Ping Group.");
@@ -164,21 +166,21 @@ function activationGroupPanel(s){
   ]};
 }
 async function eventsForActivation(s){
- const raw=planPingDeliveries(s.workingGroups||s.template.groups,s.startAt);
+ const raw=planPingDeliveries(s.workingGroups||s.template.groups,s.startAt,{timeZone:s.timeZone});
  const custom=new Map((s.overrides||[]).map(e=>[e.sequence,e]));
  return raw.map(e=>({...e,...(custom.get(e.sequence)||{})}))
   .sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt));
 }
-function previewRows(events,page){
+function previewRows(events,page,zone){
  const offset=page*10;
  const items=events.slice(offset,offset+10);
- const lines=items.map(e=>"#"+e.sequence+" "+ts(e.dueAt)+" · Group "+(e.groupIndex+1)+
+ const lines=items.map(e=>"#"+e.sequence+" "+showZone(e.dueAt,zone)+" · Group "+(e.groupIndex+1)+
   " · "+e.roleIds.length+" role(s) · "+short(e.content||"(roles only)"));
  return {items,text:lines.join("\n"),total:events.length};
 }
 async function activationPanel(i,s){
  const events=await eventsForActivation(s);
- const {items,text,total}=previewRows(events,s.page||0);
+ const {items,text,total}=previewRows(events,s.page||0,s.timeZone);
  const components=[];
  if(items.length)components.push(new ActionRowBuilder().addComponents(
   new StringSelectMenuBuilder().setCustomId("pings:select:planned")
@@ -190,7 +192,7 @@ async function activationPanel(i,s){
   ["Cancel","activation:cancel",ButtonStyle.Danger]));
  return reply(i,{content:"**✦ Review & Activate**\n**Template:** "+s.template.name+
   "\n**One destination:** <#"+s.destinationChannelId+">"+
-  "\n**Start:** "+ts(s.startAt)+"\n**Total messages:** "+total+
+  "\n**Server time zone:** "+s.timeZone+"\n**Start:** "+showZone(s.startAt,s.timeZone)+" ("+ts(s.startAt)+")\n**Total messages:** "+total+
   "\n**Preview page:** "+((s.page||0)+1)+"/"+Math.max(1,Math.ceil(total/10))+
   "\n\n"+(text||"No pings in this window.")+
   "\n\n*Select a ping to override its text, roles or time. All groups remain in this single channel.*",
@@ -198,7 +200,7 @@ async function activationPanel(i,s){
 }
 function plannedEventPanel(s,event){
  return {content:"**Customize Ping #"+event.sequence+"**\nGroup "+(event.groupIndex+1)+
-  "\n**Time:** "+ts(event.dueAt)+"\n**Roles:** "+showRoles(event.roleIds)+
+  "\n**Time:** "+showZone(event.dueAt,s.timeZone||s.schedule?.timeZone||"UTC")+" ("+ts(event.dueAt)+")\n**Roles:** "+showRoles(event.roleIds)+
   "\n**Message:**\n"+(event.content||"(Role mentions only)")+
   "\n\nChanges here affect only this scheduled ping.",
   components:[
@@ -229,6 +231,15 @@ async function archivesList(i){
     :"No archived ping schedules yet.")+
   "\n\nComplete records also remain in MongoDB.",components:[]});
 }
+async function deliveryAlerts(i){
+ const issues=await PingDelivery.find({guildId:i.guildId,
+  $or:[{status:"failed"},{status:"skipped",error:/Missed while offline/}]})
+  .sort({updatedAt:-1}).limit(15).lean();
+ return reply(i,{content:"**⚠ Scheduled Ping Delivery Alerts**\n"+
+  (issues.length?issues.map(d=>"• Ping #"+d.sequence+" · "+ts(d.dueAt)+"\n"+
+   "  "+short(d.error||"Delivery did not complete")).join("\n"):"No missed or failed pings recorded."),
+  components:[]});
+}
 async function upcomingList(i,page=0){
  const schedules=await PingSchedule.find({guildId:i.guildId,status:"active"}).select("_id name").lean();
  const allowed=new Map(schedules.map(s=>[String(s._id),s.name]));
@@ -246,12 +257,10 @@ function selectedInput(i){
  if(!s.selectedEvent)throw Error("Select an upcoming message first.");
  return s;
 }
-function fromDateInput(input){
- const text=String(input||"").trim();
- const date=new Date(text);
- if(!Number.isFinite(date.getTime()))throw Error("Enter an ISO date with a timezone, for example 2026-11-14T09:00:00-05:00.");
- if(date<Date.now())throw Error("Choose a future date.");
- return date;
+function fromDateInput(date,time,zone){
+ const result=parseServerDateTime(date,time,zone);
+ if(result<=new Date())throw Error("Choose a future date and time in the server time zone.");
+ return result;
 }
 async function modalSubmit(i,id){
  if(id==="templateName"){
@@ -288,8 +297,8 @@ async function modalSubmit(i,id){
    offsetHours:Number(field(i,"offset")),
   });
   const groups=s.workingGroups.map((group,index)=>index===s.selectedGroupIndex?proposed:group);
-  const previous=planPingDeliveries(s.workingGroups,s.startAt);
-  const next=planPingDeliveries(groups,s.startAt);
+  const previous=planPingDeliveries(s.workingGroups,s.startAt,{timeZone:s.timeZone});
+  const next=planPingDeliveries(groups,s.startAt,{timeZone:s.timeZone});
   const sequences=new Map(next.map(e=>[e.groupIndex+":"+e.ordinal,e.sequence]));
   const overrides=[];
   const removed=[];
@@ -330,26 +339,28 @@ async function modalSubmit(i,id){
  }
  if(id==="start"){
   if(s.phase!=="activation")throw Error("Open an activation preview first.");
-  s.startAt=fromDateInput(field(i,"date"));s.page=0;
+  s.startAt=fromDateInput(field(i,"date"),field(i,"time"),s.timeZone);s.page=0;
   return activationPanel(i,s);
  }
  if(id==="eventText"||id==="eventTime"){
   if(s.phase!=="activation"&&s.phase!=="management")throw Error("Select a future ping first.");
   const value=field(i,id==="eventText"?"content":"date");
+  const clock=id==="eventTime"?field(i,"time"):null;
+  const zone=s.phase==="activation"?s.timeZone:(s.schedule.timeZone||"UTC");
   if(s.phase==="activation"){
    const events=await eventsForActivation(s);
    const event=events.find(e=>e.sequence===s.selectedEvent);
    if(!event)throw Error("That ping is no longer available.");
    const base=s.overrides.find(x=>x.sequence===event.sequence)||{sequence:event.sequence};
    if(id==="eventText")base.content=value;
-   else base.dueAt=fromDateInput(value);
+   else base.dueAt=fromDateInput(value,clock,zone);
    s.overrides=[...s.overrides.filter(x=>x.sequence!==event.sequence),base];
    const updated=(await eventsForActivation(s)).find(e=>e.sequence===s.selectedEvent);
    return reply(i,plannedEventPanel(s,updated));
   }
   const e=await PingDelivery.findById(s.selectedEvent);
   if(!e||String(e.scheduleId)!==String(s.schedule._id))throw Error("That ping cannot be edited.");
-  await changeFuturePing(i.client,s.schedule,e,i.user.id,id==="eventText"?{content:value}:{dueAt:fromDateInput(value)});
+  await changeFuturePing(i.client,s.schedule,e,i.user.id,id==="eventText"?{content:value}:{dueAt:fromDateInput(value,clock,zone)});
   s.schedule=await PingSchedule.findById(s.schedule._id).lean();
   const latest=await PingDelivery.findById(e._id).lean();
   return reply(i,plannedEventPanel(s,latest));
@@ -418,6 +429,7 @@ async function handleControl(i){
  if(command==="root:active")return activeList(i);
  if(command==="root:upcoming")return upcomingList(i);
  if(command==="root:archives")return archivesList(i);
+ if(command==="root:alerts")return deliveryAlerts(i);
  if(command==="template:pagePrev"||command==="template:pageNext"){
   const s=stateFor(i);
   return savedTemplatesPanel(i,Math.max(0,(s.page||0)+(command.endsWith("Next")?1:-1)));
@@ -457,9 +469,11 @@ async function handleControl(i){
   const s=stateFor(i);
   if(s.phase!=="chooseChannel")throw Error("Choose a template first.");
   const channelId=i.values?.[0];
+  const timeZone=validateServerTimeZone(config.serverTimeZone);
   await validatePingDestination(i.guild,channelId,s.template.groups.flatMap(g=>g.roleIds||[]));
+  const first=new Date(Date.now()+5*60_000);first.setUTCSeconds(0,0);
   Object.assign(s,{phase:"activation",scheduleId:new mongoose.Types.ObjectId(),destinationChannelId:channelId,
-   startAt:new Date(Date.now()+5*60_000),page:0,overrides:[],
+   timeZone,startAt:first,page:0,overrides:[],
    workingGroups:s.template.groups.map(g=>({...g,roleIds:[...g.roleIds],messages:[...g.messages]}))});
   return activationPanel(i,s);
  }
@@ -540,15 +554,19 @@ async function handleControl(i){
    const total=(await eventsForActivation(s)).length;
    s.page=Math.min(Math.ceil(total/10)-1,(s.page||0)+1);
   }
-  if(command==="activation:start")return i.showModal(modal(i,"start","Schedule Start Time",[
-   ["date","ISO date/time incl timezone","",TextInputStyle.Short,40]
-  ]));
+  if(command==="activation:start"){
+   const current=inputParts(s.startAt,s.timeZone);
+   return i.showModal(modal(i,"start","Schedule Start — Server Time",[
+    ["date","Date (YYYY-MM-DD)",current.date,TextInputStyle.Short,10],
+    ["time","Time (9:00 AM or 21:00)",current.time,TextInputStyle.Short,12]
+   ]));
+  }
   if(command==="activation:confirm"){
    await i.deferUpdate();
    const template=await PingTemplate.findOne({_id:s.template._id,guildId:i.guildId});
    if(!template)throw Error("This template was removed.");
    const schedule=await activatePingSchedule({guild:i.guild,template,scheduleId:s.scheduleId,
-    channelId:s.destinationChannelId,startAt:s.startAt,actorId:i.user.id,
+    channelId:s.destinationChannelId,startAt:s.startAt,timeZone:s.timeZone,actorId:i.user.id,
     overrides:{groups:s.workingGroups,events:s.overrides}});
    const dashboard=await refreshPingDashboard(i.client,i.guildId);
    sessions.delete(key(i));
@@ -654,9 +672,14 @@ async function handleControl(i){
   ]));
  }
  if(command==="event:time"){
-  selectedInput(i);
-  return i.showModal(modal(i,"eventTime","Change One Ping's Time",[
-   ["date","ISO date/time incl timezone","",TextInputStyle.Short,40]
+  const s=selectedInput(i);
+  const zone=s.phase==="activation"?s.timeZone:(s.schedule.timeZone||"UTC");
+  const e=s.phase==="activation"?(await eventsForActivation(s)).find(x=>x.sequence===s.selectedEvent)
+   :await PingDelivery.findById(s.selectedEvent).lean();
+  const current=inputParts(e.dueAt,zone);
+  return i.showModal(modal(i,"eventTime","Edit Ping Time — Server Clock",[
+   ["date","Date (YYYY-MM-DD)",current.date,TextInputStyle.Short,10],
+   ["time","Time (9:00 AM or 21:00)",current.time,TextInputStyle.Short,12]
   ]));
  }
  if(command==="select:schedule"){
