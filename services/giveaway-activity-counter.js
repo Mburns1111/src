@@ -1,3 +1,4 @@
+import {eligibleActivityParticipant} from "./activity-participation.js";
 import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import GiveawayActivityRuleCount from "../models/GiveawayActivityRuleCount.js";
@@ -71,6 +72,8 @@ export function messageMatchesGiveawayWatch(message,rule) {
 export async function recordGiveawayMessage(message) {
   if (!message.guildId || !message.author?.id || message.author.bot || message.webhookId ||
       !message.channelId || !message.channel?.isTextBased?.()) return;
+  // Legacy watches must also respect the explicit opt-in before writing.
+  if(!await eligibleActivityParticipant(message))return;
   const length=messageCharacterCount(message);
   if (!length) return;
   const date=message.createdAt || new Date();
