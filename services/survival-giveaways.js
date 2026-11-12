@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from "node:crypto";
+import {configuredGiveawayBanRole,memberPassesGiveawayBan} from "./giveaway-exclusion.js";
 import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
 import { SOLO_TRIAL_EVENTS, DUEL_TRIAL_EVENTS } from "./survival-event-texts.js";
@@ -152,7 +153,7 @@ export function survivalEventPayload(record, event, index, imageName = null) {
 
 // Freeze entries with a single Mongo update BEFORE drawing the elimination
 // order. A concurrent, accepted Enter click is included in this snapshot.
-export async function beginSurvivalTrial({ id, guildId, now = new Date() }) {
+export async function beginSurvivalTrial({ id, guildId, now = new Date(), client = null }) {
   const prepared = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, mode: "survival", status: "open", "entrantIds.1": { $exists: true } },
     { $set: { status: "preparing", gameStartedAt: now, renderedAt: null } },
@@ -163,16 +164,35 @@ export async function beginSurvivalTrial({ id, guildId, now = new Date() }) {
     if (candidate?.status === "open") throw Error("At least two members must join before starting a trial.");
     throw Error("That trial is not open for a new start.");
   }
-  return finishPreparingTrial(prepared, { now });
+  return finishPreparingTrial(prepared, { now, client });
 }
 
-export async function finishPreparingTrial(prepared, { now = new Date() } = {}) {
+export async function finishPreparingTrial(prepared, { now = new Date(), client = null } = {}) {
   if (prepared.status !== "preparing" || prepared.mode !== "survival") return prepared;
-  const plan = planSurvivalTrial(prepared.entrantIds || [], prepared.winnerCount);
+  let eligible=prepared.entrantIds||[];
+  if(client){
+    // Punishment bans also apply to Trials. Recheck after signup closes so
+    // members banned after entering cannot reach the elimination draw.
+    const banRoleId=await configuredGiveawayBanRole(prepared.guildId);
+    if(banRoleId){
+      const guild=await client.guilds.fetch(prepared.guildId);
+      const members=await Promise.all(eligible.map(async userId=>{
+        try{return await guild.members.fetch({user:userId,force:true});}
+        catch(error){if(error?.code===10007)return null;throw error;}
+      }));
+      eligible=eligible.filter((_id,index)=>memberPassesGiveawayBan(members[index],banRoleId));
+    }
+  }
+  if(eligible.length<2){
+    await Giveaway.updateOne({_id:prepared._id,guildId:prepared.guildId,status:"preparing"},
+      {$set:{status:"open",entrantIds:eligible}});
+    throw Error("At least two non-banned members must be entered before the trial can begin.");
+  }
+  const plan = planSurvivalTrial(eligible, prepared.winnerCount);
   const updated = await Giveaway.findOneAndUpdate(
     { _id: prepared._id, guildId: prepared.guildId, mode: "survival", status: "preparing" },
     { $set: {
-      status: "running", gameEvents: plan.events,
+      status: "running", entrantIds:eligible, gameEvents: plan.events,
       originalChampionId: plan.championId, nextEventIndex: 0, nextEventAt: now,
       leaseUntil: new Date(0), leaseKey: "", renderedAt: null,
     } }, { returnDocument: "after" },
@@ -485,7 +505,7 @@ export async function reconcileSurvivalTrials(client, { now = new Date(), limit 
   const preparing = await Giveaway.find({ mode: "survival", status: "preparing" })
     .limit(limit).lean();
   for (const item of preparing) {
-    try { await finishPreparingTrial(item, { now }); }
+    try { await finishPreparingTrial(item, { now, client }); }
     catch (error) { console.error("[Trials] Could not resume a frozen signup:", String(item._id), error); }
   }
   const due = await Giveaway.find({
