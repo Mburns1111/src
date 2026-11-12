@@ -1,7 +1,7 @@
 import {EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
-import {setActivityParticipation} from "./activity-participation.js";
+import {setActivityParticipation,revokeActivityParticipationForBan} from "./activity-participation.js";
 import {giveawayBanMessage} from "./giveaway-exclusion.js";
 
 const marker="Activity Giveaway Participation · opt-in panel v1";
@@ -18,7 +18,8 @@ export function activityOptInPanelPayload(){
    "Want to take part in activity giveaways? **Opt In** to allow the bot to count your qualifying server messages for activity giveaways. "+
    "Only messages sent while you are opted in count. Meeting the requirements enters you automatically.\n\n"+
    "**Opt Out** whenever you like. New messages stop counting immediately, and you cannot win activity giveaways while opted out. "+
-   "If you opt back in, you start a new counting window; older messages do not carry over.\n\n"+
+   "If you opt back in, you start a new counting window; older messages do not carry over. "+
+   "Receiving the Giveaway Banned role ends your opt-in. You must opt in again after that role is removed.\n\n"+
    "No Discord role is required. Other server activity, Points, and games are unaffected.")
   .setFooter({text:marker})],
   components:[new ActionRowBuilder().addComponents(
@@ -115,8 +116,10 @@ export async function handleActivityOptInButton(interaction){
   if((action==="in"||action==="status")&&config.giveawayExcludedRoleId){
     const member=await interaction.guild?.members?.fetch?.({user:interaction.user.id,force:true})
       .catch(()=>null);
-    if(member?.roles?.cache?.has(config.giveawayExcludedRoleId))
-      return interaction.editReply(giveawayBanMessage);
+    if(member?.roles?.cache?.has(config.giveawayExcludedRoleId)){
+      await revokeActivityParticipationForBan(interaction.guildId,interaction.user.id);
+      return interaction.editReply(giveawayBanMessage+" Your activity opt-in is revoked; once staff remove the role, you must opt in again.");
+    }
     if(!member?.roles?.cache)
       return interaction.editReply("I couldn't verify your giveaway eligibility. Try again.");
   }
@@ -125,6 +128,8 @@ export async function handleActivityOptInButton(interaction){
     guildId:interaction.guildId,userId:interaction.user.id}).lean();
    return interaction.editReply(p?.active
     ?"✅ You are **opted in** to activity giveaways. Your current counting window began <t:"+Math.floor(+new Date(p.optedInAt)/1000)+":F>. Only qualifying messages sent while opted in count."
+    :p?.optOutReason==="giveaway-ban"
+    ?"Your previous activity giveaway opt-in was **revoked when you were giveaway banned**. If staff have removed the role, press **Opt In** again to start a fresh activity window. Previous activity will not carry over."
     :"You are **not opted in** to activity giveaways. Select **Opt In** below the activity listings to begin counting future messages.");
   }
   const result=await setActivityParticipation(interaction.guildId,interaction.user.id,action==="in");
