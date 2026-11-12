@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 // One effective cooldown per server/member; a separate history remains after
 // expiry or staff removal. No TTL: private staff audit needs to survive.
 const auditSchema=new mongoose.Schema({
-  action:{type:String,enum:["apply","remove"],required:true},
+  action:{type:String,enum:["apply","remove","adjust"],required:true},
   at:{type:Date,required:true},
   staffId:{type:String,required:true},
   sourceGiveawayId:{type:String,default:""},
