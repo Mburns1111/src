@@ -42,7 +42,7 @@ async function ownedPanel(channel,client,config){
 }
 async function ensure(client,guildId,{bump=false,now=new Date()}={}){
  const config=await GuildConfig.findOne({guildId})
-  .select("activityGiveawayListChannelId activityParticipationPanelChannelId activityParticipationPanelMessageId").lean();
+  .select("activityGiveawayListChannelId activityParticipationPanelChannelId activityParticipationPanelMessageId giveawayExcludedRoleId").lean();
  if(!config?.activityGiveawayListChannelId)return false;
  const channel=await client.channels.fetch(config.activityGiveawayListChannelId);
  if(!channel?.send||!channel?.messages?.fetch)throw Error("Activity giveaway list channel is unavailable.");
