@@ -499,8 +499,10 @@ async function handleControl(i){
   const first=new Date(Date.now()+5*60_000);first.setUTCSeconds(0,0);
   Object.assign(s,{phase:"activation",scheduleId:new mongoose.Types.ObjectId(),destinationChannelId:channelId,
    timeZone,startAt:first,page:0,overrides:[],
-   workingGroups:s.template.groups.map(g=>({...g,roleIds:[...g.roleIds],messages:[...g.messages]}))});
-  return activationPanel(i,s);
+   // Pre-existing templates may contain legacy message text. New schedules
+   // always configure messages independently during activation.
+   workingGroups:s.template.groups.map(g=>({...g,roleIds:[...g.roleIds],messages:[]}))});
+  return reply(i,activationSetupPanel(s));
  }
  if(command==="draft:cancel"){sessions.delete(key(i));return reply(i,{content:"Template editor closed. No changes saved."});}
  if(command.startsWith("draft:")){
@@ -561,12 +563,11 @@ async function handleControl(i){
  if(command.startsWith("activation:")){
   const s=stateFor(i);
   if(s.phase!=="activation")throw Error("Open an activation preview first.");
-  if(command==="activation:groups"){
-   const picker=new StringSelectMenuBuilder().setCustomId("pings:select:activationGroup")
-    .setPlaceholder("Choose a Ping Group to customize")
-    .addOptions(s.workingGroups.map((g,index)=>({label:g.name.slice(0,100),value:String(index)})));
-   return reply(i,{content:"**Customize Ping Groups**\nChange timing, roles or messages in this schedule copy without editing the saved template.",
-    components:[new ActionRowBuilder().addComponents(picker),row(["Back to Preview","group:back"])]});
+  if(command==="activation:groups")return reply(i,activationSetupPanel(s));
+  if(command==="activation:review"){
+   const missing=s.workingGroups.findIndex(g=>!groupReady(g));
+   if(missing>=0)throw Error("Ping Group "+(missing+1)+" needs a message or role before preview.");
+   return activationPanel(i,s);
   }
   if(command==="activation:prev")s.page=Math.max(0,(s.page||0)-1);
   if(command==="activation:next"){
@@ -599,6 +600,9 @@ async function handleControl(i){
   const s=stateFor(i);
   if(s.phase!=="activation")throw Error("Open the activation preview first.");
   s.selectedGroupIndex=Number(i.values?.[0]);
+  if(!Number.isInteger(s.selectedGroupIndex)||s.selectedGroupIndex<0||s.selectedGroupIndex>=s.workingGroups.length)
+   throw Error("Choose a valid Ping Group.");
+  s.selectedMessageIndex=0;
   return reply(i,activationGroupPanel(s));
  }
  if(command.startsWith("group:")){
@@ -610,7 +614,8 @@ async function handleControl(i){
    delete s.pendingTiming;
    return reply(i,activationGroupPanel(s));
   }
-  if(command==="group:back")return activationPanel(i,s);
+  if(command==="group:back")return reply(i,activationSetupPanel(s));
+  if(command==="group:return")return reply(i,activationGroupPanel(s));
   const g=s.workingGroups[s.selectedGroupIndex];
   if(!g)throw Error("Select a Ping Group first.");
   if(command==="group:timing")return i.showModal(modal(i,"groupTiming","Customize Group Timing",[
@@ -624,7 +629,7 @@ async function handleControl(i){
    components:[new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
     .setCustomId("pings:select:groupRoles").setPlaceholder("Choose up to 10 roles")
     .setMinValues(1).setMaxValues(10)),
-    row(["No Group Roles","group:clearRoles"],["Back","group:back"])]});
+    row(["No Group Roles","group:clearRoles"],["Back","group:return"])]});
   if(command==="group:clearRoles"){
    if(!g.messages.length)throw Error("This group needs text or at least one role.");
    g.roleIds=[];return reply(i,activationGroupPanel(s));
