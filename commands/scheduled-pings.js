@@ -386,7 +386,8 @@ async function upcomingList(i,page=0){
    dueAt:{$gt:now},scheduleId:{$in:channel.schedules.map(s=>s._id)}});
   total+=channel.count;
  }
- const pageSize=10;
+ // Leave room for channel headings and message snippets within Discord's 2,000-character limit.
+ const pageSize=8;
  const pageCount=Math.max(1,Math.ceil(total/pageSize));
  page=Math.min(Math.max(0,page),pageCount-1);
  const position=page*pageSize;
