@@ -14,7 +14,7 @@ import {
  activatePingSchedule,changeFuturePing,endPingSchedule,
  normalizePingGroup,pausePingSchedule,planPingDeliveries,refreshPingDashboard,
  extendPingSchedule,
- resumePingSchedule,validatePingDestination,
+ resumePingSchedule,validatePingDestination,dashboardUpcomingLines,
 } from "../services/scheduled-pings.js";
 
 const sessions=new Map();
@@ -386,8 +386,9 @@ async function upcomingList(i,page=0){
    dueAt:{$gt:now},scheduleId:{$in:channel.schedules.map(s=>s._id)}});
   total+=channel.count;
  }
- // Leave room for channel headings and message snippets within Discord's 2,000-character limit.
- const pageSize=8;
+ // Up to ten role mentions can appear per ping. Five entries leave room
+ // for 65-character excerpts and roles within Discord's message limit.
+ const pageSize=5;
  const pageCount=Math.max(1,Math.ceil(total/pageSize));
  page=Math.min(Math.max(0,page),pageCount-1);
  const position=page*pageSize;
@@ -403,14 +404,9 @@ async function upcomingList(i,page=0){
    dueAt:{$gt:now},scheduleId:{$in:channel.schedules.map(s=>s._id)}})
    .sort({dueAt:1,_id:1}).skip(skip).limit(take).lean();
   const indexed=new Map(channel.schedules.map(schedule=>[String(schedule._id),schedule]));
-  const lines=events.map(event=>{
-   const schedule=indexed.get(String(event.scheduleId));
-   const time=showZone(event.dueAt,schedule?.timeZone||"UTC");
-   const name=short(schedule?.name||"Untitled schedule").slice(0,48);
-   const snippet=short(event.content||"(role mentions only)").slice(0,55);
-   return "• "+time+" · "+name+" · Group "+(event.groupIndex+1)+"\n  "+snippet;
-  });
-  if(lines.length)sections.push("**<#"+channel.id+">** · "+count+" upcoming ping(s)\n"+lines.join("\n"));
+  // Keep the same format as the pinned Next Scheduled Pings section.
+  const lines=dashboardUpcomingLines(events,indexed);
+  if(lines.length)sections.push(lines.join("\n"));
   remaining-=events.length;
   seen+=count;
  }
@@ -420,7 +416,7 @@ async function upcomingList(i,page=0){
  controls.components[0].setDisabled(page===0);
  controls.components[1].setDisabled(page>=pageCount-1);
  return reply(i,{content:"**Full Upcoming Schedule** · Page "+(page+1)+"/"+pageCount+
-  "\nGrouped alphabetically by destination channel. Pings within each channel are in time order.\n\n"+
+  "\nChannels A–Z · Pings within each channel are in time order.\n\n"+
   (sections.length?sections.join("\n\n"):"No future scheduled pings found."),
   components:[controls]});
 }
