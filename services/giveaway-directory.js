@@ -31,7 +31,7 @@ const qualifyChannel=channels=>channels.length?channels.join(", "):"any eligible
 const giveawayDetails=value=>value?["",String(value).slice(0,1000)]:[];
 const memberSafeText=(value,max=180)=>String(value||"").replace(/[\r\n]+/g," ").slice(0,max);
 
-export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
+export function activityPlanListingEmbed(plan,rule,{winnerChannelId="",participationRoleId="",participationInstructions=""}={}) {
   const period=plan.activityPeriod||"weekly";
   const minimum=plan.minimumTotalMessages??rule?.minimumTotalMessages??1;
   const channel=rule?.channelId?"<#"+rule.channelId+">":"any eligible server channel";
@@ -42,6 +42,10 @@ export function activityPlanListingEmbed(plan,rule,{winnerChannelId=""}={}) {
     "• Send **"+minimum+" "+(minimum===1?"message":"messages")+"** in "+channel+
       (rule?.requiredPhrase?" containing the required phrase":"")+".",
   ];
+  if(participationRoleId){
+    qualifier.unshift("• **Opt in first:** Get the Activity Participation role <@&"+participationRoleId+">. Messages sent without it do not count.");
+    if(participationInstructions)qualifier.splice(1,0,"• **Where to opt in:** "+String(participationInstructions).slice(0,500));
+  }else qualifier.unshift("• **Activity entries are paused until staff configure an opt-in role.**");
   if(rule?.minimumChars>1)qualifier.push("• Each message must have at least **"+rule.minimumChars+" characters**.");
   if(rule?.minimumMessages>1)qualifier.push("• Send at least **"+rule.minimumMessages+" messages** on each qualifying day.");
   if(period==="weekly"&&rule?.activeDays>1)qualifier.push("• Be active on **"+rule.activeDays+" different days**.");
@@ -108,7 +112,7 @@ export function activityOneOffListingEmbed(record) {
       (record.activityRequiredPhrase?" containing the required phrase":"")+".",
   ];
   if(record.requiredRoleId){
-    qualifier.push("• **Required role:** <@&"+record.requiredRoleId+">.");
+    qualifier.push("• **Activity participation (opt in):** <@&"+record.requiredRoleId+">. Only messages sent while holding this role count.");
     if(record.showRequiredRoleInstructions!==false&&record.requiredRoleInstructions)
       qualifier.push("• **Where to get it:** "+String(record.requiredRoleInstructions).slice(0,500));
   }
@@ -216,7 +220,7 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
       (item.status==="ended"&&Boolean(item.listMessageId)));
   if(!visible)return deleteListing(client,item,Model);
   const config=await GuildConfig.findOne({guildId:item.guildId})
-    .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId giveawayPingRoleId giveawayNotificationRoleIds activityNotificationRoleIds trialNotificationRoleIds survivalTrialPingRoleId").lean();
+    .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId activityParticipationRoleId activityParticipationRoleInstructions giveawayPingRoleId giveawayNotificationRoleIds activityNotificationRoleIds trialNotificationRoleIds survivalTrialPingRoleId").lean();
   const channelId=config?.activityGiveawayListChannelId;
   if(!channelId)return false;
   if(!config?.activityGiveawayWinnersChannelId)return false;
@@ -230,6 +234,8 @@ async function syncListing(client,item,kind,{now=new Date()}={}) {
   const banner=await getGiveawayBanner(item.guildId,item.bannerNameKey);
   const embed=isPlan ? activityPlanListingEmbed(item,rule,{
     winnerChannelId:config.activityGiveawayWinnersChannelId,
+    participationRoleId:config.activityParticipationRoleId,
+    participationInstructions:config.activityParticipationRoleInstructions,
   }) : activityOneOffListingEmbed(item);
   const payload=attachGiveawayBanner({embeds:[embed],allowedMentions:{parse:[]},attachments:[]},banner);
   if(item.progressEnabled && (isPlan||item.status==="open")){
