@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
-import GuildConfig from "../models/GuildConfig.js";
+import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 import {closeGiveaway} from "../services/giveaways.js";
 const guildId="123456789012345678",A="234567890123456789",
  B="345678901234567890",role="456789012345678901",optInRole="567890123456789012";
 const giveawayId="507f1f77bcf86cd799439011";
 
 test("activity closing saves unique-member role weights and never produces duplicate winners",async()=>{
- const original=[Giveaway.findOneAndUpdate,Giveaway.findOne,GuildConfig.findOne];
+ const original=[Giveaway.findOneAndUpdate,Giveaway.findOne,ActivityGiveawayOptIn.find];
  const now=new Date("2026-11-11T00:30:00Z");
  const originalRecord={_id:giveawayId,guildId,mode:"activity",status:"closing",
    requiredRoleId:optInRole,entrantIds:[A,A,B],roleBonuses:[{roleId:role,extraEntries:4}],
@@ -16,7 +16,7 @@ test("activity closing saves unique-member role weights and never produces dupli
    winnerClaims:[],rerollHistory:[],winnerIds:[]};
  let saved;
  try {
-  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({activityParticipationRoleId:optInRole})})});
+  ActivityGiveawayOptIn.find=()=>({lean:async()=>[A,B].map(userId=>({guildId,userId,active:true}))});
   Giveaway.findOne=()=>({lean:async()=>originalRecord});
   Giveaway.findOneAndUpdate=(query,update)=>({lean:async()=>{
     if(query.status==="open")return null;
@@ -35,5 +35,5 @@ test("activity closing saves unique-member role weights and never produces dupli
   assert.deepEqual(result.entryWeights.map(w=>[w.userId,w.weight]),[[A,5],[B,1]]);
   assert.deepEqual([...result.winnerIds].sort(),[A,B].sort());
   assert.equal(result.winnerIds.length,2);
- }finally{[Giveaway.findOneAndUpdate,Giveaway.findOne,GuildConfig.findOne]=original;}
+ }finally{[Giveaway.findOneAndUpdate,Giveaway.findOne,ActivityGiveawayOptIn.find]=original;}
 });
