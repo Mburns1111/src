@@ -385,7 +385,7 @@ export async function handleGuidedStaffAction(i){
    if(!["confirmend","confirmcancel"].includes(action))return i.editReply("Unsupported action.");
    if(event.status!=="open")return i.editReply("Another staff member has already finished or cancelled this activity.");
    const now=new Date();
-   const roster=await activityRoster(event);
+   const roster=await activityRoster(event,null,i.guild);
    const eligible=roster.filter(row=>row.qualified).map(row=>row._id);
    const updated=await Giveaway.findOneAndUpdate({_id:event._id,guildId:i.guildId,status:"open"},
      {$set:{status:event.requireStaffReview?"pending_review":"closing",endsAt:now,
