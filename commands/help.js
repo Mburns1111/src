@@ -43,57 +43,321 @@ const VALID=new Set(HELP_TOPICS.map(x=>x.id));
 const STAFF_IDS=new Set(["staff",...STAFF_TOPICS.map(x=>x.id)]);
 const PUBLIC_IDS=new Set(["public",...PUBLIC_TOPICS.map(x=>x.id)]);
 const CONTENT=Object.freeze({
- root:["✦ AM Isa · Help Center","Choose **Public Help** for member guides or **Staff Help** for authorized management guides. Everything opens privately." ,[]],
- public:["✦ Public Help","Choose a system below to see how its features work. Most member actions use buttons in their assigned channels.",[]],
- staff:["✦ Staff Help","**Complete Bot Setup first.** Create and assign channels before using the bot’s other systems. Each command uses its own permission checks.",
-  STAFF_GROUPS.map(group => [group.label, group.topics.map(topic => topic.label).join(" · ")])],
- home:["Getting Started","Start with the permanent buttons in each server channel.",[
-  ["Profiles","Create or edit your profile from the profile-channel buttons or use **/profile**."],
-  ["Inventory","Add inventory media through the inventory channel; your profile can also show inventory links."],
-  ["Find help","Choose a system below to learn its buttons and commands. Help pages never change your settings."],
- ]],
- listings:["Houses, Outfits & Trading","Use the buttons in the matching listing channel.",[
-  ["Create","Start a house listing, outfit listing, trade vote, or Trading Post card from its channel."],
-  ["Find your posts","Use **My house listings** or **My outfit listings** to open your existing posts."],
-  ["Photos and video","Use Previous, Next or Choose photo. Uploaded native video appears above the card."],
-  ["Interest and updates","Mark interest with the post buttons; listing owners can update their own published items."],
- ]],
- shop:["Shop & Points","Preview before spending. Purchases use the server's Points system.",[
-  ["Shop","Use the shop channel or **/shop browse**. Choose a category and item."],
-  ["Appearance","Browse backgrounds, frames, panels, fonts, colors and stickers; previewing does not purchase an item."],
-  ["Points","Check **/shop balance**. Earned points and enabled participation rewards depend on server configuration."],
- ]],
- cards:["Collectible Cards · Hatchem","The card game has its own channel and in-game help.",[
-  ["Begin","Open the card-game channel and follow registration and tutorial controls."],
-  ["Collect","Use egg drops and grabs to collect pets, then view your collection."],
-  ["Manage cards","Use the card game's menus for trading, gifting, upgrading, burning and the card shop."],
-  ["More Hatchem help","Type `.help` in the Hatchem channel to open the full card-game command guide. You can also type `.tutorial` there for the beginner walkthrough."],
- ]],
- giveaways:["Giveaways","Entries and qualification depend on the giveaway type.",[
-  ["Activity giveaways","Meet the listed message and activity requirements during the entire activity period. No manual entry button is needed."],
-  ["Regular giveaways","Follow the entry buttons and any eligibility requirements shown on the post."],
-  ["Progress","Use **Check My Progress** when available to see how close you are."],
-  ["Winners","If selected, follow the result post's ticket-claim instructions. Claiming is not the same as prize delivery."],
- ]],
- games:["Games & Activities","Discover the party and trial games hosted in your server.",[
-  ["Party games","Join games through the party-game channel when staff opens a session."],
-  ["Court's Trials","Follow the trial announcement and its entry rules. Staff coordinate prize claims."],
-  ["Activity rewards","Some events may also award Points when enabled by staff."],
- ]],
- commands:["Registered Commands","Current commands are loaded from Discord. Available commands and permissions depend on your server.",[]],
- ssetup:["Staff · Bot Setup","Create the channels you need, then run guided setup to assign them. The initial setup must be completed before using the bot’s other features.",[["1. Bot Commands · PRIVATE / Required","Create a private **Bot Commands** text channel for setup, administration and general bot management. Give authorized staff and the bot access, and hide it from @everyone. Use it for setup commands and normal administrative commands."],["2. Profiles, Trading, Shop & Points · PUBLIC","Create public channels as needed for **Member Profiles**, **Inventory Showcase**, **House Listings**, **Outfit Listings**, **Trading Posts**, **Trade Voting**, and **Shop**. These are one member-facing system. Points rewards and balances do not need a separate channel. Configure these with `/setup general`."],["3. Hatchem Cards · PUBLIC","Create a **Hatchem** card-game channel and a manageable **Collector** role, then configure them with `/setup cards`. Registration grants the Collector role."],["4. Party Games · PUBLIC","Create a public **Party Games** channel for sessions and results. Assign it through `/setup general`."],["5. Giveaways & Court’s Trials · PUBLIC and PRIVATE","Public: **Regular Giveaways**, **Activity Giveaway List**, **Activity Winners**, and **Court’s Trials**. Private and **required**: **Giveaway Staff Controls** and **Giveaway Archives**. Hide both private channels from @everyone. Each giveaway setup asks for the same archive channel."],["6. Bot Permissions","The bot needs View Channel, Send Messages and Embed Links in assigned channels. Allow Read Message History, Attach Files and role management where needed. Keep private staff controls and archives separate from each other and from every public giveaway channel."],["7. Setup Order","Run `/setup general` first to assign the required private commands channel. Then run only what you use: `/setup cards`, `/setup giveaways`, `/setup activity-giveaways`, `/setup trials`. Reopen these options whenever you need to change settings."]]],
- sgiveaways:["Staff · Run a Giveaway","Host regular, activity, or Court’s Trial giveaways. Follow active events and claims in private staff controls.",[["1. Choose a Type","**Regular:** `/giveaway start` for entry-button giveaways. **Activity:** `/giveaway activity` for participation-based qualification. **Court’s Trial:** `/trial start` for fast-paced eliminations. Complete the matching guided setup first."],["2. Create and Post","Use the commands channel to choose the prize, requirements, timing, winners and available settings. Review before posting. The bot publishes the announcement to the assigned public channel."],["3. Manage Active Giveaways","Open the **Active Giveaway Directory** in private staff controls, then select the giveaway’s staff record. Available controls may include entrants, qualifying-member previews, edits, early ending, cancellation and draw review."],["4. Winners and Claims","🟦 In Progress · 🟨 Claim Pending/staff follow-up · 🟩 Claim Completed · 🟥 No Eligible Winner · ⬜ Archived/Removed. Green after a claim only means **Claim Completed**; delivery must be confirmed separately. Staff verify all claims, hand out every prize, then use **Confirm Prizes Delivered**."],["5. Archive","Only after **every winner has claimed** and staff have used **Confirm Prizes Delivered** can a completed giveaway be archived. Otherwise, use **Cancel Giveaway** with a reason. Archiving removes the public regular giveaway listing; activity winners remain announced in the Activity Winners channel; Court’s Trial Royal Verdicts remain visible."]]],
- sactivity:["Staff · Track Activity","Start with `/giveaway activity` in the commands channel. Members qualify through their server activity.",[
-  ["Set the requirements","Choose the channels to watch and the total messages required across the activity period. If members must participate on multiple days, set the active-days requirement separately. You can also require a phrase or a mention of a specific member."],
-  ["Review the schedule","Check the start and end times before posting. For repeating giveaways, check the upcoming periods shown in the preview."],
-  ["Check progress","Members can use **Check My Progress** on the activity post. In staff controls, use **Preview qualifying members** to see who qualifies and who is still working toward the requirements. The preview leaves out members who have not posted since the activity started. Use **Refresh Progress** for an updated count."],
-  ["Review the draw","The bot uses qualifying members at draw time. If manual approval is enabled, review the draw in staff controls. When nobody wins, there is no prize to claim."],
- ]],
- sarchives:["Staff · Archive Records","Completed giveaway history is stored in the required private archive channel.",[["When to archive","Completed prize giveaways require **all winner claims** and a separate **Confirm Prizes Delivered** action before archiving. If a prize cannot be delivered or claimed, staff cancel the giveaway with a reason. Giveaways with no eligible winner have no claim to submit and can be cancelled."],["Move a record","Once delivery is confirmed, choose **Archive Giveaway**. Staff records move into the required private archive and the active directory updates. Cancelled giveaway records can also be moved there."],["Preserved information","The private archive retains winner/entrant details, claims, rerolls and available review history. Regular giveaway listings are removed upon archive. Activity results are posted in the separate **Activity Winners** channel when the giveaway ends and remain visible after archive; Court’s Trial Royal Verdicts also remain public."],["Setup","Select the same **required private archive channel** in `/setup giveaways`, `/setup activity-giveaways`, or `/setup trials`."]]],
- scards:["Staff · Hatchem Cards","Manage Hatchem registration, releases and member help.",[["Setup","Use `/setup cards` to select the Hatchem channel, Collector registration role and wild-egg setting. Complete `/setup general` first."],["Releases","Bot owners can use `/cards-owner releases` and `/cards-owner create-release` to manage card releases."],["Member help","Players can type `.tutorial` or `.help` in the Hatchem channel."]]],
- spoints:["Staff · Points & Shop","Manage Points rewards and the storefront.",[["Settings","Use `/points-admin settings` to review rewards and `/points-admin activity-status` to review activity earnings."],["Award Points","Use `/points-admin grant` or `/points-admin grant-multiple` and include the reason."],["Review Points","Use `/points-admin history` for a member or `/points-admin audit` for transactions."],["Storefront","Assign the public shop channel with `/setup general`. Members browse appearance items and check Points through the shop controls."]]],
- sgames:["Staff · Party Games","Use the commands channel to host sessions in the assigned party-game channel.",[["Setup","Assign **Party Games** using `/setup general`."],["Hosting","Use `/party host` to open a session and `/party status` to monitor it. During a game use `/party pause` or `/party resume`."],["Court’s Trials","Court’s Trials are fast-paced giveaways. See **Run a Giveaway** and `/setup trials`, rather than Party Games."]]],
-
+ "root": [
+  "✦ AM Isa · Help Center",
+  "Choose **Public Help**, **Staff Help**, or **Command Index** below. Everything opens privately.",
+  []
+ ],
+ "public": [
+  "✦ Public Help",
+  "Choose a topic from the dropdown. Member features use buttons in their assigned channels.",
+  []
+ ],
+ "staff": [
+  "✦ Staff Help",
+  "Complete Bot Setup first. Select a topic from the grouped dropdowns. Staff commands have their own permission checks.",
+  [
+   [
+    "Server Setup",
+    "Bot Setup"
+   ],
+   [
+    "Giveaways",
+    "Run a Giveaway · Track Activity · Archive Records"
+   ],
+   [
+    "Other Staff Tools",
+    "Hatchem Cards · Points & Shop · Party Games"
+   ]
+  ]
+ ],
+ "home": [
+  "Getting Started",
+  "Welcome to **AM Isa!** The bot helps you create profiles, share your Adopt Me collections, trade with other members, earn Points, and participate in games and giveaways.",
+  [
+   [
+    "1. Member Profiles",
+    "Create and customize your profile using the buttons in the **Member Profiles** channel."
+   ],
+   [
+    "2. Inventory Showcase",
+    "Share your Adopt Me inventory using the buttons in the **Inventory Showcase** channel. You can also link your inventory to your profile."
+   ],
+   [
+    "3. Explore the Bot",
+    "Use the buttons in each channel to access trading, the shop, collectible cards, games, and giveaways."
+   ],
+   [
+    "4. Need Help?",
+    "Select a topic from the Help menu to learn more about each feature."
+   ]
+  ]
+ ],
+ "listings": [
+  "Listings & Trading",
+  "Members can share their Adopt Me houses, outfits, and trading information using the buttons in the corresponding channels.",
+  [
+   [
+    "1. Create Listings",
+    "Use the channel buttons to create:\n• House Listings\n• Outfit Listings\n• Trading Posts\n• Trade Voting posts"
+   ],
+   [
+    "2. Manage Your Listings",
+    "Use **My House Listings** or **My Outfit Listings** to find and manage your existing posts."
+   ],
+   [
+    "3. Photos & Videos",
+    "Add photos or videos to your listings. Use the photo navigation buttons to browse uploaded images."
+   ],
+   [
+    "4. Interest & Updates",
+    "Members can show interest using the buttons on a post. Listing owners can edit and update their published listings."
+   ]
+  ]
+ ],
+ "shop": [
+  "Shop & Points",
+  "Earn **AM Isa Points** through server participation and spend them on profile customizations.",
+  [
+   [
+    "1. Browse the Shop",
+    "Visit the **Shop** channel and use the buttons to browse available items."
+   ],
+   [
+    "2. Customize Your Profile",
+    "Purchase backgrounds, frames, fonts, colors, stickers, and other decorations. You can preview items before buying them."
+   ],
+   [
+    "3. Check Your Points",
+    "Use **See Balance** to check how many Points you have."
+   ],
+   [
+    "4. Hatchem Shop",
+    "Hatchem has its own shop where you can spend Points on extra grabs and drops. Access it through the Hatchem game."
+   ]
+  ]
+ ],
+ "cards": [
+  "Collectible Cards — Hatchem",
+  "Hatchem is a collectible card game where members hatch eggs, collect unique pet cards, and build their collections.",
+  [
+   [
+    "1. Getting Started",
+    "Visit the **Hatchem** channel and follow the registration instructions to begin collecting cards."
+   ],
+   [
+    "2. Collect Cards",
+    "Participate in egg drops, grab cards, and grow your collection."
+   ],
+   [
+    "3. Manage Your Collection",
+    "Trade, gift, upgrade, and organize your cards using Hatchem's game controls."
+   ],
+   [
+    "4. Hatchem Shop",
+    "Spend AM Isa Points on extra grabs and drops through Hatchem's independent shop."
+   ],
+   [
+    "5. Need Help?",
+    "Type `.tutorial` for the beginner guide or `.help` for the full Hatchem command list in the Hatchem channel."
+   ],
+   [
+    "Disclaimer",
+    "*Hatchem is an independent fan-made game and is not affiliated with, endorsed by, or sponsored by Roblox or Adopt Me.*"
+   ]
+  ]
+ ],
+ "giveaways": [
+  "Giveaways",
+  "Participate in giveaways for a chance to win prizes! Each giveaway type has its own entry requirements.",
+  [
+   [
+    "1. Regular Giveaways",
+    "Enter using the buttons on the giveaway announcement. Follow any additional eligibility requirements listed."
+   ],
+   [
+    "2. Activity Giveaways",
+    "Qualify automatically by meeting the listed activity requirements. The bot tracks your participation, so no entry button is needed."
+   ],
+   [
+    "3. Court's Trials",
+    "Join fast-paced elimination giveaways where contestants are eliminated through randomized story events until the winners are determined."
+   ],
+   [
+    "4. Check Your Progress",
+    "Use **Check My Progress** on activity giveaways to see how close you are to qualifying."
+   ],
+   [
+    "5. Claiming Prizes",
+    "Winners **must submit their prize claim using the button below the winner announcement before the claim deadline**. Failure to submit a claim on time will result in forfeiting the prize.\n\nStaff verify claims and distribute prizes."
+   ]
+  ]
+ ],
+ "games": [
+  "Games & Activities",
+  "Join community games and activities for fun, friendly competition, and opportunities to earn rewards!",
+  [
+   [
+    "1. Party Games",
+    "Join staff-hosted games through the buttons in the **Party Games** channel.\n\n**Current Game: Court of Chaos**\nA Jackbox-style game where players submit creative or funny answers to private prompts, then vote on each other's responses. Games last three rounds."
+   ],
+   [
+    "2. Activity Rewards",
+    "Some games and server activities may award AM Isa Points when enabled by staff."
+   ]
+  ]
+ ],
+ "commands": [
+  "Command Index",
+  "Registered bot commands are listed here for reference. Viewing the index does not grant access to restricted commands. Most member features use channel buttons, while Hatchem has its own `.help` guide.",
+  []
+ ],
+ "ssetup": [
+  "Staff · Bot Setup",
+  "Create the channels you need, then run guided setup to assign them. Initial setup must be completed before using the bot's other features.",
+  [
+   [
+    "1. Bot Commands · PRIVATE / Required",
+    "**Required:**\n• **Bot Commands Channel** — Create a private text channel for setup, administration, and general bot management.\n• **Access** — Give authorized staff and the bot access; hide it from @everyone.\n\n**All bot setup commands must be run in this channel.** Use it for normal administrative commands as well."
+   ],
+   [
+    "2. Profiles, Trading, Shop & Points · PUBLIC",
+    "**Public channels (as needed):**\n• Member Profiles\n• Inventory Showcase\n• House Listings\n• Outfit Listings\n• Trading Posts\n• Trade Voting\n• Shop\n\nThese channels allow members to create and share their Adopt Me profiles, inventories, houses, outfits, and trading information. Configure these channels with `/setup general`."
+   ],
+   [
+    "3. Hatchem Cards · PUBLIC",
+    "**Required setup:**\n• **Hatchem Channel** — A public text channel for the card game.\n• **Collector Role** — A role the bot has permission to assign to members.\n\n**Setup command:** `/setup cards`\n\nMembers automatically receive the Collector role when they register for Hatchem."
+   ],
+   [
+    "4. Party Games · PUBLIC",
+    "**Required setup:**\n• **Party Games Channel** — A public text channel for hosting game sessions and displaying results.\n\n**Setup command:** `/setup general`\n\n**Current Game: Court of Chaos**\nA Jackbox-style party game where players submit creative or funny answers to private prompts, then vote on each other's responses. Games last three rounds, with winners determined by votes. Staff can award prizes and choose from several prompt categories."
+   ],
+   [
+    "5. Giveaways & Court's Trials · PUBLIC and PRIVATE",
+    "**Required public channels:**\n• **Regular Giveaways** — Standard entry-button giveaways.\n• **Activity Giveaway List** — Activity-based giveaways.\n• **Activity Winners** — Activity giveaway winner announcements.\n• **Court's Trials** — A fast-paced giveaway system with interactive eliminations for prizes.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Manage giveaways, entries, and claims.\n• **Giveaway Archives** — Completed and cancelled records.\n\n**Setup commands:**\n• `/setup giveaways`\n• `/setup activity-giveaways`\n• `/setup trials`"
+   ],
+   [
+    "6. Bot Permissions",
+    "Ensure the bot has **View Channel**, **Send Messages**, and **Embed Links** in assigned channels. Enable **Read Message History**, **Attach Files**, and **Manage Roles** where needed.\n\nGranting **Administrator** covers these permissions. The bot has no commands to mute, ban, kick, or otherwise moderate members.\n\n**Activity Giveaways:** The bot must view all channels where activity should count so it can accurately track and record activity."
+   ],
+   [
+    "7. Setup Order",
+    "Complete `/setup general` first to assign the required private Bot Commands channel.\n\nThen configure only the features your server uses:\n1. `/setup cards` — Hatchem card game\n2. `/setup giveaways` — Regular giveaways\n3. `/setup activity-giveaways` — Activity-based giveaways\n4. `/setup trials` — Court's Trials\n\nYou can rerun any setup command to change settings later.\n\n**Reminder:** Run all setup commands in the private Bot Commands channel."
+   ]
+  ]
+ ],
+ "sgiveaways": [
+  "Staff · Run a Giveaway",
+  "Host regular, activity, or Court's Trial giveaways. Manage active events and claims in private staff controls.",
+  [
+   [
+    "1. Choose a Giveaway Type",
+    "• **Regular Giveaway** — `/giveaway start`: A traditional giveaway where members enter using a button.\n• **Activity Giveaway** — `/giveaway activity`: Members qualify through activity requirements. The bot automatically tracks and logs participation and enters eligible members without manual entry.\n• **Court's Trial** — `/trial start`: A fast-paced elimination-style giveaway.\n\nComplete the matching setup first."
+   ],
+   [
+    "Court's Trials — Fast-Paced Giveaways",
+    "Court's Trials automatically eliminate contestants until the final survivors win prizes.\n\n**Required channels:**\n• **Court's Trials · PUBLIC** — Dedicated channel for signups, eliminations, and Royal Verdicts; separate from other public giveaway channels.\n• **Giveaway Staff Controls · PRIVATE** — Shared for management and claims.\n• **Giveaway Archives · PRIVATE** — Shared for completed and cancelled records.\n\nMembers sign up, staff start the trial, and the bot posts randomized, story-based eliminations. Winners are ranked by placement and announced in a public **Royal Verdict**.\n\n**Setup:** `/setup trials` in private **Bot Commands**. **Start:** `/trial start`."
+   ],
+   [
+    "2. Create and Post",
+    "Run the giveaway command in private **Bot Commands**.\n\n**Guided setup:**\n• Prize and requirements\n• Start and end times\n• Number of winners\n• Additional settings, where available\n\nReview the preview before confirming. The bot posts the announcement in the assigned public channel."
+   ],
+   [
+    "3. Manage Active Giveaways",
+    "In the private **Giveaway Staff Controls** channel, select the giveaway you want to manage.\n\n**Available options may include:**\n• Viewing giveaway information and participants\n• Editing settings\n• Ending early\n• Cancelling\n• Reviewing winner selections"
+   ],
+   [
+    "4. Giveaway Status Indicators",
+    "🟦 **In Progress** — Giveaway is still active.\n🟨 **Claim Pending** — Awaiting a claim or staff follow-up.\n🟩 **Claim Completed** — Winner completed their claim.\n🟥 **No Eligible Winner** — No qualifying winner selected.\n⬜ **Archived / Removed** — Giveaway no longer active.\n\n**Prize delivery:** Staff verify claims and distribute prizes manually, then use **Confirm Prizes Delivered** after every prize is delivered. A completed claim does not mean delivery is confirmed."
+   ],
+   [
+    "5. Archive a Giveaway",
+    "Archive once **all winners have claimed** and staff use **Confirm Prizes Delivered**. If it cannot be completed, use **Cancel Giveaway** with a reason.\n\n**When archived:**\n• Regular giveaway posts are removed.\n• Activity winner announcements and Court's Trial verdicts remain public.\n• Completed and cancelled records are saved in private **Giveaway Archives**.\n\n**Archive History:** The archive will maintain who cancelled, who confirmed delivery, winner claim tickets, giveaway settings, and other relevant information for future review."
+   ]
+  ]
+ ],
+ "sactivity": [
+  "Staff · Track Activity",
+  "Run `/giveaway activity` in private Bot Commands. The bot automatically tracks participation and determines who qualifies.",
+  [
+   [
+    "1. Set the Requirements",
+    "**Available activity requirements:**\n• **Channels** — Select which channels count toward the giveaway.\n• **Messages** — Set the total required in the activity period, **not per day**.\n• **Active Days** — Optionally require participation on separate days.\n• **Keywords or Phrases** — Track specific words or phrases.\n• **Member Mentions** — Track mentions of a specific member.\n\nThe bot tracks and qualifies members automatically; no manual entry is needed."
+   ],
+   [
+    "2. Review the Schedule",
+    "Before posting, review start and end times. For repeating giveaways, the preview shows the start and end times of the **next two scheduled periods**. Confirm the schedule and requirements before publishing."
+   ],
+   [
+    "3. Check Progress",
+    "Members can use **Check My Progress** on the activity post.\n\nStaff can use **Preview Qualifying Members** in private Giveaway Staff Controls to:\n• View qualified members.\n• See members still working toward requirements.\n• Exclude members who haven't participated since the period began.\n\nUse **Refresh Progress** for the latest counts."
+   ],
+   [
+    "4. Manual Approval",
+    "When the activity period ends, the bot checks requirements and selects eligible winners.\n\nIf manual approval is enabled, staff review results in private **Giveaway Staff Controls** before announcement.\n\nStaff can also configure how the bot handles a giveaway when no eligible winner is selected."
+   ]
+  ]
+ ],
+ "sarchives": [
+  "Staff · Archive Records",
+  "Completed and cancelled giveaway history is stored in the required private archive channel.",
+  [
+   [
+    "1. Archive or Cancel",
+    "**Archiving a Giveaway**\nA completed giveaway can be archived once:\n• All winners have submitted their claims.\n• Staff confirm prize delivery using **Confirm Prizes Delivered**.\n\nSelect **Archive Giveaway** in private Giveaway Staff Controls to move its record to **Giveaway Archives** and update the active giveaway directory.\n\n**Cancelling a Giveaway**\nIf a giveaway cannot be completed or has no eligible winner, staff can cancel it with a reason and archive the record."
+   ],
+   [
+    "2. Preserved Information",
+    "The private **Giveaway Archives** channel will retain:\n• Giveaway details and participant records.\n• Winner information and claim tickets.\n• Staff cancellation reasons and prize delivery confirmations.\n• Rerolls and other relevant history.\n\n**Only regular giveaways are deleted from their public channel when archived.**\n\nThese records allow staff to review past giveaways and resolve questions about prizes or results."
+   ],
+   [
+    "3. Archive Setup",
+    "**Required:**\n• **Giveaway Archives Channel** — A private channel for completed and cancelled giveaway records.\n\nAssign the channel through:\n• `/setup giveaways`\n• `/setup activity-giveaways`\n• `/setup trials`."
+   ]
+  ]
+ ],
+ "scards": [
+  "Staff · Hatchem Cards",
+  "Hatchem registration, Points integration, and member help.",
+  [
+   [
+    "Hatchem Cards",
+    "**Required setup:**\n• **Hatchem Channel** — A public channel for the collectible card game.\n• **Collector Role** — A role the bot can assign to registered players.\n\nComplete `/setup general` first.\n\n**Setup command:** `/setup cards` — Run in private **Bot Commands**.\n\n**Points Integration:** Members can spend AM Isa Points on extra grabs and drops. **Points must be enabled for these purchases.** Hatchem's shop is independent of the main customization shop.\n\n**Member Help:** Type `.tutorial` or `.help` in the Hatchem channel."
+   ]
+  ]
+ ],
+ "spoints": [
+  "Staff · Points & Shop",
+  "Manage server Points and the profile customization storefront.",
+  [
+   [
+    "1. Points System & Settings",
+    "**AM Isa Points** are the server's virtual currency, earned through participation and activities. Members spend them on profile customization, decorative items, and extra Hatchem grabs and drops.\n\n**The Points system must be enabled for purchases to work.**\n\n**Staff Commands:**\n• `/points-admin settings` — View and manage Points rewards and settings.\n• `/points-admin activity-status` — Review activity-based earnings.\n\nRun these in private **Bot Commands**."
+   ],
+   [
+    "2. Manage Points",
+    "**Award Points:**\n• `/points-admin grant` — Award Points to one member.\n• `/points-admin grant-multiple` — Award Points to multiple members.\nInclude a reason so transactions can be reviewed.\n\n**Review Points:**\n• `/points-admin history` — Member transaction history.\n• `/points-admin audit` — Transactions across the server.\n\nRun these in private **Bot Commands**."
+   ],
+   [
+    "3. Storefront",
+    "Assign the public **Shop** channel using `/setup general`.\n\nMembers can browse:\n• Profile backgrounds and frames\n• Fonts, colors, and decorative items\n• Other profile customizations\n\nMembers can check their Points balance through shop controls.\n\n**Hatchem has its own independent shop**, which only requires the Points system to be enabled and does not depend on the main customization shop."
+   ]
+  ]
+ ],
+ "sgames": [
+  "Staff · Party Games",
+  "Staff-hosted games run in the assigned public Party Games channel.",
+  [
+   [
+    "1. Setup",
+    "**Required:**\n• **Party Games Channel** — A public channel for hosting game sessions and displaying results.\n\n**Setup command:** `/setup general` — Run in private **Bot Commands**.\n\n**Court of Chaos** is currently available: a Jackbox-style game where members submit creative answers and vote."
+   ],
+   [
+    "2. Hosting a Game",
+    "Run `/party host` in private **Bot Commands** to create a game lobby.\n\n• **Choose a Game** — Select Court of Chaos.\n• **Player Signup** — Members join before the game begins.\n• **Start Party** — Host starts when ready.\n• **Game Controls** — `/party status`, `/party pause`, `/party resume`.\n\nThe game runs in the assigned public **Party Games** channel."
+   ]
+  ]
+ ]
 });
 
 export function helpStaffAccess(interaction,config){
