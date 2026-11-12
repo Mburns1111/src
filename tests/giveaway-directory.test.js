@@ -60,29 +60,31 @@ test("public directory announces watch requirements, next draw and prize without
  assert.match(exactOneOff.description,/Spelling and word order must match; capitals do not matter/);
 });
 test("active plan publishes a member-facing directory listing to list channel, not winners channel",async()=>{
- const old=[GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne];
+ const old=[GuildConfig.findOne,GuildConfig.updateOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne];
  const sent=[],updates=[],fetched=[];
  try {
   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
     activityGiveawayListChannelId:listId,activityGiveawayWinnersChannelId:winnersId,
     giveawayPingRoleId:"567890123456789012"})})});
+  GuildConfig.updateOne=async()=>({modifiedCount:1});
   GiveawayWatchRule.findOne=()=>({lean:async()=>rule});
   GiveawayPlan.updateOne=async (_query,update)=>{updates.push(update.$set);return {modifiedCount:1}};
   const channel={id:listId,messages:{fetch:async()=>({find:()=>null})},
-    send:async payload=>{sent.push(payload);return {id:"678901234567890123"}}};
+    send:async payload=>{sent.push(payload);return {id:sent.length===1?"678901234567890123":"678901234567890124"}}};
   const client={user:{id:"bot"},channels:{fetch:async id=>{fetched.push(id);return channel;}}};
   assert.equal(await publishActivityPlanListing(client,plan),true);
-  assert.deepEqual(fetched,[listId]);
-  assert.equal(sent.length,1);
+  assert.deepEqual(fetched,[listId,listId]);
+  assert.equal(sent.length,2,"The permanent Opt In panel follows the new giveaway listing");
   assert.equal(sent[0].content,"<@&567890123456789012>");
   assert.deepEqual(sent[0].allowedMentions,{parse:[],roles:["567890123456789012"]});
   assert.match(sent[0].embeds[0].toJSON().description,/50 messages/);
  assert.equal(sent[0].components[0].components[0].data.label,"Check My Progress");
  assert.equal(sent[0].components[0].components[0].data.custom_id,`activity-progress:plan:${planId}`);
+  assert.equal(sent[1].components[0].components[0].data.label,"Opt In");
   assert.equal(updates[0].listChannelId,listId);
   assert.equal(updates[0].listMessageId,"678901234567890123");
  }finally{
-  [GuildConfig.findOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne]=old;
+  [GuildConfig.findOne,GuildConfig.updateOne,GiveawayWatchRule.findOne,GiveawayPlan.updateOne]=old;
  }
 });
 test("finished or paused activity plan listing is removed without deleting its actual results",async()=>{
@@ -173,7 +175,7 @@ test("ended one-off activity poster stays on public list until staff uses Delete
 });
 
 test("new one-off activity giveaway pings only the shared role, even when old event roles differ",async()=>{
- const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const old={config:GuildConfig.findOne,configUpdate:GuildConfig.updateOne,update:Giveaway.updateOne};
  const sent=[],edits=[];
  const role="567890123456789012";
  const event={_id:"507f1f77bcf86cd799439030",guildId,
@@ -188,23 +190,25 @@ test("new one-off activity giveaway pings only the shared role, even when old ev
     giveawayPingRoleId:role,activityNotificationRoleIds:["678901234567890123"],
   })})});
   Giveaway.updateOne=async()=>({});
+  GuildConfig.updateOne=async()=>({});
   const posted={id:"890123456789012345",author:{id:"bot"},edit:async payload=>edits.push(payload)};
   const channel={id:listId,messages:{fetch:async v=>
     typeof v==="string"?posted:{find:()=>null}},
-    send:async p=>{sent.push(p);return posted;}};
+    send:async p=>{sent.push(p);return sent.length===1?posted:{...posted,id:"890123456789012346"};}};
   const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
   assert.equal(await publishActivityOneOffListing(client,event),true);
-  assert.equal(sent.length,1);
+  assert.equal(sent.length,2);
   assert.equal(sent[0].content,"<@&"+role+">");
+  assert.equal(sent[1].components[0].components[0].data.label,"Opt In");
   assert.deepEqual(sent[0].allowedMentions,{parse:[],roles:[role]});
   // Edits must never ping the role again, including a change in the shared role.
   const existing={...event,listChannelId:listId,listMessageId:posted.id,listFingerprint:"old"};
   assert.equal(await publishActivityOneOffListing(client,existing),true);
-  assert.equal(sent.length,1);
+  assert.equal(sent.length,2);
   assert.equal(edits.length,1);
   assert.equal(edits[0].content,undefined);
   assert.deepEqual(edits[0].allowedMentions,{parse:[]});
- }finally{GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;}
+ }finally{GuildConfig.findOne=old.config;GuildConfig.updateOne=old.configUpdate;Giveaway.updateOne=old.update;}
 });
 
 test("ended activity poster stays published as No Eligible Winner for zero entrants or all forfeited claims",()=>{
