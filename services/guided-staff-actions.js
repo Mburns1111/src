@@ -26,7 +26,6 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Manual approval",value:"requireStaffReview",description:"On or off: staff approve winners"},
   {label:"Check My Progress",value:"progressEnabled",description:"On or off: members see private progress"},
   {label:"Bonus roles",value:"roleBonuses",description:"Add, change or clear bonus chances"},
-  {label:"Banned role exclusion",value:"enforceExclusionRole",description:"On/off: exclude banned role"},
   {label:"Claim time",value:"claimWindowHours",description:"Hours a winner has to claim"},
   {label:"Claim instructions",value:"claimInstructions",description:"Replace or reset the prize collection message"},
   {label:"Maximum auto rerolls",value:"maxAutoRerolls",description:"0–10 replacements for each unclaimed winner"},
@@ -41,7 +40,7 @@ export const GUIDED_EDIT_FIELDS=[
 const criteriaFields=new Set(["activityChannelIds","activityRequiredMentionUserId","activityRequiredPhrase","activityMinChars"]);
 const inputMax={title:100,prize:1500,description:1000,winnerCount:2,
   activityMinTotalMessages:5,activityMinChars:4,activityDays:3,claimWindowHours:3,bannerNameKey:60,
-  requireStaffReview:3,progressEnabled:3,enforceExclusionRole:3,
+  requireStaffReview:3,progressEnabled:3,
   roleBonuses:350,activityChannelIds:100,
   activityRequiredMentionUserId:100,activityRequiredPhrase:120,
   endsAt:16,activityEndAt:16,repeatSchedule:80,
@@ -51,7 +50,6 @@ const inputHint={
   bannerNameKey:"Saved banner name or default",
   requireStaffReview:"on or off",
   progressEnabled:"on or off",
-  enforceExclusionRole:"on or off",
   roleBonuses:"@role 2  /  @role remove  /  clear",
   activityChannelIds:"#channel, channel ID, or all",
   activityRequiredMentionUserId:"@member, user ID, or none",
@@ -83,7 +81,7 @@ export function validateGuidedStaffEdit(field,raw,event,{now=new Date()}={}){
     if(value.length>60)throw Error("Banner name cannot exceed 60 characters.");
     return {bannerNameKey:/^(default|none|clear)$/i.test(value)?"":value};
   }
-  if(["requireStaffReview","progressEnabled","announceEmptyResults","enforceExclusionRole"].includes(field)){
+  if(["requireStaffReview","progressEnabled","announceEmptyResults"].includes(field)){
     if(!/^(on|off)$/i.test(value))throw Error('Enter "on" or "off".');
     return {[field]:value.toLowerCase()==="on"};
   }
@@ -227,7 +225,7 @@ export function describeGuidedStaffOptions(event){
    "**Qualification:** Internal MongoDB opt-in · Total message goal · Minimum characters per message · Active days · Watched channel · Member ping · Required phrase",
    "*Exact phrases require correct spelling and word order; capitalization does not matter.*",
    "**Timing:** Activity cutoff · Winner announcement",
-   "**Drawing:** Winners · Manual approval · Bonus roles · Banned role exclusion · Claim time · Max rerolls · Member progress",
+   "**Drawing:** Winners · Manual approval · Bonus roles · Claim time · Max rerolls · Member progress",
    "**Claiming:** Claim instructions · No eligible winners behavior (shared giveaway ping role is set in /setup)",
    "**Future giveaways:** Repeat schedule (changes future starts only)",
    "",
@@ -236,8 +234,7 @@ export function describeGuidedStaffOptions(event){
      " · Minimum length: "+(event.activityMinChars||1)+" character(s) per message",
    "Activity participation: Bot-managed Opt In / Opt Out (no role)",
    "Counting ends: "+fmt(event.activityEndAt)+" · Draws: "+fmt(event.endsAt),
-   "Approval: "+(event.requireStaffReview?"On":"Off")+" · Progress: "+(event.progressEnabled?"On":"Off")+
-     " · Banned role exclusion: "+(event.enforceExclusionRole!==false?"On":"Off"),
+   "Approval: "+(event.requireStaffReview?"On":"Off")+" · Progress: "+(event.progressEnabled?"On":"Off"),
    "",
    "*Changing the watched channel, ping, or phrase restarts counting from the edit. Old messages are never backfilled. The modal requires RESET confirmation.*",
    "*Counting start cannot be backdated. Other edits affect only this giveaway unless you choose Future repeats.*",
