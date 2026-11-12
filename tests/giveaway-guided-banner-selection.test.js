@@ -77,7 +77,7 @@ async function harness(mode,{banners=[]}={}){
     // Traverse the actual guided steps instead of assuming a fixed count:
     // the activity setup now includes a mandatory opt-in role.
     for(let i=0;i<24&&!/Choose a default banner/i.test(current().content);i++){
-      assert.ok(controls().some(c=>c.label==="Keep"||/Keep (Current|current|selected)/.test(c.label)),
+      assert.ok(controls().some(c=>/^Keep\b/i.test(c.label)),
         "Cannot advance through setup step: "+current().content);
       await step("keep");
     }
