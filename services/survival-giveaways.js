@@ -463,10 +463,30 @@ export async function runSurvivalTrialStep(client, item, { now = new Date() } = 
     if (!event) throw Error("Trial has no next elimination event.");
     const message = await findOrSendEvent(client, record, event, index);
     const finishing = index + 1 === record.gameEvents.length;
-    const winnerIds = finishing
-      ? [record.originalChampionId, ...record.gameEvents.slice().reverse().map(x => x.victimId)]
-          .slice(0, Math.min(record.winnerCount, record.entrantIds.length))
+    let rankedWinners=finishing
+      ? [record.originalChampionId,...record.gameEvents.slice().reverse().map(x=>x.victimId)]
       : [];
+    // A role ban applied during an already-running Trial must still block
+    // prizes. Fill ranks from the next eligible survivors, without announcing
+    // the internal disqualification as a separate public reroll.
+    if(finishing&&client?.guilds?.fetch){
+      const bannedRoleId=await configuredGiveawayBanRole(record.guildId);
+      if(bannedRoleId){
+        const guild=await client.guilds.fetch(record.guildId);
+        const checked=await Promise.all(rankedWinners.map(async userId=>{
+          try{
+            const member=await guild.members.fetch({user:userId,force:true});
+            return memberPassesGiveawayBan(member,bannedRoleId);
+          }catch(error){
+            if(error?.code===10007)return false;
+            throw error;
+          }
+        }));
+        rankedWinners=rankedWinners.filter((_id,i)=>checked[i]);
+      }
+    }
+    const winnerIds=rankedWinners.slice(0,finishing?
+      Math.min(record.winnerCount,record.entrantIds.length):0);
     const finishedAt = now;
     const winnerAssignedAt = finishing ? winnerIds.map(() => finishedAt) : [];
     const claimCheckAt = finishing ? nextClaimCheckAt({
