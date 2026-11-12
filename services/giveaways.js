@@ -1,3 +1,5 @@
+import {activityParticipationRole} from "./activity-participation.js";
+import GuildConfig from "../models/GuildConfig.js";
 import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
@@ -243,10 +245,18 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   if (item.status === "ended") return item;
   let eligible = item.entrantIds || [];
   if (item.mode==="activity" && !client) throw Error("Discord client required to verify activity entrants.");
+  const activityRole=item.mode==="activity"?
+    activityParticipationRole(await GuildConfig.findOne({guildId}).select("activityParticipationRoleId").lean()):"";
+  // Older activity records (or records using a changed role) cannot be
+  // retroactively treated as consented. They must be recreated or reset.
+  if(item.mode==="activity"&&(!activityRole||item.requiredRoleId!==activityRole))
+    eligible=[];
   let entries=[];
   if(client){
     const members=await verifyServerMembers(client,item.guildId,eligible,{includeMembers:true});
-    const permitted=members.filter(m=>!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId));
+    const permitted=members.filter(m=>item.mode==="activity"?
+      Boolean(activityRole&&m.roles?.cache?.has(activityRole)):
+      (!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId)));
     eligible=permitted.map(m=>m.id);
     entries=weightEntriesForMembers(permitted,item.roleBonuses);
   }
@@ -283,8 +293,14 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
   const pool=(item.activityVerifiedIds?.length ? item.activityVerifiedIds : item.entrantIds || [])
     .filter(id=>!used.includes(id));
+  const activityRole=item.mode==="activity"?
+    activityParticipationRole(await GuildConfig.findOne({guildId:item.guildId})
+      .select("activityParticipationRoleId").lean()):"";
+  if(item.mode==="activity"&&(!client||!activityRole||item.requiredRoleId!==activityRole))
+    throw Error("Activity rerolls require the current configured participation role and a Discord membership check.");
   const members=client?await verifyServerMembers(client,item.guildId,pool,{includeMembers:true}):null;
-  const verified=members?members.filter(m=>!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId)).map(m=>m.id):
+  const verified=members?members.filter(m=>item.mode==="activity"?
+    m.roles?.cache?.has(activityRole):(!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId))).map(m=>m.id):
     [...new Set(pool)];
   if (!verified.length) throw Error("There are no unused current server members left for a reroll.");
   const reserved = await Giveaway.findOneAndUpdate(
@@ -385,9 +401,10 @@ export async function publishGiveawayResult(client, item) {
   return true;
 }
 
-async function refreshCustomOneOffEntries(record,now){
+async function refreshCustomOneOffEntries(record,now,client){
   if(record.guidedSeries){
-    const roster=await activityRoster(record);
+    const guild=await client.guilds.fetch(record.guildId);
+    const roster=await activityRoster(record,null,guild);
     const entrantIds=roster.filter(row=>row.qualified).map(row=>row._id);
     return await Giveaway.findOneAndUpdate({_id:record._id,status:"open"},
       {$set:{entrantIds,activityCheckedAt:now,activityCandidateCount:roster.length}},
@@ -443,7 +460,7 @@ export async function reconcileGiveaways(client, { now = new Date(), limit = 30 
       let latest = candidate;
       if (candidate.status === "rerolling") latest = await finishPendingReroll(candidate);
       if(candidate.status==="open"&&candidate.mode==="activity"){
-        latest=await refreshCustomOneOffEntries(candidate,now);
+        latest=await refreshCustomOneOffEntries(candidate,now,client);
         if(latest.requireStaffReview){
           latest=await stageOneOffForReview(latest,now);
           continue; // Staff channel sweep posts an approval preview, not results.
