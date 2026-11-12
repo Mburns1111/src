@@ -85,6 +85,25 @@ test("one-time pings, offset starts and text-only messages are valid",()=>{
  assert.deepEqual(deliveries[0].roleIds,[]);
 });
 
+test("single, rotating, unique-per-ping and role-only message styles produce correct deliveries",()=>{
+ const one=group({messageMode:"single",messages:["Same"],interval:12,durationDays:2});
+ assert.deepEqual(planPingDeliveries([one],start).map(e=>e.content),
+  ["Same","Same","Same","Same"]);
+ const rotate=group({messageMode:"rotate",messages:["A","B"],interval:12,durationDays:2});
+ assert.deepEqual(planPingDeliveries([rotate],start).map(e=>e.content),
+  ["A","B","A","B"]);
+ const unique=group({messageMode:"per-ping",messages:[],perPingMessages:["1","2","3","4"],
+  interval:12,durationDays:2});
+ assert.deepEqual(planPingDeliveries([unique],start).map(e=>e.content),
+  ["1","2","3","4"]);
+ const roleOnly=group({messageMode:"roles",messages:[]});
+ assert.ok(planPingDeliveries([roleOnly],start).every(e=>!e.content&&e.roleIds.length));
+ const partial=group({messageMode:"per-ping",messages:[],perPingMessages:["1",""],
+  interval:12,durationDays:1,roleIds:["123456789012345678"]});
+ assert.throws(()=>planPingDeliveries([partial],start),/individual ping #2/);
+ assert.equal(planPingDeliveries([partial],start,{allowIncomplete:true}).length,2);
+});
+
 test("template Ping Groups can be saved without messages or roles, but deliveries cannot",()=>{
  const empty=group({roleIds:[],messages:[]});
  assert.deepEqual(normalizePingGroup(empty,{allowEmpty:true}).messages,[]);
@@ -230,7 +249,7 @@ test("templates save without message text; activation has editable independent r
  assert.doesNotMatch(details.content,/message\(s\)/);
  const choose=await click(control(details,"template:use"));
  let setup=await click(control(choose,"select:destination"),{values:["dest"]});
- assert.match(setup.content,/Needs a message or role/);
+ assert.match(setup.content,/Needs setup/);
  await assert.rejects(()=>click(control(setup,"activation:review")),/needs a message or role/);
  // The latest panel is still usable after a rejected review.
  let groupPanel=await click(control(setup,"select:activationGroup"),{values:["0"]});
@@ -255,6 +274,59 @@ test("templates save without message text; activation has editable independent r
  assert.deepEqual(saved.groups[0].messages,[],"editing an activation cannot edit the template");
 });
 
+test("activation mode buttons enable repeating text, per-ping authoring and rotation",async t=>{
+ const template={_id:"modes",name:"Modes",groups:[group({roleIds:[],messages:[],
+  durationDays:1,interval:12})]};
+ t.mock.method(PingTemplate,"find",()=>fakeQuery([template]));
+ t.mock.method(PingTemplate,"findOne",()=>({lean:async()=>template}));
+ const click=staffEditor(t);
+ const list=await click("pings:root:templates");
+ const details=await click(control(list,"select:template"),{values:["modes"]});
+ const chooser=await click(control(details,"template:use"));
+ let setup=await click(control(chooser,"select:destination"),{values:["dest"]});
+ let panel=await click(control(setup,"select:activationGroup"),{values:["0"]});
+ // Repeat the same one message for every occurrence.
+ panel=await click(control(panel,"group:mode:single"));
+ let form=await click(control(panel,"group:singleText"));
+ panel=await click(form.data.custom_id,{fields:{content:"Same"}});
+ setup=await click(control(panel,"group:back"));
+ let preview=await click(control(setup,"activation:review"));
+ assert.match(preview.content,/Same/);
+ assert.equal((preview.content.match(/Same/g)||[]).length,2);
+ setup=await click(control(preview,"activation:groups"));
+ panel=await click(control(setup,"select:activationGroup"),{values:["0"]});
+ // Per-ping text requires one explicitly written message for each occurrence.
+ let confirm=await click(control(panel,"group:mode:per-ping"));
+ assert.match(confirm.content,/clears existing message text/i);
+ panel=await click(control(confirm,"group:modeConfirm"));
+ let unique=await click(control(panel,"group:perPing"));
+ assert.match(unique.content,/0\/2 pings/);
+ form=await click(control(unique,"group:perPingEdit"));
+ unique=await click(form.data.custom_id,{fields:{content:"First unique"}});
+ assert.match(unique.content,/1\/2 pings/);
+ form=await click(control(unique,"group:perPingEdit"));
+ unique=await click(form.data.custom_id,{fields:{content:"Second unique"}});
+ panel=await click(control(unique,"group:return"));
+ setup=await click(control(panel,"group:back"));
+ preview=await click(control(setup,"activation:review"));
+ assert.match(preview.content,/First unique/);
+ assert.match(preview.content,/Second unique/);
+ // Rotating messages are entered independently of the reusable template.
+ setup=await click(control(preview,"activation:groups"));
+ panel=await click(control(setup,"select:activationGroup"),{values:["0"]});
+ confirm=await click(control(panel,"group:mode:rotate"));
+ panel=await click(control(confirm,"group:modeConfirm"));
+ form=await click(control(panel,"group:addText"));
+ panel=await click(form.data.custom_id,{fields:{content:"A"}});
+ form=await click(control(panel,"group:addText"));
+ panel=await click(form.data.custom_id,{fields:{content:"B"}});
+ setup=await click(control(panel,"group:back"));
+ preview=await click(control(setup,"activation:review"));
+ assert.match(preview.content,/A/);
+ assert.match(preview.content,/B/);
+ assert.deepEqual(template.groups[0].messages,[]);
+});
+
 test("retiming preserves individual edits and asks before removing an edited occurrence",async t=>{
  const template={_id:"example",name:"Reminders",groups:[group({roleIds:[],interval:12,durationDays:1}),
   group({roleIds:[],repeatMode:"once",offsetHours:3,messages:["Other"]})]};
@@ -266,7 +338,7 @@ test("retiming preserves individual edits and asks before removing an edited occ
  const chooser=await click(control(details,"template:use"));
  // Legacy messages in saved templates must not be copied into this activation.
  let setup=await click(control(chooser,"select:destination"),{values:["dest"]});
- assert.match(setup.content,/0 message\(s\)/);
+ assert.match(setup.content,/0 rotating messages/);
  let groupPanel=await click(control(setup,"select:activationGroup"),{values:["0"]});
  let add=await click(control(groupPanel,"group:addText"));
  groupPanel=await click(add.data.custom_id,{fields:{content:"Morning"}});
