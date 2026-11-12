@@ -7,9 +7,9 @@ const userId="123456789012345678";
 test("Staff Help introduces setup and highlights Bot Setup in blue",()=>{
   const staff=helpTopicPayload("staff",userId);
   assert.match(staff.embeds[0].data.description,/Complete Bot Setup first/);
-  const selects=staff.components.flatMap(row=>row.components)
-    .filter(component=>component.data.type===3);
-  const setup=selects.flatMap(component=>component.data.options||[])
+  const selects=staff.components.flatMap(row=>row.toJSON().components)
+    .filter(component=>component.type===3);
+  const setup=selects.flatMap(component=>component.options||[])
     .find(option=>option.label==="Bot Setup");
   assert.ok(setup);
   assert.equal(setup.value,"ssetup");
