@@ -209,6 +209,52 @@ test("activation retry reuses the committed preview even after a restart",async 
  assert.equal(await activatePingSchedule({scheduleId:"preview-id",guild:{id:"guild"},actorId:"staff"}),saved);
 });
 
+test("templates save without message text; activation has editable independent rotation",async t=>{
+ let saved;
+ t.mock.method(PingTemplate,"create",async record=>{
+  saved={...record,_id:"template-new"};return saved;
+ });
+ t.mock.method(PingTemplate,"find",()=>fakeQuery(saved?[saved]:[]));
+ t.mock.method(PingTemplate,"findOne",()=>({lean:async()=>saved}));
+ const click=staffEditor(t);
+ const name=await click("pings:root:create");
+ const draft=await click(name.data.custom_id,{fields:{name:"Reminder Pattern",description:"Test"}});
+ assert.match(draft.content,/Templates save timing and roles only/);
+ assert.ok(!draft.components.flatMap(row=>row.components).some(c=>c.data.custom_id.includes("draft:message")));
+ const savedPanel=await click(control(draft,"draft:finish"));
+ assert.match(savedPanel.content,/Template saved/);
+ assert.deepEqual(saved.groups[0].messages,[]);
+ assert.deepEqual(saved.groups[0].roleIds,[]);
+ const list=await click("pings:root:templates");
+ const details=await click(control(list,"select:template"),{values:["template-new"]});
+ assert.doesNotMatch(details.content,/message\(s\)/);
+ const choose=await click(control(details,"template:use"));
+ let setup=await click(control(choose,"select:destination"),{values:["dest"]});
+ assert.match(setup.content,/Needs a message or role/);
+ await assert.rejects(()=>click(control(setup,"activation:review")),/needs a message or role/);
+ // The latest panel is still usable after a rejected review.
+ let groupPanel=await click(control(setup,"select:activationGroup"),{values:["0"]});
+ let modal=await click(control(groupPanel,"group:addText"));
+ groupPanel=await click(modal.data.custom_id,{fields:{content:"Reminder A"}});
+ modal=await click(control(groupPanel,"group:addText"));
+ groupPanel=await click(modal.data.custom_id,{fields:{content:"Reminder B"}});
+ assert.match(groupPanel.content,/2\.\*\* Reminder B/);
+ const selected=await click(control(groupPanel,"select:groupMessage"),{values:["0"]});
+ modal=await click(control(selected,"group:editText"));
+ groupPanel=await click(modal.data.custom_id,{fields:{content:"Revised A"}});
+ assert.match(groupPanel.content,/Revised A/);
+ const next=await click(control(groupPanel,"select:groupMessage"),{values:["1"]});
+ groupPanel=await click(control(next,"group:removeSelected"));
+ assert.doesNotMatch(groupPanel.content,/Reminder B/);
+ modal=await click(control(groupPanel,"group:addText"));
+ groupPanel=await click(modal.data.custom_id,{fields:{content:"New B"}});
+ setup=await click(control(groupPanel,"group:back"));
+ const preview=await click(control(setup,"activation:review"));
+ assert.match(preview.content,/Revised A/);
+ assert.match(preview.content,/New B/);
+ assert.deepEqual(saved.groups[0].messages,[],"editing an activation cannot edit the template");
+});
+
 test("retiming preserves individual edits and asks before removing an edited occurrence",async t=>{
  const template={_id:"example",name:"Reminders",groups:[group({roleIds:[],interval:12,durationDays:1}),
   group({roleIds:[],repeatMode:"once",offsetHours:3,messages:["Other"]})]};
