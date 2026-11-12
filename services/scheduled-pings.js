@@ -86,7 +86,7 @@ export async function logPingChange(scheduleId,guildId,actorId,event,details={})
  return PingAudit.create({scheduleId,guildId,actorId,event,details});
 }
 export async function activatePingSchedule({guild,template,channelId,startAt,actorId,overrides={}}){
- const groups=template.groups.map(g=>({...g.toObject?.()||g}));
+ const groups=(overrides.groups||template.groups).map(g=>({...g.toObject?.()||g}));
  const events=planPingDeliveries(groups,startAt);
  const overridesBySequence=new Map((overrides.events||[]).map(x=>[Number(x.sequence),x]));
  for(const event of events){
