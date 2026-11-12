@@ -126,6 +126,7 @@ async function harness({defaultRole="",storedBanners=[],
     await select("winners:1");
     await select("roleNone");
     await select("keep"); // Show role help setting
+    await select("excludeOn"); // Banned role check defaults on, with no role configured
     await select("clearRules");
     await select("claim:1");
     await select("claimDefault");
@@ -164,6 +165,7 @@ test("guided regular giveaway posts only after review and produces regular entry
     assert.equal(h.writes[0].mode,"standard");
     assert.equal(h.writes[0].winnerCount,1);
     assert.equal(h.writes[0].requiredRoleId,"");
+    assert.equal(h.writes[0].enforceExclusionRole,true);
     assert.equal(h.writes[0].claimWindowHours,1);
     assert.equal(h.publicPosts.length,1);
     assert.equal(h.publicPosts[0].content,"<@&"+pingId+">");
