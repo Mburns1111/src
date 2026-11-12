@@ -169,9 +169,30 @@ export async function activatePingSchedule({guild,template,channelId,startAt,act
  return schedule;
 }
 
+// Keep the pinned staff dashboard's next pings grouped under their destination
+// channel. The per-ping timestamp always comes last.
+export function dashboardUpcomingLines(deliveries,schedules,defaultZone="UTC"){
+ const channels=new Map();
+ for(const delivery of deliveries){
+  const schedule=schedules.get(String(delivery.scheduleId));
+  const channelId=schedule?.destinationChannelId||"";
+  if(!channels.has(channelId))channels.set(channelId,[]);
+  channels.get(channelId).push({delivery,schedule});
+ }
+ const lines=[];
+ for(const [channelId,entries] of channels){
+  lines.push(channelId?"**<#"+channelId+">**":"**Unconfigured destination**");
+  entries.sort((a,b)=>new Date(a.delivery.dueAt)-new Date(b.delivery.dueAt));
+  for(const {delivery,schedule} of entries){
+   lines.push("• "+short(schedule?.name||"Schedule")+" · Group "+(delivery.groupIndex+1)+
+    " — "+formatServerClock(delivery.dueAt,schedule?.timeZone||defaultZone));
+  }
+ }
+ return lines;
+}
 async function dashboardPayload(guildId){
  const active=await PingSchedule.find({guildId,status:{$in:["active","paused"]}}).sort({startsAt:1}).limit(6).lean();
- const everyActive=await PingSchedule.find({guildId,status:"active"}).select("_id name timeZone").lean();
+ const everyActive=await PingSchedule.find({guildId,status:"active"}).select("_id name timeZone destinationChannelId").lean();
  const config=await GuildConfig.findOne({guildId}).select("serverTimeZone").lean();
  const configuredZone=config?.serverTimeZone||"UTC";
  const totals=await PingSchedule.aggregate([
@@ -204,10 +225,7 @@ async function dashboardPayload(guildId){
   lines.push("…plus "+((counts.active?.count||0)+(counts.paused?.count||0)-active.length)+" more schedules. Use Manage Schedules for the full list.");
  lines.push("","**Next Scheduled Pings**");
  if(!due.length)lines.push("No upcoming pings.");
- for(const d of due){
-  const item=scheduleNames.get(String(d.scheduleId));
-  lines.push("• "+formatServerClock(d.dueAt,item?.timeZone||configuredZone)+" — "+short(item?.name||"Schedule")+" · Group "+(d.groupIndex+1));
- }
+ lines.push(...dashboardUpcomingLines(due,scheduleNames,configuredZone));
  if(alerts.length){
   lines.push("","**⚠ Delivery Attention**");
   for(const e of alerts)lines.push("• Ping #"+e.sequence+" · "+short(e.error||"Failed to send").slice(0,84));
