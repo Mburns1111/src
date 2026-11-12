@@ -18,7 +18,7 @@ export function giveawayStaffEditableFields(record) {
   if(record?.status!=="open"||record?.publicListingRemovedAt||record?.guidedSeries)return [];
   const general=["title","prize","description","rules","winnerCount","claimInstructions","bannerNameKey"];
   if(record.mode==="survival")return [...general,"claimWindowMinutes","durationMinutes"];
-  if(record.mode==="standard")return [...general,"enforceExclusionRole","claimWindowHours","durationMinutes"];
+  if(record.mode==="standard")return [...general,"claimWindowHours","durationMinutes"];
   return [...general,"claimWindowHours","durationMinutes"];
 }
 
