@@ -177,7 +177,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "2. Activity Giveaways",
-    "To participate, find the permanent **Activity Giveaway Participation** panel at the bottom of the **Activity Giveaway List** channel and press **Opt In**. No Discord role is needed. Messages sent while opted in can count toward posted activity requirements; qualified members enter drawings automatically with no entry button.\\n\\nPress **Opt Out** to stop new activity tracking and leave current activity drawings. If you opt in again, earlier activity does not carry over."
+    "To participate, find the permanent **Activity Giveaway Participation** panel at the bottom of the **Activity Giveaway List** channel and press **Opt In**. No Discord role is needed. Messages sent while opted in can count toward posted activity requirements; qualified members enter drawings automatically with no entry button.\n\nPress **Opt Out** to stop new activity tracking and leave current activity drawings. If you opt in again, earlier activity does not carry over.\n\n**Giveaway Banned role:** Receiving this role revokes your opt-in. If staff remove the role, you must press **Opt In** again to restart activity counting; old progress does not return."
    ],
    [
     "3. Court's Trials",
@@ -282,7 +282,7 @@ const CONTENT=Object.freeze({
   [
    [
     "Activity Participation · REQUIRED",
-    "Members must explicitly opt in through the **Opt In** button on the permanent participation panel below the **Activity Giveaway List**. The bot stores their choice in MongoDB and checks it before writing any activity giveaway logs. No Discord role is used.\n\n**Opt Out** immediately stops new tracking and excludes the member from activity draws. Opting in again starts a fresh counting window; previously recorded messages do not contribute."
+    "Members must explicitly opt in through the **Opt In** button on the permanent participation panel below the **Activity Giveaway List**. The bot stores their choice in MongoDB and checks it before writing any activity giveaway logs. No Discord role is used.\n\n**Opt Out** immediately stops new tracking and excludes the member from activity draws. Opting in again starts a fresh counting window; previously recorded messages do not contribute.\n\n**Ban reset:** When a member receives the Giveaway Banned role, the bot revokes their MongoDB opt-in. Removing the role never reactivates it. They must manually press Opt In to begin a fresh counting window."
    ],
    [
     "1. Set the Requirements",
