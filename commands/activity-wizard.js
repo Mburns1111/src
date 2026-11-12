@@ -139,7 +139,7 @@ export function describeActivityWizard(session){
       (s.days>1?' · at least one message on '+s.days+' different days':''),
     s.minChars>1?'Minimum message length · '+s.minChars+' characters of text per message (not including mentions)':null,
     'Activity opt-in role (mandatory) · <@&'+s.requiredRoleId+'>',
-    'Where to opt in · '+(s.requiredRoleInstructions||'Select the Activity Participation role in the server'),
+    'Where to opt in · Use the Opt In button below the Activity Giveaway List',
     s.mention?'Required ping · <@'+s.mention+'>':null,s.phrase?'Required exact phrase · '+s.phrase+' (correct spelling and word order; capitalization does not matter)':null,
     'Winners · '+s.winners+' · Draw '+stamp(s.firstDraw?new Date(s.firstDraw):end),
     'Manual approval '+(s.approval?'on':'off')+' · Member progress '+(s.progress?'on':'off'),
@@ -226,18 +226,13 @@ async function configFor(guild,channelId){
 export async function startActivityWizard(i){
   if(!shouldRequestMessageContent())throw Error("Enable Message Content Intent and set ENABLE_MESSAGE_CONTENT_INTENT=1 to count activity.");
   const config=await configFor(i.guild,i.channelId);
-  if(!config.activityParticipationRoleId)
-    throw Error("Activity giveaways require an Activity Participation role. Configure it in /setup activity-giveaways first.");
-  if(!await i.guild.roles.fetch(config.activityParticipationRoleId).catch(()=>null))
-    throw Error("The Activity Participation role is missing. Update /setup activity-giveaways first.");
+  // Activity participation is managed by a permanent button in the list channel.
   const key=sessionKey(i.channelId,i.user.id);
   const previous=sessions.get(key);
   if(previous && previous.expires>Date.now())return i.editReply("You already have an activity setup in this channel. Finish or cancel it here.");
   const session={id:new mongoose.Types.ObjectId().toString(),guild:i.guild,owner:i.user.id,key,channel:i.channel,
     settings:{...defaultActivityWizardSettings(i.user.id),
-      requiredRoleId:config.activityParticipationRoleId,
-      requiredRoleInstructions:config.activityParticipationRoleInstructions||"",
-      showRequiredRoleInstructions:true,
+      requiredRoleId:"",requiredRoleInstructions:"",showRequiredRoleInstructions:false,
       claimHours:config.activityClaimWindowHours??DEFAULT_CLAIM_HOURS,
       claimInstructions:config.activityClaimInstructions||"",
       serverClaimInstructions:config.activityClaimInstructions||"",
