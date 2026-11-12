@@ -11,6 +11,8 @@ const schema=new mongoose.Schema({
  // cleared before re-entry so the new session can start immediately.
  countFrom:{type:Date,default:null},
  optedOutAt:{type:Date,default:null},
+ // Why this opt-in window ended. A giveaway ban requires explicit re-opt-in.
+ optOutReason:{type:String,enum:["","member","giveaway-ban"],default:""},
 },{timestamps:true});
 schema.index({guildId:1,userId:1},{unique:true});
 schema.index({guildId:1,active:1,userId:1});
