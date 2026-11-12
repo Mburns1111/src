@@ -227,6 +227,8 @@ async function configFor(guild,channelId){
 export async function startActivityWizard(i){
   if(!shouldRequestMessageContent())throw Error("Enable Message Content Intent and set ENABLE_MESSAGE_CONTENT_INTENT=1 to count activity.");
   const config=await configFor(i.guild,i.channelId);
+  if(!config?.giveawayExcludedRoleId)
+    throw Error("Configure the required Giveaway Banned role in /setup activity-giveaways before starting activities.");
   // Activity participation is managed by a permanent button in the list channel.
   const key=sessionKey(i.channelId,i.user.id);
   const previous=sessions.get(key);
@@ -393,6 +395,8 @@ async function accept(session,input,client){
       await configFor(session.guild,session.channel.id);
       const currentConfig=await GuildConfig.findOne({guildId:session.guild.id}).lean();
       // Opt-in is managed internally in MongoDB; no participation role is needed.
+      if(!currentConfig?.giveawayExcludedRoleId)
+        throw Error("Configure the required Giveaway Banned role before creating an activity.");
       const start=new Date(),end=checkSchedule(s,start);
       s.delay=s.firstDraw?new Date(s.firstDraw)-end:0;
       const record=await createGuidedActivity(session.id,session.guild.id,s,start);
