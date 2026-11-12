@@ -18,6 +18,8 @@ const giveawaySchema = new mongoose.Schema({
   reviewedBy:{type:String,default:""},
   reviewedAt:{type:Date,default:null},
   roleBonuses:[{roleId:String,extraEntries:Number}],
+  // Staff may switch off the global exclusion role for this drawing.
+  enforceExclusionRole:{type:Boolean,default:true},
   entryWeights:[{userId:String,weight:Number}],
   customActivityStartAt:{type:Date,default:null},
   customActivityEndAt:{type:Date,default:null},
