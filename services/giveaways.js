@@ -1,4 +1,5 @@
 import {activeActivityParticipants} from "./activity-participation.js";
+import {configuredGiveawayExclusionRole,memberPassesGiveawayExclusion} from "./giveaway-exclusion.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
@@ -249,10 +250,13 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   if(optedIn)eligible=eligible.filter(id=>optedIn.has(String(id)));
   let entries=[];
   if(client){
-    const members=await verifyServerMembers(client,item.guildId,eligible,{includeMembers:true});
-    const permitted=members.filter(m=>item.mode==="activity"?
-      optedIn.has(String(m.id)):
-      (!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId)));
+    const [members,excludedRoleId]=await Promise.all([
+      verifyServerMembers(client,item.guildId,eligible,{includeMembers:true}),
+      configuredGiveawayExclusionRole(item.guildId,item),
+    ]);
+    const permitted=members.filter(m=>memberPassesGiveawayExclusion(m,excludedRoleId,item)&&
+      (item.mode==="activity"?optedIn.has(String(m.id)):
+        (!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId))));
     eligible=permitted.map(m=>m.id);
     entries=weightEntriesForMembers(permitted,item.roleBonuses);
   }
@@ -293,8 +297,10 @@ export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "sta
     throw Error("Activity rerolls require a Discord membership check.");
   const optedIn=item.mode==="activity"?await activeActivityParticipants(item.guildId,pool):null;
   const members=client?await verifyServerMembers(client,item.guildId,pool,{includeMembers:true}):null;
-  const verified=members?members.filter(m=>item.mode==="activity"?
-    optedIn.has(String(m.id)):(!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId))).map(m=>m.id):
+  const excludedRoleId=client?await configuredGiveawayExclusionRole(item.guildId,item):"";
+  const verified=members?members.filter(m=>memberPassesGiveawayExclusion(m,excludedRoleId,item)&&
+    (item.mode==="activity"?optedIn.has(String(m.id)):
+      (!item.requiredRoleId||m.roles?.cache?.has(item.requiredRoleId)))).map(m=>m.id):
     [...new Set(pool)];
   if (!verified.length) throw Error("There are no unused current server members left for a reroll.");
   const reserved = await Giveaway.findOneAndUpdate(
