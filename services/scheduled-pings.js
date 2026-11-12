@@ -184,7 +184,11 @@ export function dashboardUpcomingLines(deliveries,schedules,defaultZone="UTC"){
   lines.push(channelId?"**<#"+channelId+">**":"**Unconfigured destination**");
   entries.sort((a,b)=>new Date(a.delivery.dueAt)-new Date(b.delivery.dueAt));
   for(const {delivery,schedule} of entries){
-   lines.push("• "+short(schedule?.name||"Schedule")+" · Group "+(delivery.groupIndex+1)+
+   const roles=delivery.roleIds?.length
+    ?delivery.roleIds.map(id=>"<@&"+id+">").join(" "):"No roles";
+   const message=String(delivery.content||"").replace(/\s+/g," ").trim();
+   const preview=message.length>65?message.slice(0,64)+"…":message||"(role-only)";
+   lines.push("• "+roles+" · "+preview+
     " — "+formatServerClock(delivery.dueAt,schedule?.timeZone||defaultZone));
   }
  }
