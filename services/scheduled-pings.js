@@ -178,7 +178,7 @@ export function dashboardUpcomingLines(deliveries,schedules,defaultZone="UTC"){
   const channel=schedule?.destinationChannelId?"<#"+schedule.destinationChannelId+">":"(channel unavailable)";
   const roles=delivery.roleIds?.length
    ?delivery.roleIds.map(id=>"<@&"+id+">").join(" "):"No roles";
-  const message=String(delivery.content||"").replace(/\\s+/g," ").trim();
+  const message=String(delivery.content||"").replace(/\s+/g," ").trim();
   const preview=message.length>65?message.slice(0,64)+"…":message||"(role-only)";
   return "• "+channel+" "+roles+" · "+preview+" — "+
    formatServerClock(delivery.dueAt,schedule?.timeZone||defaultZone);
