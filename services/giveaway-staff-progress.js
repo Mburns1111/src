@@ -1,5 +1,6 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,PermissionFlagsBits,UserSelectMenuBuilder} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {configuredGiveawayBanRole,memberPassesGiveawayBan} from "./giveaway-exclusion.js";
 
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
@@ -45,9 +46,10 @@ export async function activityProgressRows(record,guild=null,{historical=false}=
  pipeline.pop(); // Keep partial progress: do not filter out members still working.
  const Model=special?GiveawayActivityRuleMinuteCount:GiveawayActivityMinuteCount;
  const rows=await Model.aggregate(pipeline);
+ const bannedRoleId=historical?"":await configuredGiveawayBanRole(record.guildId);
  const verified=historical?rows.map(()=>true):await Promise.all(rows.map(async row=>{
    const member=await guild.members.fetch({user:row._id,force:true}).catch(()=>null);
-   return Boolean(member&&!member.user?.bot);
+   return Boolean(member&&!member.user?.bot&&memberPassesGiveawayBan(member,bannedRoleId));
  }));
  return rows.filter((r,n)=>r.totalMessages>0&&verified[n]).map(r=>({
    userId:String(r._id),messages:r.totalMessages,days:r.activeDays,
