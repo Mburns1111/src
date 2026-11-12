@@ -213,11 +213,12 @@ async function futureList(i,s){
   .sort({dueAt:1}).skip((s.futurePage||0)*25).limit(25).lean();
  if(!deliveries.length)return reply(i,{content:"No future pending pings on this page.",components:[row(["Previous","manage:futurePrev"],["Back","manage:back"])]});
  s.deliveries=deliveries;s.phase="futureList";
- return reply(i,{content:"**Future Pings — "+s.schedule.name+"** · Page "+((s.futurePage||0)+1)+"\nChoose a message to edit. Individual changes are saved and audited immediately.",
+ return reply(i,{content:"**Future Pings — "+s.schedule.name+"** · Page "+((s.futurePage||0)+1)+
+  "\nServer time zone: **"+(s.schedule.timeZone||"UTC")+"**\nChoose a message to edit. Individual changes are saved and audited immediately.",
   components:[new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
    .setCustomId("pings:select:future").setPlaceholder("Choose a future ping")
    .addOptions(deliveries.map(d=>({label:"Ping #"+d.sequence+" · Group "+(d.groupIndex+1),
-    value:String(d._id),description:new Date(d.dueAt).toISOString().slice(0,16)})))),
+    value:String(d._id),description:showZone(d.dueAt,s.schedule.timeZone||"UTC").slice(0,100)})))),
    row(["Previous","manage:futurePrev"],["Next","manage:futureNext"],["Back","manage:back"])]});
 }
 async function archivesList(i){
@@ -241,14 +242,14 @@ async function deliveryAlerts(i){
   components:[]});
 }
 async function upcomingList(i,page=0){
- const schedules=await PingSchedule.find({guildId:i.guildId,status:"active"}).select("_id name").lean();
- const allowed=new Map(schedules.map(s=>[String(s._id),s.name]));
+ const schedules=await PingSchedule.find({guildId:i.guildId,status:"active"}).select("_id name timeZone").lean();
+ const allowed=new Map(schedules.map(s=>[String(s._id),s]));
  const all=await PingDelivery.find({guildId:i.guildId,status:"pending",scheduleId:{$in:schedules.map(s=>s._id)}})
   .sort({dueAt:1}).skip(page*20).limit(20).lean();
  const s={phase:"upcoming",page,expires:Date.now()+EXPIRES};
  sessions.set(key(i),s);
  return reply(i,{content:"**Full Upcoming Schedule** · Page "+(page+1)+"\n"+
-  (all.length?all.map(e=>"• "+ts(e.dueAt)+" — "+short(allowed.get(String(e.scheduleId)))+
+  (all.length?all.map(e=>"• "+showZone(e.dueAt,allowed.get(String(e.scheduleId))?.timeZone||"UTC")+" — "+short(allowed.get(String(e.scheduleId))?.name)+
     " · Group "+(e.groupIndex+1)).join("\n"):"No more upcoming messages."),
   components:[row(["Previous","upcoming:prev"],["Next","upcoming:next"])]});
 }
