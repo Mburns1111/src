@@ -38,14 +38,16 @@ test("separate activity setup exposes channels, editable summary and preview",()
  assert.deepEqual(config.activityNotificationRoleIds,[]);
  const description=describeActivityGiveawaySetup(claimSettings,{updateExisting:true});
  assert.match(description,/Activity Giveaway Setup/);
- assert.match(description,/Activity participation role \(required to count messages\)/i);
- assert.match(description,/NOT CONFIGURED — REQUIRED/);
+ assert.match(description,/Activity participation/);
+ assert.match(description,/MongoDB/);
+ assert.match(description,/no Discord role required/);
  const separate=describeActivityGiveawaySetup({
    ...claimSettings,activityParticipationRoleId:"567890123456789012",
    activityParticipationRoleInstructions:"Pick up this role in #roles",
    giveawayDefaultRequiredRoleId:"678901234567890123",
  },{mode:"activity"});
- assert.match(separate,/567890123456789012/);
+ assert.doesNotMatch(separate,/567890123456789012/);
+ assert.match(separate,/Opt In/);
  assert.doesNotMatch(separate,/678901234567890123/);
  const regular=describeActivityGiveawaySetup({
    ...claimSettings,activityParticipationRoleId:"567890123456789012",
