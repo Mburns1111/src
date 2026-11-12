@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import { data as setup } from "../commands/setup.js";
 import { data as giveaway, trialData } from "../commands/giveaway.js";
 import { guildSetupComplete, cardSetupComplete, trialSetupComplete } from "../services/guild-setup-gate.js";
-import { guidedGuildSetupSummary, generalSetupFields, cardSetupFields } from "../commands/general-card-setup.js";
+import { guidedGuildSetupSummary, generalSetupFields, generalSetupChannelFields, cardSetupFields } from "../commands/general-card-setup.js";
 import { trialSetupSummary, trialSetupPreview } from "../commands/trial-giveaway-setup.js";
 import { survivalAnnouncement, survivalFinalePayload } from "../services/survival-giveaways.js";
 import { claimDuration, nextClaimCheckAt } from "../services/giveaway-claims.js";
@@ -64,6 +64,15 @@ test("each feature has its own guided /setup command; legacy saved channel IDs r
     assert.ok(GuildConfig.schema.path(field), field + " is saved independently");
   assert.ok(Giveaway.schema.path("trialTicketClaimsEnabled"));
   assert.ok(Giveaway.schema.path("announcementPingRoleIds"));
+});
+
+test("General Setup validates only channel IDs, not the server time zone", () => {
+  assert.deepEqual(generalSetupChannelFields, generalSetupFields.filter(field => field.endsWith("ChannelId")));
+  assert.ok(generalSetupChannelFields.includes("commandChannelId"));
+  assert.ok(generalSetupChannelFields.includes("giveawayArchiveChannelId"));
+  assert.ok(generalSetupChannelFields.includes("scheduledPingsChannelId"));
+  assert.ok(!generalSetupChannelFields.includes("serverTimeZone"),
+    "America/New_York must not be fetched or validated as a Discord channel when saving");
 });
 
 test("guild commands require actual first setup, not a blank Mongo record", () => {
