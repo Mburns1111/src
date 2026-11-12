@@ -1,0 +1,365 @@
+import mongoose from "mongoose";
+import {ActionRowBuilder,AttachmentBuilder,ButtonBuilder,ButtonStyle,PermissionFlagsBits} from "discord.js";
+import GuildConfig from "../models/GuildConfig.js";
+import PingTemplate from "../models/PingTemplate.js";
+import PingSchedule from "../models/PingSchedule.js";
+import PingDelivery from "../models/PingDelivery.js";
+import PingAudit from "../models/PingAudit.js";
+
+const HOUR=60*60_000;
+const DAY=24*HOUR;
+const MAX_EVENTS=4000;
+const nowMs=d=>new Date(d).getTime();
+const ts=d=>"<t:"+Math.floor(nowMs(d)/1000)+":f>";
+const short=s=>String(s||"").slice(0,150);
+export const pingDashboardButtons=()=>[
+ new ActionRowBuilder().addComponents(
+  new ButtonBuilder().setCustomId("pings:root:create").setLabel("Create Template").setStyle(ButtonStyle.Primary),
+  new ButtonBuilder().setCustomId("pings:root:templates").setLabel("Saved Templates").setStyle(ButtonStyle.Secondary),
+  new ButtonBuilder().setCustomId("pings:root:active").setLabel("Manage Schedules").setStyle(ButtonStyle.Secondary)
+ ),
+ new ActionRowBuilder().addComponents(
+  new ButtonBuilder().setCustomId("pings:root:upcoming").setLabel("View Full Schedule").setStyle(ButtonStyle.Secondary),
+  new ButtonBuilder().setCustomId("pings:root:archives").setLabel("View Archives").setStyle(ButtonStyle.Secondary)
+ )
+];
+
+export function normalizePingGroup(g){
+ const roles=[...new Set((g.roleIds||[]).map(String).filter(Boolean))];
+ const messages=(g.messages||[]).map(x=>String(x).trim()).filter(Boolean);
+ const group={
+  name:String(g.name||"Ping Group").trim().slice(0,60),
+  repeatMode:["once","hours","days"].includes(g.repeatMode)?g.repeatMode:"hours",
+  interval:Number(g.interval||12),durationDays:Number(g.durationDays||7),
+  offsetHours:Number(g.offsetHours||0),roleIds:roles,messages
+ };
+ if(!Number.isInteger(group.interval)||group.interval<1||group.interval>720)
+   throw Error("Repeat interval must be a whole number from 1 to 720.");
+ if(!Number.isInteger(group.durationDays)||group.durationDays<1||group.durationDays>365)
+   throw Error("Duration must be 1–365 days.");
+ if(!Number.isInteger(group.offsetHours)||group.offsetHours<0||group.offsetHours>720)
+   throw Error("Start delay must be 0–720 hours.");
+ if(roles.length>10)throw Error("Choose no more than 10 roles per Ping Group.");
+ if(!roles.length&&!messages.length)throw Error("Enter message text or select at least one role.");
+ if(messages.length>20)throw Error("A Ping Group supports up to 20 rotating messages.");
+ if(messages.some(x=>x.length+roles.length*24>1900))
+   throw Error("Message text and role mentions together must fit in 1,900 characters.");
+ return group;
+}
+export function planPingDeliveries(groups,startAt){
+ const start=nowMs(startAt);
+ if(!Number.isFinite(start))throw Error("Invalid schedule start time.");
+ const events=[];
+ const normalized=groups.map(normalizePingGroup);
+ if(normalized.length<1||normalized.length>10)throw Error("Choose 1–10 Ping Groups.");
+ for(let groupIndex=0;groupIndex<normalized.length;groupIndex++){
+  const group=normalized[groupIndex];
+  const until=start+group.durationDays*DAY;
+  const first=start+group.offsetHours*HOUR;
+  const every=(group.repeatMode==="days"?group.interval*DAY:group.interval*HOUR);
+  for(let time=first,ordinal=0;time<until;time+=every,ordinal++){
+   if(events.length>=MAX_EVENTS)throw Error("Too many scheduled pings. Reduce the duration or frequency (maximum "+MAX_EVENTS+").");
+   const content=group.messages.length?group.messages[ordinal%group.messages.length]:"";
+   events.push({groupIndex,dueAt:new Date(time),roleIds:group.roleIds,content});
+   if(group.repeatMode==="once")break;
+  }
+ }
+ events.sort((a,b)=>nowMs(a.dueAt)-nowMs(b.dueAt)||a.groupIndex-b.groupIndex);
+ return events.map((event,i)=>({...event,sequence:i+1}));
+}
+export async function validatePingDestination(guild,id,roleIds=[]){
+ const channel=await guild.channels.fetch(id).catch(()=>null);
+ if(!channel?.isTextBased?.()||!channel.send)throw Error("Choose a text channel where the bot can post.");
+ const bot=await guild.members.fetchMe();
+ const permissions=channel.permissionsFor(bot);
+ for(const permission of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages])
+  if(!permissions?.has(permission))throw Error("The bot cannot view or send messages in the selected destination.");
+ for(const roleId of [...new Set(roleIds)]){
+  const role=await guild.roles.fetch(roleId).catch(()=>null);
+  if(!role||role.id===guild.id)throw Error("A selected ping role no longer exists. Update the template.");
+  if(!role.mentionable&&!permissions?.has(PermissionFlagsBits.MentionEveryone))
+   throw Error("The bot cannot mention role "+role.name+". Make it mentionable or grant the bot permission to mention roles.");
+ }
+ return channel;
+}
+export async function logPingChange(scheduleId,guildId,actorId,event,details={}){
+ return PingAudit.create({scheduleId,guildId,actorId,event,details});
+}
+export async function activatePingSchedule({guild,template,channelId,startAt,actorId,overrides={}}){
+ const groups=template.groups.map(g=>({...g.toObject?.()||g}));
+ const events=planPingDeliveries(groups,startAt);
+ if(!events.length)throw Error("The schedule does not contain any future pings.");
+ await validatePingDestination(guild,channelId,groups.flatMap(g=>g.roleIds||[]));
+ const start=new Date(startAt);
+ if(start.getTime()<Date.now()-60_000)throw Error("The start time must be in the future.");
+ const end=new Date(Math.max(...groups.map(g=>start.getTime()+g.durationDays*DAY)));
+ const session=await mongoose.startSession();
+ let schedule;
+ try {
+  await session.withTransaction(async()=>{
+   const [record]=await PingSchedule.create([{
+    guildId:guild.id,templateId:template._id,templateName:template.name,
+    name:overrides.name||template.name,destinationChannelId:channelId,
+    createdBy:template.createdBy,activatedBy:actorId,status:"active",
+    groups,startsAt:start,endsAt:end,plannedCount:events.length,
+   }],{session});
+   schedule=record;
+   await PingDelivery.insertMany(events.map(e=>({
+    guildId:guild.id,scheduleId:record._id,...e,
+   })),{session,ordered:true});
+   await PingAudit.create([{guildId:guild.id,scheduleId:record._id,actorId,
+    event:"activated",details:{templateId:String(template._id),channelId,startAt:start,groups,plannedCount:events.length}}],{session});
+  });
+ }finally{await session.endSession();}
+ await ensurePingDashboard(guild.client,guild.id);
+ return schedule;
+}
+
+async function dashboardPayload(guildId){
+ const active=await PingSchedule.find({guildId,status:{$in:["active","paused"]}}).sort({startsAt:1}).limit(15).lean();
+ const totals=await PingSchedule.aggregate([
+  {$match:{guildId,status:{$in:["active","paused"]}}},
+  {$group:{_id:"$status",count:{$sum:1},sent:{$sum:"$sentCount"}}},
+ ]);
+ const counts=Object.fromEntries(totals.map(x=>[x._id,x]));
+ const due=await PingDelivery.find({guildId,status:"pending",
+  scheduleId:{$in:active.filter(x=>x.status==="active").map(x=>x._id)}})
+  .sort({dueAt:1}).limit(5).lean();
+ const scheduleNames=new Map(active.map(x=>[String(x._id),x.name]));
+ const lines=["**✦ Scheduled Pings — Staff Dashboard**",
+  "Saved templates, recurring role mentions and message delivery history.",
+  "",
+  "**Overview:** "+(counts.active?.count||0)+" active · "+(counts.paused?.count||0)+" paused · "+totals.reduce((n,x)=>n+x.sent,0)+" sent",
+  "",
+  "**Active Schedules**"];
+ if(!active.length)lines.push("No active schedules.");
+ for(const s of active){
+  lines.push((s.status==="paused"?"⏸️ ":"🟦 ")+"**"+short(s.name)+"** — <#"+s.destinationChannelId+">",
+   String(s.sentCount||0)+"/"+s.plannedCount+" sent · "+s.groups.length+" groups · Ends "+ts(s.endsAt));
+ }
+ lines.push("","**Next Scheduled Pings**");
+ if(!due.length)lines.push("No upcoming pings.");
+ for(const d of due)
+  lines.push("• "+ts(d.dueAt)+" — "+short(scheduleNames.get(String(d.scheduleId))||"Schedule")+" · Group "+(d.groupIndex+1));
+ lines.push("","*Staff only · Use the buttons below to create or manage schedules.*");
+ return {content:lines.join("\n").slice(0,1950),components:pingDashboardButtons(),
+   allowedMentions:{parse:[]}};
+}
+export async function ensurePingDashboard(client,guildId){
+ const config=await GuildConfig.findOne({guildId}).lean();
+ if(!config?.scheduledPingsChannelId)return null;
+ const guild=await client.guilds.fetch(guildId);
+ const channel=await guild.channels.fetch(config.scheduledPingsChannelId).catch(()=>null);
+ if(!channel?.send||channel.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
+  throw Error("Scheduled Pings dashboard channel must be private and writable.");
+ const bot=await guild.members.fetchMe();
+ const perms=channel.permissionsFor(bot);
+ for(const permission of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.ReadMessageHistory])
+  if(!perms?.has(permission))throw Error("Bot needs View Channel, Send Messages and Read Message History in the private Scheduled Pings channel.");
+ let message=config.scheduledPingsDashboardMessageId
+  ?await channel.messages.fetch(config.scheduledPingsDashboardMessageId).catch(()=>null):null;
+ if(message&&message.author.id!==client.user.id)message=null;
+ const payload=await dashboardPayload(guildId);
+ if(message){
+  if(message.content!==payload.content)await message.edit(payload);
+ }else{
+  message=await channel.send(payload);
+  await GuildConfig.updateOne({guildId},{$set:{scheduledPingsDashboardMessageId:message.id}});
+  if(perms.has(PermissionFlagsBits.ManageMessages))await message.pin().catch(()=>{});
+ }
+ return message;
+}
+export async function refreshPingDashboard(client,guildId){
+ try{return await ensurePingDashboard(client,guildId);}
+ catch(error){console.error("[Scheduled Pings] Dashboard update failed for "+guildId,error);return null;}
+}
+
+async function sendOne(client,delivery,now){
+ const locked=await PingDelivery.findOneAndUpdate({_id:delivery._id,status:"pending"},
+  {$set:{status:"sending",processingStartedAt:now}},{new:true}).lean();
+ if(!locked)return false;
+ try{
+  const s=await PingSchedule.findById(locked.scheduleId).lean();
+  if(!s||s.status!=="active"){
+   await PingDelivery.updateOne({_id:locked._id,status:"sending"},{$set:{status:"skipped",error:"Schedule was no longer active."}});
+   if(s)await PingSchedule.updateOne({_id:s._id},{$inc:{skippedCount:1}});
+   return true;
+  }
+  const guild=await client.guilds.fetch(s.guildId);
+  const channel=await validatePingDestination(guild,s.destinationChannelId,locked.roleIds);
+  const text=locked.roleIds.map(id=>"<@&"+id+">").join(" ")+(locked.content? (locked.roleIds.length?"\n":"")+locked.content:"");
+  if(!text.trim())throw Error("No roles or message text left to send.");
+  const message=await channel.send({content:text,allowedMentions:{parse:[],roles:locked.roleIds}});
+  await PingDelivery.updateOne({_id:locked._id,status:"sending"},{$set:{
+   status:"sent",sentAt:new Date(),messageId:message.id,messageUrl:message.url,
+  }});
+  await PingSchedule.updateOne({_id:s._id},{$inc:{sentCount:1}});
+ }catch(error){
+  // A Discord send may have succeeded just before a connection broke. Preserve
+  // a clear audit trail and do not resend automatically.
+  await PingDelivery.updateOne({_id:locked._id,status:"sending"},{$set:{
+   status:"failed",error:String(error.message||error).slice(0,800),
+  }});
+  await PingSchedule.updateOne({_id:locked.scheduleId},{$inc:{failedCount:1}});
+  console.error("[Scheduled Pings] Delivery failed:",locked._id,error);
+ }
+ return true;
+}
+async function completeIfFinished(scheduleId,client){
+ const s=await PingSchedule.findById(scheduleId).lean();
+ if(!s||s.status!=="active")return;
+ const remaining=await PingDelivery.countDocuments({scheduleId,status:{$in:["pending","sending"]}});
+ if(remaining)return;
+ const changed=await PingSchedule.findOneAndUpdate({_id:s._id,status:"active"},
+  {$set:{status:"completed",stoppedAt:new Date()}},{new:true}).lean();
+ if(changed){
+  await logPingChange(changed._id,changed.guildId,"system","completed",{});
+  await refreshPingDashboard(client,changed.guildId);
+ }
+}
+export async function reconcilePingSchedules(client,{now=new Date()}={}){
+ // An ambiguous in-flight send must never be silently retransmitted after a restart.
+ const ambiguous=await PingDelivery.find({status:"sending",processingStartedAt:{$lt:new Date(now.getTime()-10*60_000)}}).limit(30).lean();
+ for(const event of ambiguous){
+  const result=await PingDelivery.updateOne({_id:event._id,status:"sending"},
+   {$set:{status:"failed",error:"Uncertain delivery after interrupted send; not automatically retried to prevent duplicate mentions."}});
+  if(result.modifiedCount)await PingSchedule.updateOne({_id:event.scheduleId},{$inc:{failedCount:1}});
+ }
+ const due=await PingDelivery.find({status:"pending",dueAt:{$lte:now}}).sort({dueAt:1}).limit(50).lean();
+ const changedGuilds=new Set(),changedSchedules=new Set();
+ for(const event of due){
+  const s=await PingSchedule.findById(event.scheduleId).select("status guildId").lean();
+  if(!s){await PingDelivery.updateOne({_id:event._id},{$set:{status:"skipped",error:"Schedule missing"}});continue;}
+  if(s.status!=="active")continue; // Keep paused schedules dormant.
+  if(nowMs(event.dueAt)<now.getTime()-20*60_000){
+   const changed=await PingDelivery.updateOne({_id:event._id,status:"pending"},
+    {$set:{status:"skipped",error:"Missed while offline; not backfilled to avoid mass mentions."}});
+   if(changed.modifiedCount)await PingSchedule.updateOne({_id:event.scheduleId},{$inc:{skippedCount:1}});
+  }else await sendOne(client,event,now);
+  changedGuilds.add(s.guildId);changedSchedules.add(String(event.scheduleId));
+ }
+ for(const event of ambiguous){changedSchedules.add(String(event.scheduleId));changedGuilds.add(event.guildId);}
+ for(const scheduleId of changedSchedules)await completeIfFinished(scheduleId,client);
+ // Also handle a schedule where every future delivery was removed by an edit.
+ const ending=await PingSchedule.find({status:"active",endsAt:{$lte:now}}).limit(50).select("_id guildId").lean();
+ for(const s of ending){await completeIfFinished(s._id,client);changedGuilds.add(s.guildId);}
+ for(const guildId of changedGuilds)await refreshPingDashboard(client,guildId);
+ const completed=await PingSchedule.find({status:{$in:["completed","ended"]},archiveMessageId:""}).limit(10).lean();
+ for(const schedule of completed)await archivePingSchedule(client,schedule).catch(err=>console.error("[Scheduled Pings] Archive pending:",err));
+ return {processed:due.length,archived:completed.length};
+}
+
+export async function archivePingSchedule(client,schedule){
+ if(schedule.archiveMessageId)return;
+ const config=await GuildConfig.findOne({guildId:schedule.guildId}).lean();
+ if(!config?.giveawayArchiveChannelId)throw Error("No shared archive is configured; archive remains pending.");
+ const guild=await client.guilds.fetch(schedule.guildId);
+ const channel=await guild.channels.fetch(config.giveawayArchiveChannelId);
+ if(!channel?.send)throw Error("Shared archive is inaccessible.");
+ const deliveries=await PingDelivery.find({scheduleId:schedule._id}).sort({sequence:1}).lean();
+ const edits=await PingAudit.find({scheduleId:schedule._id}).sort({createdAt:1}).lean();
+ const counts={
+  planned:deliveries.length,sent:deliveries.filter(d=>d.status==="sent").length,
+  failed:deliveries.filter(d=>d.status==="failed").length,
+  skipped:deliveries.filter(d=>d.status==="skipped").length,
+ };
+ const report={
+  scheduleId:String(schedule._id),status:schedule.status,
+  name:schedule.name,template:schedule.templateName,
+  createdBy:schedule.createdBy,activatedBy:schedule.activatedBy,
+  destinationChannelId:schedule.destinationChannelId,
+  startsAt:schedule.startsAt,endsAt:schedule.endsAt,
+  stoppedAt:schedule.stoppedAt,stopReason:schedule.stopReason,
+  groups:schedule.groups,counts,
+  deliveries:deliveries.map(d=>({
+   sequence:d.sequence,groupIndex:d.groupIndex,dueAt:d.dueAt,
+   sentAt:d.sentAt,roleIds:d.roleIds,content:d.content,
+   status:d.status,messageId:d.messageId,messageUrl:d.messageUrl,error:d.error,
+   changedBy:d.changedBy,
+  })),
+  changeHistory:edits.map(e=>({at:e.createdAt,by:e.actorId,event:e.event,details:e.details})),
+ };
+ // A full JSON file preserves all delivered messages and every edit. The
+ // short Discord message remains legible even for a month-long schedule.
+ const json=JSON.stringify(report,null,2);
+ const summary="**🗄️ Scheduled Pings Archive — "+short(schedule.name)+"**\n"+
+   "**Schedule ID:** "+String(schedule._id)+"\n"+
+   "**Status:** "+schedule.status+"\n"+
+   "**Created by:** <@"+schedule.createdBy+"> · **Activated by:** <@"+schedule.activatedBy+">\n"+
+   "**Destination:** <#"+schedule.destinationChannelId+">\n"+
+   "**Ran:** "+ts(schedule.startsAt)+" to "+ts(schedule.stoppedAt||schedule.endsAt)+"\n"+
+   "**Ping Groups:** "+schedule.groups.length+
+   " · **Sent:** "+counts.sent+" · **Failed:** "+counts.failed+" · **Skipped:** "+counts.skipped+
+   "\n**Staff changes:** "+edits.filter(e=>e.event!=="activated").length+
+   "\nFull roles, message text, send links, timestamps and modifications are attached.";
+ const found=await channel.messages.fetch({limit:100}).catch(()=>null);
+ let existing=found?.find(m=>m.author?.id===client.user.id&&m.content?.includes("**Schedule ID:** "+String(schedule._id)));
+ let message=existing;
+ if(!message){
+  const bytes=Buffer.from(json,"utf8");
+  if(bytes.length>7_000_000)throw Error("Archive log is too large for a single attachment; please export in parts.");
+  message=await channel.send({content:summary,files:[new AttachmentBuilder(bytes,{name:"scheduled-pings-"+String(schedule._id)+".json"})],
+   allowedMentions:{parse:[]}});
+ }
+ await PingSchedule.updateOne({_id:schedule._id,archiveMessageId:""},{$set:{
+  archiveMessageId:message.id,archivedAt:new Date(),status:"archived",
+ }});
+ await refreshPingDashboard(client,schedule.guildId);
+ return message;
+}
+
+export async function pausePingSchedule(client,schedule,actorId){
+ const updated=await PingSchedule.findOneAndUpdate({_id:schedule._id,status:"active"},
+  {$set:{status:"paused"}},{new:true});
+ if(!updated)throw Error("This schedule is not active.");
+ await logPingChange(schedule._id,schedule.guildId,actorId,"paused",{});
+ await refreshPingDashboard(client,schedule.guildId);
+ return updated;
+}
+export async function resumePingSchedule(client,schedule,actorId){
+ const updated=await PingSchedule.findOneAndUpdate({_id:schedule._id,status:"paused"},
+  {$set:{status:"active"}},{new:true});
+ if(!updated)throw Error("This schedule is not paused.");
+ const missed=await PingDelivery.updateMany({scheduleId:schedule._id,status:"pending",dueAt:{$lt:new Date()}},
+  {$set:{status:"skipped",error:"Skipped while paused."}});
+ if(missed.modifiedCount)await PingSchedule.updateOne({_id:schedule._id},{$inc:{skippedCount:missed.modifiedCount}});
+ await logPingChange(schedule._id,schedule.guildId,actorId,"resumed",{skipped:missed.modifiedCount});
+ await completeIfFinished(schedule._id,client);
+ await refreshPingDashboard(client,schedule.guildId);
+ return updated;
+}
+export async function endPingSchedule(client,schedule,actorId,reason){
+ const result=await PingSchedule.findOneAndUpdate({_id:schedule._id,status:{$in:["active","paused"]}},
+  {$set:{status:"ended",stoppedAt:new Date(),stopReason:String(reason).slice(0,500)}},{new:true});
+ if(!result)throw Error("This schedule already ended.");
+ const changed=await PingDelivery.updateMany({scheduleId:schedule._id,status:"pending"},
+  {$set:{status:"skipped",error:"Ended early by staff."}});
+ if(changed.modifiedCount)await PingSchedule.updateOne({_id:schedule._id},{$inc:{skippedCount:changed.modifiedCount}});
+ await logPingChange(schedule._id,schedule.guildId,actorId,"ended early",{reason,skipped:changed.modifiedCount});
+ await archivePingSchedule(client,result);
+ await refreshPingDashboard(client,schedule.guildId);
+ return result;
+}
+export async function changeFuturePing(client,schedule,event,actorId,{content,roleIds,dueAt}){
+ if(!["active","paused"].includes(schedule.status))throw Error("This schedule is closed.");
+ if(event.status!=="pending"||new Date(event.dueAt)<=new Date())throw Error("Only future pending pings can be edited.");
+ const after={
+  content:content===undefined?event.content:String(content).trim(),
+  roleIds:roleIds===undefined?event.roleIds:[...new Set(roleIds.map(String))],
+  dueAt:dueAt===undefined?event.dueAt:new Date(dueAt),
+ };
+ if(after.roleIds.length>10||after.content.length+after.roleIds.length*24>1900)
+  throw Error("Too many roles or too much text.");
+ if(!after.roleIds.length&&!after.content)throw Error("A ping needs text or at least one role.");
+ if(new Date(after.dueAt)<=new Date())throw Error("Choose a future posting time.");
+ const guild=await client.guilds.fetch(schedule.guildId);
+ await validatePingDestination(guild,schedule.destinationChannelId,after.roleIds);
+ const before={content:event.content,roleIds:event.roleIds,dueAt:event.dueAt};
+ const updated=await PingDelivery.findOneAndUpdate({_id:event._id,status:"pending",dueAt:event.dueAt},
+  {$set:{...after,changedBy:actorId}},{new:true});
+ if(!updated)throw Error("This ping changed while you were editing. Please reload.");
+ await logPingChange(schedule._id,schedule.guildId,actorId,"edited future ping",
+  {sequence:event.sequence,before,after});
+ await refreshPingDashboard(client,schedule.guildId);
+ return updated;
+}
