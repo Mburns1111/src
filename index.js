@@ -583,7 +583,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         interaction.customId.startsWith("pings:"))
       return await handleScheduledPingsInteraction(interaction);
     if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
-         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
         interaction.customId.startsWith("guildconfig:"))
       return await handleGuidedGuildSetupInteraction(interaction);
     if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
