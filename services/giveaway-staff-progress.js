@@ -1,6 +1,6 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,PermissionFlagsBits,UserSelectMenuBuilder} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
-import GuildConfig from "../models/GuildConfig.js";
+
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
 import GiveawayActivityRuleMinuteCount from "../models/GiveawayActivityRuleMinuteCount.js";
@@ -17,21 +17,15 @@ export async function activityProgressRows(record,guild=null,{historical=false}=
  // archival snapshots preserve what was recorded during the giveaway.
  if(!historical&&!guild?.members?.fetch)
    throw Error("Discord membership verification is required for live activity progress.");
- const config=historical?null:await GuildConfig.findOne({guildId:record.guildId})
-   .select("activityParticipationRoleId activityParticipationRoleConfiguredAt").lean();
- const roleId=config?.activityParticipationRoleId;
- if(!historical&&!roleId)return [];
+
  if(record.guidedSeries){
-   if(!historical&&record.requiredRoleId!==roleId)return [];
-   const rows=await activityRoster(record,null,historical?null:guild);
+   const rows=await activityRoster(record,null,historical?null:guild,{historical});
    return rows.filter(r=>r.messages>0).map(r=>({userId:String(r._id),messages:r.messages,days:r.days,qualified:r.qualified}));
  }
  const periodStart=record.activityStartAt||record.customActivityStartAt;
  const end=record.activityEndAt||record.customActivityEndAt;
  if(!periodStart||!end)return [];
- if(!historical&&!config.activityParticipationRoleConfiguredAt)return [];
- const start=historical?new Date(periodStart):new Date(Math.max(+new Date(periodStart),
-   Math.ceil(+new Date(config.activityParticipationRoleConfiguredAt)/60000)*60000));
+ const start=new Date(periodStart);
  if(start>=new Date(end))return [];
  const minimum=Math.max(1,record.activityMinimum||1);
  const target=Math.max(1,record.activityMinTotalMessages||minimum);
@@ -41,18 +35,19 @@ export async function activityProgressRows(record,guild=null,{historical=false}=
  if(special&&!rule)throw Error("Watched phrase/mention rule is unavailable for staff progress.");
  const pipeline=special?qualifyingWatchRulePipeline({
    guildId:record.guildId,rule,startAt:start,endAt:end,minimum,days,minimumTotalMessages:target,
+   consent:!historical,
  }):qualifyingActivityPipeline({
    guildId:record.guildId,type:record.activityChannelIds?.length?"channels":"general",
    channelIds:record.activityChannelIds||[],minimum,days,
    minimumChars:record.activityMinChars||0,minimumTotalMessages:target,
-   startAt:start,endAt:end,
+   startAt:start,endAt:end,consent:!historical,
  });
  pipeline.pop(); // Keep partial progress: do not filter out members still working.
  const Model=special?GiveawayActivityRuleMinuteCount:GiveawayActivityMinuteCount;
  const rows=await Model.aggregate(pipeline);
  const verified=historical?rows.map(()=>true):await Promise.all(rows.map(async row=>{
    const member=await guild.members.fetch({user:row._id,force:true}).catch(()=>null);
-   return Boolean(member?.roles?.cache?.has(roleId));
+   return Boolean(member&&!member.user?.bot);
  }));
  return rows.filter((r,n)=>r.totalMessages>0&&verified[n]).map(r=>({
    userId:String(r._id),messages:r.totalMessages,days:r.activeDays,
