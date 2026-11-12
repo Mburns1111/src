@@ -288,7 +288,7 @@ test("retiming preserves individual edits and asks before removing an edited occ
  preview=await click(control(setup,"activation:review"));
  assert.match(preview.content,/Custom second occurrence/);
  const groups=await click(control(preview,"activation:groups"));
- let groupPanel=await click(control(groups,"select:activationGroup"),{values:["0"]});
+ groupPanel=await click(control(groups,"select:activationGroup"),{values:["0"]});
  let timing=await click(control(groupPanel,"group:timing"));
  const values={name:"A",repeatMode:"hours",interval:"1",days:"1",offset:"0"};
  groupPanel=await click(timing.data.custom_id,{fields:values});
