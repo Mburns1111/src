@@ -177,7 +177,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "2. Activity Giveaways",
-    "Qualify automatically by meeting the listed activity requirements. The bot tracks your participation, so no entry button is needed."
+    "First, opt in by getting the server’s **Activity Participation** role. Only messages sent while you have this role can count. Once opted in, meet the listed activity requirements for automatic entry; there is no entry button. You can remove the role to opt out."
    ],
    [
     "3. Court's Trials",
@@ -252,7 +252,7 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Choose a Giveaway Type",
-    "• **Regular Giveaway** — `/giveaway start`: A traditional giveaway where members enter using a button.\n• **Activity Giveaway** — `/giveaway activity`: Members qualify through activity requirements. The bot automatically tracks and logs participation and enters eligible members without manual entry.\n• **Court's Trial** — `/trial start`: A fast-paced elimination-style giveaway.\n\nComplete the matching setup first."
+    "• **Regular Giveaway** — `/giveaway start`: A traditional giveaway where members enter using a button.\n• **Activity Giveaway** — `/giveaway activity`: Members must obtain the dedicated **Activity Participation** role first, then qualify through activity requirements. Messages from members without this role are never logged for activity giveaways; there is no manual entry button.\n• **Court's Trial** — `/trial start`: A fast-paced elimination-style giveaway.\n\nComplete the matching setup first."
    ],
    [
     "Court's Trials — Fast-Paced Giveaways",
