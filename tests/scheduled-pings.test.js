@@ -165,14 +165,14 @@ function fakeQuery(records){
  };
 }
 
-function staffEditor(t){
+function staffEditor(t,{channelNames={}}={}){
  t.mock.method(GuildConfig,"findOne",()=>({lean:async()=>({scheduledPingsChannelId:"staff",serverTimeZone:"America/New_York"})}));
  let counter=0;
  return async function click(customId,{values=[],fields}={}){
   let result;
   const capture=async payload=>{result=payload;};
   const i={id:String(++counter),guildId:"server",
-   guild:{channels:{fetch:async()=>({isTextBased:()=>true,send(){},permissionsFor:()=>({has:()=>true})})},
+   guild:{channels:{fetch:async id=>({name:channelNames[id]||id,isTextBased:()=>true,send(){},permissionsFor:()=>({has:()=>true})})},
     members:{fetchMe:async()=>({})},roles:{fetch:async id=>({id,mentionable:true})}},user:{id:t.name},channelId:"staff",
    memberPermissions:{has:()=>true},message:{flags:{has:()=>true}},customId,values,
    fields:{getTextInputValue:key=>fields[key]},isModalSubmit:()=>Boolean(fields),
@@ -226,6 +226,46 @@ test("activation retry reuses the committed preview even after a restart",async 
  const identity={_id:"preview-id",guildId:"guild",activatedBy:"staff"};
  t.mock.method(PingSchedule,"findOne",async filter=>{assert.deepEqual(filter,identity);return saved;});
  assert.equal(await activatePingSchedule({scheduleId:"preview-id",guild:{id:"guild"},actorId:"staff"}),saved);
+});
+
+test("full schedule is grouped by alphabetical channel name before time and paginates by channel",async t=>{
+ const now=Date.now();
+ const schedules=[
+  {_id:"s-z",name:"Early Event",timeZone:"America/New_York",destinationChannelId:"chan-z"},
+  {_id:"s-a",name:"Chat Reminder",timeZone:"America/New_York",destinationChannelId:"chan-a"},
+ ];
+ const future=hours=>new Date(now+hours*3600000);
+ const data=[
+  {scheduleId:"s-z",dueAt:future(1),content:"Z first",groupIndex:0,sequence:1,status:"pending"},
+  ...Array.from({length:11},(_,i)=>({
+   scheduleId:"s-a",dueAt:future(i+2),content:"Chat "+String(i+1),
+   groupIndex:0,sequence:i+1,status:"pending",
+  })),
+  {scheduleId:"s-a",dueAt:new Date(now-3600000),content:"Past pending",groupIndex:0,status:"pending"},
+ ];
+ t.mock.method(PingSchedule,"find",()=>fakeQuery(schedules));
+ const matches=filter=>data.filter(d=>d.status===filter.status&&
+  d.dueAt>filter.dueAt.$gt&&filter.scheduleId.$in.includes(d.scheduleId));
+ t.mock.method(PingDelivery,"countDocuments",async filter=>matches(filter).length);
+ t.mock.method(PingDelivery,"find",filter=>fakeQuery(matches(filter).sort(
+  (a,b)=>a.dueAt-b.dueAt)));
+ const click=staffEditor(t,{channelNames:{"chan-a":"alpha-chat","chan-z":"zeta-events"}});
+ let panel=await click("pings:root:upcoming");
+ assert.match(panel.content,/Full Upcoming Schedule/);
+ assert.match(panel.content,/\*\*<#chan-a>\*\*/);
+ assert.doesNotMatch(panel.content,/<#chan-z>/,
+  "all alpha-channel pings precede zeta-channel pings, even if they occur later");
+ assert.match(panel.content,/Chat 1/);
+ assert.doesNotMatch(panel.content,/Past pending/);
+ assert.match(panel.content,/Page 1\/2/);
+ panel=await click(control(panel,"upcoming:next"));
+ assert.match(panel.content,/<#chan-a>/);
+ assert.match(panel.content,/<#chan-z>/);
+ assert.ok(panel.content.indexOf("<#chan-a>")<panel.content.indexOf("<#chan-z>"));
+ assert.match(panel.content,/Z first/);
+ assert.match(panel.content,/Page 2\/2/);
+ panel=await click(control(panel,"upcoming:prev"));
+ assert.match(panel.content,/Page 1\/2/);
 });
 
 test("Review & Activate shows actual roles for every ping and pages crowded previews safely",async t=>{
