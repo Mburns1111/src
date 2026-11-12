@@ -57,7 +57,7 @@ export function normalizePingGroup(g,{allowEmpty=false}={}){
    throw Error("Message text and role mentions together must fit in 1,900 characters.");
  if(!allowEmpty){
   if(messageMode==="roles"&&!roles.length)
-   throw Error("Select at least one role for role-only pings.");
+   throw Error("Enter message text or select at least one role.");
   if(["single","rotate"].includes(messageMode)&&!messages.length)
    throw Error("Enter message text for this Ping Group.");
   if(messageMode==="per-ping"&&!perPingMessages.some(Boolean))
