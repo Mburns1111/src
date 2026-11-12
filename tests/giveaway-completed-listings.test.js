@@ -32,18 +32,23 @@ function record(overrides={}) {
 const buttons=rec=>giveawayStaffRecordPayload(rec).components.flatMap(row=>
   row.components.map(b=>b.data.custom_id));
 
-test("Delete Listing is available immediately when a completed giveaway selected nobody",()=>{
+test("a giveaway with no selected winners requires cancellation, not completed-prize archive",()=>{
   const rec=record({winnerIds:[]});
-  assert.equal(completedGiveawayCanDeleteListing(rec),true);
-  assert.ok(buttons(rec).includes("giveawaystaff:remove:"+id));
-  assert.ok(!buttons(rec).includes("giveawaystaff:cancel:"+id));
+  assert.equal(completedGiveawayCanDeleteListing(rec),false);
+  assert.ok(!buttons(rec).includes("giveawaystaff:remove:"+id));
+  assert.ok(buttons(rec).includes("giveawaystaff:cancel:"+id));
 });
 
 test("the current winning member must submit a complete ticket claim",()=>{
   const full=record({winnerClaims:[ticket(0,winnerA)]});
-  assert.equal(completedGiveawayCanDeleteListing(full),true);
-  assert.ok(buttons(full).includes("giveawaystaff:remove:"+id));
-  assert.ok(!buttons(full).includes("giveawaystaff:cancel:"+id));
+  assert.equal(completedGiveawayCanDeleteListing(full),false);
+  assert.ok(!buttons(full).includes("giveawaystaff:remove:"+id));
+  assert.ok(buttons(full).includes("giveawaystaff:deliver:"+id),
+    "A submitted ticket claim is not proof of prize delivery");
+  const delivered={...full,prizeDeliveredAt:started,prizeDeliveredBy:staffId};
+  assert.equal(completedGiveawayCanDeleteListing(delivered),true);
+  assert.ok(buttons(delivered).includes("giveawaystaff:remove:"+id));
+  assert.ok(!buttons(delivered).includes("giveawaystaff:deliver:"+id));
   assert.equal(completedGiveawayCanDeleteListing(record({
     winnerClaims:[ticket(0,winnerB)] // Former winner's claim is not the current winner's claim
   })),false);
@@ -52,7 +57,7 @@ test("the current winning member must submit a complete ticket claim",()=>{
   })),false);
 });
 
-test("no rerolls left permits deletion only after that winner's claim deadline",()=>{
+test("missing claims cannot be archived even after the reroll budget and claim deadline expire",()=>{
   const exhausted=record({
     rerollHistory:[
       {slot:0,reason:"claim-expired",previousId:winnerB,replacementId:winnerA},
@@ -60,27 +65,35 @@ test("no rerolls left permits deletion only after that winner's claim deadline",
     ],
   });
   assert.equal(completedGiveawayCanDeleteListing(exhausted,{now:beforeDeadline}),false);
-  assert.equal(completedGiveawayCanDeleteListing(exhausted,{now:afterDeadline}),true);
-  assert.ok(buttons(exhausted).includes("giveawaystaff:remove:"+id));
+  assert.equal(completedGiveawayCanDeleteListing(exhausted,{now:afterDeadline}),false);
+  assert.ok(!buttons(exhausted).includes("giveawaystaff:remove:"+id));
+  assert.ok(buttons(exhausted).includes("giveawaystaff:cancel:"+id));
   assert.equal(completedGiveawayCanDeleteListing(record({
     rerollHistory:[{slot:0,reason:"claim-expired"}]
   }),{now:afterDeadline}),false);
   assert.equal(completedGiveawayCanDeleteListing(record({maxAutoRerolls:0}),{now:beforeDeadline}),false);
-  assert.equal(completedGiveawayCanDeleteListing(record({maxAutoRerolls:0}),{now:afterDeadline}),true);
+  assert.equal(completedGiveawayCanDeleteListing(record({maxAutoRerolls:0}),{now:afterDeadline}),false);
 });
 
-test("no eligible replacement may be recorded as a resolved prize place",()=>{
+test("a forfeited prize place must be cancelled instead of archived as delivered",()=>{
   const noCandidates=record({claimResolvedSlots:[0],maxAutoRerolls:5});
   assert.equal(completedGiveawayCanDeleteListing(noCandidates,{now:beforeDeadline}),false);
-  assert.equal(completedGiveawayCanDeleteListing(noCandidates,{now:afterDeadline}),true);
+  assert.equal(completedGiveawayCanDeleteListing(noCandidates,{now:afterDeadline}),false);
+  assert.ok(buttons(noCandidates).includes("giveawaystaff:cancel:"+id));
 });
 
-test("all prize places must be claimed or past deadline with no replacements left",()=>{
+test("every prize must be claimed and delivery confirmed before completed archive",()=>{
   const multi=record({winnerIds:[winnerA,winnerB],winnerClaims:[ticket(0,winnerA)],
     claimResolvedSlots:[1]});
   assert.equal(completedGiveawayCanDeleteListing(multi,{now:beforeDeadline}),false);
-  assert.equal(completedGiveawayCanDeleteListing(multi,{now:afterDeadline}),true);
+  assert.equal(completedGiveawayCanDeleteListing(multi,{now:afterDeadline}),false);
   assert.equal(completedGiveawayCanDeleteListing({...multi,claimResolvedSlots:[]},{now:afterDeadline}),false);
+  const fullyClaimed={...multi,claimResolvedSlots:[],
+    winnerClaims:[ticket(0,winnerA),ticket(1,winnerB)]};
+  assert.equal(completedGiveawayCanDeleteListing(fullyClaimed),false);
+  const delivered={...fullyClaimed,prizeDeliveredAt:started,prizeDeliveredBy:staffId};
+  assert.equal(completedGiveawayCanDeleteListing(delivered),true);
+  assert.equal(completedGiveawayCanDeleteListing({...delivered,claimResolvedSlots:[1]}),false);
 });
 
 test("live and unsettled events cannot archive; cancelled and removed records can move",()=>{
@@ -97,10 +110,13 @@ test("live and unsettled events cannot archive; cancelled and removed records ca
     assert.ok(!giveawayStaffRecordPayload(archived,{archived:true}).components.flatMap(row=>row.components).some(button=>button.data.custom_id==="giveawaystaff:remove:"+id));
   }
   const legacyTrial=record({mode:"survival",trialTicketClaimsEnabled:false,winnerClaims:[ticket(0,winnerA)]});
-  assert.equal(completedGiveawayCanDeleteListing(legacyTrial,{now:afterDeadline}),true);
-  assert.ok(buttons(legacyTrial).includes("giveawaystaff:remove:"+id));
+  assert.equal(completedGiveawayCanDeleteListing(legacyTrial,{now:afterDeadline}),false);
+  assert.ok(buttons(legacyTrial).includes("giveawaystaff:deliver:"+id));
+  const deliveredLegacy={...legacyTrial,prizeDeliveredAt:started};
+  assert.equal(completedGiveawayCanDeleteListing(deliveredLegacy),true);
+  assert.ok(buttons(deliveredLegacy).includes("giveawaystaff:remove:"+id));
   assert.ok(buttons(record({status:"open"})).includes("giveawaystaff:cancel:"+id));
-  assert.ok(!buttons(record({status:"ended"})).includes("giveawaystaff:cancel:"+id));
+  assert.ok(buttons(record({status:"ended"})).includes("giveawaystaff:cancel:"+id));
 });
 
 test("one-click Archive Giveaway moves the staff record and separate review, preserves claims and removes only the public listing",async()=>{
@@ -109,6 +125,7 @@ test("one-click Archive Giveaway moves the staff record and separate review, pre
   const archivedReviewId="923456789012345678";
   const reviewId="934567890123456789";
   let stored=record({mode:"activity",winnerClaims:[ticket(0,winnerA)],
+    prizeDeliveredAt:started,prizeDeliveredBy:staffId,
     listChannelId:"945678901234567890",listMessageId:"956789012345678901",
     reviewChannelId:staffId,reviewMessageId:reviewId});
   const old={one:Giveaway.findOne,change:Giveaway.findOneAndUpdate,
