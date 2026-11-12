@@ -138,7 +138,7 @@ export function describeActivityWizard(session){
     'Requirement · Send '+s.minimum+' '+(s.phrase||s.mention?'qualifying ':'')+'message(s) total during the activity period'+
       (s.days>1?' · at least one message on '+s.days+' different days':''),
     s.minChars>1?'Minimum message length · '+s.minChars+' characters of text per message (not including mentions)':null,
-    'Activity opt-in role (mandatory) · <@&'+s.requiredRoleId+'>',
+    'Participation · Internal Opt In button below the Activity Giveaway List (no role)',
     'Where to opt in · Use the Opt In button below the Activity Giveaway List',
     s.mention?'Required ping · <@'+s.mention+'>':null,s.phrase?'Required exact phrase · '+s.phrase+' (correct spelling and word order; capitalization does not matter)':null,
     'Winners · '+s.winners+' · Draw '+stamp(s.firstDraw?new Date(s.firstDraw):end),
