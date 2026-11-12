@@ -723,6 +723,8 @@ async function handleControl(i){
    delete s.pendingTiming;
    return reply(i,activationGroupPanel(s));
   }
+  const g=s.workingGroups[s.selectedGroupIndex];
+  if(!g)throw Error("Select a Ping Group first.");
   if(command==="group:back")return reply(i,activationSetupPanel(s));
   if(command==="group:return")return reply(i,activationGroupPanel(s));
   if(command==="group:perPing")return reply(i,perPingPanel(s));
