@@ -22,7 +22,8 @@ test("QOTD message thresholds exclude command text, bots, and short responses",(
  assert.equal(messageCharacterCount({content:" .claim "}),0);
  const pipeline=qualifyingActivityPipeline({guildId:"test",type:"channels",channelIds:["qotd"],minimumChars:20,minimum:1,days:3,week:"2026-11-04"});
  assert.deepEqual(pipeline[0].$match.channelId,{$in:["qotd"]});
- assert.equal(pipeline[1].$project.messages.$sum.$map.input.$filter.cond.$gte[1],20);
+ assert.equal(pipeline.find(stage=>stage.$project)?.$project.messages.$sum.$map.input.$filter.cond.$gte[1],20);
+ assert.ok(pipeline.some(stage=>stage.$lookup),"activity totals must check current opt-in");
  assert.equal(pipeline.at(-1).$match.activeDays.$gte,3);
 });
 
