@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import {parseServerDateTime,formatServerClock,addServerCalendarDays,validateServerTimeZone} from "../services/schedule-timezone.js";
 import {handleScheduledPingsInteraction} from "../commands/scheduled-pings.js";
-import {activatePingSchedule,archivePingSchedule,reconcilePingSchedules,normalizePingGroup,planPingDeliveries,pingDashboardButtons} from "../services/scheduled-pings.js";
+import {activatePingSchedule,archivePingSchedule,reconcilePingSchedules,normalizePingGroup,planPingDeliveries,pingDashboardButtons,dashboardUpcomingLines} from "../services/scheduled-pings.js";
 import PingTemplate from "../models/PingTemplate.js";
 import PingSchedule from "../models/PingSchedule.js";
 import PingDelivery from "../models/PingDelivery.js";
@@ -118,6 +118,25 @@ test("invalid roles, empty messages and excessive frequency fail before scheduli
  assert.throws(()=>normalizePingGroup(group({messages:["x".repeat(1900)]})),/1,900/i);
  assert.throws(()=>planPingDeliveries([group({interval:1,durationDays:365})],start),/Too many scheduled pings/i);
  assert.throws(()=>planPingDeliveries([],start),/1–10 Ping Groups/);
+});
+
+test("pinned dashboard groups the next scheduled pings by channel with date last",()=>{
+ const schedules=new Map([
+  ["one",{name:"Evening Alerts",destinationChannelId:"111111111111111111",timeZone:"America/New_York"}],
+  ["two",{name:"Event Alerts",destinationChannelId:"222222222222222222",timeZone:"America/New_York"}],
+ ]);
+ const due=[
+  {scheduleId:"one",groupIndex:0,dueAt:new Date("2026-11-12T22:00:00Z")},
+  {scheduleId:"two",groupIndex:1,dueAt:new Date("2026-11-12T23:00:00Z")},
+  {scheduleId:"one",groupIndex:2,dueAt:new Date("2026-11-13T00:00:00Z")},
+ ];
+ const lines=dashboardUpcomingLines(due,schedules,"UTC");
+ assert.equal(lines[0],"**<#111111111111111111>**");
+ assert.match(lines[1],/^• Evening Alerts · Group 1 — Nov 12, 2026, 5:00 PM EST$/);
+ assert.match(lines[2],/^• Evening Alerts · Group 3 — Nov 12, 2026, 7:00 PM EST$/);
+ assert.equal(lines[3],"**<#222222222222222222>**");
+ assert.match(lines[4],/^• Event Alerts · Group 2 — Nov 12, 2026, 6:00 PM EST$/);
+ assert.deepEqual(dashboardUpcomingLines([],schedules),[]);
 });
 
 test("the persistent dashboard has five staff controls and no publicly visible slash command",()=>{
