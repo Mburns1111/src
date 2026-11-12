@@ -169,30 +169,20 @@ export async function activatePingSchedule({guild,template,channelId,startAt,act
  return schedule;
 }
 
-// Keep the pinned staff dashboard's next pings grouped under their destination
-// channel. The per-ping timestamp always comes last.
+// In the pinned staff dashboard, show one line per upcoming ping:
+// destination channel, roles, abbreviated text, then the scheduled date/time.
+// Preserve the incoming chronological order; do not group into channel headings.
 export function dashboardUpcomingLines(deliveries,schedules,defaultZone="UTC"){
- const channels=new Map();
- for(const delivery of deliveries){
+ return deliveries.map(delivery=>{
   const schedule=schedules.get(String(delivery.scheduleId));
-  const channelId=schedule?.destinationChannelId||"";
-  if(!channels.has(channelId))channels.set(channelId,[]);
-  channels.get(channelId).push({delivery,schedule});
- }
- const lines=[];
- for(const [channelId,entries] of channels){
-  lines.push(channelId?"**<#"+channelId+">**":"**Unconfigured destination**");
-  entries.sort((a,b)=>new Date(a.delivery.dueAt)-new Date(b.delivery.dueAt));
-  for(const {delivery,schedule} of entries){
-   const roles=delivery.roleIds?.length
-    ?delivery.roleIds.map(id=>"<@&"+id+">").join(" "):"No roles";
-   const message=String(delivery.content||"").replace(/\s+/g," ").trim();
-   const preview=message.length>65?message.slice(0,64)+"…":message||"(role-only)";
-   lines.push("• "+roles+" · "+preview+
-    " — "+formatServerClock(delivery.dueAt,schedule?.timeZone||defaultZone));
-  }
- }
- return lines;
+  const channel=schedule?.destinationChannelId?"<#"+schedule.destinationChannelId+">":"(channel unavailable)";
+  const roles=delivery.roleIds?.length
+   ?delivery.roleIds.map(id=>"<@&"+id+">").join(" "):"No roles";
+  const message=String(delivery.content||"").replace(/\\s+/g," ").trim();
+  const preview=message.length>65?message.slice(0,64)+"…":message||"(role-only)";
+  return "• "+channel+" "+roles+" · "+preview+" — "+
+   formatServerClock(delivery.dueAt,schedule?.timeZone||defaultZone);
+ });
 }
 async function dashboardPayload(guildId){
  const active=await PingSchedule.find({guildId,status:{$in:["active","paused"]}}).sort({startsAt:1}).limit(6).lean();
