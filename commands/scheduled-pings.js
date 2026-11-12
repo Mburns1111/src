@@ -277,15 +277,30 @@ async function eventsForActivation(s){
   .sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt));
 }
 function previewRows(events,page,zone){
- const offset=page*10;
- const items=events.slice(offset,offset+10);
- const lines=items.map(e=>"#"+e.sequence+" "+showZone(e.dueAt,zone)+" · Group "+(e.groupIndex+1)+
-  " · "+e.roleIds.length+" role(s) · "+short(e.content||"(roles only)"));
- return {items,text:lines.join("\n"),total:events.length};
+ // Display actual role mentions rather than counts. Keep the same 10-ping
+ // maximum per page, but shorten crowded pages to stay within Discord's
+ // 2,000-character message limit when many roles are selected.
+ const pages=[{items:[],lines:[],length:0}];
+ for(const event of events){
+  const line="#"+event.sequence+" "+showZone(event.dueAt,zone)+" · Group "+(event.groupIndex+1)+
+   "\n  Roles: "+showRoles(event.roleIds)+
+   "\n  Message: "+short(event.content||"(roles only)");
+  let current=pages[pages.length-1];
+  if(current.items.length&&(current.items.length>=10||current.length+line.length+1>1350)){
+   current={items:[],lines:[],length:0};pages.push(current);
+  }
+  current.items.push(event);
+  current.lines.push(line);
+  current.length+=line.length+1;
+ }
+ const index=Math.min(Math.max(0,page),pages.length-1);
+ return {items:pages[index].items,text:pages[index].lines.join("\n\n"),
+  total:events.length,page:index,pageCount:pages.length};
 }
 async function activationPanel(i,s){
  const events=await eventsForActivation(s);
- const {items,text,total}=previewRows(events,s.page||0,s.timeZone);
+ const {items,text,total,page,pageCount}=previewRows(events,s.page||0,s.timeZone);
+ s.page=page;
  const components=[];
  if(items.length)components.push(new ActionRowBuilder().addComponents(
   new StringSelectMenuBuilder().setCustomId("pings:select:planned")
@@ -298,7 +313,7 @@ async function activationPanel(i,s){
  return reply(i,{content:"**✦ Review & Activate**\n**Template:** "+s.template.name+
   "\n**One destination:** <#"+s.destinationChannelId+">"+
   "\n**Server time zone:** "+s.timeZone+"\n**Start:** "+showZone(s.startAt,s.timeZone)+" ("+ts(s.startAt)+")\n**Total messages:** "+total+
-  "\n**Preview page:** "+((s.page||0)+1)+"/"+Math.max(1,Math.ceil(total/10))+
+  "\n**Preview page:** "+(page+1)+"/"+pageCount+
   "\n\n"+(text||"No pings in this window.")+
   "\n\n*Select a ping to override its text, roles or time. All groups remain in this single channel.*",
   components});
@@ -680,8 +695,8 @@ async function handleControl(i){
   }
   if(command==="activation:prev")s.page=Math.max(0,(s.page||0)-1);
   if(command==="activation:next"){
-   const total=(await eventsForActivation(s)).length;
-   s.page=Math.min(Math.ceil(total/10)-1,(s.page||0)+1);
+   const {pageCount}=previewRows(await eventsForActivation(s),s.page||0,s.timeZone);
+   s.page=Math.min(pageCount-1,(s.page||0)+1);
   }
   if(command==="activation:start"){
    const current=inputParts(s.startAt,s.timeZone);
