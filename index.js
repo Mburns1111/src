@@ -123,7 +123,7 @@ import PointsSettings from "./models/PointsSettings.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { data as partyCommand, execute as executeParty, handlePartyInteraction } from "./commands/party.js";
 import { reconcileCourtGames } from "./services/party-court-engine.js";
-import { execute as executeHelp, data as helpCommand, handleHelpTopicButton } from "./commands/help.js";
+import { execute as executeHelp, data as helpCommand, handleHelpTopicButton, handleHelpTopicSelect } from "./commands/help.js";
 import {
   handleTradingPostCardButton,
   handleTradingPostEntryButton,
@@ -732,8 +732,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await openListingDetailsDM(interaction);
       return;
     }
-    if (interaction.isButton() && interaction.customId.startsWith("help:topic:")) {
+    if (interaction.isButton() &&
+        (interaction.customId.startsWith("help:topic:") || interaction.customId.startsWith("help:page:"))) {
       await handleHelpTopicButton(interaction);
+      return;
+    }
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith("help:select:")) {
+      await handleHelpTopicSelect(interaction);
       return;
     }
     if (interaction.isButton() &&
