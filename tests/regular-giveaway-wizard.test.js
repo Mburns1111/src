@@ -128,6 +128,7 @@ async function harness({defaultRole="",storedBanners=[],
     await select("roleNone");
     await select("keep"); // Show role help setting
     await select("clearRules");
+    await select("cooldownOff"); // The required new winner cooldown setting.
     await select("claim:1");
     await select("claimDefault");
     await select("bannerDefault");
@@ -337,5 +338,19 @@ test("regular giveaway review shows mandatory server banned role without an over
   assert.match(h.prompt().content,/always enforced/);
   assert.ok(!h.controls().some(x=>x.label==="Allow This Giveaway"));
   await h.select("cancel");
+ }finally{restore();}
+});
+
+test("regular wizard can enable winner cooldowns without changing the banned role",async()=>{
+ try{
+  const h=await harness();
+  await h.reachReview();
+  await h.select("edit",["winnerCooldown"]);
+  assert.match(h.prompt().content,/Winner cooldown check/);
+  await h.select("cooldownOn");
+  assert.match(h.prompt().content,/Winner cooldown check:\*\* ON/);
+  await h.select("post");
+  assert.equal(h.writes[0].winnerCooldownEnabled,true);
+  assert.equal(h.writes[0].enforceExclusionRole,undefined);
  }finally{restore();}
 });
