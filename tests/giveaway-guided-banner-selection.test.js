@@ -76,12 +76,13 @@ async function harness(mode,{banners=[]}={}){
   const goToBanner=async()=>{
     // Traverse the actual guided steps instead of assuming a fixed count:
     // the activity setup now includes a mandatory opt-in role.
-    for(let i=0;i<24&&!/Choose a default banner/i.test(current().content);i++){
+    const atBanner=()=>controls().some(c=>c.label==="Upload New Banner");
+    for(let i=0;i<24&&!atBanner();i++){
       assert.ok(controls().some(c=>/^Keep\b/i.test(c.label)),
         "Cannot advance through setup step: "+current().content);
       await step("keep");
     }
-    assert.match(current().content,/Choose a default banner/i);
+    assert.ok(atBanner(),"Wizard never reached the Default banner step: "+current().content);
     return current();
   };
   const sendReply=async({content="",attachment:upload=null})=>{
