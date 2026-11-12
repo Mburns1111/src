@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import {gzipSync} from "node:zlib";
 import {ActionRowBuilder,AttachmentBuilder,ButtonBuilder,ButtonStyle,PermissionFlagsBits} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import PingTemplate from "../models/PingTemplate.js";
@@ -310,9 +311,12 @@ export async function archivePingSchedule(client,schedule){
  let existing=found?.find(m=>m.author?.id===client.user.id&&m.content?.includes("**Schedule ID:** "+String(schedule._id)));
  let message=existing;
  if(!message){
-  const bytes=Buffer.from(json,"utf8");
-  if(bytes.length>7_000_000)throw Error("Archive log is too large for a single attachment; please export in parts.");
-  message=await channel.send({content:summary,files:[new AttachmentBuilder(bytes,{name:"scheduled-pings-"+String(schedule._id)+".json"})],
+  let bytes=Buffer.from(json,"utf8");
+  let extension=".json";
+  if(bytes.length>7_000_000){bytes=gzipSync(bytes,{level:9});extension=".json.gz";}
+  if(bytes.length>7_000_000)throw Error("Archive log exceeds the attachment limit even after compression; full history is still retained in MongoDB.");
+  message=await channel.send({content:summary+(extension.endsWith(".gz")?"\nAttached JSON log is gzip-compressed.":""),
+   files:[new AttachmentBuilder(bytes,{name:"scheduled-pings-"+String(schedule._id)+extension})],
    allowedMentions:{parse:[]}});
  }
  await PingSchedule.updateOne({_id:schedule._id,archiveMessageId:""},{$set:{
@@ -408,11 +412,17 @@ export async function changeFuturePing(client,schedule,event,actorId,{content,ro
  const guild=await client.guilds.fetch(schedule.guildId);
  await validatePingDestination(guild,schedule.destinationChannelId,after.roleIds);
  const before={content:event.content,roleIds:event.roleIds,dueAt:event.dueAt};
- const updated=await PingDelivery.findOneAndUpdate({_id:event._id,status:"pending",dueAt:event.dueAt},
-  {$set:{...after,changedBy:actorId}},{new:true});
- if(!updated)throw Error("This ping changed while you were editing. Please reload.");
- await logPingChange(schedule._id,schedule.guildId,actorId,"edited future ping",
-  {sequence:event.sequence,before,after});
+ const session=await mongoose.startSession();
+ let updated;
+ try{
+  await session.withTransaction(async()=>{
+   updated=await PingDelivery.findOneAndUpdate({_id:event._id,status:"pending",dueAt:event.dueAt},
+    {$set:{...after,changedBy:actorId}},{new:true,session});
+   if(!updated)throw Error("This ping changed while you were editing. Please reload.");
+   await PingAudit.create([{scheduleId:schedule._id,guildId:schedule.guildId,actorId,
+    event:"edited future ping",details:{sequence:event.sequence,before,after}}],{session});
+  });
+ }finally{await session.endSession();}
  await refreshPingDashboard(client,schedule.guildId);
  return updated;
 }
