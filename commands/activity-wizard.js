@@ -14,6 +14,7 @@ import {weekdays,windowEnd,nextOpening,maxActiveDays,repeatText,createGuidedActi
 const sessions=new Map();
 export const defaultActivityWizardSettings=creator=>({
   creator,days:1,approval:false,bonuses:[],progress:true,description:"",
+  enforceExclusionRole:true,
   requiredRoleId:"",requiredRoleInstructions:"",showRequiredRoleInstructions:true,
   claimHours:DEFAULT_CLAIM_HOURS,claimInstructions:"",serverClaimInstructions:"",
   maxAutoRerolls:DEFAULT_MAX_AUTO_REROLLS,notificationRoleIds:[],announceEmptyResults:true,
@@ -146,6 +147,7 @@ export function describeActivityWizard(session){
     'Claim time · '+s.claimHours+' hours · Max automatic rerolls · '+s.maxAutoRerolls+
       ' · Banner · '+(s.banner||'Server default'),
     'Claim instructions ('+claimSource(s)+') · '+effectiveClaimInstructions(s).slice(0,800),
+    'Banned role exclusion · '+(s.enforceExclusionRole!==false?(s.exclusionRoleId?'ON · <@&'+s.exclusionRoleId+'>':'ON · No role configured'):'OFF for this giveaway'),
     'Shared giveaway ping role · '+(s.notificationRoleIds?.[0]?'<@&'+s.notificationRoleIds[0]+'>':'None')+' (managed in /setup giveaways, /setup activity-giveaways or /setup trials)',
     'No eligible members · '+(s.announceEmptyResults?'Announce no winners':'Do not post empty results'),
     s.bonuses.length?'Bonus roles · '+s.bonuses.map(b=>'<@&'+b.roleId+'> +'+b.extraEntries).join(', '):null,
@@ -165,6 +167,7 @@ async function show(session,step){
   if(step==="repeatCount")content='Enter a whole number from 1 to 1,000. This counts **additional repeats after the first giveaway**.';
   if(step==="extras")choices=[
     ['Manual approval '+(s.approval?'ON':'OFF'),'approval'],['Member progress '+(s.progress?'ON':'OFF'),'progress'],
+    ['Banned role exclusion '+(s.enforceExclusionRole!==false?'ON':'OFF'),'exclusion'],
     ['Add bonus role','role'],['Claim time','claim'],['Claim instructions','claimChoice'],
     ['Max rerolls','rerollsChoice'],
     ['No eligible winners','emptyResults'],['Banner','banner'],['Done','done'],
@@ -238,6 +241,7 @@ export async function startActivityWizard(i){
       serverClaimInstructions:config.activityClaimInstructions||"",
       maxAutoRerolls:config.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,
       notificationRoleIds:sharedGiveawayPingRoleId(config)?[sharedGiveawayPingRoleId(config)]:[],
+      exclusionRoleId:config.giveawayExcludedRoleId||"",
       announceEmptyResults:config.activityAnnounceEmptyResults!==false,
     }};
   await show(session,"scope");
@@ -310,6 +314,7 @@ async function accept(session,input,client){
     }
     case "extras":
       if(v==="approval"||v==="progress"){s[v]=!s[v];next="extras";}
+      else if(v==="exclusion"){s.enforceExclusionRole=s.enforceExclusionRole===false;next="extras";}
       else next=v==="done"?done("repeat"):v;break;
     case "claim":
       if(v==="custom"){next="claimTextHours";break;}
@@ -390,8 +395,7 @@ async function accept(session,input,client){
       if(!await canManageGiveaways({guild:session.guild,guildId:session.guild.id,user:host.user||{id:session.owner},member:host,memberPermissions:host.permissions}))throw Error(giveawayManagerPermissionMessage);
       await configFor(session.guild,session.channel.id);
       const currentConfig=await GuildConfig.findOne({guildId:session.guild.id}).lean();
-      if(!currentConfig?.activityParticipationRoleId||currentConfig.activityParticipationRoleId!==s.requiredRoleId)
-        throw Error("The Activity Participation role changed. Restart this wizard to use the current opt-in role.");
+      // Opt-in is managed internally in MongoDB; no participation role is needed.
       const start=new Date(),end=checkSchedule(s,start);
       s.delay=s.firstDraw?new Date(s.firstDraw)-end:0;
       const record=await createGuidedActivity(session.id,session.guild.id,s,start);
