@@ -32,7 +32,9 @@ jobs:
           [[ "$(current_branch_sha 'release/hatchem-prep-2026-11-04')" == "$merged_hatchem" ]] || { echo "::error::Hatchem release branch changed; not deleting"; exit 1; }
 
           tag='archive/old-activity-giveaways-2026-11-12'
+          # GH CLI may print "null" to stdout for a 404 even when it exits nonzero.
           tag_current="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" --jq '.object.sha' 2>/dev/null || true)"
+          [[ "$tag_current" != "null" ]] || tag_current=''
           if [[ -n "$tag_current" ]]; then
             [[ "$tag_current" == "$older_activity" ]] || { echo "::error::Archive tag exists but points elsewhere"; exit 1; }
           else
