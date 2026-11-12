@@ -10,6 +10,7 @@ import {GuidedActivitySeries} from "./guided-activity.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import {closeGiveaway,rerollGiveaway,publishGiveawayResult} from "./giveaways.js";
 import {beginSurvivalTrial,publishSurvivalAnnouncement} from "./survival-giveaways.js";
+import {handleGiveawayCooldownAction} from "./giveaway-cooldown-ui.js";
 import {ensureBannerRegistered} from "./giveaway-banners.js";
 import {maxRegularGiveawayMinutes} from "./giveaways.js";
 import {giveawayStaffEditableFields,giveawayStaffEditMenuOptions,
@@ -120,6 +121,7 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    "**Status:** "+(completedAndRemoved?(record.mode==="survival"?"Trial archived — Royal Verdict preserved":"Completed — public listing deleted"):statuses[record.status]||record.status),
    "**Scheduled end:** "+when(record.endsAt),
    "**Giveaway ID:** \x60"+record._id+"\x60",
+   ...(record.mode!=="survival"?["**Winner cooldown check:** "+(record.winnerCooldownEnabled===true?"ON — exclude active cooldowns":"OFF — normal drawing")]:[]),
    ...(record.prizeDeliveredAt?["**Prizes delivered:** "+when(record.prizeDeliveredAt),
      "**Delivery confirmed by:** "+(record.prizeDeliveredBy?"<@"+record.prizeDeliveredBy+">":"Not recorded"),
      ...(record.prizeDeliveryProofUrl?["**Delivery proof:** <"+record.prizeDeliveryProofUrl+">"]:[])]:[]),
@@ -156,6 +158,12 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    if(record.mode!=="survival"||record.trialTicketClaimsEnabled)
      lines.push("","**Automatic rerolls:** "+(record.autoRerollClaims?"Enabled":"Disabled")+
        " · Maximum "+automaticRerollLimit(record)+" per winning place");
+   if(record.mode!=="survival"&&record.cooldownAssignments?.length){
+     lines.push("","**Winner cooldown actions**");
+     for(const applied of record.cooldownAssignments.slice(-8))
+       lines.push("<@"+applied.userId+"> · "+applied.days+" day(s) · expiry "+when(applied.expiresAt)+
+         " · staff <@"+applied.appliedBy+">");
+   }
    if(record.rerollHistory?.length){
      lines.push("","**Reroll history**");
      for(const h of record.rerollHistory.slice(-12))
@@ -201,6 +209,9 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
        controls.push(btn("giveawaystaff:deliver:"+record._id,"Confirm Prizes Delivered",ButtonStyle.Success));
      if(completedGiveawayCanDeleteListing(record))
        controls.push(btn("giveawaystaff:remove:"+record._id,"Archive Giveaway",ButtonStyle.Secondary));
+     if(record.mode!=="survival"&&record.prizeDeliveredAt&&record.winnerIds?.length)
+       controls.push(btn("giveawaystaff:cooldown:"+record._id,
+         record.cooldownAssignments?.length?"Manage Cooldowns":"Apply Cooldown",ButtonStyle.Primary));
      if(!record.prizeDeliveredAt)
        controls.push(btn("giveawaystaff:cancel:"+record._id,"Cancel Giveaway",ButtonStyle.Danger));
      if((record.mode!=="survival"||record.trialTicketClaimsEnabled)&&hasOutstandingTicketClaims(record))
@@ -470,15 +481,20 @@ export async function handleGiveawayStaffAction(interaction){
  try{
    if(!await canManageGiveaways(interaction))
      return interaction.reply({content:giveawayManagerPermissionMessage,...ephemeral});
-   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|remove|confirmremove|entrants|end|confirmend|edit|editselect|editsave|reroll|rerollselect|confirmreroll|abort):([0-9a-f]{24})(?::([A-Za-z0-9]+))?$/.exec(interaction.customId);
+   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|remove|confirmremove|entrants|end|confirmend|edit|editselect|editsave|reroll|rerollselect|confirmreroll|abort|cooldown|cooldowncreate|cooldownselect|cooldowndays|cooldownapply|cooldownremove|cooldownremovechoose|cooldownconfirmremove):([0-9a-f]{24})(?::([A-Za-z0-9]+))?(?::([A-Za-z0-9]+))?$/.exec(interaction.customId);
    if(!match)return interaction.reply({content:"Unknown staff action.",...ephemeral});
-   const [,action,id,pageText]=match;
+   const [,action,id,pageText,extraText]=match;
    let record=await Giveaway.findOne({_id:id,guildId:interaction.guildId,
      staffCardChannelId:interaction.channelId}).lean();
    if(!record)return interaction.reply({content:"This staff record was not found.",...ephemeral});
-   if(["stop","cancel","deliver","remove","end","edit","reroll"].includes(action) &&
+   if(["stop","cancel","deliver","remove","end","edit","reroll","cooldown"].includes(action) &&
       record.staffCardId!==interaction.message?.id)
      return interaction.reply({content:"Use the current staff record for this giveaway.",...ephemeral});
+   if(action.startsWith("cooldown")){
+     return handleGiveawayCooldownAction(interaction,record,action,pageText,extraText,{
+       refresh:async updated=>ensureGiveawayStaffRecord(interaction.client,updated),
+     });
+   }
    if(action==="entrants"){
      const page=Number(pageText);
      const fromStaffRecord=record.staffCardId===interaction.message?.id;
