@@ -209,6 +209,8 @@ export async function execute(interaction) {
         survival ? "Court's Trial survival giveaway" : "standard giveaway",
       );
       await requirePrivateGiveawayStaffChannel(interaction.guild,config);
+      if(!config?.giveawayExcludedRoleId)
+        throw Error("Configure the required Giveaway Banned role in /setup giveaways or /setup activity-giveaways before creating prize giveaways or Trials.");
       const pingRoleId = sharedGiveawayPingRoleId(config);
       const pingRoleIds = pingRoleId?[pingRoleId]:[];
       const bannerNameKey = await ensureBannerRegistered(interaction.guildId,
