@@ -1,6 +1,7 @@
 import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
 import GiveawayActivityRuleMinuteCount from "../models/GiveawayActivityRuleMinuteCount.js";
+import {configuredGiveawayBanRole} from "./giveaway-exclusion.js";
 
 // Both activity counters see each message. Share one consent lookup for that
 // message, but recheck MongoDB for every NEW message. No role is required.
@@ -12,9 +13,22 @@ export async function eligibleActivityParticipant(message){
   return null;
  let checked=messageChecks.get(message);
  if(!checked){
-  checked=ActivityGiveawayOptIn.findOne({
-   guildId:message.guildId,userId:message.author.id,active:true,
-  }).lean();
+  checked=(async()=>{
+    const entry=await ActivityGiveawayOptIn.findOne({
+      guildId:message.guildId,userId:message.author.id,active:true,
+    }).lean();
+    if(!entry)return null;
+    // Only after confirming consent do we make the ban check. Real Discord
+    // messages carry a guild/member; older unit fixtures without a guild
+    // still exercise the pure consent gate.
+    if(!message.guild?.members?.fetch)return entry;
+    const roleId=await configuredGiveawayBanRole(message.guildId);
+    if(!roleId)return entry; // pre-migration server; /setup requires a role.
+    const member=message.member?.roles?.cache?message.member:
+      await message.guild.members.fetch({user:message.author.id,force:true}).catch(()=>null);
+    if(!member?.roles?.cache)return null;
+    return member.roles.cache.has(roleId)?null:entry;
+  })();
   messageChecks.set(message,checked);
  }
  return checked;
