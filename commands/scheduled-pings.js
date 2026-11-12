@@ -66,7 +66,30 @@ const showRoles=roles=>roles?.length?roles.map(id=>"<@&"+id+">").join(" "):"None
 const summaryGroup=(g,{template=false}={})=>"**"+g.name+"** · "+(g.repeatMode==="once"?"Once":"Every "+g.interval+" "+(g.repeatMode==="days"?"days":"hours"))+
  " · "+g.durationDays+" days · Delay "+g.offsetHours+"h\n"+
  "Roles: "+showRoles(g.roleIds)+(template?"":"\nRotating messages: "+(g.messages?.length||0));
-const groupReady=g=>Boolean(g.roleIds?.length||g.messages?.length);
+const MESSAGE_MODES={
+ single:"Repeat One Message",
+ "per-ping":"Different Message Per Ping",
+ rotate:"Rotate Messages",
+ roles:"Role Mentions Only",
+};
+function groupEvents(s,index){
+ return planPingDeliveries(s.workingGroups,s.startAt,{
+  timeZone:s.timeZone,allowIncomplete:true
+ }).filter(e=>e.groupIndex===index);
+}
+function groupProgress(s,index){
+ const g=s.workingGroups[index];
+ if(g.messageMode==="per-ping"){
+  const events=groupEvents(s,index);
+  const done=events.filter(e=>Boolean(g.perPingMessages?.[e.ordinal])).length;
+  return {ready:done===events.length&&events.length>0,status:done+"/"+events.length+" individual ping messages"};
+ }
+ if(g.messageMode==="roles")
+  return {ready:!!g.roleIds?.length,status:g.roleIds?.length?"Role mentions only":"Select a role"};
+ const count=g.messages?.length||0;
+ return {ready:count>0,status:count+(g.messageMode==="single"?" repeating message":" rotating messages")};
+}
+const groupReady=(s,index)=>groupProgress(s,index).ready;
 function draftPanel(s){
  const g=s.groups[s.groupIndex],lines=[
   "**✦ "+(s.editId?"Edit Saved Template":"Create Template")+"**",
@@ -150,17 +173,15 @@ function managementPanel(s){
 }
 const showZone=(date,zone)=>formatServerClock(date,zone);
 function activationSetupPanel(s){
- const missing=s.workingGroups.map((g,i)=>!groupReady(g)?i+1:null).filter(Boolean);
+ const missing=s.workingGroups.map((g,i)=>!groupReady(s,i)?i+1:null).filter(Boolean);
  const lines=s.workingGroups.map((g,i)=>"**"+(i+1)+". "+g.name+"** · "+
-  (g.messages?.length||0)+" message(s) · "+(g.roleIds?.length||0)+" role(s)"+
-  (groupReady(g)?" · Ready":" · Needs a message or role"));
+  (MESSAGE_MODES[g.messageMode]||"Rotate Messages")+" · "+groupProgress(s,i).status+
+  (groupReady(s,i)?" · Ready":" · Needs setup"));
  return {content:"**✦ Configure Schedule Messages**\n**Template:** "+s.template.name+
   "\n**Destination:** <#"+s.destinationChannelId+">"+
   "\n**Start:** "+showZone(s.startAt,s.timeZone)+"\n\n"+
   lines.join("\n")+
-  "\n\n*Choose each Ping Group to add, edit, or remove rotating messages. "+
-  "Messages are saved with this schedule, never with the template. "+
-  "A group can send roles only, but every group needs at least one role or message.*"+
+  "\n\n*Choose each Ping Group and its message style. Messages belong to this schedule, never to the template.*"+
   (missing.length?"\n\n**Before preview:** Configure Group "+missing.join(", ")+".":""),
   components:[
    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
@@ -173,25 +194,70 @@ function activationSetupPanel(s){
 function activationGroupPanel(s){
  const g=s.workingGroups[s.selectedGroupIndex];
  if(!g)throw Error("Select a Ping Group.");
+ const mode=g.messageMode||"rotate";
  const selected=Math.max(0,Math.min(s.selectedMessageIndex||0,(g.messages?.length||1)-1));
  s.selectedMessageIndex=selected;
  const messages=g.messages||[];
- const content="**Configure Ping Group "+(s.selectedGroupIndex+1)+" of "+s.workingGroups.length+"**\n"+
-  summaryGroup(g)+"\n\n"+
-  (messages.length?messages.map((m,i)=>"**"+(i+1)+".** "+short(m).slice(0,60)).join("\n"):
-   "*No messages yet. Add a rotating message below, or use role-only pings.*")+
-  "\n\n*Messages rotate in order each time this group pings. Select a message to edit or remove it. "+
-  "These changes apply only to this schedule.*";
+ const progress=groupProgress(s,s.selectedGroupIndex);
+ const description=mode==="single"
+  ?(messages.length?"**Repeating message:** "+short(messages[0]):"*No repeating message yet.*")
+  :mode==="rotate"
+   ?(messages.length?messages.map((m,i)=>"**"+(i+1)+".** "+short(m).slice(0,60)).join("\n"):
+     "*No rotating messages yet.*")
+   :mode==="per-ping"
+    ?"**Configured:** "+progress.status+"\n*Assign different text to each scheduled occurrence using Set Messages by Ping.*"
+    :"*Only the selected roles will be mentioned at each scheduled time.*";
+ const components=[
+  row(["Repeat One Message","group:mode:single"],["Different Per Ping","group:mode:per-ping"],
+   ["Rotate Messages","group:mode:rotate"],["Roles Only","group:mode:roles"]),
+  row(["Set Timing","group:timing"],["Select Roles","group:roles"])
+ ];
+ if(mode==="single"){
+  components.push(row([messages.length?"Edit Repeating Message":"Set Repeating Message","group:singleText"]));
+ }else if(mode==="rotate"){
+  if(messages.length)components.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
+   .setCustomId("pings:select:groupMessage").setPlaceholder("Select a rotating message to edit")
+   .addOptions(messages.map((m,i)=>({
+    label:"Message "+(i+1)+": "+short(m).slice(0,70),value:String(i),default:i===selected
+   })))));
+  components.push(row(["Add Rotating Message","group:addText"],
+   ...(messages.length?[["Edit Selected Message","group:editText"],["Remove Selected Message","group:removeSelected"]]:[])));
+ }else if(mode==="per-ping"){
+  components.push(row(["Set Messages by Ping","group:perPing"]));
+ }
+ components.push(row(["Back to Group List","group:back"]));
+ return {content:"**Configure Ping Group "+(s.selectedGroupIndex+1)+" of "+s.workingGroups.length+"**\n"+
+  summaryGroup(g)+"\n\n**Message style:** "+MESSAGE_MODES[mode]+"\n"+
+  description+"\n\n"+(progress.ready?"Ready to preview":"Needs more configuration")+
+  "\n\n*Select a message style above. Changing styles clears this group's existing message text after confirmation. "+
+  "Messages are specific to this schedule.*",components};
+}
+function perPingPanel(s){
+ const index=s.selectedGroupIndex,g=s.workingGroups[index];
+ if(g?.messageMode!=="per-ping")throw Error("Select Different Message Per Ping first.");
+ const all=groupEvents(s,index);
+ const maxPage=Math.max(0,Math.ceil(all.length/10)-1);
+ s.perPingPage=Math.min(Math.max(0,s.perPingPage||0),maxPage);
+ const events=all.slice(s.perPingPage*10,s.perPingPage*10+10);
+ const chosen=events.some(e=>e.ordinal===s.selectedPerPingOrdinal)?s.selectedPerPingOrdinal:events[0]?.ordinal||0;
+ s.selectedPerPingOrdinal=chosen;
+ const lines=events.map(e=>"**Ping "+(e.ordinal+1)+"** · "+showZone(e.dueAt,s.timeZone)+
+  " · "+(g.perPingMessages?.[e.ordinal]?short(g.perPingMessages[e.ordinal]):"*Not configured*"));
+ const count=all.filter(e=>Boolean(g.perPingMessages?.[e.ordinal])).length;
  const components=[];
- if(messages.length)components.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
-  .setCustomId("pings:select:groupMessage").setPlaceholder("Select a message to edit or remove")
-  .addOptions(messages.map((m,i)=>({label:"Message "+(i+1)+": "+short(m).slice(0,70),value:String(i),default:i===selected})))));
- components.push(row(["Set Timing","group:timing"],["Select Roles","group:roles"],
-  ["Add Rotating Message","group:addText"]));
- components.push(row(
-  ...(messages.length?[["Edit Selected Message","group:editText"],["Remove Selected Message","group:removeSelected"]]:[]),
-  ["Back to Group List","group:back"]));
- return {content,components};
+ if(events.length)components.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
+  .setCustomId("pings:select:perPing").setPlaceholder("Select a scheduled ping to write")
+  .addOptions(events.map(e=>({label:"Ping "+(e.ordinal+1),value:String(e.ordinal),
+   description:showZone(e.dueAt,s.timeZone).slice(0,95),default:e.ordinal===chosen})))));
+ components.push(row(["Previous 10","group:perPingPrev"],["Next 10","group:perPingNext"],
+  ["Write / Edit Selected","group:perPingEdit"]));
+ components.push(row(["Back to Ping Group","group:return"]));
+ return {content:"**Different Message Per Ping — "+g.name+"**\n"+
+  "**Completed:** "+count+"/"+all.length+" pings · Page "+(s.perPingPage+1)+"/"+(maxPage+1)+
+  "\n\n"+lines.join("\n")+
+  "\n\n*Each ping needs its own message before this schedule can be activated. "+
+  "After saving a message, the editor advances to the next unfinished ping.*",
+  components};
 }
 async function eventsForActivation(s){
  const raw=planPingDeliveries(s.workingGroups||s.template.groups,s.startAt,{timeZone:s.timeZone});
