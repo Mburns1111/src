@@ -26,8 +26,6 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Manual approval",value:"requireStaffReview",description:"On or off: staff approve winners"},
   {label:"Check My Progress",value:"progressEnabled",description:"On or off: members see private progress"},
   {label:"Bonus roles",value:"roleBonuses",description:"Add, change or clear bonus chances"},
-  {label:"Required role",value:"requiredRoleId",description:"Role required before counting; resets activity"},
-  {label:"Show role instructions",value:"showRequiredRoleInstructions",description:"On/off: show where to get the role"},
   {label:"Claim time",value:"claimWindowHours",description:"Hours a winner has to claim"},
   {label:"Claim instructions",value:"claimInstructions",description:"Replace or reset the prize collection message"},
   {label:"Maximum auto rerolls",value:"maxAutoRerolls",description:"0–10 replacements for each unclaimed winner"},
@@ -39,7 +37,7 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Future repeats",value:"repeatSchedule",description:"Edit next cycles, not the current one"},
   {label:"Counting start",value:"activityStartAt",description:"Started already; cannot backdate counts"},
 ];
-const criteriaFields=new Set(["activityChannelIds","activityRequiredMentionUserId","activityRequiredPhrase","requiredRoleId","activityMinChars"]);
+const criteriaFields=new Set(["activityChannelIds","activityRequiredMentionUserId","activityRequiredPhrase","activityMinChars"]);
 const inputMax={title:100,prize:1500,description:1000,winnerCount:2,
   activityMinTotalMessages:5,activityMinChars:4,activityDays:3,claimWindowHours:3,bannerNameKey:60,
   requireStaffReview:3,progressEnabled:3,showRequiredRoleInstructions:3,
@@ -69,8 +67,10 @@ const inputHint={
 
 export function validateGuidedStaffEdit(field,raw,event,{now=new Date()}={}){
   const value=String(raw??"").trim();
+  if(field==="requiredRoleId"||field==="showRequiredRoleInstructions")
+    throw Error("The mandatory Activity Participation role is managed in /setup activity-giveaways, not per giveaway.");
   if(!GUIDED_EDIT_FIELDS.some(x=>x.value===field)||field==="activityStartAt")
-    throw Error("The counting start cannot be edited after the activity begins.");
+    throw Error("This setting cannot be edited after the activity begins.");
   if(field==="claimInstructions"){
     if(value.length>1000)throw Error("Claim instructions cannot exceed 1,000 characters.");
     return {claimInstructions:value};
