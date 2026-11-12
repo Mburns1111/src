@@ -6,6 +6,7 @@ import PingTemplate from "../models/PingTemplate.js";
 import PingSchedule from "../models/PingSchedule.js";
 import PingDelivery from "../models/PingDelivery.js";
 import PingAudit from "../models/PingAudit.js";
+import {addServerCalendarDays,formatServerClock,validateServerTimeZone} from "./schedule-timezone.js";
 
 const HOUR=60*60_000;
 const DAY=24*HOUR;
@@ -21,7 +22,8 @@ export const pingDashboardButtons=()=>[
  ),
  new ActionRowBuilder().addComponents(
   new ButtonBuilder().setCustomId("pings:root:upcoming").setLabel("View Full Schedule").setStyle(ButtonStyle.Secondary),
-  new ButtonBuilder().setCustomId("pings:root:archives").setLabel("View Archives").setStyle(ButtonStyle.Secondary)
+  new ButtonBuilder().setCustomId("pings:root:archives").setLabel("View Archives").setStyle(ButtonStyle.Secondary),
+  new ButtonBuilder().setCustomId("pings:root:alerts").setLabel("Delivery Alerts").setStyle(ButtonStyle.Secondary)
  )
 ];
 
@@ -47,23 +49,33 @@ export function normalizePingGroup(g){
    throw Error("Message text and role mentions together must fit in 1,900 characters.");
  return group;
 }
-export function planPingDeliveries(groups,startAt){
+export function scheduleGroupEnd(startAt,durationDays,timeZone="UTC"){
+ return addServerCalendarDays(startAt,durationDays,validateServerTimeZone(timeZone));
+}
+export function planPingDeliveries(groups,startAt,{timeZone="UTC"}={}){
  const start=nowMs(startAt);
+ const zone=validateServerTimeZone(timeZone);
  if(!Number.isFinite(start))throw Error("Invalid schedule start time.");
  const events=[];
  const normalized=groups.map(normalizePingGroup);
  if(normalized.length<1||normalized.length>10)throw Error("Choose 1–10 Ping Groups.");
  for(let groupIndex=0;groupIndex<normalized.length;groupIndex++){
   const group=normalized[groupIndex];
-  const until=start+group.durationDays*DAY;
+  const until=nowMs(scheduleGroupEnd(start,group.durationDays,zone));
   const first=start+group.offsetHours*HOUR;
-  const every=(group.repeatMode==="days"?group.interval*DAY:group.interval*HOUR);
-  for(let time=first,ordinal=0;time<until;time+=every,ordinal++){
+  const every=group.interval*HOUR;
+  const before=events.length;
+  for(let ordinal=0;;ordinal++){
+   const time=group.repeatMode==="days"
+    ?nowMs(addServerCalendarDays(first,ordinal*group.interval,zone))
+    :first+ordinal*every;
+   if(time>=until)break;
    if(events.length>=MAX_EVENTS)throw Error("Too many scheduled pings. Reduce the duration or frequency (maximum "+MAX_EVENTS+").");
    const content=group.messages.length?group.messages[ordinal%group.messages.length]:"";
    events.push({groupIndex,ordinal,dueAt:new Date(time),roleIds:group.roleIds,content});
    if(group.repeatMode==="once")break;
   }
+  if(events.length===before)throw Error("Ping Group "+(groupIndex+1)+" ("+group.name+") has no messages within its duration. Reduce its start delay or increase its duration.");
  }
  events.sort((a,b)=>nowMs(a.dueAt)-nowMs(b.dueAt)||a.groupIndex-b.groupIndex);
  return events.map((event,i)=>({...event,sequence:i+1}));
@@ -86,12 +98,13 @@ export async function validatePingDestination(guild,id,roleIds=[]){
 export async function logPingChange(scheduleId,guildId,actorId,event,details={}){
  return PingAudit.create({scheduleId,guildId,actorId,event,details});
 }
-export async function activatePingSchedule({guild,template,channelId,startAt,actorId,overrides={},scheduleId=new mongoose.Types.ObjectId()}){
+export async function activatePingSchedule({guild,template,channelId,startAt,actorId,overrides={},timeZone="UTC",scheduleId=new mongoose.Types.ObjectId()}){
  const identity={_id:scheduleId,guildId:guild.id,activatedBy:actorId};
  const existing=await PingSchedule.findOne(identity);
  if(existing)return existing;
  const groups=(overrides.groups||template.groups).map(g=>({...g.toObject?.()||g}));
- const events=planPingDeliveries(groups,startAt);
+ const zone=validateServerTimeZone(timeZone);
+ const events=planPingDeliveries(groups,startAt,{timeZone:zone});
  const overridesBySequence=new Map((overrides.events||[]).map(x=>[Number(x.sequence),x]));
  for(const event of events){
   const override=overridesBySequence.get(event.sequence);
@@ -107,14 +120,14 @@ export async function activatePingSchedule({guild,template,channelId,startAt,act
  await validatePingDestination(guild,channelId,[...new Set(events.flatMap(e=>e.roleIds||[]))]);
  const start=new Date(startAt);
  if(start.getTime()<Date.now()-60_000)throw Error("The start time must be in the future.");
- const end=new Date(Math.max(...groups.map(g=>start.getTime()+g.durationDays*DAY)));
+ const end=new Date(Math.max(...groups.map(g=>nowMs(scheduleGroupEnd(start,g.durationDays,zone)))));
  const session=await mongoose.startSession();
  let schedule;
  try {
   await session.withTransaction(async()=>{
    const [record]=await PingSchedule.create([{
     _id:scheduleId,guildId:guild.id,templateId:template._id,templateName:template.name,
-    name:overrides.name||template.name,destinationChannelId:channelId,
+    name:overrides.name||template.name,destinationChannelId:channelId,timeZone:zone,
     createdBy:template.createdBy,activatedBy:actorId,status:"active",
     groups,startsAt:start,endsAt:end,plannedCount:events.length,
    }],{session});
@@ -123,7 +136,7 @@ export async function activatePingSchedule({guild,template,channelId,startAt,act
     guildId:guild.id,scheduleId:record._id,...e,
    })),{session,ordered:true});
    await PingAudit.create([{guildId:guild.id,scheduleId:record._id,actorId,
-    event:"activated",details:{templateId:String(template._id),channelId,startAt:start,groups,plannedCount:events.length}}],{session});
+    event:"activated",details:{templateId:String(template._id),channelId,startAt:start,timeZone:zone,groups,plannedCount:events.length}}],{session});
   });
  }catch(error){
   if(error.code!==11000)throw error;
@@ -289,7 +302,7 @@ export async function archivePingSchedule(client,schedule){
   scheduleId:String(schedule._id),status:schedule.status,
   name:schedule.name,template:schedule.templateName,
   createdBy:schedule.createdBy,activatedBy:schedule.activatedBy,
-  destinationChannelId:schedule.destinationChannelId,
+  destinationChannelId:schedule.destinationChannelId,timeZone:schedule.timeZone||"UTC",
   startsAt:schedule.startsAt,endsAt:schedule.endsAt,
   stoppedAt:schedule.stoppedAt,stopReason:schedule.stopReason,
   groups:schedule.groups,counts,
@@ -309,6 +322,7 @@ export async function archivePingSchedule(client,schedule){
    "**Status:** "+schedule.status+"\n"+
    "**Created by:** <@"+schedule.createdBy+"> · **Activated by:** <@"+schedule.activatedBy+">\n"+
    "**Destination:** <#"+schedule.destinationChannelId+">\n"+
+   "**Time zone:** "+(schedule.timeZone||"UTC")+"\n"+
    "**Ran:** "+ts(schedule.startsAt)+" to "+ts(schedule.stoppedAt||schedule.endsAt)+"\n"+
    "**Ping Groups:** "+schedule.groups.length+
    " · **Sent:** "+counts.sent+" · **Failed:** "+counts.failed+" · **Skipped:** "+counts.skipped+
@@ -385,10 +399,11 @@ export async function extendPingSchedule(client,schedule,actorId,extraDays){
  const nextGroups=existingGroups.map(g=>({...g,durationDays:g.durationDays+extraDays}));
  if(nextGroups.some(g=>g.durationDays>365))
   throw Error("The new group duration would exceed 365 days.");
- const nextPlan=planPingDeliveries(nextGroups,schedule.startsAt);
+ const zone=validateServerTimeZone(schedule.timeZone||"UTC");
+ const nextPlan=planPingDeliveries(nextGroups,schedule.startsAt,{timeZone:zone});
  const start=new Date(schedule.startsAt).getTime();
- const newlyAdded=nextPlan.filter(e=>e.dueAt.getTime()>=start+
-  existingGroups[e.groupIndex].durationDays*DAY);
+ const newlyAdded=nextPlan.filter(e=>e.dueAt.getTime()>=
+  nowMs(scheduleGroupEnd(start,existingGroups[e.groupIndex].durationDays,zone)));
  if(!newlyAdded.length)throw Error("There are no additional messages within the extension.");
  const session=await mongoose.startSession();
  try{
@@ -402,7 +417,7 @@ export async function extendPingSchedule(client,schedule,actorId,extraDays){
     sequence:++sequence,guildId:schedule.guildId,scheduleId:schedule._id
    })),{session,ordered:true});
    current.groups=nextGroups;
-   current.endsAt=new Date(Math.max(...nextGroups.map(g=>start+g.durationDays*DAY)));
+   current.endsAt=new Date(Math.max(...nextGroups.map(g=>nowMs(scheduleGroupEnd(start,g.durationDays,zone)))));
    current.plannedCount+=newlyAdded.length;
    await current.save({session});
    await PingAudit.create([{guildId:schedule.guildId,scheduleId:schedule._id,
