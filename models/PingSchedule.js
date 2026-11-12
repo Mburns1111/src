@@ -10,6 +10,8 @@ const schema=new mongoose.Schema({
   templateName:{type:String,default:""},
   name:{type:String,required:true,maxlength:80},
   destinationChannelId:{type:String,required:true},
+  timeZone:{type:String,default:"UTC"},
+  archiveLeaseUntil:{type:Date,default:null},
   createdBy:{type:String,required:true},
   activatedBy:{type:String,required:true},
   status:{type:String,enum:["active","paused","completed","ended","archived"],default:"active",index:true},
