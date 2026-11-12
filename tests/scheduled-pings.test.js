@@ -85,6 +85,13 @@ test("one-time pings, offset starts and text-only messages are valid",()=>{
  assert.deepEqual(deliveries[0].roleIds,[]);
 });
 
+test("template Ping Groups can be saved without messages or roles, but deliveries cannot",()=>{
+ const empty=group({roleIds:[],messages:[]});
+ assert.deepEqual(normalizePingGroup(empty,{allowEmpty:true}).messages,[]);
+ assert.throws(()=>normalizePingGroup(empty),/message text or select at least one role/i);
+ assert.throws(()=>planPingDeliveries([empty],start),/message text or select at least one role/i);
+});
+
 test("invalid roles, empty messages and excessive frequency fail before scheduling",()=>{
  assert.throws(()=>normalizePingGroup(group({roleIds:[],messages:[]})),/message text or select at least one role/i);
  assert.throws(()=>normalizePingGroup(group({roleIds:Array.from({length:11},(_,i)=>String(i))})),/no more than 10 roles/i);
@@ -211,8 +218,18 @@ test("retiming preserves individual edits and asks before removing an edited occ
  const list=await click("pings:root:templates");
  const details=await click(control(list,"select:template"),{values:["example"]});
  const chooser=await click(control(details,"template:use"));
- // The test destination supports both posting and viewing.
- let preview=await click(control(chooser,"select:destination"),{values:["dest"]});
+ // Legacy messages in saved templates must not be copied into this activation.
+ let setup=await click(control(chooser,"select:destination"),{values:["dest"]});
+ assert.match(setup.content,/0 message\(s\)/);
+ let groupPanel=await click(control(setup,"select:activationGroup"),{values:["0"]});
+ let add=await click(control(groupPanel,"group:addText"));
+ groupPanel=await click(add.data.custom_id,{fields:{content:"Morning"}});
+ setup=await click(control(groupPanel,"group:back"));
+ groupPanel=await click(control(setup,"select:activationGroup"),{values:["1"]});
+ add=await click(control(groupPanel,"group:addText"));
+ groupPanel=await click(add.data.custom_id,{fields:{content:"Other"}});
+ setup=await click(control(groupPanel,"group:back"));
+ let preview=await click(control(setup,"activation:review"));
  const ping=await click(control(preview,"select:planned"),{values:["3"]});
  const edit=await click(control(ping,"event:text"));
  const edited=await click(edit.data.custom_id,{fields:{content:"Custom second occurrence"}});
@@ -221,14 +238,16 @@ test("retiming preserves individual edits and asks before removing an edited occ
  const future=new Date(Date.now()+86400000);
  const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(future);
  const by=Object.fromEntries(parts.map(p=>[p.type,p.value]));
- preview=await click(startForm.data.custom_id,{fields:{date:by.year+"-"+by.month+"-"+by.day,time:by.hour+":"+by.minute}});
+ setup=await click(startForm.data.custom_id,{fields:{date:by.year+"-"+by.month+"-"+by.day,time:by.hour+":"+by.minute}});
+ preview=await click(control(setup,"activation:review"));
  assert.match(preview.content,/Custom second occurrence/);
  const groups=await click(control(preview,"activation:groups"));
  let groupPanel=await click(control(groups,"select:activationGroup"),{values:["0"]});
  let timing=await click(control(groupPanel,"group:timing"));
  const values={name:"A",repeatMode:"hours",interval:"1",days:"1",offset:"0"};
  groupPanel=await click(timing.data.custom_id,{fields:values});
- preview=await click(control(groupPanel,"group:back"));
+ setup=await click(control(groupPanel,"group:back"));
+ preview=await click(control(setup,"activation:review"));
  assert.match(preview.content,/#2 [^\n]*Custom second occurrence/);
  const picker=await click(control(preview,"activation:groups"));
  groupPanel=await click(control(picker,"select:activationGroup"),{values:["0"]});
@@ -236,7 +255,8 @@ test("retiming preserves individual edits and asks before removing an edited occ
  const warning=await click(timing.data.custom_id,{fields:{...values,repeatMode:"once"}});
  assert.match(warning.content,/removes 1 individually edited ping/);
  groupPanel=await click(control(warning,"group:keepTiming"));
- preview=await click(control(groupPanel,"group:back"));
+ setup=await click(control(groupPanel,"group:back"));
+ preview=await click(control(setup,"activation:review"));
  assert.match(preview.content,/Custom second occurrence/);
 });
 
