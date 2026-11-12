@@ -20,11 +20,12 @@ import {DEFAULT_CLAIM_HOURS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaw
 const sessions=new Map();
 const SESSION_MS=30*60_000;
 const steps=["title","prize","description","minutes","winners","role","roleHelp",
-  "rules","claimHours","claimInstructions","banner","review"];
+  "rules","winnerCooldown","claimHours","claimInstructions","banner","review"];
 const name={
   title:"Giveaway title",prize:"Prize details",description:"Giveaway description",
   minutes:"Entry duration",winners:"Number of winners",role:"Required entry role",
   roleHelp:"Role instructions",rules:"Rules and requirements",
+  winnerCooldown:"Winner cooldown check",
   claimHours:"Claim deadline",claimInstructions:"Prize collection instructions",
   banner:"Banner",review:"Review and post"
 };
@@ -80,6 +81,7 @@ const summary=(session)=>{
     "**Winners:** "+s.winners,
     "**Required role:** "+roleDescription(s),
     "**Giveaway Banned role:** "+mention(s.serverExcludedRoleId)+" (always enforced)",
+    "**Winner cooldown check:** "+(s.winnerCooldownEnabled?"ON":"OFF")+" (applies only when selecting winners)",
     role?"**Show where to get role:** "+(roleVisible(s)?"Yes":"No"):"",
     role?"**Role instructions ("+roleInstructionSource(s)+"):** "+
       (effectiveRoleInstructions(s)||"None"):null,
@@ -166,6 +168,14 @@ function layout(session,banners=[]){
     components.push(buttons(session,[["Write Rules","writeRules"],["No Rules","clearRules"],["Keep / Skip","keep"]]));
   }
   if(step==="rulesText")content="Type your rules (1–1,200 characters).";
+  if(step==="winnerCooldown"){
+    content="Should this giveaway **silently exclude members with an active winner cooldown** when selecting or rerolling winners? "+
+      "A winner cooldown is separate from the required punishment ban role. "+
+      "Staff apply cooldowns after confirming prize delivery; they do not start automatically.\n"+
+      "Current: **"+(s.winnerCooldownEnabled?"ON":"OFF")+"**";
+    components.push(buttons(session,[["Cooldown ON","cooldownOn"],
+      ["Cooldown OFF","cooldownOff"],["Keep Current","keep"]]));
+  }
   if(step==="claimHours"){
     content="How many **hours** do winners have to submit their ticket claim? Minimum 1 hour.\nCurrent: "+s.claimHours+" hours";
     components.push(buttons(session,[["1 hour","claim:1"],["12 hours","claim:12"],["24 hours","claim:24"],
@@ -264,6 +274,7 @@ async function preview(session){
     _id:session.id,guildId:session.guild.id,creatorId:session.owner,
     title:s.title,prize:s.prize,description:s.description,rules:s.rules,
     mode:"standard",status:"open",winnerCount:s.winners,
+    winnerCooldownEnabled:s.winnerCooldownEnabled,
     endsAt:new Date(Date.now()+s.minutes*60000),entrantIds:[],
     requiredRoleId:selectedRole,requiredRoleInstructions:effectiveRoleInstructions(s),
     showRequiredRoleInstructions:roleVisible(s),
@@ -388,6 +399,10 @@ async function apply(session,action,value,client){
   if(step==="rulesText"&&action==="text"){
     s.rules=entered(value,1,1200,"Rules");return finishStep(session);
   }
+  if(step==="winnerCooldown"&&["cooldownOn","cooldownOff"].includes(action)){
+    s.winnerCooldownEnabled=action==="cooldownOn";
+    return finishStep(session);
+  }
   if(step==="claimHours"){
     if(action==="customClaimHours")return show(session,"claimHoursText");
     if(action.startsWith("claim:")){
@@ -467,6 +482,7 @@ export async function startRegularGiveawayWizard(interaction){
     settings:{
       title:"",prize:"",description:"",rules:"",
       minutes:60,winners:1,requiredRoleMode:"default",requiredRoleId:"",
+      winnerCooldownEnabled:false,
       serverExcludedRoleId:config.giveawayExcludedRoleId||"",
       serverRequiredRoleId:config.giveawayDefaultRequiredRoleId||"",
       showRequiredRoleInstructions:null,
