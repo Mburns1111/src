@@ -30,8 +30,8 @@ export function normalizePingGroup(g){
  const group={
   name:String(g.name||"Ping Group").trim().slice(0,60),
   repeatMode:["once","hours","days"].includes(g.repeatMode)?g.repeatMode:"hours",
-  interval:Number(g.interval||12),durationDays:Number(g.durationDays||7),
-  offsetHours:Number(g.offsetHours||0),roleIds:roles,messages
+  interval:Number(g.interval??12),durationDays:Number(g.durationDays??7),
+  offsetHours:Number(g.offsetHours??0),roleIds:roles,messages
  };
  if(!Number.isInteger(group.interval)||group.interval<1||group.interval>720)
    throw Error("Repeat interval must be a whole number from 1 to 720.");
