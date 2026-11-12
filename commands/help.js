@@ -219,7 +219,7 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Bot Commands & Shared Archives · PRIVATE / Required",
-    "**Required:**\n• **Bot Commands Channel** — Create a private text channel for setup, administration, and general bot management.\n• **Access** — Give authorized staff and the bot access; hide it from @everyone.\n\n• **Shared Staff Archives Channel** — A second required private channel for completed giveaway, Court\'s Trial and scheduled-ping records. It must be separate from Bot Commands and active giveaway staff controls.\n\n**Both are mandatory in `/setup general`.** All setup commands run in Bot Commands."
+    "**Required:**\n• **Bot Commands Channel** — Create a private text channel for setup, administration, and general bot management.\n• **Access** — Give authorized staff and the bot access; hide it from @everyone.\n\n• **Shared Staff Archives Channel** — A second required private channel for completed giveaway, Court\'s Trial and scheduled-ping records. It must be separate from Bot Commands and active giveaway staff controls.\n\n**Both are mandatory in `/setup general`.** All bot setup commands must be run in this channel (Bot Commands)."
    ],
    [
     "2. Profiles, Trading, Shop & Points · PUBLIC",
