@@ -331,13 +331,6 @@ async function modalSubmit(i,id){
   s.workingGroups[s.selectedGroupIndex]=normalizePingGroup(g);
   return reply(i,activationGroupPanel(s));
  }
- if(id==="message"){
-  if(s.phase!=="draft")throw Error("This editor is no longer active.");
-  const g=s.groups[s.groupIndex];
-  if(g.messages.length>=20)throw Error("This group already has 20 rotating messages.");
-  g.messages.push(field(i,"content"));
-  return reply(i,draftPanel(s));
- }
  if(id==="start"){
   if(s.phase!=="activation")throw Error("Open an activation preview first.");
   s.startAt=fromDateInput(field(i,"date"),field(i,"time"),s.timeZone);s.page=0;
@@ -459,7 +452,7 @@ async function handleControl(i){
  if(command==="template:edit"){
   const s=stateFor(i),t=s.template;
   Object.assign(s,{phase:"draft",editId:t._id,name:t.name,description:t.description,
-   groups:t.groups.map(g=>({...g,roleIds:[...g.roleIds],messages:[...g.messages]})),groupIndex:0});
+   groups:t.groups.map(g=>({...g,roleIds:[...g.roleIds],messages:[]})),groupIndex:0});
   return reply(i,draftPanel(s));
  }
  if(command==="template:use"){
@@ -491,10 +484,6 @@ async function handleControl(i){
    ["days","Duration (days, 1–365)",g.durationDays,TextInputStyle.Short,3],
    ["offset","First ping delay (hours)",g.offsetHours,TextInputStyle.Short,3]
   ]));
-  if(command==="draft:message")return i.showModal(modal(i,"message","Add Rotating Message",[
-   ["content","Message (roles added separately)","",TextInputStyle.Paragraph,1800]
-  ]));
-  if(command==="draft:removeMessage"){g.messages.pop();return reply(i,draftPanel(s));}
   if(command==="draft:roles"){
    return reply(i,{content:"**Roles for "+g.name+"**\nSelect up to 10 roles. Leave unselected to post text only.",
     components:[new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
@@ -506,17 +495,15 @@ async function handleControl(i){
   if(command==="draft:return")return reply(i,draftPanel(s));
   if(command==="draft:previous"){s.groupIndex=Math.max(0,s.groupIndex-1);return reply(i,draftPanel(s));}
   if(command==="draft:add"){
-   s.groups[s.groupIndex]=normalizePingGroup(g);
+   s.groups[s.groupIndex]=normalizePingGroup({...g,messages:[]},{allowEmpty:true});
    if(s.groups.length>=10)throw Error("A template supports at most 10 Ping Groups.");
    s.groups.push(newGroup(s.groups.length+1));s.groupIndex=s.groups.length-1;
    return reply(i,draftPanel(s));
   }
   if(command==="draft:finish"){
-   const groups=s.groups.slice();
-   // An accidentally added, untouched final group may be omitted.
-   if(s.groupIndex===groups.length-1&&!g.roleIds.length&&!g.messages.length&&groups.length>1)groups.pop();
-   else groups[s.groupIndex]=normalizePingGroup(g);
-   const valid=groups.map(normalizePingGroup);
+   // Templates contain no message text; staff fill it in when using the template.
+   // A Ping Group can also have no roles until activation.
+   const valid=s.groups.map(g=>normalizePingGroup({...g,messages:[]},{allowEmpty:true}));
    const base={name:s.name,nameKey:s.name.toLowerCase(),description:s.description,
     updatedBy:i.user.id,groups:valid};
    let t;
@@ -528,7 +515,7 @@ async function handleControl(i){
    }
    sessions.delete(key(i));
    return reply(i,{content:"**Template saved: "+t.name+"**\n"+t.groups.length+
-    " Ping Group(s). No messages have been scheduled. Select Saved Templates on the dashboard to use it."});
+    " Ping Group(s). Timing and roles are saved. Open Saved Templates → Use Template to add messages and review the schedule."});
   }
  }
  if(command==="select:group"){
