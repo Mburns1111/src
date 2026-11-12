@@ -41,6 +41,9 @@ const CARD_STEPS = [
   ["hatchemAutoDropsEnabled", "Wild activity eggs", false],
 ];
 export const generalSetupFields = GENERAL_STEPS.map(step => step[0]);
+// The general wizard also contains a time-zone setting; only actual channel IDs
+// should ever be passed to Discord's channel-fetch/permission validation.
+export const generalSetupChannelFields = generalSetupFields.filter(field => field.endsWith("ChannelId"));
 export const cardSetupFields = CARD_STEPS.map(step => step[0]);
 const stepsFor = mode => mode === "general" ? GENERAL_STEPS : CARD_STEPS;
 const sessionKey = (guild, member) => guild + ":" + member;
@@ -187,8 +190,16 @@ async function saveGeneral(session) {
   if (s.scheduledPingsChannelId && [s.commandChannelId,s.giveawayArchiveChannelId].includes(s.scheduledPingsChannelId))
     throw Error("The Scheduled Pings dashboard must have its own private staff channel.");
   const channels = {};
-  for (const [field] of GENERAL_STEPS) {
-    if (s[field]) channels[field] = await validateChannel(session, s[field],{requirePrivate:["commandChannelId","giveawayArchiveChannelId","scheduledPingsChannelId"].includes(field)});
+  for (const field of generalSetupChannelFields) {
+    if (!s[field]) continue;
+    try {
+      channels[field] = await validateChannel(session, s[field], {
+        requirePrivate: ["commandChannelId", "giveawayArchiveChannelId", "scheduledPingsChannelId"].includes(field),
+      });
+    } catch (error) {
+      const name = GENERAL_STEPS.find(([key]) => key === field)?.[1] || field;
+      throw Error(name + ": " + (error.message || error));
+    }
   }
   // Validate first. Preserve existing posts, IDs, ownership and history. The
   // channel fields alone decide which features can create new content.
