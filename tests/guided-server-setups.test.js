@@ -54,6 +54,8 @@ test("each feature has its own guided /setup command; legacy saved channel IDs r
     assert.ok(names.includes(name), name + " is available");
   assert.equal(names.includes("channels"),false,"retired /setup channels is no longer registered");
   assert.equal(generalSetupFields[0], "commandChannelId");
+  assert.equal(generalSetupFields[1], "giveawayArchiveChannelId");
+  assert.ok(generalSetupFields.includes("scheduledPingsChannelId"));
   assert.ok(!generalSetupFields.includes("giveawayChannelId"));
   assert.deepEqual(cardSetupFields, ["hatchemChannelId", "cardRoleId", "hatchemAutoDropsEnabled"]);
   for (const field of ["initialSetupCompletedAt", "trialSetupCompletedAt", "cardSetupCompletedAt",
@@ -87,7 +89,7 @@ test("General setup allows a giveaway-only or cards-only guild with all optional
     inventoryChannelId: "", tradingPostChannelId: "", tradeVoteChannelId: "",
     shopChannelId: "", partyGamesChannelId: "",
   });
-  assert.match(summary, /commands channel is mandatory/i);
+  assert.match(summary, /Bot Commands and Shared Staff Archives are mandatory/i);
   assert.match(summary, /Disabled \/ skipped/);
   assert.match(summary, /Giveaways, activity giveaways, Court's Trials and Hatchem/);
   assert.doesNotMatch(summary, /must enable a profile/i);
