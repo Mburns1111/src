@@ -417,7 +417,7 @@ async function upcomingList(i,page=0){
  controls.components[1].setDisabled(page>=pageCount-1);
  return reply(i,{content:"**Full Upcoming Schedule** · Page "+(page+1)+"/"+pageCount+
   "\nChannels A–Z · Pings within each channel are in time order.\n\n"+
-  (sections.length?sections.join("\n\n"):"No future scheduled pings found."),
+  (sections.length?sections.join("\n"):"No future scheduled pings found."),
   components:[controls]});
 }
 function selectedInput(i){
