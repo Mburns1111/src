@@ -80,7 +80,7 @@ export async function handleActivityGiveawayProgress(interaction) {
   const nextWindow=isPlan?planActivityWindow(item,item.nextRunAt):null;
   const periodStart=custom?new Date(customStart):
     isPlan?nextWindow.startAt:
-      (period==="daily"?new Date(item.activityPeriodKey+"T00:00:00Z"):new Date(item.activityStartAt));
+      new Date(item.activityStartAt);
   const periodEnd=custom?new Date(customEnd):
     isPlan?nextWindow.endAt:new Date(item.activityEndAt);
   const configuredAt=config.activityParticipationRoleConfiguredAt;
