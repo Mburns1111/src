@@ -234,11 +234,11 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Giveaways & Court's Trials · PUBLIC and PRIVATE",
-    "**Required public channels:**\\n• **Regular Giveaways** — Entry-button giveaways.\\n• **Activity Giveaway List** — Activity posters, progress checks, and a permanent Opt In / Opt Out panel.\\n• **Activity Winners** — Activity results and claims.\\n• **Court's Trials** — Signup and elimination events.\\n\\n**Required private channels:**\\n• **Giveaway Staff Controls** — Review and manage results.\\n• **Giveaway Archives** — Completed and cancelled records.\\n\\n**Activity opt-in:** The bot maintains a private participation list in MongoDB. Members opt in through buttons at the bottom of the Activity Giveaway List; no participation role is required. Regular giveaway eligibility roles, bonus roles, manager roles and notification roles remain separate.\n\n**Required Giveaway Banned role:** Configure in `/setup giveaways` or `/setup activity-giveaways`. The role prevents entering giveaways or Trials, opting into activity tracking, and winning or rerolling. It remains until staff remove the role; it is not a timed cooldown and cannot be overridden.\\n\\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
+    "**Required public channels:**\n• **Regular Giveaways** — Enter giveaways through buttons.\n• **Activity Giveaway List** — Posters, progress, and Opt In / Opt Out panel.\n• **Activity Winners** — Results and claims.\n• **Court's Trials** — Signups and eliminations.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Management and prize delivery.\n• **Giveaway Archives** — Completed and cancelled records.\n\n**Activity opt-in:** Members choose Opt In at the bottom of the Activity Giveaway List. Consent is stored in MongoDB; no participation role is required.\n\n**Giveaway Banned role (required):** Set this server-wide punishment role. Members holding it cannot enter or win any giveaway or Trial, or count activity. It has no cooldown or individual override.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
    ],
    [
     "6. Bot Permissions",
-    "Give the bot **View Channel**, **Send Messages**, and **Embed Links** in assigned channels. Add **Read Message History** and **Attach Files** where needed.\\n\\n**Activity giveaways:** Enable Message Content Intent and let the bot see the channels being watched. The bot checks the member's MongoDB opt-in before writing any activity giveaway count or receipt. No role assignment or role selection is needed.\\n\\nGranting **Administrator** covers standard channel permissions, but the bot does not require it. The bot has no commands to mute, ban, kick, or otherwise moderate members."
+    "Give the bot **View Channel**, **Send Messages**, and **Embed Links** in assigned channels. Add **Read Message History** and **Attach Files** where needed.\n\n**Activity giveaways:** Enable Message Content Intent and let the bot see the channels being watched. The bot checks the member's MongoDB opt-in before writing any activity giveaway count or receipt. No role assignment or role selection is needed.\n\nGranting **Administrator** covers standard channel permissions, but the bot does not require it. The bot has no commands to mute, ban, kick, or otherwise moderate members."
    ],
    [
     "7. Setup Order",
@@ -252,7 +252,7 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Choose a Giveaway Type",
-    "• **Regular Giveaway** — `/giveaway start`: Members click **Enter Giveaway**; a regular eligibility role is optional.\\n• **Activity Giveaway** — `/giveaway activity`: Members press **Opt In** on the panel below the Activity Giveaway List. The bot counts only their qualifying messages while opted in, and enters qualified members automatically. No participation role or entry button on each giveaway.\\n• **Court's Trial** — `/trial start`: Members join a timed elimination contest.\\n\\nComplete the matching setup first. Opt-in is always required for activity giveaways only.\n\n**Giveaway Banned role:** Mandatory server-wide punishment. Blocks entries, activity logs, and draws. No per-event overrides; includes Trials."
+    "• **Regular Giveaway** — `/giveaway start`: Members click **Enter Giveaway**; a regular eligibility role is optional.\n• **Activity Giveaway** — `/giveaway activity`: Members press **Opt In** on the panel below the Activity Giveaway List. The bot counts only their qualifying messages while opted in, and enters qualified members automatically. No participation role or entry button on each giveaway.\n• **Court's Trial** — `/trial start`: Members join a timed elimination contest.\n\nComplete the matching setup first. Opt-in is always required for activity giveaways only.\n\n**Giveaway Banned role:** Mandatory server-wide punishment. Blocks entries, activity logs, and draws. No per-event overrides; includes Trials."
    ],
    [
     "Court's Trials — Fast-Paced Giveaways",
@@ -282,7 +282,7 @@ const CONTENT=Object.freeze({
   [
    [
     "Activity Participation · REQUIRED",
-    "Members must explicitly opt in through the **Opt In** button on the permanent participation panel below the **Activity Giveaway List**. The bot stores their choice in MongoDB and checks it before writing any activity giveaway logs. No Discord role is used.\\n\\n**Opt Out** immediately stops new tracking and excludes the member from activity draws. Opting in again starts a fresh counting window; previously recorded messages do not contribute."
+    "Members must explicitly opt in through the **Opt In** button on the permanent participation panel below the **Activity Giveaway List**. The bot stores their choice in MongoDB and checks it before writing any activity giveaway logs. No Discord role is used.\n\n**Opt Out** immediately stops new tracking and excludes the member from activity draws. Opting in again starts a fresh counting window; previously recorded messages do not contribute."
    ],
    [
     "1. Set the Requirements",
