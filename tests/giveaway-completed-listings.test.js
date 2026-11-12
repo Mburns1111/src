@@ -142,8 +142,8 @@ test("one-click Archive Giveaway moves the staff record and separate review, pre
       value===originalStaffPost.id?originalStaffPost:value===reviewId?originalReview:null},
     permissionsFor:()=>({has:()=>false})};
   const archiveChannel={
-    id:archiveId,guild:{roles:{everyone:{id:"everyone"}}},
-    permissionsFor:()=>({has:()=>false}),
+    id:archiveId,guild:{roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}}},
+    permissionsFor:member=>({has:()=>member?.id==="bot"}),
     messages:{fetch:async()=>[]},
     send:async payload=>{
       archivePosts.push(payload);
