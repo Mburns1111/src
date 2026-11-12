@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import {parseServerDateTime,formatServerClock,addServerCalendarDays,validateServerTimeZone} from "../services/schedule-timezone.js";
 import {handleScheduledPingsInteraction} from "../commands/scheduled-pings.js";
-import {activatePingSchedule,reconcilePingSchedules,normalizePingGroup,planPingDeliveries,pingDashboardButtons} from "../services/scheduled-pings.js";
+import {activatePingSchedule,archivePingSchedule,reconcilePingSchedules,normalizePingGroup,planPingDeliveries,pingDashboardButtons} from "../services/scheduled-pings.js";
 import PingTemplate from "../models/PingTemplate.js";
 import PingSchedule from "../models/PingSchedule.js";
 import PingDelivery from "../models/PingDelivery.js";
@@ -263,4 +263,29 @@ test("concurrent activations write one batch of deliveries and one audit entry",
  assert.deepEqual(results,[stored,stored]);
  assert.equal(deliveries.mock.callCount(),1);
  assert.equal(audit.mock.callCount(),1);
+});
+
+
+test("ending during an in-flight Discord send defers the archive instead of posting incomplete logs",async t=>{
+ const schedule={_id:new mongoose.Types.ObjectId(),guildId:"server",status:"ended",archiveMessageId:""};
+ const lease=t.mock.method(PingSchedule,"findOneAndUpdate",()=>({lean:async()=>schedule}));
+ const count=t.mock.method(PingDelivery,"countDocuments",async query=>{
+  assert.equal(String(query.scheduleId),String(schedule._id));
+  assert.deepEqual(query.status.$in,["pending","sending"]);
+  return 1;
+ });
+ const release=t.mock.method(PingSchedule,"updateOne",async()=>({modifiedCount:1}));
+ const config=t.mock.method(GuildConfig,"findOne",()=>{throw Error("Archive should not be queried while delivery is in flight.");});
+ assert.equal(await archivePingSchedule({},schedule),null);
+ assert.equal(lease.mock.callCount(),1);
+ assert.equal(count.mock.callCount(),1);
+ assert.equal(release.mock.callCount(),1);
+ assert.equal(config.mock.callCount(),0);
+});
+
+test("archive locking stops duplicate archive publishers",async t=>{
+ const schedule={_id:new mongoose.Types.ObjectId(),guildId:"server",status:"ended",archiveMessageId:""};
+ t.mock.method(PingSchedule,"findOneAndUpdate",()=>({lean:async()=>null}));
+ t.mock.method(PingDelivery,"countDocuments",async()=>{throw Error("Only the lease holder may inspect deliveries.");});
+ assert.equal(await archivePingSchedule({},schedule),null);
 });
