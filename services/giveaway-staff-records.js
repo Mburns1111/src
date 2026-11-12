@@ -302,7 +302,7 @@ async function cleanupArchivedStaffMessages(client,record,staffId,{reviewArchive
 export async function ensureGiveawayStaffRecord(client,record){
  if(!record||["draft","publishing","failed"].includes(record.status))return false;
  const config=await GuildConfig.findOne({guildId:record.guildId})
-   .select("activityGiveawayReviewChannelId giveawayArchiveChannelId activityParticipationRoleId").lean();
+   .select("activityGiveawayReviewChannelId giveawayArchiveChannelId").lean();
  const settled=Boolean(record.publicListingRemovedAt)||record.status==="cancelled";
  const archiveId=config?.giveawayArchiveChannelId;
  const channelId=settled&&archiveId?archiveId:config?.activityGiveawayReviewChannelId;
@@ -382,7 +382,7 @@ export async function ensureGiveawayStaffRecord(client,record){
  // This is separate from the permanent management card and omits members
  // who have not opted in to activity tracking.
  if(record.mode==="activity" && record.status==="open" && !isArchive &&
-    config?.activityParticipationRoleId){
+    config?.activityGiveawayReviewChannelId){
    await ensureStaffProgressPanel(client,record,channel);
  }
  return true;
