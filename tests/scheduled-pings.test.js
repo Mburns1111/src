@@ -120,22 +120,29 @@ test("invalid roles, empty messages and excessive frequency fail before scheduli
  assert.throws(()=>planPingDeliveries([],start),/1–10 Ping Groups/);
 });
 
-test("pinned dashboard groups the next scheduled pings by channel with date last",()=>{
+test("pinned dashboard lists role mentions and abbreviated messages with dates last",()=>{
  const schedules=new Map([
   ["one",{name:"Evening Alerts",destinationChannelId:"111111111111111111",timeZone:"America/New_York"}],
   ["two",{name:"Event Alerts",destinationChannelId:"222222222222222222",timeZone:"America/New_York"}],
  ]);
+ const longMessage="Reminder ".repeat(18).trim();
  const due=[
-  {scheduleId:"one",groupIndex:0,dueAt:new Date("2026-11-12T22:00:00Z")},
-  {scheduleId:"two",groupIndex:1,dueAt:new Date("2026-11-12T23:00:00Z")},
-  {scheduleId:"one",groupIndex:2,dueAt:new Date("2026-11-13T00:00:00Z")},
+  {scheduleId:"one",groupIndex:0,roleIds:["333333333333333333"],content:"Welcome to the event",
+   dueAt:new Date("2026-11-12T22:00:00Z")},
+  {scheduleId:"two",groupIndex:1,roleIds:[],content:longMessage,
+   dueAt:new Date("2026-11-12T23:00:00Z")},
+  {scheduleId:"one",groupIndex:2,roleIds:["333333333333333333","444444444444444444"],content:"",
+   dueAt:new Date("2026-11-13T00:00:00Z")},
  ];
  const lines=dashboardUpcomingLines(due,schedules,"UTC");
  assert.equal(lines[0],"**<#111111111111111111>**");
- assert.match(lines[1],/^• Evening Alerts · Group 1 — Nov 12, 2026, 5:00 PM EST$/);
- assert.match(lines[2],/^• Evening Alerts · Group 3 — Nov 12, 2026, 7:00 PM EST$/);
+ assert.equal(lines[1],"• <@&333333333333333333> · Welcome to the event — Nov 12, 2026, 5:00 PM EST");
+ assert.equal(lines[2],"• <@&333333333333333333> <@&444444444444444444> · (role-only) — Nov 12, 2026, 7:00 PM EST");
  assert.equal(lines[3],"**<#222222222222222222>**");
- assert.match(lines[4],/^• Event Alerts · Group 2 — Nov 12, 2026, 6:00 PM EST$/);
+ assert.match(lines[4],/^• No roles · Reminder /);
+ assert.match(lines[4],/… — Nov 12, 2026, 6:00 PM EST$/);
+ assert.ok(lines[4].length<145,"The message preview should be abbreviated.");
+ assert.ok(lines.every(line=>!line.includes("Group 1")&&!line.includes("Group 2")));
  assert.deepEqual(dashboardUpcomingLines([],schedules),[]);
 });
 
