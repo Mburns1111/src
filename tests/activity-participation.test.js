@@ -1,109 +1,107 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import GuildConfig from "../models/GuildConfig.js";
+import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
 import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
-import {recordGiveawayMessage} from "../services/giveaway-activity-counter.js";
+import GiveawayActivityRuleMinuteCount from "../models/GiveawayActivityRuleMinuteCount.js";
+import {recordGiveawayMessage,qualifyingActivityPipeline} from "../services/giveaway-activity-counter.js";
 import {recordGuidedMessage} from "../services/guided-activity.js";
 import {
-  activityParticipationRole,memberHasActivityParticipationRole,eligibleActivityParticipant,
+ eligibleActivityParticipant,activeActivityParticipants,setActivityParticipation,
+ activityConsentStages,startOfMinute,
 } from "../services/activity-participation.js";
 
-const guildId="123456789012345678";
-const memberId="234567890123456789";
-const role="345678901234567890";
-
-function testMessage(roles,fetchCounter) {
-  const member={id:memberId,roles:{cache:new Map(roles.map(id=>[id,{}]))}};
-  return {
-    guildId,author:{id:memberId,bot:false},webhookId:null,
-    guild:{members:{fetch:async options=>{
-      fetchCounter.push(options);
-      return member;
-    }}},
+const guildId="123456789012345678",userId="234567890123456789";
+const when=new Date("2026-11-12T15:01:34Z");
+const active={guildId,userId,active:true,optedInAt:when,countFrom:startOfMinute(when)};
+const message=()=>({
+ guildId,author:{id:userId,bot:false},webhookId:null,
+ channelId:"456789012345678901",channel:{isTextBased:()=>true},
+ content:"A normal activity giveaway message",
+ createdAt:when,id:"567890123456789012",
+});
+function stub(fn){
+ const before=ActivityGiveawayOptIn.findOne;
+ ActivityGiveawayOptIn.findOne=fn;
+ return ()=>{ActivityGiveawayOptIn.findOne=before;};
+}
+test("MongoDB opt-in is not a Discord role; two counters share a single lookup for one message",async()=>{
+ let queries=0;const restore=stub(()=>({lean:async()=>{queries++;return active;}}));
+ try{
+  const m=message();
+  const [first,second]=await Promise.all([eligibleActivityParticipant(m),eligibleActivityParticipant(m)]);
+  assert.equal(first.userId,userId);
+  assert.deepEqual(first,second);
+  assert.equal(queries,1);
+  await eligibleActivityParticipant(message());
+  assert.equal(queries,2,"new messages recheck consent");
+ }finally{restore();}
+});
+test("missing MongoDB opt-in stops all activity recording before writing anything",async()=>{
+ const restore=stub(()=>({lean:async()=>null}));
+ const beforeCount=GiveawayActivityCount.updateOne,beforeMinute=GiveawayActivityMinuteCount.updateOne;
+ let writes=0;
+ try{
+  GiveawayActivityCount.updateOne=async()=>{writes++;};
+  GiveawayActivityMinuteCount.updateOne=async()=>{writes++;};
+  await recordGiveawayMessage(message());
+  await recordGuidedMessage(message());
+  assert.equal(writes,0);
+ }finally{
+  GiveawayActivityCount.updateOne=beforeCount;
+  GiveawayActivityMinuteCount.updateOne=beforeMinute;restore();
+ }
+});
+test("active opt-ins can be looked up together for winner eligibility",async()=>{
+ const before=ActivityGiveawayOptIn.find;
+ try{
+  let filter;
+  ActivityGiveawayOptIn.find=query=>{filter=query;return {lean:async()=>[active]};};
+  const selected=await activeActivityParticipants(guildId,[userId,"345678901234567890"]);
+  assert.equal(filter.guildId,guildId);
+  assert.equal(filter.active,true);
+  assert.deepEqual([...selected.keys()],[userId]);
+ }finally{ActivityGiveawayOptIn.find=before;}
+});
+test("rejoining starts a fresh counting window without previous-minute data",async()=>{
+ const before={
+  findOne:ActivityGiveawayOptIn.findOne,findOneAndUpdate:ActivityGiveawayOptIn.findOneAndUpdate,
+  deleteMinute:GiveawayActivityMinuteCount.deleteMany,
+  deleteRule:GiveawayActivityRuleMinuteCount.deleteMany,
+ };
+ const prior={...active,active:false,optedOutAt:new Date("2026-11-11T10:00:00Z")};
+ const deletes=[];let recorded;
+ try{
+  ActivityGiveawayOptIn.findOne=()=>({lean:async()=>prior});
+  ActivityGiveawayOptIn.findOneAndUpdate=(filter,update,opts)=>{
+   recorded={filter,update,opts};
+   return {lean:async()=>({...prior,...update.$set})};
   };
-}
-function stubConfig(config) {
-  const previous=GuildConfig.findOne;
-  GuildConfig.findOne=()=>({select:()=>({lean:async()=>config})});
-  return ()=>{GuildConfig.findOne=previous;};
-}
-
-test("activity opt-in is separate from regular giveaway required roles",()=>{
-  assert.equal(activityParticipationRole({
-    giveawayDefaultRequiredRoleId:role,
-  }),"");
-  assert.equal(activityParticipationRole({
-    giveawayDefaultRequiredRoleId:"999999999999999999",
-    activityParticipationRoleId:role,
-  }),role);
-  assert.equal(memberHasActivityParticipationRole({roles:{cache:new Map([[role,{}]])}},role),true);
-  assert.equal(memberHasActivityParticipationRole({roles:{cache:new Map()}},role),false);
-  assert.equal(memberHasActivityParticipationRole(null,role),false);
+  GiveawayActivityMinuteCount.deleteMany=async query=>{deletes.push(query);};
+  GiveawayActivityRuleMinuteCount.deleteMany=async query=>{deletes.push(query);};
+  const result=await setActivityParticipation(guildId,userId,true,when);
+  assert.equal(result.changed,true);
+  assert.equal(recorded.update.$set.active,true);
+  assert.equal(+recorded.update.$set.optedInAt,+when);
+  assert.equal(+recorded.update.$set.countFrom,+startOfMinute(when));
+  assert.equal(deletes.length,2);
+  assert.ok(deletes.every(q=>+q.minute===+startOfMinute(when)));
+ }finally{
+  ActivityGiveawayOptIn.findOne=before.findOne;
+  ActivityGiveawayOptIn.findOneAndUpdate=before.findOneAndUpdate;
+  GiveawayActivityMinuteCount.deleteMany=before.deleteMinute;
+  GiveawayActivityRuleMinuteCount.deleteMany=before.deleteRule;
+ }
 });
-
-test("nothing is recorded when the activity opt-in role was never configured",async()=>{
-  const restore=stubConfig({giveawayDefaultRequiredRoleId:role});
-  const checks=[];
-  try{
-    assert.equal(await eligibleActivityParticipant(testMessage([role],checks)),null);
-    assert.equal(checks.length,0,"a normal giveaway entry role does not opt in to activity tracking");
-  }finally{restore();}
-});
-
-test("member participation is checked for every new message, including when a role is removed",async()=>{
-  const restore=stubConfig({activityParticipationRoleId:role});
-  const checks=[];
-  try {
-    const optedIn=testMessage([role],checks);
-    const [first,retry]=await Promise.all([
-      eligibleActivityParticipant(optedIn),eligibleActivityParticipant(optedIn),
-    ]);
-    assert.equal(first.roleId,role);
-    assert.equal(retry.roleId,role);
-    assert.equal(checks.length,1,"both giveaway counters share one role lookup for the same message");
-    assert.deepEqual(checks[0],{user:memberId,force:true});
-
-    assert.equal(await eligibleActivityParticipant(testMessage([],checks)),null,
-      "removing the role immediately stops future message recording");
-    assert.equal(checks.length,2);
-
-    assert.equal((await eligibleActivityParticipant(testMessage([role],checks))).roleId,role,
-      "reclaiming the role starts counting only new messages");
-    assert.equal(checks.length,3);
-  }finally{restore();}
-});
-
-test("role lookup failures fail closed and never count an unverified participant",async()=>{
-  const restore=stubConfig({activityParticipationRoleId:role});
-  try{
-    const message=testMessage([role],[]);
-    message.guild.members.fetch=async()=>{throw Error("Discord is unavailable");};
-    assert.equal(await eligibleActivityParticipant(message),null);
-  }finally{restore();}
-});
-
-test("non-opted-in members generate no legacy counters or guided receipts",async()=>{
-  const restore=stubConfig({activityParticipationRoleId:role});
-  const beforeCount=GiveawayActivityCount.updateOne;
-  const beforeMinute=GiveawayActivityMinuteCount.updateOne;
-  let writes=0;
-  try{
-    GiveawayActivityCount.updateOne=async()=>{writes++;};
-    GiveawayActivityMinuteCount.updateOne=async()=>{writes++;};
-    const message={
-      ...testMessage([],[]),
-      channelId:"456789012345678901",channel:{isTextBased:()=>true},
-      content:"Hello from someone who has not opted in.",
-      createdAt:new Date("2026-11-11T16:00:00Z"),
-      id:"567890123456789012",
-    };
-    await recordGiveawayMessage(message);
-    await recordGuidedMessage(message);
-    assert.equal(writes,0);
-  }finally{
-    GiveawayActivityCount.updateOne=beforeCount;
-    GiveawayActivityMinuteCount.updateOne=beforeMinute;
-    restore();
-  }
+test("activity query pipelines join active session before totaling messages",()=>{
+ const stages=activityConsentStages(guildId);
+ assert.equal(stages[0].$lookup.pipeline[0].$match.guildId,guildId);
+ assert.equal(stages[0].$lookup.pipeline[0].$match.active,true);
+ assert.match(JSON.stringify(stages),/countFrom/);
+ const pipeline=qualifyingActivityPipeline({
+  guildId,type:"general",startAt:new Date("2026-11-12T00:00:00Z"),
+  endAt:new Date("2026-11-13T00:00:00Z"),minimum:1,days:1,
+ });
+ assert.ok(pipeline.some(stage=>stage.$lookup));
+ assert.deepEqual(pipeline.at(-1).$match.activeDays,{$gte:1});
 });
