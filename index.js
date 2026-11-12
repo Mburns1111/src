@@ -94,6 +94,7 @@ import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
 import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
 import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
 import { handleActivityGiveawayProgress } from "./services/giveaway-progress.js";
+import {handleActivityOptInButton,reconcileActivityOptInPanels} from "./services/activity-giveaway-optin-ui.js";
 import { handleGiveawayReviewButton,reconcilePendingGiveawayReviews } from "./services/giveaway-review.js";
 import {data as giveawayRoleCommand,executeGiveawayRoleBonusAdmin} from "./commands/giveaway-role-bonuses.js";
 import { recordGiveawayMessage } from "./services/giveaway-activity-counter.js";
@@ -435,6 +436,8 @@ client.once(Events.ClientReady, async (readyClient) => {
       await reconcilePendingGiveawayReviews(readyClient);
       await reconcileGiveawayClaims(readyClient);
       await reconcileActivityGiveawayListings(readyClient);
+      // Recreate the participation panel even in an empty activity-list channel.
+      await reconcileActivityOptInPanels(readyClient);
       await reconcileGiveawayStaffRecords(readyClient);
       // Run last so the sticky directory follows newly posted staff records.
       await reconcileGiveawayStaffDirectories(readyClient);
@@ -660,6 +663,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith("party:")) {
       await handlePartyInteraction(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith("activity-optin:")) {
+      await handleActivityOptInButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("activity-progress:")) {
