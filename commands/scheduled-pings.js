@@ -80,7 +80,9 @@ function editorState(i){
 }
 async function savedTemplatesPanel(i,page=0){
  const templates=await PingTemplate.find({guildId:i.guildId}).sort({updatedAt:-1}).skip(page*25).limit(25).lean();
- if(!templates.length)return reply(i,{content:"**Saved Templates**\nNo templates yet. Use **Create Template** on the permanent dashboard."});
+ if(!templates.length)return reply(i,{content:"**Saved Templates**\n"+
+  (page?"No more templates on this page. Return to the previous page.":"No templates yet. Use Create Template on the permanent dashboard."),
+  components:page?[row(["Previous","template:pagePrev"])]:[]});
  const s={phase:"templateList",expires:Date.now()+EXPIRES,templates,page};
  sessions.set(key(i),s);
  const picker=new StringSelectMenuBuilder().setCustomId("pings:select:template")
@@ -94,7 +96,9 @@ async function savedTemplatesPanel(i,page=0){
 function templateDetails(s){
  const t=s.template;
  return {content:"**✦ "+t.name+"**\n"+(t.description||"")+"\n\n"+
-  t.groups.map((g,i)=>"**Group "+(i+1)+"**\n"+summaryGroup(g)).join("\n\n")+
+  t.groups.map((g,i)=>"**Group "+(i+1)+": "+g.name+"** · "+
+   (g.repeatMode==="once"?"Once":"Every "+g.interval+" "+(g.repeatMode==="days"?"days":"hours"))+
+   " · "+g.durationDays+" days · "+g.roleIds.length+" role(s) · "+g.messages.length+" message(s)").join("\n")+
   "\n\n*Using a template creates an independent schedule in one channel.*",
   components:[row(["Use Template","template:use",ButtonStyle.Success],
     ["Edit Template","template:edit"],["Delete Template","template:delete",ButtonStyle.Danger])]};
@@ -132,7 +136,8 @@ function activationGroupPanel(s){
  if(!g)throw Error("Select a Ping Group.");
  return {content:"**Customize Ping Group "+(s.selectedGroupIndex+1)+"**\n"+
   summaryGroup(g)+"\n\n"+
-  (g.messages.length?g.messages.map((m,i)=>"Message "+(i+1)+": "+short(m)).join("\n"):
+  (g.messages.length?g.messages.slice(0,8).map((m,i)=>"Message "+(i+1)+": "+short(m)).join("\n")+
+   (g.messages.length>8?"\n…plus "+(g.messages.length-8)+" more rotating messages.":""):
    "This group only sends role mentions.")+
   "\n\n*Edits apply to this activation only. The saved template remains unchanged.*",
   components:[
@@ -187,15 +192,15 @@ function plannedEventPanel(s,event){
 }
 async function futureList(i,s){
  const deliveries=await PingDelivery.find({scheduleId:s.schedule._id,status:"pending",dueAt:{$gt:new Date()}})
-  .sort({dueAt:1}).limit(25).lean();
- if(!deliveries.length)return reply(i,{content:"No future pending pings remain.",components:[row(["Back","manage:back"])]});
+  .sort({dueAt:1}).skip((s.futurePage||0)*25).limit(25).lean();
+ if(!deliveries.length)return reply(i,{content:"No future pending pings on this page.",components:[row(["Previous","manage:futurePrev"],["Back","manage:back"])]});
  s.deliveries=deliveries;s.phase="futureList";
- return reply(i,{content:"**Future Pings — "+s.schedule.name+"**\nChoose a message to edit. Individual changes are saved and audited immediately.",
+ return reply(i,{content:"**Future Pings — "+s.schedule.name+"** · Page "+((s.futurePage||0)+1)+"\nChoose a message to edit. Individual changes are saved and audited immediately.",
   components:[new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
    .setCustomId("pings:select:future").setPlaceholder("Choose a future ping")
    .addOptions(deliveries.map(d=>({label:"Ping #"+d.sequence+" · Group "+(d.groupIndex+1),
     value:String(d._id),description:new Date(d.dueAt).toISOString().slice(0,16)})))),
-   row(["Back","manage:back"])]});
+   row(["Previous","manage:futurePrev"],["Next","manage:futureNext"],["Back","manage:back"])]});
 }
 async function archivesList(i){
  const archives=await PingSchedule.find({guildId:i.guildId,status:"archived"})
@@ -606,7 +611,11 @@ export async function handleScheduledPingsInteraction(i){
    s.schedule=await PingSchedule.findById(s.schedule._id).lean();
    return reply(i,managementPanel(s));
   }
-  if(command==="manage:future")return futureList(i,s);
+  if(command==="manage:future"){s.futurePage=0;return futureList(i,s);}
+  if(command==="manage:futurePrev"||command==="manage:futureNext"){
+   s.futurePage=Math.max(0,(s.futurePage||0)+(command.endsWith("Next")?1:-1));
+   return futureList(i,s);
+  }
   if(command==="manage:end")return i.showModal(modal("end","End Schedule Early",[
    ["reason","Reason (required)","",TextInputStyle.Paragraph,500]
   ]));
