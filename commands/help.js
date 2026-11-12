@@ -272,7 +272,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Archive a Giveaway",
-    "Archive once **all winners have claimed** and staff use **Confirm Prizes Delivered**. If it cannot be completed, use **Cancel Giveaway** with a reason.\n\n**When archived:**\n• Regular giveaway posts are removed.\n• Activity winner announcements and Court's Trial verdicts remain public.\n• Completed and cancelled records are saved in private **Giveaway Archives**.\n\n**Archive History:** The archive will maintain who cancelled, who confirmed delivery, winner claim tickets, giveaway settings, and other relevant information for future review."
+    "After **all winners have claimed** and staff use **Confirm Prizes Delivered**, select **Archive Giveaway** in staff controls. If delivery cannot be completed, use **Cancel Giveaway** with a reason.\n\n**When archived:**\n• Regular giveaway posts are removed.\n• Activity winner announcements and Court's Trial verdicts remain public.\n• Completed and cancelled records are saved in private **Giveaway Archives**.\n\n**Archive History:** The archive will maintain who cancelled, who confirmed delivery, winner claim tickets, giveaway settings, and other relevant information for future review."
    ]
   ]
  ],
