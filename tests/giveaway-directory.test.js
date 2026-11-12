@@ -33,7 +33,7 @@ test("public directory announces watch requirements, next draw and prize without
  assert.match(embed.description,/Previous calendar day/);
  assert.match(embed.description,/<t:1794423600:F>/);
  assert.doesNotMatch(embed.description,/\b(entrantIds|winnerIds|locked entries)\b/);
- assert.match(embed.footer.text,/Automatic entry.*#99439011/);
+ assert.match(embed.footer.text,/Automatic entry.*#99439011.*forget to opt in/i);
  const directed=activityPlanListingEmbed(plan,rule,{winnerChannelId:winnersId}).toJSON();
  assert.ok(directed.description.includes(`<#${winnersId}>`));
  const oneOff=activityOneOffListingEmbed({_id:planId,status:"open",mode:"activity",
@@ -121,7 +121,8 @@ test("public cards hide internal details while keeping real entry requirements",
  assert.match(guided.description,/cozy community challenge/);
  assert.match(guided.description,/Ends and draws/);
  assert.doesNotMatch(guided.description,/1\+ characters|locked entries|autoReroll|criteriaVersion|Activity Giveaway ID/);
- assert.ok(guided.footer.text.length<55);
+ assert.match(guided.footer.text,/forget to opt in/i);
+ assert.ok(guided.footer.text.length<90);
  const advanced=activityOneOffListingEmbed({
    _id:"507f1f77bcf86cd799439014",guidedSeries:"507f1f77bcf86cd799439015",
    title:"Weekly Event",prize:"Pet",activityMinTotalMessages:10,
