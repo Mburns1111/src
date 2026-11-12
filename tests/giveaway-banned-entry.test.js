@@ -42,7 +42,8 @@ test("regular giveaway and Court Trial entry buttons refuse the punished member"
 
 test("public Activity Opt In and My Status buttons refuse a banned member without writing participation",async()=>{
  const saved={config:GuildConfig.findOne,participant:ActivityGiveawayOptIn.findOne,
-  update:ActivityGiveawayOptIn.findOneAndUpdate};
+  update:ActivityGiveawayOptIn.findOneAndUpdate,
+  revoke:ActivityGiveawayOptIn.updateOne};
  let writes=0;
  try{
   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
@@ -52,6 +53,7 @@ test("public Activity Opt In and My Status buttons refuse a banned member withou
   })})});
   ActivityGiveawayOptIn.findOne=()=>({lean:async()=>null});
   ActivityGiveawayOptIn.findOneAndUpdate=()=>{writes++;throw Error("Must not change opt-in");};
+  ActivityGiveawayOptIn.updateOne=async()=>({modifiedCount:0});
   for(const action of ["in","status"]){
    let response="";
    await handleActivityOptInButton({
@@ -59,11 +61,13 @@ test("public Activity Opt In and My Status buttons refuse a banned member withou
     message:{id:panelId},user:{id:userId},
     deferReply:async()=>{},editReply:async x=>{response=x;},
    });
-   assert.equal(response,giveawayBanMessage);
+   assert.match(response,/cannot enter giveaways/);
+   assert.match(response,/must opt in again/);
   }
   assert.equal(writes,0);
  }finally{
   GuildConfig.findOne=saved.config;ActivityGiveawayOptIn.findOne=saved.participant;
   ActivityGiveawayOptIn.findOneAndUpdate=saved.update;
+  ActivityGiveawayOptIn.updateOne=saved.revoke;
  }
 });
