@@ -121,6 +121,7 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
         title:plan.title,prize,description:plan.description||"",winnerCount:plan.winnerCount,endsAt:runAt,
         mode:"activity",status:plan.requireStaffReview?"pending_review":"closing",
         requireStaffReview:Boolean(plan.requireStaffReview),progressEnabled:Boolean(plan.progressEnabled),
+        enforceExclusionRole:plan.enforceExclusionRole!==false,
         announceEmptyResults:Boolean(plan.announceEmptyResults),
         roleBonuses,customActivityStartAt:plan.customActivityStartAt||null,
         customActivityEndAt:plan.customActivityEndAt||null,
