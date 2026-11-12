@@ -641,18 +641,33 @@ async function handleControl(i){
     .setMinValues(1).setMaxValues(10)),
     row(["No Group Roles","group:clearRoles"],["Back","group:return"])]});
   if(command==="group:clearRoles"){
-   if(!g.messages.length)throw Error("This group needs text or at least one role.");
    g.roleIds=[];return reply(i,activationGroupPanel(s));
   }
-  if(command==="group:replaceText"||command==="group:addText")
-   return i.showModal(modal(i,command==="group:addText"?"groupAddText":"groupReplaceText",
-    command==="group:addText"?"Add Rotating Message":"Replace Group Messages",[
-     ["content","Message text","",TextInputStyle.Paragraph,1800,true]
+  if(command==="group:addText"||command==="group:editText"){
+   const selected=s.selectedMessageIndex||0;
+   if(command==="group:editText"&&!g.messages[selected])throw Error("Choose a message first.");
+   return i.showModal(modal(i,command==="group:addText"?"groupAddText":"groupEditText",
+    command==="group:addText"?"Add Rotating Message":"Edit Rotating Message",[
+     ["content","Message text",command==="group:editText"?g.messages[selected]:"",TextInputStyle.Paragraph,1800,true]
    ]));
-  if(command==="group:removeMessage"){
-   if(g.messages.length===1&&!g.roleIds.length)throw Error("This group needs text or at least one role.");
-   g.messages.pop();return reply(i,activationGroupPanel(s));
   }
+  if(command==="group:removeSelected"){
+   const selected=s.selectedMessageIndex||0;
+   if(!g.messages[selected])throw Error("Choose a message to remove.");
+   const messages=g.messages.filter((_,index)=>index!==selected);
+   s.workingGroups[s.selectedGroupIndex]=normalizePingGroup({...g,messages},{allowEmpty:true});
+   s.selectedMessageIndex=Math.max(0,Math.min(selected,messages.length-1));
+   return reply(i,activationGroupPanel(s));
+  }
+ }
+ if(command==="select:groupMessage"){
+  const s=stateFor(i),g=s.workingGroups?.[s.selectedGroupIndex];
+  if(s.phase!=="activation"||!g)throw Error("Select a Ping Group first.");
+  const selected=Number(i.values?.[0]);
+  if(!Number.isInteger(selected)||selected<0||selected>=g.messages.length)
+   throw Error("Choose a message from this group.");
+  s.selectedMessageIndex=selected;
+  return reply(i,activationGroupPanel(s));
  }
  if(command==="select:groupRoles"){
   const s=stateFor(i),g=s.workingGroups?.[s.selectedGroupIndex];
