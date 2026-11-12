@@ -65,7 +65,7 @@ const newGroup=n=>({name:"Ping Group "+n,repeatMode:"hours",interval:12,duration
 const showRoles=roles=>roles?.length?roles.map(id=>"<@&"+id+">").join(" "):"None";
 const summaryGroup=(g,{template=false}={})=>"**"+g.name+"** · "+(g.repeatMode==="once"?"Once":"Every "+g.interval+" "+(g.repeatMode==="days"?"days":"hours"))+
  " · "+g.durationDays+" days · Delay "+g.offsetHours+"h\n"+
- "Roles: "+showRoles(g.roleIds)+(template?"":"\nRotating messages: "+(g.messages?.length||0));
+ "Roles: "+showRoles(g.roleIds)+(template?"":"\nMessage style: "+(MESSAGE_MODES[g.messageMode]||"Rotate Messages"));
 const MESSAGE_MODES={
  single:"Repeat One Message",
  "per-ping":"Different Message Per Ping",
@@ -398,8 +398,8 @@ async function modalSubmit(i,id){
    s.workingGroups=groups;s.page=0;
    return reply(i,activationGroupPanel(s));
   }
-  const previous=planPingDeliveries(s.workingGroups,s.startAt,{timeZone:s.timeZone});
-  const next=planPingDeliveries(groups,s.startAt,{timeZone:s.timeZone});
+  const previous=planPingDeliveries(s.workingGroups,s.startAt,{timeZone:s.timeZone,allowIncomplete:true});
+  const next=planPingDeliveries(groups,s.startAt,{timeZone:s.timeZone,allowIncomplete:true});
   const sequences=new Map(next.map(e=>[e.groupIndex+":"+e.ordinal,e.sequence]));
   const overrides=[];
   const removed=[];
@@ -577,7 +577,8 @@ async function handleControl(i){
    timeZone,startAt:first,page:0,overrides:[],
    // Pre-existing templates may contain legacy message text. New schedules
    // always configure messages independently during activation.
-   workingGroups:s.template.groups.map(g=>({...g,roleIds:[...g.roleIds],messages:[]}))});
+   workingGroups:s.template.groups.map(g=>({...g,roleIds:[...g.roleIds],messages:[],
+    messageMode:"rotate",perPingMessages:[]}))});
   return reply(i,activationSetupPanel(s));
  }
  if(command==="draft:cancel"){sessions.delete(key(i));return reply(i,{content:"Template editor closed. No changes saved."});}
@@ -641,7 +642,7 @@ async function handleControl(i){
   if(s.phase!=="activation")throw Error("Open an activation preview first.");
   if(command==="activation:groups")return reply(i,activationSetupPanel(s));
   if(command==="activation:review"){
-   const missing=s.workingGroups.findIndex(g=>!groupReady(g));
+   const missing=s.workingGroups.findIndex((g,index)=>!groupReady(s,index));
    if(missing>=0)throw Error("Ping Group "+(missing+1)+" needs a message or role before preview.");
    return activationPanel(i,s);
   }
