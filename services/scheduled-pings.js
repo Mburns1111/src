@@ -335,13 +335,23 @@ export async function pausePingSchedule(client,schedule,actorId){
  return updated;
 }
 export async function resumePingSchedule(client,schedule,actorId){
- const updated=await PingSchedule.findOneAndUpdate({_id:schedule._id,status:"paused"},
-  {$set:{status:"active"}},{new:true});
- if(!updated)throw Error("This schedule is not paused.");
- const missed=await PingDelivery.updateMany({scheduleId:schedule._id,status:"pending",dueAt:{$lt:new Date()}},
-  {$set:{status:"skipped",error:"Skipped while paused."}});
- if(missed.modifiedCount)await PingSchedule.updateOne({_id:schedule._id},{$inc:{skippedCount:missed.modifiedCount}});
- await logPingChange(schedule._id,schedule.guildId,actorId,"resumed",{skipped:missed.modifiedCount});
+ const session=await mongoose.startSession();
+ let updated;
+ try{
+  await session.withTransaction(async()=>{
+   const paused=await PingSchedule.findOne({_id:schedule._id,status:"paused"}).session(session);
+   if(!paused)throw Error("This schedule is not paused.");
+   // Skip past-due entries before the schedule becomes active, so the timer
+   // cannot race the Resume button and send a backlog of missed pings.
+   const missed=await PingDelivery.updateMany({scheduleId:schedule._id,status:"pending",dueAt:{$lt:new Date()}},
+    {$set:{status:"skipped",error:"Skipped while paused."}},{session});
+   paused.status="active";
+   paused.skippedCount+=(missed.modifiedCount||0);
+   updated=await paused.save({session});
+   await PingAudit.create([{scheduleId:schedule._id,guildId:schedule.guildId,
+    actorId,event:"resumed",details:{skipped:missed.modifiedCount||0}}],{session});
+  });
+ }finally{await session.endSession();}
  await completeIfFinished(schedule._id,client);
  await refreshPingDashboard(client,schedule.guildId);
  return updated;
