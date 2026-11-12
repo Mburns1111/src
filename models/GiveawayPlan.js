@@ -18,7 +18,6 @@ const schema=new mongoose.Schema({
   bannerNameKey:{type:String,default:""},
   winnerCount:{type:Number,default:1,min:1,max:10},
   requireStaffReview:{type:Boolean,default:false},
-  enforceExclusionRole:{type:Boolean,default:true},
   progressEnabled:{type:Boolean,default:true},
   announceEmptyResults:{type:Boolean,default:true},
   // A manually bounded one-time activity window, inclusive start / exclusive end.
