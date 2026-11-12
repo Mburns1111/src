@@ -24,6 +24,8 @@ const guildConfigSchema = new mongoose.Schema(
     activityGiveawayWinnersChannelId: { type: String, default: "" },
     activityGiveawayReviewChannelId: { type: String, default: "" },
     giveawayArchiveChannelId: { type: String, default: "" },
+    scheduledPingsChannelId: { type: String, default: "" },
+    scheduledPingsDashboardMessageId: { type: String, default: "" },
     // Shared staff delegation for regular, activity and Trial giveaway management.
     giveawayManagerRoleId: { type: String, default: "" },
     // One auto-updating sticky directory in the configured private staff channel.
