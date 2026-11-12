@@ -20,7 +20,7 @@ const regularSteps=["regularChannel","staff","archive","managerRole","excludedRo
 const stepsFor=session=>session.mode==="regular"?regularSteps:steps;
 const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",archive:"Private giveaway archive",
   regularChannel:"Regular giveaway posts",managerRole:"Giveaway Manager role",
-  excludedRole:"Banned giveaway role",
+  excludedRole:"Required Giveaway Banned role",
   requiredRole:"Default regular entry role",roleHelp:"Where to get required roles",
   roleHelpVisible:"Show role instructions",instructions:"Claim instructions",hours:"Claim deadline",rerolls:"Automatic rerolls",
   roles:"Shared giveaway ping role",empty:"No eligible winners",banner:"Default banner"};
@@ -53,7 +53,7 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   "🔒 **Staff controls:** "+shown(settings.activityGiveawayReviewChannelId),
    "🗄️ **Private giveaway archive (required):** "+shown(settings.giveawayArchiveChannelId),
   "🔑 **Giveaway Manager role:** "+(settings.giveawayManagerRoleId?"<@&"+settings.giveawayManagerRoleId+">":"None — Manage Server only"),
-  "🚫 **Optional banned giveaway role (regular and activity):** "+(settings.giveawayExcludedRoleId?"<@&"+settings.giveawayExcludedRoleId+">":"None — no excluded role"),
+  "🚫 **Giveaway Banned role (required):** "+(settings.giveawayExcludedRoleId?"<@&"+settings.giveawayExcludedRoleId+">":"NOT CONFIGURED — REQUIRED"),
   ...(mode==="activity"?[
     "✅ **Activity participation:** Members use **Opt In / Opt Out** at the bottom of the Activity Giveaway List. Stored in MongoDB; no Discord role required.",
   ]:[
@@ -130,12 +130,14 @@ function layout(session,banners=[]) {
      .setMinValues(1).setMaxValues(1)));
    components.push(row(session.id,[["No manager role","clearManagerRole"],["Keep Current","keep"]]));
  }else if(step==="excludedRole"){
-   content="Choose an optional **Banned Giveaway Role**. Members holding this role are excluded from regular and activity winner drawings and rerolls when the giveaway has exclusion enabled. Court's Trials are not affected.\nCurrent: "+
-     (s.giveawayExcludedRoleId?"<@&"+s.giveawayExcludedRoleId+">":"None — no excluded role");
+   content="Choose the **required Giveaway Banned role** shared by all prize giveaways. "+
+     "Anyone holding this punishment role cannot enter regular giveaways, Court's Trials, or collect activity giveaway progress; they cannot win or be rerolled into any giveaway. "+
+     "The restriction is always enforced, never optional, and has no cooldown.\\nCurrent: "+
+     (s.giveawayExcludedRoleId?"<@&"+s.giveawayExcludedRoleId+">":"NOT CONFIGURED — REQUIRED");
    components.push(new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
-     .setCustomId(bind(session,"excludedRole")).setPlaceholder("Choose banned giveaway role")
+     .setCustomId(bind(session,"excludedRole")).setPlaceholder("Select required banned role")
      .setMinValues(1).setMaxValues(1)));
-   components.push(row(session.id,[["No Banned Role","clearExcludedRole"],["Keep Current","keep"]]));
+   if(s.giveawayExcludedRoleId)components.push(row(session.id,[["Keep Current","keep"]]));
  }else if(step==="requiredRole"){
    content="Choose an **optional default required role** for regular giveaways only. "+
      "Staff can keep this default, choose a different role, or disable the role requirement for each regular giveaway.\n"+
@@ -293,6 +295,9 @@ async function apply(session,verb,value){
      session.fromReview=true;await show(session,value);return;
    }
    if(verb!=="save")throw Error("Choose Save Settings, Preview, or Edit.");
+   if(!s.giveawayExcludedRoleId)throw Error("Select the required Giveaway Banned role before saving setup.");
+   const banRole=await session.guild.roles.fetch(s.giveawayExcludedRoleId).catch(()=>null);
+   if(!banRole||banRole.id===session.guild.id)throw Error("The required Giveaway Banned role no longer exists. Select a current role.");
    await checkChannels(session);
    const previous=await GuildConfig.findOne({guildId:session.guild.id}).lean();
    const settings={
@@ -317,7 +322,10 @@ async function apply(session,verb,value){
      allowedMentions:{parse:[]}});
    return;
  }
- if(verb==="keep")return next();
+ if(verb==="keep"){
+   if(session.step==="excludedRole"&&!s.giveawayExcludedRoleId)throw Error("Choose the required Giveaway Banned role first.");
+   return next();
+ }
  if(session.step==="managerRole"){
    if(verb==="clearManagerRole"){s.giveawayManagerRoleId="";return next();}
    if(verb==="managerRole"){
@@ -329,7 +337,6 @@ async function apply(session,verb,value){
    }
  }
  if(session.step==="excludedRole"){
-   if(verb==="clearExcludedRole"){s.giveawayExcludedRoleId="";return next();}
    if(verb==="excludedRole"){
      const id=Array.isArray(value)?value[0]:value;
      const role=await session.guild.roles.fetch(id).catch(()=>null);
