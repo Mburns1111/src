@@ -12,21 +12,25 @@ const dayKey=date=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",
 const button=(id,label,style=ButtonStyle.Secondary)=>new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style);
 const time=date=>date?"<t:"+Math.floor(+new Date(date)/1000)+":f>":"Not recorded";
 
-export async function activityProgressRows(record,guild){
- if(!guild?.members?.fetch)throw Error("Discord membership verification is required for activity progress.");
- const config=await GuildConfig.findOne({guildId:record.guildId})
+export async function activityProgressRows(record,guild=null,{historical=false}={}){
+ // The active staff panel shows only currently opted-in members; finalized
+ // archival snapshots preserve what was recorded during the giveaway.
+ if(!historical&&!guild?.members?.fetch)
+   throw Error("Discord membership verification is required for live activity progress.");
+ const config=historical?null:await GuildConfig.findOne({guildId:record.guildId})
    .select("activityParticipationRoleId activityParticipationRoleConfiguredAt").lean();
  const roleId=config?.activityParticipationRoleId;
- if(!roleId)return [];
+ if(!historical&&!roleId)return [];
  if(record.guidedSeries){
-   if(record.requiredRoleId!==roleId)return [];
-   const rows=await activityRoster(record,null,guild);
+   if(!historical&&record.requiredRoleId!==roleId)return [];
+   const rows=await activityRoster(record,null,historical?null:guild);
    return rows.filter(r=>r.messages>0).map(r=>({userId:String(r._id),messages:r.messages,days:r.days,qualified:r.qualified}));
  }
  const periodStart=record.activityStartAt||record.customActivityStartAt;
  const end=record.activityEndAt||record.customActivityEndAt;
- if(!periodStart||!end||!config.activityParticipationRoleConfiguredAt)return [];
- const start=new Date(Math.max(+new Date(periodStart),
+ if(!periodStart||!end)return [];
+ if(!historical&&!config.activityParticipationRoleConfiguredAt)return [];
+ const start=historical?new Date(periodStart):new Date(Math.max(+new Date(periodStart),
    Math.ceil(+new Date(config.activityParticipationRoleConfiguredAt)/60000)*60000));
  if(start>=new Date(end))return [];
  const minimum=Math.max(1,record.activityMinimum||1);
@@ -46,7 +50,7 @@ export async function activityProgressRows(record,guild){
  pipeline.pop(); // Keep partial progress: do not filter out members still working.
  const Model=special?GiveawayActivityRuleMinuteCount:GiveawayActivityMinuteCount;
  const rows=await Model.aggregate(pipeline);
- const verified=await Promise.all(rows.map(async row=>{
+ const verified=historical?rows.map(()=>true):await Promise.all(rows.map(async row=>{
    const member=await guild.members.fetch({user:row._id,force:true}).catch(()=>null);
    return Boolean(member?.roles?.cache?.has(roleId));
  }));
