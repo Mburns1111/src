@@ -2,6 +2,7 @@ import {EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags} fr
 import GuildConfig from "../models/GuildConfig.js";
 import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 import {setActivityParticipation} from "./activity-participation.js";
+import {giveawayBanMessage} from "./giveaway-exclusion.js";
 
 const marker="Activity Giveaway Participation · opt-in panel v1";
 const queues=new Map();
@@ -107,10 +108,18 @@ export async function handleActivityOptInButton(interaction){
  await interaction.deferReply({flags:MessageFlags.Ephemeral});
  try{
   const config=await GuildConfig.findOne({guildId:interaction.guildId})
-   .select("activityGiveawayListChannelId activityParticipationPanelChannelId activityParticipationPanelMessageId").lean();
+   .select("activityGiveawayListChannelId activityParticipationPanelChannelId activityParticipationPanelMessageId giveawayExcludedRoleId").lean();
   if(config?.activityGiveawayListChannelId!==interaction.channelId ||
      config.activityParticipationPanelMessageId!==interaction.message?.id)
    return interaction.editReply("That activity participation panel has been replaced. Use the newest panel at the bottom of the Activity Giveaway List.");
+  if((action==="in"||action==="status")&&config.giveawayExcludedRoleId){
+    const member=await interaction.guild?.members?.fetch?.({user:interaction.user.id,force:true})
+      .catch(()=>null);
+    if(member?.roles?.cache?.has(config.giveawayExcludedRoleId))
+      return interaction.editReply(giveawayBanMessage);
+    if(!member?.roles?.cache)
+      return interaction.editReply("I couldn't verify your giveaway eligibility. Try again.");
+  }
   if(action==="status"){
    const p=await ActivityGiveawayOptIn.findOne({
     guildId:interaction.guildId,userId:interaction.user.id}).lean();
