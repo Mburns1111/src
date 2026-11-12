@@ -1,4 +1,4 @@
-import {eligibleActivityParticipant} from "./activity-participation.js";
+import {eligibleActivityParticipant,activityConsentStages} from "./activity-participation.js";
 import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
 import GiveawayWatchRule from "../models/GiveawayWatchRule.js";
 import GiveawayActivityRuleCount from "../models/GiveawayActivityRuleCount.js";
@@ -128,6 +128,7 @@ export function qualifyingActivityPipeline({guildId,type,channelIds=[],minimum=1
   };
   return [
     {$match:match},
+    ...activityConsentStages(guildId,{timeField:custom?"minute":null}),
     {$project:{userId:1,day:1,messages}},
     {$group:{_id:{userId:"$userId",day:"$day"},messages:{$sum:"$messages"}}},
     {$group:{_id:"$_id.userId",totalMessages:{$sum:"$messages"},
@@ -154,6 +155,7 @@ export function qualifyingWatchRulePipeline({guildId,rule,day=null,week=complete
     ...(startAt!==null?{minute:{$gte:new Date(startAt),$lt:new Date(endAt)}}:day!==null?{day}:{week})};
   return [
     {$match:match},
+    ...activityConsentStages(guildId,{timeField:startAt!==null?"minute":null}),
     {$group:{_id:{userId:"$userId",day:"$day"},messages:{$sum:"$count"}}},
     {$group:{_id:"$_id.userId",totalMessages:{$sum:"$messages"},
       activeDays:{$sum:{$cond:[{$gte:["$messages",minimum]},1,0]}}}},
