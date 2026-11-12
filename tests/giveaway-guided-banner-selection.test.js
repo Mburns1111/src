@@ -35,7 +35,8 @@ async function harness(mode,{banners=[]}={}){
   }};
   const config={guildId,commandChannelId:channelId,
     survivalTrialChannelId:trialId,activityGiveawayReviewChannelId:staffId,
-    giveawayChannelId:trialId,activityGiveawayListChannelId:listId,
+    giveawayChannelId:trialId,giveawayArchiveChannelId:"678901234567890123",
+    activityGiveawayListChannelId:listId,
     activityGiveawayWinnersChannelId:winnersId,
     activityParticipationRoleId:"678901234567890123",trialDefaultBannerNameKey:"",
     giveawayDefaultBannerNameKey:""};
