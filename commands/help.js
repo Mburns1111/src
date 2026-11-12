@@ -454,13 +454,25 @@ async function currentServerCommands(i){
  }
 }
 const COMMAND_LINES_PER_PAGE=16;
-export function helpTopicPayload(topicId,ownerId,commandLines=[],commandPage=0){
+export function helpTopicPayload(topicId,ownerId,commandLines=[],commandPage=0,serverConfig=null){
  if(!VALID.has(topicId)||!/^\d{17,20}$/.test(String(ownerId||"")))
   throw new UserFacingError("That help menu is no longer available. Run /help again.");
  const [title,description,fields]=CONTENT[topicId];
  const embed=new EmbedBuilder().setColor(STAFF_IDS.has(topicId)?0x2ecc71:0x5865f2)
   .setTitle(title).setDescription(description);
- for(const [name,value] of fields)embed.addFields({name,value});
+ for(const [name,value] of fields){
+  embed.addFields({name,value});
+  if(topicId==="giveaways"&&name==="2. Activity Giveaways"){
+   const roleId=String(serverConfig?.activityParticipationRoleId||"");
+   const valid=/^\\d{17,20}$/.test(roleId);
+   const where=String(serverConfig?.activityParticipationRoleInstructions||"").trim().slice(0,500);
+   const instructions=valid
+     ?"**Required role:** <@&"+roleId+">\\n**Where to get it:** "+
+       (where||"Follow the instructions on the activity giveaway post, or ask staff.")
+     :"Staff have not configured the Activity Participation role yet. Ask them where to opt in.";
+   embed.addFields({name:"How to opt in on this server",value:instructions});
+  }
+ }
  let nav=topicNav(topicId,ownerId);
  if(topicId==="commands"){
   const pages=Math.max(1,Math.ceil(commandLines.length/COMMAND_LINES_PER_PAGE));
@@ -490,7 +502,16 @@ export function helpTopicPayload(topicId,ownerId,commandLines=[],commandPage=0){
 }
 async function showTopic(i,topic,ownerId,commandPage=0){
  const lines=topic==="commands"?await currentServerCommands(i):[];
- await i.editReply(helpTopicPayload(topic,ownerId,lines,commandPage));
+ let serverConfig=null;
+ if(topic==="giveaways"){
+  try{
+   serverConfig=await GuildConfig.findOne({guildId:i.guildId})
+     .select("activityParticipationRoleId activityParticipationRoleInstructions").lean();
+  }catch(error){
+   console.warn("[Help] Could not load activity opt-in role details:",error);
+  }
+ }
+ await i.editReply(helpTopicPayload(topic,ownerId,lines,commandPage,serverConfig));
 }
 export async function execute(interaction){
  requireGuild(interaction);
