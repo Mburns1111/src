@@ -4,6 +4,8 @@ import {handleActivityGiveawaySetupInteraction,activityGiveawaySetupReply} from 
 import {handleTrialGiveawaySetupInteraction,trialGiveawaySetupReply} from "./commands/trial-giveaway-setup.js";
 import {guildSetupComplete, cardSetupComplete} from "./services/guild-setup-gate.js";
 import {handleGuidedGuildSetupInteraction} from "./commands/general-card-setup.js";
+import {handleScheduledPingsInteraction} from "./commands/scheduled-pings.js";
+import {reconcilePingSchedules,ensurePingDashboard} from "./services/scheduled-pings.js";
 import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
 import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
 import {handleGiveawayStaffAction,reconcileGiveawayStaffRecords} from "./services/giveaway-staff-records.js";
@@ -432,6 +434,20 @@ client.once(Events.ClientReady, async (readyClient) => {
     void runCardDropCloseSweep();
   }
   console.log(`Bot is online as ${readyClient.user.tag} (PID ${process.pid}).`);
+  let pingSweepActive=false;
+  const sweepPings=async()=>{
+    if(pingSweepActive)return;
+    pingSweepActive=true;
+    try{await reconcilePingSchedules(readyClient);}
+    catch(error){console.error("[Scheduled Pings] Sweep failed:",error);}
+    finally{pingSweepActive=false;}
+  };
+  void sweepPings();
+  const pingTimer=setInterval(()=>void sweepPings(),15_000);
+  pingTimer.unref?.();
+  void GuildConfig.find({scheduledPingsChannelId:{$ne:""}}).select("guildId").lean()
+    .then(configs=>Promise.allSettled(configs.map(c=>ensurePingDashboard(readyClient,c.guildId))))
+    .catch(error=>console.error("[Scheduled Pings] Dashboard recovery failed:",error));
   void reconcileCourtGames(readyClient).catch(error => console.error("[Party] Sweep failed:", error));
   const partyTimer = setInterval(() => void reconcileCourtGames(readyClient).catch(error => console.error("[Party] Sweep failed:", error)), 5000);
   partyTimer.unref?.();
@@ -562,6 +578,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
     }
+    if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
+         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
+        interaction.customId.startsWith("pings:"))
+      return await handleScheduledPingsInteraction(interaction);
     if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
          interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("guildconfig:"))
