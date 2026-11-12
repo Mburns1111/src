@@ -5,6 +5,7 @@ import {
   StringSelectMenuBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {ensurePingDashboard} from "../services/scheduled-pings.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
 import { ensureProfileEntry } from "./profile.js";
@@ -189,11 +190,26 @@ async function saveGeneral(session) {
   const archivePerms = channels.giveawayArchiveChannelId.permissionsFor(await session.guild.members.fetchMe());
   for (const permission of [PermissionFlagsBits.AttachFiles,PermissionFlagsBits.ReadMessageHistory])
     if (!archivePerms?.has(permission)) throw Error("The bot needs Attach Files and Read Message History in the shared archive.");
+  if (s.scheduledPingsChannelId) {
+    const perms=channels.scheduledPingsChannelId.permissionsFor(await session.guild.members.fetchMe());
+    if(!perms?.has(PermissionFlagsBits.ReadMessageHistory))
+      throw Error("The bot needs Read Message History in the Scheduled Pings dashboard channel.");
+  }
   if (s.shopChannelId && previous?.shopChannelId !== s.shopChannelId)
     await ensureShopEntry(session.guild, channels.shopChannelId);
   await GuildConfig.findOneAndUpdate({ guildId: session.guild.id },
     { $set: { ...s, initialSetupCompletedAt: previous?.initialSetupCompletedAt || new Date() } },
     { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true });
+  if (s.scheduledPingsChannelId) {
+    await ensurePingDashboard(session.guild.client,session.guild.id);
+    if (previous?.scheduledPingsChannelId && previous.scheduledPingsChannelId!==s.scheduledPingsChannelId &&
+        previous.scheduledPingsDashboardMessageId) {
+      const oldChannel=await session.guild.channels.fetch(previous.scheduledPingsChannelId).catch(()=>null);
+      const oldMessage=await oldChannel?.messages?.fetch(previous.scheduledPingsDashboardMessageId).catch(()=>null);
+      if(oldMessage?.author?.id===session.guild.client.user.id)
+        await oldMessage.delete().catch(()=>{});
+    }
+  }
   const ensure = [
     ["profileChannelId", ensureProfileEntry],
     ["houseChannelId", ensureHouseEntry],
