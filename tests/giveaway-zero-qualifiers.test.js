@@ -2,19 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
-import GiveawayActivityCount from "../models/GiveawayActivityCount.js";
+import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
 import {runGiveawayPlan} from "../services/giveaway-plans.js";
 
 test("zero qualifying members generate an explicit empty-result winner announcement without consuming the prize",async()=>{
  const original=[Giveaway.findOne,Giveaway.findOneAndUpdate,Giveaway.create,Giveaway.updateOne,
-   GuildConfig.findOne,GiveawayActivityCount.aggregate];
+   GuildConfig.findOne,GiveawayActivityMinuteCount.aggregate];
  const guildId="123456789012345678",winnersId="234567890123456789",id="507f1f77bcf86cd799439011";
  let record,sent=0,announcement;
  try {
   Giveaway.findOne=query=>({lean:async()=>query._id?record:null});
-  GiveawayActivityCount.aggregate=async()=>[];
+  GiveawayActivityMinuteCount.aggregate=async()=>[];
   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
     activityGiveawayWinnersChannelId:winnersId,
+    activityParticipationRoleId:"567890123456789012",activityParticipationRoleConfiguredAt:new Date("2026-11-09T00:00:00Z"),
   })})});
   Giveaway.create=async data=>{
     record={...data,_id:id,renderVersion:0,status:"closing",winnerIds:[]};
@@ -46,6 +47,6 @@ test("zero qualifying members generate an explicit empty-result winner announcem
   assert.doesNotMatch(announcement.embeds[0].toJSON().description,/How to claim|Winner ticket claims|How to qualify/);
  }finally{
   [Giveaway.findOne,Giveaway.findOneAndUpdate,Giveaway.create,Giveaway.updateOne,
-   GuildConfig.findOne,GiveawayActivityCount.aggregate]=original;
+   GuildConfig.findOne,GiveawayActivityMinuteCount.aggregate]=original;
  }
 });
