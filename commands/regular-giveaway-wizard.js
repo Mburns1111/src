@@ -449,6 +449,8 @@ export async function startRegularGiveawayWizard(interaction){
   const config=await GuildConfig.findOne({guildId:interaction.guildId}).lean();
   if(!config?.giveawayChannelId)
     throw Error("Configure the regular giveaway channel with /setup giveaways first.");
+  if(!config?.giveawayExcludedRoleId)
+    throw Error("Configure the required Giveaway Banned role in /setup giveaways before starting giveaways.");
   if(!config?.commandChannelId)
     throw Error("Configure the commands channel with /setup general first.");
   if(interaction.channelId!==config.commandChannelId)
