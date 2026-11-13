@@ -291,7 +291,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "2. Review the Schedule",
-    "Choose the counting start/end and announcement time. Periods may be **24 hours, weekly (midnight Eastern boundaries), or custom hours/days**.\n\nSet the giveaway to run **once, every 24 hours, weekly or at a custom repeat interval**, with a limited number of repeats or indefinitely. \n\nFor repeating giveaways, the private preview lists the **next two scheduled periods** with their exact starts and ends. Staff can review/edit the plan before publishing.\n\n**Winner Cooldown ON/OFF** is saved with a recurring series. Opt-in is server-wide; members don't opt in separately for each giveaway."
+    "Choose the counting start/end and announcement time. Periods may be **24 hours, weekly (midnight Eastern boundaries), or custom hours/days**.\n\nSet the giveaway to run **once, every 24 hours, weekly or at a custom repeat interval**, with a limited number of repeats or indefinitely. \n\nFor repeating giveaways, the private preview lists the **next two scheduled periods** with their exact starts and ends. Staff can review/edit the plan before publishing."
    ],
    [
     "3. Check Progress",
