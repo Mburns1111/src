@@ -516,6 +516,25 @@ async function apply(session,verb,value){
  }
  throw Error("That choice isn't available at this step.");
 }
+async function refreshDisplayEditor(session){
+ if(session.step!=="displayEditor"||!session.displayDraft)
+   throw Error("The display editor is no longer active.");
+ if(session.message?.edit)await session.message.edit(layout(session));
+ else await show(session,"displayEditor");
+}
+function displayEditModal(session,field){
+ const existing=session.displayDraft[serverDisplayField(field)]||REGULAR_DISPLAY_DEFAULTS[field];
+ return new ModalBuilder()
+   .setCustomId("actconfig:"+session.id+":displaySubmit:"+field)
+   .setTitle("Edit "+displayLabels[field])
+   .addComponents(new ActionRowBuilder().addComponents(
+     new TextInputBuilder().setCustomId("displayValue")
+       .setLabel(displayLabels[field])
+       .setStyle(field.endsWith("Title")?TextInputStyle.Short:TextInputStyle.Paragraph)
+       .setMaxLength(field.endsWith("Title")?120:400)
+       .setRequired(true).setValue(existing)
+   ));
+}
 async function startGiveawaySetup(interaction,mode="activity"){
  const config=await GuildConfig.findOne({guildId:interaction.guildId}).lean();
  if(config?.commandChannelId&&config.commandChannelId!==interaction.channelId)
@@ -555,13 +574,39 @@ export const startRegularGiveawaySetup=i=>startGiveawaySetup(i,"regular");
 export async function handleActivityGiveawaySetupInteraction(interaction){
  const match=/^actconfig:([0-9a-f]{24}):(.+)$/.exec(interaction.customId);
  const session=match&&sessions.get(key(interaction.channelId,interaction.user.id));
- if(!session||session.id!==match[1]||session.expires<Date.now()||session.messageId!==interaction.message?.id)
-   return interaction.reply({content:"That setup prompt is no longer active or belongs to another staff member.",flags:MessageFlags.Ephemeral});
+ const modalSubmit=match?.[2]?.startsWith("displaySubmit:");
+ if(!session||session.id!==match[1]||session.expires<Date.now()||
+    (!modalSubmit&&session.messageId!==interaction.message?.id))
+   return interaction.reply({content:"That setup prompt is no longer active or belongs to another staff member.",
+     flags:MessageFlags.Ephemeral});
  if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
    return interaction.reply({content:"Manage Server permission is required.",flags:MessageFlags.Ephemeral});
+ const verb=match[2];
+ if(verb.startsWith("displayEdit:")){
+   const field=verb.slice("displayEdit:".length);
+   if(session.mode!=="regular"||session.step!=="displayEditor"||
+      !session.displayDraft||!REGULAR_DISPLAY_FIELDS.includes(field))
+     return interaction.reply({content:"That display editor is no longer active.",flags:MessageFlags.Ephemeral});
+   session.modalField=field;
+   return interaction.showModal(displayEditModal(session,field));
+ }
  await interaction.deferReply({flags:MessageFlags.Ephemeral});
  try{
-   const verb=match[2],value=["channel","roles","requiredRole","managerRole","excludedRole","edit","selectSavedBanner"].includes(verb)?interaction.values:null;
+   if(modalSubmit){
+     const field=verb.slice("displaySubmit:".length);
+     if(session.mode!=="regular"||session.step!=="displayEditor"||
+        !session.displayDraft||session.modalField!==field||
+        !REGULAR_DISPLAY_FIELDS.includes(field))
+       throw Error("The text editor expired. Open the section again.");
+     const text=cleanRegularDisplayField(field,interaction.fields.getTextInputValue("displayValue"));
+     if(!text)throw Error("Enter text or use the Default button in the editor.");
+     session.displayDraft[serverDisplayField(field)]=text;
+     session.modalField=null;
+     await refreshDisplayEditor(session);
+     return interaction.editReply("Preview updated. Confirm Text to accept your changes.");
+   }
+   const value=["channel","roles","requiredRole","managerRole","excludedRole","edit","selectSavedBanner"].includes(verb)?
+     interaction.values:null;
    await apply(session,verb,["channel","selectSavedBanner","edit"].includes(verb)?value?.[0]:value);
    return interaction.editReply("Updated setup step.");
  }catch(error){return interaction.editReply("Couldn't save that choice: "+String(error.message||error));}
