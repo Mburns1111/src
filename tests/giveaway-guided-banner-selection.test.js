@@ -325,3 +325,20 @@ test("regular server setup asks for Giveaway List then shared Giveaway Winners",
    assert.equal(h.configSaves[0].activityGiveawayWinnersChannelId,winnersId);
  }finally{restore();}
 });
+
+test("guided regular and Trial setups retire earlier controls without changing their post history",async()=>{
+ for(const mode of ["regular","trial","activity"]){
+  try{
+   const h=await harness(mode);
+   const before=h.current();
+   assert.ok(before.components.length>0);
+   await h.step("keep");
+   assert.ok(h.records.length>=2,mode+" must show the next prompt");
+   assert.deepEqual(before.components,[],mode+" old buttons/select menus must be removed");
+   assert.ok(h.current().components.length>0,mode+" new choices must remain available");
+   // Cancel the live session without changing permanent staff messages.
+   await h.step("cancel");
+   assert.deepEqual(h.records[h.records.length-2].components,[]);
+  }finally{restore();}
+ }
+});
