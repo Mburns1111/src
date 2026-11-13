@@ -156,11 +156,17 @@ export async function handleGiveawayCooldownAction(interaction,record,action,slo
   const updated=await Giveaway.findOneAndUpdate({
    _id:id,guildId:record.guildId,status:"ended",prizeDeliveredAt:latest.prizeDeliveredAt,
   },{$push:{cooldownAssignments:{$each:applied}}},{new:true}).lean();
-  const removedEntries=await removeActiveCooldownEntries(record.guildId,applied.map(x=>x.userId),{now});
+  let removedEntries=0,cleanupFailed=false;
+  try{
+   removedEntries=await removeActiveCooldownEntries(record.guildId,applied.map(x=>x.userId),{now});
+  }catch(error){
+   cleanupFailed=true;
+   console.error("[Giveaways] Cooldown saved, existing entry cleanup will retry:",error);
+  }
   if(updated&&refresh)await refresh(updated);
   return interaction.editReply({content:"✅ **Winner cooldown saved.**\n"+
    applied.map(c=>"<@"+c.userId+"> · "+days+" day(s) · expires <t:"+unix(c.expiresAt)+":F>").join("\n")+
-   "\n\n"+(removedEntries?"Removed entries from **"+removedEntries+"** open, cooldown-enabled regular giveaway(s).\n":"")+
+   "\n\n"+(removedEntries?"Removed entries from **"+removedEntries+"** open, cooldown-enabled regular giveaway(s).\n":"")+(cleanupFailed?"Older entries will be cleared by the automatic retry.\n":"")+
    "Cooldown-enabled regular giveaways now block entries until expiry; regular/activity drawings also exclude active cooldowns. The ban role is unaffected.",
    allowedMentions:{parse:[]}});
  }
