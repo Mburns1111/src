@@ -18,7 +18,7 @@ const idFor=(action,id,slots="",days="")=>
 const unix=date=>Math.floor(+new Date(date)/1000);
 const isDelivered=record=>
  record.mode!=="survival"&&record.status==="ended"&&
- Boolean(record.prizeDeliveredAt)&&!record.publicListingRemovedAt&&
+ Boolean(record.prizeDeliveredAt)&&
  (record.winnerIds||[]).length>0;
 
 function slotsFromToken(token,record){
@@ -82,7 +82,7 @@ async function showSelection(interaction,record,{remove=false}={}){
 
 export async function handleGiveawayCooldownAction(interaction,record,action,slotToken,daysToken,{refresh}={}){
  if(!isDelivered(record))
-  return interaction.reply({content:"Winner cooldowns may be applied only after all prizes are confirmed delivered and before archiving. Court's Trials do not use winner cooldowns.",...ephemeral});
+  return interaction.reply({content:"Winner cooldowns require a completed giveaway with confirmed prize delivery. They remain available after archiving. Court's Trials do not use winner cooldowns.",...ephemeral});
  const id=String(record._id);
  if(action==="cooldown"){
   if((record.cooldownAssignments||[]).length){
