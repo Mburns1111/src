@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {cleanRegularDisplayText,renderRegularDisplayText}
+import {cleanRegularDisplayText,cleanRegularDisplayTitle,renderRegularDisplayText}
   from "../services/giveaway-display-text.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
 
@@ -54,4 +54,22 @@ test("display text length and arbitrary mentions are sanitized, placeholders rem
   assert.equal(renderRegularDisplayText("Hello {host}, winner {winners}, @here",
     {hostId:creator,winnerIds:[winner,winner]}),
     "Hello <@"+creator+">, winner <@"+winner+">, ＠here");
+});
+
+test("regular giveaway open and winner heading titles use their saved snapshots",()=>{
+  const open=giveawayAnnouncement(fixture({displayOpenTitle:"The Royal Prize"})).embeds[0].toJSON();
+  assert.equal(open.title,"The Royal Prize");
+  const ended=giveawayAnnouncement(fixture({status:"ended",winnerIds:[winner],entrantIds:[winner],
+    displayEndedTitle:"The Royal Verdict"})).embeds[0].toJSON();
+  assert.equal(ended.title,"The Royal Verdict");
+  assert.match(ended.description,/fox cackles/i);
+});
+
+test("blank display title keeps the original fox headings and does not affect activity giveaways",()=>{
+  assert.equal(giveawayAnnouncement(fixture()).embeds[0].toJSON().title,"🦊 The Fox’s Giveaway");
+  assert.equal(giveawayAnnouncement(fixture({status:"ended",winnerIds:[winner],entrantIds:[winner]}))
+    .embeds[0].toJSON().title,"🦊 Heist Complete");
+  assert.notEqual(giveawayAnnouncement(fixture({mode:"activity",displayOpenTitle:"Other"}))
+    .embeds[0].toJSON().title,"Other");
+  assert.throws(()=>cleanRegularDisplayTitle("A".repeat(121)),/120 characters/);
 });
