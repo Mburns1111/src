@@ -579,6 +579,8 @@ async function publishRegularResultLocked(client,item){
  const updated={...record,winnerAssignedAt:dates,
    claimStartedAt:record.claimStartedAt||now,
    resultPublishedAt:record.resultPublishedAt||now};
+ // Discord must acknowledge the updated deadline before MongoDB activates it.
+ await message.edit(await giveawayAnnouncementWithBanner(updated));
  if(newlyPublished||!record.resultPublishedAt){
    const saved=await Giveaway.updateOne({_id:record._id,mode:"standard",
      status:"ended",channelId:record.channelId,messageId:record.messageId,
@@ -588,8 +590,6 @@ async function publishRegularResultLocked(client,item){
      }});
    if(saved?.matchedCount===0)throw Error("Lost result publication ownership before starting claim clock.");
  }
- // Display the exact new deadlines before sending any notifications.
- await message.edit(await giveawayAnnouncementWithBanner(updated));
  await Giveaway.updateOne({_id:record._id,status:"ended",
    resultPublicationToken:record.resultPublicationToken,renderVersion:record.renderVersion},
    {$set:{renderedAt:new Date()}});
@@ -651,11 +651,12 @@ export async function publishGiveawayResult(client, item) {
     const announced={...item,messageId:message.id,winnerAssignedAt:dates,
       claimStartedAt:item.claimStartedAt||publishedAt,
       resultPublishedAt:item.resultPublishedAt||publishedAt};
+    // Display the deadline before enabling the automatic claim-expiry worker.
+    await message.edit(await giveawayAnnouncementWithBanner(announced));
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
       {$set:{messageId:message.id,claimStartedAt:announced.claimStartedAt,
         winnerAssignedAt:dates,resultPublishedAt:announced.resultPublishedAt,
         claimCheckAt:nextClaimCheckAt(announced),renderedAt:null}});
-    await message.edit(await giveawayAnnouncementWithBanner(announced));
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
       {$set:{renderedAt:new Date()}});
     return true;
