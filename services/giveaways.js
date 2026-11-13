@@ -450,7 +450,7 @@ async function findRegularResultPost(channel,client,item){
   const matches=[...recent.values()].filter(message=>{
     if(message.author?.id!==client.user?.id)return false;
     const claimControl=message.components?.some(row=>row.components?.some(button=>
-      (button.customId||button.data?.custom_id)==="giveaway:claim:"+item._id));
+      (button.customId||button.custom_id||button.data?.custom_id)==="giveaway:claim:"+item._id));
     return claimControl||message.embeds?.some(embed=>
       embed.title===expected.title&&embed.description===expected.description);
   });
