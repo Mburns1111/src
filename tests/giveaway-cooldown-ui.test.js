@@ -4,9 +4,6 @@ import Giveaway from "../models/Giveaway.js";
 import GiveawayWinnerCooldown from "../models/GiveawayWinnerCooldown.js";
 import {handleGiveawayCooldownAction} from "../services/giveaway-cooldown-ui.js";
 import {handleGiveawayCooldownDirectoryAction} from "../services/giveaway-cooldown-directory.js";
-import {handleGiveawayStaffAction,giveawayStaffRecordPayload} from "../services/giveaway-staff-records.js";
-import GuildConfig from "../models/GuildConfig.js";
-import {MessageFlags} from "discord.js";
 const guildId="123456789012345678",staffId="234567890123456789",
  a="345678901234567890",b="456789012345678901",giveawayId="507f1f77bcf86cd799439011";
 const deliveredAt=new Date(Date.now()-30*60_000);
@@ -24,6 +21,7 @@ function makeAction(extra={}){
   showModal:async value=>{responses.modal=value;},
   update:async value=>{responses.update=value;},
   deferReply:async()=>{responses.deferred=true;},
+  deferUpdate:async()=>{responses.deferred=true;},
   ...extra,
  };
  return {i,responses};
@@ -48,7 +46,7 @@ test("cooldown staff flow selects one, several or all winners, asks days and sho
   const choice=makeAction({values:["0","1"]});
   await handleGiveawayCooldownAction(choice.i,giveaway,"cooldownselect");
   const modal=choice.responses.modal.toJSON();
-  assert.match(modal.custom_id,/giveawaystaff:cooldowndays:.+:01$/);
+  assert.match(modal.custom_id,/giveawaystaff:cooldowndays:.+:01:p$/);
   const form=makeAction({fields:{getTextInputValue:()=> "7"}});
   await handleGiveawayCooldownAction(form.i,giveaway,"cooldowndays","01");
   assert.match(form.responses.reply.content,/Confirm Giveaway Winner Cooldown/);
@@ -66,6 +64,9 @@ test("cooldown confirmation writes both winners, audits the source giveaway and 
    events.push({kind:"giveaway",update});
    return {...giveaway,cooldownAssignments:update.$push.cooldownAssignments.$each};
   }}),backups);
+  patch(Giveaway,"updateMany",async(query,update)=>{
+   events.push({kind:"entry-prune",query,update});return {modifiedCount:1};
+  },backups);
   patch(GiveawayWinnerCooldown,"findOneAndUpdate",(query,change,opts)=>({lean:async()=>{
    events.push({kind:"cooldown",query,change,opts});
    return {guildId,userId:query.userId,expiresAt:change.$max.expiresAt};
@@ -78,9 +79,14 @@ test("cooldown confirmation writes both winners, audits the source giveaway and 
   assert.ok(events.filter(e=>e.kind==="cooldown").every(e=>
    e.change.$push.history.action==="apply"&&e.change.$push.history.sourceGiveawayId===giveawayId));
   assert.equal(events.find(e=>e.kind==="giveaway").update.$push.cooldownAssignments.$each.length,2);
+  const pruned=events.find(e=>e.kind==="entry-prune");
+  assert.equal(pruned.query.mode,"standard");
+  assert.equal(pruned.query.winnerCooldownEnabled,true);
+  assert.deepEqual(pruned.update.$pull.entrantIds.$in,[a,b]);
   assert.equal(refresh.cooldownAssignments.length,2);
   assert.equal(done.responses.deferred,true);
   assert.match(done.responses.edit.content,/cooldown saved/i);
+  assert.deepEqual(done.responses.edit.components,[],"confirmed cooldown buttons must be retired");
  }finally{restore(backups);}
 });
 
@@ -93,7 +99,7 @@ test("cooldown durations must be positive days and start at confirmed prize deli
  assert.match(trial.responses.reply.content,/Court's Trials do not use/);
  const prior=makeAction();
  await handleGiveawayCooldownAction(prior.i,{...giveaway,prizeDeliveredAt:null},"cooldown");
- assert.match(prior.responses.reply.content,/require a completed giveaway with confirmed prize delivery/);
+ assert.match(prior.responses.reply.content,/only after all prizes/);
 });
 
 test("staff-wide cooldown manager lists active members and supports expiry correction or removal",async()=>{
@@ -104,8 +110,7 @@ test("staff-wide cooldown manager lists active members and supports expiry corre
   patch(GiveawayWinnerCooldown,"find",()=>({
    sort:()=>({skip:()=>({limit:()=>({lean:async()=>[active]})})}),
   }),backups);
-  let activeRecord=active;
-  patch(GiveawayWinnerCooldown,"findOne",()=>({lean:async()=>activeRecord}),backups);
+  patch(GiveawayWinnerCooldown,"findOne",()=>({lean:async()=>active}),backups);
   patch(GiveawayWinnerCooldown,"findOneAndUpdate",(filter,update)=>({lean:async()=>{
    if(update.$push.history.action==="adjust")corrected=update;
    if(update.$push.history.action==="remove")removed=update;
@@ -117,112 +122,87 @@ test("staff-wide cooldown manager lists active members and supports expiry corre
   assert.equal(list.responses.reply.components[0].components[0].toJSON().custom_id,"giveawaydir:cooldownmember");
   const member=makeAction({customId:"giveawaydir:cooldownmember",values:[a]});
   await handleGiveawayCooldownDirectoryAction(member.i);
-  const buttons=member.responses.reply.components[0].components.map(b=>b.toJSON());
-  assert.deepEqual(buttons.map(b=>b.label),["Edit Cooldown","Remove Cooldown"]);
-  assert.deepEqual(buttons.map(b=>b.custom_id),[
-   "giveawaydir:cooldownedit:"+a,"giveawaydir:cooldownremove:"+a,
-  ]);
-  const noActive=makeAction({customId:"giveawaydir:cooldownmember",values:[b]});
-  activeRecord=null;
-  await handleGiveawayCooldownDirectoryAction(noActive.i);
-  assert.match(noActive.responses.reply.content,/no active winner cooldown/);
-  assert.equal(noActive.responses.reply.components,undefined);
-  activeRecord=active;
+  assert.equal(member.responses.update.components[0].components[0].toJSON().label,"Correct Expiry");
   const edit=makeAction({customId:"giveawaydir:cooldownedit:"+a});
   await handleGiveawayCooldownDirectoryAction(edit.i);
-  assert.match(edit.responses.modal.toJSON().title,/Edit Winner Cooldown/);
+  assert.match(edit.responses.modal.toJSON().title,/Correct Cooldown/);
   const input=makeAction({customId:"giveawaydir:cooldowneditdays:"+a,
    fields:{getTextInputValue:()=> "3"}});
   await handleGiveawayCooldownDirectoryAction(input.i);
-  assert.match(input.responses.reply.content,/Confirm cooldown edit/);
+  assert.match(input.responses.update.content,/Confirm staff correction/);
   const apply=makeAction({customId:"giveawaydir:cooldownconfirmedit:"+a+":3"});
   await handleGiveawayCooldownDirectoryAction(apply.i);
   assert.equal(corrected.$push.history.action,"adjust");
-  assert.match(apply.responses.edit,/Cooldown updated/);
+  assert.equal(apply.responses.edit.components.length,0);
   const remove=makeAction({customId:"giveawaydir:cooldownconfirmremove:"+a});
   await handleGiveawayCooldownDirectoryAction(remove.i);
   assert.equal(removed.$push.history.action,"remove");
+  assert.equal(remove.responses.edit.components.length,0);
  }finally{restore(backups);}
 });
 
-
-test("archived delivered giveaways still allow pending cooldown confirmation",async()=>{
- const backups=[],archived={
-  ...giveaway,publicListingRemovedAt:new Date(),
-  staffCardChannelId:"567890123456789012",staffCardId:"678901234567890123",
- };
+test("member without cooldown offers Add Cooldown; modal review and confirm save an audited staff assignment",async()=>{
+ const backups=[];let manual,prune;
  try{
-  patch(Giveaway,"findOne",()=>({lean:async()=>({...archived})}),backups);
-  patch(Giveaway,"findOneAndUpdate",(query,change)=>({lean:async()=>({
-   ...archived,cooldownAssignments:change.$push.cooldownAssignments.$each,
-  })}),backups);
-  const applied=[];
-  patch(GiveawayWinnerCooldown,"findOneAndUpdate",(query,change)=>({lean:async()=>{
-   applied.push(query.userId);
-   return {expiresAt:change.$max.expiresAt};
+  patch(GiveawayWinnerCooldown,"findOne",()=>({lean:async()=>manual||null}),backups);
+  patch(GiveawayWinnerCooldown,"findOneAndUpdate",(query,change,options)=>({lean:async()=>{
+   assert.equal(query.guildId,guildId);
+   assert.equal(query.userId,a);
+   assert.equal(options.upsert,true);
+   assert.equal(change.$set.sourceGiveawayId,"staff-manual");
+   assert.equal(change.$push.history.action,"apply");
+   assert.equal(change.$push.history.sourceGiveawayId,"staff-manual");
+   manual={userId:a,expiresAt:change.$max.expiresAt};
+   return manual;
   }}),backups);
-  const done=makeAction(),refreshes=[];
-  await handleGiveawayCooldownAction(done.i,archived,"cooldownapply","01","7",{
-   refresh:async updated=>refreshes.push(updated),
-  });
-  assert.deepEqual(applied,[a,b]);
-  assert.match(done.responses.edit.content,/cooldown saved/i);
-  assert.equal(refreshes.length,1);
-  assert.deepEqual(refreshes[0].cooldownAssignments.map(x=>x.userId),[a,b]);
-  const payload=giveawayStaffRecordPayload(archived,{archived:true});
-  assert.ok(payload.components.flatMap(row=>row.components)
-   .some(b=>b.data.custom_id==="giveawaystaff:cooldown:"+giveawayId),
-   "private archived record provides a way to apply or manage cooldowns");
+  patch(Giveaway,"updateMany",(query,update)=>{
+   prune={query,update};return Promise.resolve({modifiedCount:1});
+  },backups);
+  const selected=makeAction({customId:"giveawaydir:cooldownmember",values:[a]});
+  await handleGiveawayCooldownDirectoryAction(selected.i);
+  assert.equal(selected.responses.update.components[0].components[0].toJSON().label,"Add Cooldown");
+  const open=makeAction({customId:"giveawaydir:cooldownadd:"+a});
+  await handleGiveawayCooldownDirectoryAction(open.i);
+  assert.match(open.responses.modal.toJSON().title,/Add Winner Cooldown/);
+  const submit=makeAction({customId:"giveawaydir:cooldownadddays:"+a,
+   fields:{getTextInputValue:()=> "3"}});
+  await handleGiveawayCooldownDirectoryAction(submit.i);
+  assert.match(submit.responses.update.content,/Confirm new winner cooldown/);
+  const confirm=makeAction({customId:"giveawaydir:cooldownconfirmadd:"+a+":3"});
+  await handleGiveawayCooldownDirectoryAction(confirm.i);
+  assert.equal(confirm.responses.deferred,true);
+  assert.match(confirm.responses.edit.content,/New winner cooldown saved/);
+  assert.equal(confirm.responses.edit.components.length,0);
+  assert.equal(prune.query.mode,"standard");
+  assert.equal(prune.query.winnerCooldownEnabled,true);
+  assert.deepEqual(prune.update.$pull.entrantIds.$in,[a]);
+  const repeat=makeAction({customId:"giveawaydir:cooldownmember",values:[a]});
+  await handleGiveawayCooldownDirectoryAction(repeat.i);
+  assert.equal(repeat.responses.update.components[0].components[0].toJSON().label,"Correct Expiry");
  }finally{restore(backups);}
 });
 
-test("a cooldown confirmation opened in the old staff channel succeeds after archiving",async()=>{
- const backups=[],archiveId="567890123456789012",archiveMessageId="678901234567890123";
- const archived={...giveaway,publicListingRemovedAt:new Date(),
-  staffCardChannelId:archiveId,staffCardId:archiveMessageId,renderVersion:1};
- const edited=[],applied=[],queries=[];
+test("multi-winner cooldown confirmation replaces the previous private selector",async()=>{
+ const backups=[];
  try{
-  patch(Giveaway,"findOne",query=>{queries.push(query);
-   return {lean:async()=>({...archived})};},backups);
-  patch(Giveaway,"findOneAndUpdate",(query,change)=>({lean:async()=>({
-   ...archived,cooldownAssignments:change.$push.cooldownAssignments.$each
-  })}),backups);
-  patch(GiveawayWinnerCooldown,"findOneAndUpdate",(query,change)=>({lean:async()=>{
-   applied.push(query.userId);
-   return {expiresAt:change.$max.expiresAt};
-  }}),backups);
-  patch(GuildConfig,"findOne",()=>({select:()=>({lean:async()=>({
-   activityGiveawayReviewChannelId:"987654321098765432",
-   giveawayArchiveChannelId:archiveId,
-  })})}),backups);
-  const archivedMessage={
-   id:archiveMessageId,author:{id:"bot"},
-   embeds:[{title:"Old archive",description:"Old archive",color:0,
-    footer:{text:"Giveaway staff record · "+giveawayId},fields:[]}],
-   components:[],edit:async payload=>edited.push(payload),
-  };
-  const client={
-   user:{id:"bot"},channels:{fetch:async id=>({
-    id,
-    send:async()=>{throw Error("Archived record already exists");},
-    messages:{fetch:async value=>
-     typeof value==="string"?archivedMessage:{values:()=>[].values()}},
-   })},
-  };
-  const action=makeAction({
-   customId:"giveawaystaff:cooldownapply:"+giveawayId+":01:7",
-   channelId:"987654321098765432",message:{
-    id:"111111111111111111",flags:{has:flag=>flag===MessageFlags.Ephemeral},
-    author:{id:"bot"},
-   },
-   memberPermissions:{has:()=>true},
-   client,
-  });
-  await handleGiveawayStaffAction(action.i);
-  assert.deepEqual(applied,[a,b]);
-  assert.match(action.responses.edit.content,/cooldown saved/i);
-  assert.equal(queries.every(q=>q.staffCardChannelId===undefined),true,
-   "cooldown lookup must not require the old staff channel");
-  assert.equal(edited.length,1,"archived staff post reflects the new cooldown assignments");
+  patch(GiveawayWinnerCooldown,"find",()=>({lean:async()=>[]}),backups);
+  const form=makeAction({fields:{getTextInputValue:()=> "7"}});
+  await handleGiveawayCooldownAction(form.i,giveaway,"cooldowndays","01","p");
+  assert.equal(form.responses.reply,null);
+  assert.match(form.responses.update.content,/Confirm Giveaway Winner Cooldown/);
+  assert.match(customId(form.responses.update),/cooldownapply:.+:01:7$/);
+ }finally{restore(backups);}
+});
+
+test("Apply / Extend advances an existing ephemeral cooldown panel instead of stacking a new dropdown",async()=>{
+ const backups=[];
+ try{
+  patch(GiveawayWinnerCooldown,"find",()=>({lean:async()=>[]}),backups);
+  const action=makeAction({message:{flags:{has:()=>true}}});
+  await handleGiveawayCooldownAction(action.i,giveaway,"cooldowncreate");
+  assert.equal(action.responses.reply,null,"existing private panel should not spawn another message");
+  assert.ok(action.responses.update.components.length);
+  assert.equal(action.responses.update.components[0].components[0].toJSON().custom_id,
+    "giveawaystaff:cooldownselect:"+giveawayId);
  }finally{restore(backups);}
 });
