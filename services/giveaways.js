@@ -406,7 +406,7 @@ export async function publishGiveawayResult(client, item) {
       // keeping the ID off newly rendered public announcements.
       message = recent.find(m => m.author?.id === client.user?.id &&
         m.embeds?.some(e => e.footer?.text?.includes(`Giveaway ID: ${item._id}`)));
-      if (!message) {
+      if (!message && typeof recent?.filter === "function") {
         // An interrupted publish can leave a Discord message without its ID
         // saved in MongoDB. Only reuse an exact, unique matching announcement.
         const expected = giveawayAnnouncement(item).embeds[0].toJSON();
