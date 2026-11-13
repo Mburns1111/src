@@ -434,6 +434,22 @@ async function findRegularResultPost(channel,client,item){
     message.embeds?.some(embed=>
       embed.footer?.text?.includes("Giveaway ID: "+item._id)))||null;
 }
+async function withRegularResultPublishLock(item,work){
+ const token=randomUUID(),now=new Date(),expired=new Date(+now-120000);
+ const locked=await Giveaway.findOneAndUpdate({
+   _id:item._id,guildId:item.guildId,mode:"standard",status:"ended",
+   $or:[{resultPublicationToken:""},{resultPublicationToken:{$exists:false}},
+     {resultPublicationClaimedAt:{$lt:expired}}],
+ },{$set:{resultPublicationToken:token,resultPublicationClaimedAt:now}},
+ {returnDocument:"after"}).lean();
+ if(!locked)return false; // A different publisher is working; retry on the next sweep.
+ try{return await work({...locked,resultPublicationToken:token});}
+ finally{
+   await Giveaway.updateOne({_id:item._id,resultPublicationToken:token},
+     {$set:{resultPublicationToken:"",resultPublicationClaimedAt:null}})
+     .catch(e=>console.error("[Giveaways] Publication lock cleanup failed:",e));
+ }
+}
 export async function relocateRegularGiveawayResult(client,item){
   if(item?.mode!=="standard"||item.status!=="ended"||!item.messageId||
      item.publicListingRemovedAt)return item;
@@ -459,11 +475,12 @@ export async function relocateRegularGiveawayResult(client,item){
     _id:item._id,guildId:item.guildId,mode:"standard",status:"ended",
     channelId:item.channelId,messageId:item.messageId,
     renderVersion:item.renderVersion,
+    resultPublicationToken:item.resultPublicationToken,
   },{$set:fields});
   if(saved?.matchedCount===0){
-    if(created)await destination.delete().catch(error=>
-      console.error("[Giveaways] Duplicate results post cleanup failed:",error));
-    throw Error("Giveaway results moved concurrently; the bot will refresh the saved destination.");
+    // Never delete a message another publisher may have adopted as canonical.
+    console.warn("[Giveaways] Transfer changed concurrently; preserving Discord result",destination.id);
+    throw Error("Giveaway result changed during publication; refresh will retry safely.");
   }
   return {...item,...fields};
 }
@@ -527,7 +544,9 @@ export async function publishGiveawayResult(client, item) {
     return true;
   }
   if (!item?.messageId || !["ended", "open"].includes(item.status)) return false;
-  const record=item.status==="ended"?await relocateRegularGiveawayResult(client,item):item;
+  if(item.status==="ended"&&item.mode==="standard")
+    return withRegularResultPublishLock(item,locked=>publishRegularResultLocked(client,locked));
+  const record=item;
   const channel = await client.channels.fetch(record.channelId);
   if (!channel?.messages?.fetch) throw Error("Giveaway channel is inaccessible.");
   const message = await channel.messages.fetch(record.messageId);
