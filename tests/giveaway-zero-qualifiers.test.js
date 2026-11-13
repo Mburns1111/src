@@ -31,8 +31,8 @@ test("zero qualifying members generate an explicit empty-result winner announcem
   const client={user:{id:"bot"},guilds:{fetch:async()=>({members:{fetch:async()=>null}})},
    channels:{fetch:async channelId=>{
      assert.equal(channelId,winnersId);
-     return {messages:{fetch:async()=>({find:()=>null})},
-       send:async payload=>{sent++;announcement=payload;return {id:"345678901234567890"};}};
+     return {messages:{fetch:async()=>({size:0,values:()=>[].values()})},
+       send:async payload=>{sent++;announcement=payload;return {id:"345678901234567890",author:{id:"bot"},edit:async next=>{announcement=next;}};}};
    }}};
   const plan={_id:"507f1f77bcf86cd799439012",guildId,status:"active",
    watchNameKey:"general",title:"Empty QOTD",creatorId:"456789012345678901",
