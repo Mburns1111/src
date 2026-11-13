@@ -195,7 +195,7 @@ export async function giveawayAnnouncementWithBanner(record) {
 }
 
 // A regular giveaway's original post stays in the Regular Giveaways channel.
-// Announce its winners in the shared Activity Winners channel as well, with real
+// Announce its winners in the shared Giveaway Winners channel as well, with real
 // content mentions (embed mentions alone do not notify winners). Rerolls replace
 // the secondary announcement and ping only newly assigned winners.
 export async function publishRegularWinnerAnnouncement(client,record,announcement=null){
@@ -203,13 +203,13 @@ export async function publishRegularWinnerAnnouncement(client,record,announcemen
   const config=await GuildConfig.findOne({guildId:record.guildId})
     .select("activityGiveawayWinnersChannelId").lean();
   const channelId=config?.activityGiveawayWinnersChannelId;
-  if(!channelId)return false; // The shared Activity Winners channel has not been set up yet.
-  if(channelId===record.channelId)throw Error("The Activity Winners channel must differ from the regular giveaway channel.");
+  if(!channelId)return false; // The shared Giveaway Winners channel has not been set up yet.
+  if(channelId===record.channelId)throw Error("The Giveaway Winners channel must differ from the regular giveaway channel.");
   const winners=[...new Set((record.winnerIds||[]).filter((id,slot)=>
     id&&!(record.claimResolvedSlots||[]).includes(slot)&&/^\d{17,20}$/.test(String(id))).map(String))];
   if(!winners.length&&!record.regularWinnerMessageId)return false;
   const channel=await client.channels.fetch(channelId);
-  if(!channel?.send||!channel.messages?.fetch)throw Error("Activity Winners channel is not accessible for regular giveaway results.");
+  if(!channel?.send||!channel.messages?.fetch)throw Error("Giveaway Winners channel is not accessible for regular giveaway results.");
   const originalUrl="https://discord.com/channels/"+record.guildId+"/"+record.channelId+"/"+record.messageId;
   const header="🏆 **Regular Giveaway Results**\n[View original giveaway]("+originalUrl+")";
   const content=header+(winners.length?"\nCongratulations "+winners.map(id=>"<@"+id+">").join(" ")+"!":
