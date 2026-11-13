@@ -131,7 +131,7 @@ function layout(session,banners=[]) {
  }else if(step==="excludedRole"){
    content="Choose the **required Giveaway Banned role** shared by all prize giveaways. "+
      "Anyone holding this punishment role cannot enter regular giveaways, Court's Trials, or collect activity giveaway progress; they cannot win or be rerolled into any giveaway. "+
-     "The restriction is always enforced, never optional, and has no cooldown.\\nCurrent: "+
+     "The restriction is always enforced, never optional, and has no cooldown.\nCurrent: "+
      (s.giveawayExcludedRoleId?"<@&"+s.giveawayExcludedRoleId+">":"NOT CONFIGURED — REQUIRED");
    components.push(new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
      .setCustomId(bind(session,"excludedRole")).setPlaceholder("Select required banned role")
