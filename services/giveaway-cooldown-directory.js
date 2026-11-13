@@ -44,7 +44,7 @@ export async function handleGiveawayCooldownDirectoryAction(interaction){
   const content="**Active Giveaway Winner Cooldowns · Staff**\n"+
    (listed.length?listed.map((r,i)=>(page*20+i+1)+". <@"+r.userId+"> · expires <t:"+unix(r.expiresAt)+":F>").join("\n"):
     "No active winner cooldowns on this page.")+
-   "\n\nSelect a member below to view, correct or remove their cooldown. Expired cooldowns automatically stop restricting drawings.";
+   "\n\nSelect a member below to view, correct or remove their cooldown. Expired cooldowns automatically stop blocking entries in enabled regular giveaways and restricting winner drawings.";
   const controls=[row(new UserSelectMenuBuilder()
    .setCustomId(idFor("cooldownmember"))
    .setPlaceholder("Find a member by Discord name").setMinValues(1).setMaxValues(1))];
