@@ -52,6 +52,7 @@ async function harness(overrides={}){
      calls.sent.push(payload);
      if(payload.embeds?.length){
        destinationMessage.embeds=payload.embeds.map(e=>e.toJSON());
+       destinationMessage.components=(payload.components||[]).map(r=>r.toJSON());
        if(!published.includes(destinationMessage))published.push(destinationMessage);
        return destinationMessage;
      }
@@ -125,7 +126,7 @@ test("a failed source deletion resumes on the same winner post after restart",as
   assert.equal(h.getStored().renderedAt,null);
   h.setDeleteFails(false);
   await publishGiveawayResult(h.client,h.getStored());
-  assert.equal(h.calls.sent.length,1);
+  assert.equal(h.calls.sent.length,2);
   assert.deepEqual(h.calls.deleted,["source"]);
   assert.equal(h.getStored().listMessageId,"");
   assert.ok(h.getStored().renderedAt instanceof Date);
