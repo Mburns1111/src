@@ -6,7 +6,7 @@ import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
-import {randomUUID,createHash} from "node:crypto";
+import {randomUUID} from "node:crypto";
 import {renderRegularDisplayText,cleanRegularDisplayTitle} from "./giveaway-display-text.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
@@ -46,7 +46,6 @@ export function chooseGiveawayWinners(entrantIds, count, excluded = []) {
   return candidates.slice(0, count);
 }
 
-const giveawayReference=record=>"Court ref: "+createHash("sha256").update(String(record._id)).digest("hex").slice(0,12);
 export function giveawayAnnouncement(record) {
   if (record.mode === "survival") return survivalAnnouncement(record);
   const ended = record.status === "ended" || record.status === "rerolling";
@@ -76,7 +75,7 @@ export function giveawayAnnouncement(record) {
       embeds:[new EmbedBuilder().setColor(0x86738d)
         .setTitle("🏁 Giveaway Ended · No Eligible Winner")
         .setDescription(lines.join("\n").slice(0,3900))
-        .setFooter({text:giveawayReference(record)})],
+        ],
       components:[],allowedMentions:{parse:[]},
     };
   }
@@ -157,7 +156,7 @@ export function giveawayAnnouncement(record) {
     .setColor(ended ? 0x86738d : 0xb47e99)
     .setTitle(ended ? (record.mode==="standard" && !noEligibleWinner && record.displayEndedTitle ? cleanRegularDisplayTitle(record.displayEndedTitle) : "🦊 Heist Complete") : (record.mode==="standard" && record.displayOpenTitle ? cleanRegularDisplayTitle(record.displayOpenTitle) : "🦊 The Fox’s Giveaway"))
     .setDescription(description)
-    .setFooter({ text: giveawayReference(record) });
+    ;
   if(ended && winners.length){
     embed.addFields({name:"🏆 Winners / Results",
       value:winners.join("\n").slice(0,1024),inline:false});
@@ -446,10 +445,18 @@ async function regularResultsDestination(item){
   return config?.activityGiveawayWinnersChannelId||"";
 }
 async function findRegularResultPost(channel,client,item){
-  const messages=await channel.messages.fetch({limit:100});
-  return messages.find(message=>message.author?.id===client.user?.id &&
-    message.embeds?.some(embed=>
-      embed.footer?.text?.includes(giveawayReference(item))))||null;
+  const recent=await channel.messages.fetch({limit:100});
+  const expected=giveawayAnnouncement(item).embeds[0].toJSON();
+  const matches=[...recent.values()].filter(message=>{
+    if(message.author?.id!==client.user?.id)return false;
+    const claimControl=message.components?.some(row=>row.components?.some(button=>
+      (button.customId||button.data?.custom_id)==="giveaway:claim:"+item._id));
+    return claimControl||message.embeds?.some(embed=>
+      embed.title===expected.title&&embed.description===expected.description);
+  });
+  if(matches.length>1)
+    throw Error("Multiple matching result posts were found; staff must resolve the duplicate before another post.");
+  return matches[0]||null;
 }
 async function withRegularResultPublishLock(item,work){
  const token=randomUUID(),now=new Date(),expired=new Date(+now-120000);
