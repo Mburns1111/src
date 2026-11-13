@@ -86,6 +86,7 @@ test("cooldown confirmation writes both winners, audits the source giveaway and 
   assert.equal(refresh.cooldownAssignments.length,2);
   assert.equal(done.responses.deferred,true);
   assert.match(done.responses.edit.content,/cooldown saved/i);
+  assert.deepEqual(done.responses.edit.components,[],"confirmed cooldown buttons must be retired");
  }finally{restore(backups);}
 });
 
@@ -190,5 +191,18 @@ test("multi-winner cooldown confirmation replaces the previous private selector"
   assert.equal(form.responses.reply,null);
   assert.match(form.responses.update.content,/Confirm Giveaway Winner Cooldown/);
   assert.match(customId(form.responses.update),/cooldownapply:.+:01:7$/);
+ }finally{restore(backups);}
+});
+
+test("Apply / Extend advances an existing ephemeral cooldown panel instead of stacking a new dropdown",async()=>{
+ const backups=[];
+ try{
+  patch(GiveawayWinnerCooldown,"find",()=>({lean:async()=>[]}),backups);
+  const action=makeAction({message:{flags:{has:()=>true}}});
+  await handleGiveawayCooldownAction(action.i,giveaway,"cooldowncreate");
+  assert.equal(action.responses.reply,null,"existing private panel should not spawn another message");
+  assert.ok(action.responses.update.components.length);
+  assert.equal(action.responses.update.components[0].components[0].toJSON().custom_id,
+    "giveawaystaff:cooldownselect:"+giveawayId);
  }finally{restore(backups);}
 });
