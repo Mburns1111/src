@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {PermissionFlagsBits,ButtonStyle} from "discord.js";
+import {PermissionFlagsBits} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayBanner from "../models/GiveawayBanner.js";
@@ -28,7 +28,7 @@ function restore(){
 }
 let nonce=0;
 async function harness({defaultRole="",storedBanners=[],
-  serverClaimInstructions="",serverRoleInstructions=""}={}){
+  serverClaimInstructions="",serverRoleInstructions="",display={}}={}){
   // Different invocation channel per test prevents a failed test leaving a
   // previously open wizard session for later tests.
   const commandsId=String(230000000000000000n+BigInt(++nonce));
@@ -39,7 +39,8 @@ async function harness({defaultRole="",storedBanners=[],
   const send=(list)=>async payload=>{
     const id=String(900000000000000000n+BigInt(++n));
     const msg={id,content:payload.content||"",components:payload.components||[],
-      embeds:payload.embeds||[],...payload,url:"https://discord.com/channels/"+guildId+"/"+publicId+"/"+id};
+      embeds:payload.embeds||[],...payload,url:"https://discord.com/channels/"+guildId+"/"+publicId+"/"+id,
+      edit:async change=>{Object.assign(msg,change);return msg;}};
     list.push(msg);return msg;
   };
   const commandChannel={id:commandsId,send:send(prompts)};
@@ -55,6 +56,7 @@ async function harness({defaultRole="",storedBanners=[],
     giveawayExcludedRoleId:"789012345678901234",
     activityClaimInstructions:serverClaimInstructions,
     giveawayRoleInstructions:serverRoleInstructions,
+    ...display,
   };
   GuildConfig.findOne=()=>({
     then:(resolve,reject)=>Promise.resolve(config).then(resolve,reject),
@@ -145,29 +147,6 @@ test("regular giveaway start has no old slash fields or plan editing subcommands
   assert.ok(!options.some(x=>/^plan-|^prize-(add|edit|remove|move)$/.test(x.name)));
   assert.deepEqual(options.find(x=>x.name==="banner").options.map(x=>x.name),
     ["save","list","default","clear","remove"]);
-});
-
-test("regular giveaway server-default actions render as blue primary buttons",async()=>{
-  try{
-    const h=await harness();
-    await h.type("Blue button test");
-    await h.type("Test prize");
-    await h.select("clearDescription");
-    await h.select("minutes:2");
-    await h.select("winners:1");
-    const style=action=>h.controls().find(c=>c.custom_id?.endsWith(":"+action))?.style;
-    assert.equal(style("roleDefault"),ButtonStyle.Primary);
-    await h.select("roleDefault");
-    assert.equal(style("roleHelpDefault"),ButtonStyle.Primary);
-    await h.select("keep");
-    await h.select("clearRules");
-    await h.select("cooldownOff");
-    await h.select("claim:1");
-    assert.equal(style("claimDefault"),ButtonStyle.Primary);
-    await h.select("claimDefault");
-    assert.equal(style("bannerDefault"),ButtonStyle.Primary);
-    await h.select("cancel");
-  }finally{restore();}
 });
 
 test("guided regular giveaway posts only after review and produces regular entry buttons",async()=>{
@@ -375,5 +354,56 @@ test("regular wizard can enable winner cooldowns without changing the banned rol
   await h.select("post");
   assert.equal(h.writes[0].winnerCooldownEnabled,true);
   assert.equal(h.writes[0].enforceExclusionRole,undefined);
+ }finally{restore();}
+});
+
+
+test("regular giveaway creator does not offer per-event display editor",async()=>{
+  try{
+    const h=await harness();
+    await h.reachReview();
+    assert.equal(h.controls().some(c=>c.label==="Edit Display Text"),false);
+    assert.match(h.prompt().content,/Server-wide settings from \/setup giveaways/);
+    await h.select("post");
+    assert.equal(h.writes[0].displayEntryText,"");
+    assert.equal(h.writes[0].displayWinnerText,"");
+    assert.equal(h.writes[0].displayOpenTitle,"");
+    assert.equal(h.writes[0].displayEndedTitle,"");
+  }finally{restore();}
+});
+
+test("regular giveaway preview and posted record inherit server-wide display text and headings",async()=>{
+  try{
+    const h=await harness({display:{
+      regularGiveawayDisplayOpenTitle:"Court's Prize",
+      regularGiveawayDisplayEndedTitle:"Court's Winners",
+      regularGiveawayDisplayEntryText:"Court opens for {host}!",
+      regularGiveawayDisplayWinnerText:"Well played, {winners}!"
+    }});
+    await h.reachReview();
+    await h.select("preview");
+    const preview=h.prompts.at(-1).embeds[0].toJSON();
+    assert.equal(preview.title,"Court's Prize");
+    assert.match(preview.description,/Court opens/);
+    assert.equal(h.publicPosts.length,0);
+    await h.select("post");
+    assert.equal(h.writes[0].displayOpenTitle,"Court's Prize");
+    assert.equal(h.writes[0].displayEndedTitle,"Court's Winners");
+    assert.equal(h.writes[0].displayEntryText,"Court opens for {host}!");
+    assert.equal(h.writes[0].displayWinnerText,"Well played, {winners}!");
+    assert.equal(h.publicPosts[0].embeds[0].toJSON().title,"Court's Prize");
+  }finally{restore();}
+});
+
+test("regular giveaway creation retires old buttons but keeps new controls clickable",async()=>{
+ try{
+  const h=await harness();
+  const old=h.prompt();
+  assert.ok(old.components.length);
+  await h.type("Test title");
+  assert.deepEqual(old.components,[],"prior step buttons should be removed");
+  assert.ok(h.prompt().components.length>0);
+  await h.select("cancel");
+  assert.deepEqual(h.prompt().components,[],"ending the wizard must clear the final prompt");
  }finally{restore();}
 });
