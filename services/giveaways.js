@@ -595,8 +595,20 @@ export async function publishGiveawayResult(client, item) {
       if (message.author?.id !== client.user?.id) throw Error("Activity announcement does not belong to the bot.");
       await message.edit(await giveawayAnnouncementWithBanner(item));
     }
+    // The activity claim timer must not start until Discord has a winner post.
+    const publishedAt=new Date(),dates=[...(item.winnerAssignedAt||[])];
+    for(let slot=0;slot<(item.winnerIds||[]).length;slot++)
+      if(!dates[slot]&&!(item.claimResolvedSlots||[]).includes(slot))dates[slot]=publishedAt;
+    const announced={...item,messageId:message.id,winnerAssignedAt:dates,
+      claimStartedAt:item.claimStartedAt||publishedAt,
+      resultPublishedAt:item.resultPublishedAt||publishedAt};
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
-      {$set:{messageId:message.id,renderedAt:new Date()}});
+      {$set:{messageId:message.id,claimStartedAt:announced.claimStartedAt,
+        winnerAssignedAt:dates,resultPublishedAt:announced.resultPublishedAt,
+        claimCheckAt:nextClaimCheckAt(announced),renderedAt:null}});
+    await message.edit(await giveawayAnnouncementWithBanner(announced));
+    await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
+      {$set:{renderedAt:new Date()}});
     return true;
   }
   if (!item?.messageId || !["ended", "open"].includes(item.status)) return false;
