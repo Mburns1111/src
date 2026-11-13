@@ -28,6 +28,7 @@ const giveawaySchema = new mongoose.Schema({
   // Regular giveaway results are also announced in the shared Activity Winners
   // channel. Track the post and notified winners to prevent duplicate pings.
   regularWinnerMessageId: { type: String, default: "" },
+  regularWinnerChannelId: { type: String, default: "" },
   regularWinnerNotifiedIds: { type: [String], default: [] },
   creatorId: { type: String, required: true },
   title: { type: String, required: true },
