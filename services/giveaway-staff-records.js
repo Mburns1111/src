@@ -121,7 +121,7 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    "**Status:** "+(completedAndRemoved?(record.mode==="survival"?"Trial archived — Royal Verdict preserved":"Completed — public listing deleted"):statuses[record.status]||record.status),
    "**Scheduled end:** "+when(record.endsAt),
    "**Giveaway ID:** \x60"+record._id+"\x60",
-   ...(record.mode!=="survival"?["**Winner cooldown check:** "+(record.winnerCooldownEnabled===true?"ON — exclude active cooldowns":"OFF — normal drawing")]:[]),
+   ...(record.mode!=="survival"?["**Winner cooldown check:** "+(record.winnerCooldownEnabled===true?"ON — block regular entry and exclude cooldowns at draw":"OFF — normal drawing")]:[]),
    ...(record.prizeDeliveredAt?["**Prizes delivered:** "+when(record.prizeDeliveredAt),
      "**Delivery confirmed by:** "+(record.prizeDeliveredBy?"<@"+record.prizeDeliveredBy+">":"Not recorded"),
      ...(record.prizeDeliveryProofUrl?["**Delivery proof:** <"+record.prizeDeliveryProofUrl+">"]:[])]:[]),
