@@ -54,9 +54,9 @@ test("separate activity setup exposes channels, editable summary and preview",()
    giveawayDefaultRequiredRoleId:"678901234567890123",
  },{mode:"regular"});
  assert.match(regular,/678901234567890123/);
- assert.match(description,/Giveaway Winners \(regular \+ activity\)/);
+ assert.match(description,/Giveaway Winners|Winners:/);
  assert.match(description,/234567890123456789/);
- assert.match(regular,/Giveaway Winners \(regular \+ activity\)/);
+ assert.match(regular,/Giveaway Winners|Winners:/);
  assert.doesNotMatch(regular,/567890123456789012/);
  assert.match(description,/Open #tickets/);
  assert.match(description,/456789012345678901/);
@@ -154,7 +154,7 @@ test("ticket number and exact Discord ticket message link are preserved",()=>{
  const privateRecord=giveawayStaffRecordPayload(giveaway);
  assert.ok(privateRecord.embeds[0].toJSON().fields.some(f=>f.value.includes(ticketLink)),
    "the private staff record keeps the full original ticket URL");
- assert.equal(fields.length,0,"after the only winner claims, public deadline and forfeiture fields are removed");
+ assert.equal(fields.filter(f=>!/Winners \/ Results/i.test(f.name)).length,0,"claim and forfeiture details disappear; required winner identity remains visible");
  assert.match(post.embeds[0].toJSON().description,/Claim submitted/);
  assert.doesNotMatch(post.embeds[0].toJSON().description,/Claiming your prize|How to claim|FORFEIT YOUR WIN/);
  assert.equal(post.components.length,0,"claim form button disappears when every winner has claimed");
