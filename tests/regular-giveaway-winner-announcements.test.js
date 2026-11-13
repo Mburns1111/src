@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {giveawayAnnouncement,publishRegularWinnerAnnouncement} from "../services/giveaways.js";
+import {handleGiveawayButton} from "../commands/giveaway.js";
 
 const guildId="123456789012345678";
 const regularChannelId="234567890123456789";
@@ -116,4 +117,37 @@ test("no-winner regular giveaways do not send secondary winner notifications",as
     assert.equal(await h.publish(),false);
     assert.equal(h.sent.length,0);
   }finally{h.restore();}
+});
+
+test("the new winners-channel claim button is authorized, but unrelated messages are rejected",async()=>{
+  const prior=Giveaway.findOne;
+  const id="507f1f77bcf86cd799439011";
+  const record={
+    _id:id,guildId,mode:"standard",status:"ended",
+    channelId:regularChannelId,messageId:originalId,
+    regularWinnerChannelId:winnerChannelId,
+    regularWinnerMessageId:"890000000000000001",
+    winnerIds:[firstWinner],claimResolvedSlots:[],winnerClaims:[],
+    claimWindowHours:24,claimStartedAt:new Date(),
+    winnerAssignedAt:[new Date()],
+  };
+  Giveaway.findOne=()=>({lean:async()=>record});
+  const attempts=[];
+  const interaction=(channelId,messageId)=>({
+    guildId,guild:{},user:{id:firstWinner,bot:false},
+    customId:"giveaway:claim:"+id,
+    channelId,message:{id:messageId},
+    showModal:async modal=>attempts.push({kind:"modal",modal}),
+    reply:async payload=>attempts.push({kind:"reply",payload}),
+  });
+  try{
+    await handleGiveawayButton(interaction(winnerChannelId,record.regularWinnerMessageId));
+    assert.equal(attempts[0].kind,"modal");
+    assert.match(attempts[0].modal.data.custom_id,/giveaway:ticket:/);
+    await handleGiveawayButton(interaction(regularChannelId,originalId));
+    assert.equal(attempts[1].kind,"modal","original post continues accepting claims");
+    await handleGiveawayButton(interaction(winnerChannelId,"999999999999999999"));
+    assert.equal(attempts[2].kind,"reply");
+    assert.match(attempts[2].payload.content,/could not be verified/);
+  }finally{Giveaway.findOne=prior;}
 });
