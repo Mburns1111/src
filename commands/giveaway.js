@@ -224,6 +224,7 @@ export async function execute(interaction) {
       const record = await Giveaway.create({
         guildId: interaction.guildId, channelId: channel.id,bannerNameKey,
         resultChannelId:survival?"":config?.activityGiveawayWinnersChannelId||"",
+        announceEmptyResults:config?.activityAnnounceEmptyResults!==false,
         creatorId: interaction.user.id,
         title: interaction.options.getString("title", true).trim(),
         prize: interaction.options.getString("prize", true).trim(),
