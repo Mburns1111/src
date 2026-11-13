@@ -314,6 +314,15 @@ async function checkChannels(session){
   const publicIds=[existing?.giveawayChannelId,existing?.activityGiveawayListChannelId,
     existing?.activityGiveawayWinnersChannelId,existing?.survivalTrialChannelId].filter(Boolean);
   if(publicIds.includes(s.giveawayArchiveChannelId))throw Error("The private giveaway archive must be separate from every public giveaway or Trial channel.");
+  const otherPublic=session.mode==="regular"?
+    [existing?.activityGiveawayListChannelId,existing?.survivalTrialChannelId]:
+    [existing?.giveawayChannelId,existing?.survivalTrialChannelId];
+  const selectedPublic=session.mode==="regular"?
+    [s.giveawayChannelId,s.activityGiveawayWinnersChannelId]:
+    [s.activityGiveawayListChannelId,s.activityGiveawayWinnersChannelId];
+  if(selectedPublic.some(id=>id&&otherPublic.includes(id)))
+    throw Error("Regular, activity, Trial and Giveaway Winners public channels must be distinct.");
+
  for(const [idx,id] of ids.entries()){
    const channel=await session.guild.channels.fetch(id).catch(()=>null);
    if(!channel?.send||!channel?.permissionsFor)throw Error("The selected channel is unavailable: "+id);
