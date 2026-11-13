@@ -144,7 +144,7 @@ test("Apply Cooldown is available after delivery, including on archived non-Tria
  assert.ok(!labels({...record,prizeDeliveredAt:null}).includes("Apply Cooldown"));
  assert.ok(!labels({...record,mode:"survival"}).includes("Apply Cooldown"));
  assert.ok(labels({...record,publicListingRemovedAt:now}).includes("Apply Cooldown"));
- assert.ok(labels({...record,publicListingRemovedAt:now}).includes("Apply Cooldown"));
+ assert.ok(!labels({...record,mode:"survival",publicListingRemovedAt:now}).includes("Apply Cooldown"));
  assert.ok(labels({...record,cooldownAssignments:[{userId:A,days:3,expiresAt:now,
   appliedAt:now,appliedBy:staff}]}).includes("Manage Cooldowns"));
 });
