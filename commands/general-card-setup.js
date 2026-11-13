@@ -6,6 +6,7 @@ import {
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {preferSetupButtons} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
 import { ensureProfileEntry } from "./profile.js";
@@ -123,8 +124,11 @@ function layout(session) {
 
 async function show(session) {
   session.expiresAt = Date.now() + SESSION_MS;
+  const previous=session.promptMessage;
   const message = await session.channel.send(layout(session));
   session.messageId = message.id;
+  session.promptMessage=message;
+  await retireGuidedControls(previous,session.channel);
 }
 async function next(session) {
   if (session.editing) {
