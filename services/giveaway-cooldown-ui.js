@@ -29,9 +29,9 @@ function slotsFromToken(token,record){
  return unique;
 }
 const tokenFromSlots=slots=>[...new Set(slots)].sort((a,b)=>a-b).join("");
-function daysModal(record,token){
+function daysModal(record,token,fromPrivatePicker=false){
  return new ModalBuilder()
-  .setCustomId(idFor("cooldowndays",record._id,token))
+  .setCustomId(idFor("cooldowndays",record._id,token,fromPrivatePicker?"p":""))
   .setTitle("Apply Giveaway Winner Cooldown")
   .addComponents(row(new TextInputBuilder()
    .setCustomId("days").setLabel("Cooldown duration (days, 1–365)")
@@ -106,7 +106,7 @@ export async function handleGiveawayCooldownAction(interaction,record,action,slo
   const selected=interaction.values?.map(Number)||[];
   const token=tokenFromSlots(selected);
   slotsFromToken(token,record);
-  return interaction.showModal(daysModal(record,token));
+  return interaction.showModal(daysModal(record,token,true));
  }
  if(action==="cooldowndays"){
   const slots=slotsFromToken(slotToken,record);
@@ -123,7 +123,7 @@ export async function handleGiveawayCooldownAction(interaction,record,action,slo
   const conflict=active.length?"\n\n**Existing cooldowns:**\n"+
    active.map(c=>"<@"+c.userId+"> expires <t:"+unix(c.expiresAt)+":F>").join("\n")+
    "\nThe bot will **never shorten** an existing longer cooldown.":"";
-  return interaction.reply({content:"**Confirm Giveaway Winner Cooldown**\n"+
+  return (daysToken==="p"&&typeof interaction.update==="function"?interaction.update.bind(interaction):interaction.reply.bind(interaction))({content:"**Confirm Giveaway Winner Cooldown**\n"+
     "Winner(s): "+ids.map(id=>"<@"+id+">").join(", ")+"\n"+
     "Cooldown: **"+days+" day"+(days===1?"":"s")+"**\n"+
     "Starts: <t:"+unix(record.prizeDeliveredAt)+":F> (prize delivery)\n"+
@@ -134,7 +134,7 @@ export async function handleGiveawayCooldownAction(interaction,record,action,slo
     button(idFor("abort",id),"Cancel"))],...ephemeral,allowedMentions:{parse:[]}});
  }
  if(action==="cooldownapply"){
-  await interaction.deferReply(ephemeral);
+  await interaction.deferUpdate();
   const days=Number(daysToken);
   const slots=slotsFromToken(slotToken,record);
   if(!/^[1-9]\d{0,2}$/.test(daysToken||"")||days>MAX_GIVEAWAY_COOLDOWN_DAYS)
@@ -186,7 +186,7 @@ export async function handleGiveawayCooldownAction(interaction,record,action,slo
  if(action==="cooldownconfirmremove"){
   const slots=slotsFromToken(slotToken,record);
   if(slots.length!==1)return interaction.reply({content:"Choose one winner.",...ephemeral});
-  await interaction.deferReply(ephemeral);
+  await interaction.deferUpdate();
   const userId=record.winnerIds[slots[0]];
   const removed=await removeGiveawayWinnerCooldown({
    guildId:record.guildId,userId,staffId:interaction.user.id});
