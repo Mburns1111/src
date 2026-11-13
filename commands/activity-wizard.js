@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import {preferSetupChoices,setupButtonStyle} from "../services/setup-button-preferences.js";
 import {ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags} from "discord.js";
 import GiveawayBanner from "../models/GiveawayBanner.js";
 import GuildConfig from "../models/GuildConfig.js";
@@ -197,7 +198,7 @@ async function show(session,step){
       "\nThere are no saved banners yet; use Upload New Banner to register one now.";
   }
   if(step==="summary")content=describeActivityWizard(session);
-  const controls=[...(choices||[])];
+  const controls=preferSetupChoices([...(choices||[])]);
   if(step==="bannerPick")controls.push(["Upload New Banner","bannerRegister"]);
   if(["bannerPick","bannerName","bannerUpload"].includes(step))
     controls.push(["Back to banner choices","bannerOptions"],["Back to preview","bannerBack"]);
@@ -205,7 +206,8 @@ async function show(session,step){
   const components=[];
   for(let n=0;n<controls.length;n+=5)components.push(new ActionRowBuilder().addComponents(
     controls.slice(n,n+5).map(([label,value])=>new ButtonBuilder().setCustomId('activitysetup:'+session.id+':'+value)
-      .setLabel(label).setStyle(value==="create"||value==="done"?ButtonStyle.Success:ButtonStyle.Secondary))));
+      .setLabel(label).setStyle(setupButtonStyle(label,value,
+         value==="create"||value==="done"?ButtonStyle.Success:ButtonStyle.Secondary)))));
   const payload=step==="summary"?{embeds:[{description:content}]}:{content};
   const message=await session.channel.send({...payload,content:'**Activity setup** · <@'+session.owner+'>\n'+(payload.content||""),components,allowedMentions:{parse:[]}});
   Object.assign(session,{step,messageId:message.id,choices:controls.map(x=>x[1]),
