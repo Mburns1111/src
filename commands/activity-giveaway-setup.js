@@ -116,6 +116,8 @@ export function claimAnnouncementPreview(settings,{
   requiredRoleId:mode==="regular"?settings.giveawayDefaultRequiredRoleId||"":"",
   requiredRoleInstructions:mode==="regular"?settings.giveawayRoleInstructions||"":"",
   showRequiredRoleInstructions:mode==="regular"?settings.giveawayShowRoleInstructions!==false:false,
+  ...(mode==="regular"?Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
+    [field,settings?.[serverDisplayField(field)]||""])):{}),
  };
  const payload=giveawayAnnouncement(sample);
  payload.embeds[0].setFooter({text:"PREVIEW ONLY · No giveaway created or modified"});
