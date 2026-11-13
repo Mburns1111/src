@@ -194,6 +194,70 @@ export async function giveawayAnnouncementWithBanner(record) {
   return attachGiveawayBanner(announcement,banner);
 }
 
+// A regular giveaway's original post stays in the Regular Giveaways channel.
+// Announce its winners in the shared Activity Winners channel as well, with real
+// content mentions (embed mentions alone do not notify winners). Rerolls replace
+// the secondary announcement and ping only newly assigned winners.
+export async function publishRegularWinnerAnnouncement(client,record,announcement=null){
+  if(record?.mode!=="standard"||record.status!=="ended"||record.publicListingRemovedAt)return false;
+  const config=await GuildConfig.findOne({guildId:record.guildId})
+    .select("activityGiveawayWinnersChannelId").lean();
+  const channelId=config?.activityGiveawayWinnersChannelId;
+  if(!channelId)return false; // The shared Activity Winners channel has not been set up yet.
+  if(channelId===record.channelId)throw Error("The Activity Winners channel must differ from the regular giveaway channel.");
+  const winners=[...new Set((record.winnerIds||[]).filter((id,slot)=>
+    id&&!(record.claimResolvedSlots||[]).includes(slot)&&/^\d{17,20}$/.test(String(id))).map(String))];
+  if(!winners.length&&!record.regularWinnerMessageId)return false;
+  const channel=await client.channels.fetch(channelId);
+  if(!channel?.send||!channel.messages?.fetch)throw Error("Activity Winners channel is not accessible for regular giveaway results.");
+  const originalUrl="https://discord.com/channels/"+record.guildId+"/"+record.channelId+"/"+record.messageId;
+  const header="🏆 **Regular Giveaway Results**\n[View original giveaway]("+originalUrl+")";
+  const content=header+(winners.length?"\nCongratulations "+winners.map(id=>"<@"+id+">").join(" ")+"!":
+    "\nNo eligible winner remains.");
+  const notified=new Set((record.regularWinnerNotifiedIds||[]).map(String));
+  const newlyAssigned=winners.filter(id=>!notified.has(id));
+  let old=record.regularWinnerMessageId?
+    await channel.messages.fetch(record.regularWinnerMessageId).catch(e=>{
+      if(e?.code===10008)return null;
+      throw e;
+    }):null;
+  if(old&&old.author?.id!==client.user?.id)old=null;
+  let current=old;
+  // Recover a Discord send that completed just before MongoDB was updated.
+  // The original message link is a unique public identifier, without putting
+  // the internal giveaway ID back into the public embed footer.
+  if(!current||current.content!==content){
+    const recent=await channel.messages.fetch({limit:100});
+    if(typeof recent?.find==="function"){
+      const belongs=m=>m.author?.id===client.user?.id&&
+        typeof m.content==="string"&&m.content.startsWith(header);
+      const exact=recent.find(m=>belongs(m)&&m.content===content);
+      current=exact||current||recent.find(belongs)||null;
+    }
+  }
+  const payload=announcement||await giveawayAnnouncementWithBanner(record);
+  const output={...payload,content,allowedMentions:{parse:[]}};
+  let result=current;
+  if(current?.content===content){
+    await current.edit(output); // Recovery and claim updates never re-ping.
+  }else if(current&&!newlyAssigned.length){
+    await current.edit(output); // Claims/forfeitures only change the existing post.
+  }else{
+    result=await channel.send({...output,
+      allowedMentions:{parse:[],users:newlyAssigned}});
+  }
+  if(!result?.id)throw Error("Could not save the regular winner announcement message ID.");
+  await Giveaway.updateOne({_id:record._id,mode:"standard"},{
+    $set:{regularWinnerMessageId:result.id},
+    ...(winners.length?{$addToSet:{regularWinnerNotifiedIds:{$each:winners}}}:{})
+  });
+  if(old&&old.id!==result.id)await old.delete().catch(error=>
+    console.warn("[Giveaways] Could not remove superseded winner post:",error));
+  else if(current&&current.id!==result.id&&current.id!==old?.id)
+    await current.delete().catch(()=>{});
+  return true;
+}
+
 export async function joinGiveaway({ id, guildId, userId, mode = "standard", now = new Date() }) {
   const updated = await Giveaway.updateOne({
     _id: id, guildId, status: "open", endsAt: { $gt: now },
@@ -430,7 +494,10 @@ export async function publishGiveawayResult(client, item) {
   if (!channel?.messages?.fetch) throw Error("Giveaway channel is inaccessible.");
   const message = await channel.messages.fetch(item.messageId);
   if (message.author?.id !== client.user?.id) throw Error("Giveaway message is not authored by this bot.");
-  await message.edit(await giveawayAnnouncementWithBanner(item));
+  const announcement=await giveawayAnnouncementWithBanner(item);
+  await message.edit(announcement);
+  if(item.mode==="standard"&&item.status==="ended")
+    await publishRegularWinnerAnnouncement(client,item,announcement);
   if (item.status === "ended") {
     await Giveaway.updateOne(
       { _id: item._id, status: "ended", renderVersion: item.renderVersion },
