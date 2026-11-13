@@ -156,3 +156,7 @@ Across **General**, **Hatchem/Cards**, **Regular Giveaways**, **Activity Giveawa
 ## Regular giveaway display template
 
 The **/setup giveaways** final review contains **Edit Giveaway Display**. The button opens an embed preview and controls for the two **embed titles** (open and winners) and two **fox story texts** (entry and winner). Select Edit to open the Discord input modal and see the refreshed preview, or Default to restore the original text. Toggle **Preview Open / Preview Winners** to compare states. **Confirm Text** returns to setup review; **Save Settings** is required to persist the new server defaults. Discard never saves edits. New regular giveaways inherit the saved template and preserve it as a snapshot; older giveaways, activity giveaways, and Trials are unaffected. The per-event `/giveaway start` wizard has no display editor.
+
+## Shared giveaway winners channel
+
+**/setup giveaways** now includes a **Giveaway Winners** channel step immediately after **Giveaway List**. It is the same channel saved under **/setup activity-giveaways**, not a second destination: both setup flows can update it. Regular giveaways begin in Giveaway List; after drawing, their completed embed is reposted to Giveaway Winners, the database's canonical message link is updated, and the original entry post is deleted. Winner claim buttons and rerolls remain available in the new location. A failed migration retries on restart instead of losing the giveaway; no results ping is sent. 
