@@ -28,7 +28,8 @@ function memberManager(id,record){
  return {
   content:"**Member winner cooldown**\n<@"+id+">\n"+
    "**Expires:** <t:"+unix(record.expiresAt)+":F> (<t:"+unix(record.expiresAt)+":R>)\n"+
-   "**Most recent source giveaway:** `"+String(record.sourceGiveawayId||"unknown")+"`\n"+
+   (record.sourceGiveawayId==="staff-manual"?"**Source:** Staff-assigned cooldown\n":
+    "**Most recent source giveaway:** `"+String(record.sourceGiveawayId||"unknown")+"`\n")+
    "**Applied by:** "+(record.appliedBy?"<@"+record.appliedBy+">":"Not recorded")+
    "\n\nStaff may correct the remaining time or remove this cooldown. "+
    "These actions never assign/remove the separate Giveaway Banned role.",
