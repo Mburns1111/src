@@ -159,4 +159,9 @@ The **/setup giveaways** final review contains **Edit Giveaway Display**. The bu
 
 ## Shared giveaway winners channel
 
-**/setup giveaways** now includes a **Giveaway Winners** channel step immediately after **Giveaway List**. It is the same channel saved under **/setup activity-giveaways**, not a second destination: both setup flows can update it. Regular giveaways begin in Giveaway List; after drawing, their completed embed is reposted to Giveaway Winners, the database's canonical message link is updated, and the original entry post is deleted. Winner claim buttons and rerolls remain available in the new location. A failed migration retries on restart instead of losing the giveaway; no results ping is sent. 
+**/setup giveaways** now includes a **Giveaway Winners** channel step immediately after **Giveaway List**. It is the same channel saved under **/setup activity-giveaways**, not a second destination: both setup flows can update it. Regular giveaways begin in Giveaway List; after drawing, their completed embed is reposted to Giveaway Winners, the database's canonical message link is updated, and the original entry post is deleted. Winner claim buttons and rerolls remain available in the new location. A failed migration retries on restart instead of losing the giveaway; no results ping is sent.
+
+
+## Temporary setup menu cleanup
+
+Every guided setup/creation flow (General, Hatchem, Regular Giveaways, Activity Giveaways and Court's Trials) automatically clears the buttons/select menus from its **previous prompt** after posting the next step. The last prompt is also cleared upon completion/cancellation. Earlier text/preview history remains visible. Permanent public entry/claim messages, permanent staff directory controls and other unrelated messages are intentionally excluded so members never lose their live buttons. The winner cooldown manager uses one replaceable ephemeral member-selection menu rather than stacking an active old dropdown beneath a newer member panel.
