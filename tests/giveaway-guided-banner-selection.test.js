@@ -250,3 +250,61 @@ for(const mode of ["regular","activity","trial"]){
     }finally{restore();}
   });
 }
+
+
+test("regular server setup edits and previews titles and stories before saving future defaults",async()=>{
+  try{
+    const h=await harness("regular");
+    await h.goToBanner();
+    await h.step("keep");
+    const edit=h.controls().find(c=>c.label==="Edit Giveaway Display");
+    assert.ok(edit);
+    assert.equal(edit.style,2,"server editor entry button should remain gray");
+    await h.step("displayOpen");
+    assert.equal(h.current().embeds[0].toJSON().title,"🦊 The Fox’s Giveaway");
+    assert.equal(h.controls().some(c=>c.label==="Edit Open Title"),true);
+    await h.step("displayEdit:displayOpenTitle");
+    assert.match(JSON.stringify(h.modals.at(-1).toJSON()),/The Fox/);
+    await h.submit("displayOpenTitle","Court Night");
+    assert.equal(h.current().embeds[0].toJSON().title,"Court Night");
+    await h.step("displayEdit:displayEntryText");
+    await h.submit("displayEntryText","{host} invites @everyone to the Court.");
+    assert.match(h.current().embeds[0].toJSON().description,/invites ＠everyone/);
+    assert.equal(h.configSaves.length,0,"unsaved edits must not touch MongoDB");
+    await h.step("displayPreviewWinner");
+    assert.equal(h.current().embeds[0].toJSON().title,"🦊 Heist Complete");
+    await h.step("displayEdit:displayEndedTitle");
+    await h.submit("displayEndedTitle","The Royal Winners");
+    assert.equal(h.current().embeds[0].toJSON().title,"The Royal Winners");
+    await h.step("displayDefault:displayEndedTitle");
+    assert.equal(h.current().embeds[0].toJSON().title,"🦊 Heist Complete");
+    await h.step("displayConfirm");
+    assert.equal(h.configSaves.length,0);
+    assert.match(h.current().content,/Customized server template/);
+    await h.step("save");
+    assert.equal(h.configSaves.length,1);
+    assert.equal(h.config.regularGiveawayDisplayOpenTitle,"Court Night");
+    assert.equal(h.config.regularGiveawayDisplayEndedTitle,"");
+    assert.equal(h.config.regularGiveawayDisplayEntryText,
+      "{host} invites ＠everyone to the Court.");
+    assert.equal(h.config.regularGiveawayDisplayWinnerText,"");
+  }finally{restore();}
+});
+
+test("discarding display edits preserves the fox defaults and activity setup has no text editor",async()=>{
+  try{
+    const h=await harness("regular");
+    await h.goToBanner();await h.step("keep");
+    await h.step("displayOpen");
+    await h.step("displayEdit:displayOpenTitle");
+    await h.submit("displayOpenTitle","Do Not Keep");
+    await h.step("displayDiscard");
+    assert.match(h.current().content,/Built-in fox template/);
+    await h.step("save");
+    assert.equal(h.config.regularGiveawayDisplayOpenTitle,"");
+    const activity=await harness("activity");
+    await activity.goToBanner();await activity.step("keep");
+    assert.equal(activity.controls().some(c=>c.label==="Edit Giveaway Display"),false);
+    await activity.step("cancel");
+  }finally{restore();}
+});
