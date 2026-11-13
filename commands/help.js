@@ -513,6 +513,35 @@ async function showTopic(i,topic,ownerId,commandPage=0){
  }
  await i.editReply(helpTopicPayload(topic,ownerId,lines,commandPage,serverConfig));
 }
+export async function ensurePublicHelpEntry(client,guildId){
+ const config=await GuildConfig.findOne({guildId}).select("helpChannelId helpMessageId").lean();
+ if(!config?.helpChannelId)return false;
+ const channel=await client.channels.fetch(config.helpChannelId);
+ if(!channel?.send||!channel.messages?.fetch)throw Error("Configured public Help channel is inaccessible.");
+ let message=config.helpMessageId?await channel.messages.fetch(config.helpMessageId).catch(e=>{
+   if(e.code===10008)return null;
+   throw e;
+ }):null;
+ const payload={content:"✦ **AM Isa Help**\nUse the button below to open the private Public Help, Staff Help or Command Index.",
+   components:[new ActionRowBuilder().addComponents(
+     new ButtonBuilder().setCustomId("help:open").setLabel("Open Help").setStyle(ButtonStyle.Primary))],
+   allowedMentions:{parse:[]}};
+ if(message){
+   if(message.author?.id!==client.user.id)throw Error("Saved Help message is not owned by this bot.");
+   await message.edit(payload);
+ }else{
+   message=await channel.send(payload);
+   await GuildConfig.updateOne({guildId,helpChannelId:config.helpChannelId},
+     {$set:{helpMessageId:message.id}});
+ }
+ return Boolean(message?.id);
+}
+export async function handlePublicHelpEntry(interaction){
+ if(!interaction.guildId)return interaction.reply({content:"Help is available inside a server.",flags:MessageFlags.Ephemeral});
+ await interaction.deferReply({flags:MessageFlags.Ephemeral});
+ await showTopic(interaction,"root",interaction.user.id);
+ return true;
+}
 export async function execute(interaction){
  requireGuild(interaction);
  if(!interaction.deferred&&!interaction.replied)
