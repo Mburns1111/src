@@ -63,6 +63,9 @@ test("cooldown confirmation writes both winners, audits the source giveaway and 
    events.push({kind:"giveaway",update});
    return {...giveaway,cooldownAssignments:update.$push.cooldownAssignments.$each};
   }}),backups);
+  patch(Giveaway,"updateMany",async(query,update)=>{
+   events.push({kind:"entry-prune",query,update});return {modifiedCount:1};
+  },backups);
   patch(GiveawayWinnerCooldown,"findOneAndUpdate",(query,change,opts)=>({lean:async()=>{
    events.push({kind:"cooldown",query,change,opts});
    return {guildId,userId:query.userId,expiresAt:change.$max.expiresAt};
@@ -75,6 +78,10 @@ test("cooldown confirmation writes both winners, audits the source giveaway and 
   assert.ok(events.filter(e=>e.kind==="cooldown").every(e=>
    e.change.$push.history.action==="apply"&&e.change.$push.history.sourceGiveawayId===giveawayId));
   assert.equal(events.find(e=>e.kind==="giveaway").update.$push.cooldownAssignments.$each.length,2);
+  const pruned=events.find(e=>e.kind==="entry-prune");
+  assert.equal(pruned.query.mode,"standard");
+  assert.equal(pruned.query.winnerCooldownEnabled,true);
+  assert.deepEqual(pruned.update.$pull.entrantIds.$in,[a,b]);
   assert.equal(refresh.cooldownAssignments.length,2);
   assert.equal(done.responses.deferred,true);
   assert.match(done.responses.edit.content,/cooldown saved/i);
