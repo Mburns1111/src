@@ -4,6 +4,7 @@ import {
   StringSelectMenuBuilder,MessageFlags
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {preferSetupButtons} from "../services/setup-button-preferences.js";
 import {shouldRequestMessageContent} from "../services/observation-intents.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
 import {requirePrivateGiveawayStaffChannel} from "../services/giveaway-staff-records.js";
@@ -260,7 +261,7 @@ function layout(session,banners=[]){
   return {
     content:"**🎁 Regular giveaway creation** · <@"+session.owner+">\n"+
       progress+"\n"+content,
-    components,allowedMentions:{parse:[]},
+    components:preferSetupButtons(components),allowedMentions:{parse:[]},
   };
 }
 async function show(session,step){
