@@ -120,19 +120,62 @@ test("staff-wide cooldown manager lists active members and supports expiry corre
   assert.equal(list.responses.reply.components[0].components[0].toJSON().custom_id,"giveawaydir:cooldownmember");
   const member=makeAction({customId:"giveawaydir:cooldownmember",values:[a]});
   await handleGiveawayCooldownDirectoryAction(member.i);
-  assert.equal(member.responses.reply.components[0].components[0].toJSON().label,"Correct Expiry");
+  assert.equal(member.responses.update.components[0].components[0].toJSON().label,"Correct Expiry");
   const edit=makeAction({customId:"giveawaydir:cooldownedit:"+a});
   await handleGiveawayCooldownDirectoryAction(edit.i);
   assert.match(edit.responses.modal.toJSON().title,/Correct Cooldown/);
   const input=makeAction({customId:"giveawaydir:cooldowneditdays:"+a,
    fields:{getTextInputValue:()=> "3"}});
   await handleGiveawayCooldownDirectoryAction(input.i);
-  assert.match(input.responses.reply.content,/Confirm staff correction/);
+  assert.match(input.responses.update.content,/Confirm staff correction/);
   const apply=makeAction({customId:"giveawaydir:cooldownconfirmedit:"+a+":3"});
   await handleGiveawayCooldownDirectoryAction(apply.i);
   assert.equal(corrected.$push.history.action,"adjust");
+  assert.equal(apply.responses.edit.components.length,0);
   const remove=makeAction({customId:"giveawaydir:cooldownconfirmremove:"+a});
   await handleGiveawayCooldownDirectoryAction(remove.i);
   assert.equal(removed.$push.history.action,"remove");
+  assert.equal(remove.responses.edit.components.length,0);
+ }finally{restore(backups);}
+});
+
+test("member without cooldown offers Add Cooldown; modal review and confirm save an audited staff assignment",async()=>{
+ const backups=[];let manual,prune;
+ try{
+  patch(GiveawayWinnerCooldown,"findOne",()=>({lean:async()=>manual||null}),backups);
+  patch(GiveawayWinnerCooldown,"findOneAndUpdate",(query,change,options)=>({lean:async()=>{
+   assert.equal(query.guildId,guildId);
+   assert.equal(query.userId,a);
+   assert.equal(options.upsert,true);
+   assert.equal(change.$set.sourceGiveawayId,"staff-manual");
+   assert.equal(change.$push.history.action,"apply");
+   assert.equal(change.$push.history.sourceGiveawayId,"staff-manual");
+   manual={userId:a,expiresAt:change.$max.expiresAt};
+   return manual;
+  }}),backups);
+  patch(Giveaway,"updateMany",(query,update)=>{
+   prune={query,update};return Promise.resolve({modifiedCount:1});
+  },backups);
+  const selected=makeAction({customId:"giveawaydir:cooldownmember",values:[a]});
+  await handleGiveawayCooldownDirectoryAction(selected.i);
+  assert.equal(selected.responses.update.components[0].components[0].toJSON().label,"Add Cooldown");
+  const open=makeAction({customId:"giveawaydir:cooldownadd:"+a});
+  await handleGiveawayCooldownDirectoryAction(open.i);
+  assert.match(open.responses.modal.toJSON().title,/Add Winner Cooldown/);
+  const submit=makeAction({customId:"giveawaydir:cooldownadddays:"+a,
+   fields:{getTextInputValue:()=> "3"}});
+  await handleGiveawayCooldownDirectoryAction(submit.i);
+  assert.match(submit.responses.update.content,/Confirm new winner cooldown/);
+  const confirm=makeAction({customId:"giveawaydir:cooldownconfirmadd:"+a+":3"});
+  await handleGiveawayCooldownDirectoryAction(confirm.i);
+  assert.equal(confirm.responses.deferred,true);
+  assert.match(confirm.responses.edit.content,/New winner cooldown saved/);
+  assert.equal(confirm.responses.edit.components.length,0);
+  assert.equal(prune.query.mode,"standard");
+  assert.equal(prune.query.winnerCooldownEnabled,true);
+  assert.deepEqual(prune.update.$pull.entrantIds.$in,[a]);
+  const repeat=makeAction({customId:"giveawaydir:cooldownmember",values:[a]});
+  await handleGiveawayCooldownDirectoryAction(repeat.i);
+  assert.equal(repeat.responses.update.components[0].components[0].toJSON().label,"Correct Expiry");
  }finally{restore(backups);}
 });
