@@ -10,6 +10,7 @@ const giveawaySchema = new mongoose.Schema({
   resultPublicationToken:{type:String,default:""},
   resultPublicationClaimedAt:{type:Date,default:null},
   resultPublishedAt:{type:Date,default:null},
+  resultSuppressedAt:{type:Date,default:null},
   winnerPublishedAt:{type:[Date],default:[]},
   winnerNotificationPendingIds:{type:[String],default:[]}
   listChannelId: { type: String, default: "" },
