@@ -10,7 +10,7 @@ import {hasOutstandingTicketClaims} from "./giveaway-claims.js";
 // This directory lives in the existing *private* giveaway staff channel, not
 // a public channel, DM, or separate new setup field.
 export const STAFF_DIRECTORY_PAGE_SIZE=15;
-export const STAFF_DIRECTORY_BUMP_COOLDOWN_MS=10*60_000;
+export const STAFF_DIRECTORY_BUMP_COOLDOWN_MS=60*60_000;
 export const ACTIVE_GIVEAWAY_STATES=["open","pending_review","preparing","running","closing","rerolling"];
 const lastBumped=new Map();
 const inFlight=new Set();
@@ -100,7 +100,7 @@ export function giveawayStaffDirectoryPayload(guildId,entries,{page=0}={}){
   const embed=new EmbedBuilder().setColor(0x896b88)
     .setTitle("📌 Active Giveaway Directory · Staff")
     .setDescription(description)
-    .setFooter({text:giveawayDirectoryMarker(guildId)+` · Page ${selectedPage+1}/${totalPages}`});
+    .setFooter({text:giveawayDirectoryMarker(guildId)+` · Page ${selectedPage+1}/${totalPages} · Moves to bottom hourly`});
   const buttons=[];
   buttons.push(new ButtonBuilder()
     .setCustomId("giveawaydir:cooldowns").setLabel("Winner Cooldowns").setStyle(ButtonStyle.Primary));
