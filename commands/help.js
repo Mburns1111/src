@@ -239,7 +239,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "6. Bot Permissions",
-    "Give the bot **View Channel**, **Send Messages** and **Embed Links** in assigned channels. Use **Read Message History** and **Attach Files** where needed, especially for archiving and banners.\n\n**Activity counting:** Enable **Message Content Intent** in the Discord Developer Portal and `ENABLE_MESSAGE_CONTENT_INTENT=1` in hosting secrets. The bot must see watched channels.\n\n**Ban detection:** **Guild Members Intent** with `ENABLE_GUILD_MEMBERS_INTENT=1` enables immediate role updates. Periodic reconciliation also checks banned activity participants.\n\nThe bot stores participation choices in MongoDB; it does not assign the Giveaway Banned role. Administrator is not required."
+    "Give the bot **View Channel**, **Send Messages** and **Embed Links** in assigned channels. Use **Read Message History** and **Attach Files** where needed, especially for archiving and banners.\n\n**Activity counting:** The bot needs **View Channel** access to every channel included in activity tracking.\n\n**Ban detection:** **Guild Members Intent** with `ENABLE_GUILD_MEMBERS_INTENT=1` enables immediate role updates. Periodic reconciliation also checks banned activity participants.\n\nThe bot stores participation choices in MongoDB; it does not assign the Giveaway Banned role. Administrator is not required."
    ],
    [
     "7. Setup Order",
