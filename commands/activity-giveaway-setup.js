@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ChannelSelectMenuBuilder,RoleSelectMenuBuilder,
-  StringSelectMenuBuilder,ChannelType,PermissionFlagsBits,MessageFlags} from "discord.js";
+  StringSelectMenuBuilder,ChannelType,PermissionFlagsBits,MessageFlags,ModalBuilder,TextInputBuilder,TextInputStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {preferSetupButtons} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GiveawayBanner, {bannerNameKey} from "../models/GiveawayBanner.js";
@@ -9,16 +11,39 @@ import {GuidedActivitySeries} from "../services/guided-activity.js";
 import {ensureBannerRegistered,attachGiveawayBanner} from "../services/giveaway-banners.js";
 import {registeredSetupBanners,bannerCatalogText,setupBannerOptions,registerSetupBanner} from "../services/giveaway-banner-setup.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
+import {REGULAR_DISPLAY_FIELDS,REGULAR_DISPLAY_DEFAULTS,cleanRegularDisplayField} from "../services/giveaway-display-text.js";
 import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaway-claims.js";
 
+const serverDisplayField=field=>"regularGiveaway"+field[0].toUpperCase()+field.slice(1);
+const displayLabels={
+ displayOpenTitle:"Open giveaway title",displayEndedTitle:"Winner announcement title",
+ displayEntryText:"Entry story",displayWinnerText:"Winner story"
+};
+export function regularGiveawayDisplayPreview(settings,{winner=false,
+ previewUserId="123456789012345678",now=new Date()}={}){
+ const values=Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
+   [field,cleanRegularDisplayField(field,settings?.[serverDisplayField(field)]||"")]));
+ const record={_id:"PREVIEW",mode:"standard",status:winner?"ended":"open",
+   title:"Example Giveaway",prize:"Example prize",creatorId:previewUserId,
+   winnerCount:1,winnerIds:winner?[previewUserId]:[],entrantIds:winner?[previewUserId]:[],
+   endsAt:new Date(now.getTime()+(winner?0:3600000)),
+   claimWindowHours:settings.activityClaimWindowHours||12,
+   claimInstructions:settings.activityClaimInstructions||"",
+   requiredRoleId:settings.giveawayDefaultRequiredRoleId||"",claimResolvedSlots:[],...values};
+ const payload=giveawayAnnouncement(record);
+ payload.embeds[0].setFooter({text:"SERVER TEMPLATE PREVIEW · No giveaway posted"});
+ for(const r of payload.components||[])for(const c of r.components)c.setDisabled(true);
+ payload.allowedMentions={parse:[]};
+ return payload;
+}
 const sessions=new Map();
 const expiry=30*60_000;
 const key=(channel,user)=>channel+":"+user;
-const steps=["list","winners","staff","managerRole","excludedRole","instructions","hours","rerolls","roles","empty","banner","review"];
-const regularSteps=["regularChannel","winners","staff","managerRole","excludedRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
+const steps=["list","winners","staff","archive","managerRole","excludedRole","instructions","hours","rerolls","roles","empty","banner","review"];
+const regularSteps=["regularChannel","winners","staff","archive","managerRole","excludedRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
 const stepsFor=session=>session.mode==="regular"?regularSteps:steps;
-const stepName={list:"Public giveaway listings",winners:"Giveaway Winners channel",staff:"Private staff controls",
+const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",archive:"Private giveaway archive",
   regularChannel:"Regular giveaway posts",managerRole:"Giveaway Manager role",
   excludedRole:"Required Giveaway Banned role",
   requiredRole:"Default regular entry role",roleHelp:"Where to get required roles",
@@ -28,7 +53,8 @@ const button=(id,label,value,style=ButtonStyle.Secondary)=>new ButtonBuilder()
   .setCustomId("actconfig:"+id+":"+value).setLabel(label).setStyle(style);
 const row=(id,items)=>new ActionRowBuilder().addComponents(items.map(([label,value,style])=>button(id,label,value,style)));
 const shown=id=>id?"<#"+id+">":"Not set";
-const progress=session=>(session.editing||session.fromReview)?"Editing "+(stepName[session.step]||"Default banner"):
+const progress=session=>session.step==="displayEditor"?"Edit giveaway display":
+  (session.editing||session.fromReview)?"Editing "+(stepName[session.step]||"Default banner"):
   stepsFor(session).includes(session.step)?"Step "+(stepsFor(session).indexOf(session.step)+1)+" of "+stepsFor(session).length:
     "Banner · "+(session.step==="bannerUpload"?"Upload new banner":"Choose a saved banner");
 const mainSetting=session=>session.settings;
@@ -47,11 +73,12 @@ export function currentGiveawayClaimInstructions(settings){
 export function describeActivityGiveawaySetup(settings,{updateExisting=false,mode="activity"}={}){
  return [
   "**"+(mode==="regular"?"Regular":"Activity")+" Giveaway Setup — Review**",
-  ...(mode==="regular"?["🎁 **Regular giveaway channel:** "+shown(settings.giveawayChannelId)]:[]),
-  ...(mode==="activity"?["📋 **Activity list:** "+shown(settings.activityGiveawayListChannelId)]:[]),
-  "🏆 **Giveaway Winners (regular + activity):** "+shown(settings.activityGiveawayWinnersChannelId),
+  ...(mode==="regular"?["🎁 **Giveaway List:** "+shown(settings.giveawayChannelId),
+    "🏆 **Giveaway Winners:** "+shown(settings.activityGiveawayWinnersChannelId)]:[]),
+  ...(mode==="activity"?["📋 **Activity list:** "+shown(settings.activityGiveawayListChannelId),
+     "🏆 **Winners:** "+shown(settings.activityGiveawayWinnersChannelId)]:[]),
   "🔒 **Staff controls:** "+shown(settings.activityGiveawayReviewChannelId),
-   "🗄️ **Shared staff archive (set in /setup general):** "+shown(settings.giveawayArchiveChannelId),
+   "🗄️ **Private giveaway archive (required):** "+shown(settings.giveawayArchiveChannelId),
   "🔑 **Giveaway Manager role:** "+(settings.giveawayManagerRoleId?"<@&"+settings.giveawayManagerRoleId+">":"None — Manage Server only"),
   "🚫 **Giveaway Banned role (required):** "+(settings.giveawayExcludedRoleId?"<@&"+settings.giveawayExcludedRoleId+">":"NOT CONFIGURED — REQUIRED"),
   ...(mode==="activity"?[
@@ -68,6 +95,7 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   "🔔 **Shared giveaway ping role (all giveaways and Trials):** "+(sharedGiveawayPingRoleId(settings)?"<@&"+sharedGiveawayPingRoleId(settings)+">":"None"),
   "🥀 **No eligible members:** "+(settings.activityAnnounceEmptyResults?"Announce no winners":"Don't post an empty result"),
   "🖼️ **Default banner:** "+(settings.giveawayDefaultBannerNameKey||"None"),
+  ...(mode==="regular"?["🎭 **Regular giveaway display:** "+(REGULAR_DISPLAY_FIELDS.some(field=>settings[serverDisplayField(field)])?"Customized server template":"Built-in fox template")]:[]),
   "",
   "**Changes to existing giveaways:** "+(updateExisting?"Apply new claim instructions to current giveaways when saved":"Future giveaways only"),
   "*Changing the default claim window or reroll maximum here does not change deadlines that are already running.*",
@@ -91,6 +119,8 @@ export function claimAnnouncementPreview(settings,{
   requiredRoleId:mode==="regular"?settings.giveawayDefaultRequiredRoleId||"":"",
   requiredRoleInstructions:mode==="regular"?settings.giveawayRoleInstructions||"":"",
   showRequiredRoleInstructions:mode==="regular"?settings.giveawayShowRoleInstructions!==false:false,
+  ...(mode==="regular"?Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
+    [field,settings?.[serverDisplayField(field)]||""])):{}),
  };
  const payload=giveawayAnnouncement(sample);
  payload.embeds[0].setFooter({text:"PREVIEW ONLY · No giveaway created or modified"});
@@ -106,18 +136,22 @@ function layout(session,banners=[]) {
  const title="**"+(session.mode==="regular"?"Regular":"Activity")+" giveaway setup** · <@"+session.owner+">\n**"+progress(session)+"**\n";
  const components=[];
  let content="";
- if(["list","winners","staff","regularChannel"].includes(step)){
+ let embeds;
+ if(["list","winners","staff","archive","regularChannel"].includes(step)){
    const field={list:"activityGiveawayListChannelId",winners:"activityGiveawayWinnersChannelId",
-     staff:"activityGiveawayReviewChannelId",regularChannel:"giveawayChannelId"}[step];
+     staff:"activityGiveawayReviewChannelId",archive:"giveawayArchiveChannelId",regularChannel:"giveawayChannelId"}[step];
    content={
     list:"Choose the public channel where members will see the giveaway posters and **Check My Progress** buttons.",
-     regularChannel:"Choose the channel for manual-entry giveaways. Members will click Enter Giveaway here, and results remain on the post.",
-    winners:"Choose the shared **Giveaway Winners** channel for both regular and activity giveaway results. Winners will be mentioned here and can use their ticket claim buttons.",
+     regularChannel:"Choose the **Giveaway List** channel for regular giveaways. Members enter here; when the giveaway ends, the bot transfers its finished announcement to Giveaway Winners.",
+    winners:session.mode==="regular"
+      ?"Choose the **Giveaway Winners** channel. When a regular giveaway ends, its completed announcement and claim buttons are posted here; the original Giveaway List post is removed."
+      :"Choose the public channel where activity giveaway winners, claim deadlines and claim buttons will appear.",
     staff:"Choose a **private, staff-only** text channel for eligibility previews, editing, early ending, cancelling and approval.",
+     archive:"Choose the required **private giveaway archive** channel for completed and cancelled staff records. This is shared by regular giveaways, activity giveaways and Court\'s Trials; it must be different from staff controls and hidden from @everyone.",
    }[step]+"\nCurrent: "+shown(s[field])+"\nThe bot will check its ability to see and post in this channel.";
    const selector=new ChannelSelectMenuBuilder().setCustomId(bind(session,"channel"))
     .setPlaceholder("Choose "+stepName[step]).setMinValues(1).setMaxValues(1)
-    .addChannelTypes(...(step==="staff"?[ChannelType.GuildText]:
+    .addChannelTypes(...(["staff","archive"].includes(step)?[ChannelType.GuildText]:
       [ChannelType.GuildText,ChannelType.GuildAnnouncement]));
    components.push(new ActionRowBuilder().addComponents(selector));
    if(s[field])components.push(row(session.id,[["Keep selected channel","keep"]]));
@@ -131,7 +165,7 @@ function layout(session,banners=[]) {
  }else if(step==="excludedRole"){
    content="Choose the **required Giveaway Banned role** shared by all prize giveaways. "+
      "Anyone holding this punishment role cannot enter regular giveaways, Court's Trials, or collect activity giveaway progress; they cannot win or be rerolled into any giveaway. "+
-     "The restriction is always enforced, never optional, and has no cooldown.\nCurrent: "+
+     "The restriction is always enforced, never optional, and has no cooldown.\\nCurrent: "+
      (s.giveawayExcludedRoleId?"<@&"+s.giveawayExcludedRoleId+">":"NOT CONFIGURED — REQUIRED");
    components.push(new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder()
      .setCustomId(bind(session,"excludedRole")).setPlaceholder("Select required banned role")
@@ -166,7 +200,7 @@ function layout(session,banners=[]) {
     currentGiveawayClaimInstructions(s)+"\n"+
     "The bot also adds the ticket number, Discord message link, claim deadline and forfeiture warning.\n"+
     "Choose **Write / Edit Server Instructions** to enter your own text, then Save Settings on the final review.";
-   components.push(row(session.id,[["Use Built-in Default","default",ButtonStyle.Primary],["Write / Edit Server Instructions","custom"],["Keep Saved","keep"]]));
+   components.push(row(session.id,[["Use Built-in Default","default"],["Write / Edit Server Instructions","custom"],["Keep Saved","keep"]]));
  }else if(step==="instructionsText"){
    content="Type your custom claim instructions in this commands channel (1–1,000 characters). "+
      "Do not include the mandatory claim deadline warning; the bot always adds it.";
@@ -209,24 +243,57 @@ function layout(session,banners=[]) {
      "Type a name in the same message as the image if you want; otherwise its filename becomes its name. "+
      "The bot will register it for future giveaways and select it as the default. "+
      "Uploading with an existing name replaces that banner's stored image.";
+ }else if(step==="displayEditor"){
+   if(session.mode!=="regular"||!session.displayDraft)throw Error("Display text editor is unavailable.");
+   const d=session.displayDraft;
+   content="**Regular giveaway display template** — previewing the "+
+     (session.displayPreviewWinner?"winner announcement":"open giveaway")+
+     ".\nEdit any title or story using the buttons below. The embedded preview updates as you change it. "+
+     "Use Default to restore a section.\n\n"+
+     "**Customized sections:** "+(REGULAR_DISPLAY_FIELDS.filter(field=>d[serverDisplayField(field)])
+       .map(field=>displayLabels[field]).join(", ")||"None (built-in fox wording)")+
+     "\n\n**Confirm Text** accepts this draft. **Save Settings** on the final setup review makes it the server default.";
+   embeds=regularGiveawayDisplayPreview(d,{winner:session.displayPreviewWinner,previewUserId:session.owner}).embeds;
+   components.push(row(session.id,[
+     ["Edit Open Title","displayEdit:displayOpenTitle"],
+     ["Edit Winner Title","displayEdit:displayEndedTitle"],
+     ["Edit Entry Story","displayEdit:displayEntryText"],
+     ["Edit Winner Story","displayEdit:displayWinnerText"]
+   ]));
+   components.push(row(session.id,[
+     ["Default Open Title","displayDefault:displayOpenTitle"],
+     ["Default Winner Title","displayDefault:displayEndedTitle"],
+     ["Default Entry Story","displayDefault:displayEntryText"],
+     ["Default Winner Story","displayDefault:displayWinnerText"]
+   ]));
+   components.push(row(session.id,[
+     ["Preview Open","displayPreviewOpen",ButtonStyle.Primary],
+     ["Preview Winners","displayPreviewWinner",ButtonStyle.Primary]
+   ]));
+   components.push(row(session.id,[["Confirm Text","displayConfirm",ButtonStyle.Success],
+     ["Discard Changes","displayDiscard"]]));
  }else if(step==="review"){
    content=describeActivityGiveawaySetup(s,{updateExisting:session.updateExisting,mode:session.mode});
    components.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
      .setCustomId(bind(session,"edit")).setPlaceholder("Edit a setup setting")
      .addOptions(stepsFor(session).filter(x=>x!=="review").map(v=>({label:stepName[v],value:v})))));
    components.push(row(session.id,[["Preview Winner Announcement","preview"],["Edit Claim Instructions","editClaims"],
+     ...(session.mode==="regular"?[["Edit Giveaway Display","displayOpen",ButtonStyle.Secondary]]:[]),
      ["Apply to Existing: "+(session.updateExisting?"ON":"OFF"),"toggleExisting"]]));
    components.push(row(session.id,[["Save Settings","save",ButtonStyle.Success],["Cancel Setup","cancel",ButtonStyle.Danger]]));
  }
- if(step!=="review")components.push(row(session.id,[["Back","back"],["Cancel Setup","cancel",ButtonStyle.Danger]]));
- return {content:title+content,components,allowedMentions:{parse:[]}};
+ if(step!=="review"&&step!=="displayEditor")components.push(row(session.id,[["Back","back"],["Cancel Setup","cancel",ButtonStyle.Danger]]));
+ return {content:title+content,...(embeds?{embeds}:{}),components:preferSetupButtons(components),allowedMentions:{parse:[]}};
 }
 async function show(session,step){
  session.step=step;session.expires=Date.now()+expiry;
  const banners=["banner","bannerText"].includes(step)?
    await registeredSetupBanners(session.guild.id):[];
+ const previous=session.message;
  const message=await session.channel.send(layout(session,banners));
  session.messageId=message.id;
+ session.message=message;
+ await retireGuidedControls(previous,session.channel);
 }
 function after(session,step){
  const nextStep=session.fromReview?"review":step;
@@ -236,26 +303,19 @@ function after(session,step){
 }
 async function checkChannels(session){
  const s=session.settings;
- const existing=await GuildConfig.findOne({guildId:session.guild.id}).lean();
- s.giveawayArchiveChannelId=existing?.giveawayArchiveChannelId||"";
- if(!s.giveawayArchiveChannelId)throw Error("Run /setup general to assign the required shared private archive first.");
  const ids=session.mode==="regular"?[s.giveawayChannelId,s.activityGiveawayWinnersChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId]:
     [s.activityGiveawayListChannelId,s.activityGiveawayWinnersChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId];
- if(ids.some(x=>!x)||new Set(ids).size!==ids.length)throw Error("Choose distinct Regular Giveaways, Giveaway Winners, private staff controls, and archive channels as applicable.");
+ if(ids.some(x=>!x)||new Set(ids).size!==ids.length)throw Error("Choose separate public, private staff, and private archive channels for giveaways.");
+  const existing=await GuildConfig.findOne({guildId:session.guild.id}).lean();
   const publicIds=[existing?.giveawayChannelId,existing?.activityGiveawayListChannelId,
     existing?.activityGiveawayWinnersChannelId,existing?.survivalTrialChannelId].filter(Boolean);
-  const conflictingChannels=session.mode==="regular"?[existing?.activityGiveawayListChannelId,existing?.survivalTrialChannelId]:
-    [existing?.giveawayChannelId,existing?.survivalTrialChannelId];
-  if([s.activityGiveawayWinnersChannelId,...(session.mode==="regular"?[s.giveawayChannelId]:[s.activityGiveawayListChannelId])]
-    .some(id=>id&&conflictingChannels.includes(id)))
-    throw Error("Giveaway Winners must be separate from the Regular Giveaways, Activity Giveaway List and Court\'s Trials channels.");
   if(publicIds.includes(s.giveawayArchiveChannelId))throw Error("The private giveaway archive must be separate from every public giveaway or Trial channel.");
  for(const [idx,id] of ids.entries()){
    const channel=await session.guild.channels.fetch(id).catch(()=>null);
    if(!channel?.send||!channel?.permissionsFor)throw Error("The selected channel is unavailable: "+id);
    const bot=channel.permissionsFor(session.guild.members.me);
-   for(const perm of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks]){
-     if(!bot?.has(perm))throw Error("The bot needs View Channel, Send Messages and Embed Links in <#"+id+">.");
+   for(const perm of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks,PermissionFlagsBits.ReadMessageHistory]){
+     if(!bot?.has(perm))throw Error("The bot needs View Channel, Send Messages, Embed Links and Read Message History in <#"+id+">.");
    }
    if(idx>=ids.length-2&&channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
      throw Error("Staff controls and giveaway archives must both be hidden from @everyone before saving.");
@@ -271,8 +331,9 @@ export async function updateExistingActivityClaimInstructions(guildId,instructio
 async function apply(session,verb,value){
  const s=mainSetting(session);
  const next=()=>after(session,stepsFor(session)[stepsFor(session).indexOf(session.step)+1]);
- if(verb==="cancel"){sessions.delete(session.key);await session.channel.send("Activity giveaway setup cancelled.");return;}
+ if(verb==="cancel"){sessions.delete(session.key);await session.channel.send("Activity giveaway setup cancelled.");await retireGuidedControls(session.message,session.channel);return;}
  if(verb==="back"){
+   if(session.step==="displayEditor"){session.displayDraft=null;await show(session,"review");return;}
    if(["bannerText","bannerUpload"].includes(session.step)){
      await show(session,"banner");return;
    }
@@ -284,7 +345,38 @@ async function apply(session,verb,value){
    const back=({participationHelpText:"participationHelp",roleHelpText:"roleHelp",instructionsText:"instructions",hoursText:"hours"})[session.step]||ordered[Math.max(0,index-1)];
    await show(session,back);return;
  }
+ if(session.step==="displayEditor"){
+   if(verb==="displayDiscard"){
+     session.displayDraft=null;session.modalField=null;await show(session,"review");return;
+   }
+   if(verb==="displayConfirm"){
+     for(const field of REGULAR_DISPLAY_FIELDS)
+       s[serverDisplayField(field)]=session.displayDraft[serverDisplayField(field)];
+     session.displayDraft=null;session.modalField=null;await show(session,"review");return;
+   }
+   if(verb==="displayPreviewOpen"||verb==="displayPreviewWinner"){
+     session.displayPreviewWinner=verb==="displayPreviewWinner";
+     await refreshDisplayEditor(session);return;
+   }
+   if(verb.startsWith("displayDefault:")){
+     const field=verb.slice("displayDefault:".length);
+     if(!REGULAR_DISPLAY_FIELDS.includes(field))throw Error("Invalid display section.");
+     session.displayDraft[serverDisplayField(field)]="";
+     await refreshDisplayEditor(session);return;
+   }
+   throw Error("Use the editor buttons, Confirm Text or Discard Changes.");
+ }
  if(session.step==="review"){
+   if(verb==="displayOpen"){
+     if(session.mode!=="regular")throw Error("Display editor belongs to regular giveaways.");
+     session.displayDraft={...Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
+       [serverDisplayField(field),s[serverDisplayField(field)]||""])),
+       activityClaimWindowHours:s.activityClaimWindowHours,
+       activityClaimInstructions:s.activityClaimInstructions,
+       giveawayDefaultRequiredRoleId:s.giveawayDefaultRequiredRoleId};
+     session.displayPreviewWinner=false;session.modalField=null;
+     await show(session,"displayEditor");return;
+   }
    if(verb==="preview"){
      const nameKey=bannerNameKey(s.giveawayDefaultBannerNameKey);
      const banner=nameKey?await GiveawayBanner.findOne({guildId:session.guild.id,nameKey}).lean():null;
@@ -308,10 +400,11 @@ async function apply(session,verb,value){
    const previous=await GuildConfig.findOne({guildId:session.guild.id}).lean();
    const settings={
      ...Object.fromEntries([
-      "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId","giveawayChannelId",
+      "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId","giveawayArchiveChannelId","giveawayChannelId",
       "giveawayManagerRoleId","giveawayExcludedRoleId","giveawayDefaultRequiredRoleId","giveawayShowRoleInstructions",
       "giveawayRoleInstructions","activityClaimInstructions","activityClaimWindowHours","activityMaxAutoRerolls",
-      "activityAnnounceEmptyResults","giveawayDefaultBannerNameKey"
+      "activityAnnounceEmptyResults","giveawayDefaultBannerNameKey",
+      ...(session.mode==="regular"?REGULAR_DISPLAY_FIELDS.map(serverDisplayField):[])
      ].map(field=>[field,s[field]])),
      ...giveawaySetupNotificationFields(s,session.mode),
      commandChannelId:previous?.commandChannelId||session.channel.id,
@@ -326,6 +419,7 @@ async function apply(session,verb,value){
        "Announcements will refresh as the bot reconciles them.":"New giveaways will use these defaults; existing claim deadlines and ticket claims were not changed.")+
      "\nUse **/giveaway "+(session.mode==="regular"?"start":"activity")+"** to create a giveaway with per-event overrides.",
      allowedMentions:{parse:[]}});
+   await retireGuidedControls(session.message,session.channel);
    return;
  }
  if(verb==="keep"){
@@ -372,7 +466,7 @@ async function apply(session,verb,value){
    if(!value||value.length>500)throw Error("Enter 1–500 characters explaining where to obtain the role.");
    s.giveawayRoleInstructions=value;return after(session,"roleHelpVisible");
  }
- const fields={list:"activityGiveawayListChannelId",winners:"activityGiveawayWinnersChannelId",staff:"activityGiveawayReviewChannelId",regularChannel:"giveawayChannelId"};
+ const fields={list:"activityGiveawayListChannelId",winners:"activityGiveawayWinnersChannelId",staff:"activityGiveawayReviewChannelId",archive:"giveawayArchiveChannelId",regularChannel:"giveawayChannelId"};
  if(fields[session.step]){
    if(verb!=="channel")throw Error("Choose a channel from the picker.");
    s[fields[session.step]]=value;return next();
@@ -432,6 +526,25 @@ async function apply(session,verb,value){
  }
  throw Error("That choice isn't available at this step.");
 }
+async function refreshDisplayEditor(session){
+ if(session.step!=="displayEditor"||!session.displayDraft)
+   throw Error("The display editor is no longer active.");
+ if(session.message?.edit)await session.message.edit(layout(session));
+ else await show(session,"displayEditor");
+}
+function displayEditModal(session,field){
+ const existing=session.displayDraft[serverDisplayField(field)]||REGULAR_DISPLAY_DEFAULTS[field];
+ return new ModalBuilder()
+   .setCustomId("actconfig:"+session.id+":displaySubmit:"+field)
+   .setTitle("Edit "+displayLabels[field])
+   .addComponents(new ActionRowBuilder().addComponents(
+     new TextInputBuilder().setCustomId("displayValue")
+       .setLabel(displayLabels[field])
+       .setStyle(field.endsWith("Title")?TextInputStyle.Short:TextInputStyle.Paragraph)
+       .setMaxLength(field.endsWith("Title")?120:400)
+       .setRequired(true).setValue(existing)
+   ));
+}
 async function startGiveawaySetup(interaction,mode="activity"){
  const config=await GuildConfig.findOne({guildId:interaction.guildId}).lean();
  if(config?.commandChannelId&&config.commandChannelId!==interaction.channelId)
@@ -456,6 +569,8 @@ async function startGiveawaySetup(interaction,mode="activity"){
    ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(config)),
    activityAnnounceEmptyResults:config?.activityAnnounceEmptyResults!==false,
    giveawayDefaultBannerNameKey:config?.giveawayDefaultBannerNameKey||"",
+   ...Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
+     [serverDisplayField(field),config?.[serverDisplayField(field)]||""])),
  };
  const session={id:new mongoose.Types.ObjectId().toString(),key:sessionKey,
    owner:interaction.user.id,channel:interaction.channel,guild:interaction.guild,
@@ -469,13 +584,39 @@ export const startRegularGiveawaySetup=i=>startGiveawaySetup(i,"regular");
 export async function handleActivityGiveawaySetupInteraction(interaction){
  const match=/^actconfig:([0-9a-f]{24}):(.+)$/.exec(interaction.customId);
  const session=match&&sessions.get(key(interaction.channelId,interaction.user.id));
- if(!session||session.id!==match[1]||session.expires<Date.now()||session.messageId!==interaction.message?.id)
-   return interaction.reply({content:"That setup prompt is no longer active or belongs to another staff member.",flags:MessageFlags.Ephemeral});
+ const modalSubmit=match?.[2]?.startsWith("displaySubmit:");
+ if(!session||session.id!==match[1]||session.expires<Date.now()||
+    (!modalSubmit&&session.messageId!==interaction.message?.id))
+   return interaction.reply({content:"That setup prompt is no longer active or belongs to another staff member.",
+     flags:MessageFlags.Ephemeral});
  if(!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
    return interaction.reply({content:"Manage Server permission is required.",flags:MessageFlags.Ephemeral});
+ const verb=match[2];
+ if(verb.startsWith("displayEdit:")){
+   const field=verb.slice("displayEdit:".length);
+   if(session.mode!=="regular"||session.step!=="displayEditor"||
+      !session.displayDraft||!REGULAR_DISPLAY_FIELDS.includes(field))
+     return interaction.reply({content:"That display editor is no longer active.",flags:MessageFlags.Ephemeral});
+   session.modalField=field;
+   return interaction.showModal(displayEditModal(session,field));
+ }
  await interaction.deferReply({flags:MessageFlags.Ephemeral});
  try{
-   const verb=match[2],value=["channel","roles","requiredRole","managerRole","excludedRole","edit","selectSavedBanner"].includes(verb)?interaction.values:null;
+   if(modalSubmit){
+     const field=verb.slice("displaySubmit:".length);
+     if(session.mode!=="regular"||session.step!=="displayEditor"||
+        !session.displayDraft||session.modalField!==field||
+        !REGULAR_DISPLAY_FIELDS.includes(field))
+       throw Error("The text editor expired. Open the section again.");
+     const text=cleanRegularDisplayField(field,interaction.fields.getTextInputValue("displayValue"));
+     if(!text)throw Error("Enter text or use the Default button in the editor.");
+     session.displayDraft[serverDisplayField(field)]=text;
+     session.modalField=null;
+     await refreshDisplayEditor(session);
+     return interaction.editReply("Preview updated. Confirm Text to accept your changes.");
+   }
+   const value=["channel","roles","requiredRole","managerRole","excludedRole","edit","selectSavedBanner"].includes(verb)?
+     interaction.values:null;
    await apply(session,verb,["channel","selectSavedBanner","edit"].includes(verb)?value?.[0]:value);
    return interaction.editReply("Updated setup step.");
  }catch(error){return interaction.editReply("Couldn't save that choice: "+String(error.message||error));}
