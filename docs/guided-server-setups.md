@@ -147,3 +147,8 @@ Discord checklist:
 5. Create a short Trial and let it finish. The winner's ticket form must accept only their claim and privately display it to staff. A second member cannot submit on their behalf. Verify automatic replacement (when enabled), saved history, and a Trial without remaining eligible replacements.
 6. Re-open each setup and change one setting; verify unrelated features and historical giveaway/Trial records are unchanged.
 7. Test restart recovery. Do not merge or deploy to production without explicit authorization.
+
+
+## Setup button ordering and colors
+
+Across **General**, **Hatchem/Cards**, **Regular Giveaways**, **Activity Giveaways**, and **Court's Trials**, the **Keep Current** (including **Keep**, **Keep Saved**, and **Keep selected channel**) button is the **first button** in its step and is **blue**. Any explicitly labeled **Default / Use Default** choice is also **blue**. This applies to giveaway creation wizards as well as the server configuration setups. The behavior of each button, menu, selected configuration, Save/Confirm action, and Cancel action is unchanged; green still indicates posting/saving and red indicates cancellation where previously used.
