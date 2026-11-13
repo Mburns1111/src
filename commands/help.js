@@ -287,7 +287,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "1. Set the Requirements",
-    "Use `/giveaway activity` in private Bot Commands.\n\n**Activity goals:**\n• **Messages:** Total qualifying messages across the **entire activity period**, not per day.\n• **Active days:** Optional number of separate days with a matching message (minimum 1).\n• **Length:** Minimum characters in each counted message, excluding mentions.\n• **Channels:** All eligible server channels or a selected channel.\n• **Filters:** Exact word/phrase, member mention, or both. Phrase matching ignores capitalization but preserves spelling/word order.\n\nYou can choose **multiple winners**, add weighted **bonus roles** (extra chances; one prize per member), enable private staff approval and select whether to announce an empty result. Only opted-in, unbanned members count."
+    "Use `/giveaway activity` in private Bot Commands.\n\n**Activity goals:**\n• **Messages:** Total qualifying messages across the **entire activity period**, not per day.\n• **Active days:** Optional number of separate days with a matching message (minimum 1).\n• **Length:** Minimum characters in each counted message, excluding mentions.\n• **Channels:** All eligible server channels or a selected channel.\n• **Filters:** Exact word/phrase, member mention, or both. Phrase matching ignores capitalization but preserves spelling/word order.\n\nYou can choose **multiple winners**, add weighted **bonus roles** (extra chances; one prize per member), enable private staff approval and select whether to announce an empty result."
    ],
    [
     "2. Review the Schedule",
