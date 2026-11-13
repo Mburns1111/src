@@ -40,7 +40,7 @@ const sessions=new Map();
 const expiry=30*60_000;
 const key=(channel,user)=>channel+":"+user;
 const steps=["list","winners","staff","archive","managerRole","excludedRole","instructions","hours","rerolls","roles","empty","banner","review"];
-const regularSteps=["regularChannel","staff","archive","managerRole","excludedRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
+const regularSteps=["regularChannel","winners","staff","archive","managerRole","excludedRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
 const stepsFor=session=>session.mode==="regular"?regularSteps:steps;
 const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",archive:"Private giveaway archive",
   regularChannel:"Regular giveaway posts",managerRole:"Giveaway Manager role",
@@ -72,7 +72,8 @@ export function currentGiveawayClaimInstructions(settings){
 export function describeActivityGiveawaySetup(settings,{updateExisting=false,mode="activity"}={}){
  return [
   "**"+(mode==="regular"?"Regular":"Activity")+" Giveaway Setup — Review**",
-  ...(mode==="regular"?["🎁 **Regular giveaway channel:** "+shown(settings.giveawayChannelId)]:[]),
+  ...(mode==="regular"?["🎁 **Giveaway List:** "+shown(settings.giveawayChannelId),
+    "🏆 **Giveaway Winners:** "+shown(settings.activityGiveawayWinnersChannelId)]:[]),
   ...(mode==="activity"?["📋 **Activity list:** "+shown(settings.activityGiveawayListChannelId),
      "🏆 **Winners:** "+shown(settings.activityGiveawayWinnersChannelId)]:[]),
   "🔒 **Staff controls:** "+shown(settings.activityGiveawayReviewChannelId),
@@ -140,8 +141,10 @@ function layout(session,banners=[]) {
      staff:"activityGiveawayReviewChannelId",archive:"giveawayArchiveChannelId",regularChannel:"giveawayChannelId"}[step];
    content={
     list:"Choose the public channel where members will see the giveaway posters and **Check My Progress** buttons.",
-     regularChannel:"Choose the channel for manual-entry giveaways. Members will click Enter Giveaway here, and results remain on the post.",
-    winners:"Choose the public channel where drawn winners, claim deadlines and claim buttons will appear.",
+     regularChannel:"Choose the **Giveaway List** channel for regular giveaways. Members enter here; when the giveaway ends, the bot transfers its finished announcement to Giveaway Winners.",
+    winners:session.mode==="regular"
+      ?"Choose the **Giveaway Winners** channel. When a regular giveaway ends, its completed announcement and claim buttons are posted here; the original Giveaway List post is removed."
+      :"Choose the public channel where activity giveaway winners, claim deadlines and claim buttons will appear.",
     staff:"Choose a **private, staff-only** text channel for eligibility previews, editing, early ending, cancelling and approval.",
      archive:"Choose the required **private giveaway archive** channel for completed and cancelled staff records. This is shared by regular giveaways, activity giveaways and Court\'s Trials; it must be different from staff controls and hidden from @everyone.",
    }[step]+"\nCurrent: "+shown(s[field])+"\nThe bot will check its ability to see and post in this channel.";
@@ -297,7 +300,7 @@ function after(session,step){
 }
 async function checkChannels(session){
  const s=session.settings;
- const ids=session.mode==="regular"?[s.giveawayChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId]:
+ const ids=session.mode==="regular"?[s.giveawayChannelId,s.activityGiveawayWinnersChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId]:
     [s.activityGiveawayListChannelId,s.activityGiveawayWinnersChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId];
  if(ids.some(x=>!x)||new Set(ids).size!==ids.length)throw Error("Choose separate public, private staff, and private archive channels for giveaways.");
   const existing=await GuildConfig.findOne({guildId:session.guild.id}).lean();
@@ -308,8 +311,8 @@ async function checkChannels(session){
    const channel=await session.guild.channels.fetch(id).catch(()=>null);
    if(!channel?.send||!channel?.permissionsFor)throw Error("The selected channel is unavailable: "+id);
    const bot=channel.permissionsFor(session.guild.members.me);
-   for(const perm of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks]){
-     if(!bot?.has(perm))throw Error("The bot needs View Channel, Send Messages and Embed Links in <#"+id+">.");
+   for(const perm of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks,PermissionFlagsBits.ReadMessageHistory]){
+     if(!bot?.has(perm))throw Error("The bot needs View Channel, Send Messages, Embed Links and Read Message History in <#"+id+">.");
    }
    if(idx>=ids.length-2&&channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
      throw Error("Staff controls and giveaway archives must both be hidden from @everyone before saving.");
