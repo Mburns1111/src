@@ -5,6 +5,7 @@ import {
   StringSelectMenuBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {preferSetupButtons} from "../services/setup-button-preferences.js";
 import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import GiveawayBanner, { bannerNameKey } from "../models/GiveawayBanner.js";
 import { attachGiveawayBanner, ensureBannerRegistered } from "../services/giveaway-banners.js";
@@ -195,7 +196,7 @@ function layout(session,banners=[]) {
     }[step];
   }
   if (step !== "review") components.push(buttons(session, [["Back", "back"], ["Cancel setup", "cancel", ButtonStyle.Danger]]));
-  return { content: intro + content, components, allowedMentions: { parse: [] } };
+  return { content: intro + content, components:preferSetupButtons(components), allowedMentions: { parse: [] } };
 }
 
 async function show(session, step) {
