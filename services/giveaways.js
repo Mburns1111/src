@@ -583,8 +583,21 @@ export async function publishGiveawayResult(client, item) {
     catch(error){console.error("[Giveaways] Private staff update failed:",item._id,error);}
   }
   if(item?.publicListingRemovedAt)return false; // Never republish a completed deleted listing.
-  if(item?.mode==="activity" && item.status==="ended" && !item.winnerIds?.length &&
+  if(["activity","standard"].includes(item?.mode) && item.status==="ended" && !item.winnerIds?.length &&
      item.announceEmptyResults===false){
+    if(item.mode==="standard" && item.messageId){
+      const channel=await client.channels.fetch(item.channelId);
+      const message=await channel?.messages?.fetch(item.messageId).catch(error=>{
+        if(error.code===10008)return null;
+        throw error;
+      });
+      if(message){
+        if(message.author?.id!==client.user?.id)throw Error("The expired signup post is not bot-authored.");
+        await message.delete();
+      }
+      await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
+        {$set:{messageId:"",resultSuppressedAt:new Date()}});
+    }
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
       {$set:{renderedAt:new Date()}});
     return true;
