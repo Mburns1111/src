@@ -5,6 +5,8 @@ import {
   StringSelectMenuBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {preferSetupButtons} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import GiveawayBanner, { bannerNameKey } from "../models/GiveawayBanner.js";
 import { attachGiveawayBanner, ensureBannerRegistered } from "../services/giveaway-banners.js";
@@ -192,7 +194,7 @@ function layout(session,banners=[]) {
     }[step];
   }
   if (step !== "review") components.push(buttons(session, [["Back", "back"], ["Cancel setup", "cancel", ButtonStyle.Danger]]));
-  return { content: intro + content, components, allowedMentions: { parse: [] } };
+  return { content: intro + content, components:preferSetupButtons(components), allowedMentions: { parse: [] } };
 }
 
 async function show(session, step) {
@@ -201,7 +203,10 @@ async function show(session, step) {
   const banners=["banner","bannerText"].includes(step)?
     await registeredSetupBanners(session.guild.id):[];
   const message = await session.channel.send(layout(session,banners));
+  const previous=session.promptMessage;
   session.messageId = message.id;
+  session.promptMessage=message;
+  await retireGuidedControls(previous,session.channel);
 }
 async function advance(session) {
   if (session.fromReview) {
@@ -242,6 +247,7 @@ async function process(session, action, value) {
   if (action === "cancel") {
     sessions.delete(session.key);
     await session.channel.send("Court's Trial setup cancelled. Nothing was saved.");
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   if (action === "back") {
@@ -286,6 +292,7 @@ async function process(session, action, value) {
         "Create a Trial with **/trial start** in the configured commands channel.",
       allowedMentions: { parse: [] },
     });
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   if (action === "keep") return advance(session);
