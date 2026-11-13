@@ -129,7 +129,7 @@ export async function execute(interaction) {
     if (nextList && nextWinners && nextList === nextWinners)
       throw new UserFacingError("Activity giveaway listings and winner announcements need different channels.");
     if ((nextList && nextList === nextGiveaways) || (nextWinners && nextWinners === nextGiveaways))
-      throw new UserFacingError("Use separate channels for standard giveaways, the activity directory, and activity winners.");
+      throw new UserFacingError("Use separate channels for Regular Giveaways, the Activity Giveaway List, and Giveaway Winners.");
     if(nextReview && [nextGiveaways,nextTrials,nextList,nextWinners].includes(nextReview))
       throw new UserFacingError("The staff review channel must be separate from every public giveaway channel.");
     if ((nextList && nextList === nextTrials) || (nextWinners && nextWinners === nextTrials))
@@ -218,7 +218,7 @@ export async function execute(interaction) {
     configured.push(`Standard giveaways: ${giveawayChannel}`);
   }
   if (activityGiveawayListChannel) configured.push(`Active activity giveaway directory: ${activityGiveawayListChannel}`);
-  if (activityWinnersChannel) configured.push(`Activity giveaway winner announcements: ${activityWinnersChannel}`);
+  if (activityWinnersChannel) configured.push(`Giveaway Winners (regular and activity): ${activityWinnersChannel}`);
   if (activityReviewChannel) configured.push(`Private activity drawing approval: ${activityReviewChannel}`);
   if (survivalTrialChannel) {
     configured.push(`Court's Trial survival giveaways: ${survivalTrialChannel}`);
