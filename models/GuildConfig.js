@@ -80,6 +80,8 @@ const guildConfigSchema = new mongoose.Schema(
     shopMessageId: { type: String, default: "" },
     shopCategoryMessageIds: { type: Map, of: String, default: () => ({}) },
     commandChannelId: { type: String, default: "" },
+    helpChannelId:{type:String,default:""},
+    helpMessageId:{type:String,default:""},
     hatchemChannelId: { type: String, default: "" },
     cardSetupCompletedAt: { type: Date, default: null },
     hatchemAutoDropsEnabled: { type: Boolean, default: true },
