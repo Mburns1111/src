@@ -6,6 +6,7 @@ import {
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {preferSetupButtons} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import GiveawayBanner, { bannerNameKey } from "../models/GiveawayBanner.js";
 import { attachGiveawayBanner, ensureBannerRegistered } from "../services/giveaway-banners.js";
@@ -204,8 +205,11 @@ async function show(session, step) {
   session.expiresAt = Date.now() + SESSION_MS;
   const banners=["banner","bannerText"].includes(step)?
     await registeredSetupBanners(session.guild.id):[];
+  const previous=session.promptMessage;
   const message = await session.channel.send(layout(session,banners));
   session.messageId = message.id;
+  session.promptMessage=message;
+  await retireGuidedControls(previous,session.channel);
 }
 async function advance(session) {
   if (session.fromReview) {
