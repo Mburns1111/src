@@ -129,7 +129,7 @@ test("regular giveaway setup includes the shared Giveaway Winners channel picker
   const h=await harness("regular");
   assert.match(h.current().content,/manual-entry giveaways/);
   await h.step("keep");
-  assert.match(h.current().content,/Giveaway Winners channel/);
+  assert.match(h.current().content,/\*\*Giveaway Winners\*\* channel/);
   assert.match(h.current().content,/both regular and activity giveaway results/);
   assert.ok(h.controls().some(c=>c.type===8),"The channel picker must appear in regular setup");
   await h.step("channel",[winnersId]);
