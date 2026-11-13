@@ -273,7 +273,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Archive a Giveaway",
-    "After current winners submit their ticket claims and receive their prizes, staff select **Confirm Prizes Delivered**, then **Archive Giveaway**. Otherwise, cancel with a reason.\n\n**Apply Cooldown** appears beside Archive for delivered regular/activity giveaways. Privately select one, several or all winners, enter **1–365 days**, preview the expiration and confirm. Time starts at confirmed prize delivery; it survives archiving. Applying a shorter period never reduces a longer existing cooldown.\n\nThe staff **Winner Cooldowns** manager can view, correct or remove cooldowns even after archiving. Cooldowns are not the punishment Banned role.\n\n**On archive:** Regular public giveaway posts are removed; activity winner results and Court's Trial Royal Verdicts stay public. Staff history, claims, delivery, rerolls and settings are preserved privately."
+    "After current winners submit their ticket claims and receive their prizes, staff select **Confirm Prizes Delivered**, then **Archive Giveaway**. Otherwise, cancel with a reason.\n\n**Apply Cooldown** appears beside Archive for delivered regular/activity giveaways. Privately select one, several or all winners, enter **1–365 days**, preview the expiration and confirm. Time starts at confirmed prize delivery; it survives archiving. Applying a shorter period never reduces a longer existing cooldown.\n\n**On archive:** Regular public giveaway posts are removed; activity winner results and Court's Trial Royal Verdicts stay public. Staff history, claims, delivery, rerolls and settings are preserved privately."
    ]
   ]
  ],
