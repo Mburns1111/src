@@ -39,7 +39,8 @@ async function harness({defaultRole="",storedBanners=[],
   const send=(list)=>async payload=>{
     const id=String(900000000000000000n+BigInt(++n));
     const msg={id,content:payload.content||"",components:payload.components||[],
-      embeds:payload.embeds||[],...payload,url:"https://discord.com/channels/"+guildId+"/"+publicId+"/"+id};
+      embeds:payload.embeds||[],...payload,url:"https://discord.com/channels/"+guildId+"/"+publicId+"/"+id,
+      edit:async change=>{Object.assign(msg,change);return msg;}};
     list.push(msg);return msg;
   };
   const commandChannel={id:commandsId,send:send(prompts)};
@@ -392,4 +393,17 @@ test("regular giveaway preview and posted record inherit server-wide display tex
     assert.equal(h.writes[0].displayWinnerText,"Well played, {winners}!");
     assert.equal(h.publicPosts[0].embeds[0].toJSON().title,"Court's Prize");
   }finally{restore();}
+});
+
+test("regular giveaway creation retires old buttons but keeps new controls clickable",async()=>{
+ try{
+  const h=await harness();
+  const old=h.prompt();
+  assert.ok(old.components.length);
+  await h.type("Test title");
+  assert.deepEqual(old.components,[],"prior step buttons should be removed");
+  assert.ok(h.prompt().components.length>0);
+  await h.select("cancel");
+  assert.deepEqual(h.prompt().components,[],"ending the wizard must clear the final prompt");
+ }finally{restore();}
 });
