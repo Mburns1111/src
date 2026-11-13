@@ -29,7 +29,7 @@ test("regular and activity setup summaries show the same mandatory archive",()=>
   };
   for(const mode of ["regular","activity"]){
     const description=describeActivityGiveawaySetup(settings,{mode});
-    assert.match(description,/Shared staff archives.*\/setup general/i);
+    assert.match(description,/Shared staff archives?.*\/setup general/i);
     assert.ok(description.includes("<#"+archiveId+">"));
   }
 });
@@ -41,6 +41,6 @@ test("Court's Trial setup summary shows shared private archive",()=>{
     trialClaimWindowMinutes:720,
     trialMaxAutoRerolls:2,
   });
-  assert.match(text,/Shared staff archives.*\/setup general/i);
+  assert.match(text,/Shared staff archives?.*\/setup general/i);
   assert.ok(text.includes("<#"+archiveId+">"));
 });
