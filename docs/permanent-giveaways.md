@@ -97,3 +97,10 @@ Use `/trial start` for a **full, one-contestant-at-a-time** elimination event. I
 12. Check the private `/giveaway entrants` and `/trial entrants` command outputs, empty rosters, and pagination at more than 25 entrants.
 
 **Development:** This mode is on `feature/permanent-giveaways` in draft PR #24, not merged or deployed. When testing from Replit, use the correct development-bot token and database, then run `node register-commands.js` to refresh `/giveaway` and `/trial` options (including removal of the old slash launch command).
+
+
+## Per-giveaway display text
+
+During **/giveaway start**, the final review offers a gray **Edit Display Text** button next to **Preview Announcement**. This optional editor changes only the regular giveaway's fox/story text: **Entry Text** while the signup is open and **Winner Text** when winners are announced. Staff reply in the configured commands channel with up to 400 characters per message, then use **Review Text → Confirm Text**. Discarding changes leaves the previously selected text unchanged. **Default Entry Text** and **Default Winner Text** restore the built-in wording independently.
+
+The text may use `{host}` for the host's Discord mention and `{winners}` for the selected winner mentions; ordinary typed @mentions are neutralized. The final **Preview Announcement** shows the selected opening story with entry controls disabled. Custom text is saved only for the giveaway being created, not as a server-wide default. The prize, rules, entry requirements, closing time, claim instructions, buttons, no-eligible-winner message, and activity giveaways continue to use their normal required display. Nothing posts publicly until **Post Giveaway** is selected in the final review.
