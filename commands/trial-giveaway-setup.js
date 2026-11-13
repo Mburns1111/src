@@ -135,7 +135,7 @@ function layout(session,banners=[]) {
       (s.trialClaimInstructions || DEFAULT_CLAIM_INSTRUCTIONS)+
       "\nThe bot separately requires a ticket number and Discord message link before the claim deadline, or the prize is forfeited.\n"+
       "Choose **Write / Edit Trial Instructions** to type your text, then Save Trial Setup on the final review.";
-    components.push(buttons(session, [["Use Built-in Default", "clearInstructions"],
+    components.push(buttons(session, [["Use Built-in Default", "clearInstructions", ButtonStyle.Primary],
       ["Write / Edit Trial Instructions", "writeInstructions"], ["Keep Saved", "keep"]]));
   } else if (step === "minutes") {
     content = "How long does each winner have to submit the ticket number and message link after the Royal Verdict? The old Trial interface uses **minutes**.\n**Current:** " +
