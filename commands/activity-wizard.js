@@ -433,7 +433,7 @@ export async function wizardButton(i){
   if(!session || session.expires<Date.now() || session.id!==id || session.messageId!==i.message.id || !session.choices.includes(value))
     return i.reply({content:"Only the staff member who started this setup can use its current prompt.",flags:MessageFlags.Ephemeral});
   await i.deferUpdate();
-  if(value==="cancel"){sessions.delete(session.key);return session.channel.send("Setup cancelled.");}
+  if(value==="cancel"){sessions.delete(session.key);await session.channel.send("Setup cancelled.");await retireGuidedControls(session.promptMessage,session.channel);return;}
   return respond(session,value,i.client);
 }
 // Read attachment-only uploads for banner registration; other steps use the message text.
