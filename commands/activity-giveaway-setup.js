@@ -331,7 +331,7 @@ export async function updateExistingActivityClaimInstructions(guildId,instructio
 async function apply(session,verb,value){
  const s=mainSetting(session);
  const next=()=>after(session,stepsFor(session)[stepsFor(session).indexOf(session.step)+1]);
- if(verb==="cancel"){sessions.delete(session.key);await session.channel.send("Activity giveaway setup cancelled.");return;}
+ if(verb==="cancel"){sessions.delete(session.key);await session.channel.send("Activity giveaway setup cancelled.");await retireGuidedControls(session.message,session.channel);return;}
  if(verb==="back"){
    if(session.step==="displayEditor"){session.displayDraft=null;await show(session,"review");return;}
    if(["bannerText","bannerUpload"].includes(session.step)){
@@ -419,6 +419,7 @@ async function apply(session,verb,value){
        "Announcements will refresh as the bot reconciles them.":"New giveaways will use these defaults; existing claim deadlines and ticket claims were not changed.")+
      "\nUse **/giveaway "+(session.mode==="regular"?"start":"activity")+"** to create a giveaway with per-event overrides.",
      allowedMentions:{parse:[]}});
+   await retireGuidedControls(session.message,session.channel);
    return;
  }
  if(verb==="keep"){
