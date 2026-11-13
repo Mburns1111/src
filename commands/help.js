@@ -317,7 +317,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "3. Archive Setup",
-    "**Required:** A private **Shared Staff Archives** channel, different from the private Giveaway Staff Controls channel and hidden from @everyone. The bot needs permission to post embeds and attach records.\n\nAssign the shared channel once in **`/setup general`**. Giveaways, activity giveaways and Trials use it automatically; their individual setup flows cannot change it.\n\nThe bot saves the archived staff record **before** removing its earlier private staff message. It does not erase the archived history when public listings are removed."
+    "**Required:** A private **Shared Staff Archives** channel, different from the private Giveaway Staff Controls channel and hidden from @everyone. The bot needs permission to post embeds and attach records.\n\nAssign the shared channel once in **`/setup general`**. Giveaways, activity giveaways and Trials use it automatically; their individual setup flows cannot change it."
    ]
   ]
  ],
