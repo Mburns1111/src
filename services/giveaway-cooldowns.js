@@ -45,6 +45,27 @@ export async function removeActiveCooldownEntries(guildId,userIds,{now=new Date(
  return result.modifiedCount||0;
 }
 
+// Reconcile cooldowns that were applied before the entry guard existed, and
+// handle missed notifications or temporary MongoDB failures. This is safe to
+// repeat; already removed entries require no write.
+export async function reconcileOpenCooldownEntries({now=new Date(),limit=100}={}){
+ const open=await Giveaway.find({
+   mode:"standard",status:"open",winnerCooldownEnabled:true,
+   endsAt:{$gt:now},entrantIds:{$exists:true,$ne:[]},
+ }).select("_id guildId entrantIds").limit(limit).lean();
+ let removed=0;
+ for(const giveaway of open){
+   const active=await activeGiveawayCooldownIds(giveaway.guildId,giveaway.entrantIds,{now});
+   if(!active.size)continue;
+   const result=await Giveaway.updateOne({
+     _id:giveaway._id,guildId:giveaway.guildId,mode:"standard",
+     status:"open",winnerCooldownEnabled:true,
+   },{$pull:{entrantIds:{$in:[...active]}}});
+   removed+=result.modifiedCount||0;
+ }
+ return removed;
+}
+
 export async function applyGiveawayWinnerCooldown({
  guildId,userId,sourceGiveawayId,deliveredAt,staffId,days,now=new Date(),
 }){
