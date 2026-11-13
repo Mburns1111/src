@@ -220,7 +220,7 @@ async function configFor(guild,channelId){
     throw Error("Configure the bot commands channel with /setup general first.");
   if(channelId!==c.commandChannelId)
     throw Error("Start /giveaway activity in <#"+c.commandChannelId+">, not the private giveaway staff channel.");
-  for(const [field,label] of [["activityGiveawayListChannelId","activity_giveaway_list"],["activityGiveawayWinnersChannelId","activity_winners"],["activityGiveawayReviewChannelId","activity_review"]]){
+  for(const [field,label] of [["activityGiveawayListChannelId","activity_giveaway_list"],["activityGiveawayWinnersChannelId","Giveaway Winners"],["activityGiveawayReviewChannelId","activity_review"]]){
     const channel=c?.[field]&&await guild.channels.fetch(c[field]);
     if(!channel?.send)throw Error("Use /setup activity-giveaways to set the "+label+" channel first.");
     if(label==="activity_review" && channel.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
