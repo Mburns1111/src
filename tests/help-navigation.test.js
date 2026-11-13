@@ -67,7 +67,7 @@ test("staff topics are organized into three dropdown groups",()=>{
 });
 test("approved help content includes core requirements and public claim instructions",()=>{
  assert.match(textOf("ssetup"),/All bot setup commands must be run in this channel/);
- assert.match(textOf("ssetup"),/Administrator/);
+ assert.match(textOf("ssetup"),/Bot Commands, Shared Staff Archives and Server Time Zone/);
  assert.match(textOf("ssetup"),/Court of Chaos/);
  assert.match(textOf("sgiveaways"),/Royal Verdict/);
  assert.match(textOf("sgiveaways"),/Confirm Prizes Delivered/);
