@@ -1,5 +1,5 @@
 import Giveaway from "../models/Giveaway.js";
-import {cleanRegularDisplayText} from "./giveaway-display-text.js";
+import {cleanRegularDisplayField,REGULAR_DISPLAY_FIELDS} from "./giveaway-display-text.js";
 import {getConfiguredTextChannelAndConfig} from "../commands/shared.js";
 import {requirePrivateGiveawayStaffChannel,ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import {sharedGiveawayPingRoleId} from "./giveaway-notification-roles.js";
@@ -29,8 +29,6 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
   const prize=nonempty(settings.prize,"Prize",1500,2);
   const description=String(settings.description||"").trim();
   const rules=String(settings.rules||"").trim();
-  const displayEntryText=cleanRegularDisplayText(settings.displayEntryText);
-  const displayWinnerText=cleanRegularDisplayText(settings.displayWinnerText);
   if(description.length>1000)throw Error("Giveaway description must be 1,000 characters or fewer.");
   if(rules.length>1200)throw Error("Giveaway rules must be 1,200 characters or fewer.");
   const minutes=integer(settings.minutes,"Giveaway duration",1,maxRegularGiveawayMinutes());
@@ -62,9 +60,11 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
   const pingRoleIds=pingRoleId?[pingRoleId]:[];
   // Blank bannerNameKey inherits the saved default without overwriting it.
   const bannerNameKey=await ensureBannerRegistered(guildId,settings.bannerNameKey||"");
+  const serverDisplay=Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
+    [field,cleanRegularDisplayField(field,config?.["regularGiveaway"+field[0].toUpperCase()+field.slice(1)]||"")]));
   const values={
     guildId,channelId:channel.id,creatorId,title,prize,description,rules,
-    displayEntryText,displayWinnerText,
+    ...serverDisplay,
     endsAt:new Date(Date.now()+minutes*60000),winnerCount:winners,
     claimWindowHours:claimHours,claimWindowMinutes:null,
     autoRerollClaims:true,
