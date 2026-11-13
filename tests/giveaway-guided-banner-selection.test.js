@@ -27,13 +27,17 @@ async function harness(mode,{banners=[]}={}){
   const channelId="800000000000"+suffix;
   const records=[],responses=[],updates=[];
   const values=banners.map(x=>({...x}));
-  const sessionInfo={id:guildId,roles:{everyone:{id:guildId}}};
+  const sessionInfo={id:guildId,
+  roles:{everyone:{id:guildId},fetch:async id=>({id})},
+  members:{me:{id:"bot"}},
+  channels:{fetch:async id=>({id,send:async()=>({id:"posted"}),
+    permissionsFor:member=>({has:()=>member?.id!==guildId})})}};
   const channel={id:channelId,send:async payload=>{
     const id=String(900000000000000000n+BigInt(records.length+1));
-    const message={id,...payload};
+    const message={id,...payload,edit:async change=>{Object.assign(message,change);return message;}};
     records.push(message);return message;
   }};
-  const config={guildId,commandChannelId:channelId,
+  const config={guildId,commandChannelId:channelId,serverTimeZone:"America/New_York",
     survivalTrialChannelId:trialId,activityGiveawayReviewChannelId:staffId,
     giveawayChannelId:trialId,giveawayArchiveChannelId:"678901234567890123",
     activityGiveawayListChannelId:listId,
