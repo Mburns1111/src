@@ -5,6 +5,8 @@ import {
   StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {preferSetupButtons} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import {ensurePingDashboard} from "../services/scheduled-pings.js";
 import {COMMON_SERVER_TIME_ZONES,validateServerTimeZone} from "../services/schedule-timezone.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
@@ -95,7 +97,7 @@ function layout(session) {
     controls.push(row(session, [["Preview settings", "preview"]]));
     controls.push(row(session, [["Save Setup", "save", ButtonStyle.Success],
       ["Cancel", "cancel", ButtonStyle.Danger]]));
-    return { content: prefix + summary, components: controls, allowedMentions: { parse: [] } };
+    return { content: prefix + summary, components: preferSetupButtons(controls), allowedMentions: { parse: [] } };
   }
   const [field, name, required] = currentStep;
   let description = "**" + (editing ? "Editing " + name : "Step " + (session.index + 1) + " of " + list.length + " · " + name) + "**\n";
@@ -139,13 +141,16 @@ function layout(session) {
   }
   if (!required) controls.push(row(session, [["Skip / disable this feature", "skip"]]));
   controls.push(row(session, [["Back", "back"], ["Cancel setup", "cancel", ButtonStyle.Danger]]));
-  return { content: prefix + description, components: controls, allowedMentions: { parse: [] } };
+  return { content: prefix + description, components: preferSetupButtons(controls), allowedMentions: { parse: [] } };
 }
 
 async function show(session) {
   session.expiresAt = Date.now() + SESSION_MS;
   const message = await session.channel.send(layout(session));
+  const previous=session.promptMessage;
   session.messageId = message.id;
+  session.promptMessage=message;
+  await retireGuidedControls(previous,session.channel);
 }
 async function next(session) {
   if (session.editing) {
@@ -287,6 +292,7 @@ async function process(session, action, value) {
   if (action === "cancel") {
     sessions.delete(session.key);
     await session.channel.send("Setup cancelled. Nothing was changed.");
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   const list = stepsFor(session.mode);
@@ -315,6 +321,7 @@ async function process(session, action, value) {
         ? "Shared archives are configured. Optional features were skipped if unselected. Run /setup giveaways, /setup activity-giveaways, /setup trials or /setup cards as needed."
         : "Registered members may use cards in <#" + session.settings.hatchemChannelId + ">; the card-game mode must also be enabled in bot settings."),
       allowedMentions: { parse: [] } });
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   if (action === "back") {
