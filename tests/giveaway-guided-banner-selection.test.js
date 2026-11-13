@@ -308,3 +308,20 @@ test("discarding display edits preserves the fox defaults and activity setup has
     await activity.step("cancel");
   }finally{restore();}
 });
+
+test("regular server setup asks for Giveaway List then shared Giveaway Winners",async()=>{
+ try{
+   const h=await harness("regular");
+   assert.match(h.current().content,/Giveaway List/);
+   await h.step("keep");
+   assert.match(h.current().content,/Giveaway Winners/);
+   assert.match(h.current().content,/original Giveaway List post is removed/);
+   assert.ok(h.controls().some(c=>c.label==="Keep selected channel"));
+   await h.goToBanner();
+   await h.step("keep");
+   assert.match(h.current().content,/Giveaway Winners/);
+   await h.step("save");
+   assert.equal(h.configSaves.length,1);
+   assert.equal(h.configSaves[0].activityGiveawayWinnersChannelId,winnersId);
+ }finally{restore();}
+});
