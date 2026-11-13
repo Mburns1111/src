@@ -125,6 +125,21 @@ test("one entrant misses claim: no second eligible member means No Eligible Winn
   }finally{restore(stubs);}
 });
 
+test("public giveaway announcements omit internal ID and retention footer",()=>{
+  const cases=[
+    base({status:"open",winnerIds:[],claimStartedAt:null}),
+    base({status:"ended"}),
+    base({mode:"activity",status:"ended",winnerIds:[entrant]}),
+    base({mode:"activity",status:"ended",winnerIds:[],entrantIds:[]}),
+  ];
+  for(const record of cases){
+    const embed=giveawayAnnouncement(record).embeds[0].toJSON();
+    assert.equal(embed.footer,undefined,
+      "Internal giveaway IDs and retention notes belong only in staff records");
+    assert.doesNotMatch(JSON.stringify(embed),/This announcement is kept after|Giveaway ID:/);
+  }
+});
+
 test("one claimed winner and another forfeited place show one valid claim plus No Eligible Winner for the other place",()=>{
   const data=base({winnerCount:2,entrantIds:[entrant,other],winnerIds:[entrant,other],
     winnerClaims:[{slot:0,userId:entrant,ticketNumber:"T-1",
