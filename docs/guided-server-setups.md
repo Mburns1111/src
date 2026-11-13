@@ -152,3 +152,7 @@ Discord checklist:
 ## Setup button ordering and colors
 
 Across **General**, **Hatchem/Cards**, **Regular Giveaways**, **Activity Giveaways**, and **Court's Trials**, the **Keep Current** (including **Keep**, **Keep Saved**, and **Keep selected channel**) button is the **first button** in its step and is **blue**. Any explicitly labeled **Default / Use Default** choice is also **blue**. This applies to giveaway creation wizards as well as the server configuration setups. The behavior of each button, menu, selected configuration, Save/Confirm action, and Cancel action is unchanged; green still indicates posting/saving and red indicates cancellation where previously used.
+
+## Regular giveaway display template
+
+The **/setup giveaways** final review contains **Edit Giveaway Display**. The button opens an embed preview and controls for the two **embed titles** (open and winners) and two **fox story texts** (entry and winner). Select Edit to open the Discord input modal and see the refreshed preview, or Default to restore the original text. Toggle **Preview Open / Preview Winners** to compare states. **Confirm Text** returns to setup review; **Save Settings** is required to persist the new server defaults. Discard never saves edits. New regular giveaways inherit the saved template and preserve it as a snapshot; older giveaways, activity giveaways, and Trials are unaffected. The per-event `/giveaway start` wizard has no display editor.
