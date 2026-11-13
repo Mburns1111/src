@@ -324,6 +324,7 @@ async function apply(session,verb,value){
  const next=()=>after(session,stepsFor(session)[stepsFor(session).indexOf(session.step)+1]);
  if(verb==="cancel"){sessions.delete(session.key);await session.channel.send("Activity giveaway setup cancelled.");return;}
  if(verb==="back"){
+   if(session.step==="displayEditor"){session.displayDraft=null;await show(session,"review");return;}
    if(["bannerText","bannerUpload"].includes(session.step)){
      await show(session,"banner");return;
    }
@@ -335,7 +336,38 @@ async function apply(session,verb,value){
    const back=({participationHelpText:"participationHelp",roleHelpText:"roleHelp",instructionsText:"instructions",hoursText:"hours"})[session.step]||ordered[Math.max(0,index-1)];
    await show(session,back);return;
  }
+ if(session.step==="displayEditor"){
+   if(verb==="displayDiscard"){
+     session.displayDraft=null;session.modalField=null;await show(session,"review");return;
+   }
+   if(verb==="displayConfirm"){
+     for(const field of REGULAR_DISPLAY_FIELDS)
+       s[serverDisplayField(field)]=session.displayDraft[serverDisplayField(field)];
+     session.displayDraft=null;session.modalField=null;await show(session,"review");return;
+   }
+   if(verb==="displayPreviewOpen"||verb==="displayPreviewWinner"){
+     session.displayPreviewWinner=verb==="displayPreviewWinner";
+     await refreshDisplayEditor(session);return;
+   }
+   if(verb.startsWith("displayDefault:")){
+     const field=verb.slice("displayDefault:".length);
+     if(!REGULAR_DISPLAY_FIELDS.includes(field))throw Error("Invalid display section.");
+     session.displayDraft[serverDisplayField(field)]="";
+     await refreshDisplayEditor(session);return;
+   }
+   throw Error("Use the editor buttons, Confirm Text or Discard Changes.");
+ }
  if(session.step==="review"){
+   if(verb==="displayOpen"){
+     if(session.mode!=="regular")throw Error("Display editor belongs to regular giveaways.");
+     session.displayDraft={...Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
+       [serverDisplayField(field),s[serverDisplayField(field)]||""])),
+       activityClaimWindowHours:s.activityClaimWindowHours,
+       activityClaimInstructions:s.activityClaimInstructions,
+       giveawayDefaultRequiredRoleId:s.giveawayDefaultRequiredRoleId};
+     session.displayPreviewWinner=false;session.modalField=null;
+     await show(session,"displayEditor");return;
+   }
    if(verb==="preview"){
      const nameKey=bannerNameKey(s.giveawayDefaultBannerNameKey);
      const banner=nameKey?await GiveawayBanner.findOne({guildId:session.guild.id,nameKey}).lean():null;
@@ -362,7 +394,8 @@ async function apply(session,verb,value){
       "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId","giveawayArchiveChannelId","giveawayChannelId",
       "giveawayManagerRoleId","giveawayExcludedRoleId","giveawayDefaultRequiredRoleId","giveawayShowRoleInstructions",
       "giveawayRoleInstructions","activityClaimInstructions","activityClaimWindowHours","activityMaxAutoRerolls",
-      "activityAnnounceEmptyResults","giveawayDefaultBannerNameKey"
+      "activityAnnounceEmptyResults","giveawayDefaultBannerNameKey",
+      ...(session.mode==="regular"?REGULAR_DISPLAY_FIELDS.map(serverDisplayField):[])
      ].map(field=>[field,s[field]])),
      ...giveawaySetupNotificationFields(s,session.mode),
      commandChannelId:previous?.commandChannelId||session.channel.id,
@@ -507,6 +540,8 @@ async function startGiveawaySetup(interaction,mode="activity"){
    ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(config)),
    activityAnnounceEmptyResults:config?.activityAnnounceEmptyResults!==false,
    giveawayDefaultBannerNameKey:config?.giveawayDefaultBannerNameKey||"",
+   ...Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
+     [serverDisplayField(field),config?.[serverDisplayField(field)]||""])),
  };
  const session={id:new mongoose.Types.ObjectId().toString(),key:sessionKey,
    owner:interaction.user.id,channel:interaction.channel,guild:interaction.guild,
