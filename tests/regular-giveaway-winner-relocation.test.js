@@ -67,6 +67,7 @@ async function harness(overrides={}){
    select:()=>({lean:async()=>config})
  });
  Giveaway.findOneAndUpdate=()=>({lean:async()=>{
+   if(stored.resultPublicationToken)return null;
    Object.assign(stored,{resultPublicationToken:"locked",resultPublicationClaimedAt:new Date()});
    return {...stored};
  }});
@@ -173,5 +174,43 @@ test("a failed result send preserves the original list post for a retry",async()
   assert.equal(h.getStored().messageId,oldId);
   assert.equal(h.calls.deleted.length,0);
   assert.equal(h.getStored().renderedAt,null);
+ }finally{h.restore();}
+});
+
+test("concurrent result publishers cannot delete the single valid winner message",async()=>{
+ const h=await harness();
+ try{
+  const [a,b]=await Promise.all([
+   publishGiveawayResult(h.client,h.getStored()),
+   publishGiveawayResult(h.client,h.getStored())
+  ]);
+  assert.deepEqual([a,b].sort(),[false,true]);
+  assert.equal(h.published.length,1,"the canonical result is created once");
+  assert.equal(h.calls.deleted.includes("winner"),false,"a concurrent writer must never delete the adopted post");
+  assert.equal(h.getStored().messageId,newId);
+  assert.ok(h.getStored().renderedAt instanceof Date);
+ }finally{h.restore();}
+});
+
+test("failed winner notification leaves the claim clock inactive for a safe retry",async()=>{
+ const h=await harness();
+ try{
+  const originalSend=h.client.channels.fetch;
+  h.client.channels.fetch=async id=>{
+   const channel=await originalSend(id);
+   if(id===winnerChannelId){
+     const send=channel.send.bind(channel);
+     channel.send=async payload=>{
+       if(!payload.embeds?.length)throw Error("Cannot notify winners");
+       return send(payload);
+     };
+   }
+   return channel;
+  };
+  await assert.rejects(()=>publishGiveawayResult(h.client,h.getStored()),/Cannot notify winners/);
+  assert.equal(h.getStored().claimStartedAt,null);
+  assert.deepEqual(h.getStored().winnerAssignedAt,[null]);
+  assert.equal(h.getStored().claimCheckAt??null,null);
+  assert.equal(h.getStored().messageId,newId,"published result remains available");
  }finally{h.restore();}
 });
