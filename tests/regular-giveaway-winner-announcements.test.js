@@ -16,7 +16,7 @@ test("one canonical Giveaway Winners result contains explicit winner, claim butt
   endsAt:new Date(),claimWindowHours:12,winnerAssignedAt:[new Date()]});
  const embed=payload.embeds[0].toJSON();
  assert.match(embed.fields.map(f=>f.value).join("\n"),new RegExp(firstWinner));
- assert.doesNotMatch(embed.footer.text,/Giveaway ID:/i);
+ assert.equal(embed.footer,undefined,"public announcements must omit internal IDs");
  assert.equal(payload.components[0].components[0].data.custom_id,"giveaway:claim:"+id);
  assert.deepEqual(payload.allowedMentions,{parse:[]});
 });
