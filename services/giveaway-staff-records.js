@@ -11,6 +11,7 @@ import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-ma
 import {closeGiveaway,rerollGiveaway,publishGiveawayResult} from "./giveaways.js";
 import {beginSurvivalTrial,publishSurvivalAnnouncement} from "./survival-giveaways.js";
 import {handleGiveawayCooldownAction} from "./giveaway-cooldown-ui.js";
+import {acknowledgeTemporaryAction,finishTemporaryAction,showTemporaryPanel} from "./temporary-interaction-controls.js";
 import {ensureBannerRegistered} from "./giveaway-banners.js";
 import {maxRegularGiveawayMinutes} from "./giveaways.js";
 import {giveawayStaffEditableFields,giveawayStaffEditMenuOptions,
@@ -121,7 +122,7 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    "**Status:** "+(completedAndRemoved?(record.mode==="survival"?"Trial archived — Royal Verdict preserved":"Completed — public listing deleted"):statuses[record.status]||record.status),
    "**Scheduled end:** "+when(record.endsAt),
    "**Giveaway ID:** \x60"+record._id+"\x60",
-   ...(record.mode!=="survival"?["**Winner cooldown check:** "+(record.winnerCooldownEnabled===true?"ON — exclude active cooldowns":"OFF — normal drawing")]:[]),
+   ...(record.mode!=="survival"?["**Winner cooldown check:** "+(record.winnerCooldownEnabled===true?"ON — block regular entry and exclude cooldowns at draw":"OFF — normal drawing")]:[]),
    ...(record.prizeDeliveredAt?["**Prizes delivered:** "+when(record.prizeDeliveredAt),
      "**Delivery confirmed by:** "+(record.prizeDeliveredBy?"<@"+record.prizeDeliveredBy+">":"Not recorded"),
      ...(record.prizeDeliveryProofUrl?["**Delivery proof:** <"+record.prizeDeliveryProofUrl+">"]:[])]:[]),
@@ -524,7 +525,7 @@ export async function handleGiveawayStaffAction(interaction){
      return interaction.showModal(giveawayStaffEditModal(record,field));
    }
    if(action==="editsave"){
-     await interaction.deferReply(ephemeral);
+     await acknowledgeTemporaryAction(interaction);
      const change=validateGiveawayStaffEdit(record,pageText,
        interaction.fields.getTextInputValue("value"));
      if(change.bannerNameKey)
@@ -539,7 +540,7 @@ export async function handleGiveawayStaffAction(interaction){
        else await publishGiveawayResult(interaction.client,updated);
      }catch(error){console.error("[Giveaways] Staff edited event; public refresh pending:",error);}
      await ensureGiveawayStaffRecord(interaction.client,updated);
-     return interaction.editReply("Giveaway **"+pageText+"** updated. Entries are preserved and no new notification ping was sent.");
+     return finishTemporaryAction(interaction,"Giveaway **"+pageText+"** updated. Entries are preserved and no new notification ping was sent.");
    }
    if(action==="end"){
      if(record.status!=="open"&&!(record.mode==="survival"&&record.status==="running"))
@@ -555,34 +556,34 @@ export async function handleGiveawayStaffAction(interaction){
          btn("giveawaystaff:abort:"+id,"Keep Giveaway"))],...ephemeral});
    }
    if(action==="confirmend"){
-     await interaction.deferReply(ephemeral);
+     await acknowledgeTemporaryAction(interaction);
      if(record.mode==="survival"){
        if(record.status==="open"){
          const started=await beginSurvivalTrial({id,guildId:interaction.guildId,now:new Date()});
          await publishSurvivalAnnouncement(interaction.client,started);
          await ensureGiveawayStaffRecord(interaction.client,started);
-         return interaction.editReply("Trial signups closed. The Court's Trial is starting now.");
+         return finishTemporaryAction(interaction,"Trial signups closed. The Court's Trial is starting now.");
        }
-       if(record.status!=="running")return interaction.editReply("This Trial has already closed.");
+       if(record.status!=="running")return finishTemporaryAction(interaction,"This Trial has already closed.");
        const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
          mode:"survival",status:"running"},
          {$set:{speedSeconds:2,nextEventAt:new Date()}},
          {returnDocument:"after"}).lean();
-       if(!updated)return interaction.editReply("Another staff member already finished this Trial.");
+       if(!updated)return finishTemporaryAction(interaction,"Another staff member already finished this Trial.");
        await ensureGiveawayStaffRecord(interaction.client,updated);
-       return interaction.editReply("The Trial is finishing early. Remaining eliminations will continue at 2-second intervals; the Royal Verdict will appear when they finish.");
+       return finishTemporaryAction(interaction,"The Trial is finishing early. Remaining eliminations will continue at 2-second intervals; the Royal Verdict will appear when they finish.");
      }
-     if(record.guidedSeries)return interaction.editReply("Use the activity giveaway's End Early button to stop counting and preserve its approval flow.");
-     if(record.status!=="open")return interaction.editReply("This giveaway is already closed.");
+     if(record.guidedSeries)return finishTemporaryAction(interaction,"Use the activity giveaway's End Early button to stop counting and preserve its approval flow.");
+     if(record.status!=="open")return finishTemporaryAction(interaction,"This giveaway is already closed.");
      const now=new Date();
      const marked=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
        status:"open",mode:record.mode},
        {$set:{endsAt:now,staffEndedEarly:true,staffEndedBy:interaction.user.id}},
        {returnDocument:"after"}).lean();
-     if(!marked)return interaction.editReply("Another staff member already closed this giveaway.");
+     if(!marked)return finishTemporaryAction(interaction,"Another staff member already closed this giveaway.");
      const ended=await closeGiveaway({id,guildId:interaction.guildId,now,client:interaction.client});
      if(ended?.status==="ended")await publishGiveawayResult(interaction.client,ended);
-     return interaction.editReply(ended?.status==="ended"?
+     return finishTemporaryAction(interaction,ended?.status==="ended"?
        "Giveaway ended early. Results are saved and the public post was updated.":
        "Counting stopped. The giveaway is being finalized.");
    }
@@ -618,23 +619,23 @@ export async function handleGiveawayStaffAction(interaction){
        allowedMentions:{parse:[]}});
    }
    if(action==="confirmreroll"){
-     await interaction.deferReply(ephemeral);
+     await acknowledgeTemporaryAction(interaction);
      if(record.mode==="survival"&&!record.trialTicketClaimsEnabled)
-       return interaction.editReply("Legacy Trials do not use ticket-based rerolls.");
+       return finishTemporaryAction(interaction,"Legacy Trials do not use ticket-based rerolls.");
      const slot=Number(pageText);
      if(!Number.isSafeInteger(slot)||!record.winnerIds?.[slot]||
        record.status!=="ended"||record.publicListingRemovedAt||
        winnerHasClaim(record,slot)||(record.claimResolvedSlots||[]).includes(slot))
-       return interaction.editReply("This prize place is no longer awaiting a claim.");
+       return finishTemporaryAction(interaction,"This prize place is no longer awaiting a claim.");
      const updated=await rerollGiveaway({id,guildId:interaction.guildId,
        staffId:interaction.user.id,slot,reason:"staff",client:interaction.client});
-     if(updated?.status!=="ended")return interaction.editReply("Reroll saved; result finalization is pending.");
+     if(updated?.status!=="ended")return finishTemporaryAction(interaction,"Reroll saved; result finalization is pending.");
      await publishGiveawayResult(interaction.client,updated);
-     return interaction.editReply("Manual reroll completed for place "+(slot+1)+
+     return finishTemporaryAction(interaction,"Manual reroll completed for place "+(slot+1)+
        ". The new winner receives a fresh claim period; public results and staff records were updated.");
    }
    if(action==="abort")
-     return interaction.reply({content:"No changes made.",...ephemeral});
+     return showTemporaryPanel(interaction,{content:"No changes made.",components:[]});
 
    if(action==="cancel"){
      if(!["open","pending_review","running","ended","rerolling"].includes(record.status)||record.prizeDeliveredAt)

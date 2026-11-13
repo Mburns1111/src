@@ -6,13 +6,15 @@ import mongoose from "mongoose";
 const giveawaySchema = new mongoose.Schema({
   guildId: { type: String, required: true, index: true },
   channelId: { type: String, required: true },
+  // Locked-in results destination for a regular giveaway; does not change when setup is edited.
+  resultChannelId: { type: String, default: "" },
   listChannelId: { type: String, default: "" },
   listMessageId: { type: String, default: "" },
   listFingerprint: { type: String, default: "" },
   bannerNameKey: { type: String, default: "" },
   requireStaffReview:{type:Boolean,default:false},
   progressEnabled:{type:Boolean,default:false},
-  // Per-giveaway opt-in to silent winner cooldown checks. Trials always ignore.
+  // Per-giveaway opt-in: block regular entry and exclude cooled-down winners at draw. Trials ignore.
   winnerCooldownEnabled:{type:Boolean,default:false},
   cooldownAssignments:[{userId:String,days:Number,expiresAt:Date,appliedBy:String,appliedAt:Date}],
   announceEmptyResults:{type:Boolean,default:true},
@@ -29,6 +31,11 @@ const giveawaySchema = new mongoose.Schema({
   title: { type: String, required: true },
   prize: { type: String, required: true },
   description: { type: String, default: "", maxlength: 1000 },
+  // Snapshot of server-wide regular giveaway display settings at creation.
+  displayOpenTitle: { type: String, default: "", maxlength: 120 },
+  displayEndedTitle: { type: String, default: "", maxlength: 120 },
+  displayEntryText: { type: String, default: "", maxlength: 400 },
+  displayWinnerText: { type: String, default: "", maxlength: 400 },
   rules: { type: String, default: "" },
   claimWindowHours: { type: Number, default: null, min: 1, max: 720 },
   // Court\'s Trial claim windows are set in minutes; old saved trial hour values stay valid.

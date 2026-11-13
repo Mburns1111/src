@@ -17,7 +17,7 @@ const attachment={
 };
 
 const original={
-  config:GuildConfig.findOne,find:GiveawayBanner.find,
+  config:GuildConfig.findOne,configSave:GuildConfig.findOneAndUpdate,find:GiveawayBanner.find,
   exists:GiveawayBanner.exists,save:GiveawayBanner.findOneAndUpdate,fetch:globalThis.fetch,
 };
 let nextKey=1;
@@ -25,12 +25,19 @@ async function harness(mode,{banners=[]}={}){
   const suffix=String(nextKey++).padStart(6,"0");
   const userId="700000000000"+suffix;
   const channelId="800000000000"+suffix;
-  const records=[],responses=[],updates=[];
+  const records=[],responses=[],updates=[],configSaves=[],modals=[];
   const values=banners.map(x=>({...x}));
-  const sessionInfo={id:guildId,roles:{everyone:{id:guildId}}};
+  const sessionInfo={id:guildId,
+    roles:{everyone:{id:guildId},fetch:async id=>({id})},
+    members:{me:{id:"bot"}},
+    channels:{fetch:async id=>({
+      id,send:async()=>({id:"posted"}),
+      permissionsFor:member=>({has:()=>member?.id!==guildId})
+    })}
+  };
   const channel={id:channelId,send:async payload=>{
     const id=String(900000000000000000n+BigInt(records.length+1));
-    const message={id,...payload};
+    const message={id,...payload,edit:async change=>{Object.assign(message,change);return message;}};
     records.push(message);return message;
   }};
   const config={guildId,commandChannelId:channelId,
@@ -42,6 +49,9 @@ async function harness(mode,{banners=[]}={}){
     giveawayExcludedRoleId:"789012345678901234",trialDefaultBannerNameKey:"",
     giveawayDefaultBannerNameKey:""};
   GuildConfig.findOne=()=>({lean:async()=>config});
+  GuildConfig.findOneAndUpdate=async(query,update)=>{
+    configSaves.push({...update.$set});Object.assign(config,update.$set);return config;
+  };
   GiveawayBanner.find=()=>({sort:()=>({limit:()=>({select:()=>({
     lean:async()=>values.slice().sort((a,b)=>a.nameKey.localeCompare(b.nameKey))
   })})})});
@@ -73,6 +83,14 @@ async function harness(mode,{banners=[]}={}){
       user:{id:userId},message:{id:msg.id},memberPermissions:{has:()=>true},
       values:valuesForSelect,
       deferReply:async()=>{},editReply:async x=>responses.push(x),
+      reply:async x=>responses.push(x),showModal:async modal=>modals.push(modal)});
+  };
+  const submit=async(field,value)=>{
+    const modal=modals.at(-1);assert.ok(modal,"Open an edit modal first.");
+    await handler({customId:prefix+":"+sessionId+":displaySubmit:"+field,
+      guildId,channelId,user:{id:userId},message:{id:current().id},
+      memberPermissions:{has:()=>true},fields:{getTextInputValue:()=>value},
+      deferReply:async()=>{},editReply:async x=>responses.push(x),
       reply:async x=>responses.push(x)});
   };
   const goToBanner=async()=>{
@@ -96,11 +114,12 @@ async function harness(mode,{banners=[]}={}){
     for(let i=0;i<200&&records.length===before;i++)await new Promise(r=>setImmediate(r));
     assert.ok(records.length>before,"typing/uploading should show the next setup prompt");
   };
-  return {identity,records,responses,updates,values,config,current,controls,step,
+  return {identity,records,responses,updates,configSaves,modals,submit,values,config,current,controls,step,
     goToBanner,sendReply,channelId};
 }
 function restore(){
-  GuildConfig.findOne=original.config;GiveawayBanner.find=original.find;
+  GuildConfig.findOne=original.config;GuildConfig.findOneAndUpdate=original.configSave;
+  GiveawayBanner.find=original.find;
   GiveawayBanner.exists=original.exists;GiveawayBanner.findOneAndUpdate=original.save;
   globalThis.fetch=original.fetch;
 }
@@ -231,3 +250,95 @@ for(const mode of ["regular","activity","trial"]){
     }finally{restore();}
   });
 }
+
+
+test("regular server setup edits and previews titles and stories before saving future defaults",async()=>{
+  try{
+    const h=await harness("regular");
+    await h.goToBanner();
+    await h.step("keep");
+    const edit=h.controls().find(c=>c.label==="Edit Giveaway Display");
+    assert.ok(edit);
+    assert.equal(edit.style,2,"server editor entry button should remain gray");
+    await h.step("displayOpen");
+    assert.equal(h.current().embeds[0].toJSON().title,"🦊 The Fox’s Giveaway");
+    assert.equal(h.controls().some(c=>c.label==="Edit Open Title"),true);
+    await h.step("displayEdit:displayOpenTitle");
+    assert.match(JSON.stringify(h.modals.at(-1).toJSON()),/The Fox/);
+    await h.submit("displayOpenTitle","Court Night");
+    assert.equal(h.current().embeds[0].toJSON().title,"Court Night");
+    await h.step("displayEdit:displayEntryText");
+    await h.submit("displayEntryText","{host} invites @everyone to the Court.");
+    assert.match(h.current().embeds[0].toJSON().description,/invites ＠everyone/);
+    assert.equal(h.configSaves.length,0,"unsaved edits must not touch MongoDB");
+    await h.step("displayPreviewWinner");
+    assert.equal(h.current().embeds[0].toJSON().title,"🦊 Heist Complete");
+    await h.step("displayEdit:displayEndedTitle");
+    await h.submit("displayEndedTitle","The Royal Winners");
+    assert.equal(h.current().embeds[0].toJSON().title,"The Royal Winners");
+    await h.step("displayDefault:displayEndedTitle");
+    assert.equal(h.current().embeds[0].toJSON().title,"🦊 Heist Complete");
+    await h.step("displayConfirm");
+    assert.equal(h.configSaves.length,0);
+    assert.match(h.current().content,/Customized server template/);
+    await h.step("save");
+    assert.equal(h.configSaves.length,1);
+    assert.equal(h.config.regularGiveawayDisplayOpenTitle,"Court Night");
+    assert.equal(h.config.regularGiveawayDisplayEndedTitle,"");
+    assert.equal(h.config.regularGiveawayDisplayEntryText,
+      "{host} invites ＠everyone to the Court.");
+    assert.equal(h.config.regularGiveawayDisplayWinnerText,"");
+  }finally{restore();}
+});
+
+test("discarding display edits preserves the fox defaults and activity setup has no text editor",async()=>{
+  try{
+    const h=await harness("regular");
+    await h.goToBanner();await h.step("keep");
+    await h.step("displayOpen");
+    await h.step("displayEdit:displayOpenTitle");
+    await h.submit("displayOpenTitle","Do Not Keep");
+    await h.step("displayDiscard");
+    assert.match(h.current().content,/Built-in fox template/);
+    await h.step("save");
+    assert.equal(h.config.regularGiveawayDisplayOpenTitle,"");
+    const activity=await harness("activity");
+    await activity.goToBanner();await activity.step("keep");
+    assert.equal(activity.controls().some(c=>c.label==="Edit Giveaway Display"),false);
+    await activity.step("cancel");
+  }finally{restore();}
+});
+
+test("regular server setup asks for Giveaway List then shared Giveaway Winners",async()=>{
+ try{
+   const h=await harness("regular");
+   assert.match(h.current().content,/Giveaway List/);
+   await h.step("keep");
+   assert.match(h.current().content,/Giveaway Winners/);
+   assert.match(h.current().content,/original Giveaway List post is removed/);
+   assert.ok(h.controls().some(c=>c.label==="Keep selected channel"));
+   await h.goToBanner();
+   await h.step("keep");
+   assert.match(h.current().content,/Giveaway Winners/);
+   await h.step("save");
+   assert.equal(h.configSaves.length,1);
+   assert.equal(h.configSaves[0].activityGiveawayWinnersChannelId,winnersId);
+ }finally{restore();}
+});
+
+test("guided regular and Trial setups retire earlier controls without changing their post history",async()=>{
+ for(const mode of ["regular","trial","activity"]){
+  try{
+   const h=await harness(mode);
+   const before=h.current();
+   assert.ok(before.components.length>0);
+   await h.step("keep");
+   assert.ok(h.records.length>=2,mode+" must show the next prompt");
+   assert.deepEqual(before.components,[],mode+" old buttons/select menus must be removed");
+   assert.ok(h.current().components.length>0,mode+" new choices must remain available");
+   // Cancel the live session without changing permanent staff messages.
+   await h.step("cancel");
+   assert.deepEqual(h.records[h.records.length-2].components,[]);
+  }finally{restore();}
+ }
+});

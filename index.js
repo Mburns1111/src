@@ -90,6 +90,7 @@ import {
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton, handleGiveawayClaimModal } from "./commands/giveaway.js";
 import { reconcileGiveaways } from "./services/giveaways.js";
+import {reconcileOpenCooldownEntries} from "./services/giveaway-cooldowns.js";
 import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
 import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
 import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
@@ -442,6 +443,8 @@ client.once(Events.ClientReady, async (readyClient) => {
     try {
       await openDueActivities();
       await reconcileGiveawayPlans(readyClient);
+      try{await reconcileOpenCooldownEntries();}
+      catch(error){console.error("[Giveaways] Open cooldown entry cleanup failed:",error);}
       await reconcileGiveaways(readyClient);
       await reconcilePendingGiveawayReviews(readyClient);
       await reconcileGiveawayClaims(readyClient);
@@ -570,7 +573,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
          interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("trialconfig:"))
       return await handleTrialGiveawaySetupInteraction(interaction);
-    if ((interaction.isButton() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+    if ((interaction.isButton() || interaction.isModalSubmit() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("actconfig:"))
       return await handleActivityGiveawaySetupInteraction(interaction);
     if ((interaction.isButton()||interaction.isModalSubmit()||interaction.isStringSelectMenu()) && interaction.customId.startsWith("giveawaystaff:"))

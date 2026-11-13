@@ -1,5 +1,6 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ModalBuilder,TextInputBuilder,TextInputStyle,StringSelectMenuBuilder,MessageFlags,PermissionFlagsBits} from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {acknowledgeTemporaryAction,finishTemporaryAction} from "./temporary-interaction-controls.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {activityRoster,ensureStaffCard,maxActiveDays} from "./guided-activity.js";
@@ -26,7 +27,7 @@ export const GUIDED_EDIT_FIELDS=[
   {label:"Manual approval",value:"requireStaffReview",description:"On or off: staff approve winners"},
   {label:"Check My Progress",value:"progressEnabled",description:"On or off: members see private progress"},
   {label:"Bonus roles",value:"roleBonuses",description:"Add, change or clear bonus chances"},
-  {label:"Winner cooldown check",value:"winnerCooldownEnabled",description:"On/off: exclude active cooldowns at draw"},
+  {label:"Winner cooldown check",value:"winnerCooldownEnabled",description:"On/off: block regular entry + exclude at draw"},
   {label:"Claim time",value:"claimWindowHours",description:"Hours a winner has to claim"},
   {label:"Claim instructions",value:"claimInstructions",description:"Replace or reset the prize collection message"},
   {label:"Maximum auto rerolls",value:"maxAutoRerolls",description:"0–10 replacements for each unclaimed winner"},
@@ -289,20 +290,22 @@ export async function handleGuidedStaffAction(i){
        return i.reply({content:"Counting already started. You cannot backdate its start. To change the watched channel or filters, choose that setting and confirm RESET to start a new counting window.",...ephemeral});
      return i.showModal(editModal(event,selected));
    }
-   await i.deferReply(ephemeral);
-   if(action==="abort")return i.editReply("No changes made. The giveaway remains as it was.");
+   if(["abort","save","confirmend","confirmcancel"].includes(action))
+     await acknowledgeTemporaryAction(i);
+   else await i.deferReply(ephemeral);
+   if(action==="abort")return finishTemporaryAction(i,"No changes made. The giveaway remains as it was.");
    if(action==="edit"){
      if(event.status!=="open")return i.editReply("Only an active giveaway can be edited.");
      return i.editReply({content:describeGuidedStaffOptions(event),
        components:[editMenu(id)],allowedMentions:{parse:[]}});
    }
    if(action==="save"){
-     if(event.status!=="open")return i.editReply("The giveaway already ended or was cancelled.");
+     if(event.status!=="open")return finishTemporaryAction(i,"The giveaway already ended or was cancelled.");
      const changes=validateGuidedStaffEdit(field,i.fields.getTextInputValue("value"),event);
      if(field==="repeatSchedule"){
        const plan=await updateGuidedRepeatSchedule(event,changes);
        await ensureStaffCard(i.client,event);
-       return i.editReply(plan.enabled?
+       return finishTemporaryAction(i,plan.enabled?
          "Future repeats updated. Next activity starts <t:"+Math.floor(+new Date(plan.nextStart)/1000)+":F>. This giveaway is unchanged.":
          "Future repeats stopped. This giveaway will continue until its current cutoff.");
      }
@@ -347,9 +350,9 @@ export async function handleGuidedStaffAction(i){
          String(event[field]||"");
        const after=field==="activityChannelIds"?JSON.stringify(changes.activityChannelIds):
          String(changes[field]||"");
-       if(before===after)return i.editReply("That rule is already set. No activity counts were reset.");
+       if(before===after)return finishTemporaryAction(i,"That rule is already set. No activity counts were reset.");
        updated=await resetGuidedActivityCriteria(event,changes);
-       if(!updated)return i.editReply("This activity is no longer open.");
+       if(!updated)return finishTemporaryAction(i,"This activity is no longer open.");
      }else{
        if(field==="activityEndAt"){
          const nextCutoff=new Date(changes.activityEndAt);
@@ -364,10 +367,10 @@ export async function handleGuidedStaffAction(i){
        }
        updated=await Giveaway.findOneAndUpdate({_id:event._id,guildId:i.guildId,status:"open"},
          {$set:changes},{returnDocument:"after"}).lean();
-       if(!updated)return i.editReply("Another staff member already ended this giveaway.");
+       if(!updated)return finishTemporaryAction(i,"Another staff member already ended this giveaway.");
      }
      const refreshed=await refreshPublished(i.client,updated);
-     return i.editReply("Updated **"+GUIDED_EDIT_FIELDS.find(x=>x.value===field).label+
+     return finishTemporaryAction(i,"Updated **"+GUIDED_EDIT_FIELDS.find(x=>x.value===field).label+
        "** for this activity. "+(criteriaFields.has(field)?
        "Counting restarted now; previous activity no longer qualifies. ":"Future repeats are unchanged. ")+
        (refreshed?"":"A Discord post may need the next refresh."));
@@ -381,8 +384,8 @@ export async function handleGuidedStaffAction(i){
        "**Cancel this giveaway?** It will close without choosing winners or awarding prizes. The public activity listing will be removed. Future repeats will continue.",
        components:[confirmRow(id,action)],allowedMentions:{parse:[]}});
    }
-   if(!["confirmend","confirmcancel"].includes(action))return i.editReply("Unsupported action.");
-   if(event.status!=="open")return i.editReply("Another staff member has already finished or cancelled this activity.");
+   if(!["confirmend","confirmcancel"].includes(action))return finishTemporaryAction(i,"Unsupported action.");
+   if(event.status!=="open")return finishTemporaryAction(i,"Another staff member has already finished or cancelled this activity.");
    const now=new Date();
    const roster=await activityRoster(event,null,i.guild);
    const eligible=roster.filter(row=>row.qualified).map(row=>row._id);
@@ -391,7 +394,7 @@ export async function handleGuidedStaffAction(i){
        activityEndAt:now,customActivityEndAt:now,entrantIds:eligible,
        activityCandidateCount:roster.length,activityCheckedAt:now,
        staffEndedEarly:true,staffEndedBy:i.user.id}},{returnDocument:"after"}).lean();
-   if(!updated)return i.editReply("This giveaway has already been changed.");
+   if(!updated)return finishTemporaryAction(i,"This giveaway has already been changed.");
    let final=updated,publication="Results saved.";
    try{
      if(updated.requireStaffReview){

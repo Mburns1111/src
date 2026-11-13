@@ -147,3 +147,21 @@ Discord checklist:
 5. Create a short Trial and let it finish. The winner's ticket form must accept only their claim and privately display it to staff. A second member cannot submit on their behalf. Verify automatic replacement (when enabled), saved history, and a Trial without remaining eligible replacements.
 6. Re-open each setup and change one setting; verify unrelated features and historical giveaway/Trial records are unchanged.
 7. Test restart recovery. Do not merge or deploy to production without explicit authorization.
+
+
+## Setup button ordering and colors
+
+Across **General**, **Hatchem/Cards**, **Regular Giveaways**, **Activity Giveaways**, and **Court's Trials**, the **Keep Current** (including **Keep**, **Keep Saved**, and **Keep selected channel**) button is the **first button** in its step and is **blue**. Any explicitly labeled **Default / Use Default** choice is also **blue**. This applies to giveaway creation wizards as well as the server configuration setups. The behavior of each button, menu, selected configuration, Save/Confirm action, and Cancel action is unchanged; green still indicates posting/saving and red indicates cancellation where previously used.
+
+## Regular giveaway display template
+
+The **/setup giveaways** final review contains **Edit Giveaway Display**. The button opens an embed preview and controls for the two **embed titles** (open and winners) and two **fox story texts** (entry and winner). Select Edit to open the Discord input modal and see the refreshed preview, or Default to restore the original text. Toggle **Preview Open / Preview Winners** to compare states. **Confirm Text** returns to setup review; **Save Settings** is required to persist the new server defaults. Discard never saves edits. New regular giveaways inherit the saved template and preserve it as a snapshot; older giveaways, activity giveaways, and Trials are unaffected. The per-event `/giveaway start` wizard has no display editor.
+
+## Shared giveaway winners channel
+
+**/setup giveaways** now includes a **Giveaway Winners** channel step immediately after **Giveaway List**. It is the same channel saved under **/setup activity-giveaways**, not a second destination: both setup flows can update it. Regular giveaways begin in Giveaway List; after drawing, their completed embed is reposted to Giveaway Winners, the database's canonical message link is updated, and the original entry post is deleted. Winner claim buttons and rerolls remain available in the new location. A failed migration retries on restart instead of losing the giveaway; no results ping is sent.
+
+
+## Temporary setup menu cleanup
+
+Every guided setup/creation flow (General, Hatchem, Regular Giveaways, Activity Giveaways and Court's Trials) automatically clears the buttons/select menus from its **previous prompt** after posting the next step. The last prompt is also cleared upon completion/cancellation. Earlier text/preview history remains visible. Permanent public entry/claim messages, permanent staff directory controls and other unrelated messages are intentionally excluded so members never lose their live buttons. The winner cooldown manager uses one replaceable ephemeral member-selection menu rather than stacking an active old dropdown beneath a newer member panel.

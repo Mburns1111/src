@@ -1,11 +1,12 @@
 import {activeActivityParticipants} from "./activity-participation.js";
 import {configuredGiveawayBanRole,memberPassesGiveawayBan} from "./giveaway-exclusion.js";
-import {giveawayUsesCooldown,activeGiveawayCooldownIds} from "./giveaway-cooldowns.js";
+import {giveawayUsesCooldown,activeGiveawayCooldownIds,activeCooldownFor} from "./giveaway-cooldowns.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {renderRegularDisplayText,cleanRegularDisplayTitle} from "./giveaway-display-text.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
@@ -96,15 +97,22 @@ export function giveawayAnnouncement(record) {
         ? `🦊 **The fox cackles:** "My clever helpers pulled off the great pocket heist! We snatched the prizes right out of <@${record.creatorId}>'s pocket. Not a whisker out of place!"`
         : `🦊 **The fox sighs:** "No accomplice showed up, so the prize stays tucked in <@${record.creatorId}>'s pocket. Foiled again!"`
     : `🦊 **The fox whispers:** "Psst! I spotted something shiny in <@${record.creatorId}>'s pocket. Enter below and you might be the accomplice I need to swipe the prize!"`;
+  const customStory=record.mode==="standard"?
+    (ended && activeWinners.length?record.displayWinnerText:
+      !ended?record.displayEntryText:""):"";
+  const displayStory=customStory?
+    renderRegularDisplayText(customStory,{hostId:record.creatorId,winnerIds:activeWinners}):foxStory;
   const lines = [
     `**${String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)}**`,"",
-    foxStory,
+    displayStory,
     "",
     record.prize.slice(0, 1800),
     ...(record.description ? ["", "**Giveaway Details:**", String(record.description).slice(0,1000)] : []),
     "",
     `**Hosted by:** <@${record.creatorId}>`,
     ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Eligible winners:** ${activeWinners.length}` : activity ? `**Locked entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
+    ...(!ended && record.mode==="standard" && giveawayUsesCooldown(record)?
+      ["**Winner cooldown:** Members with an active cooldown cannot enter this giveaway."]:[]),
     ended
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
@@ -145,7 +153,7 @@ export function giveawayAnnouncement(record) {
   const description = lines.join("\n").slice(0, 4000);
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x86738d : 0xb47e99)
-    .setTitle(ended ? (noEligibleWinner ? "🦊 Giveaway Ended · No Eligible Winner" : "🦊 Heist Complete") : "🦊 The Fox’s Giveaway")
+    .setTitle(ended ? (record.mode==="standard" && !noEligibleWinner && record.displayEndedTitle ? cleanRegularDisplayTitle(record.displayEndedTitle) : "🦊 Heist Complete") : (record.mode==="standard" && record.displayOpenTitle ? cleanRegularDisplayTitle(record.displayOpenTitle) : "🦊 The Fox’s Giveaway"))
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
   if(ended && record.status==="ended" && (record.winnerIds||[]).length){
@@ -197,6 +205,27 @@ export async function giveawayAnnouncementWithBanner(record) {
 }
 
 export async function joinGiveaway({ id, guildId, userId, mode = "standard", now = new Date() }) {
+  // When staff enabled cooldown checks for a regular giveaway, refuse the
+  // signup before inserting an entry. The draw-time check remains in place
+  // for participants who become cooled down after joining.
+  if(mode==="standard"){
+    const current=await Giveaway.findOne({_id:id,guildId})
+      .select("mode status endsAt winnerCooldownEnabled entrantIds").lean();
+    if(current?.status==="open"&&new Date(current.endsAt)>now&&giveawayUsesCooldown({
+      ...current,mode:"standard"
+    })){
+      const active=await activeCooldownFor(guildId,userId,{now});
+      if(active){
+        // Clean up an older entry if the cooldown was applied after signup.
+        if(current.entrantIds?.includes(userId))
+          await Giveaway.updateOne({
+            _id:id,guildId,mode:"standard",status:"open",
+            winnerCooldownEnabled:true,entrantIds:userId,
+          },{$pull:{entrantIds:userId}});
+        return "cooldown";
+      }
+    }
+  }
   const updated = await Giveaway.updateOne({
     _id: id, guildId, status: "open", endsAt: { $gt: now },
     ...(mode === "survival" ? { mode: "survival", [`entrantIds.${MAX_TRIAL_ENTRANTS - 1}`]: { $exists: false } } : { mode: "standard" }),
@@ -378,6 +407,81 @@ export async function finishPendingReroll(item,{client=null,now=new Date()}={}) 
   return changed || Giveaway.findById(item._id).lean();
 }
 
+// Discord messages cannot move between channels. Repost the same giveaway result
+// in Giveaway Winners, atomically update its canonical message location, and
+// remove the original entry post. The original post coordinates are retained
+// until deletion succeeds, so a crash can resume without duplicate winners.
+async function regularResultsDestination(item){
+  if(item.resultChannelId)return item.resultChannelId;
+  // Backward compatibility for giveaways created before the results-channel
+  // snapshot existed. Old servers with no configured results channel retain
+  // their existing in-place completion behavior.
+  const query=GuildConfig.findOne({guildId:item.guildId});
+  const config=typeof query?.then==="function"?await query:
+    query?.select?await query.select("activityGiveawayWinnersChannelId").lean():
+    query?.lean?await query.lean():await query;
+  return config?.activityGiveawayWinnersChannelId||"";
+}
+async function findRegularResultPost(channel,client,item){
+  const messages=await channel.messages.fetch({limit:100});
+  return messages.find(message=>message.author?.id===client.user?.id &&
+    message.embeds?.some(embed=>
+      embed.footer?.text?.includes("Giveaway ID: "+item._id)))||null;
+}
+export async function relocateRegularGiveawayResult(client,item){
+  if(item?.mode!=="standard"||item.status!=="ended"||!item.messageId||
+     item.publicListingRemovedAt)return item;
+  const destinationId=await regularResultsDestination(item);
+  if(!destinationId||destinationId===item.channelId)return item;
+  if(item.listMessageId)throw Error("Giveaway result transfer has a pending source post in a different channel.");
+  const channel=await client.channels.fetch(destinationId);
+  if(!channel?.send||!channel.messages?.fetch)
+    throw Error("Configured Giveaway Winners channel is unavailable or cannot receive posts.");
+  let destination=await findRegularResultPost(channel,client,item);
+  let created=false;
+  if(!destination){
+    destination=await channel.send(await giveawayAnnouncementWithBanner(item));
+    created=true;
+  }
+  const fields={
+    channelId:destinationId,messageId:destination.id,resultChannelId:destinationId,
+    listChannelId:item.channelId,listMessageId:item.messageId,renderedAt:null,
+  };
+  // A second draw/retry can race with this transfer; only one writer may adopt
+  // the new destination. Its independently sent duplicate is removed.
+  const saved=await Giveaway.updateOne({
+    _id:item._id,guildId:item.guildId,mode:"standard",status:"ended",
+    channelId:item.channelId,messageId:item.messageId,
+    renderVersion:item.renderVersion,
+  },{$set:fields});
+  if(saved?.matchedCount===0){
+    if(created)await destination.delete().catch(error=>
+      console.error("[Giveaways] Duplicate results post cleanup failed:",error));
+    throw Error("Giveaway results moved concurrently; the bot will refresh the saved destination.");
+  }
+  return {...item,...fields};
+}
+export async function cleanupRegularGiveawayListPost(client,item){
+  if(item?.mode!=="standard"||!item.listChannelId||!item.listMessageId)return false;
+  const channel=await client.channels.fetch(item.listChannelId);
+  if(!channel?.messages?.fetch)throw Error("Original Giveaway List channel is inaccessible.");
+  const message=await channel.messages.fetch(item.listMessageId).catch(error=>{
+    if(error.code===10008)return null;
+    throw error;
+  });
+  if(message?.author?.id!==undefined && message.author.id!==client.user?.id)
+    throw Error("Original Giveaway List message belongs to another user or bot.");
+  if(message)await message.delete();
+  // Store cleanup completion only after the original was actually removed.
+  const cleared=await Giveaway.updateOne({
+    _id:item._id,mode:"standard",status:"ended",
+    channelId:item.channelId,messageId:item.messageId,
+    listChannelId:item.listChannelId,listMessageId:item.listMessageId,
+  },{$set:{listChannelId:"",listMessageId:"",listFingerprint:""}});
+  if(cleared?.matchedCount===0)
+    throw Error("The completed giveaway listing changed while cleaning up; the bot will retry.");
+  return true;
+}
 export async function publishGiveawayResult(client, item) {
   if(item && !["draft","publishing","failed"].includes(item.status)){
     try{await ensureGiveawayStaffRecord(client,item);}
@@ -417,16 +521,23 @@ export async function publishGiveawayResult(client, item) {
     return true;
   }
   if (!item?.messageId || !["ended", "open"].includes(item.status)) return false;
-  const channel = await client.channels.fetch(item.channelId);
+  const record=item.status==="ended"?await relocateRegularGiveawayResult(client,item):item;
+  const channel = await client.channels.fetch(record.channelId);
   if (!channel?.messages?.fetch) throw Error("Giveaway channel is inaccessible.");
-  const message = await channel.messages.fetch(item.messageId);
+  const message = await channel.messages.fetch(record.messageId);
   if (message.author?.id !== client.user?.id) throw Error("Giveaway message is not authored by this bot.");
-  await message.edit(await giveawayAnnouncementWithBanner(item));
-  if (item.status === "ended") {
+  await message.edit(await giveawayAnnouncementWithBanner(record));
+  if (record.status === "ended") {
+    // Do not mark the render finished until old signup post cleanup succeeded.
+    await cleanupRegularGiveawayListPost(client,record);
     await Giveaway.updateOne(
-      { _id: item._id, status: "ended", renderVersion: item.renderVersion },
+      { _id: record._id, status: "ended", renderVersion: record.renderVersion },
       { $set: { renderedAt: new Date() } },
     );
+    if(record.channelId!==item.channelId||item.listMessageId){
+      try{await ensureGiveawayStaffRecord(client,{...record,listChannelId:"",listMessageId:""});}
+      catch(error){console.error("[Giveaways] Private staff link update failed:",record._id,error);}
+    }
   }
   return true;
 }

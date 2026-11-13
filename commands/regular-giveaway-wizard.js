@@ -4,6 +4,8 @@ import {
   StringSelectMenuBuilder,MessageFlags
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {preferSetupButtons} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import {shouldRequestMessageContent} from "../services/observation-intents.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "../services/giveaway-manager-permissions.js";
 import {requirePrivateGiveawayStaffChannel} from "../services/giveaway-staff-records.js";
@@ -16,6 +18,7 @@ import {ensureBannerRegistered,getGiveawayBanner,attachGiveawayBanner}
 import {giveawayAnnouncement,maxRegularGiveawayMinutes} from "../services/giveaways.js";
 import {createRegularGiveaway} from "../services/regular-giveaway-creation.js";
 import {DEFAULT_CLAIM_HOURS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaway-claims.js";
+import {REGULAR_DISPLAY_FIELDS} from "../services/giveaway-display-text.js";
 
 const sessions=new Map();
 const SESSION_MS=30*60_000;
@@ -86,6 +89,7 @@ const summary=(session)=>{
     role?"**Role instructions ("+roleInstructionSource(s)+"):** "+
       (effectiveRoleInstructions(s)||"None"):null,
     "**Rules:** "+(s.rules?safe(s.rules).slice(0,150):"None"),
+    "**Giveaway display template:** Server-wide settings from /setup giveaways, not editable per giveaway.",
     "**Claim deadline:** "+s.claimHours+" hour(s)",
     "**Claim instructions ("+claimInstructionSource(s)+"):** "+effectiveClaimInstructions(s),
     "**Banner:** "+(s.bannerNameKey||"Server default"+(s.serverBannerNameKey?" ("+s.serverBannerNameKey+")":" (none)")),
@@ -169,7 +173,7 @@ function layout(session,banners=[]){
   }
   if(step==="rulesText")content="Type your rules (1–1,200 characters).";
   if(step==="winnerCooldown"){
-    content="Should this giveaway **silently exclude members with an active winner cooldown** when selecting or rerolling winners? "+
+    content="Should this giveaway **block regular entries from members on an active winner cooldown** and also exclude cooled-down members when drawing or rerolling winners? "+
       "A winner cooldown is separate from the required punishment ban role. "+
       "Staff apply cooldowns after confirming prize delivery; they do not start automatically.\n"+
       "Current: **"+(s.winnerCooldownEnabled?"ON":"OFF")+"**";
@@ -224,7 +228,7 @@ function layout(session,banners=[]){
   return {
     content:"**🎁 Regular giveaway creation** · <@"+session.owner+">\n"+
       progress+"\n"+content,
-    components,allowedMentions:{parse:[]},
+    components:preferSetupButtons(components),allowedMentions:{parse:[]},
   };
 }
 async function show(session,step){
@@ -232,8 +236,11 @@ async function show(session,step){
   session.expires=Date.now()+SESSION_MS;
   const banners=["banner","bannerText"].includes(step)?
     await registeredSetupBanners(session.guild.id):[];
+  const previous=session.promptMessage;
   const msg=await session.channel.send(layout(session,banners));
   session.messageId=msg.id;
+  session.promptMessage=msg;
+  await retireGuidedControls(previous,session.channel);
   return msg;
 }
 async function finishStep(session){
@@ -273,6 +280,8 @@ async function preview(session){
   const example={
     _id:session.id,guildId:session.guild.id,creatorId:session.owner,
     title:s.title,prize:s.prize,description:s.description,rules:s.rules,
+    ...Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>[field,
+      session.config["regularGiveaway"+field[0].toUpperCase()+field.slice(1)]||""])),
     mode:"standard",status:"open",winnerCount:s.winners,
     winnerCooldownEnabled:s.winnerCooldownEnabled,
     endsAt:new Date(Date.now()+s.minutes*60000),entrantIds:[],
@@ -310,13 +319,16 @@ async function post(session,client){
       "\nMembers can enter in the public giveaway channel. The private staff record will track the event.",
     allowedMentions:{parse:[]},
   });
+  await retireGuidedControls(session.promptMessage,session.channel);
 }
 async function apply(session,action,value,client){
   const s=session.settings,step=session.step;
   if(action==="cancel"){
     sessions.delete(session.key);
-    return session.channel.send({content:"Regular giveaway setup cancelled. Nothing was published.",
+    await session.channel.send({content:"Regular giveaway setup cancelled. Nothing was published.",
       allowedMentions:{parse:[]}});
+    await retireGuidedControls(session.promptMessage,session.channel);
+    return;
   }
   if(action==="back")return goBack(session);
   if(step==="review"){
