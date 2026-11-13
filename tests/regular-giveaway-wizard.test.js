@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {PermissionFlagsBits} from "discord.js";
+import {PermissionFlagsBits,ButtonStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayBanner from "../models/GiveawayBanner.js";
@@ -145,6 +145,29 @@ test("regular giveaway start has no old slash fields or plan editing subcommands
   assert.ok(!options.some(x=>/^plan-|^prize-(add|edit|remove|move)$/.test(x.name)));
   assert.deepEqual(options.find(x=>x.name==="banner").options.map(x=>x.name),
     ["save","list","default","clear","remove"]);
+});
+
+test("regular giveaway server-default actions render as blue primary buttons",async()=>{
+  try{
+    const h=await harness();
+    await h.type("Blue button test");
+    await h.type("Test prize");
+    await h.select("clearDescription");
+    await h.select("minutes:2");
+    await h.select("winners:1");
+    const style=action=>h.controls().find(c=>c.custom_id?.endsWith(":"+action))?.style;
+    assert.equal(style("roleDefault"),ButtonStyle.Primary);
+    await h.select("roleDefault");
+    assert.equal(style("roleHelpDefault"),ButtonStyle.Primary);
+    await h.select("keep");
+    await h.select("clearRules");
+    await h.select("cooldownOff");
+    await h.select("claim:1");
+    assert.equal(style("claimDefault"),ButtonStyle.Primary);
+    await h.select("claimDefault");
+    assert.equal(style("bannerDefault"),ButtonStyle.Primary);
+    await h.select("cancel");
+  }finally{restore();}
 });
 
 test("guided regular giveaway posts only after review and produces regular entry buttons",async()=>{
