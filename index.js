@@ -90,6 +90,7 @@ import {
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton, handleGiveawayClaimModal } from "./commands/giveaway.js";
 import { reconcileGiveaways } from "./services/giveaways.js";
+import {reconcileOpenCooldownEntries} from "./services/giveaway-cooldowns.js";
 import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
 import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
 import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
@@ -442,6 +443,7 @@ client.once(Events.ClientReady, async (readyClient) => {
     try {
       await openDueActivities();
       await reconcileGiveawayPlans(readyClient);
+      await reconcileOpenCooldownEntries();
       await reconcileGiveaways(readyClient);
       await reconcilePendingGiveawayReviews(readyClient);
       await reconcileGiveawayClaims(readyClient);
