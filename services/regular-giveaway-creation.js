@@ -1,4 +1,5 @@
 import Giveaway from "../models/Giveaway.js";
+import {cleanRegularDisplayText} from "./giveaway-display-text.js";
 import {getConfiguredTextChannelAndConfig} from "../commands/shared.js";
 import {requirePrivateGiveawayStaffChannel,ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import {sharedGiveawayPingRoleId} from "./giveaway-notification-roles.js";
@@ -28,6 +29,8 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
   const prize=nonempty(settings.prize,"Prize",1500,2);
   const description=String(settings.description||"").trim();
   const rules=String(settings.rules||"").trim();
+  const displayEntryText=cleanRegularDisplayText(settings.displayEntryText);
+  const displayWinnerText=cleanRegularDisplayText(settings.displayWinnerText);
   if(description.length>1000)throw Error("Giveaway description must be 1,000 characters or fewer.");
   if(rules.length>1200)throw Error("Giveaway rules must be 1,200 characters or fewer.");
   const minutes=integer(settings.minutes,"Giveaway duration",1,maxRegularGiveawayMinutes());
@@ -61,6 +64,7 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
   const bannerNameKey=await ensureBannerRegistered(guildId,settings.bannerNameKey||"");
   const values={
     guildId,channelId:channel.id,creatorId,title,prize,description,rules,
+    displayEntryText,displayWinnerText,
     endsAt:new Date(Date.now()+minutes*60000),winnerCount:winners,
     claimWindowHours:claimHours,claimWindowMinutes:null,
     autoRerollClaims:true,
