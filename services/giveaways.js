@@ -372,9 +372,25 @@ export async function finishPendingReroll(item,{client=null,now=new Date()}={}) 
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
   const eligible=item.pendingRerollEligibleIds?.length ? item.pendingRerollEligibleIds :
     (item.activityVerifiedIds?.length ? item.activityVerifiedIds : item.entrantIds||[]);
-  const cooling=giveawayUsesCooldown(item)?
-    await activeGiveawayCooldownIds(item.guildId,eligible,{now}):new Set();
-  const fresh=eligible.filter(userId=>!cooling.has(String(userId)));
+  // A pending reroll may survive a restart. Never trust the saved eligible
+  // list alone: membership, ban roles and activity opt-in can all change.
+  if(item.mode==="activity"&&!client)
+    throw Error("Activity reroll recovery requires current Discord membership checks.");
+  let fresh=[...new Set(eligible.map(String))];
+  if(client){
+    const members=await verifyServerMembers(client,item.guildId,fresh,{includeMembers:true});
+    const bannedRole=await configuredGiveawayBanRole(item.guildId);
+    const optedIn=item.mode==="activity"?
+      await activeActivityParticipants(item.guildId,fresh):null;
+    fresh=members.filter(member=>memberPassesGiveawayBan(member,bannedRole)&&
+      (item.mode!=="activity"||optedIn.has(String(member.id)))&&
+      (item.mode==="activity"||!item.requiredRoleId||
+        member.roles?.cache?.has(item.requiredRoleId))).map(m=>String(m.id));
+  }
+  if(giveawayUsesCooldown(item)){
+    const cooling=await activeGiveawayCooldownIds(item.guildId,fresh,{now});
+    fresh=fresh.filter(id=>!cooling.has(id));
+  }
   const replacementId=pickWeightedUnique(fresh,1,item.entryWeights,used)[0];
   if(!replacementId){
     // Between the reservation and completion (or a bot restart), the final
