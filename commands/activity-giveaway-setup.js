@@ -43,7 +43,7 @@ const key=(channel,user)=>channel+":"+user;
 const steps=["list","winners","staff","managerRole","excludedRole","instructions","hours","rerolls","roles","empty","banner","review"];
 const regularSteps=["regularChannel","winners","staff","managerRole","excludedRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
 const stepsFor=session=>session.mode==="regular"?regularSteps:steps;
-const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",archive:"Private giveaway archive",
+const stepName={list:"Public giveaway listings",winners:"Giveaway Winners channel",staff:"Private staff controls",archive:"Private giveaway archive",
   regularChannel:"Regular giveaway posts",managerRole:"Giveaway Manager role",
   excludedRole:"Required Giveaway Banned role",
   requiredRole:"Default regular entry role",roleHelp:"Where to get required roles",
