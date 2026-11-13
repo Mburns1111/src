@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import {preferSetupChoices,setupButtonStyle} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import {ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags} from "discord.js";
 import GiveawayBanner from "../models/GiveawayBanner.js";
 import GuildConfig from "../models/GuildConfig.js";
@@ -197,7 +199,7 @@ async function show(session,step){
       "\nThere are no saved banners yet; use Upload New Banner to register one now.";
   }
   if(step==="summary")content=describeActivityWizard(session);
-  const controls=[...(choices||[])];
+  const controls=preferSetupChoices([...(choices||[])]);
   if(step==="bannerPick")controls.push(["Upload New Banner","bannerRegister"]);
   if(["bannerPick","bannerName","bannerUpload"].includes(step))
     controls.push(["Back to banner choices","bannerOptions"],["Back to preview","bannerBack"]);
@@ -205,13 +207,15 @@ async function show(session,step){
   const components=[];
   for(let n=0;n<controls.length;n+=5)components.push(new ActionRowBuilder().addComponents(
     controls.slice(n,n+5).map(([label,value])=>new ButtonBuilder().setCustomId('activitysetup:'+session.id+':'+value)
-      .setLabel(label).setStyle(value==="create"||value==="done"?ButtonStyle.Success:
-        ["claimDefault","bannerDefault"].includes(value)?ButtonStyle.Primary:ButtonStyle.Secondary))));
+      .setLabel(label).setStyle(setupButtonStyle(label,value,
+         value==="create"||value==="done"?ButtonStyle.Success:ButtonStyle.Secondary)))));
   const payload=step==="summary"?{embeds:[{description:content}]}:{content};
   const message=await session.channel.send({...payload,content:'**Activity setup** · <@'+session.owner+'>\n'+(payload.content||""),components,allowedMentions:{parse:[]}});
-  Object.assign(session,{step,messageId:message.id,choices:controls.map(x=>x[1]),
+  const previous=session.promptMessage;
+  Object.assign(session,{step,messageId:message.id,promptMessage:message,choices:controls.map(x=>x[1]),
     acceptText:!choices?.length || ["minimum","days","claim","bannerPick","details"].includes(step),
     expires:Date.now()+30*60000});
+  await retireGuidedControls(previous,session.channel);
 }
 async function configFor(guild,channelId){
   const c=await GuildConfig.findOne({guildId:guild.id}).lean();
@@ -220,7 +224,7 @@ async function configFor(guild,channelId){
     throw Error("Configure the bot commands channel with /setup general first.");
   if(channelId!==c.commandChannelId)
     throw Error("Start /giveaway activity in <#"+c.commandChannelId+">, not the private giveaway staff channel.");
-  for(const [field,label] of [["activityGiveawayListChannelId","activity_giveaway_list"],["activityGiveawayWinnersChannelId","Giveaway Winners"],["activityGiveawayReviewChannelId","activity_review"]]){
+  for(const [field,label] of [["activityGiveawayListChannelId","activity_giveaway_list"],["activityGiveawayWinnersChannelId","activity_winners"],["activityGiveawayReviewChannelId","activity_review"]]){
     const channel=c?.[field]&&await guild.channels.fetch(c[field]);
     if(!channel?.send)throw Error("Use /setup activity-giveaways to set the "+label+" channel first.");
     if(label==="activity_review" && channel.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
@@ -260,7 +264,8 @@ async function accept(session,input,client){
   const done=next=>finishGroup(session,next);
   const dayStep=()=>windowEnd(s,now)-now>24*hour?"days":(s.days=1,done("filters"));
   if(/^cancel setup$/i.test(v)){
-    sessions.delete(session.key); return session.channel.send("Setup cancelled.");
+    sessions.delete(session.key);await session.channel.send("Setup cancelled.");
+    await retireGuidedControls(session.promptMessage,session.channel);return;
   }
   if(v==="bannerBack"){session.editing=false;return show(session,"summary");}
   if(v==="bannerOptions")return show(session,"banner");
@@ -407,7 +412,9 @@ async function accept(session,input,client){
       const record=await createGuidedActivity(session.id,session.guild.id,s,start);
       sessions.delete(session.key);
       const posts=await Promise.allSettled([publishActivityOneOffListing(client,record),ensureStaffCard(client,record)]);
-      return session.channel.send('Activity created. Counting ends '+stamp(record.activityEndAt)+'. '+(posts.every(p=>p.status==="fulfilled")?'The activity list and staff cards are ready.':'The bot will retry any missing channel post.'));
+      await session.channel.send('Activity created. Counting ends '+stamp(record.activityEndAt)+'. '+(posts.every(p=>p.status==="fulfilled")?'The activity list and staff cards are ready.':'The bot will retry any missing channel post.'));
+      await retireGuidedControls(session.promptMessage,session.channel);
+      return;
     }
   }
   return show(session,next);
@@ -426,7 +433,7 @@ export async function wizardButton(i){
   if(!session || session.expires<Date.now() || session.id!==id || session.messageId!==i.message.id || !session.choices.includes(value))
     return i.reply({content:"Only the staff member who started this setup can use its current prompt.",flags:MessageFlags.Ephemeral});
   await i.deferUpdate();
-  if(value==="cancel"){sessions.delete(session.key);return session.channel.send("Setup cancelled.");}
+  if(value==="cancel"){sessions.delete(session.key);await session.channel.send("Setup cancelled.");await retireGuidedControls(session.promptMessage,session.channel);return;}
   return respond(session,value,i.client);
 }
 // Read attachment-only uploads for banner registration; other steps use the message text.
