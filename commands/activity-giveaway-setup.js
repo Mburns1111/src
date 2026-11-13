@@ -236,17 +236,47 @@ function layout(session,banners=[]) {
      "Type a name in the same message as the image if you want; otherwise its filename becomes its name. "+
      "The bot will register it for future giveaways and select it as the default. "+
      "Uploading with an existing name replaces that banner's stored image.";
+ }else if(step==="displayEditor"){
+   if(session.mode!=="regular"||!session.displayDraft)throw Error("Display text editor is unavailable.");
+   const d=session.displayDraft;
+   content="**Regular giveaway display template** — previewing the "+
+     (session.displayPreviewWinner?"winner announcement":"open giveaway")+
+     ".\nEdit any title or story using the buttons below. The embedded preview updates as you change it. "+
+     "Use Default to restore a section.\n\n"+
+     "**Customized sections:** "+(REGULAR_DISPLAY_FIELDS.filter(field=>d[serverDisplayField(field)])
+       .map(field=>displayLabels[field]).join(", ")||"None (built-in fox wording)")+
+     "\n\n**Confirm Text** accepts this draft. **Save Settings** on the final setup review makes it the server default.";
+   embeds=regularGiveawayDisplayPreview(d,{winner:session.displayPreviewWinner,previewUserId:session.owner}).embeds;
+   components.push(row(session.id,[
+     ["Edit Open Title","displayEdit:displayOpenTitle"],
+     ["Edit Winner Title","displayEdit:displayEndedTitle"],
+     ["Edit Entry Story","displayEdit:displayEntryText"],
+     ["Edit Winner Story","displayEdit:displayWinnerText"]
+   ]));
+   components.push(row(session.id,[
+     ["Default Open Title","displayDefault:displayOpenTitle"],
+     ["Default Winner Title","displayDefault:displayEndedTitle"],
+     ["Default Entry Story","displayDefault:displayEntryText"],
+     ["Default Winner Story","displayDefault:displayWinnerText"]
+   ]));
+   components.push(row(session.id,[
+     ["Preview Open","displayPreviewOpen",ButtonStyle.Primary],
+     ["Preview Winners","displayPreviewWinner",ButtonStyle.Primary]
+   ]));
+   components.push(row(session.id,[["Confirm Text","displayConfirm",ButtonStyle.Success],
+     ["Discard Changes","displayDiscard"]]));
  }else if(step==="review"){
    content=describeActivityGiveawaySetup(s,{updateExisting:session.updateExisting,mode:session.mode});
    components.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
      .setCustomId(bind(session,"edit")).setPlaceholder("Edit a setup setting")
      .addOptions(stepsFor(session).filter(x=>x!=="review").map(v=>({label:stepName[v],value:v})))));
    components.push(row(session.id,[["Preview Winner Announcement","preview"],["Edit Claim Instructions","editClaims"],
+     ...(session.mode==="regular"?[["Edit Giveaway Display","displayOpen",ButtonStyle.Secondary]]:[]),
      ["Apply to Existing: "+(session.updateExisting?"ON":"OFF"),"toggleExisting"]]));
    components.push(row(session.id,[["Save Settings","save",ButtonStyle.Success],["Cancel Setup","cancel",ButtonStyle.Danger]]));
  }
- if(step!=="review")components.push(row(session.id,[["Back","back"],["Cancel Setup","cancel",ButtonStyle.Danger]]));
- return {content:title+content,components:preferSetupButtons(components),allowedMentions:{parse:[]}};
+ if(step!=="review"&&step!=="displayEditor")components.push(row(session.id,[["Back","back"],["Cancel Setup","cancel",ButtonStyle.Danger]]));
+ return {content:title+content,...(embeds?{embeds}:{}),components:preferSetupButtons(components),allowedMentions:{parse:[]}};
 }
 async function show(session,step){
  session.step=step;session.expires=Date.now()+expiry;
@@ -254,6 +284,7 @@ async function show(session,step){
    await registeredSetupBanners(session.guild.id):[];
  const message=await session.channel.send(layout(session,banners));
  session.messageId=message.id;
+ session.message=message;
 }
 function after(session,step){
  const nextStep=session.fromReview?"review":step;
