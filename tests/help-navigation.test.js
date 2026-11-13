@@ -81,7 +81,7 @@ test("approved help content includes core requirements and public claim instruct
  assert.equal(fields(helpTopicPayload("sgames",userId)).length,2);
  assert.doesNotMatch(textOf("sgames"),/Court's Trials/);
  assert.match(textOf("cards"),/not affiliated with, endorsed by, or sponsored by Roblox or Adopt Me/);
- assert.match(textOf("giveaways"),/button below the winner announcement before the claim deadline/);
+ assert.match(textOf("giveaways"),/button below their winner announcement before the claim deadline/);
  assert.doesNotMatch(textOf("games"),/Court's Trials/);
 });
 test("all help embeds respect Discord field and overall size limits",()=>{
