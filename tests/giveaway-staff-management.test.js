@@ -127,3 +127,21 @@ test("End Early staff button requires confirmation and manual reroll selector hi
   assert.ok(answers[1].components.some(r=>r.components.some(b=>b.data.custom_id==="giveawaystaff:confirmend:"+id)));
  }finally{Giveaway.findOne=prior;}
 });
+
+test("canceling an ephemeral End Early prompt removes its buttons but leaves the permanent staff card alone",async()=>{
+ const prior=Giveaway.findOne;
+ const calls=[];
+ try{
+  Giveaway.findOne=()=>({lean:async()=>example()});
+  await handleGiveawayStaffAction({
+   customId:"giveawaystaff:abort:"+id,
+   guildId,channelId:staffId,user:{id:userId},
+   memberPermissions:{has:()=>true},
+   message:{id:"999999999999999999",flags:{has:flag=>flag===MessageFlags.Ephemeral}},
+   client:{user:{id:"bot"}},
+   update:async payload=>calls.push(["update",payload]),
+   reply:async payload=>calls.push(["reply",payload])
+  });
+  assert.deepEqual(calls,[["update",{content:"No changes made.",components:[]}]]);
+ }finally{Giveaway.findOne=prior;}
+});
