@@ -29,6 +29,9 @@ const giveawaySchema = new mongoose.Schema({
   title: { type: String, required: true },
   prize: { type: String, required: true },
   description: { type: String, default: "", maxlength: 1000 },
+  // Optional story lines only for ordinary manual-entry giveaways.
+  displayEntryText: { type: String, default: "", maxlength: 400 },
+  displayWinnerText: { type: String, default: "", maxlength: 400 },
   rules: { type: String, default: "" },
   claimWindowHours: { type: Number, default: null, min: 1, max: 720 },
   // Court\'s Trial claim windows are set in minutes; old saved trial hour values stay valid.
