@@ -104,7 +104,8 @@ test("staff-wide cooldown manager lists active members and supports expiry corre
   patch(GiveawayWinnerCooldown,"find",()=>({
    sort:()=>({skip:()=>({limit:()=>({lean:async()=>[active]})})}),
   }),backups);
-  patch(GiveawayWinnerCooldown,"findOne",()=>({lean:async()=>active}),backups);
+  let activeRecord=active;
+  patch(GiveawayWinnerCooldown,"findOne",()=>({lean:async()=>activeRecord}),backups);
   patch(GiveawayWinnerCooldown,"findOneAndUpdate",(filter,update)=>({lean:async()=>{
    if(update.$push.history.action==="adjust")corrected=update;
    if(update.$push.history.action==="remove")removed=update;
@@ -116,17 +117,28 @@ test("staff-wide cooldown manager lists active members and supports expiry corre
   assert.equal(list.responses.reply.components[0].components[0].toJSON().custom_id,"giveawaydir:cooldownmember");
   const member=makeAction({customId:"giveawaydir:cooldownmember",values:[a]});
   await handleGiveawayCooldownDirectoryAction(member.i);
-  assert.equal(member.responses.reply.components[0].components[0].toJSON().label,"Correct Expiry");
+  const buttons=member.responses.reply.components[0].components.map(b=>b.toJSON());
+  assert.deepEqual(buttons.map(b=>b.label),["Edit Cooldown","Remove Cooldown"]);
+  assert.deepEqual(buttons.map(b=>b.custom_id),[
+   "giveawaydir:cooldownedit:"+a,"giveawaydir:cooldownremove:"+a,
+  ]);
+  const noActive=makeAction({customId:"giveawaydir:cooldownmember",values:[b]});
+  activeRecord=null;
+  await handleGiveawayCooldownDirectoryAction(noActive.i);
+  assert.match(noActive.responses.reply.content,/no active winner cooldown/);
+  assert.equal(noActive.responses.reply.components,undefined);
+  activeRecord=active;
   const edit=makeAction({customId:"giveawaydir:cooldownedit:"+a});
   await handleGiveawayCooldownDirectoryAction(edit.i);
-  assert.match(edit.responses.modal.toJSON().title,/Correct Cooldown/);
+  assert.match(edit.responses.modal.toJSON().title,/Edit Winner Cooldown/);
   const input=makeAction({customId:"giveawaydir:cooldowneditdays:"+a,
    fields:{getTextInputValue:()=> "3"}});
   await handleGiveawayCooldownDirectoryAction(input.i);
-  assert.match(input.responses.reply.content,/Confirm staff correction/);
+  assert.match(input.responses.reply.content,/Confirm cooldown edit/);
   const apply=makeAction({customId:"giveawaydir:cooldownconfirmedit:"+a+":3"});
   await handleGiveawayCooldownDirectoryAction(apply.i);
   assert.equal(corrected.$push.history.action,"adjust");
+  assert.match(apply.responses.edit,/Cooldown updated/);
   const remove=makeAction({customId:"giveawaydir:cooldownconfirmremove:"+a});
   await handleGiveawayCooldownDirectoryAction(remove.i);
   assert.equal(removed.$push.history.action,"remove");
