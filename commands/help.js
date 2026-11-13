@@ -235,7 +235,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Giveaways & Court's Trials · PUBLIC and PRIVATE",
-    "**Required public channels:**\n• **Regular Giveaways** — Entry posts and results.\n• **Activity Giveaway List** — Posters, progress, and the Opt In / Opt Out participation panel.\n• **Activity Winners** — Winner announcements and claim buttons.\n• **Court's Trials** — Signups, eliminations and Royal Verdicts.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Staff directory, previews, claims and delivery.\n• **Shared Staff Archives** — Assigned once under `/setup general`; stores completed/cancelled giveaway and Scheduled Pings records.\n\n**Required Giveaway Banned role:** Shared punishment across all three giveaway types; overrides entry and activity opt-in. An unbanned member must opt in again.\n\n**Activity opt-in:** MongoDB stores consent; no participation role is required.\n\n**Other roles:** Optional Giveaway Manager, regular entry role, and shared giveaway ping role. No participation role is required.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
+    "**Required public channels:**\n• **Regular Giveaways** — Entry posts and results on the original post.\n• **Activity Giveaway List** — Posters, progress, and the Opt In / Opt Out participation panel.\n• **Giveaway Winners** — Shared regular and activity winner announcements, winner mentions, and ticket claim buttons.\n• **Court's Trials** — Signups, eliminations and Royal Verdicts.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Staff directory, previews, claims and delivery.\n• **Shared Staff Archives** — Assigned once under `/setup general`; stores completed/cancelled giveaway and Scheduled Pings records.\n\n**Required Giveaway Banned role:** Shared punishment across all three giveaway types; overrides entry and activity opt-in. An unbanned member must opt in again.\n\n**Activity opt-in:** MongoDB stores consent; no participation role is required.\n\n**Other roles:** Optional Giveaway Manager, regular entry role, and shared giveaway ping role. No participation role is required.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
    ],
    [
     "6. Bot Permissions",
@@ -243,7 +243,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "7. Setup Order",
-    "First run `/setup general` to assign the required private **Bot Commands** and **Shared Staff Archives** channels and choose your **Server Time Zone**.\n\nSelect **Bot Commands**, **Shared Staff Archives**, and the **Server Time Zone** in `/setup general`. The optional **Scheduled Pings Dashboard** is a private staff channel with permanent management buttons.\n\nThen configure the features you use:\n1. `/setup cards` — Hatchem.\n2. `/setup giveaways` — Regular giveaways, shared Banned role and staff controls (the archive is set in General).\n3. `/setup activity-giveaways` — Activity list, winners, shared settings.\n4. `/setup trials` — Court's Trials.\n\nSet the **required Giveaway Banned role** in the regular or activity giveaway setup before creating any prize giveaways or Trials. Rerun setup to change future defaults.\n\nUse private **Bot Commands** for staff commands; public participation uses buttons."
+    "First run `/setup general` to assign the required private **Bot Commands** and **Shared Staff Archives** channels and choose your **Server Time Zone**.\n\nSelect **Bot Commands**, **Shared Staff Archives**, and the **Server Time Zone** in `/setup general`. The optional **Scheduled Pings Dashboard** is a private staff channel with permanent management buttons.\n\nThen configure the features you use:\n1. `/setup cards` — Hatchem.\n2. `/setup giveaways` — Regular Giveaways, shared Giveaway Winners, Banned role and staff controls (archive is set in General).\n3. `/setup activity-giveaways` — Activity Giveaway List, shared Giveaway Winners, and activity settings.\n4. `/setup trials` — Court's Trials.\n\nSet the **required Giveaway Banned role** in the regular or activity giveaway setup before creating any prize giveaways or Trials. Rerun setup to change future defaults.\n\nUse private **Bot Commands** for staff commands; public participation uses buttons."
    ]
   ]
  ],
@@ -253,7 +253,7 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Choose a Giveaway Type",
-    "• **Regular** — `/giveaway start`: members click **Enter Giveaway**; optional required entry role.\n• **Activity** — `/giveaway activity`: members press **Opt In** at the Activity Giveaway List. Qualifying messages give automatic entry; no entry button or participation role per giveaway.\n• **Court's Trial** — `/trial start`: members join a timed elimination contest.\n\nComplete the matching server setup first. The **required Giveaway Banned role** always blocks participation and prizes across all three; staff cannot disable it per giveaway.\n\n**Winner Cooldown** is a separate, optional **ON/OFF** setting on regular and activity giveaways, default **OFF**. If ON, active cooldowns are silently excluded at drawing and rerolls. Court's Trials ignore cooldowns."
+    "• **Regular** — `/giveaway start`: members click **Enter Giveaway**; optional required entry role.\n• **Activity** — `/giveaway activity`: members press **Opt In** at the Activity Giveaway List. Qualifying messages give automatic entry; no entry button or participation role per giveaway.\n• **Court's Trial** — `/trial start`: members join a timed elimination contest.\n\nComplete the matching server setup first. Both `/setup giveaways` and `/setup activity-giveaways` let staff select the **same Giveaway Winners channel** for regular and activity results. The **required Giveaway Banned role** always blocks participation and prizes across all three; staff cannot disable it per giveaway.\n\n**Winner Cooldown** is a separate, optional **ON/OFF** setting on regular and activity giveaways, default **OFF**. If ON, active cooldowns are silently excluded at drawing and rerolls. Court's Trials ignore cooldowns."
    ],
    [
     "Court's Trials — Fast-Paced Giveaways",
@@ -261,7 +261,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "2. Create and Post",
-    "In private **Bot Commands**, start a guided giveaway and choose a title, prize, description, duration, number of winners and any requirements. Regular giveaways can use a required entry role, show/hide role instructions, and specify rules.\n\n**Activity extras:** Message goals, active days, channel/phrase/mention filters, weighted bonus roles, optional staff approval and repeat schedule. Bonus roles add extra drawing chances (up to +20 per role); **each member can win only once**.\n\nYou can select or upload reusable **banners**, customize ticket-claim instructions and deadlines, and choose Winner Cooldown ON/OFF. A **shared giveaway ping role** can announce new events.\n\nReview the private preview before choosing **Post Giveaway**."
+    "In private **Bot Commands**, start a guided giveaway and choose a title, prize, description, duration, number of winners and any requirements. Regular giveaways can use a required entry role, show/hide role instructions, and specify rules.\n\n**Activity extras:** Message goals, active days, channel/phrase/mention filters, weighted bonus roles, optional staff approval and repeat schedule. Bonus roles add extra drawing chances (up to +20 per role); **each member can win only once**.\n\nYou can select or upload reusable **banners**, customize ticket-claim instructions and deadlines, and choose Winner Cooldown ON/OFF. A **shared giveaway ping role** can announce new events.\n\n**Winner announcements:** Regular giveaways keep their original entry post and also announce winners in **Giveaway Winners**, mentioning the selected members. Activity giveaway winners are announced there too. Winners can submit claims using the buttons on their result announcements.\n\nReview the private preview before choosing **Post Giveaway**."
    ],
    [
     "3. Manage Active Giveaways",
@@ -273,13 +273,13 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Archive a Giveaway",
-    "After current winners submit their ticket claims and receive their prizes, staff select **Confirm Prizes Delivered**, then **Archive Giveaway**. Otherwise, cancel with a reason.\n\n**Apply Cooldown** appears beside Archive for delivered regular/activity giveaways. Privately select one, several or all winners, enter **1–365 days**, preview the expiration and confirm. Time starts at confirmed prize delivery; it survives archiving. Applying a shorter period never reduces a longer existing cooldown.\n\n**On archive:** Regular public giveaway posts are removed; activity winner results and Court's Trial Royal Verdicts stay public. Staff history, claims, delivery, rerolls and settings are preserved privately."
+    "After current winners submit their ticket claims and receive their prizes, staff select **Confirm Prizes Delivered**, then **Archive Giveaway**. Otherwise, cancel with a reason.\n\n**Apply Cooldown** appears beside Archive for delivered regular/activity giveaways. Privately select one, several or all winners, enter **1–365 days**, preview the expiration and confirm. Time starts at confirmed prize delivery; it survives archiving. Applying a shorter period never reduces a longer existing cooldown.\n\n**On archive:** Regular giveaway entry posts are removed; **Giveaway Winners** results for regular and activity giveaways and Court's Trial Royal Verdicts stay public. Staff history, claims, delivery, rerolls and settings are preserved privately."
    ]
   ]
  ],
  "sactivity": [
   "Staff · Track Activity",
-  "Use `/setup activity-giveaways` to choose the public Activity Giveaway List, where the bot maintains its Opt In / Opt Out panel. Create activity giveaways with `/giveaway activity` in private Bot Commands.",
+  "Use `/setup activity-giveaways` to choose the public Activity Giveaway List and the shared **Giveaway Winners** channel, where results from both regular and activity giveaways are announced. The bot maintains its Opt In / Opt Out panel in the Activity Giveaway List. Create activity giveaways with `/giveaway activity` in private Bot Commands.",
   [
    [
     "Activity Participation · REQUIRED",
@@ -313,7 +313,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "2. Preserved Information",
-    "The private **Shared Staff Archives** channel preserves:\n• Giveaway settings, requirements and participants.\n• Winner placements, claim tickets, ticket-message links and timestamps.\n• Prize-delivery confirmation, staff actions and cancellation reasons.\n• Manual/automatic reroll history and no-eligible outcomes.\n• Final activity progress snapshots and relevant review records.\n• Full giveaway data in an attached JSON record.\n\n**Only regular giveaways are deleted from their public channel when archived.** Activity winner announcements and Court's Trial Royal Verdicts remain public."
+    "The private **Shared Staff Archives** channel preserves:\n• Giveaway settings, requirements and participants.\n• Winner placements, claim tickets, ticket-message links and timestamps.\n• Prize-delivery confirmation, staff actions and cancellation reasons.\n• Manual/automatic reroll history and no-eligible outcomes.\n• Final activity progress snapshots and relevant review records.\n• Full giveaway data in an attached JSON record.\n\n**Regular giveaway entry posts are deleted when archived.** Winner announcements in **Giveaway Winners** (regular and activity) and Court's Trial Royal Verdicts remain public."
    ],
    [
     "3. Archive Setup",
