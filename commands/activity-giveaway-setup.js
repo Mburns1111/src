@@ -166,7 +166,7 @@ function layout(session,banners=[]) {
     currentGiveawayClaimInstructions(s)+"\n"+
     "The bot also adds the ticket number, Discord message link, claim deadline and forfeiture warning.\n"+
     "Choose **Write / Edit Server Instructions** to enter your own text, then Save Settings on the final review.";
-   components.push(row(session.id,[["Use Built-in Default","default"],["Write / Edit Server Instructions","custom"],["Keep Saved","keep"]]));
+   components.push(row(session.id,[["Use Built-in Default","default",ButtonStyle.Primary],["Write / Edit Server Instructions","custom"],["Keep Saved","keep"]]));
  }else if(step==="instructionsText"){
    content="Type your custom claim instructions in this commands channel (1–1,000 characters). "+
      "Do not include the mandatory claim deadline warning; the bot always adds it.";
