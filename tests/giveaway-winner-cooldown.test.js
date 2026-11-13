@@ -130,7 +130,7 @@ test("automatic/staff rerolls do not select a member currently on cooldown",asyn
  }finally{restore(backups);}
 });
 
-test("Apply Cooldown is beside Archive only after delivery for non-Trials",()=>{
+test("Apply Cooldown is available after delivery, including on archived non-Trial records",()=>{
  const record={_id:id,guildId,status:"ended",mode:"standard",title:"Test",
   prize:"Prize",creatorId:A,endsAt:now,prizeDeliveredAt:now,prizeDeliveredBy:staff,
   winnerIds:[A],winnerClaims:[{slot:0,userId:A,ticketNumber:"123",
@@ -143,7 +143,8 @@ test("Apply Cooldown is beside Archive only after delivery for non-Trials",()=>{
  assert.equal(controls.indexOf("Apply Cooldown"),controls.indexOf("Archive Giveaway")+1);
  assert.ok(!labels({...record,prizeDeliveredAt:null}).includes("Apply Cooldown"));
  assert.ok(!labels({...record,mode:"survival"}).includes("Apply Cooldown"));
- assert.ok(!labels({...record,publicListingRemovedAt:now}).includes("Apply Cooldown"));
+ assert.ok(labels({...record,publicListingRemovedAt:now}).includes("Apply Cooldown"));
+ assert.ok(labels({...record,publicListingRemovedAt:now}).includes("Apply Cooldown"));
  assert.ok(labels({...record,cooldownAssignments:[{userId:A,days:3,expiresAt:now,
   appliedAt:now,appliedBy:staff}]}).includes("Manage Cooldowns"));
 });
