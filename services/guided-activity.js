@@ -81,7 +81,7 @@ export function qualifiesForGuidedActivity(row,event){
 async function materialize(series,start,first=false) {
   const s = series.settings, end = windowEnd(s,start);
   const config = await GuildConfig.findOne({guildId:series.guildId}).lean();
-  if (!config?.activityGiveawayWinnersChannelId) throw Error("Set the activity winners channel in /setup activity-giveaways.");
+  if (!config?.activityGiveawayWinnersChannelId) throw Error("Set Giveaway Winners in /setup activity-giveaways or /setup giveaways.");
 
   const query = first ? {_id:series._id} : {guidedSeries:series._id,activityStartAt:start};
   try {
