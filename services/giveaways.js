@@ -111,6 +111,8 @@ export function giveawayAnnouncement(record) {
     "",
     `**Hosted by:** <@${record.creatorId}>`,
     ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Eligible winners:** ${activeWinners.length}` : activity ? `**Locked entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
+    ...(!ended && record.mode==="standard" && giveawayUsesCooldown(record)?
+      ["**Winner cooldown:** Members with an active cooldown cannot enter this giveaway."]:[]),
     ended
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
