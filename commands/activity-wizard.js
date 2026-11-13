@@ -205,7 +205,8 @@ async function show(session,step){
   const components=[];
   for(let n=0;n<controls.length;n+=5)components.push(new ActionRowBuilder().addComponents(
     controls.slice(n,n+5).map(([label,value])=>new ButtonBuilder().setCustomId('activitysetup:'+session.id+':'+value)
-      .setLabel(label).setStyle(value==="create"||value==="done"?ButtonStyle.Success:ButtonStyle.Secondary))));
+      .setLabel(label).setStyle(value==="create"||value==="done"?ButtonStyle.Success:
+        ["claimDefault","bannerDefault"].includes(value)?ButtonStyle.Primary:ButtonStyle.Secondary))));
   const payload=step==="summary"?{embeds:[{description:content}]}:{content};
   const message=await session.channel.send({...payload,content:'**Activity setup** · <@'+session.owner+'>\n'+(payload.content||""),components,allowedMentions:{parse:[]}});
   Object.assign(session,{step,messageId:message.id,choices:controls.map(x=>x[1]),
