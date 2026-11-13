@@ -29,7 +29,9 @@ const giveawaySchema = new mongoose.Schema({
   title: { type: String, required: true },
   prize: { type: String, required: true },
   description: { type: String, default: "", maxlength: 1000 },
-  // Optional story lines only for ordinary manual-entry giveaways.
+  // Snapshot of server-wide regular giveaway display settings at creation.
+  displayOpenTitle: { type: String, default: "", maxlength: 120 },
+  displayEndedTitle: { type: String, default: "", maxlength: 120 },
   displayEntryText: { type: String, default: "", maxlength: 400 },
   displayWinnerText: { type: String, default: "", maxlength: 400 },
   rules: { type: String, default: "" },
