@@ -570,7 +570,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
          interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("trialconfig:"))
       return await handleTrialGiveawaySetupInteraction(interaction);
-    if ((interaction.isButton() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+    if ((interaction.isButton() || interaction.isModalSubmit() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("actconfig:"))
       return await handleActivityGiveawaySetupInteraction(interaction);
     if ((interaction.isButton()||interaction.isModalSubmit()||interaction.isStringSelectMenu()) && interaction.customId.startsWith("giveawaystaff:"))
