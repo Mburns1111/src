@@ -636,8 +636,19 @@ export async function publishGiveawayResult(client, item) {
     }) : null;
     if (!message) {
       const recent = await channel.messages.fetch({limit:100});
-      message = recent.find(m => m.author?.id === client.user?.id &&
-        m.embeds?.some(e => e.footer?.text?.includes(giveawayReference(item))));
+      const expected=giveawayAnnouncement(item).embeds[0].toJSON();
+      const matches=[...recent.values()].filter(m=>
+        m.author?.id===client.user?.id&&(
+          m.components?.some(row=>row.components?.some(button=>
+            (button.customId||button.custom_id||button.data?.custom_id)==="giveaway:claim:"+item._id))||
+          m.embeds?.some(e=>
+            (e.title||e.data?.title)===expected.title&&
+            (e.description||e.data?.description)===expected.description)));
+      if(matches.length>1)
+        throw Error("Multiple activity winner posts match; staff must reconcile before reposting.");
+      message=matches[0]||null;
+      if(!message&&recent.size>=100)
+        throw Error("Activity winner post may be older than recent history; refusing a blind duplicate.");
     }
     if (!message) message = await channel.send(await giveawayAnnouncementWithBanner(item));
     else {
