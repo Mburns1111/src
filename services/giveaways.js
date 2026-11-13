@@ -555,6 +555,9 @@ async function publishRegularResultLocked(client,item){
  // First make the winner message available. No claim window has started yet.
  await message.edit(await giveawayAnnouncementWithBanner(record));
  await cleanupRegularGiveawayListPost(client,record);
+ // Notify the winners before starting their claim clock. If pinging fails,
+ // no deadline is activated and the unpublished result remains retryable.
+ await notifyRegularWinners(client,record,channel);
  const now=new Date(),dates=[...(record.winnerAssignedAt||[])];
  let newlyPublished=false;
  for(let slot=0;slot<(record.winnerIds||[]).length;slot++){
@@ -577,7 +580,6 @@ async function publishRegularResultLocked(client,item){
  }
  // Display the exact new deadlines before sending any notifications.
  await message.edit(await giveawayAnnouncementWithBanner(updated));
- await notifyRegularWinners(client,updated,channel);
  await Giveaway.updateOne({_id:record._id,status:"ended",
    resultPublicationToken:record.resultPublicationToken,renderVersion:record.renderVersion},
    {$set:{renderedAt:new Date()}});
