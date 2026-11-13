@@ -21,6 +21,7 @@ function makeAction(extra={}){
   showModal:async value=>{responses.modal=value;},
   update:async value=>{responses.update=value;},
   deferReply:async()=>{responses.deferred=true;},
+  deferUpdate:async()=>{responses.deferred=true;},
   ...extra,
  };
  return {i,responses};
@@ -45,7 +46,7 @@ test("cooldown staff flow selects one, several or all winners, asks days and sho
   const choice=makeAction({values:["0","1"]});
   await handleGiveawayCooldownAction(choice.i,giveaway,"cooldownselect");
   const modal=choice.responses.modal.toJSON();
-  assert.match(modal.custom_id,/giveawaystaff:cooldowndays:.+:01$/);
+  assert.match(modal.custom_id,/giveawaystaff:cooldowndays:.+:01:p$/);
   const form=makeAction({fields:{getTextInputValue:()=> "7"}});
   await handleGiveawayCooldownAction(form.i,giveaway,"cooldowndays","01");
   assert.match(form.responses.reply.content,/Confirm Giveaway Winner Cooldown/);
@@ -177,5 +178,17 @@ test("member without cooldown offers Add Cooldown; modal review and confirm save
   const repeat=makeAction({customId:"giveawaydir:cooldownmember",values:[a]});
   await handleGiveawayCooldownDirectoryAction(repeat.i);
   assert.equal(repeat.responses.update.components[0].components[0].toJSON().label,"Correct Expiry");
+ }finally{restore(backups);}
+});
+
+test("multi-winner cooldown confirmation replaces the previous private selector",async()=>{
+ const backups=[];
+ try{
+  patch(GiveawayWinnerCooldown,"find",()=>({lean:async()=>[]}),backups);
+  const form=makeAction({fields:{getTextInputValue:()=> "7"}});
+  await handleGiveawayCooldownAction(form.i,giveaway,"cooldowndays","01","p");
+  assert.equal(form.responses.reply,null);
+  assert.match(form.responses.update.content,/Confirm Giveaway Winner Cooldown/);
+  assert.match(customId(form.responses.update),/cooldownapply:.+:01:7$/);
  }finally{restore(backups);}
 });
