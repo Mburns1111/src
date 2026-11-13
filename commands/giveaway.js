@@ -373,7 +373,10 @@ export async function handleGiveawayButton(interaction) {
     const validSignupPost = record?.messageId === interaction.message?.id && record?.channelId === interaction.channelId;
     const validTrialVerdict = action === "claim" && record?.mode === "survival" &&
       record?.finaleMessageId === interaction.message?.id && record?.channelId === interaction.channelId;
-    if (!record || (!["confirm","cancel"].includes(action) && !validSignupPost && !validTrialVerdict))
+    const validRegularWinnerPost = action === "claim" && record?.mode === "standard" &&
+      record?.regularWinnerMessageId === interaction.message?.id &&
+      record?.regularWinnerChannelId === interaction.channelId;
+    if (!record || (!["confirm","cancel"].includes(action) && !validSignupPost && !validTrialVerdict && !validRegularWinnerPost))
       return action==="claim"
         ? interaction.reply({content:"This giveaway announcement could not be verified.",flags:MessageFlags.Ephemeral})
         : interaction.editReply("This giveaway announcement could not be verified.");
