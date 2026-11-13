@@ -5,6 +5,7 @@ import {
   StringSelectMenuBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {preferSetupButtons} from "../services/setup-button-preferences.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
 import { ensureProfileEntry } from "./profile.js";
@@ -85,7 +86,7 @@ function layout(session) {
     controls.push(row(session, [["Preview settings", "preview"]]));
     controls.push(row(session, [["Save Setup", "save", ButtonStyle.Success],
       ["Cancel", "cancel", ButtonStyle.Danger]]));
-    return { content: prefix + summary, components: controls, allowedMentions: { parse: [] } };
+    return { content: prefix + summary, components: preferSetupButtons(controls), allowedMentions: { parse: [] } };
   }
   const [field, name, required] = currentStep;
   let description = "**" + (editing ? "Editing " + name : "Step " + (session.index + 1) + " of " + list.length + " · " + name) + "**\n";
@@ -117,7 +118,7 @@ function layout(session) {
   }
   if (!required) controls.push(row(session, [["Skip / disable this feature", "skip"]]));
   controls.push(row(session, [["Back", "back"], ["Cancel setup", "cancel", ButtonStyle.Danger]]));
-  return { content: prefix + description, components: controls, allowedMentions: { parse: [] } };
+  return { content: prefix + description, components: preferSetupButtons(controls), allowedMentions: { parse: [] } };
 }
 
 async function show(session) {
