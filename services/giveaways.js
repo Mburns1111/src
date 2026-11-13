@@ -445,18 +445,28 @@ async function regularResultsDestination(item){
   return config?.activityGiveawayWinnersChannelId||"";
 }
 async function findRegularResultPost(channel,client,item){
-  const recent=await channel.messages.fetch({limit:100});
   const expected=giveawayAnnouncement(item).embeds[0].toJSON();
-  const matches=[...recent.values()].filter(message=>{
-    if(message.author?.id!==client.user?.id)return false;
-    const claimControl=message.components?.some(row=>row.components?.some(button=>
-      (button.customId||button.custom_id||button.data?.custom_id)==="giveaway:claim:"+item._id));
-    return claimControl||message.embeds?.some(embed=>
-      embed.title===expected.title&&embed.description===expected.description);
-  });
-  if(matches.length>1)
-    throw Error("Multiple matching result posts were found; staff must resolve the duplicate before another post.");
-  return matches[0]||null;
+  let before=null;
+  for(let page=0;page<20;page++){
+    const recent=await channel.messages.fetch({limit:100,...(before?{before}:{})});
+    const messages=[...recent.values()];
+    const matches=messages.filter(message=>{
+      if(message.author?.id!==client.user?.id)return false;
+      const claimControl=message.components?.some(row=>row.components?.some(button=>
+        (button.customId||button.custom_id||button.data?.custom_id)==="giveaway:claim:"+item._id));
+      return claimControl||message.embeds?.some(embed=>
+        (embed.title||embed.data?.title)===expected.title&&
+        (embed.description||embed.data?.description)===expected.description);
+    });
+    if(matches.length>1)
+      throw Error("Multiple possible giveaway winner posts exist; staff must reconcile before retrying.");
+    if(matches.length===1)return matches[0];
+    if(messages.length<100)return null;
+    before=messages.at(-1)?.id;
+    if(!before)break;
+  }
+  // Never blindly create a duplicate after an inconclusive history search.
+  throw Error("Winner channel history exceeded the safe recovery window. Staff must check the existing results before retrying.");
 }
 async function withRegularResultPublishLock(item,work){
  const token=randomUUID(),now=new Date(),expired=new Date(+now-120000);
