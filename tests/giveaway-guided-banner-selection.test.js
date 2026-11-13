@@ -124,6 +124,28 @@ test("server banner catalog is sorted, guild-scoped, and displays saved names",a
   }finally{restore();}
 });
 
+test("regular giveaway setup includes the shared Giveaway Winners channel picker",async()=>{
+ try{
+  const h=await harness("regular");
+  assert.match(h.current().content,/Regular giveaway posts/);
+  await h.step("keep");
+  assert.match(h.current().content,/Giveaway Winners channel/);
+  assert.match(h.current().content,/both regular and activity giveaway results/);
+  assert.ok(h.controls().some(c=>c.type===8),"The channel picker must appear in regular setup");
+  await h.step("channel",[winnersId]);
+  assert.match(h.current().content,/Private staff controls/);
+  await h.goToBanner();
+  await h.step("keep");
+  assert.match(h.current().content,/Giveaway Winners/);
+  assert.match(h.current().content,new RegExp(winnersId));
+  await h.step("edit",["winners"]);
+  assert.match(h.current().content,/Editing Giveaway Winners channel/);
+  await h.step("keep");
+  assert.match(h.current().content,/Setup Review/);
+  await h.step("cancel");
+ }finally{restore();}
+});
+
 for(const mode of ["trial","regular","activity"]){
   test(mode+" setup offers an upload even when there are no saved banners",async()=>{
     try{
