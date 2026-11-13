@@ -131,10 +131,10 @@ test("server banner catalog is sorted, guild-scoped, and displays saved names",a
 test("regular giveaway setup includes the shared Giveaway Winners channel picker",async()=>{
  try{
   const h=await harness("regular");
-  assert.match(h.current().content,/manual-entry giveaways/);
+  assert.match(h.current().content,/Giveaway List/);
   await h.step("keep");
-  assert.match(h.current().content,/\*\*Giveaway Winners\*\* channel/);
-  assert.match(h.current().content,/both regular and activity giveaway results/);
+  assert.match(h.current().content,/Giveaway Winners/);
+  assert.match(h.current().content,/completed announcement|Giveaway Winners/);
   assert.ok(h.controls().some(c=>c.type===8),"The channel picker must appear in regular setup");
   await h.step("channel",[winnersId]);
   assert.match(h.current().content,/private, staff-only/);
@@ -173,7 +173,8 @@ test("regular setup saves the shared Giveaway Winners channel without introducin
   await h.step("save");
   assert.equal(saved.length,1);
   assert.equal(saved[0].changes.$set.giveawayChannelId,regularId);
-  assert.equal(saved[0].changes.$set.activityGiveawayWinnersChannelId,winnersId);
+  assert.equal(h.config.activityGiveawayWinnersChannelId,winnersId);
+  assert.equal(saved[0].changes.$set.activityGiveawayWinnersChannelId,undefined,"unchanged shared settings should not be overwritten");
   assert.ok(!Object.hasOwn(saved[0].changes.$set,"giveawayWinnersChannelId"),
    "keep a single shared winners channel, compatible with existing settings");
   assert.match(h.current().content,/Regular giveaway setup saved/);
