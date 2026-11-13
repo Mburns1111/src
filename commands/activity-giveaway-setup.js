@@ -40,8 +40,8 @@ export function regularGiveawayDisplayPreview(settings,{winner=false,
 const sessions=new Map();
 const expiry=30*60_000;
 const key=(channel,user)=>channel+":"+user;
-const steps=["list","winners","staff","archive","managerRole","excludedRole","instructions","hours","rerolls","roles","empty","banner","review"];
-const regularSteps=["regularChannel","winners","staff","archive","managerRole","excludedRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
+const steps=["list","winners","staff","managerRole","excludedRole","instructions","hours","rerolls","roles","empty","banner","review"];
+const regularSteps=["regularChannel","winners","staff","managerRole","excludedRole","requiredRole","roleHelp","roleHelpVisible","instructions","hours","rerolls","roles","empty","banner","review"];
 const stepsFor=session=>session.mode==="regular"?regularSteps:steps;
 const stepName={list:"Public giveaway listings",winners:"Winner announcements",staff:"Private staff controls",archive:"Private giveaway archive",
   regularChannel:"Regular giveaway posts",managerRole:"Giveaway Manager role",
@@ -78,7 +78,7 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   ...(mode==="activity"?["📋 **Activity list:** "+shown(settings.activityGiveawayListChannelId),
      "🏆 **Winners:** "+shown(settings.activityGiveawayWinnersChannelId)]:[]),
   "🔒 **Staff controls:** "+shown(settings.activityGiveawayReviewChannelId),
-   "🗄️ **Private giveaway archive (required):** "+shown(settings.giveawayArchiveChannelId),
+   "🗄️ **Shared staff archives (configured in /setup general):** "+shown(settings.giveawayArchiveChannelId),
   "🔑 **Giveaway Manager role:** "+(settings.giveawayManagerRoleId?"<@&"+settings.giveawayManagerRoleId+">":"None — Manage Server only"),
   "🚫 **Giveaway Banned role (required):** "+(settings.giveawayExcludedRoleId?"<@&"+settings.giveawayExcludedRoleId+">":"NOT CONFIGURED — REQUIRED"),
   ...(mode==="activity"?[
@@ -137,9 +137,9 @@ function layout(session,banners=[]) {
  const components=[];
  let content="";
  let embeds;
- if(["list","winners","staff","archive","regularChannel"].includes(step)){
+ if(["list","winners","staff","regularChannel"].includes(step)){
    const field={list:"activityGiveawayListChannelId",winners:"activityGiveawayWinnersChannelId",
-     staff:"activityGiveawayReviewChannelId",archive:"giveawayArchiveChannelId",regularChannel:"giveawayChannelId"}[step];
+     staff:"activityGiveawayReviewChannelId",regularChannel:"giveawayChannelId"}[step];
    content={
     list:"Choose the public channel where members will see the giveaway posters and **Check My Progress** buttons.",
      regularChannel:"Choose the **Giveaway List** channel for regular giveaways. Members enter here; when the giveaway ends, the bot transfers its finished announcement to Giveaway Winners.",
@@ -151,7 +151,7 @@ function layout(session,banners=[]) {
    }[step]+"\nCurrent: "+shown(s[field])+"\nThe bot will check its ability to see and post in this channel.";
    const selector=new ChannelSelectMenuBuilder().setCustomId(bind(session,"channel"))
     .setPlaceholder("Choose "+stepName[step]).setMinValues(1).setMaxValues(1)
-    .addChannelTypes(...(["staff","archive"].includes(step)?[ChannelType.GuildText]:
+    .addChannelTypes(...(step==="staff"?[ChannelType.GuildText]:
       [ChannelType.GuildText,ChannelType.GuildAnnouncement]));
    components.push(new ActionRowBuilder().addComponents(selector));
    if(s[field])components.push(row(session.id,[["Keep selected channel","keep"]]));
@@ -302,7 +302,11 @@ function after(session,step){
  return show(session,nextStep);
 }
 async function checkChannels(session){
- const s=session.settings;
+  const s=session.settings;
+  const configured=await GuildConfig.findOne({guildId:session.guild.id}).lean();
+  if(!configured?.commandChannelId||!configured?.giveawayArchiveChannelId||!configured?.serverTimeZone)
+    throw Error("Complete /setup general with private Bot Commands, Shared Staff Archives and Server Time Zone first.");
+  s.giveawayArchiveChannelId=configured.giveawayArchiveChannelId;
  const ids=session.mode==="regular"?[s.giveawayChannelId,s.activityGiveawayWinnersChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId]:
     [s.activityGiveawayListChannelId,s.activityGiveawayWinnersChannelId,s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId];
  if(ids.some(x=>!x)||new Set(ids).size!==ids.length)throw Error("Choose separate public, private staff, and private archive channels for giveaways.");
@@ -314,7 +318,7 @@ async function checkChannels(session){
    const channel=await session.guild.channels.fetch(id).catch(()=>null);
    if(!channel?.send||!channel?.permissionsFor)throw Error("The selected channel is unavailable: "+id);
    const bot=channel.permissionsFor(session.guild.members.me);
-   for(const perm of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks,PermissionFlagsBits.ReadMessageHistory]){
+   for(const perm of [PermissionFlagsBits.ViewChannel,PermissionFlagsBits.SendMessages,PermissionFlagsBits.EmbedLinks,PermissionFlagsBits.ReadMessageHistory,...(id===s.giveawayArchiveChannelId?[PermissionFlagsBits.AttachFiles]:[])]){
      if(!bot?.has(perm))throw Error("The bot needs View Channel, Send Messages, Embed Links and Read Message History in <#"+id+">.");
    }
    if(idx>=ids.length-2&&channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
@@ -547,7 +551,9 @@ function displayEditModal(session,field){
 }
 async function startGiveawaySetup(interaction,mode="activity"){
  const config=await GuildConfig.findOne({guildId:interaction.guildId}).lean();
- if(config?.commandChannelId&&config.commandChannelId!==interaction.channelId)
+ if(!config?.commandChannelId||!config?.giveawayArchiveChannelId||!config?.serverTimeZone)
+    throw Error("Complete /setup general with private Bot Commands, Shared Staff Archives and Server Time Zone first.");
+  if(config?.commandChannelId&&config.commandChannelId!==interaction.channelId)
    throw Error("Run /setup giveaways or /setup activity-giveaways in <#"+config.commandChannelId+">.");
  const sessionKey=key(interaction.channelId,interaction.user.id);
  if(sessions.get(sessionKey)?.expires>Date.now())
@@ -574,7 +580,7 @@ async function startGiveawaySetup(interaction,mode="activity"){
  };
  const session={id:new mongoose.Types.ObjectId().toString(),key:sessionKey,
    owner:interaction.user.id,channel:interaction.channel,guild:interaction.guild,
-   mode,fromReview:false,updateExisting:false,settings:defaults};
+   mode,fromReview:false,updateExisting:false,settings:defaults,originalSettings:JSON.parse(JSON.stringify(defaults))};
  sessions.set(sessionKey,session);
  await show(session,mode==="regular"?"regularChannel":"list");
  return interaction.editReply((mode==="regular"?"Regular":"Activity")+" giveaway server setup has opened here. Follow the numbered steps.");
