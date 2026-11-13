@@ -231,6 +231,7 @@ async function process(session, action, value) {
   if (action === "cancel") {
     sessions.delete(session.key);
     await session.channel.send("Setup cancelled. Nothing was changed.");
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   const list = stepsFor(session.mode);
@@ -259,6 +260,7 @@ async function process(session, action, value) {
         ? "Unselected features were skipped. Run /setup giveaways, /setup activity-giveaways, /setup trials or /setup cards to enable only the extra modules you want."
         : "Registered members may use cards in <#" + session.settings.hatchemChannelId + ">; the card-game mode must also be enabled in bot settings."),
       allowedMentions: { parse: [] } });
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   if (action === "back") {
