@@ -127,7 +127,7 @@ test("server banner catalog is sorted, guild-scoped, and displays saved names",a
 test("regular giveaway setup includes the shared Giveaway Winners channel picker",async()=>{
  try{
   const h=await harness("regular");
-  assert.match(h.current().content,/Regular giveaway posts/);
+  assert.match(h.current().content,/manual-entry giveaways/);
   await h.step("keep");
   assert.match(h.current().content,/Giveaway Winners channel/);
   assert.match(h.current().content,/both regular and activity giveaway results/);
