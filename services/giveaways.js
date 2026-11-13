@@ -6,7 +6,7 @@ import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
-import {renderRegularDisplayText} from "./giveaway-display-text.js";
+import {renderRegularDisplayText,cleanRegularDisplayTitle} from "./giveaway-display-text.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
@@ -151,7 +151,7 @@ export function giveawayAnnouncement(record) {
   const description = lines.join("\n").slice(0, 4000);
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x86738d : 0xb47e99)
-    .setTitle(ended ? (noEligibleWinner ? "🦊 Giveaway Ended · No Eligible Winner" : "🦊 Heist Complete") : "🦊 The Fox’s Giveaway")
+    .setTitle(ended ? (record.mode==="standard" && !noEligibleWinner && record.displayEndedTitle ? cleanRegularDisplayTitle(record.displayEndedTitle) : "🦊 Heist Complete") : (record.mode==="standard" && record.displayOpenTitle ? cleanRegularDisplayTitle(record.displayOpenTitle) : "🦊 The Fox’s Giveaway"))
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
   if(ended && record.status==="ended" && (record.winnerIds||[]).length){
