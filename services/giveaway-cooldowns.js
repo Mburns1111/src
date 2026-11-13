@@ -1,4 +1,5 @@
 import GiveawayWinnerCooldown from "../models/GiveawayWinnerCooldown.js";
+import Giveaway from "../models/Giveaway.js";
 
 const ONE_DAY_MS=86_400_000;
 export const MAX_GIVEAWAY_COOLDOWN_DAYS=365;
@@ -31,6 +32,40 @@ export async function activeCooldownFor(guildId,userId,{now=new Date()}={}){
  }).lean();
 }
 
+// An active cooldown removes entries in *open, cooldown-enabled* regular
+// giveaways. It never removes entries in an OFF giveaway or edits activity
+// participation, which is qualified and filtered at the draw instead.
+export async function removeActiveCooldownEntries(guildId,userIds,{now=new Date()}={}){
+ const ids=[...new Set((userIds||[]).map(String).filter(Boolean))];
+ if(!ids.length)return 0;
+ const result=await Giveaway.updateMany({
+   guildId,mode:"standard",status:"open",endsAt:{$gt:now},
+   winnerCooldownEnabled:true,entrantIds:{$in:ids},
+ },{$pull:{entrantIds:{$in:ids}}});
+ return result.modifiedCount||0;
+}
+
+// Reconcile cooldowns that were applied before the entry guard existed, and
+// handle missed notifications or temporary MongoDB failures. This is safe to
+// repeat; already removed entries require no write.
+export async function reconcileOpenCooldownEntries({now=new Date(),limit=100}={}){
+ const open=await Giveaway.find({
+   mode:"standard",status:"open",winnerCooldownEnabled:true,
+   endsAt:{$gt:now},entrantIds:{$exists:true,$ne:[]},
+ }).select("_id guildId entrantIds").limit(limit).lean();
+ let removed=0;
+ for(const giveaway of open){
+   const active=await activeGiveawayCooldownIds(giveaway.guildId,giveaway.entrantIds,{now});
+   if(!active.size)continue;
+   const result=await Giveaway.updateOne({
+     _id:giveaway._id,guildId:giveaway.guildId,mode:"standard",
+     status:"open",winnerCooldownEnabled:true,
+   },{$pull:{entrantIds:{$in:[...active]}}});
+   removed+=result.modifiedCount||0;
+ }
+ return removed;
+}
+
 export async function applyGiveawayWinnerCooldown({
  guildId,userId,sourceGiveawayId,deliveredAt,staffId,days,now=new Date(),
 }){
@@ -51,6 +86,31 @@ export async function applyGiveawayWinnerCooldown({
   {upsert:true,new:true,runValidators:true}).lean();
  return {record,requestedExpiresAt,expiresAt:record.expiresAt,
   extended:+new Date(record.expiresAt)===+requestedExpiresAt};
+}
+
+// Private staff directory assignment. Unlike a prize-delivery cooldown,
+// staff set this duration from the moment they confirm it. The audit marks
+// the source as a manual staff action rather than inventing a giveaway ID.
+export async function assignManualWinnerCooldown({
+ guildId,userId,staffId,days,now=new Date(),
+}){
+ if(!guildId||!userId||!staffId)throw Error("Missing server, member or moderator.");
+ const expiresAt=cooldownExpiration(now,days);
+ const record=await GiveawayWinnerCooldown.findOneAndUpdate(
+   {guildId,userId},
+   {$max:{expiresAt},
+    $set:{sourceGiveawayId:"staff-manual",days,appliedBy:staffId,
+      appliedAt:now,removedAt:null,removedBy:""},
+    $push:{history:{action:"apply",at:now,staffId,
+      sourceGiveawayId:"staff-manual",days,requestedExpiresAt:expiresAt}}},
+   {upsert:true,new:true,runValidators:true}).lean();
+ let cleanupWarning=false;
+ try{await removeActiveCooldownEntries(guildId,[userId],{now});}
+ catch(error){
+   cleanupWarning=true;
+   console.error("[Giveaways] Manual cooldown saved; entry cleanup will retry:",error);
+ }
+ return {record,expiresAt:record.expiresAt,cleanupWarning};
 }
 
 // Explicit moderator correction. Unlike automatic $max application, this
