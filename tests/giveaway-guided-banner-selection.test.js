@@ -146,6 +146,36 @@ test("regular giveaway setup includes the shared Giveaway Winners channel picker
  }finally{restore();}
 });
 
+test("regular setup saves the shared Giveaway Winners channel without introducing another setting",async()=>{
+ const originalSave=GuildConfig.findOneAndUpdate;
+ try{
+  const h=await harness("regular");
+  const regularId="987654321098765432";
+  const saved=[];
+  h.identity.guild.members={me:{id:"bot"}};
+  h.identity.guild.roles.fetch=async id=>({id});
+  h.identity.guild.channels={fetch:async id=>({
+   id,send:async()=>({id:"111111111111111111"}),
+   permissionsFor:member=>({has:()=>member?.id!==guildId}),
+  })};
+  GuildConfig.findOneAndUpdate=async (query,changes)=>{
+   saved.push({query,changes});Object.assign(h.config,changes.$set);
+   return h.config;
+  };
+  await h.step("channel",[regularId]);
+  await h.step("channel",[winnersId]);
+  await h.goToBanner();
+  await h.step("keep");
+  await h.step("save");
+  assert.equal(saved.length,1);
+  assert.equal(saved[0].changes.$set.giveawayChannelId,regularId);
+  assert.equal(saved[0].changes.$set.activityGiveawayWinnersChannelId,winnersId);
+  assert.ok(!Object.hasOwn(saved[0].changes.$set,"giveawayWinnersChannelId"),
+   "keep a single shared winners channel, compatible with existing settings");
+  assert.match(h.current().content,/Regular giveaway setup saved/);
+ }finally{GuildConfig.findOneAndUpdate=originalSave;restore();}
+});
+
 for(const mode of ["trial","regular","activity"]){
   test(mode+" setup offers an upload even when there are no saved banners",async()=>{
     try{
