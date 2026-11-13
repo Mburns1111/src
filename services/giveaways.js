@@ -248,7 +248,7 @@ export async function publishRegularWinnerAnnouncement(client,record,announcemen
   }
   if(!result?.id)throw Error("Could not save the regular winner announcement message ID.");
   await Giveaway.updateOne({_id:record._id,mode:"standard"},{
-    $set:{regularWinnerMessageId:result.id},
+    $set:{regularWinnerMessageId:result.id,regularWinnerChannelId:channelId},
     ...(winners.length?{$addToSet:{regularWinnerNotifiedIds:{$each:winners}}}:{})
   });
   if(old&&old.id!==result.id)await old.delete().catch(error=>
