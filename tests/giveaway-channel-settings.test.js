@@ -312,7 +312,7 @@ test("activity giveaway listing and winners can be saved independently from stan
     activityGiveawayListChannelId:listing.id,
     activityGiveawayWinnersChannelId:winners.id,
   }]);
-  assert.match(interaction.replies.at(-1).content,/Activity giveaway winner announcements/);
+  assert.match(interaction.replies.at(-1).content,/Giveaway Winners \(regular and activity\)/);
   await assert.rejects(()=>setupChannels(setupInteraction({
     activity_giveaway_list:{id:otherId},activity_winners:{id:otherId}
   })),/different channels/i);
