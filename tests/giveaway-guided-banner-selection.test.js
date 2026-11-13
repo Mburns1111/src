@@ -17,7 +17,7 @@ const attachment={
 };
 
 const original={
-  config:GuildConfig.findOne,find:GiveawayBanner.find,
+  config:GuildConfig.findOne,configSave:GuildConfig.findOneAndUpdate,find:GiveawayBanner.find,
   exists:GiveawayBanner.exists,save:GiveawayBanner.findOneAndUpdate,fetch:globalThis.fetch,
 };
 let nextKey=1;
@@ -25,12 +25,19 @@ async function harness(mode,{banners=[]}={}){
   const suffix=String(nextKey++).padStart(6,"0");
   const userId="700000000000"+suffix;
   const channelId="800000000000"+suffix;
-  const records=[],responses=[],updates=[];
+  const records=[],responses=[],updates=[],configSaves=[],modals=[];
   const values=banners.map(x=>({...x}));
-  const sessionInfo={id:guildId,roles:{everyone:{id:guildId}}};
+  const sessionInfo={id:guildId,
+    roles:{everyone:{id:guildId},fetch:async id=>({id})},
+    members:{me:{id:"bot"}},
+    channels:{fetch:async id=>({
+      id,send:async()=>({id:"posted"}),
+      permissionsFor:member=>({has:()=>member?.id!==guildId})
+    })}
+  };
   const channel={id:channelId,send:async payload=>{
     const id=String(900000000000000000n+BigInt(records.length+1));
-    const message={id,...payload};
+    const message={id,...payload,edit:async change=>{Object.assign(message,change);return message;}};
     records.push(message);return message;
   }};
   const config={guildId,commandChannelId:channelId,
@@ -42,6 +49,9 @@ async function harness(mode,{banners=[]}={}){
     giveawayExcludedRoleId:"789012345678901234",trialDefaultBannerNameKey:"",
     giveawayDefaultBannerNameKey:""};
   GuildConfig.findOne=()=>({lean:async()=>config});
+  GuildConfig.findOneAndUpdate=async(query,update)=>{
+    configSaves.push({...update.$set});Object.assign(config,update.$set);return config;
+  };
   GiveawayBanner.find=()=>({sort:()=>({limit:()=>({select:()=>({
     lean:async()=>values.slice().sort((a,b)=>a.nameKey.localeCompare(b.nameKey))
   })})})});
@@ -73,6 +83,14 @@ async function harness(mode,{banners=[]}={}){
       user:{id:userId},message:{id:msg.id},memberPermissions:{has:()=>true},
       values:valuesForSelect,
       deferReply:async()=>{},editReply:async x=>responses.push(x),
+      reply:async x=>responses.push(x),showModal:async modal=>modals.push(modal)});
+  };
+  const submit=async(field,value)=>{
+    const modal=modals.at(-1);assert.ok(modal,"Open an edit modal first.");
+    await handler({customId:prefix+":"+sessionId+":displaySubmit:"+field,
+      guildId,channelId,user:{id:userId},message:{id:current().id},
+      memberPermissions:{has:()=>true},fields:{getTextInputValue:()=>value},
+      deferReply:async()=>{},editReply:async x=>responses.push(x),
       reply:async x=>responses.push(x)});
   };
   const goToBanner=async()=>{
@@ -96,11 +114,12 @@ async function harness(mode,{banners=[]}={}){
     for(let i=0;i<200&&records.length===before;i++)await new Promise(r=>setImmediate(r));
     assert.ok(records.length>before,"typing/uploading should show the next setup prompt");
   };
-  return {identity,records,responses,updates,values,config,current,controls,step,
+  return {identity,records,responses,updates,configSaves,modals,submit,values,config,current,controls,step,
     goToBanner,sendReply,channelId};
 }
 function restore(){
-  GuildConfig.findOne=original.config;GiveawayBanner.find=original.find;
+  GuildConfig.findOne=original.config;GuildConfig.findOneAndUpdate=original.configSave;
+  GiveawayBanner.find=original.find;
   GiveawayBanner.exists=original.exists;GiveawayBanner.findOneAndUpdate=original.save;
   globalThis.fetch=original.fetch;
 }
