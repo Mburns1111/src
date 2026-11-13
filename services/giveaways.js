@@ -6,6 +6,7 @@ import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {renderRegularDisplayText} from "./giveaway-display-text.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
@@ -96,9 +97,14 @@ export function giveawayAnnouncement(record) {
         ? `🦊 **The fox cackles:** "My clever helpers pulled off the great pocket heist! We snatched the prizes right out of <@${record.creatorId}>'s pocket. Not a whisker out of place!"`
         : `🦊 **The fox sighs:** "No accomplice showed up, so the prize stays tucked in <@${record.creatorId}>'s pocket. Foiled again!"`
     : `🦊 **The fox whispers:** "Psst! I spotted something shiny in <@${record.creatorId}>'s pocket. Enter below and you might be the accomplice I need to swipe the prize!"`;
+  const customStory=record.mode==="standard"?
+    (ended && activeWinners.length?record.displayWinnerText:
+      !ended?record.displayEntryText:""):"";
+  const displayStory=customStory?
+    renderRegularDisplayText(customStory,{hostId:record.creatorId,winnerIds:activeWinners}):foxStory;
   const lines = [
     `**${String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)}**`,"",
-    foxStory,
+    displayStory,
     "",
     record.prize.slice(0, 1800),
     ...(record.description ? ["", "**Giveaway Details:**", String(record.description).slice(0,1000)] : []),
