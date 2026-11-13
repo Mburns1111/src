@@ -51,6 +51,10 @@ const guildConfigSchema = new mongoose.Schema(
     activityNotificationRoleIds:{type:[String],default:[]},
     activityAnnounceEmptyResults:{type:Boolean,default:true},
     giveawayDefaultBannerNameKey: { type: String, default: "" },
+    regularGiveawayDisplayOpenTitle:{type:String,default:"",maxlength:120},
+    regularGiveawayDisplayEndedTitle:{type:String,default:"",maxlength:120},
+    regularGiveawayDisplayEntryText:{type:String,default:"",maxlength:400},
+    regularGiveawayDisplayWinnerText:{type:String,default:"",maxlength:400},
     survivalTrialChannelId: { type: String, default: "" },
     // Regular giveaway role notifications. Legacy singular giveawayPingRoleId
     // remains readable so old server settings continue to work unchanged.
