@@ -292,6 +292,7 @@ async function process(session, action, value) {
         "Create a Trial with **/trial start** in the configured commands channel.",
       allowedMentions: { parse: [] },
     });
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   if (action === "keep") return advance(session);
