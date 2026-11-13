@@ -443,7 +443,8 @@ client.once(Events.ClientReady, async (readyClient) => {
     try {
       await openDueActivities();
       await reconcileGiveawayPlans(readyClient);
-      await reconcileOpenCooldownEntries();
+      try{await reconcileOpenCooldownEntries();}
+      catch(error){console.error("[Giveaways] Open cooldown entry cleanup failed:",error);}
       await reconcileGiveaways(readyClient);
       await reconcilePendingGiveawayReviews(readyClient);
       await reconcileGiveawayClaims(readyClient);
