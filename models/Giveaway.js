@@ -14,7 +14,7 @@ const giveawaySchema = new mongoose.Schema({
   bannerNameKey: { type: String, default: "" },
   requireStaffReview:{type:Boolean,default:false},
   progressEnabled:{type:Boolean,default:false},
-  // Per-giveaway opt-in to silent winner cooldown checks. Trials always ignore.
+  // Per-giveaway opt-in: block regular entry and exclude cooled-down winners at draw. Trials ignore.
   winnerCooldownEnabled:{type:Boolean,default:false},
   cooldownAssignments:[{userId:String,days:Number,expiresAt:Date,appliedBy:String,appliedAt:Date}],
   announceEmptyResults:{type:Boolean,default:true},
