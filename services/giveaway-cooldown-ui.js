@@ -6,7 +6,7 @@ import Giveaway from "../models/Giveaway.js";
 import GiveawayWinnerCooldown from "../models/GiveawayWinnerCooldown.js";
 import {
  applyGiveawayWinnerCooldown,removeGiveawayWinnerCooldown,
- cooldownExpiration,MAX_GIVEAWAY_COOLDOWN_DAYS,
+ cooldownExpiration,MAX_GIVEAWAY_COOLDOWN_DAYS,removeActiveCooldownEntries,
 } from "./giveaway-cooldowns.js";
 
 const ephemeral={flags:MessageFlags.Ephemeral};
@@ -92,7 +92,7 @@ export async function handleGiveawayCooldownAction(interaction,record,action,slo
    }).lean();
    return interaction.reply({content:"**Manage winner cooldowns**\n"+
      statuses(record,active,new Date())+
-     "\n\nCooldowns apply across regular and activity giveaways whose cooldown setting is ON. They never affect Court's Trials or the mandatory Giveaway Banned role.",
+     "\n\nCooldown-enabled regular giveaways block new entries and remove existing entries; regular/activity draws exclude active cooldowns. Court's Trials and the mandatory Giveaway Banned role remain unaffected.",
      components:[row(
       button(idFor("cooldowncreate",id),"Apply / Extend",ButtonStyle.Primary),
       button(idFor("cooldownremove",id),"Remove Cooldown",ButtonStyle.Danger))],
@@ -156,10 +156,12 @@ export async function handleGiveawayCooldownAction(interaction,record,action,slo
   const updated=await Giveaway.findOneAndUpdate({
    _id:id,guildId:record.guildId,status:"ended",prizeDeliveredAt:latest.prizeDeliveredAt,
   },{$push:{cooldownAssignments:{$each:applied}}},{new:true}).lean();
+  const removedEntries=await removeActiveCooldownEntries(record.guildId,applied.map(x=>x.userId),{now});
   if(updated&&refresh)await refresh(updated);
   return interaction.editReply({content:"✅ **Winner cooldown saved.**\n"+
    applied.map(c=>"<@"+c.userId+"> · "+days+" day(s) · expires <t:"+unix(c.expiresAt)+":F>").join("\n")+
-   "\n\nThe ban role is unaffected. Only future cooldown-enabled regular/activity drawings check this restriction.",
+   "\n\n"+(removedEntries?"Removed entries from **"+removedEntries+"** open, cooldown-enabled regular giveaway(s).\n":"")+
+   "Cooldown-enabled regular giveaways now block entries until expiry; regular/activity drawings also exclude active cooldowns. The ban role is unaffected.",
    allowedMentions:{parse:[]}});
  }
  if(action==="cooldownremovechoose"){
