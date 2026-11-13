@@ -257,7 +257,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "Court's Trials — Fast-Paced Giveaways",
-    "**Court's Trials** run in their own public channel, separate from regular and activity giveaways. Members press **Join Trial**, and staff select **Start Trial**. The bot posts randomized eliminations and a ranked **Royal Verdict**.\n\n**Options:** 1–10 ranked prize places, up to 120 entrants, elimination pace (2, 3 or 5 seconds), optional required entry role, banners, shared announcement ping and claim instructions.\n\n**Claims:** New Trials use claim deadlines in **minutes**, ticket number and Discord ticket-message link, with configurable rerolls for missed claims. Older staff-managed Trials may use manual claims instead.\n\n**Private channels:** Shared Giveaway Staff Controls and Shared Staff Archives. Assign the archive in `/setup general`, then configure Trials with `/setup trials` in Bot Commands."
+    "**Court's Trials** run in their own public channel, separate from regular and activity giveaways. Members press **Join Trial**, and staff select **Start Trial**. The bot posts randomized eliminations and a ranked **Royal Verdict**.\n\n**Private channels:** Shared Giveaway Staff Controls and Shared Staff Archives. Assign the archive in `/setup general`, then configure Trials with `/setup trials` in Bot Commands."
    ],
    [
     "2. Create and Post",
