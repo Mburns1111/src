@@ -384,6 +384,79 @@ export async function finishPendingReroll(item,{client=null,now=new Date()}={}) 
   return changed || Giveaway.findById(item._id).lean();
 }
 
+// Discord messages cannot move between channels. Repost the same giveaway result
+// in Giveaway Winners, atomically update its canonical message location, and
+// remove the original entry post. The original post coordinates are retained
+// until deletion succeeds, so a crash can resume without duplicate winners.
+async function regularResultsDestination(item){
+  if(item.resultChannelId)return item.resultChannelId;
+  // Backward compatibility for giveaways created before the results-channel
+  // snapshot existed. Old servers with no configured results channel retain
+  // their existing in-place completion behavior.
+  const query=GuildConfig.findOne({guildId:item.guildId});
+  const config=typeof query?.then==="function"?await query:
+    query?.select?await query.select("activityGiveawayWinnersChannelId").lean():
+    query?.lean?await query.lean():await query;
+  return config?.activityGiveawayWinnersChannelId||"";
+}
+async function findRegularResultPost(channel,client,item){
+  const messages=await channel.messages.fetch({limit:100});
+  return messages.find(message=>message.author?.id===client.user?.id &&
+    message.embeds?.some(embed=>
+      embed.footer?.text?.includes("Giveaway ID: "+item._id)))||null;
+}
+export async function relocateRegularGiveawayResult(client,item){
+  if(item?.mode!=="standard"||item.status!=="ended"||!item.messageId||
+     item.publicListingRemovedAt)return item;
+  const destinationId=await regularResultsDestination(item);
+  if(!destinationId||destinationId===item.channelId)return item;
+  if(item.listMessageId)throw Error("Giveaway result transfer has a pending source post in a different channel.");
+  const channel=await client.channels.fetch(destinationId);
+  if(!channel?.send||!channel.messages?.fetch)
+    throw Error("Configured Giveaway Winners channel is unavailable or cannot receive posts.");
+  let destination=await findRegularResultPost(channel,client,item);
+  let created=false;
+  if(!destination){
+    destination=await channel.send(await giveawayAnnouncementWithBanner(item));
+    created=true;
+  }
+  const fields={
+    channelId:destinationId,messageId:destination.id,resultChannelId:destinationId,
+    listChannelId:item.channelId,listMessageId:item.messageId,renderedAt:null,
+  };
+  // A second draw/retry can race with this transfer; only one writer may adopt
+  // the new destination. Its independently sent duplicate is removed.
+  const saved=await Giveaway.updateOne({
+    _id:item._id,guildId:item.guildId,mode:"standard",status:"ended",
+    channelId:item.channelId,messageId:item.messageId,
+    renderVersion:item.renderVersion,
+  },{$set:fields});
+  if(saved?.matchedCount===0){
+    if(created)await destination.delete().catch(error=>
+      console.error("[Giveaways] Duplicate results post cleanup failed:",error));
+    throw Error("Giveaway results moved concurrently; the bot will refresh the saved destination.");
+  }
+  return {...item,...fields};
+}
+export async function cleanupRegularGiveawayListPost(client,item){
+  if(item?.mode!=="standard"||!item.listChannelId||!item.listMessageId)return false;
+  const channel=await client.channels.fetch(item.listChannelId);
+  if(!channel?.messages?.fetch)throw Error("Original Giveaway List channel is inaccessible.");
+  const message=await channel.messages.fetch(item.listMessageId).catch(error=>{
+    if(error.code===10008)return null;
+    throw error;
+  });
+  if(message?.author?.id!==undefined && message.author.id!==client.user?.id)
+    throw Error("Original Giveaway List message belongs to another user or bot.");
+  if(message)await message.delete();
+  // Store cleanup completion only after the original was actually removed.
+  await Giveaway.updateOne({
+    _id:item._id,mode:"standard",status:"ended",
+    channelId:item.channelId,messageId:item.messageId,
+    listChannelId:item.listChannelId,listMessageId:item.listMessageId,
+  },{$set:{listChannelId:"",listMessageId:"",listFingerprint:""}});
+  return true;
+}
 export async function publishGiveawayResult(client, item) {
   if(item && !["draft","publishing","failed"].includes(item.status)){
     try{await ensureGiveawayStaffRecord(client,item);}
@@ -423,16 +496,23 @@ export async function publishGiveawayResult(client, item) {
     return true;
   }
   if (!item?.messageId || !["ended", "open"].includes(item.status)) return false;
-  const channel = await client.channels.fetch(item.channelId);
+  const record=item.status==="ended"?await relocateRegularGiveawayResult(client,item):item;
+  const channel = await client.channels.fetch(record.channelId);
   if (!channel?.messages?.fetch) throw Error("Giveaway channel is inaccessible.");
-  const message = await channel.messages.fetch(item.messageId);
+  const message = await channel.messages.fetch(record.messageId);
   if (message.author?.id !== client.user?.id) throw Error("Giveaway message is not authored by this bot.");
-  await message.edit(await giveawayAnnouncementWithBanner(item));
-  if (item.status === "ended") {
+  await message.edit(await giveawayAnnouncementWithBanner(record));
+  if (record.status === "ended") {
+    // Do not mark the render finished until old signup post cleanup succeeded.
+    await cleanupRegularGiveawayListPost(client,record);
     await Giveaway.updateOne(
-      { _id: item._id, status: "ended", renderVersion: item.renderVersion },
+      { _id: record._id, status: "ended", renderVersion: record.renderVersion },
       { $set: { renderedAt: new Date() } },
     );
+    if(record.channelId!==item.channelId||item.listMessageId){
+      try{await ensureGiveawayStaffRecord(client,{...record,listChannelId:"",listMessageId:""});}
+      catch(error){console.error("[Giveaways] Private staff link update failed:",record._id,error);}
+    }
   }
   return true;
 }
