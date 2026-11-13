@@ -143,7 +143,7 @@ function layout(session,banners=[]){
   if(step==="role"){
     content="Should entry require a server role?\nCurrent: "+roleDescription(s)+
       "\nThe shared Giveaway Notification Role only receives the initial announcement ping; it is not an entry requirement.";
-    components.push(buttons(session,[["Use Server Default","roleDefault"],
+    components.push(buttons(session,[["Use Server Default","roleDefault",ButtonStyle.Primary],
       ["No Required Role","roleNone"],["Keep Current","keep"]]));
     components.push(new ActionRowBuilder().addComponents(
       new RoleSelectMenuBuilder().setCustomId(selectId(session,"roleSelected"))
@@ -155,7 +155,7 @@ function layout(session,banners=[]){
       (effectiveRoleInstructions(s)||"*No role-acquisition instructions have been saved.*")+
       "\n**Shown publicly:** "+(roleVisible(s)?"Yes":"No")+
       (roleId(s)?"":"\nNo entry role is required, so this setting will not appear on the announcement.");
-    components.push(buttons(session,[["Use Server Default","roleHelpDefault"],
+    components.push(buttons(session,[["Use Server Default","roleHelpDefault",ButtonStyle.Primary],
       ["Write Custom Instructions","roleHelpCustom"],["Show","roleHelpShow"],
       ["Hide","roleHelpHide"]]));
     components.push(buttons(session,[["Keep Current / Next","keep"]]));
@@ -188,7 +188,7 @@ function layout(session,banners=[]){
       "**Currently selected ("+claimInstructionSource(s)+"):**\n"+
       effectiveClaimInstructions(s)+
       "\n\nThe bot always adds the ticket number, Discord message link, claim deadline and forfeiture warning.";
-    components.push(buttons(session,[["Use Server Default","claimDefault"],
+    components.push(buttons(session,[["Use Server Default","claimDefault",ButtonStyle.Primary],
       ["Write Custom Instructions","writeClaim"],["Keep Current / Next","keep"]]));
   }
   if(step==="claimText")content="Type your custom prize-collection instructions (1–1,000 characters).";
@@ -202,7 +202,7 @@ function layout(session,banners=[]){
     components.push(buttons(session,[
       ...(banners.length?[["Type Saved Name","typeBanner"]]:[]),
       ["Upload New Banner","uploadBanner",ButtonStyle.Primary],
-      ["Use Default","bannerDefault"],["Keep Current","keep"]
+      ["Use Default","bannerDefault",ButtonStyle.Primary],["Keep Current","keep"]
     ]));
   }
   if(step==="bannerText")content="Type the exact saved banner name here.\n\n"+bannerCatalogText(banners);
