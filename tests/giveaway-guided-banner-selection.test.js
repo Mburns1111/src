@@ -133,7 +133,7 @@ test("regular giveaway setup includes the shared Giveaway Winners channel picker
   assert.match(h.current().content,/both regular and activity giveaway results/);
   assert.ok(h.controls().some(c=>c.type===8),"The channel picker must appear in regular setup");
   await h.step("channel",[winnersId]);
-  assert.match(h.current().content,/Private staff controls/);
+  assert.match(h.current().content,/private, staff-only/);
   await h.goToBanner();
   await h.step("keep");
   assert.match(h.current().content,/Giveaway Winners/);
@@ -141,7 +141,7 @@ test("regular giveaway setup includes the shared Giveaway Winners channel picker
   await h.step("edit",["winners"]);
   assert.match(h.current().content,/Editing Giveaway Winners channel/);
   await h.step("keep");
-  assert.match(h.current().content,/Setup Review/);
+  assert.match(h.current().content,/Setup — Review|Setup Review/);
   await h.step("cancel");
  }finally{restore();}
 });
