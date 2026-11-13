@@ -16,6 +16,7 @@ import {ensureBannerRegistered,getGiveawayBanner,attachGiveawayBanner}
 import {giveawayAnnouncement,maxRegularGiveawayMinutes} from "../services/giveaways.js";
 import {createRegularGiveaway} from "../services/regular-giveaway-creation.js";
 import {DEFAULT_CLAIM_HOURS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaway-claims.js";
+import {cleanRegularDisplayText,REGULAR_DISPLAY_TEXT_MAX} from "../services/giveaway-display-text.js";
 
 const sessions=new Map();
 const SESSION_MS=30*60_000;
@@ -34,7 +35,8 @@ const parents={descriptionText:"description",minutesText:"minutes",daysText:"min
   rulesText:"rules",claimHoursText:"claimHours",claimText:"claimInstructions",
   bannerText:"banner",bannerUpload:"banner"};
 const textSteps=new Set(["title","prize","descriptionText","minutesText","daysText","winnerText","roleHelpText",
-  "rulesText","claimHoursText","claimText","bannerText","bannerUpload"]);
+  "rulesText","claimHoursText","claimText","bannerText","bannerUpload",
+  "displayEntryText","displayWinnerText"]);
 const key=(guildId,channelId,userId)=>guildId+":"+channelId+":"+userId;
 // Both custom minutes and custom days respect the actual six-calendar-month
 // cutoff for the day the giveaway is created (not a fixed 180-day estimate).
@@ -86,6 +88,8 @@ const summary=(session)=>{
     role?"**Role instructions ("+roleInstructionSource(s)+"):** "+
       (effectiveRoleInstructions(s)||"None"):null,
     "**Rules:** "+(s.rules?safe(s.rules).slice(0,150):"None"),
+    "**Entry flavor text:** "+(s.displayEntryText?"Custom":"Built-in fox story"),
+    "**Winner flavor text:** "+(s.displayWinnerText?"Custom":"Built-in fox story"),
     "**Claim deadline:** "+s.claimHours+" hour(s)",
     "**Claim instructions ("+claimInstructionSource(s)+"):** "+effectiveClaimInstructions(s),
     "**Banner:** "+(s.bannerNameKey||"Server default"+(s.serverBannerNameKey?" ("+s.serverBannerNameKey+")":" (none)")),
@@ -106,7 +110,8 @@ const labelStep=s=>parents[s.step]||s.step;
 function layout(session,banners=[]){
   const s=session.settings,step=session.step,components=[];
   const total=steps.indexOf(step);
-  const progress=session.fromReview?
+  const progress=step.startsWith("display")?
+    "**Edit Display Text**":session.fromReview?
     "**Editing "+name[labelStep(session)]+"**":
     total>=0?"**Step "+(total+1)+" of "+steps.length+" — "+name[step]+"**":
       "**"+name[labelStep(session)]+"**";
@@ -209,6 +214,34 @@ function layout(session,banners=[]){
   if(step==="bannerUpload")content="Attach a PNG, JPG, WebP or GIF (maximum 4 MB) in this channel. "+
     "You may type a banner name in the same message, or the filename becomes its name. "+
     "The banner will be registered for future use; uploading an existing name replaces the image.";
+  if(step==="displayEditor"){
+    const d=session.displayDraft||{displayEntryText:"",displayWinnerText:""};
+    content="Change the story text only for this regular giveaway. Prize, entry rules, deadlines and buttons stay the same. "+
+      "Leave a field on the built-in default to keep the fox's story. "+
+      "You can include **{host}** in either message and **{winners}** in winner text.\n\n"+
+      "**Entry text:**\n"+(d.displayEntryText||"*Built-in fox story*")+"\n\n"+
+      "**Winner text:**\n"+(d.displayWinnerText||"*Built-in fox story*");
+    components.push(buttons(session,[["Edit Entry Text","displayEntry"],["Edit Winner Text","displayWinner"]]));
+    components.push(buttons(session,[["Default Entry Text","displayResetEntry"],
+      ["Default Winner Text","displayResetWinner"]]));
+    components.push(buttons(session,[["Review Text","displayReview",ButtonStyle.Primary],
+      ["Discard Changes","displayDiscard"]]));
+  }
+  if(step==="displayEntryText"||step==="displayWinnerText")
+    content="Reply in this channel with the new **"+(step==="displayEntryText"?"entry":"winner")+
+      " flavor text** (1–"+REGULAR_DISPLAY_TEXT_MAX+" characters). "+
+      "Use **{host}** for the host mention or **{winners}** for winner mentions. "+
+      "Ordinary @mentions won't ping anyone.\n"+
+      "You can go back without changing your draft.";
+  if(step==="displayReview"){
+    const d=session.displayDraft||{displayEntryText:"",displayWinnerText:""};
+    content="**Review your display text**\n\n"+
+      "**While entries are open:**\n"+(d.displayEntryText||"*Built-in fox story*")+"\n\n"+
+      "**When winners are announced:**\n"+(d.displayWinnerText||"*Built-in fox story*")+
+      "\n\nConfirm to apply this wording to the giveaway draft. Nothing is public until you select **Post Giveaway** on the final review.";
+    components.push(buttons(session,[["Confirm Text","displayConfirm",ButtonStyle.Success],
+      ["Back to Editor","displayBack"],["Discard Changes","displayDiscard"]]));
+  }
   if(step==="review"){
     content=summary(session);
     components.push(new ActionRowBuilder().addComponents(
@@ -216,9 +249,12 @@ function layout(session,banners=[]){
         .setPlaceholder("Edit a giveaway setting").addOptions(
           steps.filter(x=>x!=="review").map(x=>({label:name[x],value:x})))));
     components.push(buttons(session,[["Preview Announcement","preview"],
+      ["Edit Display Text","displayEdit",ButtonStyle.Secondary],
       ["Post Giveaway","post",ButtonStyle.Success],["Cancel","cancel",ButtonStyle.Danger]]));
   }
-  if(step!=="review")components.push(buttons(session,[
+  if(step==="displayEntryText"||step==="displayWinnerText")
+    components.push(buttons(session,[["Back to Editor","displayBack"],["Discard Changes","displayDiscard"]]));
+  if(step!=="review"&&!step.startsWith("display"))components.push(buttons(session,[
     ...(step==="title"&&!s.title?[]:[["Back","back"]]),
     ["Cancel","cancel",ButtonStyle.Danger]]));
   return {
@@ -247,6 +283,8 @@ async function finishStep(session){
   return show(session,steps[Math.min(index+1,steps.length-1)]);
 }
 async function goBack(session){
+  if(session.step==="displayEditor"){session.displayDraft=null;return show(session,"review");}
+  if(session.step.startsWith("display"))return show(session,"displayEditor");
   if(parents[session.step])return show(session,parents[session.step]);
   if(session.fromReview){
     session.fromReview=false;
@@ -273,6 +311,7 @@ async function preview(session){
   const example={
     _id:session.id,guildId:session.guild.id,creatorId:session.owner,
     title:s.title,prize:s.prize,description:s.description,rules:s.rules,
+    displayEntryText:s.displayEntryText,displayWinnerText:s.displayWinnerText,
     mode:"standard",status:"open",winnerCount:s.winners,
     winnerCooldownEnabled:s.winnerCooldownEnabled,
     endsAt:new Date(Date.now()+s.minutes*60000),entrantIds:[],
@@ -320,6 +359,13 @@ async function apply(session,action,value,client){
   }
   if(action==="back")return goBack(session);
   if(step==="review"){
+    if(action==="displayEdit"){
+      session.displayDraft={
+        displayEntryText:s.displayEntryText||"",
+        displayWinnerText:s.displayWinnerText||"",
+      };
+      return show(session,"displayEditor");
+    }
     if(action==="preview")return preview(session);
     if(action==="edit"){
       if(!steps.includes(value)||value==="review")throw Error("Select a setting to edit.");
@@ -327,6 +373,39 @@ async function apply(session,action,value,client){
     }
     if(action==="post")return post(session,client);
     throw Error("Choose Preview, Post Giveaway, or Edit.");
+  }
+  if(step.startsWith("display")){
+    if(action==="displayDiscard"){
+      session.displayDraft=null;
+      return show(session,"review");
+    }
+    if(action==="displayBack")return show(session,"displayEditor");
+    const d=session.displayDraft;
+    if(!d)throw Error("Open the display text editor from the giveaway review.");
+    if(step==="displayEditor"){
+      if(action==="displayEntry")return show(session,"displayEntryText");
+      if(action==="displayWinner")return show(session,"displayWinnerText");
+      if(action==="displayResetEntry"){d.displayEntryText="";return show(session,"displayEditor");}
+      if(action==="displayResetWinner"){d.displayWinnerText="";return show(session,"displayEditor");}
+      if(action==="displayReview")return show(session,"displayReview");
+    }
+    if(step==="displayEntryText"&&action==="text"){
+      const text=entered(value,1,REGULAR_DISPLAY_TEXT_MAX,"Entry display text");
+      d.displayEntryText=cleanRegularDisplayText(text);
+      return show(session,"displayEditor");
+    }
+    if(step==="displayWinnerText"&&action==="text"){
+      const text=entered(value,1,REGULAR_DISPLAY_TEXT_MAX,"Winner display text");
+      d.displayWinnerText=cleanRegularDisplayText(text);
+      return show(session,"displayEditor");
+    }
+    if(step==="displayReview"&&action==="displayConfirm"){
+      s.displayEntryText=d.displayEntryText;
+      s.displayWinnerText=d.displayWinnerText;
+      session.displayDraft=null;
+      return show(session,"review");
+    }
+    throw Error("Choose one of the display text editor's options.");
   }
   if(action==="keep"){
     if((step==="title"&&!s.title)||(step==="prize"&&!s.prize))
@@ -478,9 +557,9 @@ export async function startRegularGiveawayWizard(interaction){
   const session={
     id:new mongoose.Types.ObjectId().toString(),key:sessionKey,
     guild:interaction.guild,channel:interaction.channel,owner:interaction.user.id,
-    client:interaction.client,config,step:"title",fromReview:false,busy:false,
+    client:interaction.client,config,step:"title",fromReview:false,busy:false,displayDraft:null,
     settings:{
-      title:"",prize:"",description:"",rules:"",
+      title:"",prize:"",description:"",rules:"",displayEntryText:"",displayWinnerText:"",
       minutes:60,winners:1,requiredRoleMode:"default",requiredRoleId:"",
       winnerCooldownEnabled:false,
       serverExcludedRoleId:config.giveawayExcludedRoleId||"",
