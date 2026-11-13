@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ChannelSelectMenuBuilder,RoleSelectMenuBuilder,
-  StringSelectMenuBuilder,ChannelType,PermissionFlagsBits,MessageFlags} from "discord.js";
+  StringSelectMenuBuilder,ChannelType,PermissionFlagsBits,MessageFlags,ModalBuilder,TextInputBuilder,TextInputStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {preferSetupButtons} from "../services/setup-button-preferences.js";
 import Giveaway from "../models/Giveaway.js";
@@ -10,9 +10,32 @@ import {GuidedActivitySeries} from "../services/guided-activity.js";
 import {ensureBannerRegistered,attachGiveawayBanner} from "../services/giveaway-banners.js";
 import {registeredSetupBanners,bannerCatalogText,setupBannerOptions,registerSetupBanner} from "../services/giveaway-banner-setup.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
+import {REGULAR_DISPLAY_FIELDS,REGULAR_DISPLAY_DEFAULTS,cleanRegularDisplayField} from "../services/giveaway-display-text.js";
 import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import {DEFAULT_CLAIM_HOURS,DEFAULT_MAX_AUTO_REROLLS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaway-claims.js";
 
+const serverDisplayField=field=>"regularGiveaway"+field[0].toUpperCase()+field.slice(1);
+const displayLabels={
+ displayOpenTitle:"Open giveaway title",displayEndedTitle:"Winner announcement title",
+ displayEntryText:"Entry story",displayWinnerText:"Winner story"
+};
+export function regularGiveawayDisplayPreview(settings,{winner=false,
+ previewUserId="123456789012345678",now=new Date()}={}){
+ const values=Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
+   [field,cleanRegularDisplayField(field,settings?.[serverDisplayField(field)]||"")]));
+ const record={_id:"PREVIEW",mode:"standard",status:winner?"ended":"open",
+   title:"Example Giveaway",prize:"Example prize",creatorId:previewUserId,
+   winnerCount:1,winnerIds:winner?[previewUserId]:[],entrantIds:winner?[previewUserId]:[],
+   endsAt:new Date(now.getTime()+(winner?0:3600000)),
+   claimWindowHours:settings.activityClaimWindowHours||12,
+   claimInstructions:settings.activityClaimInstructions||"",
+   requiredRoleId:settings.giveawayDefaultRequiredRoleId||"",claimResolvedSlots:[],...values};
+ const payload=giveawayAnnouncement(record);
+ payload.embeds[0].setFooter({text:"SERVER TEMPLATE PREVIEW · No giveaway posted"});
+ for(const r of payload.components||[])for(const c of r.components)c.setDisabled(true);
+ payload.allowedMentions={parse:[]};
+ return payload;
+}
 const sessions=new Map();
 const expiry=30*60_000;
 const key=(channel,user)=>channel+":"+user;
@@ -69,6 +92,7 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   "🔔 **Shared giveaway ping role (all giveaways and Trials):** "+(sharedGiveawayPingRoleId(settings)?"<@&"+sharedGiveawayPingRoleId(settings)+">":"None"),
   "🥀 **No eligible members:** "+(settings.activityAnnounceEmptyResults?"Announce no winners":"Don't post an empty result"),
   "🖼️ **Default banner:** "+(settings.giveawayDefaultBannerNameKey||"None"),
+  ...(mode==="regular"?["🎭 **Regular giveaway display:** "+(REGULAR_DISPLAY_FIELDS.some(field=>settings[serverDisplayField(field)])?"Customized server template":"Built-in fox template")]:[]),
   "",
   "**Changes to existing giveaways:** "+(updateExisting?"Apply new claim instructions to current giveaways when saved":"Future giveaways only"),
   "*Changing the default claim window or reroll maximum here does not change deadlines that are already running.*",
@@ -107,6 +131,7 @@ function layout(session,banners=[]) {
  const title="**"+(session.mode==="regular"?"Regular":"Activity")+" giveaway setup** · <@"+session.owner+">\n**"+progress(session)+"**\n";
  const components=[];
  let content="";
+ let embeds;
  if(["list","winners","staff","archive","regularChannel"].includes(step)){
    const field={list:"activityGiveawayListChannelId",winners:"activityGiveawayWinnersChannelId",
      staff:"activityGiveawayReviewChannelId",archive:"giveawayArchiveChannelId",regularChannel:"giveawayChannelId"}[step];
