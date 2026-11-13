@@ -264,7 +264,8 @@ async function accept(session,input,client){
   const done=next=>finishGroup(session,next);
   const dayStep=()=>windowEnd(s,now)-now>24*hour?"days":(s.days=1,done("filters"));
   if(/^cancel setup$/i.test(v)){
-    sessions.delete(session.key); return session.channel.send("Setup cancelled.");
+    sessions.delete(session.key);await session.channel.send("Setup cancelled.");
+    await retireGuidedControls(session.promptMessage,session.channel);return;
   }
   if(v==="bannerBack"){session.editing=false;return show(session,"summary");}
   if(v==="bannerOptions")return show(session,"banner");
@@ -411,7 +412,9 @@ async function accept(session,input,client){
       const record=await createGuidedActivity(session.id,session.guild.id,s,start);
       sessions.delete(session.key);
       const posts=await Promise.allSettled([publishActivityOneOffListing(client,record),ensureStaffCard(client,record)]);
-      return session.channel.send('Activity created. Counting ends '+stamp(record.activityEndAt)+'. '+(posts.every(p=>p.status==="fulfilled")?'The activity list and staff cards are ready.':'The bot will retry any missing channel post.'));
+      await session.channel.send('Activity created. Counting ends '+stamp(record.activityEndAt)+'. '+(posts.every(p=>p.status==="fulfilled")?'The activity list and staff cards are ready.':'The bot will retry any missing channel post.'));
+      await retireGuidedControls(session.promptMessage,session.channel);
+      return;
     }
   }
   return show(session,next);
