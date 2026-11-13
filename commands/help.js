@@ -283,7 +283,7 @@ const CONTENT=Object.freeze({
   [
    [
     "Activity Participation · REQUIRED",
-    "Members explicitly press **Opt In** on the permanent participation panel at the bottom of the **Activity Giveaway List**. MongoDB stores their choice; **No Discord role** is needed for activity participation. **My Status** reports whether they are opted in.\n\n**Opt Out** stops new activity tracking and excludes them from drawings. Rejoining starts a **fresh counting window**: previous messages do not carry over.\n\n**Giveaway Banned role:** Receiving it revokes MongoDB opt-in. Removing the role does not restore participation; the member must press **Opt In** again. The bot checks message activity, role updates when enabled, and periodically reconciles missed bans.\n\nThe panel is kept below new activity listings and refreshed beneath later chat with a posting cooldown."
+    "Members explicitly press **Opt In** on the permanent participation panel at the bottom of the **Activity Giveaway List**. MongoDB stores their choice; **No Discord role** is needed for activity participation. **My Status** reports whether they are opted in.\n\n**Opt Out** stops new activity tracking and excludes them from drawings. Rejoining starts a **fresh counting window**: previous messages do not carry over.\n\nThe panel is kept below new activity listings and refreshed beneath later chat with a posting cooldown."
    ],
    [
     "1. Set the Requirements",
