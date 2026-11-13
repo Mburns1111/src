@@ -295,7 +295,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "3. Check Progress",
-    "Members press **Check My Progress** on an activity listing to see their own qualifying totals privately.\n\nIn **Giveaway Staff Controls**, use **Preview Qualifying Members** and **Refresh Progress** to see members who have started working toward requirements, whether they qualify, and the criteria they still need. **Members with no recorded activity are omitted.**\n\nStaff may review channel, message-count, active-day, word/phrase, mention and minimum-length requirements, plus edit upcoming schedules and eligible settings.\n\nMembers who **opt out** or receive the Banned role are excluded from live previews and drawings. Activity is counted only within each member's current opt-in window."
+    "Members press **Check My Progress** on an activity listing to see their own qualifying totals privately.\n\nIn **Giveaway Staff Controls**, use **Preview Qualifying Members** and **Refresh Progress** to see members who have started working toward requirements, whether they qualify, and the criteria they still need. **Members with no recorded activity are omitted.**\n\nStaff may review channel, message-count, active-day, word/phrase, mention and minimum-length requirements, plus edit upcoming schedules and eligible settings."
    ],
    [
     "4. Manual Approval",
