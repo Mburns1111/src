@@ -319,13 +319,16 @@ async function post(session,client){
       "\nMembers can enter in the public giveaway channel. The private staff record will track the event.",
     allowedMentions:{parse:[]},
   });
+  await retireGuidedControls(session.promptMessage,session.channel);
 }
 async function apply(session,action,value,client){
   const s=session.settings,step=session.step;
   if(action==="cancel"){
     sessions.delete(session.key);
-    return session.channel.send({content:"Regular giveaway setup cancelled. Nothing was published.",
+    await session.channel.send({content:"Regular giveaway setup cancelled. Nothing was published.",
       allowedMentions:{parse:[]}});
+    await retireGuidedControls(session.promptMessage,session.channel);
+    return;
   }
   if(action==="back")return goBack(session);
   if(step==="review"){
