@@ -126,3 +126,7 @@ In the private giveaway staff directory, **Winner Cooldowns** lists active membe
 ## Guided setup prompt retirement
 
 The general, Hatchem, regular giveaway, activity giveaway, and Court Trial guided setup/creation wizards preserve previous messages for context but **remove previous buttons and select menus** after posting their next step. They also retire the last prompt when the setup is cancelled, saved or published. If Discord prevents an old message edit, its server-side prompt ID is still rejected when clicked; the bot does not remove controls from permanent public giveaway, entry/claim or staff directory messages. The temporary private winner cooldown member selector updates its existing ephemeral menu, avoiding the dangling old selectable menu in the message trail.
+
+## Temporary staff-action menus (private only)
+
+Clicking a permanent **Edit Giveaway**, **End Early**, **Manual Reroll**, or **Winner Cooldowns** button keeps that permanent staff record intact and opens a private interaction. Once staff choose a setting, confirm an action, or cancel the temporary dialog, the **previous private menu is updated in place** or its buttons/selectors are cleared. The activity staff editor and activity Early End confirmation follow the same pattern. This is a **message/component lifecycle only** change: it does not change eligibility, timers, cooldown duration, claims, prizes, post destinations, or action permissions. Permanent member-facing buttons and staff directory navigation remain active.
