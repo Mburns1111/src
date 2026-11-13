@@ -1,4 +1,5 @@
 import GiveawayWinnerCooldown from "../models/GiveawayWinnerCooldown.js";
+import Giveaway from "../models/Giveaway.js";
 
 const ONE_DAY_MS=86_400_000;
 export const MAX_GIVEAWAY_COOLDOWN_DAYS=365;
@@ -29,6 +30,19 @@ export async function activeCooldownFor(guildId,userId,{now=new Date()}={}){
  return GiveawayWinnerCooldown.findOne({
   guildId,userId,expiresAt:{$gt:now},
  }).lean();
+}
+
+// An active cooldown removes entries in *open, cooldown-enabled* regular
+// giveaways. It never removes entries in an OFF giveaway or edits activity
+// participation, which is qualified and filtered at the draw instead.
+export async function removeActiveCooldownEntries(guildId,userIds,{now=new Date()}={}){
+ const ids=[...new Set((userIds||[]).map(String).filter(Boolean))];
+ if(!ids.length)return 0;
+ const result=await Giveaway.updateMany({
+   guildId,mode:"standard",status:"open",endsAt:{$gt:now},
+   winnerCooldownEnabled:true,entrantIds:{$in:ids},
+ },{$pull:{entrantIds:{$in:ids}}});
+ return result.modifiedCount||0;
 }
 
 export async function applyGiveawayWinnerCooldown({
