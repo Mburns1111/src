@@ -15,7 +15,7 @@ function fixture(overrides={}){
   _id:giveawayId,guildId,mode:"standard",status:"ended",
   creatorId,title:"Court prize",prize:"Pet prize",
   entrantIds:[winnerId],winnerIds:[winnerId],winnerCount:1,
-  claimWindowHours:12,claimStartedAt:new Date(),winnerAssignedAt:[new Date()],
+  claimWindowHours:12,claimStartedAt:null,winnerAssignedAt:[null],regularWinnerNotifiedIds:[],
   endsAt:new Date(),channelId:sourceId,messageId:oldId,
   resultChannelId:winnerChannelId,renderVersion:1,renderedAt:null,
   publicListingRemovedAt:null,claimResolvedSlots:[],rerollHistory:[],
@@ -23,12 +23,12 @@ function fixture(overrides={}){
  };
 }
 async function harness(overrides={}){
- const original={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const original={config:GuildConfig.findOne,update:Giveaway.updateOne,lock:Giveaway.findOneAndUpdate};
  let stored=fixture(overrides), deletionFails=false,sendFails=false;
  const calls={sent:[],edits:[],deleted:[],updates:[]};
  const published=[];
  const originalMessage={id:oldId,author:{id:"bot"},
-   embeds:[{footer:{text:"Giveaway ID: "+giveawayId}}],
+   embeds:[{footer:{text:"Court ref: pending"}}],
    edit:async payload=>calls.edits.push(["source",payload]),
    delete:async()=>{
      if(deletionFails)throw Error("Temporary delete failure");
@@ -50,8 +50,12 @@ async function harness(overrides={}){
    send:async payload=>{
      if(sendFails)throw Error("Cannot send to winners");
      calls.sent.push(payload);
-     published.push(destinationMessage);
-     return destinationMessage;
+     if(payload.embeds?.length){
+       destinationMessage.embeds=payload.embeds.map(e=>e.toJSON());
+       if(!published.includes(destinationMessage))published.push(destinationMessage);
+       return destinationMessage;
+     }
+     return {id:newId+"-notice",author:{id:"bot"},content:payload.content};
    }
  };
  const client={user:{id:"bot"},channels:{fetch:async id=>
@@ -61,6 +65,10 @@ async function harness(overrides={}){
    then:(resolve,reject)=>Promise.resolve(config).then(resolve,reject),
    select:()=>({lean:async()=>config})
  });
+ Giveaway.findOneAndUpdate=()=>({lean:async()=>{
+   Object.assign(stored,{resultPublicationToken:"locked",resultPublicationClaimedAt:new Date()});
+   return {...stored};
+ }});
  Giveaway.updateOne=async(query,update)=>{
    calls.updates.push({query,update});
    if(query.channelId && (stored.channelId!==query.channelId||stored.messageId!==query.messageId))
@@ -68,6 +76,8 @@ async function harness(overrides={}){
    if(query.listMessageId && stored.listMessageId!==query.listMessageId)
      return {matchedCount:0};
    Object.assign(stored,update.$set||{});
+   if(update.$addToSet?.regularWinnerNotifiedIds?.$each)
+     stored.regularWinnerNotifiedIds=[...new Set([...(stored.regularWinnerNotifiedIds||[]),...update.$addToSet.regularWinnerNotifiedIds.$each])];
    return {matchedCount:1,modifiedCount:1};
  };
  return {
@@ -75,7 +85,7 @@ async function harness(overrides={}){
    setStored:values=>Object.assign(stored,values),
    setDeleteFails:value=>{deletionFails=value;},
    setSendFails:value=>{sendFails=value;},
-   restore:()=>{GuildConfig.findOne=original.config;Giveaway.updateOne=original.update;}
+   restore:()=>{GuildConfig.findOne=original.config;Giveaway.updateOne=original.update;Giveaway.findOneAndUpdate=original.lock;}
  };
 }
 
@@ -89,17 +99,17 @@ test("a regular giveaway transfers one winner result, deletes old list post and 
   assert.equal(r.resultChannelId,winnerChannelId);
   assert.equal(r.listChannelId,"");
   assert.equal(r.listMessageId,"");
-  assert.equal(h.calls.sent.length,1);
+  assert.equal(h.calls.sent.length,2);
   assert.deepEqual(h.calls.deleted,["source"]);
   const sent=h.calls.sent[0];
-  assert.match(sent.embeds[0].toJSON().description,/Winners \/ Results/);
+  assert.match(sent.embeds[0].toJSON().fields[0].name,/Winners \/ Results/);
   assert.ok(sent.components.flatMap(row=>row.components)
     .some(button=>button.toJSON().custom_id==="giveaway:claim:"+giveawayId));
   assert.deepEqual(sent.allowedMentions,{parse:[]});
   assert.ok(r.renderedAt instanceof Date);
   h.setStored({renderVersion:2,renderedAt:null});
   await publishGiveawayResult(h.client,h.getStored());
-  assert.equal(h.calls.sent.length,1,"rerolls must update the existing Winners message");
+  assert.equal(h.calls.sent.length,2,"refresh must not publish or ping duplicate winners");
   assert.deepEqual(h.calls.deleted,["source"]);
  }finally{h.restore();}
 });
@@ -136,7 +146,7 @@ test("the bot recovers a winner result posted before the MongoDB transfer update
   assert.equal(h.calls.sent.length,1);
   assert.equal(h.getStored().channelId,sourceId);
   await publishGiveawayResult(h.client,h.getStored());
-  assert.equal(h.calls.sent.length,1,"a repost after failure must be discovered by Giveaway ID");
+  assert.equal(h.calls.sent.length,2,"a repost after failure must be recovered from the public reference");
   assert.equal(h.getStored().channelId,winnerChannelId);
  }finally{h.restore();}
 });
