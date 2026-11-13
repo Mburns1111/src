@@ -93,7 +93,7 @@ test("cooldown durations must be positive days and start at confirmed prize deli
  assert.match(trial.responses.reply.content,/Court's Trials do not use/);
  const prior=makeAction();
  await handleGiveawayCooldownAction(prior.i,{...giveaway,prizeDeliveredAt:null},"cooldown");
- assert.match(prior.responses.reply.content,/only after all prizes/);
+ assert.match(prior.responses.reply.content,/require a completed giveaway with confirmed prize delivery/);
 });
 
 test("staff-wide cooldown manager lists active members and supports expiry correction or removal",async()=>{
