@@ -1,153 +1,44 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
-import GuildConfig from "../models/GuildConfig.js";
-import {giveawayAnnouncement,publishRegularWinnerAnnouncement} from "../services/giveaways.js";
+import {giveawayAnnouncement} from "../services/giveaways.js";
 import {handleGiveawayButton} from "../commands/giveaway.js";
 
-const guildId="123456789012345678";
-const regularChannelId="234567890123456789";
-const winnerChannelId="345678901234567890";
-const originalId="456789012345678901";
-const firstWinner="567890123456789012";
-const secondWinner="678901234567890123";
+const guildId="123456789012345678",source="234567890123456789",
+ destination="345678901234567890",originalId="456789012345678901",
+ currentId="567890123456789012",firstWinner="678901234567890123";
+const id="507f1f77bcf86cd799439011";
 
-function harness(){
-  const original={findOne:GuildConfig.findOne,updateOne:Giveaway.updateOne};
-  const sent=[],edits=[],deleted=[],messages=new Map();
-  let next=0;
-  const record={
-    _id:"507f1f77bcf86cd799439011",guildId,channelId:regularChannelId,
-    messageId:originalId,mode:"standard",status:"ended",
-    title:"Fox Giveaway",prize:"Pet",creatorId:"789012345678901234",
-    endsAt:new Date("2026-11-13T13:00:00Z"),
-    winnerIds:[firstWinner],claimResolvedSlots:[],entrantIds:[firstWinner,secondWinner],
-    claimStartedAt:new Date("2026-11-13T13:00:00Z"),
-    winnerAssignedAt:[new Date("2026-11-13T13:00:00Z")],
-    claimWindowHours:24,winnerClaims:[],regularWinnerMessageId:"",
-    regularWinnerNotifiedIds:[],publicListingRemovedAt:null,
-  };
-  const channel={
-    id:winnerChannelId,
-    messages:{fetch:async key=>{
-      if(typeof key==="string"){
-        const found=messages.get(key);
-        if(!found||found.deleted)throw {code:10008};
-        return found;
-      }
-      return {find:predicate=>[...messages.values()].reverse().find(m=>!m.deleted&&predicate(m))||null};
-    }},
-    send:async payload=>{
-      const id=String(890000000000000000n+BigInt(++next));
-      const message={
-        id,author:{id:"bot"},content:payload.content,deleted:false,
-        edit:async data=>{edits.push(data);message.content=data.content;return message;},
-        delete:async()=>{deleted.push(id);message.deleted=true;},
-      };
-      sent.push(payload);messages.set(id,message);return message;
-    }
-  };
-  GuildConfig.findOne=()=>({select:()=>({lean:async()=>({activityGiveawayWinnersChannelId:winnerChannelId})})});
-  Giveaway.updateOne=async (_query,changes)=>{
-    Object.assign(record,changes.$set);
-    const ids=changes.$addToSet?.regularWinnerNotifiedIds?.$each||[];
-    record.regularWinnerNotifiedIds=[...new Set([...record.regularWinnerNotifiedIds,...ids])];
-    return {modifiedCount:1};
-  };
-  const client={user:{id:"bot"},channels:{fetch:async id=>{
-    assert.equal(id,winnerChannelId);
-    return channel;
-  }}};
-  const publish=()=>publishRegularWinnerAnnouncement(client,record,giveawayAnnouncement(record));
-  const restore=()=>{GuildConfig.findOne=original.findOne;Giveaway.updateOne=original.updateOne;};
-  return {record,sent,edits,deleted,messages,publish,restore};
-}
-
-test("regular winners are posted to the shared Activity Winners channel and explicitly pinged once",async()=>{
-  const h=harness();
-  try{
-    assert.equal(await h.publish(),true);
-    assert.equal(h.sent.length,1);
-    assert.match(h.sent[0].content,/Regular Giveaway Results/);
-    assert.match(h.sent[0].content,new RegExp("<@"+firstWinner+">"));
-    assert.deepEqual(h.sent[0].allowedMentions,{parse:[],users:[firstWinner]});
-    assert.match(h.sent[0].content,new RegExp(regularChannelId+"/"+originalId));
-    assert.equal(h.record.regularWinnerNotifiedIds.includes(firstWinner),true);
-    assert.ok(h.record.regularWinnerMessageId);
-    await h.publish();
-    assert.equal(h.sent.length,1,"reconciliation only edits the existing result");
-    assert.equal(h.edits.length,1);
-    assert.deepEqual(h.edits[0].allowedMentions,{parse:[]});
-  }finally{h.restore();}
+test("one canonical Giveaway Winners result contains explicit winner, claim button and no internal record ID",()=>{
+ const payload=giveawayAnnouncement({_id:id,guildId,mode:"standard",status:"ended",
+  creatorId:"789012345678901234",title:"Pet",prize:"Mystery pet",
+  winnerIds:[firstWinner],entrantIds:[firstWinner],winnerCount:1,claimResolvedSlots:[],
+  endsAt:new Date(),claimWindowHours:12,winnerAssignedAt:[new Date()]});
+ const embed=payload.embeds[0].toJSON();
+ assert.match(embed.fields.map(f=>f.value).join("\n"),new RegExp(firstWinner));
+ assert.doesNotMatch(embed.footer.text,/Giveaway ID:/i);
+ assert.equal(payload.components[0].components[0].data.custom_id,"giveaway:claim:"+id);
+ assert.deepEqual(payload.allowedMentions,{parse:[]});
 });
 
-test("a reroll replaces the winners-channel post and notifies only the replacement",async()=>{
-  const h=harness();
-  try{
-    await h.publish();
-    const oldId=h.record.regularWinnerMessageId;
-    h.record.winnerIds=[secondWinner];
-    h.record.winnerAssignedAt=[new Date("2026-11-13T14:00:00Z")];
-    await h.publish();
-    assert.equal(h.sent.length,2);
-    assert.deepEqual(h.sent[1].allowedMentions,{parse:[],users:[secondWinner]});
-    assert.ok(h.sent[1].content.includes("<@"+secondWinner+">"));
-    assert.equal(h.deleted.includes(oldId),true);
-    await h.publish();
-    assert.equal(h.sent.length,2,"later sweeps must not ping the reroll again");
-  }finally{h.restore();}
-});
-
-test("a restart recovers a result posted before MongoDB saved its message ID",async()=>{
-  const h=harness();
-  try{
-    await h.publish();
-    h.record.regularWinnerMessageId="";
-    h.record.regularWinnerNotifiedIds=[];
-    await h.publish();
-    assert.equal(h.sent.length,1,"identical recent post must be recovered, not sent twice");
-    assert.deepEqual(h.record.regularWinnerNotifiedIds,[firstWinner]);
-  }finally{h.restore();}
-});
-
-test("no-winner regular giveaways do not send secondary winner notifications",async()=>{
-  const h=harness();
-  try{
-    h.record.winnerIds=[];
-    assert.equal(await h.publish(),false);
-    assert.equal(h.sent.length,0);
-  }finally{h.restore();}
-});
-
-test("the new winners-channel claim button is authorized, but unrelated messages are rejected",async()=>{
-  const prior=Giveaway.findOne;
-  const id="507f1f77bcf86cd799439011";
-  const record={
-    _id:id,guildId,mode:"standard",status:"ended",
-    channelId:regularChannelId,messageId:originalId,
-    regularWinnerChannelId:winnerChannelId,
-    regularWinnerMessageId:"890000000000000001",
-    winnerIds:[firstWinner],claimResolvedSlots:[],winnerClaims:[],
-    claimWindowHours:24,claimStartedAt:new Date(),
-    winnerAssignedAt:[new Date()],
-  };
-  Giveaway.findOne=()=>({lean:async()=>record});
-  const attempts=[];
-  const interaction=(channelId,messageId)=>({
-    guildId,guild:{},user:{id:firstWinner,bot:false},
-    customId:"giveaway:claim:"+id,
-    channelId,message:{id:messageId},
-    showModal:async modal=>attempts.push({kind:"modal",modal}),
-    reply:async payload=>attempts.push({kind:"reply",payload}),
+test("claims use the moved canonical Winners message, never the deleted Giveaway List post",async()=>{
+ const previous=Giveaway.findOne,answers=[];
+ try{
+  Giveaway.findOne=()=>({lean:async()=>({_id:id,guildId,mode:"standard",
+   status:"ended",channelId:destination,messageId:currentId,
+   resultChannelId:destination,listChannelId:"",listMessageId:"",
+   winnerIds:[firstWinner],claimResolvedSlots:[],winnerClaims:[],
+   claimWindowHours:12,winnerAssignedAt:[new Date()]})});
+  const make=(channelId,messageId)=>({
+    guildId,guild:{},channelId,message:{id:messageId},
+    customId:"giveaway:claim:"+id,user:{id:firstWinner,bot:false},
+    showModal:async modal=>answers.push({type:"modal",modal}),
+    reply:async payload=>answers.push({type:"reply",payload}),
   });
-  try{
-    await handleGiveawayButton(interaction(winnerChannelId,record.regularWinnerMessageId));
-    assert.equal(attempts[0].kind,"modal");
-    assert.match(attempts[0].modal.data.custom_id,/giveaway:ticket:/);
-    await handleGiveawayButton(interaction(regularChannelId,originalId));
-    assert.equal(attempts[1].kind,"modal","original post continues accepting claims");
-    await handleGiveawayButton(interaction(winnerChannelId,"999999999999999999"));
-    assert.equal(attempts[2].kind,"reply");
-    assert.match(attempts[2].payload.content,/could not be verified/);
-  }finally{Giveaway.findOne=prior;}
+  await handleGiveawayButton(make(destination,currentId));
+  assert.equal(answers[0].type,"modal");
+  await handleGiveawayButton(make(source,originalId));
+  assert.equal(answers[1].type,"reply");
+  assert.match(answers[1].payload.content,/could not be verified/);
+ }finally{Giveaway.findOne=previous;}
 });
