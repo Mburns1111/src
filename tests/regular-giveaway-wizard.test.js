@@ -354,3 +354,76 @@ test("regular wizard can enable winner cooldowns without changing the banned rol
   assert.equal(h.writes[0].enforceExclusionRole,undefined);
  }finally{restore();}
 });
+
+
+test("regular giveaway preview offers gray Edit Display Text with a confirmed two-part editor",async()=>{
+  try{
+    const h=await harness();
+    await h.reachReview();
+    const edit=h.controls().find(c=>c.label==="Edit Display Text");
+    assert.ok(edit,"final preview should offer the separate display text editor");
+    assert.equal(edit.style,2,"Edit Display Text should be a gray Secondary button");
+    await h.select("displayEdit");
+    assert.match(h.prompt().content,/Edit Display Text/);
+    assert.match(h.prompt().content,/Built-in fox story/);
+    await h.select("displayEntry");
+    await h.type("The court is open! {host} has a prize. @everyone");
+    await h.select("displayWinner");
+    await h.type("Congratulations {winners}! The prize came from {host}.");
+    await h.select("displayReview");
+    assert.match(h.prompt().content,/Review your display text/);
+    assert.match(h.prompt().content,/＠everyone/);
+    assert.equal(h.publicPosts.length,0,"editing text must not post publicly");
+    await h.select("displayConfirm");
+    assert.match(h.prompt().content,/Review regular giveaway before posting/);
+    assert.match(h.prompt().content,/Entry flavor text:\*\* Custom/);
+    await h.select("preview");
+    const preview=h.prompts.at(-1);
+    assert.match(preview.embeds[0].toJSON().description,/The court is open!/);
+    assert.match(preview.embeds[0].toJSON().description,/＠everyone/);
+    assert.match(preview.embeds[0].toJSON().description,new RegExp(owner));
+    assert.equal(h.publicPosts.length,0);
+    await h.select("post");
+    assert.equal(h.writes[0].displayEntryText,"The court is open! {host} has a prize. ＠everyone");
+    assert.equal(h.writes[0].displayWinnerText,"Congratulations {winners}! The prize came from {host}.");
+    const posted=h.publicPosts[0].embeds[0].toJSON().description;
+    assert.match(posted,/The court is open!/);
+    assert.match(posted,/Enter below|Winners:/);
+  }finally{restore();}
+});
+
+test("display editor discard does not save unconfirmed changes",async()=>{
+  try{
+    const h=await harness();
+    await h.reachReview();
+    await h.select("displayEdit");
+    await h.select("displayEntry");
+    await h.type("Do not keep this draft.");
+    await h.select("displayReview");
+    await h.select("displayDiscard");
+    assert.match(h.prompt().content,/Review regular giveaway before posting/);
+    assert.match(h.prompt().content,/Entry flavor text:\*\* Built-in fox story/);
+    await h.select("post");
+    assert.equal(h.writes[0].displayEntryText,"");
+    assert.equal(h.writes[0].displayWinnerText,"");
+    assert.match(h.publicPosts[0].embeds[0].toJSON().description,/fox whispers/i);
+  }finally{restore();}
+});
+
+test("display editor can reset one custom story without clearing the other",async()=>{
+  try{
+    const h=await harness();
+    await h.reachReview();
+    await h.select("displayEdit");
+    await h.select("displayEntry");
+    await h.type("Entry custom!");
+    await h.select("displayWinner");
+    await h.type("Winner custom!");
+    await h.select("displayResetEntry");
+    await h.select("displayReview");
+    await h.select("displayConfirm");
+    await h.select("post");
+    assert.equal(h.writes[0].displayEntryText,"");
+    assert.equal(h.writes[0].displayWinnerText,"Winner custom!");
+  }finally{restore();}
+});
