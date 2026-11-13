@@ -172,7 +172,7 @@ function layout(session,banners=[]){
   }
   if(step==="rulesText")content="Type your rules (1–1,200 characters).";
   if(step==="winnerCooldown"){
-    content="Should this giveaway **silently exclude members with an active winner cooldown** when selecting or rerolling winners? "+
+    content="Should this giveaway **block regular entries from members on an active winner cooldown** and also exclude cooled-down members when drawing or rerolling winners? "+
       "A winner cooldown is separate from the required punishment ban role. "+
       "Staff apply cooldowns after confirming prize delivery; they do not start automatically.\n"+
       "Current: **"+(s.winnerCooldownEnabled?"ON":"OFF")+"**";
