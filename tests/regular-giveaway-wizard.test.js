@@ -28,7 +28,7 @@ function restore(){
 }
 let nonce=0;
 async function harness({defaultRole="",storedBanners=[],
-  serverClaimInstructions="",serverRoleInstructions=""}={}){
+  serverClaimInstructions="",serverRoleInstructions="",display={}}={}){
   // Different invocation channel per test prevents a failed test leaving a
   // previously open wizard session for later tests.
   const commandsId=String(230000000000000000n+BigInt(++nonce));
@@ -55,6 +55,7 @@ async function harness({defaultRole="",storedBanners=[],
     giveawayExcludedRoleId:"789012345678901234",
     activityClaimInstructions:serverClaimInstructions,
     giveawayRoleInstructions:serverRoleInstructions,
+    ...display,
   };
   GuildConfig.findOne=()=>({
     then:(resolve,reject)=>Promise.resolve(config).then(resolve,reject),
@@ -356,74 +357,39 @@ test("regular wizard can enable winner cooldowns without changing the banned rol
 });
 
 
-test("regular giveaway preview offers gray Edit Display Text with a confirmed two-part editor",async()=>{
+test("regular giveaway creator does not offer per-event display editor",async()=>{
   try{
     const h=await harness();
     await h.reachReview();
-    const edit=h.controls().find(c=>c.label==="Edit Display Text");
-    assert.ok(edit,"final preview should offer the separate display text editor");
-    assert.equal(edit.style,2,"Edit Display Text should be a gray Secondary button");
-    await h.select("displayEdit");
-    assert.match(h.prompt().content,/Edit Display Text/);
-    assert.match(h.prompt().content,/Built-in fox story/);
-    await h.select("displayEntry");
-    await h.type("The court is open! {host} has a prize. @everyone");
-    await h.select("displayWinner");
-    await h.type("Congratulations {winners}! The prize came from {host}.");
-    await h.select("displayReview");
-    assert.match(h.prompt().content,/Review your display text/);
-    assert.match(h.prompt().content,/＠everyone/);
-    assert.equal(h.publicPosts.length,0,"editing text must not post publicly");
-    await h.select("displayConfirm");
-    assert.match(h.prompt().content,/Review regular giveaway before posting/);
-    assert.match(h.prompt().content,/Entry flavor text:\*\* Custom/);
-    await h.select("preview");
-    const preview=h.prompts.at(-1);
-    assert.match(preview.embeds[0].toJSON().description,/The court is open!/);
-    assert.match(preview.embeds[0].toJSON().description,/＠everyone/);
-    assert.match(preview.embeds[0].toJSON().description,new RegExp(owner));
-    assert.equal(h.publicPosts.length,0);
-    await h.select("post");
-    assert.equal(h.writes[0].displayEntryText,"The court is open! {host} has a prize. ＠everyone");
-    assert.equal(h.writes[0].displayWinnerText,"Congratulations {winners}! The prize came from {host}.");
-    const posted=h.publicPosts[0].embeds[0].toJSON().description;
-    assert.match(posted,/The court is open!/);
-    assert.match(posted,/Enter below|Winners:/);
-  }finally{restore();}
-});
-
-test("display editor discard does not save unconfirmed changes",async()=>{
-  try{
-    const h=await harness();
-    await h.reachReview();
-    await h.select("displayEdit");
-    await h.select("displayEntry");
-    await h.type("Do not keep this draft.");
-    await h.select("displayReview");
-    await h.select("displayDiscard");
-    assert.match(h.prompt().content,/Review regular giveaway before posting/);
-    assert.match(h.prompt().content,/Entry flavor text:\*\* Built-in fox story/);
+    assert.equal(h.controls().some(c=>c.label==="Edit Display Text"),false);
+    assert.match(h.prompt().content,/Server-wide settings from \/setup giveaways/);
     await h.select("post");
     assert.equal(h.writes[0].displayEntryText,"");
     assert.equal(h.writes[0].displayWinnerText,"");
-    assert.match(h.publicPosts[0].embeds[0].toJSON().description,/fox whispers/i);
+    assert.equal(h.writes[0].displayOpenTitle,"");
+    assert.equal(h.writes[0].displayEndedTitle,"");
   }finally{restore();}
 });
 
-test("display editor can reset one custom story without clearing the other",async()=>{
+test("regular giveaway preview and posted record inherit server-wide display text and headings",async()=>{
   try{
-    const h=await harness();
+    const h=await harness({display:{
+      regularGiveawayDisplayOpenTitle:"Court's Prize",
+      regularGiveawayDisplayEndedTitle:"Court's Winners",
+      regularGiveawayDisplayEntryText:"Court opens for {host}!",
+      regularGiveawayDisplayWinnerText:"Well played, {winners}!"
+    }});
     await h.reachReview();
-    await h.select("displayEdit");
-    await h.select("displayEntry");
-    await h.type("Entry custom!");
-    await h.select("displayWinner");
-    await h.type("Winner custom!");
-    await h.select("displayResetEntry");
-    await h.select("displayReview");
-    await h.select("displayConfirm");
+    await h.select("preview");
+    const preview=h.prompts.at(-1).embeds[0].toJSON();
+    assert.equal(preview.title,"Court's Prize");
+    assert.match(preview.description,/Court opens/);
+    assert.equal(h.publicPosts.length,0);
     await h.select("post");
-    assert.equal(h.writes[0].displayEntryText,"");
-    assert.equal(h.writes[0].displayWinnerText,"Winner custom!");
+    assert.equal(h.writes[0].displayOpenTitle,"Court's Prize");
+    assert.equal(h.writes[0].displayEndedTitle,"Court's Winners");
+    assert.equal(h.writes[0].displayEntryText,"Court opens for {host}!");
+    assert.equal(h.writes[0].displayWinnerText,"Well played, {winners}!");
+    assert.equal(h.publicPosts[0].embeds[0].toJSON().title,"Court's Prize");
   }finally{restore();}
 });
