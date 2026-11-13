@@ -41,7 +41,7 @@ test("Staff Bot Setup and Track Activity describe no required participation role
  assert.match(track,/No Discord role/);
  assert.match(track,/fresh counting window/);
  assert.match(field("sactivity","1. Set the Requirements"),/entire activity period/);
- assert.match(field("sactivity","3. Check Progress"),/opt out/);
+ assert.match(field("sactivity","3. Check Progress"),/Preview Qualifying Members/);
  assert.match(field("sactivity","4. Manual Approval"),/still opted in/);
 });
 
