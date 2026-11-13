@@ -6,7 +6,7 @@ import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
-import {randomUUID} from "node:crypto";
+import {randomUUID,createHash} from "node:crypto";
 import {renderRegularDisplayText,cleanRegularDisplayTitle} from "./giveaway-display-text.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
@@ -46,6 +46,7 @@ export function chooseGiveawayWinners(entrantIds, count, excluded = []) {
   return candidates.slice(0, count);
 }
 
+const giveawayReference=record=>"Court ref: "+createHash("sha256").update(String(record._id)).digest("hex").slice(0,12);
 export function giveawayAnnouncement(record) {
   if (record.mode === "survival") return survivalAnnouncement(record);
   const ended = record.status === "ended" || record.status === "rerolling";
@@ -75,7 +76,7 @@ export function giveawayAnnouncement(record) {
       embeds:[new EmbedBuilder().setColor(0x86738d)
         .setTitle("🏁 Giveaway Ended · No Eligible Winner")
         .setDescription(lines.join("\n").slice(0,3900))
-        .setFooter({text:"Giveaway ID: "+record._id+" · This announcement is kept after the giveaway ends"})],
+        .setFooter({text:giveawayReference(record)})],
       components:[],allowedMentions:{parse:[]},
     };
   }
@@ -156,7 +157,7 @@ export function giveawayAnnouncement(record) {
     .setColor(ended ? 0x86738d : 0xb47e99)
     .setTitle(ended ? (record.mode==="standard" && !noEligibleWinner && record.displayEndedTitle ? cleanRegularDisplayTitle(record.displayEndedTitle) : "🦊 Heist Complete") : (record.mode==="standard" && record.displayOpenTitle ? cleanRegularDisplayTitle(record.displayOpenTitle) : "🦊 The Fox’s Giveaway"))
     .setDescription(description)
-    .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
+    .setFooter({ text: giveawayReference(record) });
   if(ended && winners.length){
     embed.addFields({name:"🏆 Winners / Results",
       value:winners.join("\n").slice(0,1024),inline:false});
@@ -448,7 +449,7 @@ async function findRegularResultPost(channel,client,item){
   const messages=await channel.messages.fetch({limit:100});
   return messages.find(message=>message.author?.id===client.user?.id &&
     message.embeds?.some(embed=>
-      embed.footer?.text?.includes("Giveaway ID: "+item._id)))||null;
+      embed.footer?.text?.includes(giveawayReference(item))))||null;
 }
 async function withRegularResultPublishLock(item,work){
  const token=randomUUID(),now=new Date(),expired=new Date(+now-120000);
@@ -617,7 +618,7 @@ export async function publishGiveawayResult(client, item) {
     if (!message) {
       const recent = await channel.messages.fetch({limit:100});
       message = recent.find(m => m.author?.id === client.user?.id &&
-        m.embeds?.some(e => e.footer?.text?.includes(`Giveaway ID: ${item._id}`)));
+        m.embeds?.some(e => e.footer?.text?.includes(giveawayReference(item))));
     }
     if (!message) message = await channel.send(await giveawayAnnouncementWithBanner(item));
     else {
