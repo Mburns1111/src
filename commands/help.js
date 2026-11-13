@@ -265,7 +265,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "3. Manage Active Giveaways",
-    "Use the **private Giveaway Staff Controls** channel. Its sticky directory lists active giveaways, upcoming activity schedules, and claim-pending events, with links to each staff record.\n\nStaff can **View Entrants**, review activity qualification, edit open settings, end early, cancel with a reason, and approve/decline manual-review activity drawings.\n\nAfter a drawing, staff can **Manual Reroll** a winning place or **Disable Further Rerolls**. The directory's **Winner Cooldowns** button shows active server-wide cooldowns and lets staff correct or remove them.\n\nIf nobody qualifies or no eligible replacement remains, the bot records **No Eligible Winner**; it does not require an unused claim."
+    "Use the **private Giveaway Staff Controls** channel. Its sticky directory lists active giveaways, upcoming activity schedules, and claim-pending events, with links to each staff record.\n\nStaff can **View Entrants**, review activity qualification, edit open settings, end early, cancel with a reason, and approve/decline manual-review activity drawings.\n\nAfter a drawing, staff can **Manual Reroll** a winning place or **Disable Further Rerolls**. The directory's **Winner Cooldowns** button shows active server-wide cooldowns and lets staff edit or remove them.\n\nIf nobody qualifies or no eligible replacement remains, the bot records **No Eligible Winner**; it does not require an unused claim."
    ],
    [
     "4. Giveaway Status Indicators",
