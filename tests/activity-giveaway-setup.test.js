@@ -54,6 +54,9 @@ test("separate activity setup exposes channels, editable summary and preview",()
    giveawayDefaultRequiredRoleId:"678901234567890123",
  },{mode:"regular"});
  assert.match(regular,/678901234567890123/);
+ assert.match(description,/Giveaway Winners \(regular \+ activity\)/);
+ assert.match(description,/234567890123456789/);
+ assert.match(regular,/Giveaway Winners \(regular \+ activity\)/);
  assert.doesNotMatch(regular,/567890123456789012/);
  assert.match(description,/Open #tickets/);
  assert.match(description,/456789012345678901/);
