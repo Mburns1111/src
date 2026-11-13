@@ -21,10 +21,10 @@ function memberManager(id,record){
    "**Expires:** <t:"+unix(record.expiresAt)+":F> (<t:"+unix(record.expiresAt)+":R>)\n"+
    "**Most recent source giveaway:** `"+String(record.sourceGiveawayId||"unknown")+"`\n"+
    "**Applied by:** "+(record.appliedBy?"<@"+record.appliedBy+">":"Not recorded")+
-   "\n\nStaff may correct the remaining time or remove this cooldown. "+
+   "\n\nStaff can edit the remaining days or remove the cooldown. "+
    "These actions never assign/remove the separate Giveaway Banned role.",
   components:[row(
-   btn(idFor("cooldownedit",id),"Correct Expiry",ButtonStyle.Primary),
+   btn(idFor("cooldownedit",id),"Edit Cooldown",ButtonStyle.Primary),
    btn(idFor("cooldownremove",id),"Remove Cooldown",ButtonStyle.Danger))],
   allowedMentions:{parse:[]},...ephemeral,
  };
@@ -83,7 +83,7 @@ export async function handleGiveawayCooldownDirectoryAction(interaction){
  if(action==="cooldownedit"){
   return interaction.showModal(new ModalBuilder()
    .setCustomId(idFor("cooldowneditdays",arg))
-   .setTitle("Correct Cooldown Duration")
+   .setTitle("Edit Winner Cooldown")
    .addComponents(row(new TextInputBuilder().setCustomId("days")
     .setLabel("Days remaining from today (1–365)")
     .setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(3)
@@ -94,11 +94,11 @@ export async function handleGiveawayCooldownDirectoryAction(interaction){
   if(!/^\d{1,3}$/.test(raw)||Number(raw)<1||Number(raw)>365)
    return interaction.reply({content:"Enter a whole number of remaining days from 1 to 365.",...ephemeral});
   const days=Number(raw),estimated=cooldownExpiration(new Date(),days);
-  return interaction.reply({content:"**Confirm staff correction**\n"+
+  return interaction.reply({content:"**Confirm cooldown edit**\n"+
    "Member: <@"+arg+">\nNew duration: "+days+" day(s) **remaining from now**\n"+
    "New expiration: <t:"+unix(estimated)+":F>\n"+
-   "**Note:** This correction can shorten an existing cooldown. The action will be recorded in MongoDB.",
-   components:[row(btn(idFor("cooldownconfirmedit",arg,days),"Confirm Correction",ButtonStyle.Danger))],
+   "**Note:** Editing can shorten or extend the cooldown. The change will be recorded in MongoDB.",
+   components:[row(btn(idFor("cooldownconfirmedit",arg,days),"Confirm Edit",ButtonStyle.Primary))],
    allowedMentions:{parse:[]},...ephemeral});
  }
  if(action==="cooldownconfirmedit"){
@@ -108,7 +108,7 @@ export async function handleGiveawayCooldownDirectoryAction(interaction){
    return interaction.editReply("Invalid remaining duration.");
   const updated=await adjustGiveawayWinnerCooldown({guildId,userId:arg,staffId,daysRemaining:days});
   return interaction.editReply(updated?
-   "Cooldown corrected for <@"+arg+">. New expiry: <t:"+unix(updated.expiresAt)+":F>. The audit record is preserved.":
+   "Cooldown updated for <@"+arg+">. New expiry: <t:"+unix(updated.expiresAt)+":F>. The audit record is preserved.":
    "The cooldown expired or was removed before your correction.");
  }
  return interaction.reply({content:"Unknown cooldown management action.",...ephemeral});
