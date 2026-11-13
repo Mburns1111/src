@@ -269,7 +269,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "4. Giveaway Status Indicators",
-    "🟦 **In Progress** — Entries or activity are being counted.\n🟨 **Claim Pending** — Awaiting a winner ticket claim.\n🟩 **Claim Completed** — Ticket claim submitted, **not yet delivered**.\n🟥 **No Eligible Winner** — Nobody qualified or no replacement remains.\n⬜ **Archived / Removed** — Staff record finalized.\n\n**Winner checks:** The bot verifies current server membership and required roles, applies the mandatory Banned role, and checks optional winner cooldowns before awarding or rerolling.\n\n**Automatic rerolls:** Unclaimed prize places may be rerolled after their deadline (default maximum **2 per place**, configurable; staff can disable further rerolls). Each replacement gets a new claim deadline.\n\n**Prize delivery:** A completed claim does not mean delivery is confirmed. Staff use **Confirm Prizes Delivered** only after all prizes are given."
+    "🟦 **In Progress** — Entries or activity are being counted.\n🟨 **Claim Pending** — Awaiting a winner ticket claim.\n🟩 **Claim Completed** — Ticket claim submitted, **not yet delivered**.\n🟥 **No Eligible Winner** — Nobody qualified or no replacement remains.\n⬜ **Archived / Removed** — Staff record finalized.\n\n**Automatic rerolls:** The bot can automatically reroll winners according to the configured giveaway settings.\n\n**Prize delivery:** A completed claim does not mean delivery is confirmed. Staff use **Confirm Prizes Delivered** only after all prizes are given."
    ],
    [
     "5. Archive a Giveaway",
