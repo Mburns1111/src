@@ -88,6 +88,31 @@ export async function applyGiveawayWinnerCooldown({
   extended:+new Date(record.expiresAt)===+requestedExpiresAt};
 }
 
+// Private staff directory assignment. Unlike a prize-delivery cooldown,
+// staff set this duration from the moment they confirm it. The audit marks
+// the source as a manual staff action rather than inventing a giveaway ID.
+export async function assignManualWinnerCooldown({
+ guildId,userId,staffId,days,now=new Date(),
+}){
+ if(!guildId||!userId||!staffId)throw Error("Missing server, member or moderator.");
+ const expiresAt=cooldownExpiration(now,days);
+ const record=await GiveawayWinnerCooldown.findOneAndUpdate(
+   {guildId,userId},
+   {$max:{expiresAt},
+    $set:{sourceGiveawayId:"staff-manual",days,appliedBy:staffId,
+      appliedAt:now,removedAt:null,removedBy:""},
+    $push:{history:{action:"apply",at:now,staffId,
+      sourceGiveawayId:"staff-manual",days,requestedExpiresAt:expiresAt}}},
+   {upsert:true,new:true,runValidators:true}).lean();
+ let cleanupWarning=false;
+ try{await removeActiveCooldownEntries(guildId,[userId],{now});}
+ catch(error){
+   cleanupWarning=true;
+   console.error("[Giveaways] Manual cooldown saved; entry cleanup will retry:",error);
+ }
+ return {record,expiresAt:record.expiresAt,cleanupWarning};
+}
+
 // Explicit moderator correction. Unlike automatic $max application, this
 // intentionally permits shortening an entry entered with the wrong duration.
 export async function adjustGiveawayWinnerCooldown({
