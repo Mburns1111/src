@@ -505,6 +505,62 @@ export async function cleanupRegularGiveawayListPost(client,item){
     throw Error("The completed giveaway listing changed while cleaning up; the bot will retry.");
   return true;
 }
+async function notifyRegularWinners(client,item,channel){
+ const ids=[...new Set((item.winnerIds||[]).filter((id,slot)=>
+   id&&!(item.claimResolvedSlots||[]).includes(slot)).map(String))];
+ const seen=new Set((item.regularWinnerNotifiedIds||[]).map(String));
+ const fresh=ids.filter(id=>!seen.has(id));
+ if(!fresh.length)return;
+ const url="https://discord.com/channels/"+item.guildId+"/"+item.channelId+"/"+item.messageId;
+ const sent=await channel.send({
+   content:"🏆 Congratulations "+fresh.map(id=>"<@"+id+">").join(" ")+
+     "! Your giveaway result and claim button are here: "+url,
+   allowedMentions:{parse:[],users:fresh},
+ });
+ if(!sent?.id)throw Error("Winner notification was not sent.");
+ await Giveaway.updateOne({_id:item._id,mode:"standard"},
+   {$addToSet:{regularWinnerNotifiedIds:{$each:fresh}}});
+}
+
+async function publishRegularResultLocked(client,item){
+ const record=await relocateRegularGiveawayResult(client,item);
+ const channel=await client.channels.fetch(record.channelId);
+ if(!channel?.messages?.fetch)throw Error("Giveaway results channel is inaccessible.");
+ const message=await channel.messages.fetch(record.messageId);
+ if(message?.author?.id!==client.user?.id)throw Error("Winner result is not authored by this bot.");
+ // First make the winner message available. No claim window has started yet.
+ await message.edit(await giveawayAnnouncementWithBanner(record));
+ await cleanupRegularGiveawayListPost(client,record);
+ const now=new Date(),dates=[...(record.winnerAssignedAt||[])];
+ let newlyPublished=false;
+ for(let slot=0;slot<(record.winnerIds||[]).length;slot++){
+   if(!dates[slot]&&!(record.claimResolvedSlots||[]).includes(slot)){
+     dates[slot]=now;
+     newlyPublished=true;
+   }
+ }
+ const updated={...record,winnerAssignedAt:dates,
+   claimStartedAt:record.claimStartedAt||now,
+   resultPublishedAt:record.resultPublishedAt||now};
+ if(newlyPublished||!record.resultPublishedAt){
+   const saved=await Giveaway.updateOne({_id:record._id,mode:"standard",
+     status:"ended",channelId:record.channelId,messageId:record.messageId,
+     resultPublicationToken:record.resultPublicationToken},{$set:{
+       winnerAssignedAt:dates,claimStartedAt:updated.claimStartedAt,
+       resultPublishedAt:updated.resultPublishedAt,claimCheckAt:nextClaimCheckAt(updated),
+     }});
+   if(saved?.matchedCount===0)throw Error("Lost result publication ownership before starting claim clock.");
+ }
+ // Display the exact new deadlines before sending any notifications.
+ await message.edit(await giveawayAnnouncementWithBanner(updated));
+ await notifyRegularWinners(client,updated,channel);
+ await Giveaway.updateOne({_id:record._id,status:"ended",
+   resultPublicationToken:record.resultPublicationToken,renderVersion:record.renderVersion},
+   {$set:{renderedAt:new Date()}});
+ try{await ensureGiveawayStaffRecord(client,{...updated,listChannelId:"",listMessageId:""});}
+ catch(error){console.error("[Giveaways] Staff result link update failed:",record._id,error);}
+ return true;
+}
 export async function publishGiveawayResult(client, item) {
   if(item && !["draft","publishing","failed"].includes(item.status)){
     try{await ensureGiveawayStaffRecord(client,item);}
