@@ -248,6 +248,7 @@ async function process(session, action, value) {
   if (action === "cancel") {
     sessions.delete(session.key);
     await session.channel.send("Court's Trial setup cancelled. Nothing was saved.");
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   if (action === "back") {
