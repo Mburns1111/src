@@ -128,7 +128,7 @@ import PointsSettings from "./models/PointsSettings.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { data as partyCommand, execute as executeParty, handlePartyInteraction } from "./commands/party.js";
 import { reconcileCourtGames } from "./services/party-court-engine.js";
-import { execute as executeHelp, data as helpCommand, handleHelpTopicButton, handleHelpTopicSelect } from "./commands/help.js";
+import { execute as executeHelp, data as helpCommand, handleHelpTopicButton, handleHelpTopicSelect,handlePublicHelpEntry,ensurePublicHelpEntry } from "./commands/help.js";
 import {
   handleTradingPostCardButton,
   handleTradingPostEntryButton,
@@ -498,6 +498,8 @@ client.once(Events.ClientReady, async (readyClient) => {
   trialTimer.unref?.();
   void (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
+      try{await ensurePublicHelpEntry(readyClient,guild.id);}
+      catch(error){console.error("[Help] Could not reconcile public Help button:",guild.id,error);}
       try {
         await resumePendingTradingPostDeletes(guild);
       } catch (error) {
@@ -779,6 +781,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         /^(house|outfit):edit:/.test(interaction.customId)) {
       await openListingDetailsDM(interaction);
       return;
+    }
+    if(interaction.isButton()&&interaction.customId==="help:open"){
+      await handlePublicHelpEntry(interaction);return;
     }
     if (interaction.isButton() &&
         (interaction.customId.startsWith("help:topic:") || interaction.customId.startsWith("help:page:"))) {
