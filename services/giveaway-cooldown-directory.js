@@ -89,11 +89,11 @@ export async function handleGiveawayCooldownDirectoryAction(interaction){
  if(action==="cooldownadddays"){
   const raw=interaction.fields?.getTextInputValue("days")?.trim()||"";
   if(!/^\d{1,3}$/.test(raw)||Number(raw)<1||Number(raw)>365)
-   return interaction.reply({content:"Enter a whole number from 1 to 365 days.",...ephemeral});
+   return panelReply(interaction,{content:"Enter a whole number from 1 to 365 days.",components:[]});
   if(active)
-   return interaction.reply({content:"This member already has an active cooldown. Use Correct Expiry instead.",...ephemeral});
+   return panelReply(interaction,{content:"This member already has an active cooldown. Use Correct Expiry instead.",components:[]});
   const days=Number(raw),expiresAt=cooldownExpiration(new Date(),days);
-  return interaction.reply({content:"**Confirm new winner cooldown**\n"+
+  return panelReply(interaction,{content:"**Confirm new winner cooldown**\n"+
    "Member: <@"+arg+">\nDuration: **"+days+" day(s)** from confirmation"+
    "\nExpected expiration: <t:"+unix(expiresAt)+":F>"+
    "\n\nThis applies server-wide to cooldown-enabled regular/activity giveaways. It does not assign the Giveaway Banned role.",
@@ -144,9 +144,9 @@ export async function handleGiveawayCooldownDirectoryAction(interaction){
  if(action==="cooldowneditdays"){
   const raw=interaction.fields?.getTextInputValue("days")?.trim()||"";
   if(!/^\d{1,3}$/.test(raw)||Number(raw)<1||Number(raw)>365)
-   return interaction.reply({content:"Enter a whole number of remaining days from 1 to 365.",...ephemeral});
+   return panelReply(interaction,{content:"Enter a whole number of remaining days from 1 to 365.",components:[]});
   const days=Number(raw),estimated=cooldownExpiration(new Date(),days);
-  return interaction.reply({content:"**Confirm staff correction**\n"+
+  return panelReply(interaction,{content:"**Confirm staff correction**\n"+
    "Member: <@"+arg+">\nNew duration: "+days+" day(s) **remaining from now**\n"+
    "New expiration: <t:"+unix(estimated)+":F>\n"+
    "**Note:** This correction can shorten an existing cooldown. The action will be recorded in MongoDB.",
