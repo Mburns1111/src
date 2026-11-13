@@ -4,6 +4,9 @@ import Giveaway from "../models/Giveaway.js";
 import GiveawayWinnerCooldown from "../models/GiveawayWinnerCooldown.js";
 import {handleGiveawayCooldownAction} from "../services/giveaway-cooldown-ui.js";
 import {handleGiveawayCooldownDirectoryAction} from "../services/giveaway-cooldown-directory.js";
+import {handleGiveawayStaffAction,giveawayStaffRecordPayload} from "../services/giveaway-staff-records.js";
+import GuildConfig from "../models/GuildConfig.js";
+import {MessageFlags} from "discord.js";
 const guildId="123456789012345678",staffId="234567890123456789",
  a="345678901234567890",b="456789012345678901",giveawayId="507f1f77bcf86cd799439011";
 const deliveredAt=new Date(Date.now()-30*60_000);
@@ -127,5 +130,87 @@ test("staff-wide cooldown manager lists active members and supports expiry corre
   const remove=makeAction({customId:"giveawaydir:cooldownconfirmremove:"+a});
   await handleGiveawayCooldownDirectoryAction(remove.i);
   assert.equal(removed.$push.history.action,"remove");
+ }finally{restore(backups);}
+});
+
+
+test("archived delivered giveaways still allow pending cooldown confirmation",async()=>{
+ const backups=[],archived={
+  ...giveaway,publicListingRemovedAt:new Date(),
+  staffCardChannelId:"567890123456789012",staffCardId:"678901234567890123",
+ };
+ try{
+  patch(Giveaway,"findOne",()=>({lean:async()=>({...archived})}),backups);
+  patch(Giveaway,"findOneAndUpdate",(query,change)=>({lean:async()=>({
+   ...archived,cooldownAssignments:change.$push.cooldownAssignments.$each,
+  })}),backups);
+  const applied=[];
+  patch(GiveawayWinnerCooldown,"findOneAndUpdate",(query,change)=>({lean:async()=>{
+   applied.push(query.userId);
+   return {expiresAt:change.$max.expiresAt};
+  }}),backups);
+  const done=makeAction(),refreshes=[];
+  await handleGiveawayCooldownAction(done.i,archived,"cooldownapply","01","7",{
+   refresh:async updated=>refreshes.push(updated),
+  });
+  assert.deepEqual(applied,[a,b]);
+  assert.match(done.responses.edit.content,/cooldown saved/i);
+  assert.equal(refreshes.length,1);
+  assert.deepEqual(refreshes[0].cooldownAssignments.map(x=>x.userId),[a,b]);
+  const payload=giveawayStaffRecordPayload(archived,{archived:true});
+  assert.ok(payload.components.flatMap(row=>row.components)
+   .some(b=>b.data.custom_id==="giveawaystaff:cooldown:"+giveawayId),
+   "private archived record provides a way to apply or manage cooldowns");
+ }finally{restore(backups);}
+});
+
+test("a cooldown confirmation opened in the old staff channel succeeds after archiving",async()=>{
+ const backups=[],archiveId="567890123456789012",archiveMessageId="678901234567890123";
+ const archived={...giveaway,publicListingRemovedAt:new Date(),
+  staffCardChannelId:archiveId,staffCardId:archiveMessageId,renderVersion:1};
+ const edited=[],applied=[],queries=[];
+ try{
+  patch(Giveaway,"findOne",query=>{queries.push(query);
+   return {lean:async()=>({...archived})};},backups);
+  patch(Giveaway,"findOneAndUpdate",(query,change)=>({lean:async()=>({
+   ...archived,cooldownAssignments:change.$push.cooldownAssignments.$each
+  })}),backups);
+  patch(GiveawayWinnerCooldown,"findOneAndUpdate",(query,change)=>({lean:async()=>{
+   applied.push(query.userId);
+   return {expiresAt:change.$max.expiresAt};
+  }}),backups);
+  patch(GuildConfig,"findOne",()=>({select:()=>({lean:async()=>({
+   activityGiveawayReviewChannelId:"987654321098765432",
+   giveawayArchiveChannelId:archiveId,
+  })})}),backups);
+  const archivedMessage={
+   id:archiveMessageId,author:{id:"bot"},
+   embeds:[{title:"Old archive",description:"Old archive",color:0,
+    footer:{text:"Giveaway staff record · "+giveawayId},fields:[]}],
+   components:[],edit:async payload=>edited.push(payload),
+  };
+  const client={
+   user:{id:"bot"},channels:{fetch:async id=>({
+    id,
+    send:async()=>{throw Error("Archived record already exists");},
+    messages:{fetch:async value=>
+     typeof value==="string"?archivedMessage:{values:()=>[].values()}},
+   })},
+  };
+  const action=makeAction({
+   customId:"giveawaystaff:cooldownapply:"+giveawayId+":01:7",
+   channelId:"987654321098765432",message:{
+    id:"111111111111111111",flags:{has:flag=>flag===MessageFlags.Ephemeral},
+    author:{id:"bot"},
+   },
+   memberPermissions:{has:()=>true},
+   client,
+  });
+  await handleGiveawayStaffAction(action.i);
+  assert.deepEqual(applied,[a,b]);
+  assert.match(action.responses.edit.content,/cooldown saved/i);
+  assert.equal(queries.every(q=>q.staffCardChannelId===undefined),true,
+   "cooldown lookup must not require the old staff channel");
+  assert.equal(edited.length,1,"archived staff post reflects the new cooldown assignments");
  }finally{restore(backups);}
 });
