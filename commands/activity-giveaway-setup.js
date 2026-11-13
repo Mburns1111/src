@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ChannelSelectMenuBuilder,RoleSelectMenuBuilder,
   StringSelectMenuBuilder,ChannelType,PermissionFlagsBits,MessageFlags} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {preferSetupButtons} from "../services/setup-button-preferences.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GiveawayBanner, {bannerNameKey} from "../models/GiveawayBanner.js";
@@ -220,7 +221,7 @@ function layout(session,banners=[]) {
    components.push(row(session.id,[["Save Settings","save",ButtonStyle.Success],["Cancel Setup","cancel",ButtonStyle.Danger]]));
  }
  if(step!=="review")components.push(row(session.id,[["Back","back"],["Cancel Setup","cancel",ButtonStyle.Danger]]));
- return {content:title+content,components,allowedMentions:{parse:[]}};
+ return {content:title+content,components:preferSetupButtons(components),allowedMentions:{parse:[]}};
 }
 async function show(session,step){
  session.step=step;session.expires=Date.now()+expiry;
