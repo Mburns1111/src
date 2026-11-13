@@ -3,6 +3,7 @@ import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ChannelSelectMenuBuilder,Role
   StringSelectMenuBuilder,ChannelType,PermissionFlagsBits,MessageFlags,ModalBuilder,TextInputBuilder,TextInputStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {preferSetupButtons} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import Giveaway from "../models/Giveaway.js";
 import GiveawayPlan from "../models/GiveawayPlan.js";
 import GiveawayBanner, {bannerNameKey} from "../models/GiveawayBanner.js";
@@ -288,9 +289,11 @@ async function show(session,step){
  session.step=step;session.expires=Date.now()+expiry;
  const banners=["banner","bannerText"].includes(step)?
    await registeredSetupBanners(session.guild.id):[];
+ const previous=session.message;
  const message=await session.channel.send(layout(session,banners));
  session.messageId=message.id;
  session.message=message;
+ await retireGuidedControls(previous,session.channel);
 }
 function after(session,step){
  const nextStep=session.fromReview?"review":step;
