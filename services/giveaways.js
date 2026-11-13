@@ -6,6 +6,7 @@ import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {randomUUID} from "node:crypto";
 import {renderRegularDisplayText,cleanRegularDisplayTitle} from "./giveaway-display-text.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
@@ -150,12 +151,16 @@ export function giveawayAnnouncement(record) {
     // Reroll history remains in the private staff record, not the public announcement.
     lines.push("", "*Prize delivery is handled by the giveaway host.*");
   }
-  const description = lines.join("\n").slice(0, 4000);
+  const description = lines.join("\n").slice(0, 3900);
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x86738d : 0xb47e99)
     .setTitle(ended ? (record.mode==="standard" && !noEligibleWinner && record.displayEndedTitle ? cleanRegularDisplayTitle(record.displayEndedTitle) : "🦊 Heist Complete") : (record.mode==="standard" && record.displayOpenTitle ? cleanRegularDisplayTitle(record.displayOpenTitle) : "🦊 The Fox’s Giveaway"))
     .setDescription(description)
     .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
+  if(ended && winners.length){
+    embed.addFields({name:"🏆 Winners / Results",
+      value:winners.join("\n").slice(0,1024),inline:false});
+  }
   if(ended && record.status==="ended" && (record.winnerIds||[]).length){
     const instructions=prizeClaimLines(record,{finished:true});
     for(const [index,line] of instructions.entries()){
@@ -303,8 +308,8 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   const changed = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "closing" },
     { $set: { status: "ended", winnerIds, activityVerifiedIds:eligible,entryWeights:entries,
-      claimStartedAt:now,winnerAssignedAt:winnerIds.map(()=>now),
-      claimCheckAt:nextClaimCheckAt({...item,status:"ended",winnerIds,claimStartedAt:now,winnerAssignedAt:winnerIds.map(()=>now)}),
+      claimStartedAt:null,winnerAssignedAt:winnerIds.map(()=>null),
+      claimCheckAt:null,
       renderedAt:null }, $inc: { renderVersion: 1 } },
     { returnDocument: "after" },
   ).lean();
@@ -390,7 +395,8 @@ export async function finishPendingReroll(item,{client=null,now=new Date()}={}) 
   const winnerIds = [...item.winnerIds];
   winnerIds[slot] = replacementId;
   const winnerAssignedAt=[...(item.winnerAssignedAt || [])];
-  winnerAssignedAt[slot]=item.pendingRerollAt || new Date();
+  // Replacement claims begin when their updated results are published.
+  winnerAssignedAt[slot]=null;
   const reissued={...item,status:"ended",winnerIds,winnerAssignedAt};
   const changed = await Giveaway.findOneAndUpdate({
     _id: item._id, status: "rerolling", pendingRerollSlot: slot,
