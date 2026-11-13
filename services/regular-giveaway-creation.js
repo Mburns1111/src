@@ -63,7 +63,8 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
   const serverDisplay=Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
     [field,cleanRegularDisplayField(field,config?.["regularGiveaway"+field[0].toUpperCase()+field.slice(1)]||"")]));
   const values={
-    guildId,channelId:channel.id,creatorId,title,prize,description,rules,
+    guildId,channelId:channel.id,resultChannelId:config?.activityGiveawayWinnersChannelId||"",
+    creatorId,title,prize,description,rules,
     ...serverDisplay,
     endsAt:new Date(Date.now()+minutes*60000),winnerCount:winners,
     claimWindowHours:claimHours,claimWindowMinutes:null,
