@@ -450,11 +450,13 @@ export async function cleanupRegularGiveawayListPost(client,item){
     throw Error("Original Giveaway List message belongs to another user or bot.");
   if(message)await message.delete();
   // Store cleanup completion only after the original was actually removed.
-  await Giveaway.updateOne({
+  const cleared=await Giveaway.updateOne({
     _id:item._id,mode:"standard",status:"ended",
     channelId:item.channelId,messageId:item.messageId,
     listChannelId:item.listChannelId,listMessageId:item.listMessageId,
   },{$set:{listChannelId:"",listMessageId:"",listFingerprint:""}});
+  if(cleared?.matchedCount===0)
+    throw Error("The completed giveaway listing changed while cleaning up; the bot will retry.");
   return true;
 }
 export async function publishGiveawayResult(client, item) {
