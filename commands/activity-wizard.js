@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import {preferSetupChoices,setupButtonStyle} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import {ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags} from "discord.js";
 import GiveawayBanner from "../models/GiveawayBanner.js";
 import GuildConfig from "../models/GuildConfig.js";
@@ -210,9 +211,11 @@ async function show(session,step){
          value==="create"||value==="done"?ButtonStyle.Success:ButtonStyle.Secondary)))));
   const payload=step==="summary"?{embeds:[{description:content}]}:{content};
   const message=await session.channel.send({...payload,content:'**Activity setup** · <@'+session.owner+'>\n'+(payload.content||""),components,allowedMentions:{parse:[]}});
-  Object.assign(session,{step,messageId:message.id,choices:controls.map(x=>x[1]),
+  const previous=session.promptMessage;
+  Object.assign(session,{step,messageId:message.id,promptMessage:message,choices:controls.map(x=>x[1]),
     acceptText:!choices?.length || ["minimum","days","claim","bannerPick","details"].includes(step),
     expires:Date.now()+30*60000});
+  await retireGuidedControls(previous,session.channel);
 }
 async function configFor(guild,channelId){
   const c=await GuildConfig.findOne({guildId:guild.id}).lean();
