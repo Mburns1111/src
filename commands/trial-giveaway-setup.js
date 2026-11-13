@@ -284,7 +284,7 @@ async function process(session, action, value) {
       ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(s)),
       trialSetupCompletedAt: new Date(),
       initialSetupCompletedAt: previous?.initialSetupCompletedAt || new Date(),
-      commandChannelId: previous?.commandChannelId || session.channel.id,
+
     } }, { upsert: true, new: true, runValidators: true });
     sessions.delete(session.key);
     await session.channel.send({
@@ -399,7 +399,9 @@ async function process(session, action, value) {
 
 export async function startTrialGiveawaySetup(interaction) {
   const config = await GuildConfig.findOne({ guildId: interaction.guildId }).lean();
-  if (config?.commandChannelId && config.commandChannelId !== interaction.channelId)
+  if(!config?.commandChannelId||!config?.giveawayArchiveChannelId||!config?.serverTimeZone)
+     throw Error("Complete /setup general with private Bot Commands, Shared Staff Archives and Server Time Zone first.");
+   if (config?.commandChannelId && config.commandChannelId !== interaction.channelId)
     throw Error("Run /setup trials in <#" + config.commandChannelId + ">.");
   const sessionKey = key(interaction.guildId, interaction.user.id);
   if (sessions.get(sessionKey)?.expiresAt > Date.now())
