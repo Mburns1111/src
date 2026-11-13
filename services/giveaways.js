@@ -1,6 +1,6 @@
 import {activeActivityParticipants} from "./activity-participation.js";
 import {configuredGiveawayBanRole,memberPassesGiveawayBan} from "./giveaway-exclusion.js";
-import {giveawayUsesCooldown,activeGiveawayCooldownIds} from "./giveaway-cooldowns.js";
+import {giveawayUsesCooldown,activeGiveawayCooldownIds,activeCooldownFor} from "./giveaway-cooldowns.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
@@ -203,6 +203,27 @@ export async function giveawayAnnouncementWithBanner(record) {
 }
 
 export async function joinGiveaway({ id, guildId, userId, mode = "standard", now = new Date() }) {
+  // When staff enabled cooldown checks for a regular giveaway, refuse the
+  // signup before inserting an entry. The draw-time check remains in place
+  // for participants who become cooled down after joining.
+  if(mode==="standard"){
+    const current=await Giveaway.findOne({_id:id,guildId})
+      .select("mode status endsAt winnerCooldownEnabled entrantIds").lean();
+    if(current?.status==="open"&&new Date(current.endsAt)>now&&giveawayUsesCooldown({
+      ...current,mode:"standard"
+    })){
+      const active=await activeCooldownFor(guildId,userId,{now});
+      if(active){
+        // Clean up an older entry if the cooldown was applied after signup.
+        if(current.entrantIds?.includes(userId))
+          await Giveaway.updateOne({
+            _id:id,guildId,mode:"standard",status:"open",
+            winnerCooldownEnabled:true,entrantIds:userId,
+          },{$pull:{entrantIds:userId}});
+        return "cooldown";
+      }
+    }
+  }
   const updated = await Giveaway.updateOne({
     _id: id, guildId, status: "open", endsAt: { $gt: now },
     ...(mode === "survival" ? { mode: "survival", [`entrantIds.${MAX_TRIAL_ENTRANTS - 1}`]: { $exists: false } } : { mode: "standard" }),
