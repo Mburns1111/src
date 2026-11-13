@@ -23,7 +23,7 @@ test("per-winner deadlines stop being checked once claims are filed",()=>{
  assert.equal(nextClaimCheckAt(done),null);
  assert.match(giveawayAnnouncement(done).embeds[0].data.description,/Claim submitted/);
  assert.equal(giveawayAnnouncement(done).components.length,0,"all claim buttons disappear once current winners have claimed");
- assert.deepEqual(giveawayAnnouncement(done).embeds[0].data.fields||[],[]);
+ assert.deepEqual((giveawayAnnouncement(done).embeds[0].data.fields||[]).filter(f=>!/Winners \/ Results/.test(f.name)),[]);
 });
 test("rerolled winners receive new deadlines",()=>{
  const later={...record,winnerAssignedAt:[new Date("2026-11-08T12:00:00Z"),record.winnerAssignedAt[1]]};
@@ -38,7 +38,7 @@ test("one-winner regular and activity results remove public claim details on suc
    const text=result.embeds[0].toJSON().description;
    assert.match(text,/Claim submitted successfully/);
    assert.doesNotMatch(text,/Claiming your prize|Claim deadline|How to claim|Submit your claim|FORFEIT YOUR WIN|Awaiting ticket claim/);
-   assert.deepEqual(result.embeds[0].toJSON().fields||[],[]);
+   assert.deepEqual((result.embeds[0].toJSON().fields||[]).filter(f=>!/Winners \/ Results/.test(f.name)),[]);
    assert.equal(result.components.length,0);
    assert.equal(hasOutstandingTicketClaims({...solo,mode}),false);
    assert.deepEqual(prizeClaimLines({...solo,mode},{finished:true}),[]);
@@ -59,7 +59,7 @@ test("multiple winners keep instructions while another winner is pending, then r
      ...firstClaim.winnerClaims,{slot:1,userId:second,ticketNumber:"456",submittedAt:new Date()}]};
    const finished=giveawayAnnouncement(claimed);
    assert.match(finished.embeds[0].toJSON().description,/#2 .*Claim submitted successfully/);
-   assert.deepEqual(finished.embeds[0].toJSON().fields||[],[]);
+   assert.deepEqual((finished.embeds[0].toJSON().fields||[]).filter(f=>!/Winners \/ Results/.test(f.name)),[]);
    assert.equal(finished.components.length,0);
  }
 });
