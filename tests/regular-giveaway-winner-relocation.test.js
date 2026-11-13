@@ -40,7 +40,7 @@ async function harness(overrides={}){
    delete:async()=>calls.deleted.push("winner")
  };
  const source={
-   id:sourceId,messages:{fetch:async arg=>
+   id:sourceId,send:async()=>({id:"legacy-winner-notice"}),messages:{fetch:async arg=>
      typeof arg==="string"?(calls.deleted.includes("source")?null:originalMessage):[]},
  };
  const destination={
