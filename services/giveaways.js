@@ -72,8 +72,7 @@ export function giveawayAnnouncement(record) {
     return {
       embeds:[new EmbedBuilder().setColor(0x86738d)
         .setTitle("🏁 Giveaway Ended · No Eligible Winner")
-        .setDescription(lines.join("\n").slice(0,3900))
-        .setFooter({text:"Giveaway ID: "+record._id+" · This announcement is kept after the giveaway ends"})],
+        .setDescription(lines.join("\n").slice(0,3900))],
       components:[],allowedMentions:{parse:[]},
     };
   }
@@ -146,8 +145,7 @@ export function giveawayAnnouncement(record) {
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x86738d : 0xb47e99)
     .setTitle(ended ? (noEligibleWinner ? "🦊 Giveaway Ended · No Eligible Winner" : "🦊 Heist Complete") : "🦊 The Fox’s Giveaway")
-    .setDescription(description)
-    .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
+    .setDescription(description);
   if(ended && record.status==="ended" && (record.winnerIds||[]).length){
     const instructions=prizeClaimLines(record,{finished:true});
     for(const [index,line] of instructions.entries()){
@@ -404,8 +402,19 @@ export async function publishGiveawayResult(client, item) {
     }) : null;
     if (!message) {
       const recent = await channel.messages.fetch({limit:100});
+      // Older posts used a public ID footer. Continue finding those while
+      // keeping the ID off newly rendered public announcements.
       message = recent.find(m => m.author?.id === client.user?.id &&
         m.embeds?.some(e => e.footer?.text?.includes(`Giveaway ID: ${item._id}`)));
+      if (!message) {
+        // An interrupted publish can leave a Discord message without its ID
+        // saved in MongoDB. Only reuse an exact, unique matching announcement.
+        const expected = giveawayAnnouncement(item).embeds[0].toJSON();
+        const matches = recent.filter(m => m.author?.id === client.user?.id &&
+          m.embeds?.some(e => e.title === expected.title &&
+            e.description === expected.description));
+        if (matches.size === 1) message = matches.first();
+      }
     }
     if (!message) message = await channel.send(await giveawayAnnouncementWithBanner(item));
     else {
