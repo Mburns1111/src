@@ -117,3 +117,12 @@ Archiving a completed regular giveaway still removes its regular public result p
 ## Active winner cooldowns and the Enter Giveaway button
 
 When staff configure **Winner Cooldown check: ON** for a regular giveaway, **Enter Giveaway** now rejects members with an active cooldown and privately shows the expiry. The current entrants list stays accurate: applying a cooldown removes any entries those members already had in open, enabled regular giveaways, and a background sweep removes stale entries from before this feature was enabled. Eligibility is also checked again when drawing and rerolling winners. **Winner Cooldown check: OFF** means the optional restriction does not apply to that giveaway. Activity giveaways filter at draw/approval, while Court's Trials remain exempt. Expired or removed cooldowns no longer block entry; members may join again while an enabled giveaway is still open. The permanent Giveaway Banned role remains independent and always blocks participation.
+
+
+## Staff-only cooldown manager: add new cooldowns
+
+In the private giveaway staff directory, **Winner Cooldowns** lists active member cooldowns and provides a user selection menu. Selecting a member who has none now shows a blue **Add Cooldown** button. Staff enter 1–365 days, review the member and expiration, then **Confirm New Cooldown**. It starts at confirmation time, records a `staff-manual` audit entry in MongoDB, and immediately removes entries from open regular giveaways with the Winner Cooldown switch ON (automatic sweeps retry failed cleanup). Staff can later correct or remove it through the same manager. This does not assign the separate Giveaway Banned role and does not change Trial participation.
+
+## Guided setup prompt retirement
+
+The general, Hatchem, regular giveaway, activity giveaway, and Court Trial guided setup/creation wizards preserve previous messages for context but **remove previous buttons and select menus** after posting their next step. They also retire the last prompt when the setup is cancelled, saved or published. If Discord prevents an old message edit, its server-side prompt ID is still rejected when clicked; the bot does not remove controls from permanent public giveaway, entry/claim or staff directory messages. The temporary private winner cooldown member selector updates its existing ephemeral menu, avoiding the dangling old selectable menu in the message trail.
