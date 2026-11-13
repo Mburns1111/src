@@ -9,7 +9,7 @@ import {giveawayStaffRecordPayload} from "../services/giveaway-staff-records.js"
 import {
  cooldownExpiration,giveawayUsesCooldown,activeGiveawayCooldownIds,
  applyGiveawayWinnerCooldown,removeGiveawayWinnerCooldown,adjustGiveawayWinnerCooldown,
- removeActiveCooldownEntries,
+ removeActiveCooldownEntries,reconcileOpenCooldownEntries,
 } from "../services/giveaway-cooldowns.js";
 
 const guildId="123456789012345678",A="234567890123456789",
@@ -252,5 +252,41 @@ test("cooldown application prunes only open, ON regular entries, not disabled or
    assert.deepEqual(query.entrantIds,{$in:[A,B]});
    assert.deepEqual(update,{$pull:{entrantIds:{$in:[A,B]}}});
    assert.equal(await removeActiveCooldownEntries(guildId,[],{now}),0);
+ }finally{restore(backups);}
+});
+
+test("restart sweep removes entries whose cooldown predated the entry guard",async()=>{
+ const backups=[],now=new Date("2026-11-13T20:00:00Z");
+ try{
+   const matches=[
+     {_id:id,guildId,entrantIds:[A,B]},
+     {_id:"507f1f77bcf86cd799439012",guildId,entrantIds:[B]},
+   ];
+   let filter,selection,limit,updated=[];
+   replace(Giveaway,"find",q=>{
+     filter=q;
+     return {select:fields=>{
+       selection=fields;
+       return {limit:n=>{
+         limit=n;
+         return {lean:async()=>matches};
+       }};
+     }};
+   },backups);
+   replace(GiveawayWinnerCooldown,"find",q=>({
+     lean:async()=>q.userId.$in.includes(A)?[{userId:A}]:[]
+   }),backups);
+   replace(Giveaway,"updateOne",async(q,u)=>{
+     updated.push({q,u});
+     return {modifiedCount:1};
+   },backups);
+   assert.equal(await reconcileOpenCooldownEntries({now,limit:10}),1);
+   assert.equal(filter.mode,"standard");
+   assert.equal(filter.status,"open");
+   assert.equal(filter.winnerCooldownEnabled,true);
+   assert.deepEqual(filter.endsAt,{$gt:now});
+   assert.match(selection,/entrantIds/);
+   assert.equal(limit,10);
+   assert.deepEqual(updated[0].u,{$pull:{entrantIds:{$in:[A]}}});
  }finally{restore(backups);}
 });
