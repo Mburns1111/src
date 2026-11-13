@@ -402,19 +402,27 @@ async function apply(session,verb,value){
    if(!banRole||banRole.id===session.guild.id)throw Error("The required Giveaway Banned role no longer exists. Select a current role.");
    await checkChannels(session);
    const previous=await GuildConfig.findOne({guildId:session.guild.id}).lean();
-   const settings={
+   const proposed={
      ...Object.fromEntries([
-      "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId","giveawayArchiveChannelId","giveawayChannelId",
+      "activityGiveawayListChannelId","activityGiveawayWinnersChannelId","activityGiveawayReviewChannelId","giveawayChannelId",
       "giveawayManagerRoleId","giveawayExcludedRoleId","giveawayDefaultRequiredRoleId","giveawayShowRoleInstructions",
       "giveawayRoleInstructions","activityClaimInstructions","activityClaimWindowHours","activityMaxAutoRerolls",
       "activityAnnounceEmptyResults","giveawayDefaultBannerNameKey",
       ...(session.mode==="regular"?REGULAR_DISPLAY_FIELDS.map(serverDisplayField):[])
      ].map(field=>[field,s[field]])),
      ...giveawaySetupNotificationFields(s,session.mode),
-     commandChannelId:previous?.commandChannelId||session.channel.id,
    };
-   await GuildConfig.findOneAndUpdate({guildId:session.guild.id},{$set:settings},
-      {upsert:true,new:true,runValidators:true});
+   // Unchanged fields are excluded so unrelated setup sessions cannot
+   // silently restore each other's older values.
+   const dirty=Object.fromEntries(Object.entries(proposed).filter(([field,value])=>
+     JSON.stringify(value)!==JSON.stringify(session.originalSettings[field])));
+   if(Object.keys(dirty).length){
+     const filter={guildId:session.guild.id,...Object.fromEntries(
+       Object.keys(dirty).map(field=>[field,session.originalSettings[field]]))};
+     const saved=await GuildConfig.findOneAndUpdate(filter,{$set:dirty},
+       {new:true,runValidators:true});
+     if(!saved)throw Error("Another staff member changed these settings. Reopen setup and review the latest values.");
+   }
    let modified=0;
    if(session.updateExisting)modified=await updateExistingActivityClaimInstructions(session.guild.id,s.activityClaimInstructions);
    sessions.delete(session.key);
