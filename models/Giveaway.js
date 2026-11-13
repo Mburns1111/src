@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 const giveawaySchema = new mongoose.Schema({
   guildId: { type: String, required: true, index: true },
   channelId: { type: String, required: true },
+  // Locked-in results destination for a regular giveaway; does not change when setup is edited.
+  resultChannelId: { type: String, default: "" },
   listChannelId: { type: String, default: "" },
   listMessageId: { type: String, default: "" },
   listFingerprint: { type: String, default: "" },
