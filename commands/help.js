@@ -190,7 +190,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Claiming Prizes",
-    "**Winners must submit a claim using the button below the winner announcement before the claim deadline, or the prize is forfeited.** Opening a ticket alone does not submit your claim.\n\nPress **Enter Ticket Claim info** and provide your **ticket number** and the **Discord message link** to that ticket. Staff verify your claim and deliver prizes manually. If a winner misses the deadline, the bot may select a replacement.\n\nOlder staff-managed Court's Trials may use a different claim process; follow that Trial's announcement."
+    "**Regular and activity giveaway winners are announced in Giveaway Winners. Winners must submit a claim using the button below their winner announcement before the claim deadline, or the prize is forfeited.** Opening a ticket alone does not submit your claim.\n\nPress **Enter Ticket Claim info** and provide your **ticket number** and the **Discord message link** to that ticket. Staff verify your claim and deliver prizes manually. If a winner misses the deadline, the bot may select a replacement.\n\nOlder staff-managed Court's Trials may use a different claim process; follow that Trial's announcement."
    ]
   ]
  ],
