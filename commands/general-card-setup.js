@@ -8,6 +8,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import {preferSetupButtons} from "../services/setup-button-preferences.js";
 import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import {ensurePingDashboard} from "../services/scheduled-pings.js";
+import {ensurePublicHelpEntry} from "./help.js";
 import {COMMON_SERVER_TIME_ZONES,validateServerTimeZone} from "../services/schedule-timezone.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
@@ -28,6 +29,7 @@ const GENERAL_STEPS = [
   ["giveawayArchiveChannelId", "Shared staff archives", true],
   ["serverTimeZone", "Server time zone", true],
   ["scheduledPingsChannelId", "Scheduled pings staff dashboard", false],
+  ["helpChannelId","Public Help button",false],
   ["profileChannelId", "Member profiles", false],
   ["houseChannelId", "House listings", false],
   ["outfitChannelId", "Outfit listings", false],
@@ -108,6 +110,8 @@ function layout(session) {
     description += "Choose the **required private shared archive** for completed and cancelled giveaways, Trials, and Scheduled Pings. Hide from @everyone. This must be a separate channel from Bot Commands, giveaway staff controls, and public channels.";
   else if (field === "serverTimeZone")
     description += "Choose the **server-wide time zone** used when scheduling announcements and pings. Staff will enter dates and clock times in this zone, not UTC offsets. Daily schedules stay at the same local clock time across daylight saving changes. Time-zone changes do not move schedules already active.";
+  else if(field==="helpChannelId")
+    description += "Choose an optional public channel for a permanent **Open Help** button. Members open the Help menu privately; no profile is created.";
   else if (field === "scheduledPingsChannelId")
     description += "Choose an **optional private Scheduled Pings management channel**. The bot creates a permanent dashboard with buttons here. This must be separate from the commands and archive channels.";
   else if (field === "cardRoleId")
@@ -229,6 +233,7 @@ async function saveGeneral(session) {
   await GuildConfig.findOneAndUpdate({ guildId: session.guild.id },
     { $set: { ...s, initialSetupCompletedAt: previous?.initialSetupCompletedAt || new Date() } },
     { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true });
+  if(s.helpChannelId)await ensurePublicHelpEntry(session.guild.client,session.guild.id);
   if (s.scheduledPingsChannelId) {
     await ensurePingDashboard(session.guild.client,session.guild.id);
     if (previous?.scheduledPingsChannelId && previous.scheduledPingsChannelId!==s.scheduledPingsChannelId &&
