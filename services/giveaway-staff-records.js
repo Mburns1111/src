@@ -755,6 +755,62 @@ export async function handleGiveawayStaffAction(interaction){
        "Prize delivery confirmed. All winners' prizes are delivered; you may now archive.":
        "Prize delivery confirmed for place "+(slot+1)+". Other winners remain pending.");
    }
+   if(action==="cancelprize"){
+     const slots=(record.winnerIds||[]).map((userId,slot)=>({userId,slot}))
+       .filter(({userId,slot})=>userId&&!(record.claimResolvedSlots||[]).includes(slot)&&
+         !(record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId));
+     if(record.status!=="ended"||record.publicListingRemovedAt||record.prizeDeliveredAt||!slots.length)
+       return interaction.reply({content:"There are no cancellable prize places.",...ephemeral});
+     return interaction.reply({content:"**Cancel one winner's prize** · Their right to claim ends, but the original winner, submitted claim and cancellation reason remain in the archive.",
+       components:[new ActionRowBuilder().addComponents(
+         new StringSelectMenuBuilder().setCustomId("giveawaystaff:selectcancelprize:"+id)
+           .setPlaceholder("Choose prize place to cancel").addOptions(slots.map(({userId,slot})=>({
+             label:"Place "+(slot+1),description:"Original winner "+userId,value:String(slot)}))))],...ephemeral});
+   }
+   if(action==="selectcancelprize"){
+     const slot=Number(interaction.values?.[0]),userId=record.winnerIds?.[slot];
+     if(!Number.isSafeInteger(slot)||slot<0||!userId||record.status!=="ended"||
+       (record.claimResolvedSlots||[]).includes(slot)||
+       (record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId))
+       return showTemporaryPanel(interaction,{content:"This prize is no longer available for cancellation.",components:[]});
+     return interaction.showModal(new ModalBuilder()
+       .setCustomId("giveawaystaff:confirmcancelprize:"+id+":"+slot)
+       .setTitle("Cancel prize — place "+(slot+1))
+       .addComponents(
+         new ActionRowBuilder().addComponents(new TextInputBuilder()
+           .setCustomId("reason").setLabel("Reason for cancelling this prize")
+           .setStyle(TextInputStyle.Paragraph).setMinLength(3).setMaxLength(500).setRequired(true)),
+         new ActionRowBuilder().addComponents(new TextInputBuilder()
+           .setCustomId("confirm").setLabel("Type CANCEL to confirm")
+           .setStyle(TextInputStyle.Short).setMaxLength(6).setRequired(true))));
+   }
+   if(action==="confirmcancelprize"){
+     await interaction.deferReply(ephemeral);
+     const slot=Number(pageText),userId=record.winnerIds?.[slot];
+     const reason=(interaction.fields.getTextInputValue("reason")||"").trim();
+     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="CANCEL"||reason.length<3)
+       return interaction.editReply("Cancellation not confirmed. Enter a reason and type CANCEL.");
+     if(!Number.isSafeInteger(slot)||slot<0||!userId||record.status!=="ended"||
+       (record.claimResolvedSlots||[]).includes(slot)||
+       (record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId))
+       return interaction.editReply("This prize can no longer be cancelled.");
+     const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
+       status:"ended",publicListingRemovedAt:null,prizeDeliveredAt:null,
+       ["winnerIds."+slot]:userId,claimResolvedSlots:{$ne:slot},
+       "prizeDeliveries.slot":{$ne:slot}},
+       {$addToSet:{claimResolvedSlots:slot},
+         $push:{cancelledPrizes:{slot,userId,by:interaction.user.id,at:new Date(),reason}},
+         $set:{renderedAt:null},$inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+     if(!updated)return interaction.editReply("The prize was already cancelled or changed.");
+     // Commit the audit before refreshing Discord; UI failures must not lose history.
+     let updateError=null;
+     try{await publishGiveawayResult(interaction.client,updated);}
+     catch(error){updateError=error;console.error("[Giveaways] Cancelled prize saved; result refresh pending:",error);}
+     try{await ensureGiveawayStaffRecord(interaction.client,updated);}
+     catch(error){updateError=error;console.error("[Giveaways] Cancelled prize staff refresh pending:",error);}
+     return interaction.editReply("Prize #"+(slot+1)+" cancelled. Original winner, claim history, staff reason and timestamp are preserved."+
+       (updateError?" A display update is pending; the saved cancellation remains valid.":""));
+   }
    if(action==="confirmdeliver"){
      await interaction.deferReply(ephemeral);
      if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="DELIVERED")
