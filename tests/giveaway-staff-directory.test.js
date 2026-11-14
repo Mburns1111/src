@@ -23,19 +23,53 @@ const plan=(overrides={})=>({
 
 function buttons(payload){return payload.components.flatMap(row=>row.components).map(b=>b.data.custom_id)}
 
-test("directory includes live giveaways and running Trials, but excludes all finished and cancelled records",()=>{
+test("directory retains ended and cancelled drawings until their staff archive",()=>{
   const entries=giveawayDirectoryEntries([
     giveaway(),
     giveaway({_id:trial,title:"Court's Trial",mode:"survival",status:"running"}),
     giveaway({_id:activity,title:"Ended activity",mode:"activity",status:"ended"}),
     giveaway({_id:"507f1f77bcf86cd799439014",status:"cancelled"}),
     giveaway({_id:"507f1f77bcf86cd799439015",status:"failed"}),
+    giveaway({_id:"507f1f77bcf86cd799439017",status:"ended",archiveMovedAt:new Date()}),
+    giveaway({_id:"507f1f77bcf86cd799439018",status:"ended",publicListingRemovedAt:new Date()}),
   ],[plan(),plan({_id:"507f1f77bcf86cd799439016",status:"paused"})]);
-  assert.equal(entries.length,3);
+  assert.equal(entries.length,6);
   assert.ok(entries.some(e=>e.key==="giveaway:"+one&&e.url.endsWith("/"+msg)));
   assert.ok(entries.some(e=>e.key==="giveaway:"+trial&&e.label==="Court's Trial"));
+  assert.ok(entries.some(e=>e.key==="giveaway:"+activity&&e.status.includes("No winners")));
+  assert.ok(entries.some(e=>e.key==="giveaway:507f1f77bcf86cd799439014"&&e.status.includes("Cancelled")));
+  assert.ok(entries.some(e=>e.key==="giveaway:507f1f77bcf86cd799439018"),
+    "an archive requested but not yet moved must remain visible");
   assert.ok(entries.some(e=>e.key==="plan:"+trial&&e.label==="Recurring activity"));
   assert.ok(entries.every(e=>e.url.startsWith("https://discord.com/channels/")));
+});
+
+test("ticket submission and delivery update sticky status without removing the giveaway",()=>{
+  const winner="909090909090909090";
+  const claim={slot:0,userId:winner,ticketNumber:"CASE-123",
+    ticketUrl:"https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890",
+    submittedAt:new Date()};
+  for(const mode of ["standard","activity","survival"]){
+    const base=giveaway({mode,status:"ended",winnerIds:[winner],
+      trialTicketClaimsEnabled:true});
+    const pending=giveawayDirectoryEntries([base]);
+    assert.equal(pending.length,1);
+    assert.match(pending[0].status,/Waiting for winner claim/);
+    const submitted=giveawayDirectoryEntries([{...base,winnerClaims:[claim]}]);
+    assert.equal(submitted.length,1,mode+" ticket submission cannot archive a giveaway");
+    assert.match(submitted[0].status,/Claim submitted — awaiting prize delivery/);
+    const delivered=giveawayDirectoryEntries([{...base,winnerClaims:[claim],
+      prizeDeliveredAt:new Date()}]);
+    assert.equal(delivered.length,1,mode+" confirmed delivery still needs archive");
+    assert.match(delivered[0].status,/Prizes delivered — confirm archive/);
+    const archived=giveawayDirectoryEntries([{...base,winnerClaims:[claim],
+      prizeDeliveredAt:new Date(),archiveMovedAt:new Date()}]);
+    assert.equal(archived.length,0,mode+" disappears only after archive transfer");
+  }
+  const forfeited=giveawayDirectoryEntries([giveaway({status:"ended",
+    winnerIds:[winner],claimResolvedSlots:[0]})]);
+  assert.equal(forfeited.length,1);
+  assert.match(forfeited[0].status,/All winning places closed/);
 });
 
 test("activity directory links to staff records first and retains a public poster link",()=>{
@@ -59,7 +93,7 @@ test("page controls expose all entries while keeping primary sticky message comp
  assert.equal(buttons(first).length,2);
  assert.ok(buttons(first).includes("giveawaydir:cooldowns"));
  assert.ok(buttons(first).includes("giveawaydir:page:1"));
- assert.match(first.embeds[0].toJSON().description,/19 active or pending giveaways/);
+ assert.match(first.embeds[0].toJSON().description,/19 unarchived giveaways/);
  assert.match(first.embeds[0].toJSON().footer.text,/Moves to bottom hourly/);
  assert.equal(STAFF_DIRECTORY_BUMP_COOLDOWN_MS,60*60_000);
  assert.match(first.embeds[0].toJSON().description,/Giveaway 14/);
@@ -68,7 +102,7 @@ test("page controls expose all entries while keeping primary sticky message comp
  assert.match(second.embeds[0].toJSON().description,/Giveaway 18/);
  assert.ok(buttons(second).includes("giveawaydir:page:0"));
  const empty=giveawayStaffDirectoryPayload(guild,[]);
- assert.match(empty.embeds[0].toJSON().description,/no active or pending-claim giveaways/i);
+ assert.match(empty.embeds[0].toJSON().description,/no unarchived giveaways/i);
  assert.equal(empty.components.length,1);
  assert.deepEqual(buttons(empty),["giveawaydir:cooldowns"]);
 });
@@ -80,6 +114,7 @@ test("directory is sent to the private staff channel, reused, then auto-bumped w
  const config={guildId:testGuild,activityGiveawayReviewChannelId:staff,
   giveawayStaffDirectoryMessageId:"",giveawayStaffDirectoryChannelId:"",giveawayStaffDirectoryFingerprint:""};
  const posted=[],deleted=[],edited=[],updates=[];
+ let giveawayQuery;
  const messagesById=new Map();
  let current=null;
  const staffChannel={
@@ -100,9 +135,12 @@ test("directory is sent to the private staff channel, reused, then auto-bumped w
    assert.equal(id,staff);return staffChannel;
  }}};
  try{
-   Giveaway.find=()=>({sort:()=>({lean:async()=>[
-     giveaway({guildId:testGuild,title:"Active giveaway"})
-   ]})});
+   Giveaway.find=query=>{
+     giveawayQuery=query;
+     return {sort:()=>({lean:async()=>[
+       giveaway({guildId:testGuild,title:"Active giveaway"})
+     ]})};
+   };
    GiveawayPlan.find=()=>({sort:()=>({lean:async()=>[]})});
    GuildConfig.updateOne=async (_query,change)=>{
      updates.push(change.$set);
@@ -111,6 +149,11 @@ test("directory is sent to the private staff channel, reused, then auto-bumped w
    assert.equal(await ensureGiveawayStaffDirectory(client,config,{now}),true);
    assert.equal(posted.length,1);
    assert.equal(edited.length,0);
+   assert.ok(giveawayQuery.status.$in.includes("ended"));
+   assert.ok(giveawayQuery.status.$in.includes("cancelled"));
+   assert.deepEqual(giveawayQuery.archiveMovedAt,{$in:[null]});
+   assert.equal(Object.hasOwn(giveawayQuery,"publicListingRemovedAt"),false,
+     "the directory must retain records during an incomplete archive move");
    assert.match(posted[0].embeds[0].toJSON().description, /\[Active giveaway\]\(https:\/\/discord.com/);
    assert.equal(await ensureGiveawayStaffDirectory(client,config,{now:new Date(+now+2000)}),true);
    assert.equal(posted.length,1,"the directory is updated in place, not posted every sweep");
@@ -159,7 +202,7 @@ test("archiving immediately refreshes and resticks the staff index without carry
   try{
     Giveaway.find=()=>({sort:()=>({lean:async()=>[
       giveaway({guildId:testGuild,title:"Drawing to archive",
-        publicListingRemovedAt:archived?new Date(now):null}),
+        archiveMovedAt:archived?new Date(now):null}),
       giveaway({_id:activity,guildId:testGuild,title:"Another ongoing giveaway"})
     ]})});
     GiveawayPlan.find=()=>({sort:()=>({lean:async()=>[]})});

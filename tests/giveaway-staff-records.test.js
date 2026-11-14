@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
-import {giveawayStaffRecordPayload,staffRecordMarker,handleGiveawayStaffAction} from "../services/giveaway-staff-records.js";
+import {giveawayStaffRecordPayload,staffRecordMarker,handleGiveawayStaffAction,ensureGiveawayStaffRecord} from "../services/giveaway-staff-records.js";
 
 const id="507f1f77bcf86cd799439011",guildId="123456789012345678",
   winner="234567890123456789",ticketLink="https://discord.com/channels/123456789012345678/345678901234567890/456789012345678901?jump=1";
@@ -178,4 +178,86 @@ test("archived staff records stay read-only and retain prize claim details",()=>
  const unmoved=giveawayStaffRecordPayload(record,{archived:false});
  assert.ok(unmoved.components.flatMap(row=>row.components)
    .some(button=>button.data.custom_id==="giveawaystaff:remove:"+id));
+});
+
+
+test("archived staff card backfills missing archive completion marker for the directory",async()=>{
+ const GuildConfig=(await import("../models/GuildConfig.js")).default;
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const archiveId="901234567890123456",staffId="890123456789012345",archiveMessageId="912345678901234567";
+ const record={...ended,
+   publicListingRemovedAt:new Date("2026-11-12T12:00:00Z"),
+   staffCardChannelId:archiveId,staffCardId:archiveMessageId,
+   archiveMovedAt:null,prizeDeliveredAt:new Date(),
+   winnerClaims:[{slot:0,userId:winner,ticketNumber:"ABC",ticketUrl:ticketLink}],
+ };
+ const saved=[],edits=[];
+ const archivedMessage={
+   id:archiveMessageId,author:{id:"bot"},embeds:[],components:[],
+   edit:async payload=>edits.push(payload),
+ };
+ const privateChannel={
+   guild:{roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}}},
+   permissionsFor:member=>({has:()=>member?.id==="bot"}),
+   send:async()=>{throw Error("Must reuse the existing private archive post");},
+   messages:{fetch:async value=>typeof value==="string"?archivedMessage:[]},
+ };
+ const staffChannel={messages:{fetch:async value=>typeof value==="string"?null:new Map()}};
+ const client={user:{id:"bot"},channels:{fetch:async id=>
+   id===archiveId?privateChannel:id===staffId?staffChannel:null}};
+ try{
+   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+     giveawayArchiveChannelId:archiveId,activityGiveawayReviewChannelId:staffId,
+   })})});
+   Giveaway.updateOne=async(query,update)=>{
+     saved.push({query,update});return {matchedCount:1,modifiedCount:1};
+   };
+   assert.equal(await ensureGiveawayStaffRecord(client,record),true);
+   const moved=saved.find(x=>x.update.$set.archiveMovedAt);
+   assert.ok(moved,"an already archived staff message must repair the missing completion marker");
+   assert.equal(moved.query.staffCardChannelId,archiveId);
+   assert.equal(moved.query.staffCardId,archiveMessageId);
+   assert.deepEqual(moved.query.archiveMovedAt,{$in:[null]});
+   assert.equal(edits.length,1,"existing archive message is reused, not copied a second time");
+   assert.equal(await ensureGiveawayStaffRecord(client,{...record,archiveMovedAt:new Date()}),true);
+   assert.equal(saved.filter(x=>x.update.$set.archiveMovedAt).length,1,
+     "a saved archive completion timestamp is not replaced during reconciliation");
+ }finally{
+   GuildConfig.findOne=old.config;
+   Giveaway.updateOne=old.update;
+ }
+});
+
+test("staff archive is not marked complete when the linked private review remains unmoved",async()=>{
+ const GuildConfig=(await import("../models/GuildConfig.js")).default;
+ const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
+ const archiveId="901234567890123456",staffId="890123456789012345",archiveMessageId="912345678901234567";
+ const record={...ended,
+   publicListingRemovedAt:new Date("2026-11-12T12:00:00Z"),
+   staffCardChannelId:archiveId,staffCardId:archiveMessageId,
+   reviewChannelId:staffId,reviewMessageId:"923456789012345678",
+   archiveMovedAt:null,
+ };
+ const saved=[];
+ const archivedMessage={id:archiveMessageId,author:{id:"bot"},embeds:[],components:[],
+   edit:async()=>{}};
+ const archiveChannel={guild:{roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}}},
+   permissionsFor:member=>({has:()=>member?.id==="bot"}),
+   send:async()=>{throw Error("Must reuse the existing private archive post");},
+   messages:{fetch:async value=>typeof value==="string"?archivedMessage:[]}};
+ const staffChannel={messages:{fetch:async value=>typeof value==="string"?null:new Map()}};
+ const client={user:{id:"bot"},channels:{fetch:async id=>
+   id===archiveId?archiveChannel:id===staffId?staffChannel:null}};
+ try{
+   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+     giveawayArchiveChannelId:archiveId,activityGiveawayReviewChannelId:staffId,
+   })})});
+   Giveaway.updateOne=async(_query,update)=>{saved.push(update);return {matchedCount:1};};
+   assert.equal(await ensureGiveawayStaffRecord(client,record),true);
+   assert.equal(saved.some(x=>x.$set.archiveMovedAt),false,
+     "keep the directory entry until a referenced staff review is preserved");
+ }finally{
+   GuildConfig.findOne=old.config;
+   Giveaway.updateOne=old.update;
+ }
 });

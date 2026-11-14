@@ -395,6 +395,19 @@ export async function ensureGiveawayStaffRecord(client,record){
  if(isArchive){
    const reviewArchived=await archiveGiveawayReview(client,record,config);
    await cleanupArchivedStaffMessages(client,record,config.activityGiveawayReviewChannelId,{reviewArchived});
+   // A completed/cancelled giveaway can already have its permanent staff
+   // record in Archives while archiveMovedAt is still null. The sticky tracks
+   // that field, so record the successful move after saving the archive card
+   // and any linked private review. Reconciliation also repairs older moves.
+   const reviewStillInStaff=Boolean(record.reviewMessageId &&
+     record.reviewChannelId===config.activityGiveawayReviewChannelId && !reviewArchived);
+   if(!record.archiveMovedAt && !reviewStillInStaff){
+     await Giveaway.updateOne({
+       _id:record._id,guildId:record.guildId,
+       archiveMovedAt:{$in:[null]},
+       staffCardChannelId:archiveId,staffCardId:message.id,
+     },{$set:{archiveMovedAt:new Date()}});
+   }
  }
  // Every new active activity giveaway gets its own staff progress post.
  // This is separate from the permanent management card and omits members
