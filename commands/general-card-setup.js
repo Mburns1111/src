@@ -264,14 +264,19 @@ async function saveGeneral(session) {
       if(old?.author?.id===session.guild.client.user?.id)await old.delete();
     }catch(error){console.warn("[General Setup] Could not remove older Help entry:",error);}
   }
-  if (s.scheduledPingsChannelId) {
-    await ensurePingDashboard(session.guild.client,session.guild.id);
-    if (previous?.scheduledPingsChannelId && previous.scheduledPingsChannelId!==s.scheduledPingsChannelId &&
-        previous.scheduledPingsDashboardMessageId) {
-      const oldChannel=await session.guild.channels.fetch(previous.scheduledPingsChannelId).catch(()=>null);
-      const oldMessage=await oldChannel?.messages?.fetch(previous.scheduledPingsDashboardMessageId).catch(()=>null);
-      if(oldMessage?.author?.id===session.guild.client.user.id)
-        await oldMessage.delete().catch(()=>{});
+  if(s.scheduledPingsChannelId){
+    try{
+      await ensurePingDashboard(session.guild.client,session.guild.id);
+      if(previous?.scheduledPingsChannelId &&
+         previous.scheduledPingsChannelId!==s.scheduledPingsChannelId &&
+         previous.scheduledPingsDashboardMessageId){
+        const oldChannel=await session.guild.channels.fetch(previous.scheduledPingsChannelId).catch(()=>null);
+        const oldMessage=await oldChannel?.messages?.fetch(previous.scheduledPingsDashboardMessageId).catch(()=>null);
+        if(oldMessage?.author?.id===session.guild.client.user.id)
+          await oldMessage.delete().catch(()=>{});
+      }
+    }catch(error){
+      console.error("[General Setup] Configuration saved, but Scheduled Pings dashboard refresh will need retry:",error);
     }
   }
   const ensure = [
