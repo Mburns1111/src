@@ -193,7 +193,7 @@ test("concurrent result publishers cannot delete the single valid winner message
 });
 
 test("a winner with disabled DMs still has an active claim deadline",async()=>{
- const h=await harness();
+ const h=await harness({autoRerollClaims:true});
  try{
   h.client.users={fetch:async()=>({send:async()=>{throw Error("Cannot DM winner");}})};
   assert.equal(await publishGiveawayResult(h.client,h.getStored()),true);
