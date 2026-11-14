@@ -28,15 +28,15 @@ test("legacy staff-managed Trials still need staff delivery confirmation",()=>{
   assert.equal(completedGiveawayCanDeleteListing({...trial,prizeDeliveredAt:new Date()}),true);
 });
 
-test("private staff controls show Confirm Prizes Delivered before Archive Giveaway",()=>{
+test("private staff controls show Confirm Prize Delivered before Archive Giveaway",()=>{
   const record={...winner,_id:"507f1f77bcf86cd799439011",guildId:id,title:"Test prize",prize:"Gift",creatorId:id,endsAt:new Date()};
   const first=giveawayStaffRecordPayload(record);
   const labels=x=>x.components.flatMap(row=>row.components).map(b=>b.data.label);
-  assert.ok(labels(first).includes("Confirm Prizes Delivered"));
+  assert.ok(labels(first).includes("Confirm Prize Delivered"));
   assert.ok(!labels(first).includes("Archive Giveaway"));
   const confirmed=giveawayStaffRecordPayload({...record,prizeDeliveredAt:new Date(),prizeDeliveredBy:id});
   assert.ok(labels(confirmed).includes("Archive Giveaway"));
-  assert.ok(!labels(confirmed).includes("Confirm Prizes Delivered"));
+  assert.ok(!labels(confirmed).includes("Confirm Prize Delivered"));
 });
 
 test("optional delivery proof is restricted to a Discord message link",()=>{
