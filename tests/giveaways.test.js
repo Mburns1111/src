@@ -101,6 +101,22 @@ test("announcement remains on completion with details, winners and audit trail",
  assert.ok(nobody.embeds[0].data.description.length<450);
 });
 
+test("Court's Trials reject staff and automatic rerolls on old records",async()=>{
+ const original=Giveaway.findOne;
+ try {
+   Giveaway.findOne=()=>({lean:async()=>snapshot({
+     mode:"survival",status:"ended",winnerIds:[userId],
+     maxAutoRerolls:10,autoRerollClaims:true,trialTicketClaimsEnabled:true,
+   })});
+   for(const reason of ["staff","claim-expired"]){
+     await assert.rejects(
+       rerollGiveaway({id,guildId,staffId:userId,slot:0,reason}),
+       /Court's Trials do not allow rerolls/
+     );
+   }
+ }finally{Giveaway.findOne=original;}
+});
+
 test("random selection chooses distinct entrants, excludes past winners, and never overdraws",()=>{
  const picked=chooseGiveawayWinners(["A","A","B","C","D"],3,["B"]);
  assert.equal(picked.length,3);
