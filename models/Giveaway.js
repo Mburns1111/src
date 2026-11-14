@@ -25,6 +25,7 @@ const giveawaySchema = new mongoose.Schema({
   reviewMessageId:{type:String,default:""},
   reviewedBy:{type:String,default:""},
   reviewedAt:{type:Date,default:null},
+  reviewArchivedAt:{type:Date,default:null},
   roleBonuses:[{roleId:String,extraEntries:Number}],
   entryWeights:[{userId:String,weight:Number}],
   customActivityStartAt:{type:Date,default:null},
