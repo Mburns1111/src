@@ -313,7 +313,7 @@ export async function archiveGiveawayReview(client,record,config){
    const notes="**Review decision:** "+verdict+" by <@"+(record.reviewedBy||record.creatorId)+"> · "+when(record.reviewedAt);
    const embeds=(original.embeds||[]).map(e=>{
      const data=e.toJSON?.()||e;
-     return {...data,description:(String(data.description||"")+"\\n\\n"+notes).slice(0,4096)};
+     return {...data,description:(String(data.description||"")+"\n\n"+notes).slice(0,4096)};
    });
    archived=await destination.send({content:original.content||undefined,embeds,
      components:[],allowedMentions:{parse:[]}});
