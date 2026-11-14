@@ -165,6 +165,6 @@ test("invalid private manual-reroll choice removes outdated selector without tou
   assert.equal(calls.length,1);
   assert.equal(calls[0][0],"update","only the private message can be changed");
   assert.deepEqual(calls[0][1].components,[]);
-  assert.match(calls[0][1].content,/existing unclaimed prize place/);
+  assert.match(calls[0][1].content,/not awaiting a claim/);
  }finally{Giveaway.findOne=prior;}
 });
