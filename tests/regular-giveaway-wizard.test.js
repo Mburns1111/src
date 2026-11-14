@@ -193,7 +193,7 @@ test("regular giveaway wizard assigns bonus chances to a selected Discord role",
   assert.match(h.prompt().content,/Role bonus entries/);
   await h.select("bonusRoleSelected",[bonusRole]);
   await h.type("4");
-  assert.match(h.prompt().content,/\\+4/);
+  assert.match(h.prompt().content,/\+4/);
   await h.select("keep");
   await h.select("clearRules");
   await h.select("cooldownOff");
