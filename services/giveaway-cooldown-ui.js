@@ -59,7 +59,7 @@ async function showSelection(interaction,record,{remove=false}={}){
   .filter(x=>available.has(String(x.userId)));
  if(!choices.length)return showTemporaryPanel(interaction,{content:remove?
   "None of this giveaway's winners currently has an active cooldown.":
-  "This giveaway has no winners eligible for cooldown management."});
+  "This giveaway has no winners eligible for cooldown management.",components:[],allowedMentions:{parse:[]}});
  if(choices.length===1){
   const token=String(choices[0].slot);
   if(!remove)return interaction.showModal(daysModal(record,token,isTemporaryPanel(interaction)));
@@ -176,12 +176,12 @@ export async function handleGiveawayCooldownAction(interaction,record,action,slo
  if(action==="cooldownremovechoose"){
   const token=tokenFromSlots(interaction.values?.map(Number)||[]);
   const slots=slotsFromToken(token,record);
-  if(slots.length!==1)return interaction.reply({content:"Choose one member to remove a cooldown.",...ephemeral});
+  if(slots.length!==1)return showTemporaryPanel(interaction,{content:"Choose one member to remove a cooldown.",components:[],allowedMentions:{parse:[]}});
   const userId=record.winnerIds[slots[0]];
   const current=await GiveawayWinnerCooldown.findOne({
    guildId:record.guildId,userId,expiresAt:{$gt:new Date()},
   }).lean();
-  if(!current)return interaction.reply({content:"That member no longer has an active winner cooldown.",...ephemeral});
+  if(!current)return showTemporaryPanel(interaction,{content:"That member no longer has an active winner cooldown.",components:[],allowedMentions:{parse:[]}});
   return interaction.update({content:"Remove the **server-wide** cooldown for <@"+userId+">? The active cooldown ends immediately (currently expires <t:"+unix(current.expiresAt)+":F>).",
    components:[row(button(idFor("cooldownconfirmremove",id,token),"Confirm Removal",ButtonStyle.Danger))],
    allowedMentions:{parse:[]}});
