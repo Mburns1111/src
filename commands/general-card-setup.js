@@ -219,6 +219,8 @@ async function saveGeneral(session) {
   const reserved = [previous?.giveawayChannelId,previous?.activityGiveawayListChannelId,
     previous?.activityGiveawayWinnersChannelId,previous?.survivalTrialChannelId,
     previous?.activityGiveawayReviewChannelId].filter(Boolean);
+  if (reserved.includes(s.commandChannelId))
+    throw Error("Private Bot Commands must not reuse a public giveaway, Trial, or Giveaway Staff Controls channel.");
   if (reserved.includes(s.giveawayArchiveChannelId))
     throw Error("The shared archive must be separate from all existing giveaway, Trial and staff controls channels.");
   if (s.scheduledPingsChannelId && reserved.includes(s.scheduledPingsChannelId))
