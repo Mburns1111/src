@@ -81,9 +81,19 @@ export function giveawayAnnouncement(record) {
   }
   const activeWinners=(record.winnerIds||[]).filter((id,i)=>
     id && !(record.claimResolvedSlots||[]).includes(i));
-  const winners = (record.winnerIds || []).map((id, i) => (record.claimResolvedSlots || []).includes(i)
-    ? `${i + 1}. **No eligible winner** — <@${id}> did not claim; no replacement available`
-    : `${i + 1}. <@${id}>`);
+  // Keep each winner and their current ticket state in one public result field.
+  // The full claim information and reroll history remain private staff records.
+  const winners = (record.winnerIds || []).map((id, slot) => {
+    const place=`${slot+1}. `;
+    if ((record.claimResolvedSlots||[]).includes(slot))
+      return place+`**No eligible winner** — <@${id}> forfeited their claim; no replacement available.`;
+    const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===id);
+    if (claim) return place+`<@${id}> — **Claim submitted successfully**`;
+    const deadline=winnerClaimDeadline(record,slot);
+    return place+`<@${id}> — **Awaiting ticket claim**`+
+      (deadline?(deadline<=new Date()?" · **Claim deadline expired**":
+        ` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>`):"");
+  });
   const changed = (record.rerollHistory || []).slice(-8).map(item =>
     `#${item.slot + 1}: <@${item.previousId}> → <@${item.replacementId}>`);
   const activity = record.mode === "activity";
@@ -130,20 +140,8 @@ export function giveawayAnnouncement(record) {
         (record.winnerIds||[]).length
           ? "*The claim deadline passed and no eligible replacement was available.*"
           : "*Nobody entered or qualified for this giveaway.*");
-    lines.push("", "**Winners / Results**", ...(winners.length ? winners : ["**No eligible winner** — no eligible entries."]));
-    if (record.mode !== "survival" && (record.winnerIds || []).length) {
-      lines.push("", "**Winner ticket claims**");
-      for (let slot=0;slot<record.winnerIds.length;slot++) {
-        const userId=record.winnerIds[slot];
-        const claim=(record.winnerClaims || []).find(c=>c.slot===slot && c.userId===userId);
-        const deadline=winnerClaimDeadline(record,slot);
-        if (claim) {
-          lines.push(`#${slot+1} <@${userId}> — **Claim submitted successfully**`);
-        } else if ((record.claimResolvedSlots || []).includes(slot))
-          lines.push(`#${slot+1} — **No eligible winner** · <@${userId}> forfeited their claim; no replacement available.`);
-        else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline ? (deadline<=new Date()?` · **Claim deadline expired**`:` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>`) : ""}`);
-      }
-    }
+    // Winner names, claim states and per-winner deadlines appear together
+    // only in the dedicated Winners / Results embed field below.
     const claims = prizeClaimLines(record, { finished: true });
     if (claims.length) lines.push("", "**Claiming your prize:** Follow the instructions below and use the claim button before the deadline.");
     if(record.mode==="activity" && !record.winnerIds?.length)
