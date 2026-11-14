@@ -134,6 +134,7 @@ test("staff-wide cooldown manager lists active members and supports expiry corre
    fields:{getTextInputValue:()=> "3"}});
   await handleGiveawayCooldownDirectoryAction(input.i);
   assert.match(input.responses.update.content,/Confirm staff correction/);
+  assert.equal(input.responses.update.flags,undefined,"updates must not change ephemeral message flags");
   const apply=makeAction({customId:"giveawaydir:cooldownconfirmedit:"+a+":3"});
   await handleGiveawayCooldownDirectoryAction(apply.i);
   assert.equal(corrected.$push.history.action,"adjust");
@@ -172,6 +173,7 @@ test("member without cooldown offers Add Cooldown; modal review and confirm save
    fields:{getTextInputValue:()=> "3"}});
   await handleGiveawayCooldownDirectoryAction(submit.i);
   assert.match(submit.responses.update.content,/Confirm new winner cooldown/);
+  assert.equal(submit.responses.update.flags,undefined,"modal response updates cannot include reply flags");
   const confirm=makeAction({customId:"giveawaydir:cooldownconfirmadd:"+a+":3"});
   await handleGiveawayCooldownDirectoryAction(confirm.i);
   assert.equal(confirm.responses.deferred,true);
