@@ -73,5 +73,5 @@ test("activity panel keeps qualification and in-progress counts separate",()=>{
  const display=payload.embeds[0].toJSON().description;
  assert.match(display,/Qualified:\*\* 1/);
  assert.match(display,/In progress:\*\* 1/);
- assert.equal(ids(payload).filter(x=>x.startsWith("activitystaff:")).length,3);
+ assert.equal(ids(payload).filter(x=>x.startsWith("activitystaff:")).length,4);
 });
