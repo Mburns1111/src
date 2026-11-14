@@ -142,6 +142,12 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
      "**Cancelled by:** "+(record.staffCancelledBy?"<@"+record.staffCancelledBy+">":"Not recorded"),
      "**Cancelled at:** "+when(record.staffCancelledAt||record.updatedAt),
      "**Reason:** "+safe(record.staffCancelReason||"Reason unavailable for older cancellation"));
+   if(record.winnerIds?.length){
+     lines.push("", "**Original drawing — preserved after cancellation**");
+     for(let slot=0;slot<record.winnerIds.length;slot++)
+       lines.push("Place "+(slot+1)+" · <@"+record.winnerIds[slot]+"> — "+
+         (winnerHasClaim(record,slot)?"Claim was submitted":"Claim not submitted"));
+   }
  }else{
    if(record.status==="open")lines.push("**Entries:** "+(record.entrantIds?.length||0));
    if(giveawayHasNoEligibleWinner(record))
@@ -773,6 +779,9 @@ export async function handleGiveawayStaffAction(interaction){
      await ensureGiveawayStaffRecord(interaction.client,updated);
      return interaction.editReply("Further automatic claim rerolls have been disabled. Current submitted claims remain saved.");
    }
+   // Modal actions can take several seconds to archive and delete messages.
+   // Defer before making any database change so Discord never reports a false timeout.
+   await interaction.deferReply(ephemeral);
    if(!["open","pending_review","running","ended","rerolling"].includes(record.status)||record.prizeDeliveredAt)
      return interaction.editReply("Delivery is already confirmed or this giveaway can no longer be cancelled.");
    if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="CANCEL")
@@ -786,11 +795,18 @@ export async function handleGiveawayStaffAction(interaction){
        autoRerollClaims:false,claimCheckAt:null,renderedAt:new Date()},
        $inc:{renderVersion:1}},{returnDocument:"after"}).lean();
    if(!updated)return interaction.editReply("This giveaway was already changed or cancelled.");
-   // Record the reason and staff identity before removing anything public.
-   await ensureGiveawayStaffRecord(interaction.client,updated);
+   // Cancellation is committed; report any subsequent Discord/archive failure
+   // as cleanup pending rather than claiming that cancellation itself failed.
+   let staffError=null,publicError=null;
+   try{await ensureGiveawayStaffRecord(interaction.client,updated);}
+   catch(error){staffError=error;console.error("[Giveaways] Cancellation saved; staff archive refresh failed:",error);}
    try{await removeGiveawayPublicPosts(interaction.client,updated);}
-   catch(error){return interaction.editReply("Cancellation saved and recorded privately. The public post could not be removed; check bot permissions and retry cleanup.");}
-   return interaction.editReply("Giveaway cancelled and removed from public listings. The staff record retains who cancelled it, when, and why.");
+   catch(error){publicError=error;console.error("[Giveaways] Cancellation saved; public cleanup failed:",error);}
+   return interaction.editReply(
+     "Giveaway **cancelled and saved**. Original winners, claims and cancellation details remain in its history."+
+     (staffError?" Staff archive refresh is pending.":"")+
+     (publicError?" Public post removal is pending; the bot will retry cleanup.":"")
+   );
  }catch(error){
    console.error("[Giveaways] Staff record action failed:",error);
    const content="Couldn't complete that staff action: "+String(error.message||error).slice(0,350);
