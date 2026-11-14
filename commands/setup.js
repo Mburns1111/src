@@ -39,7 +39,7 @@ export async function execute(interaction) {
   requireGuild(interaction);
   // Compatibility for Discord's cached /setup archives option. It is no longer registered.
   if(interaction.options.getSubcommand?.()==="archives")
-    throw new UserFacingError("Giveaway archives are now set within /setup giveaways, /setup activity-giveaways, or /setup trials. Each setup requires the same shared private archive channel.");
+    throw new UserFacingError("Shared Staff Archives are now configured as a required channel in /setup general. The giveaway and Trial setups reuse that channel automatically.");
   if(interaction.options.getSubcommand?.()==="general")
     return startGuidedGuildSetup(interaction,"general");
   if(interaction.options.getSubcommand?.()==="cards")
@@ -129,7 +129,7 @@ export async function execute(interaction) {
     if (nextList && nextWinners && nextList === nextWinners)
       throw new UserFacingError("Activity giveaway listings and winner announcements need different channels.");
     if ((nextList && nextList === nextGiveaways) || (nextWinners && nextWinners === nextGiveaways))
-      throw new UserFacingError("Use separate channels for standard giveaways, the activity directory, and activity winners.");
+      throw new UserFacingError("Use separate channels for Regular Giveaways, the Activity Giveaway List, and Giveaway Winners.");
     if(nextReview && [nextGiveaways,nextTrials,nextList,nextWinners].includes(nextReview))
       throw new UserFacingError("The staff review channel must be separate from every public giveaway channel.");
     if ((nextList && nextList === nextTrials) || (nextWinners && nextWinners === nextTrials))
@@ -218,7 +218,7 @@ export async function execute(interaction) {
     configured.push(`Standard giveaways: ${giveawayChannel}`);
   }
   if (activityGiveawayListChannel) configured.push(`Active activity giveaway directory: ${activityGiveawayListChannel}`);
-  if (activityWinnersChannel) configured.push(`Activity giveaway winner announcements: ${activityWinnersChannel}`);
+  if (activityWinnersChannel) configured.push(`Giveaway Winners (regular and activity): ${activityWinnersChannel}`);
   if (activityReviewChannel) configured.push(`Private activity drawing approval: ${activityReviewChannel}`);
   if (survivalTrialChannel) {
     configured.push(`Court's Trial survival giveaways: ${survivalTrialChannel}`);

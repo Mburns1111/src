@@ -30,6 +30,7 @@ const STAFF_GROUPS = [
  { label: "Other staff tools", topics: [
   {"id":"scards","label":"Hatchem Cards"},
   {"id":"spoints","label":"Points & Shop"},
+  {"id":"spings","label":"Scheduled Pings"},
   {"id":"sgames","label":"Party Games"}
  ] }
 ];
@@ -67,7 +68,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "Other Staff Tools",
-    "Hatchem Cards · Points & Shop · Party Games"
+    "Hatchem Cards · Points & Shop · Scheduled Pings · Party Games"
    ]
   ]
  ],
@@ -189,7 +190,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Claiming Prizes",
-    "**Winners must submit a claim using the button below the winner announcement before the claim deadline, or the prize is forfeited.** Opening a ticket alone does not submit your claim.\n\nPress **Enter Ticket Claim info** and provide your **ticket number** and the **Discord message link** to that ticket. Staff verify your claim and deliver prizes manually. If a winner misses the deadline, the bot may select a replacement.\n\nOlder staff-managed Court's Trials may use a different claim process; follow that Trial's announcement."
+    "**Regular and activity giveaway winners are announced in Giveaway Winners. Winners must submit a claim using the button below their winner announcement before the claim deadline, or the prize is forfeited.** Opening a ticket alone does not submit your claim.\n\nPress **Enter Ticket Claim info** and provide your **ticket number** and the **Discord message link** to that ticket. Staff verify your claim and deliver prizes manually. If a winner misses the deadline, the bot may select a replacement.\n\nOlder staff-managed Court's Trials may use a different claim process; follow that Trial's announcement."
    ]
   ]
  ],
@@ -217,8 +218,8 @@ const CONTENT=Object.freeze({
   "Create the channels you need, then run guided setup to assign them. Initial setup must be completed before using the bot's other features.",
   [
    [
-    "1. Bot Commands · PRIVATE / Required",
-    "**Required:**\n• **Bot Commands Channel** — Create a private text channel for setup, administration, and general bot management.\n• **Access** — Give authorized staff and the bot access; hide it from @everyone.\n\n**All bot setup commands must be run in this channel.** Use it for normal administrative commands as well."
+    "1. Bot Commands & Shared Archives · PRIVATE / Required",
+    "**Required:**\n• **Bot Commands Channel** — Create a private text channel for setup, administration, and general bot management.\n• **Access** — Give authorized staff and the bot access; hide it from @everyone.\n\n• **Shared Staff Archives Channel** — A second required private channel for completed giveaway, Court\'s Trial and scheduled-ping records. It must be separate from Bot Commands and active giveaway staff controls.\n\n**Bot Commands, Shared Staff Archives and Server Time Zone are all mandatory in `/setup general`.** All bot setup commands must be run in this channel (Bot Commands)."
    ],
    [
     "2. Profiles, Trading, Shop & Points · PUBLIC",
@@ -234,15 +235,15 @@ const CONTENT=Object.freeze({
    ],
    [
     "5. Giveaways & Court's Trials · PUBLIC and PRIVATE",
-    "**Required public channels:**\n• **Regular Giveaways** — Entry posts and results.\n• **Activity Giveaway List** — Posters, progress, and the Opt In / Opt Out participation panel.\n• **Activity Winners** — Winner announcements and claim buttons.\n• **Court's Trials** — Signups, eliminations and Royal Verdicts.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Staff directory, previews, claims and delivery.\n• **Giveaway Archives** — Completed/cancelled records.\n\n**Required Giveaway Banned role:** Shared punishment across all three giveaway types; overrides entry and activity opt-in. An unbanned member must opt in again.\n\n**Activity opt-in:** MongoDB stores consent; no participation role is required.\n\n**Other roles:** Optional Giveaway Manager, regular entry role, and shared giveaway ping role. No participation role is required.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
+    "**Required public channels:**\n• **Giveaway List** — Regular giveaway entry posts; completed giveaways leave this channel.\n• **Activity Giveaway List** — Posters, progress, and the Opt In / Opt Out participation panel.\n• **Giveaway Winners** — Shared regular and activity winner announcements, winner mentions, and ticket claim buttons.\n• **Court's Trials** — Signups, eliminations and Royal Verdicts.\n\n**Required private channels:**\n• **Giveaway Staff Controls** — Staff directory, previews, claims and delivery.\n• **Shared Staff Archives** — Assigned once under `/setup general`; stores completed/cancelled giveaway and Scheduled Pings records.\n\n**Required Giveaway Banned role:** Blocks participation in all giveaway types.\n\n**Activity opt-in:** MongoDB stores consent; no participation role is required.\n\n**Other roles:** Optional Giveaway Manager, regular entry role, and shared giveaway ping role.\n\n**Setup:** `/setup giveaways` · `/setup activity-giveaways` · `/setup trials`"
    ],
    [
     "6. Bot Permissions",
-    "Give the bot **View Channel**, **Send Messages** and **Embed Links** in assigned channels. Use **Read Message History** and **Attach Files** where needed, especially for archiving and banners.\n\n**Activity counting:** Enable **Message Content Intent** in the Discord Developer Portal and `ENABLE_MESSAGE_CONTENT_INTENT=1` in hosting secrets. The bot must see watched channels.\n\n**Ban detection:** **Guild Members Intent** with `ENABLE_GUILD_MEMBERS_INTENT=1` enables immediate role updates. Periodic reconciliation also checks banned activity participants.\n\nThe bot stores participation choices in MongoDB; it does not assign the Giveaway Banned role. Administrator is not required."
+    "Give the bot **View Channel**, **Send Messages** and **Embed Links** in assigned channels. Use **Read Message History** and **Attach Files** where needed, especially for archiving and banners.\n\n**Activity counting:** The bot needs **View Channel** access to every channel included in activity tracking."
    ],
    [
     "7. Setup Order",
-    "First run `/setup general` to assign the required, private **Bot Commands** channel.\n\nThen configure the features you use:\n1. `/setup cards` — Hatchem.\n2. `/setup giveaways` — Regular giveaways, shared Banned role, staff and archive channels.\n3. `/setup activity-giveaways` — Activity list, winners, shared settings.\n4. `/setup trials` — Court's Trials.\n\nSet the **required Giveaway Banned role** in the regular or activity giveaway setup before creating any prize giveaways or Trials. Rerun setup to change future defaults.\n\nUse private **Bot Commands** for staff commands; public participation uses buttons."
+    "First run `/setup general` to assign private **Bot Commands** and **Shared Staff Archives**, choose **Server Time Zone**, and optionally choose a public channel for the permanent **Open Help** button.\n\nSelect **Bot Commands**, **Shared Staff Archives**, and the **Server Time Zone** in `/setup general`. The optional **Scheduled Pings Dashboard** is a private staff channel with permanent management buttons.\n\nThen configure the features you use:\n1. `/setup cards` — Hatchem.\n2. `/setup giveaways` — Regular Giveaways, shared Giveaway Winners, Banned role and staff controls (archive is set in General).\n3. `/setup activity-giveaways` — Activity Giveaway List, shared Giveaway Winners, and activity settings.\n4. `/setup trials` — Court's Trials.\n\nSet the **required Giveaway Banned role** in the regular or activity giveaway setup before creating any prize giveaways or Trials. Rerun setup to change future defaults.\n\nUse private **Bot Commands** for staff commands; public participation uses buttons."
    ]
   ]
  ],
@@ -252,49 +253,49 @@ const CONTENT=Object.freeze({
   [
    [
     "1. Choose a Giveaway Type",
-    "• **Regular** — `/giveaway start`: members click **Enter Giveaway**; optional required entry role.\n• **Activity** — `/giveaway activity`: members press **Opt In** at the Activity Giveaway List. Qualifying messages give automatic entry; no entry button or participation role per giveaway.\n• **Court's Trial** — `/trial start`: members join a timed elimination contest.\n\nComplete the matching server setup first. The **required Giveaway Banned role** always blocks participation and prizes across all three; staff cannot disable it per giveaway.\n\n**Winner Cooldown** is a separate, optional **ON/OFF** setting on regular and activity giveaways, default **OFF**. If ON, active cooldowns are silently excluded at drawing and rerolls. Court's Trials ignore cooldowns."
+    "• **Regular** — `/giveaway start`: members enter through Giveaway List. Once drawn, the completed announcement and claim button appear in Giveaway Winners. Optional required entry role.\n• **Activity** — `/giveaway activity`: members press **Opt In** at the Activity Giveaway List. Qualifying messages give automatic entry; no entry button or participation role per giveaway.\n• **Court's Trial** — `/trial start`: members join a timed elimination contest.\n\nComplete the corresponding setup first. Regular and activity giveaways share **Giveaway Winners**. The required **Giveaway Banned role** blocks all giveaway types and cannot be disabled.\n\n**Winner Cooldown** is a separate, optional **ON/OFF** setting on regular and activity giveaways, default **OFF**. When ON, regular giveaways block entry from cooled-down members and both regular and activity giveaways exclude cooled-down members during drawing and rerolls. Court's Trials ignore cooldowns."
    ],
    [
     "Court's Trials — Fast-Paced Giveaways",
-    "**Court's Trials** run in their own public channel, separate from regular and activity giveaways. Members press **Join Trial**, and staff select **Start Trial**. The bot posts randomized eliminations and a ranked **Royal Verdict**.\n\n**Options:** 1–10 ranked prize places, up to 120 entrants, elimination pace (2, 3 or 5 seconds), optional required entry role, banners, shared announcement ping and claim instructions.\n\n**Claims:** New Trials use claim deadlines in **minutes**, ticket number and Discord ticket-message link, with configurable rerolls for missed claims. Older staff-managed Trials may use manual claims instead.\n\n**Private channels:** Shared Giveaway Staff Controls and Giveaway Archives. Configure with `/setup trials` in Bot Commands."
+    "**Court's Trials** run in their own public channel, separate from regular and activity giveaways. Members press **Join Trial**, and staff select **Start Trial**. The bot posts randomized eliminations and a ranked **Royal Verdict**.\n\n**Private channels:** Shared Giveaway Staff Controls and Shared Staff Archives. Assign the archive in `/setup general`, then configure Trials with `/setup trials` in Bot Commands."
    ],
    [
     "2. Create and Post",
-    "In private **Bot Commands**, start a guided giveaway and choose a title, prize, description, duration, number of winners and any requirements. Regular giveaways can use a required entry role, show/hide role instructions, and specify rules.\n\n**Activity extras:** Message goals, active days, channel/phrase/mention filters, weighted bonus roles, optional staff approval and repeat schedule. Bonus roles add extra drawing chances (up to +20 per role); **each member can win only once**.\n\nYou can select or upload reusable **banners**, customize ticket-claim instructions and deadlines, and choose Winner Cooldown ON/OFF. A **shared giveaway ping role** can announce new events.\n\nReview the private preview before choosing **Post Giveaway**."
+    "In private **Bot Commands**, start a guided giveaway and choose a title, prize, description, duration, number of winners and any requirements. Regular giveaways can use a required entry role, show/hide role instructions, and specify rules.\n\n**Activity extras:** Message goals, active days, channel/phrase/mention filters, weighted bonus roles, optional staff approval and repeat schedule. Bonus roles add extra drawing chances (up to +20 per role); **each member can win only once**.\n\nYou can select or upload reusable **banners**, customize ticket-claim instructions and deadlines, and choose Winner Cooldown ON/OFF. A **shared giveaway ping role** can announce new events.\n\n**Winner announcements:** Regular giveaways move their completed result into **Giveaway Winners**, notify winners, and remove the old entry post from **Giveaway List**. Claim buttons remain on the results post. Activity giveaway results use the same winners channel.\n\nReview the private preview before choosing **Post Giveaway**."
    ],
    [
     "3. Manage Active Giveaways",
-    "Use the **private Giveaway Staff Controls** channel. Its sticky directory lists active giveaways, upcoming activity schedules, and claim-pending events, with links to each staff record.\n\nStaff can **View Entrants**, review activity qualification, edit open settings, end early, cancel with a reason, and approve/decline manual-review activity drawings.\n\nAfter a drawing, staff can **Manual Reroll** a winning place or **Disable Further Rerolls**. The directory's **Winner Cooldowns** button shows active server-wide cooldowns and lets staff correct or remove them.\n\nIf nobody qualifies or no eligible replacement remains, the bot records **No Eligible Winner**; it does not require an unused claim."
+    "Use the **private Giveaway Staff Controls** channel. Its sticky directory lists active giveaways, upcoming activity schedules, and claim-pending events, with links to each staff record.\n\nStaff can **View Entrants**, review activity qualification, edit open settings, end early, cancel with a reason, and approve/decline manual-review activity drawings.\n\nAfter a drawing, staff can **Manual Reroll** a winning place or **Disable Further Rerolls**. The directory's **Winner Cooldowns** button shows active server-wide cooldowns and lets staff add a cooldown for a member without one, correct an expiry, or remove a cooldown.\n\nIf nobody qualifies or no eligible replacement remains, the bot records **No Eligible Winner**; it does not require an unused claim."
    ],
    [
     "4. Giveaway Status Indicators",
-    "🟦 **In Progress** — Entries or activity are being counted.\n🟨 **Claim Pending** — Awaiting a winner ticket claim.\n🟩 **Claim Completed** — Ticket claim submitted, **not yet delivered**.\n🟥 **No Eligible Winner** — Nobody qualified or no replacement remains.\n⬜ **Archived / Removed** — Staff record finalized.\n\n**Winner checks:** The bot verifies current server membership and required roles, applies the mandatory Banned role, and checks optional winner cooldowns before awarding or rerolling.\n\n**Automatic rerolls:** Unclaimed prize places may be rerolled after their deadline (default maximum **2 per place**, configurable; staff can disable further rerolls). Each replacement gets a new claim deadline.\n\n**Prize delivery:** A completed claim does not mean delivery is confirmed. Staff use **Confirm Prizes Delivered** only after all prizes are given."
+    "🟦 **In Progress** — Entries or activity are being counted.\n🟨 **Claim Pending** — Awaiting a winner ticket claim.\n🟩 **Claim Completed** — Ticket claim submitted, **not yet delivered**.\n🟥 **No Eligible Winner** — Nobody qualified or no replacement remains.\n⬜ **Archived / Removed** — Staff record finalized.\n\n**Automatic rerolls:** The bot can automatically reroll winners according to the configured giveaway settings.\n\n**Prize delivery:** A completed claim does not mean delivery is confirmed. Staff use **Confirm Prizes Delivered** only after all prizes are given."
    ],
    [
     "5. Archive a Giveaway",
-    "After current winners submit their ticket claims and receive their prizes, staff select **Confirm Prizes Delivered**, then **Archive Giveaway**. Otherwise, cancel with a reason.\n\n**Apply Cooldown** appears beside Archive for delivered regular/activity giveaways. Privately select one, several or all winners, enter **1–365 days**, preview the expiration and confirm. Time starts at confirmed prize delivery; it survives archiving. Applying a shorter period never reduces a longer existing cooldown.\n\nThe staff **Winner Cooldowns** manager can view, correct or remove cooldowns even after archiving. Cooldowns are not the punishment Banned role.\n\n**On archive:** Regular public giveaway posts are removed; activity winner results and Court's Trial Royal Verdicts stay public. Staff history, claims, delivery, rerolls and settings are preserved privately."
+    "After current winners submit their ticket claims and receive their prizes, staff select **Confirm Prizes Delivered**, then **Archive Giveaway**. Otherwise, cancel with a reason.\n\n**Apply Cooldown** appears beside Archive for delivered regular/activity giveaways. Privately select one, several or all winners, enter **1–365 days**, preview the expiration and confirm. Time starts at confirmed prize delivery; it survives archiving. Applying a shorter period never reduces a longer existing cooldown.\n\n**On archive:** Regular giveaway result posts are removed from **Giveaway Winners**. Activity winner announcements and Court's Trial Royal Verdicts remain public. Staff history, claims, delivery, rerolls and settings are preserved privately."
    ]
   ]
  ],
  "sactivity": [
   "Staff · Track Activity",
-  "Use `/setup activity-giveaways` to choose the public Activity Giveaway List, where the bot maintains its Opt In / Opt Out panel. Create activity giveaways with `/giveaway activity` in private Bot Commands.",
+  "Use `/setup activity-giveaways` to choose the public Activity Giveaway List and the shared **Giveaway Winners** channel, where results from both regular and activity giveaways are announced. The bot maintains its Opt In / Opt Out panel in the Activity Giveaway List. Create activity giveaways with `/giveaway activity` in private Bot Commands.",
   [
    [
     "Activity Participation · REQUIRED",
-    "Members explicitly press **Opt In** on the permanent participation panel at the bottom of the **Activity Giveaway List**. MongoDB stores their choice; **No Discord role** is needed for activity participation. **My Status** reports whether they are opted in.\n\n**Opt Out** stops new activity tracking and excludes them from drawings. Rejoining starts a **fresh counting window**: previous messages do not carry over.\n\n**Giveaway Banned role:** Receiving it revokes MongoDB opt-in. Removing the role does not restore participation; the member must press **Opt In** again. The bot checks message activity, role updates when enabled, and periodically reconciles missed bans.\n\nThe panel is kept below new activity listings and refreshed beneath later chat with a posting cooldown."
+    "Members explicitly press **Opt In** on the permanent participation panel at the bottom of the **Activity Giveaway List**. MongoDB stores their choice; **No Discord role** is needed for activity participation. **My Status** reports whether they are opted in.\n\n**Opt Out** stops new activity tracking and excludes them from drawings. Rejoining starts a **fresh counting window**: previous messages do not carry over.\n\nThe panel is kept below new activity listings and refreshed beneath later chat with a posting cooldown."
    ],
    [
     "1. Set the Requirements",
-    "Use `/giveaway activity` in private Bot Commands.\n\n**Activity goals:**\n• **Messages:** Total qualifying messages across the **entire activity period**, not per day.\n• **Active days:** Optional number of separate days with a matching message (minimum 1).\n• **Length:** Minimum characters in each counted message, excluding mentions.\n• **Channels:** All eligible server channels or a selected channel.\n• **Filters:** Exact word/phrase, member mention, or both. Phrase matching ignores capitalization but preserves spelling/word order.\n\nYou can choose **multiple winners**, add weighted **bonus roles** (extra chances; one prize per member), enable private staff approval and select whether to announce an empty result. Only opted-in, unbanned members count."
+    "Use `/giveaway activity` in private Bot Commands.\n\n**Activity goals:**\n• **Messages:** Total qualifying messages across the **entire activity period**, not per day.\n• **Active days:** Optional number of separate days with a matching message (minimum 1).\n• **Length:** Minimum characters in each counted message, excluding mentions.\n• **Channels:** All eligible server channels or a selected channel.\n• **Filters:** Exact word/phrase, member mention, or both. Phrase matching ignores capitalization but preserves spelling/word order.\n\nYou can choose **multiple winners**, add weighted **bonus roles** (extra chances; one prize per member), enable private staff approval and select whether to announce an empty result."
    ],
    [
     "2. Review the Schedule",
-    "Choose the counting start/end and announcement time. Periods may be **24 hours, weekly (midnight Eastern boundaries), or custom hours/days**.\n\nSet the giveaway to run **once, every 24 hours, weekly or at a custom repeat interval**, with a limited number of repeats or indefinitely. The wizard checks that scheduled periods do not overlap.\n\nFor repeating giveaways, the private preview lists the **next two scheduled periods** with their exact starts and ends. Staff can review/edit the plan before publishing.\n\n**Winner Cooldown ON/OFF** is saved with a recurring series. Opt-in is server-wide; members don't opt in separately for each giveaway."
+    "Choose the counting start/end and announcement time. Periods may be **24 hours, weekly (midnight Eastern boundaries), or custom hours/days**.\n\nSet the giveaway to run **once, every 24 hours, weekly or at a custom repeat interval**, with a limited number of repeats or indefinitely. \n\nFor repeating giveaways, the private preview lists the **next two scheduled periods** with their exact starts and ends. Staff can review/edit the plan before publishing."
    ],
    [
     "3. Check Progress",
-    "Members press **Check My Progress** on an activity listing to see their own qualifying totals privately.\n\nIn **Giveaway Staff Controls**, use **Preview Qualifying Members** and **Refresh Progress** to see members who have started working toward requirements, whether they qualify, and the criteria they still need. **Members with no recorded activity are omitted.**\n\nStaff may review channel, message-count, active-day, word/phrase, mention and minimum-length requirements, plus edit upcoming schedules and eligible settings.\n\nMembers who **opt out** or receive the Banned role are excluded from live previews and drawings. Activity is counted only within each member's current opt-in window."
+    "Members press **Check My Progress** on an activity listing to see their own qualifying totals privately.\n\nIn **Giveaway Staff Controls**, use **Preview Qualifying Members** and **Refresh Progress** to see members who have started working toward requirements, whether they qualify, and the criteria they still need. **Members with no recorded activity are omitted.**\n\nStaff may review channel, message-count, active-day, word/phrase, mention and minimum-length requirements, plus edit upcoming schedules and eligible settings."
    ],
    [
     "4. Manual Approval",
@@ -304,7 +305,7 @@ const CONTENT=Object.freeze({
  ],
  "sarchives": [
   "Staff · Archive Records",
-  "Completed and cancelled giveaway history is stored in the required private archive channel.",
+  "Completed and cancelled giveaway history and finished Scheduled Pings records are stored in the required private Shared Staff Archives channel.",
   [
    [
     "1. Archive or Cancel",
@@ -312,14 +313,24 @@ const CONTENT=Object.freeze({
    ],
    [
     "2. Preserved Information",
-    "The private **Giveaway Archives** channel preserves:\n• Giveaway settings, requirements and participants.\n• Winner placements, claim tickets, ticket-message links and timestamps.\n• Prize-delivery confirmation, staff actions and cancellation reasons.\n• Manual/automatic reroll history and no-eligible outcomes.\n• Final activity progress snapshots and relevant review records.\n• Full giveaway data in an attached JSON record.\n\n**Only regular giveaways are deleted from their public channel when archived.** Activity winner announcements and Court's Trial Royal Verdicts remain public."
+    "The private **Shared Staff Archives** channel preserves:\n• Giveaway settings, requirements and participants.\n• Winner placements, claim tickets, ticket-message links and timestamps.\n• Prize-delivery confirmation, staff actions and cancellation reasons.\n• Manual/automatic reroll history and no-eligible outcomes.\n• Final activity progress snapshots and relevant review records.\n• Full giveaway data in an attached JSON record.\n\n**Regular giveaway entry posts are removed when results are published. Regular result posts are deleted when archived.** Activity winner announcements and Court's Trial Royal Verdicts remain public."
    ],
    [
     "3. Archive Setup",
-    "**Required:** A private **Giveaway Archives** channel, different from the private Giveaway Staff Controls channel and hidden from @everyone. The bot needs permission to post embeds and attach records.\n\nAssign the shared channel through `/setup giveaways`, `/setup activity-giveaways` or `/setup trials`.\n\nThe bot saves the archived staff record **before** removing its earlier private staff message. It does not erase the archived history when public listings are removed."
+    "**Required:** A private **Shared Staff Archives** channel, different from the private Giveaway Staff Controls channel and hidden from @everyone. The bot needs permission to post embeds and attach records.\n\nAssign the shared channel once in **`/setup general`**. Giveaways, activity giveaways and Trials use it automatically; their individual setup flows cannot change it."
    ]
   ]
  ],
+ "spings": [
+    "Staff · Scheduled Pings",
+    "Create saved schedule templates and activate them in one destination channel at a time. Management uses permanent buttons in a private Scheduled Pings dashboard.",
+    [
+      ["1. Setup", "Run `/setup general` to select the mandatory **Shared Staff Archives** channel, server-wide **Server Time Zone**, and optional private **Scheduled Pings Dashboard** channel. Bot Commands remains mandatory."],
+      ["2. Saved Templates", "Use **Create Template** in the dashboard to create one Ping Group at a time. Add more groups as needed. Each group supports up to ten roles and its own recurrence and messages. Templates do not send anything until activated."],
+      ["3. Activate & Manage", "Choose **Saved Templates** to make an independent copy. Select one destination channel, enter the start date and local clock time (using the saved server time zone), review future pings, and activate. Every X hours is elapsed time; every X days stays at the same local clock time across daylight saving. Use the dashboard to pause, edit, resume or end a schedule."],
+      ["4. Archives", "The dashboard shows active schedules, upcoming pings, and delivery alerts. When a schedule ends, the shared archive preserves messages, settings, failures and staff edits. If a send is in flight or the archive is unavailable, it displays Archive Pending and retries automatically."]
+    ]
+  ],
  "scards": [
   "Staff · Hatchem Cards",
   "Hatchem registration, Points integration, and member help.",
@@ -501,6 +512,40 @@ async function showTopic(i,topic,ownerId,commandPage=0){
   // Participation instructions are the same for every server; the panel is in its configured activity list.
  }
  await i.editReply(helpTopicPayload(topic,ownerId,lines,commandPage,serverConfig));
+}
+export async function ensurePublicHelpEntry(client,guildId){
+ const config=await GuildConfig.findOne({guildId}).select("helpChannelId helpMessageId").lean();
+ if(!config?.helpChannelId)return false;
+ const channel=await client.channels.fetch(config.helpChannelId);
+ if(!channel?.send||!channel.messages?.fetch)throw Error("Configured public Help channel is inaccessible.");
+ let message=config.helpMessageId?await channel.messages.fetch(config.helpMessageId).catch(e=>{
+   if(e.code===10008)return null;
+   throw e;
+ }):null;
+ const payload={content:"✦ **AM Isa Help**\nUse the button below to open the private Public Help, Staff Help or Command Index.",
+   components:[new ActionRowBuilder().addComponents(
+     new ButtonBuilder().setCustomId("help:open").setLabel("Open Help").setStyle(ButtonStyle.Primary))],
+   allowedMentions:{parse:[]}};
+ if(message){
+   if(message.author?.id!==client.user.id)throw Error("Saved Help message is not owned by this bot.");
+   await message.edit(payload);
+ }else{
+   message=await channel.send(payload);
+   await GuildConfig.updateOne({guildId,helpChannelId:config.helpChannelId},
+     {$set:{helpMessageId:message.id}});
+ }
+ return Boolean(message?.id);
+}
+export async function handlePublicHelpEntry(interaction){
+ if(!interaction.guildId)return interaction.reply({content:"Help is available inside a server.",flags:MessageFlags.Ephemeral});
+ const config=await GuildConfig.findOne({guildId:interaction.guildId})
+   .select("helpChannelId helpMessageId").lean();
+ if(!config?.helpChannelId||interaction.channelId!==config.helpChannelId||
+    (config.helpMessageId&&interaction.message?.id!==config.helpMessageId))
+   return interaction.reply({content:"This Help button is no longer active. Use the current Open Help panel or /help.",flags:MessageFlags.Ephemeral});
+ await interaction.deferReply({flags:MessageFlags.Ephemeral});
+ await showTopic(interaction,"root",interaction.user.id);
+ return true;
 }
 export async function execute(interaction){
  requireGuild(interaction);

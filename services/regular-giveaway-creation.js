@@ -1,4 +1,5 @@
 import Giveaway from "../models/Giveaway.js";
+import {cleanRegularDisplayField,REGULAR_DISPLAY_FIELDS} from "./giveaway-display-text.js";
 import {getConfiguredTextChannelAndConfig} from "../commands/shared.js";
 import {requirePrivateGiveawayStaffChannel,ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import {sharedGiveawayPingRoleId} from "./giveaway-notification-roles.js";
@@ -59,11 +60,16 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
   const pingRoleIds=pingRoleId?[pingRoleId]:[];
   // Blank bannerNameKey inherits the saved default without overwriting it.
   const bannerNameKey=await ensureBannerRegistered(guildId,settings.bannerNameKey||"");
+  const serverDisplay=Object.fromEntries(REGULAR_DISPLAY_FIELDS.map(field=>
+    [field,cleanRegularDisplayField(field,config?.["regularGiveaway"+field[0].toUpperCase()+field.slice(1)]||"")]));
   const values={
-    guildId,channelId:channel.id,creatorId,title,prize,description,rules,
+    guildId,channelId:channel.id,resultChannelId:config?.activityGiveawayWinnersChannelId||"",
+    creatorId,title,prize,description,rules,
+    ...serverDisplay,
     endsAt:new Date(Date.now()+minutes*60000),winnerCount:winners,
     claimWindowHours:claimHours,claimWindowMinutes:null,
     autoRerollClaims:true,
+    announceEmptyResults:config?.activityAnnounceEmptyResults!==false,
     winnerCooldownEnabled:settings.winnerCooldownEnabled===true,
     trialTicketClaimsEnabled:false,
     maxAutoRerolls:config?.activityMaxAutoRerolls??DEFAULT_MAX_AUTO_REROLLS,

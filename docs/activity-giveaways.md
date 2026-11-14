@@ -187,3 +187,6 @@ node register-commands.js
 ```
 
 Restart the **Replit test bot** only after confirming the development token/database. No production deployment is implied.
+
+
+**Entry blocking with winner cooldowns:** When a regular giveaway's **Winner Cooldown check** is **ON**, anyone with an active server-wide winner cooldown is refused by **Enter Giveaway** and receives a private message showing when their cooldown expires. Existing entries are removed when staff apply a cooldown to a member, and the periodic sweep also cleans up entries saved before this fix. The giveaway draw and rerolls continue excluding cooled-down members. **OFF** retains the deliberate opt-out and allows participation despite cooldowns. Activity giveaways have no Enter button, so they continue filtering at drawing/approval; Court's Trials are never affected. This restriction is separate from the non-optional Giveaway Banned role.

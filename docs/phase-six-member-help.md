@@ -24,7 +24,7 @@ Only authorized staff can open Staff Help. The giveaway-manager role is allowed 
 5. Giveaway public channels (regular, activity list, activity winners and Court's Trials) plus separate **private staff controls** and **required private archive** channels.
 6. Required bot permissions, followed by setup order.
 
-Use `/setup general` first, then feature-specific `/setup cards`, `/setup giveaways`, `/setup activity-giveaways`, or `/setup trials`. Each of the three giveaway setup flows includes the required shared private archive channel. There is no separate `/setup archives` menu option.
+Use `/setup general` first, then feature-specific `/setup cards`, `/setup giveaways`, `/setup activity-giveaways`, or `/setup trials`. The required shared private archive and server-wide time zone are selected once in `/setup general`; individual giveaway setups reuse the archive. There is no separate `/setup archives` menu option.
 
 ## Giveaway help
 
@@ -38,7 +38,7 @@ Run a Giveaway includes regular, activity and Court's Trial giveaways. Status co
 4. Open Run a Giveaway. Confirm all three types and current claim-status wording.
 5. Verify ordinary members cannot access Staff Help, but access to public help remains available.
 6. Use `/setup general` to choose a staff-only commands channel and verify a channel visible to `@everyone` is rejected.
-7. Use each giveaway setup to choose the same separate private archive and verify it is saved and shown in the review.
+7. Use `/setup general` to choose a separate private shared archive and server time zone. Verify each giveaway setup displays the shared archive but cannot change it.
 8. Ensure profile/gallery media, video order, purchases and published listings remain unchanged by reading help.
 
 No merge into `main` or Wispbyte deployment until all integration conflicts and tests are resolved.

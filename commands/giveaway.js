@@ -1,4 +1,5 @@
 import {requireMemberNotBanned} from "../services/giveaway-exclusion.js";
+import {activeCooldownFor} from "../services/giveaway-cooldowns.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { getConfiguredTextChannelAndConfig } from "./shared.js";
 import Giveaway from "../models/Giveaway.js";
@@ -222,6 +223,8 @@ export async function execute(interaction) {
       const winnerCount = interaction.options.getInteger("winners") || 1;
       const record = await Giveaway.create({
         guildId: interaction.guildId, channelId: channel.id,bannerNameKey,
+        resultChannelId:survival?"":config?.activityGiveawayWinnersChannelId||"",
+        announceEmptyResults:config?.activityAnnounceEmptyResults!==false,
         creatorId: interaction.user.id,
         title: interaction.options.getString("title", true).trim(),
         prize: interaction.options.getString("prize", true).trim(),
@@ -373,7 +376,10 @@ export async function handleGiveawayButton(interaction) {
     const validSignupPost = record?.messageId === interaction.message?.id && record?.channelId === interaction.channelId;
     const validTrialVerdict = action === "claim" && record?.mode === "survival" &&
       record?.finaleMessageId === interaction.message?.id && record?.channelId === interaction.channelId;
-    if (!record || (!["confirm","cancel"].includes(action) && !validSignupPost && !validTrialVerdict))
+    const validRegularWinnerPost = action === "claim" && record?.mode === "standard" &&
+      record?.regularWinnerMessageId === interaction.message?.id &&
+      record?.regularWinnerChannelId === interaction.channelId;
+    if (!record || (!["confirm","cancel"].includes(action) && !validSignupPost && !validTrialVerdict && !validRegularWinnerPost))
       return action==="claim"
         ? interaction.reply({content:"This giveaway announcement could not be verified.",flags:MessageFlags.Ephemeral})
         : interaction.editReply("This giveaway announcement could not be verified.");
@@ -445,7 +451,7 @@ export async function handleGiveawayButton(interaction) {
       allowedMentions: { parse: [] },
     });
     if (record.status !== "open" || new Date(record.endsAt) <= new Date())
-      return interaction.editReply("This giveaway has ended; its results will stay on the original post.");
+      return interaction.editReply("This giveaway has ended. Regular results are published in Giveaway Winners.");
     if(action==="enter"){
       const banned=await requireMemberNotBanned(interaction.guild,interaction.user.id);
       if(banned)return interaction.editReply(banned);
@@ -458,6 +464,15 @@ export async function handleGiveawayButton(interaction) {
     const result = action === "enter"
       ? await joinGiveaway({ id, guildId: interaction.guildId, userId: interaction.user.id, mode: record.mode })
       : await leaveGiveaway({ id, guildId: interaction.guildId, userId: interaction.user.id });
+    if(result==="cooldown"){
+      const cooldown=await activeCooldownFor(interaction.guildId,interaction.user.id);
+      const stamp=cooldown?.expiresAt?
+        " until <t:"+Math.floor(+new Date(cooldown.expiresAt)/1000)+":F>"+
+        " (<t:"+Math.floor(+new Date(cooldown.expiresAt)/1000)+":R>)":"";
+      return interaction.editReply({content:"You can't enter this giveaway because you're on an active winner cooldown"+
+        stamp+". Staff enabled cooldown restrictions. Your entry has not been accepted.",
+        allowedMentions:{parse:[]}});
+    }
     const message = ({
       joined: "🥀 You're entered! Good luck. You can leave before the deadline.",
       already: "You're already entered. Each member gets one entry.",

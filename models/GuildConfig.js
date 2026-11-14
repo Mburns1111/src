@@ -24,6 +24,9 @@ const guildConfigSchema = new mongoose.Schema(
     activityGiveawayWinnersChannelId: { type: String, default: "" },
     activityGiveawayReviewChannelId: { type: String, default: "" },
     giveawayArchiveChannelId: { type: String, default: "" },
+    serverTimeZone: { type: String, default: "" },
+    scheduledPingsChannelId: { type: String, default: "" },
+    scheduledPingsDashboardMessageId: { type: String, default: "" },
     // Shared staff delegation for regular, activity and Trial giveaway management.
     giveawayManagerRoleId: { type: String, default: "" },
     // One auto-updating sticky directory in the configured private staff channel.
@@ -48,6 +51,10 @@ const guildConfigSchema = new mongoose.Schema(
     activityNotificationRoleIds:{type:[String],default:[]},
     activityAnnounceEmptyResults:{type:Boolean,default:true},
     giveawayDefaultBannerNameKey: { type: String, default: "" },
+    regularGiveawayDisplayOpenTitle:{type:String,default:"",maxlength:120},
+    regularGiveawayDisplayEndedTitle:{type:String,default:"",maxlength:120},
+    regularGiveawayDisplayEntryText:{type:String,default:"",maxlength:400},
+    regularGiveawayDisplayWinnerText:{type:String,default:"",maxlength:400},
     survivalTrialChannelId: { type: String, default: "" },
     // Regular giveaway role notifications. Legacy singular giveawayPingRoleId
     // remains readable so old server settings continue to work unchanged.
@@ -73,6 +80,8 @@ const guildConfigSchema = new mongoose.Schema(
     shopMessageId: { type: String, default: "" },
     shopCategoryMessageIds: { type: Map, of: String, default: () => ({}) },
     commandChannelId: { type: String, default: "" },
+    helpChannelId:{type:String,default:""},
+    helpMessageId:{type:String,default:""},
     hatchemChannelId: { type: String, default: "" },
     cardSetupCompletedAt: { type: Date, default: null },
     hatchemAutoDropsEnabled: { type: Boolean, default: true },

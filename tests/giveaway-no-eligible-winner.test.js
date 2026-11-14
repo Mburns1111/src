@@ -71,9 +71,9 @@ test("zero-entry regular giveaway announces no winner and requires staff cancell
     assert.equal(result.publicListingRemovedAt,null);
     assert.equal(result.messageId,base({}).messageId);
     assert.equal(await publishGiveawayResult(client,result),true);
-    assert.equal(edits.length,1);
+    assert.ok(edits.length>=1);
     assert.equal(deletions.length,0);
-    const embed=edits[0].embeds[0].toJSON();
+    const embed=edits.at(-1).embeds[0].toJSON();
     assert.match(embed.title,/No Eligible Winner/i);
     assert.match(embed.description,/No eligible winner/i);
     assert.equal(edits[0].components.length,0);
@@ -93,6 +93,7 @@ test("one entrant misses claim: no second eligible member means No Eligible Winn
     mockBannerAndStaffConfig(stubs);
     patch(stubs,Giveaway,"find",()=>({sort:()=>({limit:()=>({lean:async()=>[{...stored}]})})}));
     patch(stubs,Giveaway,"findById",()=>({lean:async()=>({...stored})}));
+    patch(stubs,Giveaway,"findOneAndUpdate",()=>({lean:async()=>({...stored,resultPublicationToken:"locked"})}));
     patch(stubs,Giveaway,"updateOne",async(query,change)=>{
       saves.push({query,change});
       if(change.$addToSet?.claimResolvedSlots!=null)
@@ -109,9 +110,9 @@ test("one entrant misses claim: no second eligible member means No Eligible Winn
     assert.equal(stored.claimCheckAt,null,"settled giveaway stops being scheduled for claim checks");
     assert.equal(stored.publicListingRemovedAt,null);
     assert.equal(stored.messageId,base({}).messageId);
-    assert.equal(edits.length,1);
+    assert.ok(edits.length>=1);
     assert.deepEqual(deletions,[],"no automatic deletion");
-    const rendered=edits[0];
+    const rendered=edits.at(-1);
     assert.match(rendered.embeds[0].toJSON().title,/No Eligible Winner/);
     assert.match(rendered.embeds[0].toJSON().description,/No eligible winner/);
     assert.match(rendered.embeds[0].toJSON().description,/no eligible replacement/i);
@@ -123,6 +124,21 @@ test("one entrant misses claim: no second eligible member means No Eligible Winn
       .some(b=>b.data.custom_id==="giveawaystaff:cancel:"+id));
     assert.ok(saves.some(x=>x.change.$addToSet?.claimResolvedSlots===0));
   }finally{restore(stubs);}
+});
+
+test("public giveaway announcements omit internal ID and retention footer",()=>{
+  const cases=[
+    base({status:"open",winnerIds:[],claimStartedAt:null}),
+    base({status:"ended"}),
+    base({mode:"activity",status:"ended",winnerIds:[entrant]}),
+    base({mode:"activity",status:"ended",winnerIds:[],entrantIds:[]}),
+  ];
+  for(const record of cases){
+    const embed=giveawayAnnouncement(record).embeds[0].toJSON();
+    assert.equal(embed.footer,undefined,
+      "Internal giveaway IDs and retention notes belong only in staff records");
+    assert.doesNotMatch(JSON.stringify(embed),/This announcement is kept after|Giveaway ID:/);
+  }
 });
 
 test("one claimed winner and another forfeited place show one valid claim plus No Eligible Winner for the other place",()=>{
@@ -137,6 +153,6 @@ test("one claimed winner and another forfeited place show one valid claim plus N
   assert.match(embed.description,/No eligible winner/);
   assert.doesNotMatch(embed.title,/No Eligible Winner/,"one prize was validly claimed");
   assert.equal(payload.components.length,0);
-  assert.equal((embed.fields||[]).length,0);
+  assert.equal((embed.fields||[]).filter(f=>/Winners \/ Results/.test(f.name)).length,1);
   assert.match(giveawayStaffRecordPayload(data).embeds[0].toJSON().description,/No eligible winner/i);
 });

@@ -129,3 +129,54 @@ test("future-repeat edits change only the series schedule",async()=>{
     GuidedActivitySeries.updateOne=updateOriginal;
   }
 });
+
+test("activity staff Edit opens a private menu without altering permanent staff card",async()=>{
+ const previous=Giveaway.findOne,calls=[];
+ try{
+  Giveaway.findOne=()=>({lean:async()=>({...event})});
+  await handleGuidedStaffAction({
+   guildId,channelId,customId:"activitystaff:edit:"+eventId,
+   message:{id:event.staffCardId,flags:{has:()=>false}},
+   memberPermissions:{has:()=>true},user:{id:"456789012345678901"},
+   deferReply:async payload=>calls.push(["deferReply",payload]),
+   deferUpdate:async()=>calls.push(["deferUpdate"]),
+   editReply:async payload=>calls.push(["editReply",payload]),
+  });
+  assert.deepEqual(calls.map(x=>x[0]),["deferReply","editReply"]);
+  assert.ok(calls[1][1].components.length>0);
+ }finally{Giveaway.findOne=previous;}
+});
+
+test("activity staff End Early confirmation is retired when the giveaway is no longer open",async()=>{
+ const previous=Giveaway.findOne,calls=[];
+ try{
+  Giveaway.findOne=()=>({lean:async()=>({...event,status:"ended"})});
+  await handleGuidedStaffAction({
+   guildId,channelId,customId:"activitystaff:confirmend:"+eventId,
+   message:{id:"private-message",flags:{has:()=>true}},
+   memberPermissions:{has:()=>true},user:{id:"456789012345678901"},
+   deferUpdate:async()=>calls.push(["deferUpdate"]),
+   deferReply:async()=>calls.push(["deferReply"]),
+   editReply:async payload=>calls.push(["editReply",payload]),
+  });
+  assert.deepEqual(calls.map(x=>x[0]),["deferUpdate","editReply"]);
+  assert.deepEqual(calls[1][1].components,[]);
+  assert.match(calls[1][1].content,/already finished or cancelled/i);
+ }finally{Giveaway.findOne=previous;}
+});
+
+test("activity staff Cancel confirmation removes obsolete private buttons",async()=>{
+ const previous=Giveaway.findOne,calls=[];
+ try{
+  Giveaway.findOne=()=>({lean:async()=>({...event})});
+  await handleGuidedStaffAction({
+   guildId,channelId,customId:"activitystaff:abort:"+eventId,
+   message:{id:"private-message",flags:{has:()=>true}},
+   memberPermissions:{has:()=>true},user:{id:"456789012345678901"},
+   deferUpdate:async()=>calls.push("deferUpdate"),
+   editReply:async payload=>calls.push(payload),
+  });
+  assert.equal(calls[0],"deferUpdate");
+  assert.deepEqual(calls[1].components,[]);
+ }finally{Giveaway.findOne=previous;}
+});

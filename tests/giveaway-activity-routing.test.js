@@ -38,8 +38,8 @@ test("scheduled activity drawing announces winners exclusively in the configured
   const guild={members:{fetch:async({user})=>({
     id:user,user:{bot:false},roles:{cache:new Map([["567890123456789012",{}]])},
   })}};
-  const winnerChannel={id:winnersId,messages:{fetch:async()=>({find:()=>null})},
-    send:async payload=>{sent.push(payload);return {id:"567890123456789012"};}};
+  const winnerChannel={id:winnersId,messages:{fetch:async()=>({size:0,values:()=>[].values()})},
+    send:async payload=>{sent.push(payload);return {id:"567890123456789012",author:{id:"bot"},edit:async next=>{sent[sent.length-1]=next;}};}};
   const client={user:{id:"bot"},guilds:{fetch:async()=>guild},
     channels:{fetch:async id=>{channelsRequested.push(id);return id===winnersId?winnerChannel:null;}}};
   const plan={_id:planId,guildId,status:"active",

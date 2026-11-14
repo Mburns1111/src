@@ -2,9 +2,15 @@ import mongoose from "mongoose";
 import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder,
   ChannelType, MessageFlags, PermissionFlagsBits, RoleSelectMenuBuilder,
-  StringSelectMenuBuilder,
+  StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {preferSetupButtons} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
+import {ensurePingDashboard} from "../services/scheduled-pings.js";
+import {ensurePublicHelpEntry} from "./help.js";
+import {saveGuidedSetupFields} from "../services/setup-settings-save.js";
+import {COMMON_SERVER_TIME_ZONES,validateServerTimeZone} from "../services/schedule-timezone.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
 import { ensureProfileEntry } from "./profile.js";
@@ -21,6 +27,10 @@ const sessions = new Map();
 const SESSION_MS = 30 * 60_000;
 const GENERAL_STEPS = [
   ["commandChannelId", "Bot commands", true],
+  ["giveawayArchiveChannelId", "Shared staff archives", true],
+  ["serverTimeZone", "Server time zone", true],
+  ["scheduledPingsChannelId", "Scheduled pings staff dashboard", false],
+  ["helpChannelId","Public Help button",false],
   ["profileChannelId", "Member profiles", false],
   ["houseChannelId", "House listings", false],
   ["outfitChannelId", "Outfit listings", false],
@@ -36,11 +46,16 @@ const CARD_STEPS = [
   ["hatchemAutoDropsEnabled", "Wild activity eggs", false],
 ];
 export const generalSetupFields = GENERAL_STEPS.map(step => step[0]);
+// The general wizard also contains a time-zone setting; only actual channel IDs
+// should ever be passed to Discord's channel-fetch/permission validation.
+export const generalSetupChannelFields = generalSetupFields.filter(field => field.endsWith("ChannelId"));
 export const cardSetupFields = CARD_STEPS.map(step => step[0]);
 const stepsFor = mode => mode === "general" ? GENERAL_STEPS : CARD_STEPS;
 const sessionKey = (guild, member) => guild + ":" + member;
 const shown = id => id ? "<#" + id + ">" : "Disabled / skipped";
-const label = (item, value) => item[0] === "cardRoleId"
+const label = (item, value) => item[0] === "serverTimeZone"
+  ? (value ? value + " (all scheduled announcements use this zone)" : "NOT CONFIGURED — REQUIRED")
+  : item[0] === "cardRoleId"
   ? (value ? "<@&" + value + ">" : "Not configured")
   : item[0] === "hatchemAutoDropsEnabled"
     ? (value === false ? "Disabled" : "Enabled") : shown(value);
@@ -57,7 +72,7 @@ export function guidedGuildSetupSummary(mode, settings) {
   for (const step of stepsFor(mode))
     lines.push("**" + step[1] + ":** " + label(step, settings[step[0]]));
   if (mode === "general") {
-    lines.push("", "**Commands channel is mandatory.** Every other feature can be skipped or disabled.",
+    lines.push("", "**Bot Commands, Shared Staff Archives and Server Time Zone are mandatory.** Every other feature can be skipped or disabled.",
       "A skipped feature will not have a configured post channel. Previously published posts and stored member data are not deleted.",
       "Giveaways, activity giveaways, Court's Trials and Hatchem are configured with their **own** guided setup commands.");
   } else {
@@ -85,13 +100,21 @@ function layout(session) {
     controls.push(row(session, [["Preview settings", "preview"]]));
     controls.push(row(session, [["Save Setup", "save", ButtonStyle.Success],
       ["Cancel", "cancel", ButtonStyle.Danger]]));
-    return { content: prefix + summary, components: controls, allowedMentions: { parse: [] } };
+    return { content: prefix + summary, components: preferSetupButtons(controls), allowedMentions: { parse: [] } };
   }
   const [field, name, required] = currentStep;
   let description = "**" + (editing ? "Editing " + name : "Step " + (session.index + 1) + " of " + list.length + " · " + name) + "**\n";
   description += "Current: " + label(currentStep, session.settings[field]) + "\n";
   if (field === "commandChannelId")
     description += "Choose a **private staff-only Bot Commands channel** for setup, administration and general bot management. Hide this channel from @everyone. **Required** even if you only use giveaways or Hatchem.";
+  else if (field === "giveawayArchiveChannelId")
+    description += "Choose the **required private shared archive** for completed and cancelled giveaways, Trials, and Scheduled Pings. Hide from @everyone. This must be a separate channel from Bot Commands, giveaway staff controls, and public channels.";
+  else if (field === "serverTimeZone")
+    description += "Choose the **server-wide time zone** used when scheduling announcements and pings. Staff will enter dates and clock times in this zone, not UTC offsets. Daily schedules stay at the same local clock time across daylight saving changes. Time-zone changes do not move schedules already active.";
+  else if(field==="helpChannelId")
+    description += "Choose an optional member-visible channel for a permanent **Open Help** button. A channel restricted to verified members is fine. The Help menu itself opens privately; no profile is created.";
+  else if (field === "scheduledPingsChannelId")
+    description += "Choose an **optional private Scheduled Pings management channel**. The bot creates a permanent dashboard with buttons here. This must be separate from the commands and archive channels.";
   else if (field === "cardRoleId")
     description += "Choose a non-administrator Collector role. The bot must have Manage Roles and its highest role must be above this role. Members only receive it when they register.";
   else if (field === "hatchemAutoDropsEnabled")
@@ -100,7 +123,13 @@ function layout(session) {
     description += "Choose Hatchem's dedicated text-command and egg channel. Cards will not operate in other channels.";
   else
     description += "Choose a public channel for this feature, or **Skip / disable** to leave it off. Optional features never prevent setup completion.";
-  if (field === "hatchemAutoDropsEnabled") {
+  if (field === "serverTimeZone") {
+    controls.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId(selectedCustomId(session,"timezone"))
+        .setPlaceholder("Choose the server time zone").addOptions(COMMON_SERVER_TIME_ZONES.map(z=>({label:z.label,value:z.value})))));
+    controls.push(row(session,[["Enter a different time zone","customTimezone"]]));
+    if(session.settings.serverTimeZone)controls.push(row(session,[["Keep current time zone","keep"]]));
+  } else if (field === "hatchemAutoDropsEnabled") {
     controls.push(row(session, [["Enable wild eggs", "enable"],
       ["Disable wild eggs", "disable"], ["Keep current", "keep"]]));
   } else if (field === "cardRoleId") {
@@ -117,13 +146,16 @@ function layout(session) {
   }
   if (!required) controls.push(row(session, [["Skip / disable this feature", "skip"]]));
   controls.push(row(session, [["Back", "back"], ["Cancel setup", "cancel", ButtonStyle.Danger]]));
-  return { content: prefix + description, components: controls, allowedMentions: { parse: [] } };
+  return { content: prefix + description, components: preferSetupButtons(controls), allowedMentions: { parse: [] } };
 }
 
 async function show(session) {
   session.expiresAt = Date.now() + SESSION_MS;
   const message = await session.channel.send(layout(session));
+  const previous=session.promptMessage;
   session.messageId = message.id;
+  session.promptMessage=message;
+  await retireGuidedControls(previous,session.channel);
 }
 async function next(session) {
   if (session.editing) {
@@ -139,7 +171,7 @@ async function validateChannel(session, id, {requirePrivate=false}={}) {
   if (!channel?.isTextBased?.() || !channel?.send || !channel?.permissionsFor)
     throw Error("The selected channel cannot receive bot messages.");
   if(requirePrivate && channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
-    throw Error("The Bot Commands channel must be hidden from @everyone.");
+    throw Error("Private staff channels must be hidden from @everyone.");
   const bot = await session.guild.members.fetchMe();
   const perms = channel.permissionsFor(bot);
   for (const flag of [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])
@@ -160,19 +192,101 @@ async function validateRole(session, roleId) {
 
 async function saveGeneral(session) {
   const s = session.settings;
-  if (!s.commandChannelId) throw Error("Choose the required commands channel.");
+  if (!s.commandChannelId || !s.giveawayArchiveChannelId || !s.serverTimeZone)
+    throw Error("Choose required Bot Commands, Shared Staff Archives and Server Time Zone settings.");
+  s.serverTimeZone=validateServerTimeZone(s.serverTimeZone);
+  if (s.commandChannelId === s.giveawayArchiveChannelId)
+    throw Error("The shared archive must be separate from Bot Commands.");
+  if (s.helpChannelId && [s.commandChannelId,s.giveawayArchiveChannelId,s.scheduledPingsChannelId].includes(s.helpChannelId))
+    throw Error("Public Help needs a separate public text channel, not Bot Commands or a private staff channel.");
+  if (s.scheduledPingsChannelId && [s.commandChannelId,s.giveawayArchiveChannelId].includes(s.scheduledPingsChannelId))
+    throw Error("The Scheduled Pings dashboard must have its own private staff channel.");
   const channels = {};
-  for (const [field] of GENERAL_STEPS) {
-    if (s[field]) channels[field] = await validateChannel(session, s[field],{requirePrivate:field==="commandChannelId"});
+  for (const field of generalSetupChannelFields) {
+    if (!s[field]) continue;
+    try {
+      channels[field] = await validateChannel(session, s[field], {
+        requirePrivate: ["commandChannelId", "giveawayArchiveChannelId", "scheduledPingsChannelId"].includes(field),
+      });
+    } catch (error) {
+      const name = GENERAL_STEPS.find(([key]) => key === field)?.[1] || field;
+      throw Error(name + ": " + (error.message || error));
+    }
   }
   // Validate first. Preserve existing posts, IDs, ownership and history. The
   // channel fields alone decide which features can create new content.
   const previous = await GuildConfig.findOne({ guildId: session.guild.id }).lean();
+  const reserved = [previous?.giveawayChannelId,previous?.activityGiveawayListChannelId,
+    previous?.activityGiveawayWinnersChannelId,previous?.survivalTrialChannelId,
+    previous?.activityGiveawayReviewChannelId].filter(Boolean);
+  if (reserved.includes(s.commandChannelId))
+    throw Error("Private Bot Commands must not reuse a public giveaway, Trial, or Giveaway Staff Controls channel.");
+  if(s.helpChannelId&&reserved.includes(s.helpChannelId)&&
+     s.helpChannelId===previous?.activityGiveawayReviewChannelId)
+    throw Error("Public Help cannot use private Giveaway Staff Controls.");
+  if (reserved.includes(s.giveawayArchiveChannelId))
+    throw Error("The shared archive must be separate from all existing giveaway, Trial and staff controls channels.");
+  if (s.scheduledPingsChannelId && reserved.includes(s.scheduledPingsChannelId))
+    throw Error("The Scheduled Pings dashboard must be separate from existing giveaway and Trial channels.");
+  const archivePerms = channels.giveawayArchiveChannelId.permissionsFor(await session.guild.members.fetchMe());
+  for (const permission of [PermissionFlagsBits.AttachFiles,PermissionFlagsBits.ReadMessageHistory])
+    if (!archivePerms?.has(permission)) throw Error("The bot needs Attach Files and Read Message History in the shared archive.");
+  if(s.helpChannelId){
+    const help=channels.helpChannelId;
+    // Member channels may be hidden from @everyone until server verification;
+    // visibility for the verified-member role is configured by server staff.
+    const perms=help.permissionsFor(await session.guild.members.fetchMe());
+    if(!perms?.has(PermissionFlagsBits.ReadMessageHistory))
+      throw Error("The bot needs Read Message History to maintain the public Help entry.");
+  }
+  if (s.scheduledPingsChannelId) {
+    const perms=channels.scheduledPingsChannelId.permissionsFor(await session.guild.members.fetchMe());
+    if(!perms?.has(PermissionFlagsBits.ReadMessageHistory))
+      throw Error("The bot needs Read Message History in the Scheduled Pings dashboard channel.");
+  }
+  await saveGuidedSetupFields({
+    guildId:session.guild.id,original:session.original,proposed:s,
+    fallbacks:Object.fromEntries(GENERAL_STEPS.map(([field])=>[field,""])),
+    extra:{
+      initialSetupCompletedAt:session.original?.initialSetupCompletedAt||new Date(),
+      ...(session.original?.helpChannelId && !s.helpChannelId?{helpMessageId:""}:{}),
+    },
+  });
+  // A failed entry-post update must never roll back the saved server setup.
   if (s.shopChannelId && previous?.shopChannelId !== s.shopChannelId)
-    await ensureShopEntry(session.guild, channels.shopChannelId);
-  await GuildConfig.findOneAndUpdate({ guildId: session.guild.id },
-    { $set: { ...s, initialSetupCompletedAt: previous?.initialSetupCompletedAt || new Date() } },
-    { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true });
+    try{await ensureShopEntry(session.guild, channels.shopChannelId);}
+    catch(error){console.error("[General Setup] Could not update shop entry:",error);}
+  let newHelpEntryReady=!s.helpChannelId;
+  if(s.helpChannelId){
+    try{newHelpEntryReady=await ensurePublicHelpEntry(session.guild.client,session.guild.id);}
+    catch(error){console.error("[General Setup] Could not update public Help entry:",error);}
+  }
+  // Do not remove the previous Help launch point unless its replacement is
+  // available, or the administrator explicitly disabled Help.
+  if(newHelpEntryReady&&session.original?.helpChannelId &&
+     session.original.helpChannelId!==s.helpChannelId &&
+     session.original.helpMessageId){
+    try{
+      const priorChannel=await session.guild.channels.fetch(session.original.helpChannelId);
+      const old=await priorChannel?.messages?.fetch(session.original.helpMessageId);
+      if(old?.author?.id===session.guild.client.user?.id)await old.delete();
+    }catch(error){console.warn("[General Setup] Could not remove older Help entry:",error);}
+  }
+  if(s.scheduledPingsChannelId){
+    try{
+      await ensurePingDashboard(session.guild.client,session.guild.id);
+      if(previous?.scheduledPingsChannelId &&
+         previous.scheduledPingsChannelId!==s.scheduledPingsChannelId &&
+         previous.scheduledPingsDashboardMessageId){
+        const oldChannel=await session.guild.channels.fetch(previous.scheduledPingsChannelId).catch(()=>null);
+        const oldMessage=await oldChannel?.messages?.fetch(previous.scheduledPingsDashboardMessageId).catch(()=>null);
+        if(oldMessage?.author?.id===session.guild.client.user.id)
+          await oldMessage.delete().catch(()=>{});
+      }
+    }catch(error){
+      console.error("[General Setup] Configuration saved, but Scheduled Pings dashboard refresh will need retry:",error);
+    }
+  }
   const ensure = [
     ["profileChannelId", ensureProfileEntry],
     ["houseChannelId", ensureHouseEntry],
@@ -226,6 +340,7 @@ async function process(session, action, value) {
   if (action === "cancel") {
     sessions.delete(session.key);
     await session.channel.send("Setup cancelled. Nothing was changed.");
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   const list = stepsFor(session.mode);
@@ -251,9 +366,10 @@ async function process(session, action, value) {
     await session.channel.send({ content:
       "**" + (session.mode === "general" ? "General" : "Hatchem Card Game") +
       " setup saved.**\n" + (session.mode === "general"
-        ? "Unselected features were skipped. Run /setup giveaways, /setup activity-giveaways, /setup trials or /setup cards to enable only the extra modules you want."
+        ? "Shared archives are configured. Optional features were skipped if unselected. Run /setup giveaways, /setup activity-giveaways, /setup trials or /setup cards as needed."
         : "Registered members may use cards in <#" + session.settings.hatchemChannelId + ">; the card-game mode must also be enabled in bot settings."),
       allowedMentions: { parse: [] } });
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   if (action === "back") {
@@ -274,6 +390,10 @@ async function process(session, action, value) {
     session.settings[field] = field === "hatchemAutoDropsEnabled" ? false : "";
     return next(session);
   }
+  if (field === "serverTimeZone" && action === "timezone") {
+    session.settings.serverTimeZone=validateServerTimeZone(value);
+    return next(session);
+  }
   if (field === "hatchemAutoDropsEnabled" && ["enable", "disable"].includes(action)) {
     session.settings[field] = action === "enable";
     return next(session);
@@ -283,7 +403,7 @@ async function process(session, action, value) {
     session.settings[field] = value;
     return next(session);
   }
-  if (field !== "cardRoleId" && field !== "hatchemAutoDropsEnabled" && action === "channel") {
+  if (field !== "cardRoleId" && field !== "hatchemAutoDropsEnabled" && field !== "serverTimeZone" && action === "channel") {
     await validateChannel(session, value);
     session.settings[field] = value;
     return next(session);
@@ -297,6 +417,10 @@ export async function startGuidedGuildSetup(interaction, mode = "general") {
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
     throw Error("Manage Server permission is required.");
   const config = await GuildConfig.findOne({ guildId: interaction.guildId }).lean();
+  if(mode==="general" &&
+     interaction.channel?.permissionsFor?.(interaction.guild.roles.everyone)
+       ?.has(PermissionFlagsBits.ViewChannel)!==false)
+    throw Error("Run /setup general inside a private staff-only text channel hidden from @everyone. Configure it as Bot Commands during setup.");
   if (config?.commandChannelId && config.commandChannelId !== interaction.channelId)
     throw Error("Run setup in <#" + config.commandChannelId + ">.");
   if (mode === "cards" && !config?.commandChannelId)
@@ -324,16 +448,32 @@ export async function handleGuidedGuildSetupInteraction(interaction) {
   const match = /^guildconfig:([0-9a-f]{24}):(.+)$/.exec(interaction.customId);
   const session = match && sessions.get(sessionKey(interaction.guildId, interaction.user.id));
   if (!session || session.id !== match[1] || session.expiresAt < Date.now() ||
-      session.messageId !== interaction.message?.id)
+      (!interaction.isModalSubmit() && session.messageId !== interaction.message?.id))
     return interaction.reply({ content: "That setup prompt is no longer active or belongs to someone else.",
       flags: MessageFlags.Ephemeral });
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
     return interaction.reply({ content: "Manage Server permission is required.",
       flags: MessageFlags.Ephemeral });
+  const action=match[2];
+  if(action==="customTimezone" && session.mode==="general" && stepsFor(session.mode)[session.index]?.[0]==="serverTimeZone"){
+    const prompt=new ModalBuilder().setCustomId(selectedCustomId(session,"timezoneModal"))
+      .setTitle("Server Time Zone");
+    const input=new TextInputBuilder().setCustomId("zone").setLabel("IANA zone, e.g. Europe/London")
+      .setStyle(TextInputStyle.Short).setMinLength(3).setMaxLength(80)
+      .setRequired(true).setPlaceholder("America/New_York");
+    prompt.addComponents(new ActionRowBuilder().addComponents(input));
+    return interaction.showModal(prompt);
+  }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
-    const action = match[2];
-    const value = ["channel", "role", "edit"].includes(action) ? interaction.values?.[0] : null;
+    const value=action==="timezoneModal" ? interaction.fields.getTextInputValue("zone") :
+      ["channel", "role", "edit", "timezone"].includes(action) ? interaction.values?.[0] : null;
+    if(action==="timezoneModal"){
+      if(session.mode!=="general" || stepsFor(session.mode)[session.index]?.[0]!=="serverTimeZone")
+        throw Error("Open the Server Time Zone setup step first.");
+      await process(session,"timezone",value);
+      return interaction.editReply("Server time zone saved in the setup draft.");
+    }
     await process(session, action, value);
     return interaction.editReply("Setup step updated.");
   } catch (error) {

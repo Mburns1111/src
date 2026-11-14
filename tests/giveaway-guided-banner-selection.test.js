@@ -27,13 +27,17 @@ async function harness(mode,{banners=[]}={}){
   const channelId="800000000000"+suffix;
   const records=[],responses=[],updates=[];
   const values=banners.map(x=>({...x}));
-  const sessionInfo={id:guildId,roles:{everyone:{id:guildId}}};
+  const sessionInfo={id:guildId,
+  roles:{everyone:{id:guildId},fetch:async id=>({id})},
+  members:{me:{id:"bot"}},
+  channels:{fetch:async id=>({id,send:async()=>({id:"posted"}),
+    permissionsFor:member=>({has:()=>member?.id!==guildId})})}};
   const channel={id:channelId,send:async payload=>{
     const id=String(900000000000000000n+BigInt(records.length+1));
-    const message={id,...payload};
+    const message={id,...payload,edit:async change=>{Object.assign(message,change);return message;}};
     records.push(message);return message;
   }};
-  const config={guildId,commandChannelId:channelId,
+  const config={guildId,commandChannelId:channelId,serverTimeZone:"America/New_York",
     survivalTrialChannelId:trialId,activityGiveawayReviewChannelId:staffId,
     giveawayChannelId:trialId,giveawayArchiveChannelId:"678901234567890123",
     activityGiveawayListChannelId:listId,
@@ -122,6 +126,59 @@ test("server banner catalog is sorted, guild-scoped, and displays saved names",a
     assert.match(bannerCatalogText(saved),/Moonlight/);
     assert.match(bannerCatalogText([]),/None yet/);
   }finally{restore();}
+});
+
+test("regular giveaway setup includes the shared Giveaway Winners channel picker",async()=>{
+ try{
+  const h=await harness("regular");
+  assert.match(h.current().content,/Giveaway List/);
+  await h.step("keep");
+  assert.match(h.current().content,/Giveaway Winners/);
+  assert.match(h.current().content,/completed announcement|Giveaway Winners/);
+  assert.ok(h.controls().some(c=>c.type===8),"The channel picker must appear in regular setup");
+  await h.step("channel",[winnersId]);
+  assert.match(h.current().content,/private, staff-only/);
+  await h.goToBanner();
+  await h.step("keep");
+  assert.match(h.current().content,/Giveaway Winners/);
+  assert.match(h.current().content,new RegExp(winnersId));
+  await h.step("edit",["winners"]);
+  assert.match(h.current().content,/Editing Giveaway Winners channel/);
+  await h.step("keep");
+  assert.match(h.current().content,/Setup — Review|Setup Review/);
+  await h.step("cancel");
+ }finally{restore();}
+});
+
+test("regular setup saves the shared Giveaway Winners channel without introducing another setting",async()=>{
+ const originalSave=GuildConfig.findOneAndUpdate;
+ try{
+  const h=await harness("regular");
+  const regularId="987654321098765432";
+  const saved=[];
+  h.identity.guild.members={me:{id:"bot"}};
+  h.identity.guild.roles.fetch=async id=>({id});
+  h.identity.guild.channels={fetch:async id=>({
+   id,send:async()=>({id:"111111111111111111"}),
+   permissionsFor:member=>({has:()=>member?.id!==guildId}),
+  })};
+  GuildConfig.findOneAndUpdate=async (query,changes)=>{
+   saved.push({query,changes});Object.assign(h.config,changes.$set);
+   return h.config;
+  };
+  await h.step("channel",[regularId]);
+  await h.step("channel",[winnersId]);
+  await h.goToBanner();
+  await h.step("keep");
+  await h.step("save");
+  assert.equal(saved.length,1);
+  assert.equal(saved[0].changes.$set.giveawayChannelId,regularId);
+  assert.equal(h.config.activityGiveawayWinnersChannelId,winnersId);
+  assert.equal(saved[0].changes.$set.activityGiveawayWinnersChannelId,undefined,"unchanged shared settings should not be overwritten");
+  assert.ok(!Object.hasOwn(saved[0].changes.$set,"giveawayWinnersChannelId"),
+   "keep a single shared winners channel, compatible with existing settings");
+  assert.match(h.current().content,/Regular giveaway setup saved/);
+ }finally{GuildConfig.findOneAndUpdate=originalSave;restore();}
 });
 
 for(const mode of ["trial","regular","activity"]){
@@ -230,4 +287,23 @@ for(const mode of ["regular","activity","trial"]){
       await h.step("cancel");
     }finally{restore();}
   });
+}
+
+for(const mode of ["trial","regular","activity"]){
+ test(mode+" setup retires its prior prompt buttons after a choice and on Cancel",async()=>{
+  try{
+   const h=await harness(mode);
+   const original=h.current();
+   assert.ok(original.components.length>0);
+   await h.step("keep");
+   const second=h.current();
+   assert.notEqual(second.id,original.id);
+   assert.deepEqual(original.components,[],
+     "old step must retain text but no longer offer stale controls");
+   assert.ok(second.components.length>0);
+   await h.step("cancel");
+   assert.deepEqual(second.components,[],
+     "the last active prompt must lose its controls after cancellation");
+  }finally{restore();}
+ });
 }

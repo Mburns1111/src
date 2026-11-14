@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import { data as setup } from "../commands/setup.js";
 import { data as giveaway, trialData } from "../commands/giveaway.js";
 import { guildSetupComplete, cardSetupComplete, trialSetupComplete } from "../services/guild-setup-gate.js";
-import { guidedGuildSetupSummary, generalSetupFields, cardSetupFields } from "../commands/general-card-setup.js";
+import { guidedGuildSetupSummary, generalSetupFields, generalSetupChannelFields, cardSetupFields } from "../commands/general-card-setup.js";
 import { trialSetupSummary, trialSetupPreview } from "../commands/trial-giveaway-setup.js";
 import { survivalAnnouncement, survivalFinalePayload } from "../services/survival-giveaways.js";
 import { claimDuration, nextClaimCheckAt } from "../services/giveaway-claims.js";
@@ -54,6 +54,9 @@ test("each feature has its own guided /setup command; legacy saved channel IDs r
     assert.ok(names.includes(name), name + " is available");
   assert.equal(names.includes("channels"),false,"retired /setup channels is no longer registered");
   assert.equal(generalSetupFields[0], "commandChannelId");
+  assert.equal(generalSetupFields[1], "giveawayArchiveChannelId");
+  assert.equal(generalSetupFields[2], "serverTimeZone");
+  assert.ok(generalSetupFields.includes("scheduledPingsChannelId"));
   assert.ok(!generalSetupFields.includes("giveawayChannelId"));
   assert.deepEqual(cardSetupFields, ["hatchemChannelId", "cardRoleId", "hatchemAutoDropsEnabled"]);
   for (const field of ["initialSetupCompletedAt", "trialSetupCompletedAt", "cardSetupCompletedAt",
@@ -61,6 +64,15 @@ test("each feature has its own guided /setup command; legacy saved channel IDs r
     assert.ok(GuildConfig.schema.path(field), field + " is saved independently");
   assert.ok(Giveaway.schema.path("trialTicketClaimsEnabled"));
   assert.ok(Giveaway.schema.path("announcementPingRoleIds"));
+});
+
+test("General Setup validates only channel IDs, not the server time zone", () => {
+  assert.deepEqual(generalSetupChannelFields, generalSetupFields.filter(field => field.endsWith("ChannelId")));
+  assert.ok(generalSetupChannelFields.includes("commandChannelId"));
+  assert.ok(generalSetupChannelFields.includes("giveawayArchiveChannelId"));
+  assert.ok(generalSetupChannelFields.includes("scheduledPingsChannelId"));
+  assert.ok(!generalSetupChannelFields.includes("serverTimeZone"),
+    "America/New_York must not be fetched or validated as a Discord channel when saving");
 });
 
 test("guild commands require actual first setup, not a blank Mongo record", () => {
@@ -87,7 +99,7 @@ test("General setup allows a giveaway-only or cards-only guild with all optional
     inventoryChannelId: "", tradingPostChannelId: "", tradeVoteChannelId: "",
     shopChannelId: "", partyGamesChannelId: "",
   });
-  assert.match(summary, /commands channel is mandatory/i);
+  assert.match(summary, /Bot Commands, Shared Staff Archives and Server Time Zone are mandatory/i);
   assert.match(summary, /Disabled \/ skipped/);
   assert.match(summary, /Giveaways, activity giveaways, Court's Trials and Hatchem/);
   assert.doesNotMatch(summary, /must enable a profile/i);

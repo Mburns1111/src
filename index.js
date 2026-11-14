@@ -4,6 +4,8 @@ import {handleActivityGiveawaySetupInteraction,activityGiveawaySetupReply} from 
 import {handleTrialGiveawaySetupInteraction,trialGiveawaySetupReply} from "./commands/trial-giveaway-setup.js";
 import {guildSetupComplete, cardSetupComplete} from "./services/guild-setup-gate.js";
 import {handleGuidedGuildSetupInteraction} from "./commands/general-card-setup.js";
+import {handleScheduledPingsInteraction} from "./commands/scheduled-pings.js";
+import {reconcilePingSchedules,ensurePingDashboard} from "./services/scheduled-pings.js";
 import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
 import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
 import {handleGiveawayStaffAction,reconcileGiveawayStaffRecords} from "./services/giveaway-staff-records.js";
@@ -90,6 +92,7 @@ import {
 import { execute as executeShop, data as shopCommand, ensureShopEntry, handleShopButton } from "./commands/shop.js";
 import { data as giveawayCommand, trialData as trialCommand, execute as executeGiveaway, handleGiveawayButton, handleGiveawayClaimModal } from "./commands/giveaway.js";
 import { reconcileGiveaways } from "./services/giveaways.js";
+import {reconcileOpenCooldownEntries} from "./services/giveaway-cooldowns.js";
 import { reconcileGiveawayClaims } from "./services/giveaway-auto-claims.js";
 import { reconcileGiveawayPlans } from "./services/giveaway-plans.js";
 import { reconcileActivityGiveawayListings } from "./services/giveaway-directory.js";
@@ -125,7 +128,7 @@ import PointsSettings from "./models/PointsSettings.js";
 import { shouldRequestMessageContent } from "./services/observation-intents.js";
 import { data as partyCommand, execute as executeParty, handlePartyInteraction } from "./commands/party.js";
 import { reconcileCourtGames } from "./services/party-court-engine.js";
-import { execute as executeHelp, data as helpCommand, handleHelpTopicButton, handleHelpTopicSelect } from "./commands/help.js";
+import { execute as executeHelp, data as helpCommand, handleHelpTopicButton, handleHelpTopicSelect,handlePublicHelpEntry,ensurePublicHelpEntry } from "./commands/help.js";
 import {
   handleTradingPostCardButton,
   handleTradingPostEntryButton,
@@ -432,6 +435,20 @@ client.once(Events.ClientReady, async (readyClient) => {
     void runCardDropCloseSweep();
   }
   console.log(`Bot is online as ${readyClient.user.tag} (PID ${process.pid}).`);
+  let pingSweepActive=false;
+  const sweepPings=async()=>{
+    if(pingSweepActive)return;
+    pingSweepActive=true;
+    try{await reconcilePingSchedules(readyClient);}
+    catch(error){console.error("[Scheduled Pings] Sweep failed:",error);}
+    finally{pingSweepActive=false;}
+  };
+  void sweepPings();
+  const pingTimer=setInterval(()=>void sweepPings(),15_000);
+  pingTimer.unref?.();
+  void GuildConfig.find({scheduledPingsChannelId:{$ne:""}}).select("guildId").lean()
+    .then(configs=>Promise.allSettled(configs.map(c=>ensurePingDashboard(readyClient,c.guildId))))
+    .catch(error=>console.error("[Scheduled Pings] Dashboard recovery failed:",error));
   void reconcileCourtGames(readyClient).catch(error => console.error("[Party] Sweep failed:", error));
   const partyTimer = setInterval(() => void reconcileCourtGames(readyClient).catch(error => console.error("[Party] Sweep failed:", error)), 5000);
   partyTimer.unref?.();
@@ -442,6 +459,8 @@ client.once(Events.ClientReady, async (readyClient) => {
     try {
       await openDueActivities();
       await reconcileGiveawayPlans(readyClient);
+      try{await reconcileOpenCooldownEntries();}
+      catch(error){console.error("[Giveaways] Cooldown entry cleanup will retry:",error);}
       await reconcileGiveaways(readyClient);
       await reconcilePendingGiveawayReviews(readyClient);
       await reconcileGiveawayClaims(readyClient);
@@ -479,6 +498,8 @@ client.once(Events.ClientReady, async (readyClient) => {
   trialTimer.unref?.();
   void (async () => {
     for (const guild of readyClient.guilds.cache.values()) {
+      try{await ensurePublicHelpEntry(readyClient,guild.id);}
+      catch(error){console.error("[Help] Could not reconcile public Help button:",guild.id,error);}
       try {
         await resumePendingTradingPostDeletes(guild);
       } catch (error) {
@@ -563,14 +584,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
     if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
-         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
+        interaction.customId.startsWith("pings:"))
+      return await handleScheduledPingsInteraction(interaction);
+    if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
+         interaction.isRoleSelectMenu() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
         interaction.customId.startsWith("guildconfig:"))
       return await handleGuidedGuildSetupInteraction(interaction);
     if ((interaction.isButton() || interaction.isChannelSelectMenu() ||
          interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("trialconfig:"))
       return await handleTrialGiveawaySetupInteraction(interaction);
-    if ((interaction.isButton() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
+    if ((interaction.isButton() || interaction.isModalSubmit() || interaction.isChannelSelectMenu() || interaction.isRoleSelectMenu() || interaction.isStringSelectMenu()) &&
         interaction.customId.startsWith("actconfig:"))
       return await handleActivityGiveawaySetupInteraction(interaction);
     if ((interaction.isButton()||interaction.isModalSubmit()||interaction.isStringSelectMenu()) && interaction.customId.startsWith("giveawaystaff:"))
@@ -756,6 +781,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         /^(house|outfit):edit:/.test(interaction.customId)) {
       await openListingDetailsDM(interaction);
       return;
+    }
+    if(interaction.isButton()&&interaction.customId==="help:open"){
+      await handlePublicHelpEntry(interaction);return;
     }
     if (interaction.isButton() &&
         (interaction.customId.startsWith("help:topic:") || interaction.customId.startsWith("help:page:"))) {
@@ -1019,6 +1047,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         cardsOwnerCommand.name,
         cardsReleaseCommand.name,
         giveawayCommand.name,
+        helpCommand.name,
         trialCommand.name,
         testPointsCommand.name,
         pointsAdminCommand.name,

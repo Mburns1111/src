@@ -104,7 +104,7 @@ export async function runGiveawayPlan(client,plan,{now=new Date()}={}) {
   const config=await GuildConfig.findOne({guildId:plan.guildId})
     .select("activityGiveawayWinnersChannelId activityGiveawayReviewChannelId giveawayPingRoleId giveawayNotificationRoleIds activityNotificationRoleIds trialNotificationRoleIds survivalTrialPingRoleId").lean();
   if(!config?.activityGiveawayWinnersChannelId)
-    throw Error("Configure the activity winners channel with /setup activity-giveaways before scheduled activity drawings.");
+    throw Error("Configure Giveaway Winners using /setup activity-giveaways or /setup giveaways before scheduled activity drawings.");
   if(plan.requireStaffReview&&!config.activityGiveawayReviewChannelId)
     throw Error("Configure the private staff review channel with /setup activity-giveaways before using staff review.");
   const candidateCount=plan.requireStaffReview&&hasConsentWindow?await countActivityParticipants({

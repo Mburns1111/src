@@ -4,11 +4,12 @@ import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import ActivityGiveawayOptIn from "../models/ActivityGiveawayOptIn.js";
 import GiveawayWinnerCooldown from "../models/GiveawayWinnerCooldown.js";
-import {closeGiveaway,rerollGiveaway,finishPendingReroll} from "../services/giveaways.js";
+import {closeGiveaway,rerollGiveaway,finishPendingReroll,joinGiveaway} from "../services/giveaways.js";
 import {giveawayStaffRecordPayload} from "../services/giveaway-staff-records.js";
 import {
  cooldownExpiration,giveawayUsesCooldown,activeGiveawayCooldownIds,
  applyGiveawayWinnerCooldown,removeGiveawayWinnerCooldown,adjustGiveawayWinnerCooldown,
+ removeActiveCooldownEntries,reconcileOpenCooldownEntries,
 } from "../services/giveaway-cooldowns.js";
 
 const guildId="123456789012345678",A="234567890123456789",
@@ -143,7 +144,7 @@ test("Apply Cooldown is beside Archive only after delivery for non-Trials",()=>{
  assert.equal(controls.indexOf("Apply Cooldown"),controls.indexOf("Archive Giveaway")+1);
  assert.ok(!labels({...record,prizeDeliveredAt:null}).includes("Apply Cooldown"));
  assert.ok(!labels({...record,mode:"survival"}).includes("Apply Cooldown"));
- assert.ok(!labels({...record,publicListingRemovedAt:now}).includes("Apply Cooldown"));
+ assert.ok(labels({...record,publicListingRemovedAt:now}).includes("Apply Cooldown"),"winner-specific cooldowns remain available from archives");
  assert.ok(labels({...record,cooldownAssignments:[{userId:A,days:3,expiresAt:now,
   appliedAt:now,appliedBy:staff}]}).includes("Manage Cooldowns"));
 });
@@ -168,5 +169,124 @@ test("crash-recovered reroll settles without a winner if the last replacement is
   assert.deepEqual(ended.claimResolvedSlots,[0]);
   assert.deepEqual(ended.pendingRerollEligibleIds,[]);
   assert.equal(set.pendingRerollSlot,null);
+ }finally{restore(backups);}
+});
+
+test("Enter Giveaway rejects active winner cooldowns when check is ON, without adding entry",async()=>{
+ const backups=[],writes=[];
+ try{
+   replace(Giveaway,"findOne",()=>({select:()=>({lean:async()=>({
+     mode:"standard",status:"open",endsAt:new Date(+now+86_400_000),
+     winnerCooldownEnabled:true,entrantIds:[],
+   })})}),backups);
+   replace(GiveawayWinnerCooldown,"findOne",filter=>({lean:async()=>{
+     assert.equal(filter.guildId,guildId);
+     assert.equal(filter.userId,A);
+     assert.deepEqual(filter.expiresAt,{$gt:now});
+     return {userId:A,expiresAt:new Date(+now+86_400_000)};
+   }}),backups);
+   replace(Giveaway,"updateOne",async(q,u)=>{writes.push({q,u});return {modifiedCount:1};},backups);
+   assert.equal(await joinGiveaway({id,guildId,userId:A,mode:"standard",now}),"cooldown");
+   assert.equal(writes.length,0,"blocked member must not be inserted into entrantIds");
+ }finally{restore(backups);}
+});
+
+test("an active cooldown cleans up an old entry if the member tries entering again",async()=>{
+ const backups=[],writes=[];
+ try{
+   replace(Giveaway,"findOne",()=>({select:()=>({lean:async()=>({
+     mode:"standard",status:"open",endsAt:new Date(+now+86_400_000),
+     winnerCooldownEnabled:true,entrantIds:[A],
+   })})}),backups);
+   replace(GiveawayWinnerCooldown,"findOne",()=>({lean:async()=>({userId:A,expiresAt:new Date(+now+86_400_000)})}),backups);
+   replace(Giveaway,"updateOne",async(q,u)=>{writes.push({q,u});return {modifiedCount:1};},backups);
+   assert.equal(await joinGiveaway({id,guildId,userId:A,now}),"cooldown");
+   assert.equal(writes.length,1);
+   assert.equal(writes[0].q.winnerCooldownEnabled,true);
+   assert.deepEqual(writes[0].u,{$pull:{entrantIds:A}});
+ }finally{restore(backups);}
+});
+
+test("cooldown OFF permits regular entry and never queries cooldown records",async()=>{
+ const backups=[];
+ try{
+   replace(Giveaway,"findOne",()=>({select:()=>({lean:async()=>({
+     mode:"standard",status:"open",endsAt:new Date(+now+86_400_000),
+     winnerCooldownEnabled:false,entrantIds:[],
+   })})}),backups);
+   replace(GiveawayWinnerCooldown,"findOne",()=>{throw Error("OFF must not check cooldown");},backups);
+   replace(Giveaway,"updateOne",async(q,u)=>{
+     assert.equal(q.mode,"standard");assert.equal(u.$addToSet.entrantIds,A);
+     return {modifiedCount:1};
+   },backups);
+   assert.equal(await joinGiveaway({id,guildId,userId:A,now}),"joined");
+ }finally{restore(backups);}
+});
+
+test("expired cooldown allows entry to an enabled giveaway",async()=>{
+ const backups=[];
+ try{
+   replace(Giveaway,"findOne",()=>({select:()=>({lean:async()=>({
+     mode:"standard",status:"open",endsAt:new Date(+now+86_400_000),
+     winnerCooldownEnabled:true,entrantIds:[],
+   })})}),backups);
+   replace(GiveawayWinnerCooldown,"findOne",filter=>({lean:async()=>{
+     assert.deepEqual(filter.expiresAt,{$gt:now});
+     return null;
+   }}),backups);
+   replace(Giveaway,"updateOne",async(q,u)=>({modifiedCount:u.$addToSet?1:0}),backups);
+   assert.equal(await joinGiveaway({id,guildId,userId:A,now}),"joined");
+ }finally{restore(backups);}
+});
+
+test("cooldown application prunes only open, ON regular entries, not disabled or activity events",async()=>{
+ const backups=[];let query,update;
+ try{
+   replace(Giveaway,"updateMany",async(q,u)=>{query=q;update=u;return {modifiedCount:2};},backups);
+   assert.equal(await removeActiveCooldownEntries(guildId,[A,A,B],{now}),2);
+   assert.equal(query.guildId,guildId);
+   assert.equal(query.mode,"standard");
+   assert.equal(query.status,"open");
+   assert.equal(query.winnerCooldownEnabled,true);
+   assert.deepEqual(query.endsAt,{$gt:now});
+   assert.deepEqual(query.entrantIds,{$in:[A,B]});
+   assert.deepEqual(update,{$pull:{entrantIds:{$in:[A,B]}}});
+   assert.equal(await removeActiveCooldownEntries(guildId,[],{now}),0);
+ }finally{restore(backups);}
+});
+
+test("restart sweep removes entries whose cooldown predated the entry guard",async()=>{
+ const backups=[],now=new Date("2026-11-13T20:00:00Z");
+ try{
+   const matches=[
+     {_id:id,guildId,entrantIds:[A,B]},
+     {_id:"507f1f77bcf86cd799439012",guildId,entrantIds:[B]},
+   ];
+   let filter,selection,limit,updated=[];
+   replace(Giveaway,"find",q=>{
+     filter=q;
+     return {select:fields=>{
+       selection=fields;
+       return {limit:n=>{
+         limit=n;
+         return {lean:async()=>matches};
+       }};
+     }};
+   },backups);
+   replace(GiveawayWinnerCooldown,"find",q=>({
+     lean:async()=>q.userId.$in.includes(A)?[{userId:A}]:[]
+   }),backups);
+   replace(Giveaway,"updateOne",async(q,u)=>{
+     updated.push({q,u});
+     return {modifiedCount:1};
+   },backups);
+   assert.equal(await reconcileOpenCooldownEntries({now,limit:10}),1);
+   assert.equal(filter.mode,"standard");
+   assert.equal(filter.status,"open");
+   assert.equal(filter.winnerCooldownEnabled,true);
+   assert.deepEqual(filter.endsAt,{$gt:now});
+   assert.match(selection,/entrantIds/);
+   assert.equal(limit,10);
+   assert.deepEqual(updated[0].u,{$pull:{entrantIds:{$in:[A]}}});
  }finally{restore(backups);}
 });

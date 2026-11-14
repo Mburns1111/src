@@ -1,11 +1,13 @@
 import {activeActivityParticipants} from "./activity-participation.js";
 import {configuredGiveawayBanRole,memberPassesGiveawayBan} from "./giveaway-exclusion.js";
-import {giveawayUsesCooldown,activeGiveawayCooldownIds} from "./giveaway-cooldowns.js";
+import {giveawayUsesCooldown,activeGiveawayCooldownIds,activeCooldownFor} from "./giveaway-cooldowns.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {activityRoster} from "./guided-activity.js";
 import { randomInt } from "node:crypto";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import Giveaway from "../models/Giveaway.js";
+import {randomUUID} from "node:crypto";
+import {renderRegularDisplayText,cleanRegularDisplayTitle} from "./giveaway-display-text.js";
 import {ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
 import { attachGiveawayBanner,getGiveawayBanner } from "./giveaway-banners.js";
 import {pickWeightedUnique,weightEntriesForMembers} from "./giveaway-role-weights.js";
@@ -73,7 +75,7 @@ export function giveawayAnnouncement(record) {
       embeds:[new EmbedBuilder().setColor(0x86738d)
         .setTitle("🏁 Giveaway Ended · No Eligible Winner")
         .setDescription(lines.join("\n").slice(0,3900))
-        .setFooter({text:"Giveaway ID: "+record._id+" · This announcement is kept after the giveaway ends"})],
+        ],
       components:[],allowedMentions:{parse:[]},
     };
   }
@@ -96,15 +98,22 @@ export function giveawayAnnouncement(record) {
         ? `🦊 **The fox cackles:** "My clever helpers pulled off the great pocket heist! We snatched the prizes right out of <@${record.creatorId}>'s pocket. Not a whisker out of place!"`
         : `🦊 **The fox sighs:** "No accomplice showed up, so the prize stays tucked in <@${record.creatorId}>'s pocket. Foiled again!"`
     : `🦊 **The fox whispers:** "Psst! I spotted something shiny in <@${record.creatorId}>'s pocket. Enter below and you might be the accomplice I need to swipe the prize!"`;
+  const customStory=record.mode==="standard"?
+    (ended && activeWinners.length?record.displayWinnerText:
+      !ended?record.displayEntryText:""):"";
+  const displayStory=customStory?
+    renderRegularDisplayText(customStory,{hostId:record.creatorId,winnerIds:activeWinners}):foxStory;
   const lines = [
     `**${String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)}**`,"",
-    foxStory,
+    displayStory,
     "",
     record.prize.slice(0, 1800),
     ...(record.description ? ["", "**Giveaway Details:**", String(record.description).slice(0,1000)] : []),
     "",
     `**Hosted by:** <@${record.creatorId}>`,
     ended ? `**Final entries:** ${record.entrantIds?.length || 0} · **Eligible winners:** ${activeWinners.length}` : activity ? `**Locked entries:** ${record.entrantIds?.length || 0} · **Winners:** ${record.winnerCount}` : `**Winners:** ${record.winnerCount} · Tap **Entry Count** for the live total`,
+    ...(!ended && record.mode==="standard" && giveawayUsesCooldown(record)?
+      ["**Winner cooldown:** Members with an active cooldown cannot enter this giveaway."]:[]),
     ended
       ? `**Ended:** <t:${endUnix}:F>`
       : finishing ? "**Selecting winners…**" : `**Ends:** <t:${endUnix}:F> (<t:${endUnix}:R>)`,
@@ -142,12 +151,16 @@ export function giveawayAnnouncement(record) {
     // Reroll history remains in the private staff record, not the public announcement.
     lines.push("", "*Prize delivery is handled by the giveaway host.*");
   }
-  const description = lines.join("\n").slice(0, 4000);
+  const description = lines.join("\n").slice(0, 3900);
   const embed = new EmbedBuilder()
     .setColor(ended ? 0x86738d : 0xb47e99)
-    .setTitle(ended ? (noEligibleWinner ? "🦊 Giveaway Ended · No Eligible Winner" : "🦊 Heist Complete") : "🦊 The Fox’s Giveaway")
+    .setTitle(ended ? (record.mode==="standard" && !noEligibleWinner && record.displayEndedTitle ? cleanRegularDisplayTitle(record.displayEndedTitle) : "🦊 Heist Complete") : (record.mode==="standard" && record.displayOpenTitle ? cleanRegularDisplayTitle(record.displayOpenTitle) : "🦊 The Fox’s Giveaway"))
     .setDescription(description)
-    .setFooter({ text: `Giveaway ID: ${record._id} · This announcement is kept after the giveaway ends` });
+    ;
+  if(ended && winners.length){
+    embed.addFields({name:"🏆 Winners / Results",
+      value:winners.join("\n").slice(0,1024),inline:false});
+  }
   if(ended && record.status==="ended" && (record.winnerIds||[]).length){
     const instructions=prizeClaimLines(record,{finished:true});
     for(const [index,line] of instructions.entries()){
@@ -197,6 +210,27 @@ export async function giveawayAnnouncementWithBanner(record) {
 }
 
 export async function joinGiveaway({ id, guildId, userId, mode = "standard", now = new Date() }) {
+  // When staff enabled cooldown checks for a regular giveaway, refuse the
+  // signup before inserting an entry. The draw-time check remains in place
+  // for participants who become cooled down after joining.
+  if(mode==="standard"){
+    const current=await Giveaway.findOne({_id:id,guildId})
+      .select("mode status endsAt winnerCooldownEnabled entrantIds").lean();
+    if(current?.status==="open"&&new Date(current.endsAt)>now&&giveawayUsesCooldown({
+      ...current,mode:"standard"
+    })){
+      const active=await activeCooldownFor(guildId,userId,{now});
+      if(active){
+        // Clean up an older entry if the cooldown was applied after signup.
+        if(current.entrantIds?.includes(userId))
+          await Giveaway.updateOne({
+            _id:id,guildId,mode:"standard",status:"open",
+            winnerCooldownEnabled:true,entrantIds:userId,
+          },{$pull:{entrantIds:userId}});
+        return "cooldown";
+      }
+    }
+  }
   const updated = await Giveaway.updateOne({
     _id: id, guildId, status: "open", endsAt: { $gt: now },
     ...(mode === "survival" ? { mode: "survival", [`entrantIds.${MAX_TRIAL_ENTRANTS - 1}`]: { $exists: false } } : { mode: "standard" }),
@@ -274,8 +308,8 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
   const changed = await Giveaway.findOneAndUpdate(
     { _id: id, guildId, status: "closing" },
     { $set: { status: "ended", winnerIds, activityVerifiedIds:eligible,entryWeights:entries,
-      claimStartedAt:now,winnerAssignedAt:winnerIds.map(()=>now),
-      claimCheckAt:nextClaimCheckAt({...item,status:"ended",winnerIds,claimStartedAt:now,winnerAssignedAt:winnerIds.map(()=>now)}),
+      claimStartedAt:null,winnerAssignedAt:winnerIds.map(()=>null),
+      claimCheckAt:null,
       renderedAt:null }, $inc: { renderVersion: 1 } },
     { returnDocument: "after" },
   ).lean();
@@ -338,9 +372,25 @@ export async function finishPendingReroll(item,{client=null,now=new Date()}={}) 
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
   const eligible=item.pendingRerollEligibleIds?.length ? item.pendingRerollEligibleIds :
     (item.activityVerifiedIds?.length ? item.activityVerifiedIds : item.entrantIds||[]);
-  const cooling=giveawayUsesCooldown(item)?
-    await activeGiveawayCooldownIds(item.guildId,eligible,{now}):new Set();
-  const fresh=eligible.filter(userId=>!cooling.has(String(userId)));
+  // A pending reroll may survive a restart. Never trust the saved eligible
+  // list alone: membership, ban roles and activity opt-in can all change.
+  if(item.mode==="activity"&&!client)
+    throw Error("Activity reroll recovery requires current Discord membership checks.");
+  let fresh=[...new Set(eligible.map(String))];
+  if(client){
+    const members=await verifyServerMembers(client,item.guildId,fresh,{includeMembers:true});
+    const bannedRole=await configuredGiveawayBanRole(item.guildId);
+    const optedIn=item.mode==="activity"?
+      await activeActivityParticipants(item.guildId,fresh):null;
+    fresh=members.filter(member=>memberPassesGiveawayBan(member,bannedRole)&&
+      (item.mode!=="activity"||optedIn.has(String(member.id)))&&
+      (item.mode==="activity"||!item.requiredRoleId||
+        member.roles?.cache?.has(item.requiredRoleId))).map(m=>String(m.id));
+  }
+  if(giveawayUsesCooldown(item)){
+    const cooling=await activeGiveawayCooldownIds(item.guildId,fresh,{now});
+    fresh=fresh.filter(id=>!cooling.has(id));
+  }
   const replacementId=pickWeightedUnique(fresh,1,item.entryWeights,used)[0];
   if(!replacementId){
     // Between the reservation and completion (or a bot restart), the final
@@ -361,7 +411,8 @@ export async function finishPendingReroll(item,{client=null,now=new Date()}={}) 
   const winnerIds = [...item.winnerIds];
   winnerIds[slot] = replacementId;
   const winnerAssignedAt=[...(item.winnerAssignedAt || [])];
-  winnerAssignedAt[slot]=item.pendingRerollAt || new Date();
+  // Replacement claims begin when their updated results are published.
+  winnerAssignedAt[slot]=null;
   const reissued={...item,status:"ended",winnerIds,winnerAssignedAt};
   const changed = await Giveaway.findOneAndUpdate({
     _id: item._id, status: "rerolling", pendingRerollSlot: slot,
@@ -378,14 +429,195 @@ export async function finishPendingReroll(item,{client=null,now=new Date()}={}) 
   return changed || Giveaway.findById(item._id).lean();
 }
 
+// Discord messages cannot move between channels. Repost the same giveaway result
+// in Giveaway Winners, atomically update its canonical message location, and
+// remove the original entry post. The original post coordinates are retained
+// until deletion succeeds, so a crash can resume without duplicate winners.
+async function regularResultsDestination(item){
+  if(item.resultChannelId)return item.resultChannelId;
+  // Backward compatibility for giveaways created before the results-channel
+  // snapshot existed. Old servers with no configured results channel retain
+  // their existing in-place completion behavior.
+  const query=GuildConfig.findOne({guildId:item.guildId});
+  const config=typeof query?.then==="function"?await query:
+    query?.select?await query.select("activityGiveawayWinnersChannelId").lean():
+    query?.lean?await query.lean():await query;
+  return config?.activityGiveawayWinnersChannelId||"";
+}
+async function findRegularResultPost(channel,client,item){
+  const expected=giveawayAnnouncement(item).embeds[0].toJSON();
+  let before=null;
+  for(let page=0;page<20;page++){
+    const recent=await channel.messages.fetch({limit:100,...(before?{before}:{})});
+    const messages=[...recent.values()];
+    const matches=messages.filter(message=>{
+      if(message.author?.id!==client.user?.id)return false;
+      const claimControl=message.components?.some(row=>row.components?.some(button=>
+        (button.customId||button.custom_id||button.data?.custom_id)==="giveaway:claim:"+item._id));
+      return claimControl||message.embeds?.some(embed=>
+        (embed.title||embed.data?.title)===expected.title&&
+        (embed.description||embed.data?.description)===expected.description);
+    });
+    if(matches.length>1)
+      throw Error("Multiple possible giveaway winner posts exist; staff must reconcile before retrying.");
+    if(matches.length===1)return matches[0];
+    if(messages.length<100)return null;
+    before=messages.at(-1)?.id;
+    if(!before)break;
+  }
+  // Never blindly create a duplicate after an inconclusive history search.
+  throw Error("Winner channel history exceeded the safe recovery window. Staff must check the existing results before retrying.");
+}
+async function withRegularResultPublishLock(item,work){
+ const token=randomUUID(),now=new Date(),expired=new Date(+now-120000);
+ const locked=await Giveaway.findOneAndUpdate({
+   _id:item._id,guildId:item.guildId,mode:"standard",status:"ended",
+   $or:[{resultPublicationToken:""},{resultPublicationToken:{$exists:false}},
+     {resultPublicationClaimedAt:{$lt:expired}}],
+ },{$set:{resultPublicationToken:token,resultPublicationClaimedAt:now}},
+ {returnDocument:"after"}).lean();
+ if(!locked)return false; // A different publisher is working; retry on the next sweep.
+ try{return await work({...locked,resultPublicationToken:token});}
+ finally{
+   await Giveaway.updateOne({_id:item._id,resultPublicationToken:token},
+     {$set:{resultPublicationToken:"",resultPublicationClaimedAt:null}})
+     .catch(e=>console.error("[Giveaways] Publication lock cleanup failed:",e));
+ }
+}
+export async function relocateRegularGiveawayResult(client,item){
+  if(item?.mode!=="standard"||item.status!=="ended"||!item.messageId||
+     item.publicListingRemovedAt)return item;
+  const destinationId=await regularResultsDestination(item);
+  if(!destinationId||destinationId===item.channelId)return item;
+  if(item.listMessageId)throw Error("Giveaway result transfer has a pending source post in a different channel.");
+  const channel=await client.channels.fetch(destinationId);
+  if(!channel?.send||!channel.messages?.fetch)
+    throw Error("Configured Giveaway Winners channel is unavailable or cannot receive posts.");
+  let destination=await findRegularResultPost(channel,client,item);
+  let created=false;
+  if(!destination){
+    destination=await channel.send(await giveawayAnnouncementWithBanner(item));
+    created=true;
+  }
+  const fields={
+    channelId:destinationId,messageId:destination.id,resultChannelId:destinationId,
+    listChannelId:item.channelId,listMessageId:item.messageId,renderedAt:null,
+  };
+  // A second draw/retry can race with this transfer; only one writer may adopt
+  // the new destination. Its independently sent duplicate is removed.
+  const saved=await Giveaway.updateOne({
+    _id:item._id,guildId:item.guildId,mode:"standard",status:"ended",
+    channelId:item.channelId,messageId:item.messageId,
+    renderVersion:item.renderVersion,
+    resultPublicationToken:item.resultPublicationToken,
+  },{$set:fields});
+  if(saved?.matchedCount===0){
+    // Never delete a message another publisher may have adopted as canonical.
+    console.warn("[Giveaways] Transfer changed concurrently; preserving Discord result",destination.id);
+    throw Error("Giveaway result changed during publication; refresh will retry safely.");
+  }
+  return {...item,...fields};
+}
+export async function cleanupRegularGiveawayListPost(client,item){
+  if(item?.mode!=="standard"||!item.listChannelId||!item.listMessageId)return false;
+  const channel=await client.channels.fetch(item.listChannelId);
+  if(!channel?.messages?.fetch)throw Error("Original Giveaway List channel is inaccessible.");
+  const message=await channel.messages.fetch(item.listMessageId).catch(error=>{
+    if(error.code===10008)return null;
+    throw error;
+  });
+  if(message?.author?.id!==undefined && message.author.id!==client.user?.id)
+    throw Error("Original Giveaway List message belongs to another user or bot.");
+  if(message)await message.delete();
+  // Store cleanup completion only after the original was actually removed.
+  const cleared=await Giveaway.updateOne({
+    _id:item._id,mode:"standard",status:"ended",
+    channelId:item.channelId,messageId:item.messageId,
+    listChannelId:item.listChannelId,listMessageId:item.listMessageId,
+  },{$set:{listChannelId:"",listMessageId:"",listFingerprint:""}});
+  if(cleared?.matchedCount===0)
+    throw Error("The completed giveaway listing changed while cleaning up; the bot will retry.");
+  return true;
+}
+async function notifyRegularWinners(client,item,channel){
+ const ids=[...new Set((item.winnerIds||[]).filter((id,slot)=>
+   id&&!(item.claimResolvedSlots||[]).includes(slot)).map(String))];
+ const seen=new Set((item.regularWinnerNotifiedIds||[]).map(String));
+ const fresh=ids.filter(id=>!seen.has(id));
+ if(!fresh.length)return;
+ const url="https://discord.com/channels/"+item.guildId+"/"+item.channelId+"/"+item.messageId;
+ const sent=await channel.send({
+   content:"🏆 Congratulations "+fresh.map(id=>"<@"+id+">").join(" ")+
+     "! Your giveaway result and claim button are here: "+url,
+   allowedMentions:{parse:[],users:fresh},
+ });
+ if(!sent?.id)throw Error("Winner notification was not sent.");
+ await Giveaway.updateOne({_id:item._id,mode:"standard"},
+   {$addToSet:{regularWinnerNotifiedIds:{$each:fresh}}});
+}
+
+async function publishRegularResultLocked(client,item){
+ const record=await relocateRegularGiveawayResult(client,item);
+ const channel=await client.channels.fetch(record.channelId);
+ if(!channel?.messages?.fetch)throw Error("Giveaway results channel is inaccessible.");
+ const message=await channel.messages.fetch(record.messageId);
+ if(message?.author?.id!==client.user?.id)throw Error("Winner result is not authored by this bot.");
+ // First make the winner message available. No claim window has started yet.
+ await message.edit(await giveawayAnnouncementWithBanner(record));
+ await cleanupRegularGiveawayListPost(client,record);
+ // Notify the winners before starting their claim clock. If pinging fails,
+ // no deadline is activated and the unpublished result remains retryable.
+ await notifyRegularWinners(client,record,channel);
+ const now=new Date(),dates=[...(record.winnerAssignedAt||[])];
+ let newlyPublished=false;
+ for(let slot=0;slot<(record.winnerIds||[]).length;slot++){
+   if(!dates[slot]&&!(record.claimResolvedSlots||[]).includes(slot)){
+     dates[slot]=now;
+     newlyPublished=true;
+   }
+ }
+ const updated={...record,winnerAssignedAt:dates,
+   claimStartedAt:record.claimStartedAt||now,
+   resultPublishedAt:record.resultPublishedAt||now};
+ // Discord must acknowledge the updated deadline before MongoDB activates it.
+ await message.edit(await giveawayAnnouncementWithBanner(updated));
+ if(newlyPublished||!record.resultPublishedAt){
+   const saved=await Giveaway.updateOne({_id:record._id,mode:"standard",
+     status:"ended",channelId:record.channelId,messageId:record.messageId,
+     resultPublicationToken:record.resultPublicationToken},{$set:{
+       winnerAssignedAt:dates,claimStartedAt:updated.claimStartedAt,
+       resultPublishedAt:updated.resultPublishedAt,claimCheckAt:nextClaimCheckAt(updated),
+     }});
+   if(saved?.matchedCount===0)throw Error("Lost result publication ownership before starting claim clock.");
+ }
+ await Giveaway.updateOne({_id:record._id,status:"ended",
+   resultPublicationToken:record.resultPublicationToken,renderVersion:record.renderVersion},
+   {$set:{renderedAt:new Date()}});
+ try{await ensureGiveawayStaffRecord(client,{...updated,listChannelId:"",listMessageId:""});}
+ catch(error){console.error("[Giveaways] Staff result link update failed:",record._id,error);}
+ return true;
+}
 export async function publishGiveawayResult(client, item) {
   if(item && !["draft","publishing","failed"].includes(item.status)){
     try{await ensureGiveawayStaffRecord(client,item);}
     catch(error){console.error("[Giveaways] Private staff update failed:",item._id,error);}
   }
   if(item?.publicListingRemovedAt)return false; // Never republish a completed deleted listing.
-  if(item?.mode==="activity" && item.status==="ended" && !item.winnerIds?.length &&
+  if(["activity","standard"].includes(item?.mode) && item.status==="ended" && !item.winnerIds?.length &&
      item.announceEmptyResults===false){
+    if(item.mode==="standard" && item.messageId){
+      const channel=await client.channels.fetch(item.channelId);
+      const message=await channel?.messages?.fetch(item.messageId).catch(error=>{
+        if(error.code===10008)return null;
+        throw error;
+      });
+      if(message){
+        if(message.author?.id!==client.user?.id)throw Error("The expired signup post is not bot-authored.");
+        await message.delete();
+      }
+      await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
+        {$set:{messageId:"",resultSuppressedAt:new Date()}});
+    }
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
       {$set:{renderedAt:new Date()}});
     return true;
@@ -404,29 +636,62 @@ export async function publishGiveawayResult(client, item) {
     }) : null;
     if (!message) {
       const recent = await channel.messages.fetch({limit:100});
-      message = recent.find(m => m.author?.id === client.user?.id &&
-        m.embeds?.some(e => e.footer?.text?.includes(`Giveaway ID: ${item._id}`)));
+      const expected=giveawayAnnouncement(item).embeds[0].toJSON();
+      const matches=[...recent.values()].filter(m=>
+        m.author?.id===client.user?.id&&(
+          m.components?.some(row=>row.components?.some(button=>
+            (button.customId||button.custom_id||button.data?.custom_id)==="giveaway:claim:"+item._id))||
+          m.embeds?.some(e=>
+            (e.title||e.data?.title)===expected.title&&
+            (e.description||e.data?.description)===expected.description)));
+      if(matches.length>1)
+        throw Error("Multiple activity winner posts match; staff must reconcile before reposting.");
+      message=matches[0]||null;
+      if(!message&&recent.size>=100)
+        throw Error("Activity winner post may be older than recent history; refusing a blind duplicate.");
     }
     if (!message) message = await channel.send(await giveawayAnnouncementWithBanner(item));
     else {
       if (message.author?.id !== client.user?.id) throw Error("Activity announcement does not belong to the bot.");
       await message.edit(await giveawayAnnouncementWithBanner(item));
     }
+    // The activity claim timer must not start until Discord has a winner post.
+    const publishedAt=new Date(),dates=[...(item.winnerAssignedAt||[])];
+    for(let slot=0;slot<(item.winnerIds||[]).length;slot++)
+      if(!dates[slot]&&!(item.claimResolvedSlots||[]).includes(slot))dates[slot]=publishedAt;
+    const announced={...item,messageId:message.id,winnerAssignedAt:dates,
+      claimStartedAt:item.claimStartedAt||publishedAt,
+      resultPublishedAt:item.resultPublishedAt||publishedAt};
+    // Display the deadline before enabling the automatic claim-expiry worker.
+    await message.edit(await giveawayAnnouncementWithBanner(announced));
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
-      {$set:{messageId:message.id,renderedAt:new Date()}});
+      {$set:{messageId:message.id,claimStartedAt:announced.claimStartedAt,
+        winnerAssignedAt:dates,resultPublishedAt:announced.resultPublishedAt,
+        claimCheckAt:nextClaimCheckAt(announced),renderedAt:null}});
+    await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
+      {$set:{renderedAt:new Date()}});
     return true;
   }
   if (!item?.messageId || !["ended", "open"].includes(item.status)) return false;
-  const channel = await client.channels.fetch(item.channelId);
+  if(item.status==="ended"&&item.mode==="standard")
+    return withRegularResultPublishLock(item,locked=>publishRegularResultLocked(client,locked));
+  const record=item;
+  const channel = await client.channels.fetch(record.channelId);
   if (!channel?.messages?.fetch) throw Error("Giveaway channel is inaccessible.");
-  const message = await channel.messages.fetch(item.messageId);
+  const message = await channel.messages.fetch(record.messageId);
   if (message.author?.id !== client.user?.id) throw Error("Giveaway message is not authored by this bot.");
-  await message.edit(await giveawayAnnouncementWithBanner(item));
-  if (item.status === "ended") {
+  await message.edit(await giveawayAnnouncementWithBanner(record));
+  if (record.status === "ended") {
+    // Do not mark the render finished until old signup post cleanup succeeded.
+    await cleanupRegularGiveawayListPost(client,record);
     await Giveaway.updateOne(
-      { _id: item._id, status: "ended", renderVersion: item.renderVersion },
+      { _id: record._id, status: "ended", renderVersion: record.renderVersion },
       { $set: { renderedAt: new Date() } },
     );
+    if(record.channelId!==item.channelId||item.listMessageId){
+      try{await ensureGiveawayStaffRecord(client,{...record,listChannelId:"",listMessageId:""});}
+      catch(error){console.error("[Giveaways] Private staff link update failed:",record._id,error);}
+    }
   }
   return true;
 }

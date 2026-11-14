@@ -5,6 +5,9 @@ import {
   StringSelectMenuBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {saveGuidedSetupFields} from "../services/setup-settings-save.js";
+import {preferSetupButtons} from "../services/setup-button-preferences.js";
+import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
 import GiveawayBanner, { bannerNameKey } from "../models/GiveawayBanner.js";
 import { attachGiveawayBanner, ensureBannerRegistered } from "../services/giveaway-banners.js";
@@ -17,11 +20,11 @@ import { DEFAULT_CLAIM_INSTRUCTIONS, MAX_TRIAL_CLAIM_MINUTES } from "../services
 const sessions = new Map();
 const SESSION_MS = 30 * 60_000;
 const STEPS = [
-  "channel", "staff", "archive", "managerRole", "requiredRole", "roleHelp", "roleHelpVisible",
+  "channel", "staff", "managerRole", "requiredRole", "roleHelp", "roleHelpVisible",
   "instructions", "minutes", "rerolls", "roles", "banner", "review",
 ];
 const STEP_NAMES = {
-  channel: "Court's Trial channel", staff: "Private staff controls",archive: "Private giveaway archive",
+  channel: "Court's Trial channel", staff: "Private staff controls",
   managerRole: "Giveaway Manager role",
   requiredRole: "Default required role", roleHelp: "How to obtain the role",
   roleHelpVisible: "Show role instructions", instructions: "Claim instructions",
@@ -43,7 +46,7 @@ export function trialSetupSummary(settings) {
     "**The Court's Trial — Setup Review**",
     "⚔️ **Signup and eliminations:** " + shown(settings.survivalTrialChannelId),
     "🔒 **Private staff controls:** " + shown(settings.activityGiveawayReviewChannelId),
-    "🗄️ **Private giveaway archive (required):** " + shown(settings.giveawayArchiveChannelId),
+    "🗄️ **Shared staff archive (set in /setup general):** " + shown(settings.giveawayArchiveChannelId),
     "🔑 **Giveaway Manager role:** " + roleShown(settings.giveawayManagerRoleId),
     "🎟️ **Default required role:** " + roleShown(settings.trialDefaultRequiredRoleId),
     "👁️ **Display role instructions:** " + (settings.trialShowRoleInstructions !== false ? "Yes" : "No"),
@@ -93,20 +96,17 @@ function layout(session,banners=[]) {
         "Banner · "+label) + "**\n";
   const components = [];
   let content = "";
-  if (step === "channel" || step === "staff" || step === "archive") {
+  if (step === "channel" || step === "staff") {
     const staff = step === "staff";
-    const isPrivate = staff || step === "archive";
-    content = step === "archive"
-      ? "Select the required **private giveaway archive channel** for settled regular giveaways, activity giveaways and Court's Trials. The archive is shared by all three types and must be separate from staff controls and hidden from @everyone."
-      : staff
+    const isPrivate = staff;
+    content = staff
         ? "Select the **private staff channel** for live Trials, winner claims and administrative controls. This channel is shared with regular and activity giveaway staff records. It must be hidden from @everyone."
         : "Select the channel where Court's Trial signups, eliminations and the final Royal Verdict are published. It must be different from regular and activity giveaway channels.";
-    const id = s[step === "archive" ? "giveawayArchiveChannelId" :
-      staff ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"];
+    const id = s[staff ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"];
     content += "\n**Current:** " + shown(id);
     components.push(new ActionRowBuilder().addComponents(
       new ChannelSelectMenuBuilder().setCustomId(selectId(session, "chooseChannel"))
-        .setPlaceholder(step === "archive" ? "Private archive channel" : staff ? "Private staff channel" : "Court's Trial channel")
+        .setPlaceholder(staff ? "Private staff channel" : "Court's Trial channel")
         .setMinValues(1).setMaxValues(1).addChannelTypes(
           ...(isPrivate ? [ChannelType.GuildText] :
             [ChannelType.GuildText, ChannelType.GuildAnnouncement]),
@@ -138,7 +138,7 @@ function layout(session,banners=[]) {
       (s.trialClaimInstructions || DEFAULT_CLAIM_INSTRUCTIONS)+
       "\nThe bot separately requires a ticket number and Discord message link before the claim deadline, or the prize is forfeited.\n"+
       "Choose **Write / Edit Trial Instructions** to type your text, then Save Trial Setup on the final review.";
-    components.push(buttons(session, [["Use Built-in Default", "clearInstructions"],
+    components.push(buttons(session, [["Use Built-in Default", "clearInstructions", ButtonStyle.Primary],
       ["Write / Edit Trial Instructions", "writeInstructions"], ["Keep Saved", "keep"]]));
   } else if (step === "minutes") {
     content = "How long does each winner have to submit the ticket number and message link after the Royal Verdict? The old Trial interface uses **minutes**.\n**Current:** " +
@@ -195,7 +195,7 @@ function layout(session,banners=[]) {
     }[step];
   }
   if (step !== "review") components.push(buttons(session, [["Back", "back"], ["Cancel setup", "cancel", ButtonStyle.Danger]]));
-  return { content: intro + content, components, allowedMentions: { parse: [] } };
+  return { content: intro + content, components:preferSetupButtons(components), allowedMentions: { parse: [] } };
 }
 
 async function show(session, step) {
@@ -204,7 +204,10 @@ async function show(session, step) {
   const banners=["banner","bannerText"].includes(step)?
     await registeredSetupBanners(session.guild.id):[];
   const message = await session.channel.send(layout(session,banners));
+  const previous=session.promptMessage;
   session.messageId = message.id;
+  session.promptMessage=message;
+  await retireGuidedControls(previous,session.channel);
 }
 async function advance(session) {
   if (session.fromReview) {
@@ -216,10 +219,12 @@ async function advance(session) {
 }
 async function validateChannels(session) {
   const s = session.settings;
+  const config = await GuildConfig.findOne({guildId:session.guild.id}).lean();
+  s.giveawayArchiveChannelId=config?.giveawayArchiveChannelId||"";
+  if (!s.giveawayArchiveChannelId) throw Error("Run /setup general to configure the shared private archive first.");
   const ids = [s.survivalTrialChannelId, s.activityGiveawayReviewChannelId,s.giveawayArchiveChannelId];
   if (ids.some(id => !id) || new Set(ids).size !== ids.length)
     throw Error("Select separate public Trial, private staff, and private archive channels.");
-  const config = await GuildConfig.findOne({ guildId: session.guild.id }).lean();
   if ([config?.giveawayChannelId, config?.activityGiveawayListChannelId,
     config?.activityGiveawayWinnersChannelId].includes(ids[0]))
     throw Error("Court's Trials must use a different channel from regular or activity giveaways.");
@@ -231,7 +236,7 @@ async function validateChannels(session) {
     if (!channel?.send || !channel?.permissionsFor)
       throw Error("Cannot send messages in <#" + id + ">.");
     const perms = channel.permissionsFor(session.guild.members.me);
-    for (const permission of [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])
+    for (const permission of [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.ReadMessageHistory,...(index===2?[PermissionFlagsBits.AttachFiles]:[])])
       if (!perms?.has(permission))
         throw Error("Bot needs View Channel, Send Messages, Embed Links in <#" + id + ">.");
     if (index > 0 && channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
@@ -243,6 +248,7 @@ async function process(session, action, value) {
   if (action === "cancel") {
     sessions.delete(session.key);
     await session.channel.send("Court's Trial setup cancelled. Nothing was saved.");
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   if (action === "back") {
@@ -272,26 +278,26 @@ async function process(session, action, value) {
     }
     if (action !== "save") throw Error("Choose Save, Preview, or Edit.");
     await validateChannels(session);
-    const previous = await GuildConfig.findOne({ guildId: session.guild.id }).lean();
-    await GuildConfig.findOneAndUpdate({ guildId: session.guild.id }, { $set: {
-      ...s,
-      ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(s)),
-      trialSetupCompletedAt: new Date(),
-      initialSetupCompletedAt: previous?.initialSetupCompletedAt || new Date(),
-      commandChannelId: previous?.commandChannelId || session.channel.id,
-    } }, { upsert: true, new: true, runValidators: true });
+    const { giveawayArchiveChannelId: _sharedArchive, ...trialChanges } = s;
+    await saveGuidedSetupFields({
+      guildId:session.guild.id,original:session.originalSettings,
+      proposed:{...trialChanges,
+        ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(s))},
+      extra:{trialSetupCompletedAt:new Date()},
+    });
     sessions.delete(session.key);
     await session.channel.send({
       content: "**Court's Trial setup saved.** New Trials will use these defaults; existing events, deadlines, prizes and history are unchanged.\n" +
         "Create a Trial with **/trial start** in the configured commands channel.",
       allowedMentions: { parse: [] },
     });
+    await retireGuidedControls(session.promptMessage,session.channel);
     return;
   }
   if (action === "keep") return advance(session);
-  if (["channel","staff","archive"].includes(session.step)) {
+  if (["channel","staff"].includes(session.step)) {
     if (action !== "chooseChannel") throw Error("Choose a channel from the selector.");
-    s[session.step === "archive" ? "giveawayArchiveChannelId" : session.step === "staff" ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"] = value;
+    s[session.step === "staff" ? "activityGiveawayReviewChannelId" : "survivalTrialChannelId"] = value;
     return advance(session);
   }
   if (session.step === "managerRole") {
@@ -392,7 +398,9 @@ async function process(session, action, value) {
 
 export async function startTrialGiveawaySetup(interaction) {
   const config = await GuildConfig.findOne({ guildId: interaction.guildId }).lean();
-  if (config?.commandChannelId && config.commandChannelId !== interaction.channelId)
+  if(!config?.commandChannelId||!config?.giveawayArchiveChannelId||!config?.serverTimeZone)
+     throw Error("Complete /setup general with private Bot Commands, Shared Staff Archives and Server Time Zone first.");
+   if (config?.commandChannelId && config.commandChannelId !== interaction.channelId)
     throw Error("Run /setup trials in <#" + config.commandChannelId + ">.");
   const sessionKey = key(interaction.guildId, interaction.user.id);
   if (sessions.get(sessionKey)?.expiresAt > Date.now())
@@ -413,7 +421,7 @@ export async function startTrialGiveawaySetup(interaction) {
   };
   const session = { id: new mongoose.Types.ObjectId().toString(), key: sessionKey,
     channel: interaction.channel, guild: interaction.guild, owner: interaction.user.id,
-    fromReview: false, settings: s };
+    fromReview: false, settings: s,originalSettings:config };
   sessions.set(sessionKey, session);
   await show(session, "channel");
   return interaction.editReply("Court's Trial setup opened in this commands channel. Complete the steps, preview, then save.");

@@ -26,7 +26,10 @@ export function claimDuration(record) {
 /** A real Discord timestamp is displayed in each reader's local timezone. */
 export function winnerClaimDeadline(record, slot) {
   const duration=claimDuration(record);
-  const start=record.winnerAssignedAt?.[slot] || record.claimStartedAt;
+  // An explicitly unassigned slot is awaiting public announcement.
+  // Legacy records with no per-place slot still use claimStartedAt.
+  const hasSlot=Array.isArray(record.winnerAssignedAt)&&slot<record.winnerAssignedAt.length;
+  const start=hasSlot?record.winnerAssignedAt[slot]:record.claimStartedAt;
   if (!duration || !start) return null;
   const timestamp=new Date(start).getTime();
   return Number.isFinite(timestamp) ? new Date(timestamp+duration.milliseconds) : null;

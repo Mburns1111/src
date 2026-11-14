@@ -6,6 +6,11 @@ import mongoose from "mongoose";
 const giveawaySchema = new mongoose.Schema({
   guildId: { type: String, required: true, index: true },
   channelId: { type: String, required: true },
+  resultChannelId: { type: String, default: "" },
+  resultPublicationToken:{type:String,default:""},
+  resultPublicationClaimedAt:{type:Date,default:null},
+  resultPublishedAt:{type:Date,default:null},
+  resultSuppressedAt:{type:Date,default:null},
   listChannelId: { type: String, default: "" },
   listMessageId: { type: String, default: "" },
   listFingerprint: { type: String, default: "" },
@@ -25,10 +30,19 @@ const giveawaySchema = new mongoose.Schema({
   customActivityStartAt:{type:Date,default:null},
   customActivityEndAt:{type:Date,default:null},
   messageId: { type: String, default: null },
+  // Regular giveaway results are also announced in the shared Activity Winners
+  // channel. Track the post and notified winners to prevent duplicate pings.
+  regularWinnerMessageId: { type: String, default: "" },
+  regularWinnerChannelId: { type: String, default: "" },
+  regularWinnerNotifiedIds: { type: [String], default: [] },
   creatorId: { type: String, required: true },
   title: { type: String, required: true },
   prize: { type: String, required: true },
   description: { type: String, default: "", maxlength: 1000 },
+  displayOpenTitle: { type: String, default: "", maxlength: 120 },
+  displayEndedTitle: { type: String, default: "", maxlength: 120 },
+  displayEntryText: { type: String, default: "", maxlength: 400 },
+  displayWinnerText: { type: String, default: "", maxlength: 400 },
   rules: { type: String, default: "" },
   claimWindowHours: { type: Number, default: null, min: 1, max: 720 },
   // Court\'s Trial claim windows are set in minutes; old saved trial hour values stay valid.

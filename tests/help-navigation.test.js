@@ -61,27 +61,28 @@ test("staff topics are organized into three dropdown groups",()=>{
  const payload=helpTopicPayload("staff",userId);
  const selects=controls(payload).filter(c=>c.type===3);
  assert.equal(selects.length,3);
- assert.deepEqual(selects.map(c=>c.options.length),[1,3,3]);
+ assert.deepEqual(selects.map(c=>c.options.length),[1,3,4]);
  assert.deepEqual(selects.flatMap(c=>c.options.map(o=>o.value)),STAFF_TOPICS.map(t=>t.id));
  assert.ok(controls(helpTopicPayload("sgiveaways",userId)).some(c=>c.custom_id==="help:topic:root:"+userId));
 });
 test("approved help content includes core requirements and public claim instructions",()=>{
  assert.match(textOf("ssetup"),/All bot setup commands must be run in this channel/);
- assert.match(textOf("ssetup"),/Administrator/);
+ assert.match(textOf("ssetup"),/Bot Commands, Shared Staff Archives and Server Time Zone/);
  assert.match(textOf("ssetup"),/Court of Chaos/);
  assert.match(textOf("sgiveaways"),/Royal Verdict/);
  assert.match(textOf("sgiveaways"),/Confirm Prizes Delivered/);
- assert.match(textOf("sgiveaways"),/Giveaway Archives/);
+ assert.match(textOf("sgiveaways"),/Shared Staff Archives/);
  assert.match(textOf("sactivity"),/not per day/);
  assert.match(textOf("sactivity"),/next two scheduled periods/);
- assert.match(textOf("sarchives"),/Only regular giveaways are deleted/);
+ assert.match(textOf("sarchives"),/Regular giveaway entry posts are removed when results are published/);
+ assert.match(textOf("sarchives"),/Regular result posts are deleted when archived/);
  assert.equal(fields(helpTopicPayload("scards",userId)).length,1);
  assert.match(textOf("scards"),/Points must be enabled/);
  assert.match(textOf("spoints"),/independent shop/);
  assert.equal(fields(helpTopicPayload("sgames",userId)).length,2);
  assert.doesNotMatch(textOf("sgames"),/Court's Trials/);
  assert.match(textOf("cards"),/not affiliated with, endorsed by, or sponsored by Roblox or Adopt Me/);
- assert.match(textOf("giveaways"),/button below the winner announcement before the claim deadline/);
+ assert.match(textOf("giveaways"),/button below their winner announcement before the claim deadline/);
  assert.doesNotMatch(textOf("games"),/Court's Trials/);
 });
 test("all help embeds respect Discord field and overall size limits",()=>{

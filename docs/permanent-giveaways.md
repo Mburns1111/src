@@ -97,3 +97,53 @@ Use `/trial start` for a **full, one-contestant-at-a-time** elimination event. I
 12. Check the private `/giveaway entrants` and `/trial entrants` command outputs, empty rosters, and pagination at more than 25 entrants.
 
 **Development:** This mode is on `feature/permanent-giveaways` in draft PR #24, not merged or deployed. When testing from Replit, use the correct development-bot token and database, then run `node register-commands.js` to refresh `/giveaway` and `/trial` options (including removal of the old slash launch command).
+
+
+## Per-giveaway display text
+
+During **/setup giveaways**, the final **Review** offers a gray **Edit Giveaway Display** button. This opens an interactive preview of the actual public embed, with buttons to edit the **Open Giveaway Title**, **Winner Announcement Title**, **Entry Story**, and **Winner Story**. Each edit opens a Discord text-input modal and refreshes the preview immediately. **Preview Open / Preview Winners** switches between the two post states. **Default** buttons restore original fox headings or story independently, while **Discard Changes** cancels the display draft. **Confirm Text** accepts the edited template into the unsaved setup draft; the final **Save Settings** stores it server-wide in MongoDB. Activity giveaways and Court's Trials do not inherit the regular giveaway template.
+
+Every future **/giveaway start** post snapshots the currently saved server template at creation. Changing or clearing the template in a later **/setup giveaways** does **not** retroactively alter existing giveaways. The event creation preview shows the inherited template, but it has no per-event flavor editor. The wording may include `{host}` and `{winners}` placeholders, while arbitrary typed @mentions are neutralized. The embed still renders real prize, entry role, deadline, winner and claim details, and required buttons; no-eligible-winner announcements retain their mandatory safety/status wording. Nothing is posted publicly during setup or preview.
+
+## Regular giveaway results channel
+
+**/setup giveaways** configures two separate public locations: **Giveaway List** (regular entry post while open) and **Giveaway Winners** (completed results). The winners channel setting is shared with **/setup activity-giveaways**: staff see and may adjust the same saved destination in either guided setup. Both public channels must be distinct from staff controls and the private archive.
+
+When a regular giveaway is drawn, the bot reposts its completed announcement, winner list and ticket-claim button to **Giveaway Winners**. Discord does not support moving a message in place: the bot saves the new channel and message IDs in the giveaway database, updates the private staff record link, and removes the old entry post from **Giveaway List**. All claim and reroll actions use the new canonical message IDs. The announcement role is **not pinged again** on results. Failure to repost leaves the old entry post untouched for retry; failure to delete the original is retried without republishing duplicate winners. Earlier unfinished giveaways without a saved destination can use the current configured winners channel, and servers that have not yet configured Winners retain the previous in-place behavior until setup is completed. Changing the Winners channel does not retroactively move completed giveaways.
+
+Archiving a completed regular giveaway still removes its regular public result post after staff confirm prize delivery. Activity winners and Trial Royal Verdicts continue to remain public, as previously configured.
+
+
+## Active winner cooldowns and the Enter Giveaway button
+
+When staff configure **Winner Cooldown check: ON** for a regular giveaway, **Enter Giveaway** now rejects members with an active cooldown and privately shows the expiry. The current entrants list stays accurate: applying a cooldown removes any entries those members already had in open, enabled regular giveaways, and a background sweep removes stale entries from before this feature was enabled. Eligibility is also checked again when drawing and rerolling winners. **Winner Cooldown check: OFF** means the optional restriction does not apply to that giveaway. Activity giveaways filter at draw/approval, while Court's Trials remain exempt. Expired or removed cooldowns no longer block entry; members may join again while an enabled giveaway is still open. The permanent Giveaway Banned role remains independent and always blocks participation.
+
+
+## Staff-only cooldown manager: add new cooldowns
+
+In the private giveaway staff directory, **Winner Cooldowns** lists active member cooldowns and provides a user selection menu. Selecting a member who has none now shows a blue **Add Cooldown** button. Staff enter 1–365 days, review the member and expiration, then **Confirm New Cooldown**. It starts at confirmation time, records a `staff-manual` audit entry in MongoDB, and immediately removes entries from open regular giveaways with the Winner Cooldown switch ON (automatic sweeps retry failed cleanup). Staff can later correct or remove it through the same manager. This does not assign the separate Giveaway Banned role and does not change Trial participation.
+
+## Guided setup prompt retirement
+
+The general, Hatchem, regular giveaway, activity giveaway, and Court Trial guided setup/creation wizards preserve previous messages for context but **remove previous buttons and select menus** after posting their next step. They also retire the last prompt when the setup is cancelled, saved or published. If Discord prevents an old message edit, its server-side prompt ID is still rejected when clicked; the bot does not remove controls from permanent public giveaway, entry/claim or staff directory messages. The temporary private winner cooldown member selector updates its existing ephemeral menu, avoiding the dangling old selectable menu in the message trail.
+
+## Temporary staff-action menus (private only)
+
+Clicking a permanent **Edit Giveaway**, **End Early**, **Manual Reroll**, or **Winner Cooldowns** button keeps that permanent staff record intact and opens a private interaction. Once staff choose a setting, confirm an action, or cancel the temporary dialog, the **previous private menu is updated in place** or its buttons/selectors are cleared. The activity staff editor and activity Early End confirmation follow the same pattern. This is a **message/component lifecycle only** change: it does not change eligibility, timers, cooldown duration, claims, prizes, post destinations, or action permissions. Permanent member-facing buttons and staff directory navigation remain active.
+
+
+## Part 3 integration verification — temporary controls
+
+**Development only:** test in Replit using `integration/nov13-giveaway-help-setup`. Do not merge or deploy to Wispbyte until the complete flow has been checked in Discord.
+
+**Guided wizard trails:** create a test regular giveaway, an activity giveaway, and a Trial; advance through button selections and typed replies; each previous prompt must retain its text but lose all buttons and dropdowns. Test Back, Edit, Cancel, and final Post/Save. Also rerun General, Hatchem, regular/activity giveaway setup and Trial setup. A preview does not end the current step, so its current controls should remain usable; the preview itself cannot create an event.
+
+**Staff editing:** use the permanent giveaway staff record to open Edit, End Early, and Manual Reroll. After advancing or confirming a temporary private panel, check that its buttons are removed. The *permanent* staff record, its directory controls, public giveaway Enter and claim buttons, and the permanent shop/help/opt-in panels must remain functional. A failed/expired confirmation must not change the giveaway.
+
+**Cooldowns:** from the permanent staff directory, open Winner Cooldowns; select a member without a cooldown; Add Cooldown → modal days → confirmation. Then test Correct Expiry and Remove. Private menus should update in place, and confirmation should replace the private action buttons with a completed status. The permanent directory must never be edited by these private steps. For a delivered giveaway, test Apply / Extend and the archived-winner cooldown control.
+
+**Multiple staff:** have two staff members open different private menus and ensure one person's selections cannot advance or retire the other's controls. Test clicking a prior prompt after advancing; it should report that the step is no longer active without changing data. Test a timed-out wizard; the database must remain unchanged until a valid Save/Post.
+
+**Failure cases:** revoke Send Messages or Read Message History in a test-only channel and confirm failure does not remove permanent buttons; restore permissions and retry. A transient Discord message-edit failure may leave stale private buttons visible, but stale wizard IDs must still be rejected.
+
+Code-based tests cover ephemeral vs. permanent message boundaries, guided prompt retirement, cooldown add/correct/remove and activity staff confirmations. Live Discord bot behavior requires a real test server and has **not** been automatically verified by CI.
