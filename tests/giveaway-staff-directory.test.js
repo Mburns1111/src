@@ -93,7 +93,7 @@ test("page controls expose all entries while keeping primary sticky message comp
  assert.equal(buttons(first).length,2);
  assert.ok(buttons(first).includes("giveawaydir:cooldowns"));
  assert.ok(buttons(first).includes("giveawaydir:page:1"));
- assert.match(first.embeds[0].toJSON().description,/19 active or pending giveaways/);
+ assert.match(first.embeds[0].toJSON().description,/19 unarchived giveaways/);
  assert.match(first.embeds[0].toJSON().footer.text,/Moves to bottom hourly/);
  assert.equal(STAFF_DIRECTORY_BUMP_COOLDOWN_MS,60*60_000);
  assert.match(first.embeds[0].toJSON().description,/Giveaway 14/);
