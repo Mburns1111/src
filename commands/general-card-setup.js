@@ -251,11 +251,14 @@ async function saveGeneral(session) {
   if (s.shopChannelId && previous?.shopChannelId !== s.shopChannelId)
     try{await ensureShopEntry(session.guild, channels.shopChannelId);}
     catch(error){console.error("[General Setup] Could not update shop entry:",error);}
+  let newHelpEntryReady=!s.helpChannelId;
   if(s.helpChannelId){
-    try{await ensurePublicHelpEntry(session.guild.client,session.guild.id);}
+    try{newHelpEntryReady=await ensurePublicHelpEntry(session.guild.client,session.guild.id);}
     catch(error){console.error("[General Setup] Could not update public Help entry:",error);}
   }
-  if(session.original?.helpChannelId &&
+  // Do not remove the previous Help launch point unless its replacement is
+  // available, or the administrator explicitly disabled Help.
+  if(newHelpEntryReady&&session.original?.helpChannelId &&
      session.original.helpChannelId!==s.helpChannelId &&
      session.original.helpMessageId){
     try{
