@@ -261,7 +261,7 @@ export function survivalFinalePayload(record, championRecord = null) {
       "",
       "🏁 **No eligible winner for the prize.**",
       (record.winnerIds||[]).length
-        ?"The prize claim was forfeited; no replacement was available."
+        ?"The prize claim was forfeited at the deadline; Court's Trials do not allow rerolls."
         :"No eligible prize winner was selected.",
       "",
       "*This verdict remains visible until staff explicitly remove the listing.*",
