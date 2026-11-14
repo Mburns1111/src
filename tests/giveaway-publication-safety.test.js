@@ -27,9 +27,9 @@ test("long valid giveaway wording cannot push winners out of the published embed
    winnerAssignedAt:[new Date()],claimWindowHours:24,claimResolvedSlots:[]});
  const body=result.embeds[0].toJSON();
  assert.ok(body.description.length<=3900);
- const dedicated=body.fields.find(f=>f.name==="🏆 Winners / Results");
- assert.ok(dedicated);
- assert.match(dedicated.value,new RegExp(winner));
+ assert.match(body.description,/Winners \/ Results/);
+ assert.match(body.description,new RegExp(winner));
+ assert.equal((body.description.match(new RegExp(winner,"g"))||[]).length,1);
 });
 
 test("activity winner publication crash before MongoDB save is recovered without duplicate posts or expired claim",async()=>{
