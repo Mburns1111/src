@@ -1,5 +1,6 @@
 import {ActionRowBuilder,ModalBuilder,TextInputBuilder,TextInputStyle} from "discord.js";
 import {maxRegularGiveawayMinutes} from "./giveaways.js";
+import {normalizeRoleBonuses} from "./giveaway-role-weights.js";
 
 const EDIT_FIELDS={
   title:{label:"Giveaway title",max:100,min:2},
@@ -13,13 +14,14 @@ const EDIT_FIELDS={
   durationMinutes:{label:"Minutes until giveaway ends",max:6,min:1,type:"integer",lower:1},
   bannerNameKey:{label:"Saved banner name (or default)",max:60,min:0},
   winnerCooldownEnabled:{label:"Enforce Winner Cooldown (on/off)",max:3,min:2},
+  roleBonuses:{label:"Bonus role ID and extra entries",max:100,min:1},
 };
 
 export function giveawayStaffEditableFields(record) {
   if(record?.status!=="open"||record?.publicListingRemovedAt||record?.guidedSeries)return [];
   const general=["title","prize","description","rules","winnerCount","claimInstructions","bannerNameKey"];
   if(record.mode==="survival")return [...general,"claimWindowMinutes","durationMinutes"];
-  if(record.mode==="standard")return [...general,"winnerCooldownEnabled","claimWindowHours","durationMinutes"];
+  if(record.mode==="standard")return [...general,"roleBonuses","winnerCooldownEnabled","claimWindowHours","durationMinutes"];
   return [...general,"winnerCooldownEnabled","claimWindowHours","durationMinutes"];
 }
 
@@ -34,6 +36,7 @@ export function giveawayStaffEditModal(record,field) {
     const current=Math.max(1,Math.ceil((+new Date(record.endsAt)-Date.now())/60000));
     input.setValue(String(current));
   }else if(field==="bannerNameKey")input.setValue(record.bannerNameKey||"default");
+  else if(field==="roleBonuses")input.setPlaceholder("Role ID 3, Role ID remove, or clear");
   else if(record[field]!==undefined&&record[field]!==null&&String(record[field]).length)
     input.setValue(String(record[field]).slice(0,config.max));
   return new ModalBuilder()
@@ -59,6 +62,14 @@ export function validateGiveawayStaffEdit(record,field,raw,{now=new Date()}={}){
         Number(value)<config.lower||Number(value)>config.upper)
       throw Error("Enter a whole number from "+config.lower+" to "+config.upper+".");
     return {[field]:Number(value)};
+  }
+  if(field==="roleBonuses"){
+    if(value.toLowerCase()==="clear")return {roleBonuses:[]};
+    const match=/^(?:<@&(\\d{17,20})>|(\\d{17,20}))\\s+(\\d{1,2}|remove)$/i.exec(value);
+    if(!match)throw Error("Enter a role ID followed by 1–20 extra chances, 'remove', or 'clear'.");
+    const roleId=match[1]||match[2],current=(record.roleBonuses||[]).filter(b=>b.roleId!==roleId);
+    if(match[3].toLowerCase()==="remove")return {roleBonuses:normalizeRoleBonuses(current)};
+    return {roleBonuses:normalizeRoleBonuses([...current,{roleId,extraEntries:Number(match[3])}])};
   }
   if(field==="winnerCooldownEnabled"){
     if(!/^(on|off)$/i.test(value))throw Error('Enter "on" or "off" for winner cooldown.');
