@@ -317,6 +317,7 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
 export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "staff", now = new Date(), client = null }) {
   const item = await Giveaway.findOne({ _id: id, guildId, status: "ended" }).lean();
   if (!item) throw Error("That giveaway is not finished or does not exist.");
+  if(item.mode==="survival")throw Error("Court's Trials do not allow rerolls. Unclaimed prizes are forfeited at the claim deadline.");
   if(item.publicListingRemovedAt) throw Error("This completed giveaway listing has already been deleted and cannot be rerolled.");
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Choose an existing winner number to reroll.");
@@ -367,6 +368,19 @@ export async function finishPendingReroll(item,{client=null,now=new Date()}={}) 
   const slot = item.pendingRerollSlot;
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Giveaway reroll state requires staff repair.");
+  // Retire any older in-flight Trial reroll after a restart without replacing
+  // its winner or prematurely forfeiting their remaining claim time.
+  if(item.mode==="survival"){
+    const settled={...item,status:"ended"};
+    const restored=await Giveaway.findOneAndUpdate({
+      _id:item._id,guildId:item.guildId,status:"rerolling",pendingRerollSlot:slot,
+    },{$set:{
+      status:"ended",pendingRerollSlot:null,pendingRerollStaffId:"",
+      pendingRerollReason:"",pendingRerollAt:null,pendingRerollEligibleIds:[],
+      claimCheckAt:nextClaimCheckAt(settled),renderedAt:null,
+    },$inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+    return restored||Giveaway.findById(item._id).lean();
+  }
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
   const eligible=item.pendingRerollEligibleIds?.length ? item.pendingRerollEligibleIds :
     (item.activityVerifiedIds?.length ? item.activityVerifiedIds : item.entrantIds||[]);
