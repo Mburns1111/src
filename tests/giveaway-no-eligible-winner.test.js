@@ -149,10 +149,10 @@ test("one claimed winner and another forfeited place show one valid claim plus N
     claimResolvedSlots:[1]});
   const payload=giveawayAnnouncement(data);
   const embed=payload.embeds[0].toJSON();
-  assert.match(embed.description,/Claim submitted successfully/);
+  assert.match(embed.description,/Claim submitted/);
   assert.match(embed.description,/No eligible winner/);
   assert.doesNotMatch(embed.title,/No Eligible Winner/,"one prize was validly claimed");
   assert.equal(payload.components.length,0);
-  assert.equal((embed.fields||[]).filter(f=>/Winners \/ Results/.test(f.name)).length,1);
+  assert.equal((embed.description.match(/\*\*Winners \/ Results\*\*/g)||[]).length,1);
   assert.match(giveawayStaffRecordPayload(data).embeds[0].toJSON().description,/No eligible winner/i);
 });

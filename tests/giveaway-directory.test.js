@@ -138,7 +138,7 @@ test("public cards hide internal details while keeping real entry requirements",
  assert.doesNotMatch(advanced.description,/per active day/);
 });
 
-test("ended one-off activity poster stays on public list until staff uses Delete Listing",async()=>{
+test("ended one-off activity poster is automatically removed from the list, preserving winner results",async()=>{
  const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
  const edits=[],deleted=[],updates=[];
  const event={
@@ -163,15 +163,68 @@ test("ended one-off activity poster stays on public list until staff uses Delete
    const channel={id:listId,messages:{fetch:async()=>existing},send:async()=>{throw Error("Should edit existing completed listing");}};
    const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
    assert.equal(await publishActivityOneOffListing(client,event,{now:new Date("2026-11-09T14:00:00Z")}),true);
-   assert.deepEqual(deleted,[],"ending must not automatically remove the public list entry");
-   assert.equal(edits.length,1);
-   assert.match(edits[0].embeds[0].data.description,/Giveaway ended/);
-   assert.doesNotMatch(edits[0].embeds[0].data.description,/Qualify automatically|Draws <t:/);
-   assert.equal(edits[0].components,undefined,"there must be no activity-progress button on a completed listing");
-   assert.ok(updates.some(x=>x.listMessageId===event.listMessageId));
+   assert.deepEqual(deleted,["activity-list"],"ended activity is removed automatically");
+   assert.equal(edits.length,0,"do not edit the expired activity poster");
+   assert.deepEqual(updates,[{listChannelId:"",listMessageId:"",listFingerprint:""}]);
+   assert.equal(event.channelId,winnersId,"the winners channel is untouched");
  }finally{
    GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;
  }
+});
+
+test("activity list cleanup handles review, drawing, reroll and cutoff without deleting winner results",async()=>{
+ const previous=Giveaway.updateOne;
+ const states=["pending_review","closing","rerolling","ended","cancelled","open"];
+ const cleanup=[];
+ try{
+   Giveaway.updateOne=async(query,update)=>cleanup.push({query,fields:update.$set});
+   for(const status of states){
+     const record={_id:planId,guildId,mode:"activity",status,
+       listChannelId:listId,listMessageId:"567890123456789012",
+       channelId:winnersId,messageId:"678901234567890123",
+       // The open record has reached its message-counting cutoff but its draw may be later.
+       activityEndAt:new Date("2026-11-09T05:00:00Z"),
+       endsAt:new Date("2026-11-10T05:00:00Z"),
+     };
+     const deleted=[];
+     const client={user:{id:"bot"},channels:{fetch:async id=>{
+       assert.equal(id,listId,"winner result channel must not be accessed");
+       return {messages:{fetch:async()=>({author:{id:"bot"},delete:async()=>deleted.push("list")})}};
+     }}};
+     assert.equal(await publishActivityOneOffListing(client,record,{now:new Date("2026-11-09T06:00:00Z")}),true);
+     assert.deepEqual(deleted,["list"],"expired "+status+" poster must be removed");
+     assert.equal(record.messageId,"678901234567890123","winner message stays attached to giveaway");
+   }
+   assert.equal(cleanup.length,states.length);
+   assert.ok(cleanup.every(item=>item.fields.listMessageId===""&&
+     item.fields.listChannelId===""&&
+     !Object.hasOwn(item.fields,"messageId")&&!Object.hasOwn(item.fields,"publicListingRemovedAt")));
+ }finally{Giveaway.updateOne=previous;}
+});
+
+test("failed or unsafe list deletion retains references for retry and never deletes results",async()=>{
+ const old=Giveaway.updateOne;
+ const record={_id:planId,guildId,mode:"activity",status:"ended",
+   listChannelId:listId,listMessageId:"567890123456789012",
+   channelId:winnersId,messageId:"678901234567890123"};
+ let updated=0;
+ try{
+   Giveaway.updateOne=async()=>{updated++;};
+   const unsafe={user:{id:"bot"},channels:{fetch:async()=>({messages:{fetch:async()=>({
+     author:{id:"other-bot"},delete:async()=>assert.fail("Cannot delete another bot's post"),
+   })}})}};
+   await assert.rejects(publishActivityOneOffListing(unsafe,record),/another user or bot/);
+   assert.equal(updated,0,"leave the reference so the next sweep can retry safely");
+   const denied={user:{id:"bot"},channels:{fetch:async()=>({messages:{fetch:async()=>({
+     author:{id:"bot"},delete:async()=>{throw Error("Missing Manage Messages permission");},
+   })}})}};
+   await assert.rejects(publishActivityOneOffListing(denied,record),/Missing Manage Messages/);
+   assert.equal(updated,0);
+   await assert.rejects(publishActivityOneOffListing(denied,{
+     ...record,listChannelId:winnersId,listMessageId:record.messageId,
+   }),/refusing to delete/);
+   assert.equal(updated,0);
+ }finally{Giveaway.updateOne=old;}
 });
 
 test("new one-off activity giveaway pings only the shared role, even when old event roles differ",async()=>{
@@ -196,14 +249,14 @@ test("new one-off activity giveaway pings only the shared role, even when old ev
     typeof v==="string"?posted:{find:()=>null}},
     send:async p=>{sent.push(p);return sent.length===1?posted:{...posted,id:"890123456789012346"};}};
   const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
-  assert.equal(await publishActivityOneOffListing(client,event),true);
+  assert.equal(await publishActivityOneOffListing(client,event,{now:new Date("2026-11-11T18:00:00Z")}),true);
   assert.equal(sent.length,2);
   assert.equal(sent[0].content,"<@&"+role+">");
   assert.equal(sent[1].components[0].components[0].data.label,"Opt In");
   assert.deepEqual(sent[0].allowedMentions,{parse:[],roles:[role]});
   // Edits must never ping the role again, including a change in the shared role.
   const existing={...event,listChannelId:listId,listMessageId:posted.id,listFingerprint:"old"};
-  assert.equal(await publishActivityOneOffListing(client,existing),true);
+  assert.equal(await publishActivityOneOffListing(client,existing,{now:new Date("2026-11-11T18:00:00Z")}),true);
   assert.equal(sent.length,2);
   assert.equal(edits.length,1);
   assert.equal(edits[0].content,undefined);

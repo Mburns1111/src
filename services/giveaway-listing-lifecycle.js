@@ -19,9 +19,22 @@ export function giveawayClaimsComplete(record) {
       Boolean(claim.submittedAt)));
 }
 
-export function completedGiveawayCanDeleteListing(record) {
-  return Boolean(record && record.status==="ended" && !record.publicListingRemovedAt &&
-    record.prizeDeliveredAt && giveawayClaimsComplete(record));
+// Staff may settle individual prize places by cancelling them with a logged
+// reason, or by confirming delivery after a valid claim. The original winner
+// stays in history even when a prize has been cancelled.
+export function giveawayPrizesSettled(record){
+  if(!record||record.status!=="ended"||!(record.winnerIds||[]).length)return false;
+  if(record.prizeDeliveredAt&&giveawayClaimsComplete(record))return true;
+  if(!(record.cancelledPrizes||[]).length)return false;
+  return record.winnerIds.every((userId,slot)=>
+    (record.cancelledPrizes||[]).some(c=>c.slot===slot&&c.userId===userId)||
+    ((record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId)&&
+      (record.winnerClaims||[]).some(c=>c.slot===slot&&c.userId===userId)));
+}
+
+export function completedGiveawayCanDeleteListing(record){
+  return Boolean(record && record.status==="ended"&&!record.publicListingRemovedAt&&
+    giveawayPrizesSettled(record));
 }
 
 export function completedGiveawayHasPublicPosts(record) {

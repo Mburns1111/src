@@ -3,9 +3,9 @@ import {ActionRowBuilder,AttachmentBuilder,ButtonBuilder,ButtonStyle,EmbedBuilde
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline,winnerHasClaim,hasOutstandingTicketClaims,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
-import {completedGiveawayCanDeleteListing,giveawayClaimsComplete} from "./giveaway-listing-lifecycle.js";
+import {completedGiveawayCanDeleteListing,giveawayClaimsComplete,giveawayPrizesSettled} from "./giveaway-listing-lifecycle.js";
 import {ensureGiveawayStaffDirectory} from "./giveaway-staff-directory.js";
-import {ensureStaffProgressPanel} from "./giveaway-staff-progress.js";
+import {ensureStaffProgressPanel,activityProgressRows,progressPanelPayload} from "./giveaway-staff-progress.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import {closeGiveaway,rerollGiveaway,publishGiveawayResult} from "./giveaways.js";
@@ -123,6 +123,7 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    "**Scheduled end:** "+when(record.endsAt),
    "**Giveaway ID:** \x60"+record._id+"\x60",
    ...(record.mode!=="survival"?["**Winner cooldown check:** "+(record.winnerCooldownEnabled===true?"ON — block regular entry and exclude cooled-down winners":"OFF — normal drawing")]:[]),
+   ...(record.winnerDmFailedIds?.length?["**Winner DMs unavailable:** "+record.winnerDmFailedIds.map(id=>"<@"+id+">").join(", ")+" — winners must use the public results claim button."]:[]),
    ...(record.prizeDeliveredAt?["**Prizes delivered:** "+when(record.prizeDeliveredAt),
      "**Delivery confirmed by:** "+(record.prizeDeliveredBy?"<@"+record.prizeDeliveredBy+">":"Not recorded"),
      ...(record.prizeDeliveryProofUrl?["**Delivery proof:** <"+record.prizeDeliveryProofUrl+">"]:[])]:[]),
@@ -141,6 +142,12 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
      "**Cancelled by:** "+(record.staffCancelledBy?"<@"+record.staffCancelledBy+">":"Not recorded"),
      "**Cancelled at:** "+when(record.staffCancelledAt||record.updatedAt),
      "**Reason:** "+safe(record.staffCancelReason||"Reason unavailable for older cancellation"));
+   if(record.winnerIds?.length){
+     lines.push("", "**Original drawing — preserved after cancellation**");
+     for(let slot=0;slot<record.winnerIds.length;slot++)
+       lines.push("Place "+(slot+1)+" · <@"+record.winnerIds[slot]+"> — "+
+         (winnerHasClaim(record,slot)?"Claim was submitted":"Claim not submitted"));
+   }
  }else{
    if(record.status==="open")lines.push("**Entries:** "+(record.entrantIds?.length||0));
    if(giveawayHasNoEligibleWinner(record))
@@ -150,11 +157,23 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
          : "*No eligible members entered or qualified.*",
        completedAndRemoved
          ? "*The public listing was deleted by staff; this private record preserves the outcome.*"
-         : "*The public result remains visible until staff explicitly archive the giveaway.*");
+         : record.mode==="activity"
+           ? "*The activity-list poster is removed automatically when counting closes; the winner result and private staff record remain available.*"
+           : "*The public result remains visible until staff explicitly archive the giveaway.*");
    if(record.winnerIds?.length){
      lines.push("",record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Court\'s Trial winners — staff-managed prize claims**":"**Current winners and ticket claims**");
      for(let slot=0;slot<record.winnerIds.length;slot++)
        lines.push(record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Place "+(slot+1)+"** · <@"+record.winnerIds[slot]+"> — delivery coordinated by staff":claimStatus(record,slot));
+   }
+   if(record.cancelledPrizes?.length){
+     lines.push("","**Cancelled individual prizes — historical audit**");
+     for(const cancelledPrize of record.cancelledPrizes)
+       lines.push("Place "+(Number(cancelledPrize.slot)+1)+" · original winner <@"+cancelledPrize.userId+"> · cancelled by <@"+cancelledPrize.by+"> · "+when(cancelledPrize.at)+" · "+safe(cancelledPrize.reason));
+   }
+   if(record.prizeDeliveries?.length){
+     lines.push("","**Confirmed prize deliveries**");
+     for(const delivery of record.prizeDeliveries)
+       lines.push("Place "+(Number(delivery.slot)+1)+" · <@"+delivery.userId+"> · confirmed by <@"+delivery.by+"> · "+when(delivery.at));
    }
    if(record.mode!=="survival"||record.trialTicketClaimsEnabled)
      lines.push("","**Automatic rerolls:** "+(record.autoRerollClaims?"Enabled":"Disabled")+
@@ -187,10 +206,9 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    inline:false
  }));
  const controls=[];
- controls.push(btn("giveawaystaff:entrants:"+record._id+":0",
+ if(record.mode!=="activity")controls.push(btn("giveawaystaff:entrants:"+record._id+":0",
    record.mode==="survival"?"View Contestants":"View Entrants",ButtonStyle.Primary));
  if(record.guidedSeries&&record.status!=="cancelled"&&!completedAndRemoved&&!archived){
-   controls.push(btn("activitystaff:view:"+record._id+":0","Preview qualifying members"));
    if(record.status==="open"){
      controls.push(btn("activitystaff:edit:"+record._id,"Edit Giveaway",ButtonStyle.Primary));
      controls.push(btn("activitystaff:end:"+record._id,"End Early",ButtonStyle.Success));
@@ -206,8 +224,18 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
      controls.push(btn("giveawaystaff:end:"+record._id,"Finish Trial Early",ButtonStyle.Success));
    }
    if(record.status==="ended"){
-     if(giveawayClaimsComplete(record)&&!record.prizeDeliveredAt)
+     if(record.mode==="survival"&&!record.trialTicketClaimsEnabled&&
+        giveawayClaimsComplete(record)&&!record.prizeDeliveredAt)
        controls.push(btn("giveawaystaff:deliver:"+record._id,"Confirm Prizes Delivered",ButtonStyle.Success));
+     if((record.mode!=="survival"||record.trialTicketClaimsEnabled)&&
+        !record.prizeDeliveredAt&&(record.winnerIds||[]).some((id,slot)=>
+         id&&winnerHasClaim(record,slot)&&!(record.claimResolvedSlots||[]).includes(slot)&&
+         !(record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===id)))
+       controls.push(btn("giveawaystaff:deliver:"+record._id,"Confirm Prize Delivered",ButtonStyle.Success));
+     if((record.winnerIds||[]).some((id,slot)=>id&&
+         !(record.claimResolvedSlots||[]).includes(slot)&&
+         !(record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===id)))
+       controls.push(btn("giveawaystaff:cancelprize:"+record._id,"Cancel Prize",ButtonStyle.Danger));
      if(completedGiveawayCanDeleteListing(record))
        controls.push(btn("giveawaystaff:remove:"+record._id,"Archive Giveaway",ButtonStyle.Secondary));
      if(record.mode!=="survival"&&record.prizeDeliveredAt&&record.winnerIds?.length)
@@ -261,7 +289,7 @@ export async function requirePrivateGiveawayStaffChannel(guild,config){
 // A staff review is a separate bot message from the permanent staff card.
 // Preserve both in the private archive; never delete an original before its
 // replacement has been posted and the new Discord ID has been saved.
-async function archiveGiveawayReview(client,record,config){
+export async function archiveGiveawayReview(client,record,config){
  const staffId=config?.activityGiveawayReviewChannelId;
  const archiveId=config?.giveawayArchiveChannelId;
  if(!staffId||!archiveId||staffId===archiveId)return false;
@@ -286,29 +314,107 @@ async function archiveGiveawayReview(client,record,config){
  const recent=await destination.messages.fetch({limit:100});
  let archived=recent?.find?.(m=>m.author?.id===client.user?.id &&
    m.embeds?.some(e=>e.footer?.text==="Activity giveaway review: "+record._id))||null;
- if(!archived)archived=await destination.send({
-   content:original.content||undefined,embeds:original.embeds||[],
-   components:[],allowedMentions:{parse:[]},
- });
+ if(!archived){
+   const verdict=record.status==="cancelled"?"Declined":"Approved";
+   const notes="**Review decision:** "+verdict+" by <@"+(record.reviewedBy||record.creatorId)+"> · "+when(record.reviewedAt);
+   const embeds=(original.embeds||[]).map(e=>{
+     const data=e.toJSON?.()||e;
+     return {...data,description:(String(data.description||"")+"\n\n"+notes).slice(0,4096)};
+   });
+   archived=await destination.send({content:original.content||undefined,embeds,
+     components:[],allowedMentions:{parse:[]}});
+ }
  const result=await Giveaway.updateOne({
    _id:record._id,guildId:record.guildId,
    reviewChannelId:staffId,reviewMessageId:record.reviewMessageId,
- },{$set:{reviewChannelId:archiveId,reviewMessageId:archived.id}});
+ },{$set:{reviewChannelId:archiveId,reviewMessageId:archived.id,reviewArchivedAt:new Date()}});
  if(result?.matchedCount===0)return false; // Another worker already moved it.
  try{await original.delete();}
  catch(error){console.warn("[Giveaways] Archived review saved but old review delete failed:",String(record._id),error);}
  return true;
 }
 
+// A separate activity progress post is created for every recurring occurrence.
+// Archive a read-only snapshot before removing that occurrence's old progress
+// controls. Never touch another occurrence or the staff directory sticky.
+async function archiveGiveawayProgress(client,record,config){
+ if(record.mode!=="activity")return false;
+ const staffId=config?.activityGiveawayReviewChannelId;
+ const archiveId=config?.giveawayArchiveChannelId;
+ if(!staffId||!archiveId||staffId===archiveId)return false;
+ const liveFooter="Activity staff progress · "+record._id;
+ const archivedFooter="Archived giveaway activity · "+record._id;
+ const source=await client.channels.fetch(staffId);
+ if(!source?.messages?.fetch)throw Error("The activity staff channel cannot be read for progress archival.");
+ let original=record.staffProgressMessageId?
+   await source.messages.fetch(record.staffProgressMessageId).catch(error=>{
+     if(error?.code===10008)return null;
+     throw error;
+   }):null;
+ if(original && (original.author?.id!==client.user?.id||
+    !original.embeds?.some(e=>e.footer?.text===liveFooter)))
+   throw Error("Activity progress message identity mismatch; refusing to delete an unrelated message.");
+ if(!original){
+   const recent=await source.messages.fetch({limit:100});
+   original=recent?.find?.(m=>m.author?.id===client.user?.id&&
+     m.embeds?.some(e=>e.footer?.text===liveFooter))||null;
+ }
+ // Older giveaways without a separate panel have nothing to transfer.
+ if(!original&&!record.staffProgressMessageId&&!record.archiveProgressMessageId)return false;
+ const destination=await client.channels.fetch(archiveId);
+ if(!destination?.send||!destination.messages?.fetch)
+   throw Error("The private archive channel cannot receive an activity progress snapshot.");
+ let saved=record.archiveProgressMessageId?
+   await destination.messages.fetch(record.archiveProgressMessageId).catch(error=>{
+     if(error?.code===10008)return null;
+     throw error;
+   }):null;
+ if(saved && (saved.author?.id!==client.user?.id||
+    !saved.embeds?.some(e=>e.footer?.text===archivedFooter)))
+   throw Error("Archived progress message identity mismatch; refusing to overwrite an unrelated message.");
+ if(!saved){
+   const recent=await destination.messages.fetch({limit:100});
+   saved=recent?.find?.(m=>m.author?.id===client.user?.id&&
+     m.embeds?.some(e=>e.footer?.text===archivedFooter))||null;
+ }
+ if(!saved){
+   let summary;
+   try{
+     const rows=await activityProgressRows(record,null,{historical:true});
+     summary=progressPanelPayload(record,rows,new Date()).embeds[0];
+   }catch(error){
+     // The existing display is still valuable evidence if a historical query
+     // temporarily fails. Do not invent final member counts.
+     if(!original?.embeds?.[0])throw error;
+     console.warn("[Giveaways] Historical progress unavailable; preserving the last displayed staff snapshot:",String(record._id),error);
+     summary=EmbedBuilder.from(original.embeds[0]);
+     summary.setDescription((String(summary.data.description||"").slice(0,3600)+
+       "\n\n*Last displayed progress; final historical totals were unavailable at archival.*").slice(0,4096));
+   }
+   summary.setTitle("📁 Archived Member Activity & Qualification")
+     .setFooter({text:archivedFooter});
+   saved=await destination.send({embeds:[summary],components:[],allowedMentions:{parse:[]}});
+ }
+ const result=await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
+   {$set:{archiveProgressMessageId:saved.id}});
+ if(result?.matchedCount===0)throw Error("Could not persist the archived progress reference.");
+ if(original){
+   try{await original.delete();}
+   catch(error){console.warn("[Giveaways] Archived progress saved but original cleanup will retry:",String(record._id),error);}
+ }
+ return true;
+}
+
 // Clean up duplicates from earlier staff-card implementations or interrupted
 // moves. The sticky index has a different marker and is never deleted here.
-async function cleanupArchivedStaffMessages(client,record,staffId,{reviewArchived=false}={}){
+async function cleanupArchivedStaffMessages(client,record,staffId,{reviewArchived=false,progressArchived=false}={}){
  if(!staffId)return;
  const source=await client.channels.fetch(staffId);
  const recent=await source?.messages?.fetch({limit:100});
  if(!recent?.values)return;
  const markers=new Set([staffRecordMarker(record),"Activity staff preview · "+record._id]);
  if(reviewArchived)markers.add("Activity giveaway review: "+record._id);
+ if(progressArchived)markers.add("Activity staff progress · "+record._id);
  for(const message of recent.values()){
    if(message.author?.id!==client.user?.id ||
       !message.embeds?.some(e=>markers.has(e.footer?.text)))continue;
@@ -394,7 +500,8 @@ export async function ensureGiveawayStaffRecord(client,record){
  }
  if(isArchive){
    const reviewArchived=await archiveGiveawayReview(client,record,config);
-   await cleanupArchivedStaffMessages(client,record,config.activityGiveawayReviewChannelId,{reviewArchived});
+   const progressArchived=await archiveGiveawayProgress(client,record,config);
+   await cleanupArchivedStaffMessages(client,record,config.activityGiveawayReviewChannelId,{reviewArchived,progressArchived});
  }
  // Every new active activity giveaway gets its own staff progress post.
  // This is separate from the permanent management card and omits members
@@ -488,7 +595,7 @@ export async function handleGiveawayStaffAction(interaction){
  try{
    if(!await canManageGiveaways(interaction))
      return interaction.reply({content:giveawayManagerPermissionMessage,...ephemeral});
-   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|remove|confirmremove|entrants|end|confirmend|edit|editselect|editsave|reroll|rerollselect|confirmreroll|abort|cooldown|cooldowncreate|cooldownselect|cooldowndays|cooldownapply|cooldownremove|cooldownremovechoose|cooldownconfirmremove):([0-9a-f]{24})(?::([A-Za-z0-9]+))?(?::([A-Za-z0-9]+))?$/.exec(interaction.customId);
+   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|selectdeliver|confirmdeliverslot|cancelprize|selectcancelprize|confirmcancelprize|remove|confirmremove|entrants|end|confirmend|edit|editselect|editsave|reroll|rerollselect|confirmreroll|abort|cooldown|cooldowncreate|cooldownselect|cooldowndays|cooldownapply|cooldownremove|cooldownremovechoose|cooldownconfirmremove):([0-9a-f]{24})(?::([A-Za-z0-9]+))?(?::([A-Za-z0-9]+))?$/.exec(interaction.customId);
    if(!match)return interaction.reply({content:"Unknown staff action.",...ephemeral});
    const [,action,id,pageText,extraText]=match;
    // Cooldown confirmations can be opened before the staff message moves to
@@ -549,6 +656,13 @@ export async function handleGiveawayStaffAction(interaction){
      await acknowledgeTemporaryAction(interaction);
      const change=validateGiveawayStaffEdit(record,pageText,
        interaction.fields.getTextInputValue("value"));
+     if(change.roleBonuses){
+       for(const bonus of change.roleBonuses){
+         const role=await interaction.guild.roles.fetch(bonus.roleId).catch(()=>null);
+         if(!role||role.id===interaction.guildId)
+           throw Error("That bonus role no longer belongs to this Discord server.");
+       }
+     }
      if(change.bannerNameKey)
        change.bannerNameKey=await ensureBannerRegistered(record.guildId,change.bannerNameKey);
      const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
@@ -673,20 +787,137 @@ export async function handleGiveawayStaffAction(interaction){
        ));
    }
    if(action==="deliver"){
-     if(record.status!=="ended"||record.publicListingRemovedAt||record.prizeDeliveredAt||
-        !giveawayClaimsComplete(record))
-       return interaction.reply({content:"All current winners must submit their claims before staff can confirm prize delivery. Otherwise cancel the giveaway.",...ephemeral});
+     // Legacy Trials had manual delivery confirmation, not ticket claims.
+     // Preserve that unchanged workflow while modern giveaways use per-winner delivery.
+     if(record.mode==="survival"&&!record.trialTicketClaimsEnabled){
+       if(record.status!=="ended"||record.publicListingRemovedAt||record.prizeDeliveredAt||
+         !giveawayClaimsComplete(record))
+         return interaction.reply({content:"This Trial cannot be marked delivered.",...ephemeral});
+       return interaction.showModal(new ModalBuilder()
+         .setCustomId("giveawaystaff:confirmdeliver:"+id)
+         .setTitle("Confirm all prizes delivered")
+         .addComponents(
+           new ActionRowBuilder().addComponents(new TextInputBuilder()
+             .setCustomId("confirm").setLabel("Type DELIVERED to confirm")
+             .setStyle(TextInputStyle.Short).setMaxLength(9).setRequired(true)),
+           new ActionRowBuilder().addComponents(new TextInputBuilder()
+             .setCustomId("proof").setLabel("Discord proof message URL (optional)")
+             .setStyle(TextInputStyle.Short).setMaxLength(500).setRequired(false))));
+     }
+     const slots=(record.winnerIds||[]).map((userId,slot)=>({userId,slot}))
+       .filter(({userId,slot})=>userId&&winnerHasClaim(record,slot)&&
+         !(record.claimResolvedSlots||[]).includes(slot)&&
+         !(record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId));
+     if(record.status!=="ended"||record.publicListingRemovedAt||record.prizeDeliveredAt||!slots.length)
+       return interaction.reply({content:"No submitted, undelivered prize claims are available.",...ephemeral});
+     return interaction.reply({content:"**Confirm an individual prize delivery** · Choose the winner whose claimed prize you delivered.",
+       components:[new ActionRowBuilder().addComponents(
+         new StringSelectMenuBuilder().setCustomId("giveawaystaff:selectdeliver:"+id)
+           .setPlaceholder("Select claimed prize").addOptions(slots.map(({userId,slot})=>({
+             label:"Place "+(slot+1),description:"Winner "+userId,value:String(slot)}))))],...ephemeral});
+   }
+   if(action==="selectdeliver"){
+     const slot=Number(interaction.values?.[0]),userId=record.winnerIds?.[slot];
+     if(!Number.isSafeInteger(slot)||slot<0||!userId||!winnerHasClaim(record,slot)||
+       (record.claimResolvedSlots||[]).includes(slot)||
+       (record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId))
+       return showTemporaryPanel(interaction,{content:"This winner's prize is not awaiting delivery confirmation.",components:[]});
      return interaction.showModal(new ModalBuilder()
-       .setCustomId("giveawaystaff:confirmdeliver:"+id)
-       .setTitle("Confirm all prizes delivered")
+       .setCustomId("giveawaystaff:confirmdeliverslot:"+id+":"+slot)
+       .setTitle("Confirm prize for place "+(slot+1))
        .addComponents(
          new ActionRowBuilder().addComponents(new TextInputBuilder()
            .setCustomId("confirm").setLabel("Type DELIVERED to confirm")
            .setStyle(TextInputStyle.Short).setMaxLength(9).setRequired(true)),
          new ActionRowBuilder().addComponents(new TextInputBuilder()
            .setCustomId("proof").setLabel("Discord proof message URL (optional)")
-           .setStyle(TextInputStyle.Short).setMaxLength(500).setRequired(false))
-       ));
+           .setStyle(TextInputStyle.Short).setMaxLength(500).setRequired(false))));
+   }
+   if(action==="confirmdeliverslot"){
+     await interaction.deferReply(ephemeral);
+     const slot=Number(pageText),userId=record.winnerIds?.[slot];
+     const proof=(interaction.fields.getTextInputValue("proof")||"").trim();
+     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="DELIVERED")
+       return interaction.editReply("Delivery not confirmed.");
+     if(!validGiveawayDeliveryProofUrl(proof))
+       return interaction.editReply("Proof must be a Discord message link or blank.");
+     if(!Number.isSafeInteger(slot)||slot<0||!userId||record.status!=="ended"||
+       !winnerHasClaim(record,slot)||(record.claimResolvedSlots||[]).includes(slot))
+       return interaction.editReply("This prize is no longer eligible for delivery confirmation.");
+     const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
+       status:"ended",prizeDeliveredAt:null,publicListingRemovedAt:null,
+       ["winnerIds."+slot]:userId,"prizeDeliveries.slot":{$ne:slot}},
+       {$push:{prizeDeliveries:{slot,userId,by:interaction.user.id,at:new Date(),proofUrl:proof}},
+         $inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+     if(!updated)return interaction.editReply("This prize was already confirmed or changed. Refresh the record.");
+     const allDelivered=giveawayClaimsComplete(updated)&&
+       updated.winnerIds.every((id,index)=>(updated.prizeDeliveries||[]).some(d=>d.slot===index&&d.userId===id));
+     if(allDelivered){
+       await Giveaway.updateOne({_id:id,guildId:interaction.guildId,status:"ended",prizeDeliveredAt:null},
+         {$set:{prizeDeliveredAt:new Date(),prizeDeliveredBy:interaction.user.id,
+           autoRerollClaims:false,claimCheckAt:null}});
+     }
+     const latest=await Giveaway.findOne({_id:id,guildId:interaction.guildId}).lean();
+     await ensureGiveawayStaffRecord(interaction.client,latest);
+     return interaction.editReply(allDelivered?
+       "Prize delivery confirmed. All winners' prizes are delivered; you may now archive.":
+       "Prize delivery confirmed for place "+(slot+1)+". Other winners remain pending.");
+   }
+   if(action==="cancelprize"){
+     const slots=(record.winnerIds||[]).map((userId,slot)=>({userId,slot}))
+       .filter(({userId,slot})=>userId&&!(record.claimResolvedSlots||[]).includes(slot)&&
+         !(record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId));
+     if(record.status!=="ended"||record.publicListingRemovedAt||record.prizeDeliveredAt||!slots.length)
+       return interaction.reply({content:"There are no cancellable prize places.",...ephemeral});
+     return interaction.reply({content:"**Cancel one winner's prize** · Their right to claim ends, but the original winner, submitted claim and cancellation reason remain in the archive.",
+       components:[new ActionRowBuilder().addComponents(
+         new StringSelectMenuBuilder().setCustomId("giveawaystaff:selectcancelprize:"+id)
+           .setPlaceholder("Choose prize place to cancel").addOptions(slots.map(({userId,slot})=>({
+             label:"Place "+(slot+1),description:"Original winner "+userId,value:String(slot)}))))],...ephemeral});
+   }
+   if(action==="selectcancelprize"){
+     const slot=Number(interaction.values?.[0]),userId=record.winnerIds?.[slot];
+     if(!Number.isSafeInteger(slot)||slot<0||!userId||record.status!=="ended"||
+       (record.claimResolvedSlots||[]).includes(slot)||
+       (record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId))
+       return showTemporaryPanel(interaction,{content:"This prize is no longer available for cancellation.",components:[]});
+     return interaction.showModal(new ModalBuilder()
+       .setCustomId("giveawaystaff:confirmcancelprize:"+id+":"+slot)
+       .setTitle("Cancel prize — place "+(slot+1))
+       .addComponents(
+         new ActionRowBuilder().addComponents(new TextInputBuilder()
+           .setCustomId("reason").setLabel("Reason for cancelling this prize")
+           .setStyle(TextInputStyle.Paragraph).setMinLength(3).setMaxLength(500).setRequired(true)),
+         new ActionRowBuilder().addComponents(new TextInputBuilder()
+           .setCustomId("confirm").setLabel("Type CANCEL to confirm")
+           .setStyle(TextInputStyle.Short).setMaxLength(6).setRequired(true))));
+   }
+   if(action==="confirmcancelprize"){
+     await interaction.deferReply(ephemeral);
+     const slot=Number(pageText),userId=record.winnerIds?.[slot];
+     const reason=(interaction.fields.getTextInputValue("reason")||"").trim();
+     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="CANCEL"||reason.length<3)
+       return interaction.editReply("Cancellation not confirmed. Enter a reason and type CANCEL.");
+     if(!Number.isSafeInteger(slot)||slot<0||!userId||record.status!=="ended"||
+       (record.claimResolvedSlots||[]).includes(slot)||
+       (record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId))
+       return interaction.editReply("This prize can no longer be cancelled.");
+     const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
+       status:"ended",publicListingRemovedAt:null,prizeDeliveredAt:null,
+       ["winnerIds."+slot]:userId,claimResolvedSlots:{$ne:slot},
+       "prizeDeliveries.slot":{$ne:slot}},
+       {$addToSet:{claimResolvedSlots:slot},
+         $push:{cancelledPrizes:{slot,userId,by:interaction.user.id,at:new Date(),reason}},
+         $set:{renderedAt:null},$inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+     if(!updated)return interaction.editReply("The prize was already cancelled or changed.");
+     // Commit the audit before refreshing Discord; UI failures must not lose history.
+     let updateError=null;
+     try{await publishGiveawayResult(interaction.client,updated);}
+     catch(error){updateError=error;console.error("[Giveaways] Cancelled prize saved; result refresh pending:",error);}
+     try{await ensureGiveawayStaffRecord(interaction.client,updated);}
+     catch(error){updateError=error;console.error("[Giveaways] Cancelled prize staff refresh pending:",error);}
+     return interaction.editReply("Prize #"+(slot+1)+" cancelled. Original winner, claim history, staff reason and timestamp are preserved."+
+       (updateError?" A display update is pending; the saved cancellation remains valid.":""));
    }
    if(action==="confirmdeliver"){
      await interaction.deferReply(ephemeral);
@@ -716,7 +947,7 @@ export async function handleGiveawayStaffAction(interaction){
         interaction.fields?.getTextInputValue("confirm")?.trim().toUpperCase()!=="ARCHIVE")
        return interaction.editReply("Archive not confirmed.");
      if(!(record.status==="cancelled"||
-       (record.status==="ended"&&record.prizeDeliveredAt&&giveawayClaimsComplete(record)&&
+       (record.status==="ended"&&giveawayPrizesSettled(record)&&
          (completedGiveawayCanDeleteListing(record)||record.publicListingRemovedAt))))
        return interaction.editReply("Only completed giveaways with confirmed winner claims and prize delivery can be archived. Otherwise cancel with a reason.");
      const config=await GuildConfig.findOne({guildId:record.guildId})
@@ -772,6 +1003,9 @@ export async function handleGiveawayStaffAction(interaction){
      await ensureGiveawayStaffRecord(interaction.client,updated);
      return interaction.editReply("Further automatic claim rerolls have been disabled. Current submitted claims remain saved.");
    }
+   // Modal actions can take several seconds to archive and delete messages.
+   // Defer before making any database change so Discord never reports a false timeout.
+   await interaction.deferReply(ephemeral);
    if(!["open","pending_review","running","ended","rerolling"].includes(record.status)||record.prizeDeliveredAt)
      return interaction.editReply("Delivery is already confirmed or this giveaway can no longer be cancelled.");
    if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="CANCEL")
@@ -785,11 +1019,18 @@ export async function handleGiveawayStaffAction(interaction){
        autoRerollClaims:false,claimCheckAt:null,renderedAt:new Date()},
        $inc:{renderVersion:1}},{returnDocument:"after"}).lean();
    if(!updated)return interaction.editReply("This giveaway was already changed or cancelled.");
-   // Record the reason and staff identity before removing anything public.
-   await ensureGiveawayStaffRecord(interaction.client,updated);
+   // Cancellation is committed; report any subsequent Discord/archive failure
+   // as cleanup pending rather than claiming that cancellation itself failed.
+   let staffError=null,publicError=null;
+   try{await ensureGiveawayStaffRecord(interaction.client,updated);}
+   catch(error){staffError=error;console.error("[Giveaways] Cancellation saved; staff archive refresh failed:",error);}
    try{await removeGiveawayPublicPosts(interaction.client,updated);}
-   catch(error){return interaction.editReply("Cancellation saved and recorded privately. The public post could not be removed; check bot permissions and retry cleanup.");}
-   return interaction.editReply("Giveaway cancelled and removed from public listings. The staff record retains who cancelled it, when, and why.");
+   catch(error){publicError=error;console.error("[Giveaways] Cancellation saved; public cleanup failed:",error);}
+   return interaction.editReply(
+     "Giveaway **cancelled and saved**. Original winners, claims and cancellation details remain in its history."+
+     (staffError?" Staff archive refresh is pending.":"")+
+     (publicError?" Public post removal is pending; the bot will retry cleanup.":"")
+   );
  }catch(error){
    console.error("[Giveaways] Staff record action failed:",error);
    const content="Couldn't complete that staff action: "+String(error.message||error).slice(0,350);

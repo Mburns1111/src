@@ -57,6 +57,9 @@ export function giveawayAnnouncement(record) {
   // historical rerolls, and multiple contradictory outcome sections.
   // Private staff records retain the full history.
   if(noEligibleWinner){
+    const fullyCancelled=(record.winnerIds||[]).length>0&&
+      (record.winnerIds||[]).every((userId,slot)=>
+        (record.cancelledPrizes||[]).some(c=>c.slot===slot&&c.userId===userId));
     const endedAt=new Date(record.endsAt);
     const when=Number.isFinite(endedAt.getTime())
       ? "<t:"+Math.floor(endedAt.getTime()/1000)+":F>":"";
@@ -66,18 +69,63 @@ export function giveawayAnnouncement(record) {
       "",
       "🎁 **Prize:** "+String(record.prize||"").slice(0,800),
       "",
-      "🏁 **Giveaway ended — No eligible winner.**",
-      noEntries?"No one entered or qualified.":
-        "The prize was not claimed and no eligible replacement was available.",
+      fullyCancelled?"🏁 **Giveaway ended — Prize cancelled by staff.**":"🏁 **Giveaway ended — No eligible winner.**",
+      fullyCancelled?"Staff cancelled the winner prize(s). Historical winners and claims are preserved privately.":
+        noEntries?"No one entered or qualified.":
+          "The prize was not claimed and no eligible replacement was available.",
       ...(when?["","**Ended:** "+when]:[]),
     ];
     return {
       embeds:[new EmbedBuilder().setColor(0x86738d)
-        .setTitle("🏁 Giveaway Ended · No Eligible Winner")
+        .setTitle(fullyCancelled?"🏁 Giveaway Ended · Prizes Cancelled":"🏁 Giveaway Ended · No Eligible Winner")
         .setDescription(lines.join("\n").slice(0,3900))
         ],
       components:[],allowedMentions:{parse:[]},
     };
+  }
+  // Finished regular and activity results share a compact public layout.
+  // A winner is mentioned once, alongside their claim state and deadline.
+  // Detailed requirements, reroll history and ticket data remain in staff records.
+  if(ended){
+    // Retain custom winner storytelling, but prevent its placeholders from
+    // mentioning winners a second time. Avoid duplicating the host when the
+    // host is also a winner (common during staff testing).
+    const winnerStory=record.mode!=="activity"&&record.mode!=="survival" ?
+      (record.displayWinnerText?
+        renderRegularDisplayText(record.displayWinnerText,{
+          hostId:(record.winnerIds||[]).includes(record.creatorId)?"":record.creatorId,
+          winnerIds:[]
+        }):"🦊 The fox cackles: The heist is complete!") : "";
+    const winners=(record.winnerIds||[]).map((userId,slot)=>{
+      const cancelledPrize=(record.cancelledPrizes||[]).some(c=>c.slot===slot&&c.userId===userId);
+      if(cancelledPrize)return (slot+1)+". Prize cancelled by staff";
+      const resolved=(record.claimResolvedSlots||[]).includes(slot);
+      const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===userId);
+      const deadline=winnerClaimDeadline(record,slot);
+      const claimStatus=resolved?"No eligible winner":claim?"Claim submitted":
+        deadline&&deadline<=new Date()?"Claim deadline passed":"Awaiting claim";
+      const due=!resolved&&!claim&&deadline&&deadline>new Date()?
+        " · Due <t:"+Math.floor(+deadline/1000)+":R>":"";
+      return (slot+1)+". <@"+userId+"> — "+claimStatus+due;
+    });
+    const claimDirections=prizeClaimLines(record,{finished:true});
+    const lines=[
+      "**"+String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)+"**",
+      "**Prize:** "+String(record.prize||"").slice(0,1500),
+      ...(winnerStory?["",winnerStory]:[]),
+      "", "**Winners / Results**",...(winners.length?winners:["No eligible winner"]),
+      "", "**Ended:** <t:"+endUnix+":F>",
+      ...(claimDirections.length?["",...claimDirections]:[]),
+    ];
+    const embed=new EmbedBuilder().setColor(0x86738d)
+      .setTitle(record.mode==="standard"&&record.displayEndedTitle?
+        cleanRegularDisplayTitle(record.displayEndedTitle):(record.mode==="standard"?"🦊 Heist Complete":"🏆 Giveaway Complete"))
+      .setDescription(lines.join("\n").slice(0,3900));
+    const components=record.status==="ended"&&hasOutstandingTicketClaims(record)?
+      [new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`giveaway:claim:${record._id}`)
+          .setLabel("Enter Ticket Claim info").setStyle(ButtonStyle.Primary))]:[];
+    return {embeds:[embed],components,allowedMentions:{parse:[]}};
   }
   const activeWinners=(record.winnerIds||[]).filter((id,i)=>
     id && !(record.claimResolvedSlots||[]).includes(i));
@@ -539,21 +587,34 @@ export async function cleanupRegularGiveawayListPost(client,item){
     throw Error("The completed giveaway listing changed while cleaning up; the bot will retry.");
   return true;
 }
-async function notifyRegularWinners(client,item,channel){
+// Winner notifications are private. A failed DM is logged in MongoDB for staff;
+// it must never block the public results or pause a valid claim deadline.
+async function notifyGiveawayWinnersByDm(client,item){
  const ids=[...new Set((item.winnerIds||[]).filter((id,slot)=>
    id&&!(item.claimResolvedSlots||[]).includes(slot)).map(String))];
- const seen=new Set((item.regularWinnerNotifiedIds||[]).map(String));
+ const seen=new Set([...(item.winnerDmNotifiedIds||[]),...(item.winnerDmFailedIds||[])]
+   .map(String));
  const fresh=ids.filter(id=>!seen.has(id));
- if(!fresh.length)return;
+ const failed=[];
  const url="https://discord.com/channels/"+item.guildId+"/"+item.channelId+"/"+item.messageId;
- const sent=await channel.send({
-   content:"🏆 Congratulations "+fresh.map(id=>"<@"+id+">").join(" ")+
-     "! Your giveaway result and claim button are here: "+url,
-   allowedMentions:{parse:[],users:fresh},
- });
- if(!sent?.id)throw Error("Winner notification was not sent.");
- await Giveaway.updateOne({_id:item._id,mode:"standard"},
-   {$addToSet:{regularWinnerNotifiedIds:{$each:fresh}}});
+ for(const userId of fresh){
+   const place=(item.winnerIds||[]).indexOf(userId)+1;
+   let delivered=false;
+   try{
+     const user=await client.users.fetch(userId);
+     await user.send({content:"🏆 Congratulations! You won **place #"+place+"** in **"+
+       String(item.title||"the giveaway").slice(0,100)+"**.\n"+
+       "See your results and use **Enter Ticket Claim Info** to claim your prize: "+url,
+       allowedMentions:{parse:[]}});
+     delivered=true;
+   }catch(error){
+     failed.push(userId);
+     console.warn("[Giveaways] Winner DM unavailable:",String(item._id),userId,error?.code||error?.message);
+   }
+   await Giveaway.updateOne({_id:item._id,guildId:item.guildId},
+     {$addToSet:delivered?{winnerDmNotifiedIds:userId}:{winnerDmFailedIds:userId}});
+ }
+ return failed;
 }
 
 async function publishRegularResultLocked(client,item){
@@ -565,9 +626,8 @@ async function publishRegularResultLocked(client,item){
  // First make the winner message available. No claim window has started yet.
  await message.edit(await giveawayAnnouncementWithBanner(record));
  await cleanupRegularGiveawayListPost(client,record);
- // Notify the winners before starting their claim clock. If pinging fails,
- // no deadline is activated and the unpublished result remains retryable.
- await notifyRegularWinners(client,record,channel);
+ // DM each winner; a member with disabled DMs still gets a normal claim deadline.
+ const failedDms=await notifyGiveawayWinnersByDm(client,record);
  const now=new Date(),dates=[...(record.winnerAssignedAt||[])];
  let newlyPublished=false;
  for(let slot=0;slot<(record.winnerIds||[]).length;slot++){
@@ -593,7 +653,8 @@ async function publishRegularResultLocked(client,item){
  await Giveaway.updateOne({_id:record._id,status:"ended",
    resultPublicationToken:record.resultPublicationToken,renderVersion:record.renderVersion},
    {$set:{renderedAt:new Date()}});
- try{await ensureGiveawayStaffRecord(client,{...updated,listChannelId:"",listMessageId:""});}
+ try{await ensureGiveawayStaffRecord(client,{...updated,listChannelId:"",listMessageId:"",
+   winnerDmFailedIds:[...new Set([...(record.winnerDmFailedIds||[]),...failedDms])]});}
  catch(error){console.error("[Giveaways] Staff result link update failed:",record._id,error);}
  return true;
 }
@@ -668,6 +729,11 @@ export async function publishGiveawayResult(client, item) {
       {$set:{messageId:message.id,claimStartedAt:announced.claimStartedAt,
         winnerAssignedAt:dates,resultPublishedAt:announced.resultPublishedAt,
         claimCheckAt:nextClaimCheckAt(announced),renderedAt:null}});
+    const failedDms=await notifyGiveawayWinnersByDm(client,announced);
+    if(failedDms.length)try{
+      await ensureGiveawayStaffRecord(client,{...announced,
+        winnerDmFailedIds:[...new Set([...(announced.winnerDmFailedIds||[]),...failedDms])]});
+    }catch(error){console.warn("[Giveaways] Failed DM staff notice will retry:",error);}
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
       {$set:{renderedAt:new Date()}});
     return true;

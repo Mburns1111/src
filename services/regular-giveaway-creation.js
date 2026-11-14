@@ -1,4 +1,5 @@
 import Giveaway from "../models/Giveaway.js";
+import {normalizeRoleBonuses} from "./giveaway-role-weights.js";
 import {cleanRegularDisplayField,REGULAR_DISPLAY_FIELDS} from "./giveaway-display-text.js";
 import {getConfiguredTextChannelAndConfig} from "../commands/shared.js";
 import {requirePrivateGiveawayStaffChannel,ensureGiveawayStaffRecord} from "./giveaway-staff-records.js";
@@ -48,6 +49,11 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
     const role=await guild.roles?.fetch?.(roleId).catch(()=>null);
     if(!role||role.id===guildId)throw Error("The required entry role is no longer available.");
   }
+  const roleBonuses=normalizeRoleBonuses(settings.roleBonuses||[]);
+  for(const bonus of roleBonuses){
+    const role=await guild.roles?.fetch?.(bonus.roleId).catch(()=>null);
+    if(!role||role.id===guildId)throw Error("A bonus entry role is no longer available. Edit bonus roles before posting.");
+  }
   const showRoleInstructions=settings.showRequiredRoleInstructions==null?
     config?.giveawayShowRoleInstructions!==false:
     settings.showRequiredRoleInstructions!==false;
@@ -64,7 +70,7 @@ export async function createRegularGiveaway({guild,client,guildId,creatorId,sett
     [field,cleanRegularDisplayField(field,config?.["regularGiveaway"+field[0].toUpperCase()+field.slice(1)]||"")]));
   const values={
     guildId,channelId:channel.id,resultChannelId:config?.activityGiveawayWinnersChannelId||"",
-    creatorId,title,prize,description,rules,
+    creatorId,title,prize,description,rules,roleBonuses,
     ...serverDisplay,
     endsAt:new Date(Date.now()+minutes*60000),winnerCount:winners,
     claimWindowHours:claimHours,claimWindowMinutes:null,

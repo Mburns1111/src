@@ -388,11 +388,14 @@ export async function handleGiveawayButton(interaction) {
           !(record.winnerIds || []).includes(interaction.user.id))
         return interaction.reply({content:"Only current winners can file ticket claims after the drawing.",flags:MessageFlags.Ephemeral});
       const slot=record.winnerIds.indexOf(interaction.user.id);
+      if ((record.claimResolvedSlots || []).includes(slot)) {
+        const cancelled=(record.cancelledPrizes||[]).some(c=>c.slot===slot&&c.userId===interaction.user.id);
+        return interaction.reply({content:cancelled?"Staff cancelled this prize. It can no longer be claimed.":"This winning place has expired.",flags:MessageFlags.Ephemeral});
+      }
       if (winnerHasClaim(record,slot))
         return interaction.reply({content:"You already filed a claim. Ask staff to correct it if necessary.",flags:MessageFlags.Ephemeral});
       const deadline=winnerClaimDeadline(record,slot);
       if (deadline && deadline<=new Date()) return interaction.reply({content:"Your ticket claim deadline has passed.",flags:MessageFlags.Ephemeral});
-      if ((record.claimResolvedSlots || []).includes(slot)) return interaction.reply({content:"This winning place has expired.",flags:MessageFlags.Ephemeral});
       return interaction.showModal(new ModalBuilder().setCustomId(`giveaway:ticket:${id}`).setTitle("Enter Ticket Claim info")
         .addComponents(
           new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("ticket_number").setLabel("Ticket number").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(80)),
@@ -475,7 +478,7 @@ export async function handleGiveawayButton(interaction) {
     }
     const message = ({
       joined: "🥀 You're entered! Good luck. You can leave before the deadline.",
-      already: "You're already entered. Each member gets one entry.",
+      already: "You're already entered in this giveaway! Good luck! 🍀",
       full: "This trial has reached its 120-contestant limit.",
       left: "Your giveaway entry has been removed.",
       "not-entered": "You weren't entered in this giveaway.",

@@ -56,7 +56,7 @@ test("claim number, exact message link and submission time are private",()=>{
  assert.match(fields.map(f=>f.value).join('\n'),/Submitted:\*\* <t:\d+:F>/i);
  const publicPost=giveawayAnnouncement(claimed).embeds[0].toJSON();
  const publicText=publicPost.description+JSON.stringify(publicPost.fields||[]);
- assert.match(publicText,/Claim submitted successfully/);
+ assert.match(publicText,/Claim submitted/);
  assert.doesNotMatch(publicText,/123-ABC|jump=1|How to get the role|Get it in #party|Required to enter/);
 });
 
@@ -141,7 +141,7 @@ test("cancelling a live giveaway archives the reason and removes only its public
    assert.deepEqual(removed,["public"]);
    assert.match(staffEdits[0].embeds[0].data.description,/Prize delivery unavailable/);
    assert.equal(staffMessage.id,ended.staffCardId);
-   assert.match(replies[0],/cancelled and removed/i);
+   assert.match(replies[0],/cancelled and saved/i);
    assert.ok(updated.some(x=>x.messageId===null),"record keeps audit but clears deleted public message");
  }finally{
    Giveaway.findOne=original.find;
@@ -157,7 +157,7 @@ test("claim completion enables delivery confirmation, and only delivery enables 
  const record={...ended,winnerClaims:[claim]};
  const controls=giveawayStaffRecordPayload(record).components.flatMap(row=>row.components);
  assert.ok(controls.some(button=>button.data.custom_id==="giveawaystaff:deliver:"+id &&
-   button.data.label==="Confirm Prizes Delivered"));
+   button.data.label==="Confirm Prize Delivered"));
  assert.ok(!controls.some(button=>button.data.custom_id==="giveawaystaff:remove:"+id));
  const after=giveawayStaffRecordPayload({...record,prizeDeliveredAt:new Date(),
    prizeDeliveredBy:record.creatorId}).components.flatMap(row=>row.components);

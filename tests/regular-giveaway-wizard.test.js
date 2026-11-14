@@ -129,6 +129,7 @@ async function harness({defaultRole="",storedBanners=[],
     await select("winners:1");
     await select("roleNone");
     await select("keep"); // Show role help setting
+    await select("keep"); // No optional bonus roles for this test
     await select("clearRules");
     await select("cooldownOff"); // The required new winner cooldown setting.
     await select("claim:1");
@@ -176,6 +177,34 @@ test("guided regular giveaway posts only after review and produces regular entry
     assert.equal(h.publicPosts[0].components[0].components[0].data.label,"Enter Giveaway");
     assert.equal(h.staffPosts.length,1,"staff record was posted separately");
   }finally{restore();}
+});
+
+test("regular giveaway wizard assigns bonus chances to a selected Discord role",async()=>{
+ try{
+  const h=await harness();
+  const bonusRole="888888888888888888";
+  await h.type("Role Bonus Test");
+  await h.type("Test prize");
+  await h.select("clearDescription");
+  await h.select("minutes:2");
+  await h.select("winners:1");
+  await h.select("roleNone");
+  await h.select("keep"); // Role instructions
+  assert.match(h.prompt().content,/Role bonus entries/);
+  await h.select("bonusRoleSelected",[bonusRole]);
+  await h.type("4");
+  assert.match(h.prompt().content,/\+4/);
+  await h.select("keep");
+  await h.select("clearRules");
+  await h.select("cooldownOff");
+  await h.select("claim:1");
+  await h.select("claimDefault");
+  await h.select("bannerDefault");
+  assert.match(h.prompt().content,/Review regular giveaway before posting/);
+  await h.select("post");
+  assert.deepEqual(h.writes[0].roleBonuses,[{roleId:bonusRole,extraEntries:4}]);
+  assert.equal(h.publicPosts.length,1);
+ }finally{restore();}
 });
 
 test("review editing returns to review, not step one, and can change winner count",async()=>{

@@ -36,7 +36,7 @@ test("one-winner regular and activity results remove public claim details on suc
  for(const mode of ["standard","activity"]){
    const result=giveawayAnnouncement({...solo,mode});
    const text=result.embeds[0].toJSON().description;
-   assert.match(text,/Claim submitted successfully/);
+   assert.match(text,/Claim submitted/g);
    assert.doesNotMatch(text,/Claiming your prize|Claim deadline|How to claim|Submit your claim|FORFEIT YOUR WIN|Awaiting ticket claim/);
    assert.deepEqual((result.embeds[0].toJSON().fields||[]).filter(f=>!/Winners \/ Results/.test(f.name)),[]);
    assert.equal(result.components.length,0);
@@ -46,19 +46,20 @@ test("one-winner regular and activity results remove public claim details on suc
 });
 
 test("multiple winners keep instructions while another winner is pending, then remove them after all claims",()=>{
- const firstClaim={...record,winnerClaims:[{slot:0,userId:first,ticketNumber:"123",submittedAt:new Date()}]};
+ const firstClaim={...record,winnerAssignedAt:[new Date(),new Date()],
+   winnerClaims:[{slot:0,userId:first,ticketNumber:"123",submittedAt:new Date()}]};
  for(const mode of ["standard","activity"]){
    const active=giveawayAnnouncement({...firstClaim,mode});
-   assert.match(active.embeds[0].toJSON().description,/Claim submitted successfully/);
-   assert.match(active.embeds[0].toJSON().description,/Awaiting ticket claim/);
+   assert.match(active.embeds[0].toJSON().description,/Claim submitted/g);
+   assert.match(active.embeds[0].toJSON().description,/Awaiting claim/g);
    assert.doesNotMatch(active.embeds[0].toJSON().description,new RegExp("#1 <@"+first+"> — \\*\\*Awaiting"));
-   assert.ok(active.embeds[0].toJSON().fields?.some(f=>f.name==="Claim deadline"));
-   assert.ok(active.embeds[0].toJSON().fields?.some(f=>f.name==="⚠️ Forfeit deadline"));
+   assert.match(active.embeds[0].toJSON().description,/How to claim/);
+   assert.equal(active.embeds[0].toJSON().fields?.length||0,0);
    assert.equal(active.components.length,1);
    const claimed={...firstClaim,mode,winnerClaims:[
      ...firstClaim.winnerClaims,{slot:1,userId:second,ticketNumber:"456",submittedAt:new Date()}]};
    const finished=giveawayAnnouncement(claimed);
-   assert.match(finished.embeds[0].toJSON().description,/#2 .*Claim submitted successfully/);
+   assert.match(finished.embeds[0].toJSON().description,/2\. .*Claim submitted/);
    assert.deepEqual((finished.embeds[0].toJSON().fields||[]).filter(f=>!/Winners \/ Results/.test(f.name)),[]);
    assert.equal(finished.components.length,0);
  }
@@ -73,5 +74,5 @@ test("forfeited prize places do not keep expired general instructions; new rerol
    winnerClaims:[{slot:0,userId:first,ticketNumber:"123"}]};
  assert.equal(hasOutstandingTicketClaims(rerolled),true);
  assert.equal(giveawayAnnouncement(rerolled).components.length,1);
- assert.ok(giveawayAnnouncement(rerolled).embeds[0].toJSON().fields.length>0);
+ assert.match(giveawayAnnouncement(rerolled).embeds[0].toJSON().description,/How to claim/);
 });

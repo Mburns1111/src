@@ -101,17 +101,17 @@ test("a regular giveaway transfers one winner result, deletes old list post and 
   assert.equal(r.resultChannelId,winnerChannelId);
   assert.equal(r.listChannelId,"");
   assert.equal(r.listMessageId,"");
-  assert.equal(h.calls.sent.length,2);
+  assert.equal(h.calls.sent.length,1);
   assert.deepEqual(h.calls.deleted,["source"]);
   const sent=h.calls.sent[0];
-  assert.match(sent.embeds[0].toJSON().fields[0].name,/Winners \/ Results/);
+  assert.match(sent.embeds[0].toJSON().description,/Winners \/ Results/);
   assert.ok(sent.components.flatMap(row=>row.components)
     .some(button=>button.toJSON().custom_id==="giveaway:claim:"+giveawayId));
   assert.deepEqual(sent.allowedMentions,{parse:[]});
   assert.ok(r.renderedAt instanceof Date);
   h.setStored({renderVersion:2,renderedAt:null});
   await publishGiveawayResult(h.client,h.getStored());
-  assert.equal(h.calls.sent.length,2,"refresh must not publish or ping duplicate winners");
+  assert.equal(h.calls.sent.length,1,"refresh must not post duplicate winner results");
   assert.deepEqual(h.calls.deleted,["source"]);
  }finally{h.restore();}
 });
@@ -127,7 +127,7 @@ test("a failed source deletion resumes on the same winner post after restart",as
   assert.equal(h.getStored().renderedAt,null);
   h.setDeleteFails(false);
   await publishGiveawayResult(h.client,h.getStored());
-  assert.equal(h.calls.sent.length,2);
+  assert.equal(h.calls.sent.length,1);
   assert.deepEqual(h.calls.deleted,["source"]);
   assert.equal(h.getStored().listMessageId,"");
   assert.ok(h.getStored().renderedAt instanceof Date);
@@ -148,7 +148,7 @@ test("the bot recovers a winner result posted before the MongoDB transfer update
   assert.equal(h.calls.sent.length,1);
   assert.equal(h.getStored().channelId,sourceId);
   await publishGiveawayResult(h.client,h.getStored());
-  assert.equal(h.calls.sent.length,2,"a repost after failure must be recovered from the public reference");
+  assert.equal(h.calls.sent.length,1,"result must be recovered from the public reference");
   assert.equal(h.getStored().channelId,winnerChannelId);
  }finally{h.restore();}
 });
@@ -192,25 +192,15 @@ test("concurrent result publishers cannot delete the single valid winner message
  }finally{h.restore();}
 });
 
-test("failed winner notification leaves the claim clock inactive for a safe retry",async()=>{
- const h=await harness();
+test("a winner with disabled DMs still has an active claim deadline",async()=>{
+ const h=await harness({autoRerollClaims:true});
  try{
-  const originalSend=h.client.channels.fetch;
-  h.client.channels.fetch=async id=>{
-   const channel=await originalSend(id);
-   if(id===winnerChannelId){
-     const send=channel.send.bind(channel);
-     channel.send=async payload=>{
-       if(!payload.embeds?.length)throw Error("Cannot notify winners");
-       return send(payload);
-     };
-   }
-   return channel;
-  };
-  await assert.rejects(()=>publishGiveawayResult(h.client,h.getStored()),/Cannot notify winners/);
-  assert.equal(h.getStored().claimStartedAt,null);
-  assert.deepEqual(h.getStored().winnerAssignedAt,[null]);
-  assert.equal(h.getStored().claimCheckAt??null,null);
-  assert.equal(h.getStored().messageId,newId,"published result remains available");
+  h.client.users={fetch:async()=>({send:async()=>{throw Error("Cannot DM winner");}})};
+  assert.equal(await publishGiveawayResult(h.client,h.getStored()),true);
+  assert.ok(h.getStored().claimStartedAt instanceof Date);
+  assert.ok(h.getStored().winnerAssignedAt[0] instanceof Date);
+  assert.ok(h.getStored().claimCheckAt instanceof Date);
+  assert.equal(h.getStored().messageId,newId,"public results remain available");
+  assert.equal(h.calls.sent.length,1,"no separate public congratulations should be posted");
  }finally{h.restore();}
 });

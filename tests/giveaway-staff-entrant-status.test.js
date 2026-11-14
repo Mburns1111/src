@@ -40,7 +40,7 @@ test("active giveaways, activity review and running Trials show blue status, nev
     assert.match(json.description,/🟦.*GIVEAWAY IN PROGRESS/);
     assert.doesNotMatch(json.description,/🟨|🟩|🟥/);
     assert.equal(json.color,0x3498DB);
-    assert.ok(buttons(payload).includes("giveawaystaff:entrants:"+giveawayId+":0"));
+    assert.equal(buttons(payload).includes("giveawaystaff:entrants:"+giveawayId+":0"),mode!=="activity");
   }
 });
 
@@ -95,7 +95,7 @@ test("deleted completed listings are gray regardless of previous red, yellow or 
       assert.match(embed.description,mode==="survival"
         ?/Trial archived — Royal Verdict preserved/
         :/Completed — public listing deleted/);
-      assert.ok(buttons(payload).includes("giveawaystaff:entrants:"+giveawayId+":0"));
+      assert.equal(buttons(payload).includes("giveawaystaff:entrants:"+giveawayId+":0"),mode!=="activity");
       assert.ok(!buttons(payload).some(x=>x.includes(":remove:")));
     }
   }

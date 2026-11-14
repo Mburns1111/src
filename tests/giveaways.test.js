@@ -85,11 +85,11 @@ test("announcement remains on completion with details, winners and audit trail",
  assert.match(open.embeds[0].data.description,/fox whispers/i);
  assert.match(open.embeds[0].data.description,/pocket/i);
  assert.match(description,/fox cackles/i);
- assert.match(description,/pocket heist/i);
- assert.match(description,/Prize delivery is handled by the giveaway host/i);
+ assert.match(description,/heist is complete/i);
+ assert.match(description,/How to claim/i);
  const oneWinner = giveawayAnnouncement(snapshot({status:"ended",winnerIds:[userId]}));
  assert.match(oneWinner.embeds[0].data.description,new RegExp(userId));
- assert.match(oneWinner.embeds[0].data.description,/sneaky helper/i);
+ assert.match(oneWinner.embeds[0].data.description,/fox cackles/i);
  const nobody = giveawayAnnouncement(snapshot({status:"ended",winnerIds:[]}));
  assert.match(nobody.embeds[0].data.description,/No eligible winner/i);
  assert.match(nobody.embeds[0].data.description,/No one entered or qualified/i);

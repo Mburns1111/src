@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import { completedGiveawayCanDeleteListing } from "../services/giveaway-listing-lifecycle.js";
-import { giveawayStaffRecordPayload, handleGiveawayStaffAction, removeGiveawayPublicPosts } from "../services/giveaway-staff-records.js";
+import { giveawayStaffRecordPayload, ensureGiveawayStaffRecord, handleGiveawayStaffAction, removeGiveawayPublicPosts } from "../services/giveaway-staff-records.js";
+import GiveawayActivityMinuteCount from "../models/GiveawayActivityMinuteCount.js";
 
 const id="507f1f77bcf86cd799439011";
 const guildId="123456789012345678";
@@ -200,6 +201,128 @@ test("one-click Archive Giveaway moves the staff record and separate review, pre
     Giveaway.findOne=old.one;Giveaway.findOneAndUpdate=old.change;
     Giveaway.updateOne=old.update;GuildConfig.findOne=old.config;
   }
+});
+
+test("archiving an older recurring activity removes only its progress panel after saving a read-only snapshot",async()=>{
+ const archiveId="901234567890123456";
+ const progressId="956789012345678901";
+ const originalStaffId="678901234567890123";
+ const newRecurringId="507f1f77bcf86cd799439012";
+ const previous={...record({mode:"activity",status:"ended",publicListingRemovedAt:new Date(),
+   staffCardId:originalStaffId,staffCardChannelId:staffId,
+   staffProgressMessageId:progressId,archiveProgressMessageId:"",
+   activityStartAt:new Date("2026-11-14T19:08:00Z"),
+   activityEndAt:new Date("2026-11-14T20:08:00Z"),
+   activityMinTotalMessages:2,activityMinimum:1,activityDays:1})};
+ const originals=[],archives=[],deletions=[],updates=[];
+ const otherRecurring={
+   id:"967890123456789012",author:{id:"bot"},
+   embeds:[{footer:{text:"Activity staff progress · "+newRecurringId}}],
+   delete:async()=>deletions.push("new recurring progress")
+ };
+ const oldProgress={
+   id:progressId,author:{id:"bot"},
+   embeds:[{footer:{text:"Activity staff progress · "+id},
+     description:"Recorded progress before archiving."}],
+   delete:async()=>deletions.push("old progress")
+ };
+ const oldStaff={
+   id:originalStaffId,author:{id:"bot"},
+   delete:async()=>deletions.push("old staff")
+ };
+ const staffChannel={
+   id:staffId,
+   messages:{fetch:async query=>typeof query==="object"?
+     new Map([[otherRecurring.id,otherRecurring],[oldProgress.id,oldProgress]]):
+     query===progressId?oldProgress:query===originalStaffId?oldStaff:null}
+ };
+ const archiveChannel={
+   id:archiveId,guild:{roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}}},
+   permissionsFor:member=>({has:()=>member?.id==="bot"}),
+   messages:{fetch:async query=>typeof query==="object"?
+     {find:callback=>archives.find(callback)}:archives.find(msg=>msg.id===query)||null},
+   send:async payload=>{
+     originals.push(payload);
+     const item={id:String(901234567890123450n+BigInt(originals.length)),
+       author:{id:"bot"},embeds:payload.embeds.map(embed=>embed.toJSON?.()||embed)};
+     archives.push(item);
+     return item;
+   }
+ };
+ const prior={config:GuildConfig.findOne,update:Giveaway.updateOne,
+   aggregate:GiveawayActivityMinuteCount.aggregate};
+ try{
+   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+     activityGiveawayReviewChannelId:staffId,giveawayArchiveChannelId:archiveId,
+   })})});
+   Giveaway.updateOne=async(query,update)=>{
+     updates.push(update.$set);
+     Object.assign(previous,update.$set);
+     return {matchedCount:1};
+   };
+   GiveawayActivityMinuteCount.aggregate=async()=>[
+     {_id:winnerA,totalMessages:3,activeDays:1}
+   ];
+   const client={user:{id:"bot"},channels:{fetch:async channelId=>
+     channelId===archiveId?archiveChannel:staffChannel}};
+   assert.equal(await ensureGiveawayStaffRecord(client,previous),true);
+   assert.equal(originals.length,2,"staff archive and activity snapshot are separate");
+   assert.equal(originals[1].components.length,0,"archived progress has no interactive controls");
+   assert.match(originals[1].embeds[0].toJSON().description,/3\/2/);
+   assert.equal(originals[1].embeds[0].toJSON().footer.text,
+     "Archived giveaway activity · "+id);
+   assert.equal(previous.archiveProgressMessageId,archives[1].id);
+   assert.ok(deletions.includes("old progress"));
+   assert.ok(!deletions.includes("new recurring progress"));
+   assert.ok(updates.some(u=>u.archiveProgressMessageId===archives[1].id));
+ }finally{
+   GuildConfig.findOne=prior.config;
+   Giveaway.updateOne=prior.update;
+   GiveawayActivityMinuteCount.aggregate=prior.aggregate;
+ }
+});
+
+test("failed activity snapshot upload retains the original progress panel for retry",async()=>{
+ const archiveId="901234567890123456",progressId="956789012345678901";
+ const previous=record({mode:"activity",publicListingRemovedAt:new Date(),
+   staffProgressMessageId:progressId,staffCardChannelId:staffId,
+   activityStartAt:new Date("2026-11-14T19:08:00Z"),
+   activityEndAt:new Date("2026-11-14T20:08:00Z")});
+ const previousUpdates={config:GuildConfig.findOne,update:Giveaway.updateOne,
+   aggregate:GiveawayActivityMinuteCount.aggregate};
+ let progressDeleted=false;
+ try{
+   GuildConfig.findOne=()=>({select:()=>({lean:async()=>({
+     activityGiveawayReviewChannelId:staffId,giveawayArchiveChannelId:archiveId
+   })})});
+   Giveaway.updateOne=async()=>({matchedCount:1});
+   GiveawayActivityMinuteCount.aggregate=async()=>[];
+   const staffChannel={id:staffId,messages:{fetch:async argument=>
+     typeof argument==="object"?[]:
+     argument===progressId?{
+       id:progressId,author:{id:"bot"},
+       embeds:[{footer:{text:"Activity staff progress · "+id}}],
+       delete:async()=>{progressDeleted=true;}
+     }:null}};
+   let archiveSends=0;
+   const archiveChannel={id:archiveId,
+     guild:{roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}}},
+     permissionsFor:member=>({has:()=>member?.id==="bot"}),
+     messages:{fetch:async()=>[]},
+     send:async()=>{archiveSends++;
+       if(archiveSends===2)throw Error("Archive progress upload failed");
+       return {id:"912345678901234567",author:{id:"bot"}};
+     }};
+   const client={user:{id:"bot"},channels:{fetch:async channelId=>
+     channelId===archiveId?archiveChannel:staffChannel}};
+   await assert.rejects(ensureGiveawayStaffRecord(client,previous),
+     /Archive progress upload failed/);
+   assert.equal(progressDeleted,false);
+ }finally{
+   GuildConfig.findOne=previousUpdates.config;
+   Giveaway.updateOne=previousUpdates.update;
+   GiveawayActivityMinuteCount.aggregate=previousUpdates.aggregate;
+ }
 });
 
 test("completed activity Delete Listing removes only the activity-list post, preserving winner results",async()=>{

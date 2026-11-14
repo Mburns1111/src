@@ -35,6 +35,15 @@ test("winner story persists after settling or rerolling a regular giveaway",()=>
   }
 });
 
+test("custom winner wording does not repeat the winner mention",()=>{
+ const record=fixture({status:"ended",creatorId:winner,winnerIds:[winner],entrantIds:[winner],
+   displayWinnerText:"Host {host} congratulates {winners}!"});
+ const result=display(record);
+ assert.match(result,/congratulates/);
+ assert.equal((result.match(new RegExp("<@"+winner+">","g"))||[]).length,1);
+ assert.match(result,/the host/);
+});
+
 test("no-winner result and activity giveaways retain their established text",()=>{
   const noWinner=display(fixture({status:"ended",displayWinnerText:"Never replace no-winner text"}));
   assert.match(noWinner,/No eligible winner/);
