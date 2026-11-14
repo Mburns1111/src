@@ -407,3 +407,25 @@ test("regular giveaway creation retires old buttons but keeps new controls click
   assert.deepEqual(h.prompt().components,[],"ending the wizard must clear the final prompt");
  }finally{restore();}
 });
+
+test("regular giveaway creation retires previous controls after typed and button steps and on cancel",async()=>{
+ try{
+  const h=await harness();
+  const first=h.prompt();
+  assert.ok(first.components.length>0);
+  await h.type("TEST: temporary buttons");
+  const second=h.prompt();
+  assert.deepEqual(first.components,[],"typing a new title must retire old controls");
+  assert.ok(second.components.length>0);
+  await h.type("TEST ONLY - prize");
+  const third=h.prompt();
+  assert.deepEqual(second.components,[],"typing a prize must retire the title prompt");
+  await h.select("clearDescription");
+  const fourth=h.prompt();
+  assert.deepEqual(third.components,[],"button input must retire prior prompt");
+  assert.ok(fourth.components.length>0);
+  await h.select("cancel");
+  assert.deepEqual(fourth.components,[],"cancel must remove the last active prompt controls");
+  assert.match(fourth.content,/Regular giveaway creation/,"message history must remain readable");
+ }finally{restore();}
+});
