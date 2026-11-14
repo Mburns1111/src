@@ -128,7 +128,7 @@ export async function handleStaffProgressRefresh(interaction){
 
 // Staff buttons use the same roster and filters as the working member preview.
 export async function handleStaffProgressAction(interaction){
- const match=/^activitystaff:(qualified|progress|find|refresh):([a-f0-9]{24})(?::(\\d{1,4}))?$/.exec(interaction.customId);
+ const match=/^activitystaff:(qualified|progress|find|refresh):([a-f0-9]{24})(?::(\d{1,4}))?$/.exec(interaction.customId);
  const ephemeral={flags:MessageFlags.Ephemeral};
  if(!match)return interaction.reply({content:"Unknown activity progress action.",...ephemeral});
  if(!await canManageGiveaways(interaction))
@@ -151,7 +151,7 @@ export async function handleStaffProgressAction(interaction){
      const found=rows.find(row=>row.userId===userId);
      if(!found)return interaction.editReply("That member has no recorded activity in this giveaway.");
      const target=Math.max(1,record.activityMinTotalMessages||record.activityMinimum||1);
-     return interaction.editReply({content:"**Member progress** · <@"+userId+">\\n"+
+     return interaction.editReply({content:"**Member progress** · <@"+userId+">\n"+
        (found.qualified?"Qualified":"In progress")+" · "+found.messages+"/"+target+
        " matching messages · "+found.days+" active day(s)",allowedMentions:{parse:[]}});
    }
@@ -164,9 +164,9 @@ export async function handleStaffProgressAction(interaction){
    if(page>0)controls.push(button("activitystaff:"+action+":"+id+":"+(page-1),"Previous"));
    if((page+1)*20<filtered.length)controls.push(button("activitystaff:"+action+":"+id+":"+(page+1),"Next"));
    return interaction.editReply({content:"**"+(action==="qualified"?"Qualified Members":"In Progress")+
-     " — "+String(record.title||"Activity giveaway").slice(0,100)+"**\\n"+
-     "Total: "+filtered.length+" · Page "+(page+1)+"/"+Math.max(1,Math.ceil(filtered.length/20))+"\\n\\n"+
-     (lines.join("\\n")||"None yet."),
+     " — "+String(record.title||"Activity giveaway").slice(0,100)+"**\n"+
+     "Total: "+filtered.length+" · Page "+(page+1)+"/"+Math.max(1,Math.ceil(filtered.length/20))+"\n\n"+
+     (lines.join("\n")||"None yet."),
      ...(controls.length?{components:[new ActionRowBuilder().addComponents(controls)]}:{components:[]}),
      allowedMentions:{parse:[]}});
  }catch(error){
