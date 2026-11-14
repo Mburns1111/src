@@ -90,7 +90,7 @@ export function giveawayAnnouncement(record) {
     // Retain custom winner storytelling, but prevent its placeholders from
     // mentioning winners a second time. Avoid duplicating the host when the
     // host is also a winner (common during staff testing).
-    const winnerStory=record.mode==="standard" ?
+    const winnerStory=record.mode!=="activity"&&record.mode!=="survival" ?
       (record.displayWinnerText?
         renderRegularDisplayText(record.displayWinnerText,{
           hostId:(record.winnerIds||[]).includes(record.creatorId)?"":record.creatorId,
