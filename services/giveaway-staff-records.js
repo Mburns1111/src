@@ -204,10 +204,9 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    inline:false
  }));
  const controls=[];
- controls.push(btn("giveawaystaff:entrants:"+record._id+":0",
+ if(record.mode!=="activity")controls.push(btn("giveawaystaff:entrants:"+record._id+":0",
    record.mode==="survival"?"View Contestants":"View Entrants",ButtonStyle.Primary));
  if(record.guidedSeries&&record.status!=="cancelled"&&!completedAndRemoved&&!archived){
-   controls.push(btn("activitystaff:view:"+record._id+":0","Preview qualifying members"));
    if(record.status==="open"){
      controls.push(btn("activitystaff:edit:"+record._id,"Edit Giveaway",ButtonStyle.Primary));
      controls.push(btn("activitystaff:end:"+record._id,"End Early",ButtonStyle.Success));
