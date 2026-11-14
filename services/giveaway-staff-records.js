@@ -283,7 +283,7 @@ export async function requirePrivateGiveawayStaffChannel(guild,config){
 // A staff review is a separate bot message from the permanent staff card.
 // Preserve both in the private archive; never delete an original before its
 // replacement has been posted and the new Discord ID has been saved.
-async function archiveGiveawayReview(client,record,config){
+export async function archiveGiveawayReview(client,record,config){
  const staffId=config?.activityGiveawayReviewChannelId;
  const archiveId=config?.giveawayArchiveChannelId;
  if(!staffId||!archiveId||staffId===archiveId)return false;
@@ -308,14 +308,20 @@ async function archiveGiveawayReview(client,record,config){
  const recent=await destination.messages.fetch({limit:100});
  let archived=recent?.find?.(m=>m.author?.id===client.user?.id &&
    m.embeds?.some(e=>e.footer?.text==="Activity giveaway review: "+record._id))||null;
- if(!archived)archived=await destination.send({
-   content:original.content||undefined,embeds:original.embeds||[],
-   components:[],allowedMentions:{parse:[]},
- });
+ if(!archived){
+   const verdict=record.status==="cancelled"?"Declined":"Approved";
+   const notes="**Review decision:** "+verdict+" by <@"+(record.reviewedBy||record.creatorId)+"> · "+when(record.reviewedAt);
+   const embeds=(original.embeds||[]).map(e=>{
+     const data=e.toJSON?.()||e;
+     return {...data,description:(String(data.description||"")+"\\n\\n"+notes).slice(0,4096)};
+   });
+   archived=await destination.send({content:original.content||undefined,embeds,
+     components:[],allowedMentions:{parse:[]}});
+ }
  const result=await Giveaway.updateOne({
    _id:record._id,guildId:record.guildId,
    reviewChannelId:staffId,reviewMessageId:record.reviewMessageId,
- },{$set:{reviewChannelId:archiveId,reviewMessageId:archived.id}});
+ },{$set:{reviewChannelId:archiveId,reviewMessageId:archived.id,reviewArchivedAt:new Date()}});
  if(result?.matchedCount===0)return false; // Another worker already moved it.
  try{await original.delete();}
  catch(error){console.warn("[Giveaways] Archived review saved but old review delete failed:",String(record._id),error);}
