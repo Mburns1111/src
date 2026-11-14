@@ -475,7 +475,7 @@ export async function handleGiveawayButton(interaction) {
     }
     const message = ({
       joined: "🥀 You're entered! Good luck. You can leave before the deadline.",
-      already: "You're already entered. Each member gets one entry.",
+      already: "You're already entered in this giveaway! Good luck! 🍀",
       full: "This trial has reached its 120-contestant limit.",
       left: "Your giveaway entry has been removed.",
       "not-entered": "You weren't entered in this giveaway.",
