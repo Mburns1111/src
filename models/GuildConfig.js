@@ -70,7 +70,8 @@ const guildConfigSchema = new mongoose.Schema(
     trialShowRoleInstructions: { type: Boolean, default: true },
     trialClaimInstructions: { type: String, default: "", maxlength: 1000 },
     trialClaimWindowMinutes: { type: Number, default: 720, min: 1, max: 43200 },
-    trialMaxAutoRerolls: { type: Number, default: 2, min: 0, max: 10 },
+    // Legacy field retained for compatibility; Court's Trials never reroll prizes.
+    trialMaxAutoRerolls: { type: Number, default: 0, min: 0, max: 10 },
     trialNotificationRoleIds: { type: [String], default: [] },
     trialDefaultBannerNameKey: { type: String, default: "" },
     tradeVoteChannelId: { type: String, default: "" },
