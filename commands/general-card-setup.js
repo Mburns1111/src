@@ -112,7 +112,7 @@ function layout(session) {
   else if (field === "serverTimeZone")
     description += "Choose the **server-wide time zone** used when scheduling announcements and pings. Staff will enter dates and clock times in this zone, not UTC offsets. Daily schedules stay at the same local clock time across daylight saving changes. Time-zone changes do not move schedules already active.";
   else if(field==="helpChannelId")
-    description += "Choose an optional public channel for a permanent **Open Help** button. Members open the Help menu privately; no profile is created.";
+    description += "Choose an optional member-visible channel for a permanent **Open Help** button. A channel restricted to verified members is fine. The Help menu itself opens privately; no profile is created.";
   else if (field === "scheduledPingsChannelId")
     description += "Choose an **optional private Scheduled Pings management channel**. The bot creates a permanent dashboard with buttons here. This must be separate from the commands and archive channels.";
   else if (field === "cardRoleId")
@@ -221,6 +221,9 @@ async function saveGeneral(session) {
     previous?.activityGiveawayReviewChannelId].filter(Boolean);
   if (reserved.includes(s.commandChannelId))
     throw Error("Private Bot Commands must not reuse a public giveaway, Trial, or Giveaway Staff Controls channel.");
+  if(s.helpChannelId&&reserved.includes(s.helpChannelId)&&
+     s.helpChannelId===previous?.activityGiveawayReviewChannelId)
+    throw Error("Public Help cannot use private Giveaway Staff Controls.");
   if (reserved.includes(s.giveawayArchiveChannelId))
     throw Error("The shared archive must be separate from all existing giveaway, Trial and staff controls channels.");
   if (s.scheduledPingsChannelId && reserved.includes(s.scheduledPingsChannelId))
@@ -230,8 +233,8 @@ async function saveGeneral(session) {
     if (!archivePerms?.has(permission)) throw Error("The bot needs Attach Files and Read Message History in the shared archive.");
   if(s.helpChannelId){
     const help=channels.helpChannelId;
-    if(!help.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
-      throw Error("Public Help must be visible to @everyone.");
+    // Member channels may be hidden from @everyone until server verification;
+    // visibility for the verified-member role is configured by server staff.
     const perms=help.permissionsFor(await session.guild.members.fetchMe());
     if(!perms?.has(PermissionFlagsBits.ReadMessageHistory))
       throw Error("The bot needs Read Message History to maintain the public Help entry.");
