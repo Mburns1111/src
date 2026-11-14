@@ -57,6 +57,9 @@ export function giveawayAnnouncement(record) {
   // historical rerolls, and multiple contradictory outcome sections.
   // Private staff records retain the full history.
   if(noEligibleWinner){
+    const fullyCancelled=(record.winnerIds||[]).length>0&&
+      (record.winnerIds||[]).every((userId,slot)=>
+        (record.cancelledPrizes||[]).some(c=>c.slot===slot&&c.userId===userId));
     const endedAt=new Date(record.endsAt);
     const when=Number.isFinite(endedAt.getTime())
       ? "<t:"+Math.floor(endedAt.getTime()/1000)+":F>":"";
@@ -66,14 +69,15 @@ export function giveawayAnnouncement(record) {
       "",
       "🎁 **Prize:** "+String(record.prize||"").slice(0,800),
       "",
-      "🏁 **Giveaway ended — No eligible winner.**",
-      noEntries?"No one entered or qualified.":
-        "The prize was not claimed and no eligible replacement was available.",
+      fullyCancelled?"🏁 **Giveaway ended — Prize cancelled by staff.**":"🏁 **Giveaway ended — No eligible winner.**",
+      fullyCancelled?"Staff cancelled the winner prize(s). Historical winners and claims are preserved privately.":
+        noEntries?"No one entered or qualified.":
+          "The prize was not claimed and no eligible replacement was available.",
       ...(when?["","**Ended:** "+when]:[]),
     ];
     return {
       embeds:[new EmbedBuilder().setColor(0x86738d)
-        .setTitle("🏁 Giveaway Ended · No Eligible Winner")
+        .setTitle(fullyCancelled?"🏁 Giveaway Ended · Prizes Cancelled":"🏁 Giveaway Ended · No Eligible Winner")
         .setDescription(lines.join("\n").slice(0,3900))
         ],
       components:[],allowedMentions:{parse:[]},
