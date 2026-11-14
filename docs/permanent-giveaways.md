@@ -130,3 +130,20 @@ The general, Hatchem, regular giveaway, activity giveaway, and Court Trial guide
 ## Temporary staff-action menus (private only)
 
 Clicking a permanent **Edit Giveaway**, **End Early**, **Manual Reroll**, or **Winner Cooldowns** button keeps that permanent staff record intact and opens a private interaction. Once staff choose a setting, confirm an action, or cancel the temporary dialog, the **previous private menu is updated in place** or its buttons/selectors are cleared. The activity staff editor and activity Early End confirmation follow the same pattern. This is a **message/component lifecycle only** change: it does not change eligibility, timers, cooldown duration, claims, prizes, post destinations, or action permissions. Permanent member-facing buttons and staff directory navigation remain active.
+
+
+## Part 3 integration verification — temporary controls
+
+**Development only:** test in Replit using `integration/nov13-giveaway-help-setup`. Do not merge or deploy to Wispbyte until the complete flow has been checked in Discord.
+
+**Guided wizard trails:** create a test regular giveaway, an activity giveaway, and a Trial; advance through button selections and typed replies; each previous prompt must retain its text but lose all buttons and dropdowns. Test Back, Edit, Cancel, and final Post/Save. Also rerun General, Hatchem, regular/activity giveaway setup and Trial setup. A preview does not end the current step, so its current controls should remain usable; the preview itself cannot create an event.
+
+**Staff editing:** use the permanent giveaway staff record to open Edit, End Early, and Manual Reroll. After advancing or confirming a temporary private panel, check that its buttons are removed. The *permanent* staff record, its directory controls, public giveaway Enter and claim buttons, and the permanent shop/help/opt-in panels must remain functional. A failed/expired confirmation must not change the giveaway.
+
+**Cooldowns:** from the permanent staff directory, open Winner Cooldowns; select a member without a cooldown; Add Cooldown → modal days → confirmation. Then test Correct Expiry and Remove. Private menus should update in place, and confirmation should replace the private action buttons with a completed status. The permanent directory must never be edited by these private steps. For a delivered giveaway, test Apply / Extend and the archived-winner cooldown control.
+
+**Multiple staff:** have two staff members open different private menus and ensure one person's selections cannot advance or retire the other's controls. Test clicking a prior prompt after advancing; it should report that the step is no longer active without changing data. Test a timed-out wizard; the database must remain unchanged until a valid Save/Post.
+
+**Failure cases:** revoke Send Messages or Read Message History in a test-only channel and confirm failure does not remove permanent buttons; restore permissions and retry. A transient Discord message-edit failure may leave stale private buttons visible, but stale wizard IDs must still be rejected.
+
+Code-based tests cover ephemeral vs. permanent message boundaries, guided prompt retirement, cooldown add/correct/remove and activity staff confirmations. Live Discord bot behavior requires a real test server and has **not** been automatically verified by CI.
