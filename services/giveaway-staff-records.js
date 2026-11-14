@@ -389,7 +389,7 @@ async function archiveGiveawayProgress(client,record,config){
      console.warn("[Giveaways] Historical progress unavailable; preserving the last displayed staff snapshot:",String(record._id),error);
      summary=EmbedBuilder.from(original.embeds[0]);
      summary.setDescription((String(summary.data.description||"").slice(0,3600)+
-       "\\n\\n*Last displayed progress; final historical totals were unavailable at archival.*").slice(0,4096));
+       "\n\n*Last displayed progress; final historical totals were unavailable at archival.*").slice(0,4096));
    }
    summary.setTitle("📁 Archived Member Activity & Qualification")
      .setFooter({text:archivedFooter});
