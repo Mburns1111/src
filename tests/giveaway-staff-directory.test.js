@@ -33,11 +33,13 @@ test("directory retains ended and cancelled drawings until their staff archive",
     giveaway({_id:"507f1f77bcf86cd799439017",status:"ended",archiveMovedAt:new Date()}),
     giveaway({_id:"507f1f77bcf86cd799439018",status:"ended",publicListingRemovedAt:new Date()}),
   ],[plan(),plan({_id:"507f1f77bcf86cd799439016",status:"paused"})]);
-  assert.equal(entries.length,5);
+  assert.equal(entries.length,6);
   assert.ok(entries.some(e=>e.key==="giveaway:"+one&&e.url.endsWith("/"+msg)));
   assert.ok(entries.some(e=>e.key==="giveaway:"+trial&&e.label==="Court's Trial"));
   assert.ok(entries.some(e=>e.key==="giveaway:"+activity&&e.status.includes("No winners")));
   assert.ok(entries.some(e=>e.key==="giveaway:507f1f77bcf86cd799439014"&&e.status.includes("Cancelled")));
+  assert.ok(entries.some(e=>e.key==="giveaway:507f1f77bcf86cd799439018"),
+    "an archive requested but not yet moved must remain visible");
   assert.ok(entries.some(e=>e.key==="plan:"+trial&&e.label==="Recurring activity"));
   assert.ok(entries.every(e=>e.url.startsWith("https://discord.com/channels/")));
 });
@@ -150,7 +152,8 @@ test("directory is sent to the private staff channel, reused, then auto-bumped w
    assert.ok(giveawayQuery.status.$in.includes("ended"));
    assert.ok(giveawayQuery.status.$in.includes("cancelled"));
    assert.deepEqual(giveawayQuery.archiveMovedAt,{$in:[null]});
-   assert.deepEqual(giveawayQuery.publicListingRemovedAt,{$in:[null]});
+   assert.equal(Object.hasOwn(giveawayQuery,"publicListingRemovedAt"),false,
+     "the directory must retain records during an incomplete archive move");
    assert.match(posted[0].embeds[0].toJSON().description, /\[Active giveaway\]\(https:\/\/discord.com/);
    assert.equal(await ensureGiveawayStaffDirectory(client,config,{now:new Date(+now+2000)}),true);
    assert.equal(posted.length,1,"the directory is updated in place, not posted every sweep");
@@ -199,7 +202,7 @@ test("archiving immediately refreshes and resticks the staff index without carry
   try{
     Giveaway.find=()=>({sort:()=>({lean:async()=>[
       giveaway({guildId:testGuild,title:"Drawing to archive",
-        publicListingRemovedAt:archived?new Date(now):null}),
+        archiveMovedAt:archived?new Date(now):null}),
       giveaway({_id:activity,guildId:testGuild,title:"Another ongoing giveaway"})
     ]})});
     GiveawayPlan.find=()=>({sort:()=>({lean:async()=>[]})});
