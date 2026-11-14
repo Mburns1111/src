@@ -146,7 +146,9 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    if(giveawayHasNoEligibleWinner(record))
      lines.push("","🏁 **Final outcome: No eligible winner.**",
        (record.winnerIds||[]).length
-         ? "*The claim window expired and no eligible replacement remained.*"
+         ? (record.mode==="survival"
+           ? "*The claim deadline expired; Court's Trials do not allow rerolls.*"
+           : "*The claim window expired and no eligible replacement remained.*")
          : "*No eligible members entered or qualified.*",
        completedAndRemoved
          ? "*The public listing was deleted by staff; this private record preserves the outcome.*"
