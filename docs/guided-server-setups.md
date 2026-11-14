@@ -1,6 +1,6 @@
 # Guided server setup (development only)
 
-Source: `feature/scheduled-pings-shared-archive`. Development feature; do not deploy or merge without approval.
+Source: `integration/nov13-giveaway-help-setup` (Draft PR #58). Development only; do not deploy or merge without approval.
 
 **Activity giveaways now use an internal MongoDB Opt In / Opt Out panel beneath the Activity Giveaway List. No Discord role is required for participation.**
 
@@ -8,15 +8,15 @@ Source: `feature/scheduled-pings-shared-archive`. Development feature; do not de
 
 | Command | What it configures | Required fields |
 |---|---|---|
-| `/setup general` | Required private Bot Commands and Shared Staff Archives channels and Server Time Zone; optional Scheduled Pings private dashboard, profiles, listings, shops and party games | Private commands, shared archive and time zone **mandatory** |
-| `/setup giveaways` | Standard giveaway channel, private staff records, roles, claims, rerolls and banners; uses shared archive | Public giveaway channel and private staff controls; run General first |
+| `/setup general` | Required private Bot Commands and Shared Staff Archives channels and Server Time Zone; optional public Help entry button, Scheduled Pings private dashboard, profiles, listings, shops and party games | Private commands, shared archive and time zone **mandatory** |
+| `/setup giveaways` | Regular Giveaway List, shared Giveaway Winners, private staff records, editable server-wide title/story, roles, claims and banners | Public Giveaway List and Winners channels, private staff controls and required Giveaway Banned role; run General first |
 | `/setup activity-giveaways` | Activity list, winners, staff review and giveaway options; uses shared archive | Public activity list, public winners and private staff controls; run General first |
 | `/setup trials` | Court's Trial channels, roles, claims, rerolls and banners; uses shared archive | Trial channel and private staff controls; run General first |
 | `/setup cards` | Hatchem game channel, Collector role, activity-based wild egg toggle | Requires General commands channel; Hatchem channel and manageable Collector role |
 
 `/setup channels` and `/setup archives` have been **retired from Discord's command menu**. Existing MongoDB channel IDs and notification settings are preserved; use `/setup general` to change shared archive and the relevant guided setup for each feature to change its own settings. Previously saved guild setups remain recognized without requiring reconfiguration.
 
-Guided flows send numbered messages in the invoking channel, require Manage Server, have Back/Cancel/Keep or Skip actions, support review and editing prior to Save, and store settings only on final Save. The commands channel must be hidden from `@everyone` and writable by the bot. Public member actions operate through their designated feature channels and buttons. The administrator needs to use the configured private commands channel for follow-up setup; a never-configured server can start `/setup general` from its initial administrative text channel.
+Guided flows send numbered messages in the invoking channel, require Manage Server, have Back/Cancel/Keep or Skip actions, support review and editing prior to Save, and store settings only on final Save. The commands channel must be hidden from `@everyone` and writable by the bot. Public member actions operate through their designated feature channels and buttons. The administrator needs to use the configured private commands channel for follow-up setup; a never-configured server must start `/setup general` from a private staff-only text channel, hidden from `@everyone`.
 
 ## Shared giveaway archive channel
 
@@ -24,13 +24,13 @@ Guided flows send numbered messages in the invoking channel, require Manage Serv
 
 The private staff controls and private archive channels must be separate from each other and from all public giveaway and Trial channels, hidden from `@everyone`, and writable by the bot. The general setup cannot be saved without a valid archive. Existing archived records and giveaway histories are not deleted when the archive destination changes.
 
-## Separate activity giveaway opt-in role
+## Activity giveaway participation: MongoDB opt-in (no role)
 
-`/setup activity-giveaways` requires the server manager to choose a distinct **Activity Giveaway List opt-in panel**. This role is exclusively for opt-in message tracking for activity giveaways. The optional **regular giveaway entry/eligibility role** under `/setup giveaways` remains independent. A regular giveaway can still require no eligibility role, but an activity giveaway **cannot** disable its participation role.
+Activity participation is controlled by the permanent **Opt In / Opt Out** buttons in the Activity Giveaway List. The bot stores each member's consent in MongoDB. **No Discord opt-in role is needed or supported for participation.**
 
-The bot checks for Activity Participation before storing guided activity receipts or updating legacy message counters. No role means no giveaway activity record; role removal immediately stops new counting and disqualifies the member from future drawings and rerolls. Activity participation is unrelated to normal Points or Hatchem tracking. Public activity announcements state how to obtain the role.
+A member who opts out is excluded from future activity winner selections and stops accumulating qualifying activity receipts. Opting in again starts a fresh counting period; older receipts do not carry over. The separate optional **regular giveaway required-entry role** can restrict regular entry when configured, and the mandatory **Giveaway Banned** role blocks all giveaway types.
 
-When configuring an activity role for the first time or switching to a different role, open guided activities restart their counting periods, preserving historical records without counting old-role activity. Older plans use only the post-opt-in minute-level counter window and may have no eligible members in their first partial period.
+Staff may set total messages across the full activity period, optionally require a minimum number of active days, and filter by selected channels, phrases or member mentions. Qualification previews omit members with no qualifying activity since counting began.
 
 ## Optional features and Skip behavior
 
@@ -157,3 +157,11 @@ Select an optional private Scheduled Pings dashboard channel in `/setup general`
 The **Server Time Zone** is mandatory in `/setup general` and applies to newly activated schedules. Choose a common zone or enter an IANA identifier (for example `America/New_York` or `Europe/London`). Staff set a calendar date and a readable local clock time such as `9:00 AM`; the bot converts that time to UTC and previews the server-local clock time and Discord timestamp. A schedule preserves its original time zone when the server setting later changes. Hour-based repeats are strict elapsed hours; day-based repeats keep the same wall-clock hour across daylight saving transitions. A nonexistent requested start time (spring DST gap) is rejected. For a repeated occurrence that falls in a spring gap, it moves one hour forward for that day and returns to the specified time on subsequent days; ambiguous fall times use the first occurrence.
 
 The private staff dashboard includes **Delivery Alerts** for failed sends or messages skipped because the bot was offline for more than 20 minutes; the bot will not suddenly ping a large backlog. Archive records remain pending while deliveries are in flight or the archive cannot be reached and are retried automatically. Finished schedules are not falsely reported as still running.
+
+## Part 2: setup safety and public Help entry
+
+The first General Setup must be launched from a private staff-only channel. General, regular, activity and Trial setup retain their own guided steps, but **Bot Commands**, **Shared Staff Archives** and **Server Time Zone** are selected in General first. Feature setup cannot silently designate the current channel as Bot Commands. Shared archives need View Channel, Send Messages, Embed Links, Read Message History and Attach Files, hidden from @everyone.
+
+General Setup offers an optional public **Open Help** channel. The bot maintains a single permanent button there; pressing it opens the Public Help / Staff Help / Command Index menu privately without creating a profile. Moving the entry panel retires the previous bot-owned panel only after the new one was posted successfully; disabling the channel removes the old entry when accessible.
+
+Guided setup stores changes only at Save. Separate staff sessions update only the fields they changed; a concurrent edit to the same field produces a retry warning instead of overwriting another staff member. This also applies to Trial and General Setup, not only regular/activity giveaway setup.
