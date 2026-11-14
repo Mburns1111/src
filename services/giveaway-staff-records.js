@@ -581,6 +581,13 @@ export async function handleGiveawayStaffAction(interaction){
      await acknowledgeTemporaryAction(interaction);
      const change=validateGiveawayStaffEdit(record,pageText,
        interaction.fields.getTextInputValue("value"));
+     if(change.roleBonuses){
+       for(const bonus of change.roleBonuses){
+         const role=await interaction.guild.roles.fetch(bonus.roleId).catch(()=>null);
+         if(!role||role.id===interaction.guildId)
+           throw Error("That bonus role no longer belongs to this Discord server.");
+       }
+     }
      if(change.bannerNameKey)
        change.bannerNameKey=await ensureBannerRegistered(record.guildId,change.bannerNameKey);
      const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
