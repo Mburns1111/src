@@ -79,6 +79,8 @@ const giveawaySchema = new mongoose.Schema({
   prizeDeliveredAt: {type:Date,default:null},
   prizeDeliveredBy: {type:String,default:""},
   prizeDeliveryProofUrl: {type:String,default:""},
+  prizeDeliveries:[{slot:Number,userId:String,by:String,at:Date,proofUrl:String}],
+  cancelledPrizes:[{slot:Number,userId:String,by:String,at:Date,reason:String}],
   archiveRequestedAt: {type:Date,default:null},
   archiveRequestedBy: {type:String,default:""},
   archiveRequestedReason: {type:String,default:""},
