@@ -16,7 +16,11 @@ const row=(...controls)=>new ActionRowBuilder().addComponents(controls);
 const unix=date=>Math.floor(+new Date(date)/1000);
 const idFor=(action,...pieces)=>"giveawaydir:"+action+pieces.map(x=>":"+x).join("");
 const validMember=id=>/^\d{15,22}$/.test(id||"");
-const panelReply=(interaction,payload)=>showTemporaryPanel(interaction,payload);
+const panelReply=(interaction,payload)=>{
+ const {flags:_ignored,...message}=payload;
+ // Message updates cannot set ephemeral flags; only first-time replies can.
+ return showTemporaryPanel(interaction,message);
+};
 const noCooldownPanel=id=>({
  content:"<@"+id+"> has no active winner cooldown.\n\nStaff may assign a new cooldown without a prior giveaway win. The expiry will start from confirmation.",
  components:[row(btn(idFor("cooldownadd",id),"Add Cooldown",ButtonStyle.Primary))],
