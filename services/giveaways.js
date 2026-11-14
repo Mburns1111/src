@@ -84,6 +84,8 @@ export function giveawayAnnouncement(record) {
   // Detailed requirements, reroll history and ticket data remain in staff records.
   if(ended){
     const winners=(record.winnerIds||[]).map((userId,slot)=>{
+      const cancelledPrize=(record.cancelledPrizes||[]).some(c=>c.slot===slot&&c.userId===userId);
+      if(cancelledPrize)return (slot+1)+". Prize cancelled by staff";
       const resolved=(record.claimResolvedSlots||[]).includes(slot);
       const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===userId);
       const deadline=winnerClaimDeadline(record,slot);
