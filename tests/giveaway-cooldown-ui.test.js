@@ -232,9 +232,9 @@ test("empty cooldown picker retires old ephemeral selector instead of leaving it
  const backups=[];
  try{
   patch(GiveawayWinnerCooldown,"find",()=>({lean:async()=>[]}),backups);
-  const previous={...giveaway,winnerIds:[]};
+  // A delivered giveaway can have winners but none with an active cooldown.
   const action=makeAction({message:{flags:{has:()=>true}}});
-  await handleGiveawayCooldownAction(action.i,previous,"cooldowncreate");
+  await handleGiveawayCooldownAction(action.i,giveaway,"cooldownremove");
   assert.equal(action.responses.reply,null);
   assert.deepEqual(action.responses.update.components,[]);
  }finally{restore(backups);}
