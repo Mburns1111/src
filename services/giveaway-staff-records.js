@@ -3,7 +3,7 @@ import {ActionRowBuilder,AttachmentBuilder,ButtonBuilder,ButtonStyle,EmbedBuilde
 import Giveaway from "../models/Giveaway.js";
 import GuildConfig from "../models/GuildConfig.js";
 import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline,winnerHasClaim,hasOutstandingTicketClaims,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
-import {completedGiveawayCanDeleteListing,giveawayClaimsComplete} from "./giveaway-listing-lifecycle.js";
+import {completedGiveawayCanDeleteListing,giveawayClaimsComplete,giveawayPrizesSettled} from "./giveaway-listing-lifecycle.js";
 import {ensureGiveawayStaffDirectory} from "./giveaway-staff-directory.js";
 import {ensureStaffProgressPanel} from "./giveaway-staff-progress.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
@@ -163,6 +163,11 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
      for(let slot=0;slot<record.winnerIds.length;slot++)
        lines.push(record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Place "+(slot+1)+"** · <@"+record.winnerIds[slot]+"> — delivery coordinated by staff":claimStatus(record,slot));
    }
+   if(record.cancelledPrizes?.length){
+     lines.push("","**Cancelled individual prizes — historical audit**");
+     for(const cancelledPrize of record.cancelledPrizes)
+       lines.push("Place "+(Number(cancelledPrize.slot)+1)+" · original winner <@"+cancelledPrize.userId+"> · cancelled by <@"+cancelledPrize.by+"> · "+when(cancelledPrize.at)+" · "+safe(cancelledPrize.reason));
+   }
    if(record.prizeDeliveries?.length){
      lines.push("","**Confirmed prize deliveries**");
      for(const delivery of record.prizeDeliveries)
@@ -222,6 +227,10 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
          id&&winnerHasClaim(record,slot)&&!(record.claimResolvedSlots||[]).includes(slot)&&
          !(record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===id)))
        controls.push(btn("giveawaystaff:deliver:"+record._id,"Confirm Prize Delivered",ButtonStyle.Success));
+     if((record.winnerIds||[]).some((id,slot)=>id&&
+         !(record.claimResolvedSlots||[]).includes(slot)&&
+         !(record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===id)))
+       controls.push(btn("giveawaystaff:cancelprize:"+record._id,"Cancel Prize",ButtonStyle.Danger));
      if(completedGiveawayCanDeleteListing(record))
        controls.push(btn("giveawaystaff:remove:"+record._id,"Archive Giveaway",ButtonStyle.Secondary));
      if(record.mode!=="survival"&&record.prizeDeliveredAt&&record.winnerIds?.length)
@@ -502,7 +511,7 @@ export async function handleGiveawayStaffAction(interaction){
  try{
    if(!await canManageGiveaways(interaction))
      return interaction.reply({content:giveawayManagerPermissionMessage,...ephemeral});
-   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|selectdeliver|confirmdeliverslot|remove|confirmremove|entrants|end|confirmend|edit|editselect|editsave|reroll|rerollselect|confirmreroll|abort|cooldown|cooldowncreate|cooldownselect|cooldowndays|cooldownapply|cooldownremove|cooldownremovechoose|cooldownconfirmremove):([0-9a-f]{24})(?::([A-Za-z0-9]+))?(?::([A-Za-z0-9]+))?$/.exec(interaction.customId);
+   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|selectdeliver|confirmdeliverslot|cancelprize|selectcancelprize|confirmcancelprize|remove|confirmremove|entrants|end|confirmend|edit|editselect|editsave|reroll|rerollselect|confirmreroll|abort|cooldown|cooldowncreate|cooldownselect|cooldowndays|cooldownapply|cooldownremove|cooldownremovechoose|cooldownconfirmremove):([0-9a-f]{24})(?::([A-Za-z0-9]+))?(?::([A-Za-z0-9]+))?$/.exec(interaction.customId);
    if(!match)return interaction.reply({content:"Unknown staff action.",...ephemeral});
    const [,action,id,pageText,extraText]=match;
    // Cooldown confirmations can be opened before the staff message moves to
@@ -774,7 +783,7 @@ export async function handleGiveawayStaffAction(interaction){
         interaction.fields?.getTextInputValue("confirm")?.trim().toUpperCase()!=="ARCHIVE")
        return interaction.editReply("Archive not confirmed.");
      if(!(record.status==="cancelled"||
-       (record.status==="ended"&&record.prizeDeliveredAt&&giveawayClaimsComplete(record)&&
+       (record.status==="ended"&&giveawayPrizesSettled(record)&&
          (completedGiveawayCanDeleteListing(record)||record.publicListingRemovedAt))))
        return interaction.editReply("Only completed giveaways with confirmed winner claims and prize delivery can be archived. Otherwise cancel with a reason.");
      const config=await GuildConfig.findOne({guildId:record.guildId})
