@@ -129,6 +129,7 @@ async function harness({defaultRole="",storedBanners=[],
     await select("winners:1");
     await select("roleNone");
     await select("keep"); // Show role help setting
+    await select("keep"); // No optional bonus roles for this test
     await select("clearRules");
     await select("cooldownOff"); // The required new winner cooldown setting.
     await select("claim:1");
