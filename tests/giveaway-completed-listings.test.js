@@ -238,7 +238,7 @@ test("archiving an older recurring activity removes only its progress panel afte
  };
  const archiveChannel={
    id:archiveId,guild:{roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}}},
-   permissionsFor:()=>({has:()=>true}),
+   permissionsFor:member=>({has:()=>member?.id==="bot"}),
    messages:{fetch:async query=>typeof query==="object"?
      {find:callback=>archives.find(callback)}:archives.find(msg=>msg.id===query)||null},
    send:async payload=>{
@@ -307,7 +307,7 @@ test("failed activity snapshot upload retains the original progress panel for re
    let archiveSends=0;
    const archiveChannel={id:archiveId,
      guild:{roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}}},
-     permissionsFor:()=>({has:()=>true}),
+     permissionsFor:member=>({has:()=>member?.id==="bot"}),
      messages:{fetch:async()=>[]},
      send:async()=>{archiveSends++;
        if(archiveSends===2)throw Error("Archive progress upload failed");
