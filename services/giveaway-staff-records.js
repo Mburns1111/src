@@ -157,7 +157,9 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
          : "*No eligible members entered or qualified.*",
        completedAndRemoved
          ? "*The public listing was deleted by staff; this private record preserves the outcome.*"
-         : "*The public result remains visible until staff explicitly archive the giveaway.*");
+         : record.mode==="activity"
+           ? "*The activity-list poster is removed automatically when counting closes; the winner result and private staff record remain available.*"
+           : "*The public result remains visible until staff explicitly archive the giveaway.*");
    if(record.winnerIds?.length){
      lines.push("",record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Court\'s Trial winners — staff-managed prize claims**":"**Current winners and ticket claims**");
      for(let slot=0;slot<record.winnerIds.length;slot++)
