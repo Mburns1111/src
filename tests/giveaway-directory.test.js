@@ -138,7 +138,7 @@ test("public cards hide internal details while keeping real entry requirements",
  assert.doesNotMatch(advanced.description,/per active day/);
 });
 
-test("ended one-off activity poster stays on public list until staff uses Delete Listing",async()=>{
+test("ended one-off activity poster is automatically removed from the list, preserving winner results",async()=>{
  const old={config:GuildConfig.findOne,update:Giveaway.updateOne};
  const edits=[],deleted=[],updates=[];
  const event={
@@ -163,12 +163,10 @@ test("ended one-off activity poster stays on public list until staff uses Delete
    const channel={id:listId,messages:{fetch:async()=>existing},send:async()=>{throw Error("Should edit existing completed listing");}};
    const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
    assert.equal(await publishActivityOneOffListing(client,event,{now:new Date("2026-11-09T14:00:00Z")}),true);
-   assert.deepEqual(deleted,[],"ending must not automatically remove the public list entry");
-   assert.equal(edits.length,1);
-   assert.match(edits[0].embeds[0].data.description,/Giveaway ended/);
-   assert.doesNotMatch(edits[0].embeds[0].data.description,/Qualify automatically|Draws <t:/);
-   assert.equal(edits[0].components,undefined,"there must be no activity-progress button on a completed listing");
-   assert.ok(updates.some(x=>x.listMessageId===event.listMessageId));
+   assert.deepEqual(deleted,["activity-list"],"ended activity is removed automatically");
+   assert.equal(edits.length,0,"do not edit the expired activity poster");
+   assert.deepEqual(updates,[{listChannelId:"",listMessageId:"",listFingerprint:""}]);
+   assert.equal(event.channelId,winnersId,"the winners channel is untouched");
  }finally{
    GuildConfig.findOne=old.config;Giveaway.updateOne=old.update;
  }
@@ -196,14 +194,14 @@ test("new one-off activity giveaway pings only the shared role, even when old ev
     typeof v==="string"?posted:{find:()=>null}},
     send:async p=>{sent.push(p);return sent.length===1?posted:{...posted,id:"890123456789012346"};}};
   const client={user:{id:"bot"},channels:{fetch:async()=>channel}};
-  assert.equal(await publishActivityOneOffListing(client,event),true);
+  assert.equal(await publishActivityOneOffListing(client,event,{now:new Date("2026-11-11T18:00:00Z")}),true);
   assert.equal(sent.length,2);
   assert.equal(sent[0].content,"<@&"+role+">");
   assert.equal(sent[1].components[0].components[0].data.label,"Opt In");
   assert.deepEqual(sent[0].allowedMentions,{parse:[],roles:[role]});
   // Edits must never ping the role again, including a change in the shared role.
   const existing={...event,listChannelId:listId,listMessageId:posted.id,listFingerprint:"old"};
-  assert.equal(await publishActivityOneOffListing(client,existing),true);
+  assert.equal(await publishActivityOneOffListing(client,existing,{now:new Date("2026-11-11T18:00:00Z")}),true);
   assert.equal(sent.length,2);
   assert.equal(edits.length,1);
   assert.equal(edits[0].content,undefined);
