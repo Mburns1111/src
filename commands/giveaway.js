@@ -50,9 +50,7 @@ export const trialData = new SlashCommandBuilder()
     .addBooleanOption(o => o.setName("no_required_role").setDescription("Do not require an eligibility role for this Trial"))
     .addBooleanOption(o => o.setName("show_role_help").setDescription("Override whether role instructions are shown"))
     .addStringOption(o => o.setName("banner").setDescription("Override the saved default Trial banner").setMaxLength(60))
-    .addIntegerOption(o => o.setName("rerolls").setDescription("Override automatic rerolls (0–10)").setMinValue(0).setMaxValue(10))
-    .addBooleanOption(o => o.setName("disable_auto_rerolls").setDescription("Turn off automatic unclaimed-prize rerolls"))
-    .addIntegerOption(o => o.setName("claim_minutes").setDescription("Minutes winners have to claim after trial ends (default 12 hours)").setMinValue(1).setMaxValue(43200))
+     .addIntegerOption(o => o.setName("claim_minutes").setDescription("Minutes winners have to claim after trial ends (default 12 hours)").setMinValue(1).setMaxValue(43200))
     .addStringOption(o => o.setName("claim_instructions").setDescription("Optional custom prize collection instructions").setMaxLength(1000)))
   .addSubcommand(c => c.setName("list").setDescription("Show recent Court's Trials and saved IDs"));
 
@@ -234,12 +232,11 @@ export async function execute(interaction) {
           : (interaction.options.getInteger("claim_hours") ?? config?.activityClaimWindowHours ?? DEFAULT_CLAIM_HOURS),
         claimWindowMinutes: survival
           ? (interaction.options.getInteger("claim_minutes") ?? config?.trialClaimWindowMinutes ?? 720) : null,
-        autoRerollClaims: survival
-          ? interaction.options.getBoolean?.("disable_auto_rerolls") !== true : true,
+        // Trials still need claim-deadline reconciliation to forfeit unclaimed
+        // places, but neither staff nor automatic replacement is permitted.
+        autoRerollClaims: true,
         trialTicketClaimsEnabled: survival,
-        maxAutoRerolls: survival
-          ? (interaction.options.getInteger("rerolls") ?? config?.trialMaxAutoRerolls ?? 2)
-          : (config?.activityMaxAutoRerolls ?? 2),
+        maxAutoRerolls: survival ? 0 : (config?.activityMaxAutoRerolls ?? 2),
         claimInstructions: interaction.options.getString("claim_instructions")?.trim() ||
           (survival ? config?.trialClaimInstructions : config?.activityClaimInstructions) || "",
         requiredRoleId: interaction.options.getBoolean?.("no_required_role") === true ? "" :
