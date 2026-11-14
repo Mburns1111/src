@@ -163,6 +163,11 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
      for(let slot=0;slot<record.winnerIds.length;slot++)
        lines.push(record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Place "+(slot+1)+"** · <@"+record.winnerIds[slot]+"> — delivery coordinated by staff":claimStatus(record,slot));
    }
+   if(record.prizeDeliveries?.length){
+     lines.push("","**Confirmed prize deliveries**");
+     for(const delivery of record.prizeDeliveries)
+       lines.push("Place "+(Number(delivery.slot)+1)+" · <@"+delivery.userId+"> · confirmed by <@"+delivery.by+"> · "+when(delivery.at));
+   }
    if(record.mode!=="survival"||record.trialTicketClaimsEnabled)
      lines.push("","**Automatic rerolls:** "+(record.autoRerollClaims?"Enabled":"Disabled")+
        " · Maximum "+automaticRerollLimit(record)+" per winning place");
@@ -213,8 +218,10 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
      controls.push(btn("giveawaystaff:end:"+record._id,"Finish Trial Early",ButtonStyle.Success));
    }
    if(record.status==="ended"){
-     if(giveawayClaimsComplete(record)&&!record.prizeDeliveredAt)
-       controls.push(btn("giveawaystaff:deliver:"+record._id,"Confirm Prizes Delivered",ButtonStyle.Success));
+     if(!record.prizeDeliveredAt&&(record.winnerIds||[]).some((id,slot)=>
+         id&&winnerHasClaim(record,slot)&&!(record.claimResolvedSlots||[]).includes(slot)&&
+         !(record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===id)))
+       controls.push(btn("giveawaystaff:deliver:"+record._id,"Confirm Prize Delivered",ButtonStyle.Success));
      if(completedGiveawayCanDeleteListing(record))
        controls.push(btn("giveawaystaff:remove:"+record._id,"Archive Giveaway",ButtonStyle.Secondary));
      if(record.mode!=="survival"&&record.prizeDeliveredAt&&record.winnerIds?.length)
@@ -495,7 +502,7 @@ export async function handleGiveawayStaffAction(interaction){
  try{
    if(!await canManageGiveaways(interaction))
      return interaction.reply({content:giveawayManagerPermissionMessage,...ephemeral});
-   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|remove|confirmremove|entrants|end|confirmend|edit|editselect|editsave|reroll|rerollselect|confirmreroll|abort|cooldown|cooldowncreate|cooldownselect|cooldowndays|cooldownapply|cooldownremove|cooldownremovechoose|cooldownconfirmremove):([0-9a-f]{24})(?::([A-Za-z0-9]+))?(?::([A-Za-z0-9]+))?$/.exec(interaction.customId);
+   const match=/^giveawaystaff:(stop|cancel|confirmcancel|deliver|confirmdeliver|selectdeliver|confirmdeliverslot|remove|confirmremove|entrants|end|confirmend|edit|editselect|editsave|reroll|rerollselect|confirmreroll|abort|cooldown|cooldowncreate|cooldownselect|cooldowndays|cooldownapply|cooldownremove|cooldownremovechoose|cooldownconfirmremove):([0-9a-f]{24})(?::([A-Za-z0-9]+))?(?::([A-Za-z0-9]+))?$/.exec(interaction.customId);
    if(!match)return interaction.reply({content:"Unknown staff action.",...ephemeral});
    const [,action,id,pageText,extraText]=match;
    // Cooldown confirmations can be opened before the staff message moves to
@@ -680,20 +687,64 @@ export async function handleGiveawayStaffAction(interaction){
        ));
    }
    if(action==="deliver"){
-     if(record.status!=="ended"||record.publicListingRemovedAt||record.prizeDeliveredAt||
-        !giveawayClaimsComplete(record))
-       return interaction.reply({content:"All current winners must submit their claims before staff can confirm prize delivery. Otherwise cancel the giveaway.",...ephemeral});
+     const slots=(record.winnerIds||[]).map((userId,slot)=>({userId,slot}))
+       .filter(({userId,slot})=>userId&&winnerHasClaim(record,slot)&&
+         !(record.claimResolvedSlots||[]).includes(slot)&&
+         !(record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId));
+     if(record.status!=="ended"||record.publicListingRemovedAt||record.prizeDeliveredAt||!slots.length)
+       return interaction.reply({content:"No submitted, undelivered prize claims are available.",...ephemeral});
+     return interaction.reply({content:"**Confirm an individual prize delivery** · Choose the winner whose claimed prize you delivered.",
+       components:[new ActionRowBuilder().addComponents(
+         new StringSelectMenuBuilder().setCustomId("giveawaystaff:selectdeliver:"+id)
+           .setPlaceholder("Select claimed prize").addOptions(slots.map(({userId,slot})=>({
+             label:"Place "+(slot+1),description:"Winner "+userId,value:String(slot)}))))],...ephemeral});
+   }
+   if(action==="selectdeliver"){
+     const slot=Number(interaction.values?.[0]),userId=record.winnerIds?.[slot];
+     if(!Number.isSafeInteger(slot)||slot<0||!userId||!winnerHasClaim(record,slot)||
+       (record.claimResolvedSlots||[]).includes(slot)||
+       (record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===userId))
+       return showTemporaryPanel(interaction,{content:"This winner's prize is not awaiting delivery confirmation.",components:[]});
      return interaction.showModal(new ModalBuilder()
-       .setCustomId("giveawaystaff:confirmdeliver:"+id)
-       .setTitle("Confirm all prizes delivered")
+       .setCustomId("giveawaystaff:confirmdeliverslot:"+id+":"+slot)
+       .setTitle("Confirm prize for place "+(slot+1))
        .addComponents(
          new ActionRowBuilder().addComponents(new TextInputBuilder()
            .setCustomId("confirm").setLabel("Type DELIVERED to confirm")
            .setStyle(TextInputStyle.Short).setMaxLength(9).setRequired(true)),
          new ActionRowBuilder().addComponents(new TextInputBuilder()
            .setCustomId("proof").setLabel("Discord proof message URL (optional)")
-           .setStyle(TextInputStyle.Short).setMaxLength(500).setRequired(false))
-       ));
+           .setStyle(TextInputStyle.Short).setMaxLength(500).setRequired(false))));
+   }
+   if(action==="confirmdeliverslot"){
+     await interaction.deferReply(ephemeral);
+     const slot=Number(pageText),userId=record.winnerIds?.[slot];
+     const proof=(interaction.fields.getTextInputValue("proof")||"").trim();
+     if(interaction.fields.getTextInputValue("confirm").trim().toUpperCase()!=="DELIVERED")
+       return interaction.editReply("Delivery not confirmed.");
+     if(!validGiveawayDeliveryProofUrl(proof))
+       return interaction.editReply("Proof must be a Discord message link or blank.");
+     if(!Number.isSafeInteger(slot)||slot<0||!userId||record.status!=="ended"||
+       !winnerHasClaim(record,slot)||(record.claimResolvedSlots||[]).includes(slot))
+       return interaction.editReply("This prize is no longer eligible for delivery confirmation.");
+     const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
+       status:"ended",prizeDeliveredAt:null,publicListingRemovedAt:null,
+       ["winnerIds."+slot]:userId,"prizeDeliveries.slot":{$ne:slot}},
+       {$push:{prizeDeliveries:{slot,userId,by:interaction.user.id,at:new Date(),proofUrl:proof}},
+         $inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+     if(!updated)return interaction.editReply("This prize was already confirmed or changed. Refresh the record.");
+     const allDelivered=giveawayClaimsComplete(updated)&&
+       updated.winnerIds.every((id,index)=>(updated.prizeDeliveries||[]).some(d=>d.slot===index&&d.userId===id));
+     if(allDelivered){
+       await Giveaway.updateOne({_id:id,guildId:interaction.guildId,status:"ended",prizeDeliveredAt:null},
+         {$set:{prizeDeliveredAt:new Date(),prizeDeliveredBy:interaction.user.id,
+           autoRerollClaims:false,claimCheckAt:null}});
+     }
+     const latest=await Giveaway.findOne({_id:id,guildId:interaction.guildId}).lean();
+     await ensureGiveawayStaffRecord(interaction.client,latest);
+     return interaction.editReply(allDelivered?
+       "Prize delivery confirmed. All winners' prizes are delivered; you may now archive.":
+       "Prize delivery confirmed for place "+(slot+1)+". Other winners remain pending.");
    }
    if(action==="confirmdeliver"){
      await interaction.deferReply(ephemeral);
