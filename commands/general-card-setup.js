@@ -404,6 +404,10 @@ export async function startGuidedGuildSetup(interaction, mode = "general") {
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
     throw Error("Manage Server permission is required.");
   const config = await GuildConfig.findOne({ guildId: interaction.guildId }).lean();
+  if(mode==="general" &&
+     interaction.channel?.permissionsFor?.(interaction.guild.roles.everyone)
+       ?.has(PermissionFlagsBits.ViewChannel)!==false)
+    throw Error("Run /setup general inside a private staff-only text channel hidden from @everyone. Configure it as Bot Commands during setup.");
   if (config?.commandChannelId && config.commandChannelId !== interaction.channelId)
     throw Error("Run setup in <#" + config.commandChannelId + ">.");
   if (mode === "cards" && !config?.commandChannelId)
