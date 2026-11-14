@@ -5,6 +5,7 @@ import {
   StringSelectMenuBuilder,
 } from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {saveGuidedSetupFields} from "../services/setup-settings-save.js";
 import {preferSetupButtons} from "../services/setup-button-preferences.js";
 import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import {sharedGiveawayPingRoleId,sharedGiveawayNotificationFields} from "../services/giveaway-notification-roles.js";
@@ -235,7 +236,7 @@ async function validateChannels(session) {
     if (!channel?.send || !channel?.permissionsFor)
       throw Error("Cannot send messages in <#" + id + ">.");
     const perms = channel.permissionsFor(session.guild.members.me);
-    for (const permission of [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])
+    for (const permission of [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.ReadMessageHistory,...(index===2?[PermissionFlagsBits.AttachFiles]:[])])
       if (!perms?.has(permission))
         throw Error("Bot needs View Channel, Send Messages, Embed Links in <#" + id + ">.");
     if (index > 0 && channel.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
@@ -277,15 +278,13 @@ async function process(session, action, value) {
     }
     if (action !== "save") throw Error("Choose Save, Preview, or Edit.");
     await validateChannels(session);
-    const previous = await GuildConfig.findOne({ guildId: session.guild.id }).lean();
     const { giveawayArchiveChannelId: _sharedArchive, ...trialChanges } = s;
-    await GuildConfig.findOneAndUpdate({ guildId: session.guild.id }, { $set: {
-      ...trialChanges,
-      ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(s)),
-      trialSetupCompletedAt: new Date(),
-      initialSetupCompletedAt: previous?.initialSetupCompletedAt || new Date(),
-
-    } }, { upsert: true, new: true, runValidators: true });
+    await saveGuidedSetupFields({
+      guildId:session.guild.id,original:session.originalSettings,
+      proposed:{...trialChanges,
+        ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(s))},
+      extra:{trialSetupCompletedAt:new Date()},
+    });
     sessions.delete(session.key);
     await session.channel.send({
       content: "**Court's Trial setup saved.** New Trials will use these defaults; existing events, deadlines, prizes and history are unchanged.\n" +
@@ -422,7 +421,7 @@ export async function startTrialGiveawaySetup(interaction) {
   };
   const session = { id: new mongoose.Types.ObjectId().toString(), key: sessionKey,
     channel: interaction.channel, guild: interaction.guild, owner: interaction.user.id,
-    fromReview: false, settings: s };
+    fromReview: false, settings: s,originalSettings:config };
   sessions.set(sessionKey, session);
   await show(session, "channel");
   return interaction.editReply("Court's Trial setup opened in this commands channel. Complete the steps, preview, then save.");
