@@ -35,6 +35,9 @@ const giveawaySchema = new mongoose.Schema({
   regularWinnerMessageId: { type: String, default: "" },
   regularWinnerChannelId: { type: String, default: "" },
   regularWinnerNotifiedIds: { type: [String], default: [] },
+  // Private winner notifications for regular and activity giveaways.
+  winnerDmNotifiedIds: { type: [String], default: [] },
+  winnerDmFailedIds: { type: [String], default: [] },
   creatorId: { type: String, required: true },
   title: { type: String, required: true },
   prize: { type: String, required: true },
