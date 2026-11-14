@@ -9,6 +9,7 @@ import {preferSetupButtons} from "../services/setup-button-preferences.js";
 import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import {ensurePingDashboard} from "../services/scheduled-pings.js";
 import {ensurePublicHelpEntry} from "./help.js";
+import {saveGuidedSetupFields} from "../services/setup-settings-save.js";
 import {COMMON_SERVER_TIME_ZONES,validateServerTimeZone} from "../services/schedule-timezone.js";
 import { HATCHEM_GUIDE } from "../services/hatchem-text-commands.js";
 import { hatchemTutorialEntryRow } from "./card-tutorial-ui.js";
@@ -196,6 +197,8 @@ async function saveGeneral(session) {
   s.serverTimeZone=validateServerTimeZone(s.serverTimeZone);
   if (s.commandChannelId === s.giveawayArchiveChannelId)
     throw Error("The shared archive must be separate from Bot Commands.");
+  if (s.helpChannelId && [s.commandChannelId,s.giveawayArchiveChannelId,s.scheduledPingsChannelId].includes(s.helpChannelId))
+    throw Error("Public Help needs a separate public text channel, not Bot Commands or a private staff channel.");
   if (s.scheduledPingsChannelId && [s.commandChannelId,s.giveawayArchiveChannelId].includes(s.scheduledPingsChannelId))
     throw Error("The Scheduled Pings dashboard must have its own private staff channel.");
   const channels = {};
@@ -223,17 +226,44 @@ async function saveGeneral(session) {
   const archivePerms = channels.giveawayArchiveChannelId.permissionsFor(await session.guild.members.fetchMe());
   for (const permission of [PermissionFlagsBits.AttachFiles,PermissionFlagsBits.ReadMessageHistory])
     if (!archivePerms?.has(permission)) throw Error("The bot needs Attach Files and Read Message History in the shared archive.");
+  if(s.helpChannelId){
+    const help=channels.helpChannelId;
+    if(!help.permissionsFor(session.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel))
+      throw Error("Public Help must be visible to @everyone.");
+    const perms=help.permissionsFor(await session.guild.members.fetchMe());
+    if(!perms?.has(PermissionFlagsBits.ReadMessageHistory))
+      throw Error("The bot needs Read Message History to maintain the public Help entry.");
+  }
   if (s.scheduledPingsChannelId) {
     const perms=channels.scheduledPingsChannelId.permissionsFor(await session.guild.members.fetchMe());
     if(!perms?.has(PermissionFlagsBits.ReadMessageHistory))
       throw Error("The bot needs Read Message History in the Scheduled Pings dashboard channel.");
   }
+  await saveGuidedSetupFields({
+    guildId:session.guild.id,original:session.original,proposed:s,
+    fallbacks:Object.fromEntries(GENERAL_STEPS.map(([field])=>[field,""])),
+    extra:{
+      initialSetupCompletedAt:session.original?.initialSetupCompletedAt||new Date(),
+      ...(session.original?.helpChannelId && !s.helpChannelId?{helpMessageId:""}:{}),
+    },
+  });
+  // A failed entry-post update must never roll back the saved server setup.
   if (s.shopChannelId && previous?.shopChannelId !== s.shopChannelId)
-    await ensureShopEntry(session.guild, channels.shopChannelId);
-  await GuildConfig.findOneAndUpdate({ guildId: session.guild.id },
-    { $set: { ...s, initialSetupCompletedAt: previous?.initialSetupCompletedAt || new Date() } },
-    { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true });
-  if(s.helpChannelId)await ensurePublicHelpEntry(session.guild.client,session.guild.id);
+    try{await ensureShopEntry(session.guild, channels.shopChannelId);}
+    catch(error){console.error("[General Setup] Could not update shop entry:",error);}
+  if(s.helpChannelId){
+    try{await ensurePublicHelpEntry(session.guild.client,session.guild.id);}
+    catch(error){console.error("[General Setup] Could not update public Help entry:",error);}
+  }
+  if(session.original?.helpChannelId &&
+     session.original.helpChannelId!==s.helpChannelId &&
+     session.original.helpMessageId){
+    try{
+      const priorChannel=await session.guild.channels.fetch(session.original.helpChannelId);
+      const old=await priorChannel?.messages?.fetch(session.original.helpMessageId);
+      if(old?.author?.id===session.guild.client.user?.id)await old.delete();
+    }catch(error){console.warn("[General Setup] Could not remove older Help entry:",error);}
+  }
   if (s.scheduledPingsChannelId) {
     await ensurePingDashboard(session.guild.client,session.guild.id);
     if (previous?.scheduledPingsChannelId && previous.scheduledPingsChannelId!==s.scheduledPingsChannelId &&
