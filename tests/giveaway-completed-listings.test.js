@@ -268,7 +268,7 @@ test("archiving an older recurring activity removes only its progress panel afte
    assert.equal(await ensureGiveawayStaffRecord(client,previous),true);
    assert.equal(originals.length,2,"staff archive and activity snapshot are separate");
    assert.equal(originals[1].components.length,0,"archived progress has no interactive controls");
-   assert.match(originals[1].embeds[0].toJSON().description,/3\\/2/);
+   assert.match(originals[1].embeds[0].toJSON().description,/3\/2/);
    assert.equal(originals[1].embeds[0].toJSON().footer.text,
      "Archived giveaway activity · "+id);
    assert.equal(previous.archiveProgressMessageId,archives[1].id);
