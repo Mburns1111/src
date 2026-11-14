@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,ChannelSelectMenuBuilder,RoleSelectMenuBuilder,
   StringSelectMenuBuilder,ChannelType,PermissionFlagsBits,MessageFlags,ModalBuilder,TextInputBuilder,TextInputStyle} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
+import {saveGuidedSetupFields} from "../services/setup-settings-save.js";
 import {preferSetupButtons} from "../services/setup-button-preferences.js";
 import {retireGuidedControls} from "../services/retire-guided-controls.js";
 import Giveaway from "../models/Giveaway.js";
@@ -421,17 +422,8 @@ async function apply(session,verb,value){
      ].map(field=>[field,s[field]])),
      ...giveawaySetupNotificationFields(s,session.mode),
    };
-   // Unchanged fields are excluded so unrelated setup sessions cannot
-   // silently restore each other's older values.
-   const dirty=Object.fromEntries(Object.entries(proposed).filter(([field,value])=>
-     JSON.stringify(value)!==JSON.stringify(session.originalSettings[field])));
-   if(Object.keys(dirty).length){
-     const filter={guildId:session.guild.id,...Object.fromEntries(
-       Object.keys(dirty).map(field=>[field,session.originalSettings[field]]))};
-     const saved=await GuildConfig.findOneAndUpdate(filter,{$set:dirty},
-       {new:true,runValidators:true});
-     if(!saved)throw Error("Another staff member changed these settings. Reopen setup and review the latest values.");
-   }
+   await saveGuidedSetupFields({guildId:session.guild.id,
+     original:session.originalSettings,proposed,fallbacks:session.initialSettings});
    let modified=0;
    if(session.updateExisting)modified=await updateExistingActivityClaimInstructions(session.guild.id,s.activityClaimInstructions);
    sessions.delete(session.key);
@@ -597,7 +589,8 @@ async function startGiveawaySetup(interaction,mode="activity"){
  };
  const session={id:new mongoose.Types.ObjectId().toString(),key:sessionKey,
    owner:interaction.user.id,channel:interaction.channel,guild:interaction.guild,
-   mode,fromReview:false,updateExisting:false,settings:defaults,originalSettings:JSON.parse(JSON.stringify(defaults))};
+   mode,fromReview:false,updateExisting:false,settings:defaults,
+   initialSettings:JSON.parse(JSON.stringify(defaults)),originalSettings:config};
  sessions.set(sessionKey,session);
  await show(session,mode==="regular"?"regularChannel":"list");
  return interaction.editReply((mode==="regular"?"Regular":"Activity")+" giveaway server setup has opened here. Follow the numbered steps.");
