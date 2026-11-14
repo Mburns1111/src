@@ -1,6 +1,7 @@
 import {ActionRowBuilder,ButtonBuilder,ButtonStyle,EmbedBuilder,MessageFlags,PermissionFlagsBits} from "discord.js";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
+import {archiveGiveawayReview} from "./giveaway-staff-records.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import {closeGiveaway,publishGiveawayResult} from "./giveaways.js";
 import {winnerHasClaim,hasOutstandingTicketClaims,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
@@ -56,7 +57,7 @@ export async function publishGiveawayReview(client,record){
   return true;
 }
 export async function refreshGiveawayReviewMessage(client,record,result){
-  if(!record.reviewChannelId||!record.reviewMessageId)return;
+  if(record.reviewArchivedAt||!record.reviewChannelId||!record.reviewMessageId)return;
   const channel=await client.channels.fetch(record.reviewChannelId);
   const message=await channel?.messages?.fetch(record.reviewMessageId).catch(()=>null);
   if(!message||message.author?.id!==client.user.id)return;
@@ -87,6 +88,14 @@ export async function refreshActivityClaimReviewMessage(client,record){
   return true;
 }
 
+// Move completed review controls to the private archive while retaining the
+// qualification snapshot and a permanent record of the staff decision.
+async function archiveReviewedCard(client,record){
+  const config=await GuildConfig.findOne({guildId:record.guildId})
+    .select("guildId activityGiveawayReviewChannelId giveawayArchiveChannelId").lean();
+  if(!config?.giveawayArchiveChannelId)return false;
+  return archiveGiveawayReview(client,record,config);
+}
 export async function handleGiveawayReviewButton(interaction){
   await interaction.deferReply({flags:MessageFlags.Ephemeral});
   try{
@@ -107,9 +116,13 @@ export async function handleGiveawayReviewButton(interaction){
       {returnDocument:"after"}).lean();
     if(!updated)return interaction.editReply("Another staff member handled this drawing.");
     if(action==="decline"){
-      try{await refreshGiveawayReviewMessage(interaction.client,updated,"Declined — no winners announced.");}
+      let archived=false;
+      try{archived=await archiveReviewedCard(interaction.client,updated);}
+      catch(error){console.error("[Giveaways] Review archive failed:",error);}
+      if(!archived)try{await refreshGiveawayReviewMessage(interaction.client,updated,"Declined — no winners announced.");}
       catch(error){console.error("[Giveaways] Review status post failed:",error);}
-      return interaction.editReply("Drawing declined. No winner announcement or prize consumption.");
+      return interaction.editReply("Drawing declined. No winner announcement or prize consumption."+
+        (archived?" Review preserved in private Archives.":" Review retained in staff channel until it can be archived."));
     }
     const result=await closeGiveaway({id,guildId:interaction.guildId,now:new Date(),client:interaction.client});
     if(!result||result.status!=="ended")
@@ -117,7 +130,10 @@ export async function handleGiveawayReviewButton(interaction){
     let published=false;
     try{published=await publishGiveawayResult(interaction.client,result);}
     catch(error){console.error("[Giveaways] Approved results publishing will retry:",error);}
-    try{await refreshGiveawayReviewMessage(interaction.client,result,
+    let archived=false;
+    try{archived=await archiveReviewedCard(interaction.client,result);}
+    catch(error){console.error("[Giveaways] Review archive failed:",error);}
+    if(!archived)try{await refreshGiveawayReviewMessage(interaction.client,result,
       `Approved — ${result.winnerIds?.length||0} winner(s) drawn.`);}
     catch(error){console.error("[Giveaways] Review edit failed:",error);}
     return interaction.editReply(published?"Approved and announced in the winners channel.":
