@@ -197,8 +197,8 @@ test("archived staff card backfills missing archive completion marker for the di
    edit:async payload=>edits.push(payload),
  };
  const privateChannel={
-   guild:{roles:{everyone:{id:"everyone"}}},
-   permissionsFor:()=>({has:()=>false}),
+   guild:{roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}}},
+   permissionsFor:member=>({has:()=>member?.id==="bot"}),
    send:async()=>{throw Error("Must reuse the existing private archive post");},
    messages:{fetch:async value=>typeof value==="string"?archivedMessage:[]},
  };
@@ -241,8 +241,8 @@ test("staff archive is not marked complete when the linked private review remain
  const saved=[];
  const archivedMessage={id:archiveMessageId,author:{id:"bot"},embeds:[],components:[],
    edit:async()=>{}};
- const archiveChannel={guild:{roles:{everyone:{id:"everyone"}}},
-   permissionsFor:()=>({has:()=>false}),
+ const archiveChannel={guild:{roles:{everyone:{id:"everyone"}},members:{me:{id:"bot"}}},
+   permissionsFor:member=>({has:()=>member?.id==="bot"}),
    send:async()=>{throw Error("Must reuse the existing private archive post");},
    messages:{fetch:async value=>typeof value==="string"?archivedMessage:[]}};
  const staffChannel={messages:{fetch:async value=>typeof value==="string"?null:new Map()}};
