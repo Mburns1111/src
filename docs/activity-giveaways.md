@@ -24,7 +24,7 @@ The old `/setup channels` path is retained only for compatibility with already c
 - **Private staff/review channel:** receives a staff record with progress preview and management buttons, then updates with winners, claim deadlines, submitted ticket details and reroll history. Staff-only claim information belongs here, not in redundant public text.
 - **Existing regular giveaways and Trials:** retain their separately configured destinations. The Court's Trial Royal Verdict remains public after staff archive the trial.
 
-For a **one-time guided activity giveaway**, its directory post remains visible after drawing, including while a winner has a claim pending, until staff deliberately use **Delete Listing** when that action becomes eligible. Ending a giveaway is not the same as deleting its listing. A recurring plan's ongoing directory listing can be updated for new rounds; legacy schedules and completed posts should not be silently discarded.
+For a **one-time guided activity giveaway**, its public activity-list poster is automatically removed when message counting closes (or when staff end it early), even if staff review and winner claims are still pending. The bot preserves the separate winner-result announcement, claim buttons, and the private staff record. Recurring plans remain listed while active; each guided recurring occurrence has its own independent public poster that is removed at its cutoff. Discord deletion errors are retried during directory reconciliation.
 
 ## Internal activity participation (no Discord role)
 
@@ -112,12 +112,12 @@ Use the private staff record, not an old slash-command management workflow:
 | During an open giveaway | **Cancel Giveaway** | Confirm cancellation, select no winners, and remove the public listing while preserving staff history. |
 | While a recurring series is active | **Stop future repeats** | Stop creating later occurrences without cancelling the current activity. |
 | After winners are selected, while claims are outstanding | **Manual Reroll** | Choose an unclaimed winner position and confirm replacement, if another eligible member is available. |
-| Once a finished regular/activity giveaway is eligible for removal | **Delete Listing** | Remove its public listing, **not** the giveaway's winner/claim history. |
+| Once a finished giveaway has all prizes delivered or properly cancelled | **Archive Giveaway** | Move its staff record to Archives; activity-list posters are already removed automatically. Winner/claim history remains. |
 | For a completed Court's Trial | **Archive Trial** | Close the signup/listing and preserve the public Royal Verdict and private history. **Do not label it Delete Trial.** |
 
 For Trials, staff can **Start Trial Early** or **Finish Trial Early** when the corresponding live state allows it. Trial contestant views and archived Royal Verdicts remain distinct from ordinary activity qualification.
 
-**Delete Listing is not available while a current winner still has a live unclaimed deadline or possible rerolls.** A giveaway with no eligible winner, or with all claims submitted/remaining places exhausted, can become removable. Staff must intentionally remove the public listing; the private historical record remains.
+**Archive Giveaway** remains a separate staff-controlled process. Automatic activity-list cleanup does not verify delivery, cancel claims, archive staff records, or affect rerolls. Staff must settle prize deliveries or cancel individual prizes with recorded reasons before archiving.
 
 ### Staff record statuses and colors
 
@@ -169,7 +169,7 @@ Legacy dates, reviews, role bonuses and prize queues are historical implementati
 6. Test daily, weekly, custom-hour/day activity periods; one-time, 24-hour, weekly and custom-interval repetition. Check Forever and a custom number of repeats, plus the **next two start/end** preview lines.
 7. Use **Preview qualifying members**. Confirm active qualifying and active not-yet-qualifying members appear, but members with zero recorded messages during the activity do not.
 8. Edit, End Early, Cancel, Stop future repeats and View Entrants from private staff controls. End Early must use the ordinary winner/claim path; Cancel must not draw winners. Confirm private staff state updates.
-9. Confirm a one-time giveaway stays in the public directory **after drawing and throughout pending claims**. Test manual reroll while unclaimed, automatic reroll at expiration, submitted ticket claims, no replacement available, and removal only via eligible **Delete Listing**.
+9. Confirm a one-time activity-list poster is removed automatically at its counting cutoff or staff early end, including during staff review and pending claims. Test manual and automatic rerolls and verify the separate winners announcement, claim button, and private staff history remain intact; active recurring schedules must remain listed.
 10. Confirm status colors: blue in progress, yellow pending, green claim submitted, red no eligible winner and **gray after cancellation/archive/deletion**. Expired deadlines must say **Expired**, not count below zero.
 11. Test zero eligible members: optional no-winner public result, no claim information and no consumed prize. Verify public result is compact and staff detail is not duplicated.
 12. Check Court's Trial **Archive Trial** (not Delete), Royal Verdict persistence, minute-based claim option, and old Trial compatibility.
