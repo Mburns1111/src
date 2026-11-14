@@ -84,7 +84,7 @@ export function giveawayStaffDirectoryPayload(guildId,entries,{page=0}={}){
     (entry.url?"":" · *Link pending*")
   );
   const description=entries.length
-    ?[`**${entries.length} active or pending giveaway${entries.length===1?"":"s"} / schedules**`,"",...rows,
+    ?[`**${entries.length} unarchived giveaway${entries.length===1?"":"s"} / schedules**`,"",...rows,
       "","*Shows giveaways through claims, prize delivery and settlement until staff archive them. Archived records remain in the private Archives channel.*"].join("\n").slice(0,4000)
     :"There are currently **no unarchived giveaways or ongoing schedules**. New giveaways will appear here automatically.";
   const embed=new EmbedBuilder().setColor(0x896b88)
