@@ -542,7 +542,7 @@ export async function handleGiveawayStaffAction(interaction){
    if(action==="editselect"){
      const field=interaction.values?.[0];
      if(!giveawayStaffEditableFields(record).includes(field))
-       return interaction.reply({content:"That setting is no longer available for editing.",...ephemeral});
+       return showTemporaryPanel(interaction,{content:"That setting is no longer available for editing.",components:[]});
      return interaction.showModal(giveawayStaffEditModal(record,field));
    }
    if(action==="editsave"){
@@ -627,13 +627,13 @@ export async function handleGiveawayStaffAction(interaction){
    }
    if(action==="rerollselect"){
      if(record.mode==="survival"&&!record.trialTicketClaimsEnabled)
-       return interaction.reply({content:"Legacy Trials do not use ticket-based rerolls.",...ephemeral});
+       return showTemporaryPanel(interaction,{content:"Legacy Trials do not use ticket-based rerolls.",components:[]});
      const slot=Number(interaction.values?.[0]);
      if(!Number.isSafeInteger(slot)||slot<0||slot>9)
-       return interaction.reply({content:"Choose an existing unclaimed prize place.",...ephemeral});
+       return showTemporaryPanel(interaction,{content:"Choose an existing unclaimed prize place.",components:[]});
      if(record.status!=="ended"||winnerHasClaim(record,slot)||
        (record.claimResolvedSlots||[]).includes(slot)||!record.winnerIds?.[slot])
-       return interaction.reply({content:"This winning place is not awaiting a claim.",...ephemeral});
+       return showTemporaryPanel(interaction,{content:"This winning place is not awaiting a claim.",components:[]});
      return interaction.update({content:"**Reroll place "+(slot+1)+"?** This permanently replaces its current unclaimed winner if another eligible member is available.",
        components:[new ActionRowBuilder().addComponents(
          btn("giveawaystaff:confirmreroll:"+id+":"+slot,"Confirm Manual Reroll",ButtonStyle.Danger))],
@@ -793,7 +793,7 @@ export async function handleGiveawayStaffAction(interaction){
  }catch(error){
    console.error("[Giveaways] Staff record action failed:",error);
    const content="Couldn't complete that staff action: "+String(error.message||error).slice(0,350);
-   if(interaction.replied||interaction.deferred)return interaction.editReply(content);
-   return interaction.reply({content,...ephemeral});
+   if(interaction.replied||interaction.deferred)return finishTemporaryAction(interaction,content);
+   return showTemporaryPanel(interaction,{content,components:[]});
  }
 }
