@@ -19,25 +19,26 @@ import {giveawayAnnouncement,maxRegularGiveawayMinutes} from "../services/giveaw
 import {createRegularGiveaway} from "../services/regular-giveaway-creation.js";
 import {DEFAULT_CLAIM_HOURS,DEFAULT_CLAIM_INSTRUCTIONS} from "../services/giveaway-claims.js";
 import {REGULAR_DISPLAY_FIELDS} from "../services/giveaway-display-text.js";
+import {normalizeRoleBonuses} from "../services/giveaway-role-weights.js";
 
 const sessions=new Map();
 const SESSION_MS=30*60_000;
 const steps=["title","prize","description","minutes","winners","role","roleHelp",
-  "rules","winnerCooldown","claimHours","claimInstructions","banner","review"];
+  "bonusRoles","rules","winnerCooldown","claimHours","claimInstructions","banner","review"];
 const name={
   title:"Giveaway title",prize:"Prize details",description:"Giveaway description",
   minutes:"Entry duration",winners:"Number of winners",role:"Required entry role",
-  roleHelp:"Role instructions",rules:"Rules and requirements",
+  roleHelp:"Role instructions",bonusRoles:"Role bonus entries",rules:"Rules and requirements",
   winnerCooldown:"Winner cooldown check",
   claimHours:"Claim deadline",claimInstructions:"Prize collection instructions",
   banner:"Banner",review:"Review and post"
 };
 const parents={descriptionText:"description",minutesText:"minutes",daysText:"minutes",winnerText:"winners",
-  roleHelpText:"roleHelp",
+  roleHelpText:"roleHelp",bonusAmountText:"bonusRoles",
   rulesText:"rules",claimHoursText:"claimHours",claimText:"claimInstructions",
   bannerText:"banner",bannerUpload:"banner"};
 const textSteps=new Set(["title","prize","descriptionText","minutesText","daysText","winnerText","roleHelpText",
-  "rulesText","claimHoursText","claimText","bannerText","bannerUpload"]);
+  "bonusAmountText","rulesText","claimHoursText","claimText","bannerText","bannerUpload"]);
 const key=(guildId,channelId,userId)=>guildId+":"+channelId+":"+userId;
 // Both custom minutes and custom days respect the actual six-calendar-month
 // cutoff for the day the giveaway is created (not a fixed 180-day estimate).
@@ -83,6 +84,7 @@ const summary=(session)=>{
     "**Duration:** "+regularGiveawayDurationLabel(s.minutes)+" · Ends approximately <t:"+Math.floor(+ending/1000)+":F>",
     "**Winners:** "+s.winners,
     "**Required role:** "+roleDescription(s),
+    "**Bonus drawing roles:** "+(s.roleBonuses?.length?s.roleBonuses.map(b=>mention(b.roleId)+" +"+b.extraEntries+" chances").join(" · "):"None"),
     "**Giveaway Banned role:** "+mention(s.serverExcludedRoleId)+" (always enforced)",
     "**Winner cooldown check:** "+(s.winnerCooldownEnabled?"ON":"OFF")+" (applies only when selecting winners)",
     role?"**Show where to get role:** "+(roleVisible(s)?"Yes":"No"):"",
@@ -166,6 +168,17 @@ function layout(session,banners=[]){
   }
   if(step==="roleHelpText")
     content="Type your custom instructions for obtaining the required entry role (1–500 characters). Include a channel mention or link if helpful.";
+  if(step==="bonusRoles"){
+    content="Optional bonus drawing chances for members with specific roles. Everyone starts with 1 chance; each assigned role adds 1–20 more (roles stack). Winners remain unique.\n"+
+      "**Current bonuses:** "+(s.roleBonuses.length?s.roleBonuses.map(b=>mention(b.roleId)+" +"+b.extraEntries).join(" · "):"None")+
+      "\nChoose a role to add or change its bonus, or continue without bonuses.";
+    components.push(new ActionRowBuilder().addComponents(
+      new RoleSelectMenuBuilder().setCustomId(selectId(session,"bonusRoleSelected"))
+        .setPlaceholder("Add/change bonus role").setMinValues(1).setMaxValues(1)));
+    components.push(buttons(session,[["Done / Next","keep",ButtonStyle.Primary],
+      ["Remove Last","bonusRemoveLast"],["Clear Bonuses","bonusClear"]]));
+  }
+  if(step==="bonusAmountText")content="Type how many **extra** drawing chances this role receives (1–20). Every member already gets 1 base chance. Role bonuses stack.";
   if(step==="rules"){
     content="Optional rules or entry requirements displayed on the giveaway. They are informational; staff must verify external requirements.\n"+
       "Current: "+(s.rules?safe(s.rules).slice(0,220):"None");
@@ -286,6 +299,7 @@ async function preview(session){
     winnerCooldownEnabled:s.winnerCooldownEnabled,
     endsAt:new Date(Date.now()+s.minutes*60000),entrantIds:[],
     requiredRoleId:selectedRole,requiredRoleInstructions:effectiveRoleInstructions(s),
+    roleBonuses:s.roleBonuses,
     showRequiredRoleInstructions:roleVisible(s),
     claimWindowHours:s.claimHours,claimInstructions:s.claimInstructions==null?
       s.serverClaimInstructions:s.claimInstructions,maxAutoRerolls:s.maxAutoRerolls
@@ -404,6 +418,28 @@ async function apply(session,action,value,client){
     s.roleInstructions=entered(value,1,500,"Role instructions");
     return finishStep(session);
   }
+  if(step==="bonusRoles"){
+    if(action==="bonusClear"){s.roleBonuses=[];return show(session,"bonusRoles");}
+    if(action==="bonusRemoveLast"){s.roleBonuses.pop();return show(session,"bonusRoles");}
+    if(action==="bonusRoleSelected"){
+      const role=await session.guild.roles.fetch(value).catch(()=>null);
+      if(!role||role.id===session.guild.id)throw Error("Choose an existing server role.");
+      if(!s.roleBonuses.some(b=>b.roleId===role.id)&&s.roleBonuses.length>=20)
+        throw Error("You can configure at most 20 bonus roles.");
+      session.pendingBonusRoleId=role.id;
+      return show(session,"bonusAmountText");
+    }
+  }
+  if(step==="bonusAmountText"&&action==="text"){
+    const amount=int(value,1,20,"Extra drawing chances");
+    const roleId=session.pendingBonusRoleId;
+    if(!roleId)throw Error("Choose a bonus role before setting its extra chances.");
+    s.roleBonuses=normalizeRoleBonuses([
+      ...s.roleBonuses.filter(b=>b.roleId!==roleId),{roleId,extraEntries:amount}
+    ]);
+    session.pendingBonusRoleId=null;
+    return show(session,"bonusRoles");
+  }
   if(step==="rules"){
     if(action==="writeRules")return show(session,"rulesText");
     if(action==="clearRules"){s.rules="";return finishStep(session);}
@@ -494,7 +530,7 @@ export async function startRegularGiveawayWizard(interaction){
     settings:{
       title:"",prize:"",description:"",rules:"",
       minutes:60,winners:1,requiredRoleMode:"default",requiredRoleId:"",
-      winnerCooldownEnabled:false,
+      winnerCooldownEnabled:false,roleBonuses:[],
       serverExcludedRoleId:config.giveawayExcludedRoleId||"",
       serverRequiredRoleId:config.giveawayDefaultRequiredRoleId||"",
       showRequiredRoleInstructions:null,
@@ -522,7 +558,7 @@ export async function regularGiveawayWizardInteraction(interaction){
       flags:MessageFlags.Ephemeral});
   await interaction.deferUpdate();
   const action=match[2];
-  const selected=["roleSelected","selectBanner","edit"].includes(action)?
+  const selected=["roleSelected","bonusRoleSelected","selectBanner","edit"].includes(action)?
     interaction.values?.[0]:undefined;
   return respond(session,action,selected,interaction.client);
 }
