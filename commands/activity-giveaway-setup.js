@@ -67,6 +67,13 @@ export const giveawaySetupNotificationRoleIds=(settings,_mode="activity")=>{
 export const giveawaySetupNotificationFields=(settings,_mode="activity")=>
   sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(settings));
 
+export function currentEmptyResultSetting(settings){
+  return settings?.activityAnnounceEmptyResults!==false?"Announce no winners":"Do not announce";
+}
+export function emptyResultSetupPrompt(settings){
+  return "If nobody qualifies, should the bot announce that no winners were selected, or simply record the result without a public announcement?\n"+
+    "**Current setting:** "+currentEmptyResultSetting(settings);
+}
 export function currentGiveawayClaimInstructions(settings){
   return String(settings?.activityClaimInstructions||"").trim().slice(0,1000)
     ||DEFAULT_CLAIM_INSTRUCTIONS;
@@ -94,7 +101,7 @@ export function describeActivityGiveawaySetup(settings,{updateExisting=false,mod
   "⏰ **Default claim window:** "+settings.activityClaimWindowHours+" hours",
   "🔁 **Automatic rerolls:** "+settings.activityMaxAutoRerolls+" per winning place",
   "🔔 **Shared giveaway ping role (all giveaways and Trials):** "+(sharedGiveawayPingRoleId(settings)?"<@&"+sharedGiveawayPingRoleId(settings)+">":"None"),
-  "🥀 **No eligible members:** "+(settings.activityAnnounceEmptyResults?"Announce no winners":"Don't post an empty result"),
+  "🥀 **No eligible members:** "+currentEmptyResultSetting(settings),
   "🖼️ **Default banner:** "+(settings.giveawayDefaultBannerNameKey||"None"),
   ...(mode==="regular"?["🎭 **Regular giveaway display:** "+(REGULAR_DISPLAY_FIELDS.some(field=>settings[serverDisplayField(field)])?"Customized server template":"Built-in fox template")]:[]),
   "",
@@ -222,7 +229,7 @@ function layout(session,banners=[]) {
      .setCustomId(bind(session,"roles")).setPlaceholder("Choose giveaway ping role").setMinValues(1).setMaxValues(1)));
    components.push(row(session.id,[["No giveaway ping role","none"],["Keep Current","keep"]]));
  }else if(step==="empty"){
-   content="If nobody qualifies, should the bot announce that no winners were selected, or simply record the result without a public announcement?";
+   content=emptyResultSetupPrompt(s);
    components.push(row(session.id,[["Announce no winners","announce"],["Do not announce","silent"],["Keep Current","keep"]]));
  }else if(step==="banner"){
    content="Choose a server-wide default giveaway banner for regular and activity giveaways.\n**Current:** "+
