@@ -33,7 +33,9 @@ function discordTime(date){
 export function giveawayDirectoryEntries(giveaways=[],plans=[]){
   const entries=[];
   for(const record of giveaways){
-    if(record.publicListingRemovedAt||record.archiveMovedAt)continue;
+    // The public listing may be marked removed before its private archive copy
+    // is safely moved. Keep the staff entry until that transfer completes.
+    if(record.archiveMovedAt)continue;
     if(!TRACKED_GIVEAWAY_STATES.includes(record.status))continue;
     const state=giveawayIndexStatus(record);
     const isActivity=record.mode==="activity";
@@ -104,7 +106,7 @@ export function giveawayStaffDirectoryPayload(guildId,entries,{page=0}={}){
 async function loadEntries(guildId){
   const [records,plans]=await Promise.all([
     Giveaway.find({guildId,status:{$in:TRACKED_GIVEAWAY_STATES},
-      publicListingRemovedAt:{$in:[null]},archiveMovedAt:{$in:[null]}})
+      archiveMovedAt:{$in:[null]}})
       .sort({endsAt:1}).lean(),
     GiveawayPlan.find({guildId,status:"active"}).sort({nextRunAt:1}).lean(),
   ]);
