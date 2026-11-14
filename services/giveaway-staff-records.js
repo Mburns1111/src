@@ -123,6 +123,7 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    "**Scheduled end:** "+when(record.endsAt),
    "**Giveaway ID:** \x60"+record._id+"\x60",
    ...(record.mode!=="survival"?["**Winner cooldown check:** "+(record.winnerCooldownEnabled===true?"ON — block regular entry and exclude cooled-down winners":"OFF — normal drawing")]:[]),
+   ...(record.winnerDmFailedIds?.length?["**Winner DMs unavailable:** "+record.winnerDmFailedIds.map(id=>"<@"+id+">").join(", ")+" — winners must use the public results claim button."]:[]),
    ...(record.prizeDeliveredAt?["**Prizes delivered:** "+when(record.prizeDeliveredAt),
      "**Delivery confirmed by:** "+(record.prizeDeliveredBy?"<@"+record.prizeDeliveredBy+">":"Not recorded"),
      ...(record.prizeDeliveryProofUrl?["**Delivery proof:** <"+record.prizeDeliveryProofUrl+">"]:[])]:[]),
