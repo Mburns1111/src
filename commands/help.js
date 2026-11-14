@@ -182,7 +182,7 @@ const CONTENT=Object.freeze({
    ],
    [
     "3. Court's Trials",
-    "Press **Join Trial** on an open Court's Trial. Staff start the contest; story-based eliminations continue until the ranked prize winners are decided in a **Royal Verdict**.\n\nSome Trials require an entry role. The Giveaway Banned role prevents joining or winning."
+    "Press **Join Trial** on an open Court's Trial. Staff start the contest; story-based eliminations continue until the ranked prize winners are decided in a **Royal Verdict**.\n\nSome Trials require an entry role. The Giveaway Banned role prevents joining or winning. Court's Trials do not reroll winners: if a ticket claim is not submitted by the deadline, that prize is forfeited."
    ],
    [
     "4. Check Your Progress",
@@ -265,11 +265,11 @@ const CONTENT=Object.freeze({
    ],
    [
     "3. Manage Active Giveaways",
-    "Use the **private Giveaway Staff Controls** channel. Its sticky directory lists active giveaways, upcoming activity schedules, and claim-pending events, with links to each staff record.\n\nStaff can **View Entrants**, review activity qualification, edit open settings, end early, cancel with a reason, and approve/decline manual-review activity drawings.\n\nAfter a drawing, staff can **Manual Reroll** a winning place or **Disable Further Rerolls**. The directory's **Winner Cooldowns** button shows active server-wide cooldowns and lets staff add a cooldown for a member without one, correct an expiry, or remove a cooldown.\n\nIf nobody qualifies or no eligible replacement remains, the bot records **No Eligible Winner**; it does not require an unused claim."
+    "Use the **private Giveaway Staff Controls** channel. Its sticky directory lists active giveaways, upcoming activity schedules, and claim-pending events, with links to each staff record.\n\nStaff can **View Entrants**, review activity qualification, edit open settings, end early, cancel with a reason, and approve/decline manual-review activity drawings.\n\nAfter a regular or activity drawing, staff can **Manual Reroll** an unclaimed winning place or **Disable Further Rerolls**. **Court's Trials do not allow rerolls**; an unclaimed prize is forfeited when its deadline expires. The directory's **Winner Cooldowns** button shows active server-wide cooldowns and lets staff add a cooldown for a member without one, correct an expiry, or remove a cooldown.\n\nIf nobody qualifies or no eligible replacement remains, the bot records **No Eligible Winner**; it does not require an unused claim."
    ],
    [
     "4. Giveaway Status Indicators",
-    "🟦 **In Progress** — Entries or activity are being counted.\n🟨 **Claim Pending** — Awaiting a winner ticket claim.\n🟩 **Claim Completed** — Ticket claim submitted, **not yet delivered**.\n🟥 **No Eligible Winner** — Nobody qualified or no replacement remains.\n⬜ **Archived / Removed** — Staff record finalized.\n\n**Automatic rerolls:** The bot can automatically reroll winners according to the configured giveaway settings.\n\n**Prize delivery:** A completed claim does not mean delivery is confirmed. Staff use **Confirm Prizes Delivered** only after all prizes are given."
+    "🟦 **In Progress** — Entries or activity are being counted.\n🟨 **Claim Pending** — Awaiting a winner ticket claim.\n🟩 **Claim Completed** — Ticket claim submitted, **not yet delivered**.\n🟥 **No Eligible Winner** — Nobody qualified or no replacement remains.\n⬜ **Archived / Removed** — Staff record finalized.\n\n**Automatic rerolls:** Regular and activity giveaways may automatically reroll unclaimed winning places according to their settings. Court's Trials never reroll prize winners; missed claims are forfeited.\n\n**Prize delivery:** A completed claim does not mean delivery is confirmed. Staff use **Confirm Prizes Delivered** only after all prizes are given."
    ],
    [
     "5. Archive a Giveaway",
