@@ -7,7 +7,7 @@ import { guildSetupComplete, cardSetupComplete, trialSetupComplete } from "../se
 import { guidedGuildSetupSummary, generalSetupFields, generalSetupChannelFields, cardSetupFields } from "../commands/general-card-setup.js";
 import { trialSetupSummary, trialSetupPreview } from "../commands/trial-giveaway-setup.js";
 import { survivalAnnouncement, survivalFinalePayload } from "../services/survival-giveaways.js";
-import { claimDuration, nextClaimCheckAt } from "../services/giveaway-claims.js";
+import { claimDuration, nextClaimCheckAt, automaticRerollLimit } from "../services/giveaway-claims.js";
 import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 
@@ -113,7 +113,7 @@ test("General setup allows a giveaway-only or cards-only guild with all optional
 test("Trials keep independent eligibility and claims but use one shared giveaway announcement role", () => {
   const summary = trialSetupSummary(settings);
   assert.match(summary, /30 minutes/);
-  assert.match(summary, /2 per winning place/);
+  assert.match(summary, /Prize rerolls:.*Not allowed/);
   assert.match(summary, /Pick up the role/);
   assert.match(summary, new RegExp(role));
   assert.doesNotMatch(summary, new RegExp(secondRole),"only the first legacy notification role is recognized as shared");
@@ -123,9 +123,13 @@ test("Trials keep independent eligibility and claims but use one shared giveaway
   assert.match(preview.embeds[0].toJSON().description, /ticket number/i);
   assert.match(preview.embeds[0].toJSON().description, /forfeit/i);
   assert.equal(preview.components[0].components[0].data.disabled, true);
+  assert.equal(automaticRerollLimit({mode:"survival",maxAutoRerolls:10}),0,
+    "older Trials with a saved reroll budget must also forbid replacements");
   const trialOpts = trialData.toJSON().options.find(x => x.name === "start").options.map(x => x.name);
-  for (const name of ["no_required_role", "show_role_help", "claim_minutes", "rerolls", "disable_auto_rerolls", "banner"])
+  for (const name of ["no_required_role", "show_role_help", "claim_minutes", "banner"])
     assert.ok(trialOpts.includes(name));
+  for (const obsolete of ["rerolls","disable_auto_rerolls"])
+    assert.ok(!trialOpts.includes(obsolete),"Trial reroll override must not be offered: "+obsolete);
   assert.ok(!giveaway.toJSON().options.find(x => x.name === "start").options.some(x => x.name === "rerolls"));
 });
 
@@ -152,6 +156,7 @@ test("Trial claims use per-minute deadlines and expiry checks, without rewriting
   const record = trial();
   assert.deepEqual(claimDuration(record).count, 30);
   assert.equal(nextClaimCheckAt(record)?.toISOString(), "2026-11-09T14:30:00.000Z");
+  assert.equal(automaticRerollLimit(record),0,"Trial winner deadline remains enforced but never rerolled");
   assert.equal(nextClaimCheckAt({ ...record, trialTicketClaimsEnabled: false,
     autoRerollClaims: false }), null);
   assert.equal(nextClaimCheckAt({ ...record, status: "running" }), null);
