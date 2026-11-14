@@ -59,7 +59,7 @@ test("multiple winners keep instructions while another winner is pending, then r
    const claimed={...firstClaim,mode,winnerClaims:[
      ...firstClaim.winnerClaims,{slot:1,userId:second,ticketNumber:"456",submittedAt:new Date()}]};
    const finished=giveawayAnnouncement(claimed);
-   assert.match(finished.embeds[0].toJSON().description,/2\\. .*Claim submitted/);
+   assert.match(finished.embeds[0].toJSON().description,/2\. .*Claim submitted/);
    assert.deepEqual((finished.embeds[0].toJSON().fields||[]).filter(f=>!/Winners \/ Results/.test(f.name)),[]);
    assert.equal(finished.components.length,0);
  }
