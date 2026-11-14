@@ -79,6 +79,40 @@ export function giveawayAnnouncement(record) {
       components:[],allowedMentions:{parse:[]},
     };
   }
+  // Finished regular and activity results share a compact public layout.
+  // A winner is mentioned once, alongside their claim state and deadline.
+  // Detailed requirements, reroll history and ticket data remain in staff records.
+  if(ended){
+    const winners=(record.winnerIds||[]).map((userId,slot)=>{
+      const resolved=(record.claimResolvedSlots||[]).includes(slot);
+      const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===userId);
+      const deadline=winnerClaimDeadline(record,slot);
+      const claimStatus=resolved?"No eligible winner":claim?"Claim submitted":
+        deadline&&deadline<=new Date()?"Claim deadline passed":"Awaiting claim";
+      const due=!resolved&&!claim&&deadline&&deadline>new Date()?
+        " · Due <t:"+Math.floor(+deadline/1000)+":R>":"";
+      return (slot+1)+". <@"+userId+"> — "+claimStatus+due;
+    });
+    const instructions=String(record.claimInstructions||"").trim();
+    const lines=[
+      "**"+String(record.title||"Giveaway").replace(/[\\r\\n]+/g," ").slice(0,180)+"**",
+      "**Prize:** "+String(record.prize||"").slice(0,800),
+      "", "**Winners / Results**",...(winners.length?winners:["No eligible winner"]),
+      "", "**Ended:** <t:"+endUnix+":F>",
+      ...(record.status==="ended"&&hasOutstandingTicketClaims(record)?
+        ["", "**Claim your prize:** Use **Enter Ticket Claim Info** below to submit your ticket number and Discord ticket message link before your deadline."]:[]),
+      ...(instructions?["", "**Prize collection instructions:** "+instructions.slice(0,850)]:[]),
+    ];
+    const embed=new EmbedBuilder().setColor(0x86738d)
+      .setTitle(record.mode==="standard"&&record.displayEndedTitle?
+        cleanRegularDisplayTitle(record.displayEndedTitle):"🏆 Giveaway Complete")
+      .setDescription(lines.join("\\n").slice(0,3900));
+    const components=record.status==="ended"&&hasOutstandingTicketClaims(record)?
+      [new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`giveaway:claim:${record._id}`)
+          .setLabel("Enter Ticket Claim info").setStyle(ButtonStyle.Primary))]:[];
+    return {embeds:[embed],components,allowedMentions:{parse:[]}};
+  }
   const activeWinners=(record.winnerIds||[]).filter((id,i)=>
     id && !(record.claimResolvedSlots||[]).includes(i));
   const winners = (record.winnerIds || []).map((id, i) => (record.claimResolvedSlots || []).includes(i)
