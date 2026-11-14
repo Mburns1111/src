@@ -52,7 +52,7 @@ test("multiple winners keep instructions while another winner is pending, then r
    assert.match(active.embeds[0].toJSON().description,/Claim submitted/g);
    assert.match(active.embeds[0].toJSON().description,/Awaiting claim/g);
    assert.doesNotMatch(active.embeds[0].toJSON().description,new RegExp("#1 <@"+first+"> — \\*\\*Awaiting"));
-   assert.match(active.embeds[0].toJSON().description,/Claim your prize/);
+   assert.match(active.embeds[0].toJSON().description,/How to claim/);
    assert.equal(active.embeds[0].toJSON().fields?.length||0,0);
    assert.equal(active.components.length,1);
    const claimed={...firstClaim,mode,winnerClaims:[
@@ -73,5 +73,5 @@ test("forfeited prize places do not keep expired general instructions; new rerol
    winnerClaims:[{slot:0,userId:first,ticketNumber:"123"}]};
  assert.equal(hasOutstandingTicketClaims(rerolled),true);
  assert.equal(giveawayAnnouncement(rerolled).components.length,1);
- assert.match(giveawayAnnouncement(rerolled).embeds[0].toJSON().description,/Claim your prize/);
+ assert.match(giveawayAnnouncement(rerolled).embeds[0].toJSON().description,/How to claim/);
 });
