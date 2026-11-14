@@ -201,7 +201,7 @@ test("archived staff card backfills missing archive completion marker for the di
    permissionsFor:()=>({has:()=>false}),
    messages:{fetch:async value=>typeof value==="string"?archivedMessage:[]},
  };
- const staffChannel={messages:{fetch:async()=>new Map()}};
+ const staffChannel={messages:{fetch:async value=>typeof value==="string"?null:new Map()}};
  const client={user:{id:"bot"},channels:{fetch:async id=>
    id===archiveId?privateChannel:id===staffId?staffChannel:null}};
  try{
@@ -243,7 +243,7 @@ test("staff archive is not marked complete when the linked private review remain
  const archiveChannel={guild:{roles:{everyone:{id:"everyone"}}},
    permissionsFor:()=>({has:()=>false}),
    messages:{fetch:async value=>typeof value==="string"?archivedMessage:[]}};
- const staffChannel={messages:{fetch:async()=>new Map()}};
+ const staffChannel={messages:{fetch:async value=>typeof value==="string"?null:new Map()}};
  const client={user:{id:"bot"},channels:{fetch:async id=>
    id===archiveId?archiveChannel:id===staffId?staffChannel:null}};
  try{
