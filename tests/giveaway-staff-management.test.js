@@ -145,3 +145,26 @@ test("canceling an ephemeral End Early prompt removes its buttons but leaves the
   assert.deepEqual(calls,[["update",{content:"No changes made.",components:[]}]]);
  }finally{Giveaway.findOne=prior;}
 });
+
+test("invalid private manual-reroll choice removes outdated selector without touching permanent staff record",async()=>{
+ const prior=Giveaway.findOne,calls=[];
+ try{
+  Giveaway.findOne=()=>({lean:async()=>example({
+   status:"ended",winnerIds:[userId],claimStartedAt:new Date(),
+   winnerAssignedAt:[new Date()],
+  })});
+  await handleGiveawayStaffAction({
+   guildId,channelId:staffId,user:{id:userId},
+   customId:"giveawaystaff:rerollselect:"+id,values:["9"],
+   memberPermissions:{has:()=>true},
+   message:{id:"private-reroll",author:{id:"bot"},flags:{has:x=>x===MessageFlags.Ephemeral}},
+   client:{user:{id:"bot"}},
+   update:async payload=>calls.push(["update",payload]),
+   reply:async payload=>calls.push(["reply",payload]),
+  });
+  assert.equal(calls.length,1);
+  assert.equal(calls[0][0],"update","only the private message can be changed");
+  assert.deepEqual(calls[0][1].components,[]);
+  assert.match(calls[0][1].content,/existing unclaimed prize place/);
+ }finally{Giveaway.findOne=prior;}
+});
