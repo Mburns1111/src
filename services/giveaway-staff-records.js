@@ -5,7 +5,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import {automaticRerollLimit,automaticRerollsUsed,winnerClaimDeadline,winnerHasClaim,hasOutstandingTicketClaims,giveawayHasNoEligibleWinner} from "./giveaway-claims.js";
 import {completedGiveawayCanDeleteListing,giveawayClaimsComplete,giveawayPrizesSettled} from "./giveaway-listing-lifecycle.js";
 import {ensureGiveawayStaffDirectory} from "./giveaway-staff-directory.js";
-import {ensureStaffProgressPanel} from "./giveaway-staff-progress.js";
+import {ensureStaffProgressPanel,activityProgressRows,progressPanelPayload} from "./giveaway-staff-progress.js";
 import {GuidedActivitySeries} from "./guided-activity.js";
 import {canManageGiveaways,giveawayManagerPermissionMessage} from "./giveaway-manager-permissions.js";
 import {closeGiveaway,rerollGiveaway,publishGiveawayResult} from "./giveaways.js";
@@ -334,15 +334,87 @@ export async function archiveGiveawayReview(client,record,config){
  return true;
 }
 
+// A separate activity progress post is created for every recurring occurrence.
+// Archive a read-only snapshot before removing that occurrence's old progress
+// controls. Never touch another occurrence or the staff directory sticky.
+async function archiveGiveawayProgress(client,record,config){
+ if(record.mode!=="activity")return false;
+ const staffId=config?.activityGiveawayReviewChannelId;
+ const archiveId=config?.giveawayArchiveChannelId;
+ if(!staffId||!archiveId||staffId===archiveId)return false;
+ const liveFooter="Activity staff progress · "+record._id;
+ const archivedFooter="Archived giveaway activity · "+record._id;
+ const source=await client.channels.fetch(staffId);
+ if(!source?.messages?.fetch)throw Error("The activity staff channel cannot be read for progress archival.");
+ let original=record.staffProgressMessageId?
+   await source.messages.fetch(record.staffProgressMessageId).catch(error=>{
+     if(error?.code===10008)return null;
+     throw error;
+   }):null;
+ if(original && (original.author?.id!==client.user?.id||
+    !original.embeds?.some(e=>e.footer?.text===liveFooter)))
+   throw Error("Activity progress message identity mismatch; refusing to delete an unrelated message.");
+ if(!original){
+   const recent=await source.messages.fetch({limit:100});
+   original=recent?.find?.(m=>m.author?.id===client.user?.id&&
+     m.embeds?.some(e=>e.footer?.text===liveFooter))||null;
+ }
+ // Older giveaways without a separate panel have nothing to transfer.
+ if(!original&&!record.staffProgressMessageId&&!record.archiveProgressMessageId)return false;
+ const destination=await client.channels.fetch(archiveId);
+ if(!destination?.send||!destination.messages?.fetch)
+   throw Error("The private archive channel cannot receive an activity progress snapshot.");
+ let saved=record.archiveProgressMessageId?
+   await destination.messages.fetch(record.archiveProgressMessageId).catch(error=>{
+     if(error?.code===10008)return null;
+     throw error;
+   }):null;
+ if(saved && (saved.author?.id!==client.user?.id||
+    !saved.embeds?.some(e=>e.footer?.text===archivedFooter)))
+   throw Error("Archived progress message identity mismatch; refusing to overwrite an unrelated message.");
+ if(!saved){
+   const recent=await destination.messages.fetch({limit:100});
+   saved=recent?.find?.(m=>m.author?.id===client.user?.id&&
+     m.embeds?.some(e=>e.footer?.text===archivedFooter))||null;
+ }
+ if(!saved){
+   let summary;
+   try{
+     const rows=await activityProgressRows(record,null,{historical:true});
+     summary=progressPanelPayload(record,rows,new Date()).embeds[0];
+   }catch(error){
+     // The existing display is still valuable evidence if a historical query
+     // temporarily fails. Do not invent final member counts.
+     if(!original?.embeds?.[0])throw error;
+     console.warn("[Giveaways] Historical progress unavailable; preserving the last displayed staff snapshot:",String(record._id),error);
+     summary=EmbedBuilder.from(original.embeds[0]);
+     summary.setDescription((String(summary.data.description||"").slice(0,3600)+
+       "\\n\\n*Last displayed progress; final historical totals were unavailable at archival.*").slice(0,4096));
+   }
+   summary.setTitle("📁 Archived Member Activity & Qualification")
+     .setFooter({text:archivedFooter});
+   saved=await destination.send({embeds:[summary],components:[],allowedMentions:{parse:[]}});
+ }
+ const result=await Giveaway.updateOne({_id:record._id,guildId:record.guildId},
+   {$set:{archiveProgressMessageId:saved.id}});
+ if(result?.matchedCount===0)throw Error("Could not persist the archived progress reference.");
+ if(original){
+   try{await original.delete();}
+   catch(error){console.warn("[Giveaways] Archived progress saved but original cleanup will retry:",String(record._id),error);}
+ }
+ return true;
+}
+
 // Clean up duplicates from earlier staff-card implementations or interrupted
 // moves. The sticky index has a different marker and is never deleted here.
-async function cleanupArchivedStaffMessages(client,record,staffId,{reviewArchived=false}={}){
+async function cleanupArchivedStaffMessages(client,record,staffId,{reviewArchived=false,progressArchived=false}={}){
  if(!staffId)return;
  const source=await client.channels.fetch(staffId);
  const recent=await source?.messages?.fetch({limit:100});
  if(!recent?.values)return;
  const markers=new Set([staffRecordMarker(record),"Activity staff preview · "+record._id]);
  if(reviewArchived)markers.add("Activity giveaway review: "+record._id);
+ if(progressArchived)markers.add("Activity staff progress · "+record._id);
  for(const message of recent.values()){
    if(message.author?.id!==client.user?.id ||
       !message.embeds?.some(e=>markers.has(e.footer?.text)))continue;
@@ -428,7 +500,8 @@ export async function ensureGiveawayStaffRecord(client,record){
  }
  if(isArchive){
    const reviewArchived=await archiveGiveawayReview(client,record,config);
-   await cleanupArchivedStaffMessages(client,record,config.activityGiveawayReviewChannelId,{reviewArchived});
+   const progressArchived=await archiveGiveawayProgress(client,record,config);
+   await cleanupArchivedStaffMessages(client,record,config.activityGiveawayReviewChannelId,{reviewArchived,progressArchived});
  }
  // Every new active activity giveaway gets its own staff progress post.
  // This is separate from the permanent management card and omits members
