@@ -154,7 +154,7 @@ export function activityOneOffListingEmbed(record) {
     ...(record.channelId?["📣 **Winners announced in:** <#"+record.channelId+">"]:[]),
     ...(!completed&&record.requireStaffReview?["*Winners are confirmed after staff review.*"]:[]),
     "",
-    ...(completed?["*Entries are closed. This listing stays visible until staff choose Delete Listing.*"]
+    ...(completed?["*Entries are closed. Winner results are posted separately.*"]
       :settling?["*Entries are closed while winner selection is finalized.*"]
       :["*Qualify automatically — no entry button needed.*"]),
   ];
@@ -190,28 +190,39 @@ async function findListingMessage(channel,client,item,kind) {
 }
 async function deleteListing(client,item,Model) {
   if(!item.listMessageId || !item.listChannelId)return false;
+  // The list post is promotional; never delete the separate winner result.
+  if(item.listChannelId===item.channelId && item.listMessageId===item.messageId)
+    throw Error("Activity list reference points to a winner result; refusing to delete it.");
   const channel=await client.channels.fetch(item.listChannelId);
-  if(channel?.messages?.fetch){
-    const message=await channel.messages.fetch(item.listMessageId).catch(error=>{
-      if(error.code===10008)return null;
-      throw error;
-    });
-    if(message && message.author?.id===client.user.id)await message.delete();
+  if(!channel?.messages?.fetch)throw Error("Activity giveaway list channel is inaccessible.");
+  const message=await channel.messages.fetch(item.listMessageId).catch(error=>{
+    if(error.code===10008)return null;
+    throw error;
+  });
+  if(message){
+    if(message.author?.id!==client.user?.id)
+      throw Error("Activity giveaway list post is owned by another user or bot.");
+    await message.delete();
   }
-  await Model.updateOne({_id:item._id},
+  // Clear only the promotional reference. Do not mark the giveaway archived:
+  // its winners, claims and staff controls must remain available.
+  await Model.updateOne({_id:item._id,listChannelId:item.listChannelId,
+    listMessageId:item.listMessageId},
     {$set:{listChannelId:"",listMessageId:"",listFingerprint:""}});
   return true;
 }
 async function syncListing(client,item,kind,{now=new Date()}={}) {
   const isPlan=kind==="plan";
   const Model=isPlan?GiveawayPlan:Giveaway;
-  // Keep existing ended one-off listings visible until staff deliberately
-  // choose Delete Listing. Previously the directory sweep deleted them
-  // immediately after their draw, making the staff button ineffective.
+  // Activity posters advertise only giveaways still accepting qualifying
+  // activity. Hide them at the activity cutoff (even before staff review),
+  // or whenever the giveaway leaves "open". A new recurring occurrence
+  // receives its own post, while a recurring plan remains listed if active.
+  const cutoff=item.activityEndAt||item.customActivityEndAt||item.endsAt;
+  const stillCollecting=!cutoff||new Date(cutoff)>now;
   const visible=isPlan?item.status==="active":
-    item.mode==="activity"&&!item.publicListingRemovedAt&&(
-      ["open","pending_review","closing","rerolling"].includes(item.status)||
-      (item.status==="ended"&&Boolean(item.listMessageId)));
+    item.mode==="activity"&&item.status==="open"&&stillCollecting&&
+      !item.publicListingRemovedAt;
   if(!visible)return deleteListing(client,item,Model);
   const config=await GuildConfig.findOne({guildId:item.guildId})
     .select("activityGiveawayListChannelId activityGiveawayWinnersChannelId giveawayPingRoleId giveawayNotificationRoleIds activityNotificationRoleIds trialNotificationRoleIds survivalTrialPingRoleId").lean();
