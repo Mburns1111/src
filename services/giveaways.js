@@ -573,21 +573,31 @@ export async function cleanupRegularGiveawayListPost(client,item){
     throw Error("The completed giveaway listing changed while cleaning up; the bot will retry.");
   return true;
 }
-async function notifyRegularWinners(client,item,channel){
+// Winner notifications are private. A failed DM is logged in MongoDB for staff;
+// it must never block the public results or pause a valid claim deadline.
+async function notifyGiveawayWinnersByDm(client,item){
  const ids=[...new Set((item.winnerIds||[]).filter((id,slot)=>
    id&&!(item.claimResolvedSlots||[]).includes(slot)).map(String))];
- const seen=new Set((item.regularWinnerNotifiedIds||[]).map(String));
+ const seen=new Set([...(item.winnerDmNotifiedIds||[]),...(item.winnerDmFailedIds||[])]
+   .map(String));
  const fresh=ids.filter(id=>!seen.has(id));
- if(!fresh.length)return;
  const url="https://discord.com/channels/"+item.guildId+"/"+item.channelId+"/"+item.messageId;
- const sent=await channel.send({
-   content:"🏆 Congratulations "+fresh.map(id=>"<@"+id+">").join(" ")+
-     "! Your giveaway result and claim button are here: "+url,
-   allowedMentions:{parse:[],users:fresh},
- });
- if(!sent?.id)throw Error("Winner notification was not sent.");
- await Giveaway.updateOne({_id:item._id,mode:"standard"},
-   {$addToSet:{regularWinnerNotifiedIds:{$each:fresh}}});
+ for(const userId of fresh){
+   const place=(item.winnerIds||[]).indexOf(userId)+1;
+   let delivered=false;
+   try{
+     const user=await client.users.fetch(userId);
+     await user.send({content:"🏆 Congratulations! You won **place #"+place+"** in **"+
+       String(item.title||"the giveaway").slice(0,100)+"**.\\n"+
+       "See your results and use **Enter Ticket Claim Info** to claim your prize: "+url,
+       allowedMentions:{parse:[]}});
+     delivered=true;
+   }catch(error){
+     console.warn("[Giveaways] Winner DM unavailable:",String(item._id),userId,error?.code||error?.message);
+   }
+   await Giveaway.updateOne({_id:item._id,guildId:item.guildId},
+     {$addToSet:delivered?{winnerDmNotifiedIds:userId}:{winnerDmFailedIds:userId}});
+ }
 }
 
 async function publishRegularResultLocked(client,item){
@@ -599,9 +609,8 @@ async function publishRegularResultLocked(client,item){
  // First make the winner message available. No claim window has started yet.
  await message.edit(await giveawayAnnouncementWithBanner(record));
  await cleanupRegularGiveawayListPost(client,record);
- // Notify the winners before starting their claim clock. If pinging fails,
- // no deadline is activated and the unpublished result remains retryable.
- await notifyRegularWinners(client,record,channel);
+ // DM each winner; a member with disabled DMs still gets a normal claim deadline.
+ await notifyGiveawayWinnersByDm(client,record);
  const now=new Date(),dates=[...(record.winnerAssignedAt||[])];
  let newlyPublished=false;
  for(let slot=0;slot<(record.winnerIds||[]).length;slot++){
@@ -702,6 +711,7 @@ export async function publishGiveawayResult(client, item) {
       {$set:{messageId:message.id,claimStartedAt:announced.claimStartedAt,
         winnerAssignedAt:dates,resultPublishedAt:announced.resultPublishedAt,
         claimCheckAt:nextClaimCheckAt(announced),renderedAt:null}});
+    await notifyGiveawayWinnersByDm(client,announced);
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
       {$set:{renderedAt:new Date()}});
     return true;
