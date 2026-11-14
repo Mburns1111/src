@@ -87,6 +87,11 @@ test("announcement remains on completion with details, winners and audit trail",
  assert.match(description,/fox cackles/i);
  assert.match(description,/pocket heist/i);
  assert.match(description,/Prize delivery is handled by the giveaway host/i);
+ assert.doesNotMatch(description,/\*\*Winners \/ Results\*\*|\*\*Winner ticket claims\*\*/);
+ const resultFields=finished.embeds[0].toJSON().fields.filter(field=>field.name==="🏆 Winners / Results");
+ assert.equal(resultFields.length,1,"winners and claims should appear in one dedicated field");
+ assert.equal(resultFields[0].value.split("\n").length,2);
+ assert.match(resultFields[0].value,/Awaiting ticket claim/);
  const oneWinner = giveawayAnnouncement(snapshot({status:"ended",winnerIds:[userId]}));
  assert.match(oneWinner.embeds[0].data.description,new RegExp(userId));
  assert.match(oneWinner.embeds[0].data.description,/sneaky helper/i);
