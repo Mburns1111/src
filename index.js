@@ -8,6 +8,7 @@ import {handleScheduledPingsInteraction} from "./commands/scheduled-pings.js";
 import {reconcilePingSchedules,ensurePingDashboard} from "./services/scheduled-pings.js";
 import { openDueActivities, recordGuidedMessage, staffPreview } from "./services/guided-activity.js";
 import {handleGuidedStaffAction} from "./services/guided-staff-actions.js";
+import {handleStaffProgressAction} from "./services/giveaway-staff-progress.js";
 import {handleGiveawayStaffAction,reconcileGiveawayStaffRecords} from "./services/giveaway-staff-records.js";
 import {commandChannelRestriction} from "./services/command-channel-routing.js";
 import {handleGiveawayStaffDirectoryButton,reconcileGiveawayStaffDirectories} from "./services/giveaway-staff-directory.js";
@@ -607,8 +608,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return await regularGiveawayWizardInteraction(interaction);
     if (interaction.isButton() && interaction.customId.startsWith("activitysetup:"))
       return await wizardButton(interaction);
-    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
+    if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit() || interaction.isUserSelectMenu()) &&
         interaction.customId.startsWith("activitystaff:")) {
+      if(/^activitystaff:(qualified|progress|refresh|find):/.test(interaction.customId))
+        return await handleStaffProgressAction(interaction);
       if(interaction.isButton() && /^activitystaff:(view|pause):/.test(interaction.customId))
         return await staffPreview(interaction);
       return await handleGuidedStaffAction(interaction);
