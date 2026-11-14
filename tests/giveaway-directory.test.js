@@ -172,6 +172,61 @@ test("ended one-off activity poster is automatically removed from the list, pres
  }
 });
 
+test("activity list cleanup handles review, drawing, reroll and cutoff without deleting winner results",async()=>{
+ const previous=Giveaway.updateOne;
+ const states=["pending_review","closing","rerolling","ended","cancelled","open"];
+ const cleanup=[];
+ try{
+   Giveaway.updateOne=async(query,update)=>cleanup.push({query,fields:update.$set});
+   for(const status of states){
+     const record={_id:planId,guildId,mode:"activity",status,
+       listChannelId:listId,listMessageId:"567890123456789012",
+       channelId:winnersId,messageId:"678901234567890123",
+       // The open record has reached its message-counting cutoff but its draw may be later.
+       activityEndAt:new Date("2026-11-09T05:00:00Z"),
+       endsAt:new Date("2026-11-10T05:00:00Z"),
+     };
+     const deleted=[];
+     const client={user:{id:"bot"},channels:{fetch:async id=>{
+       assert.equal(id,listId,"winner result channel must not be accessed");
+       return {messages:{fetch:async()=>({author:{id:"bot"},delete:async()=>deleted.push("list")})}};
+     }}};
+     assert.equal(await publishActivityOneOffListing(client,record,{now:new Date("2026-11-09T06:00:00Z")}),true);
+     assert.deepEqual(deleted,["list"],"expired "+status+" poster must be removed");
+     assert.equal(record.messageId,"678901234567890123","winner message stays attached to giveaway");
+   }
+   assert.equal(cleanup.length,states.length);
+   assert.ok(cleanup.every(item=>item.fields.listMessageId===""&&
+     item.fields.listChannelId===""&&
+     !Object.hasOwn(item.fields,"messageId")&&!Object.hasOwn(item.fields,"publicListingRemovedAt")));
+ }finally{Giveaway.updateOne=previous;}
+});
+
+test("failed or unsafe list deletion retains references for retry and never deletes results",async()=>{
+ const old=Giveaway.updateOne;
+ const record={_id:planId,guildId,mode:"activity",status:"ended",
+   listChannelId:listId,listMessageId:"567890123456789012",
+   channelId:winnersId,messageId:"678901234567890123"};
+ let updated=0;
+ try{
+   Giveaway.updateOne=async()=>{updated++;};
+   const unsafe={user:{id:"bot"},channels:{fetch:async()=>({messages:{fetch:async()=>({
+     author:{id:"other-bot"},delete:async()=>assert.fail("Cannot delete another bot's post"),
+   })}})}};
+   await assert.rejects(publishActivityOneOffListing(unsafe,record),/another user or bot/);
+   assert.equal(updated,0,"leave the reference so the next sweep can retry safely");
+   const denied={user:{id:"bot"},channels:{fetch:async()=>({messages:{fetch:async()=>({
+     author:{id:"bot"},delete:async()=>{throw Error("Missing Manage Messages permission");},
+   })}})}};
+   await assert.rejects(publishActivityOneOffListing(denied,record),/Missing Manage Messages/);
+   assert.equal(updated,0);
+   await assert.rejects(publishActivityOneOffListing(denied,{
+     ...record,listChannelId:winnersId,listMessageId:record.messageId,
+   }),/refusing to delete/);
+   assert.equal(updated,0);
+ }finally{Giveaway.updateOne=old;}
+});
+
 test("new one-off activity giveaway pings only the shared role, even when old event roles differ",async()=>{
  const old={config:GuildConfig.findOne,configUpdate:GuildConfig.updateOne,update:Giveaway.updateOne};
  const sent=[],edits=[];
