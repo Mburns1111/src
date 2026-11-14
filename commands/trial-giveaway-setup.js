@@ -21,14 +21,14 @@ const sessions = new Map();
 const SESSION_MS = 30 * 60_000;
 const STEPS = [
   "channel", "staff", "managerRole", "requiredRole", "roleHelp", "roleHelpVisible",
-  "instructions", "minutes", "rerolls", "roles", "banner", "review",
+  "instructions", "minutes", "roles", "banner", "review",
 ];
 const STEP_NAMES = {
   channel: "Court's Trial channel", staff: "Private staff controls",
   managerRole: "Giveaway Manager role",
   requiredRole: "Default required role", roleHelp: "How to obtain the role",
   roleHelpVisible: "Show role instructions", instructions: "Claim instructions",
-  minutes: "Winner claim deadline", rerolls: "Automatic rerolls",
+  minutes: "Winner claim deadline",
   roles: "Shared giveaway ping role", banner: "Default banner", review: "Review & save",
 };
 const key = (guildId, userId) => guildId + ":" + userId;
@@ -54,7 +54,7 @@ export function trialSetupSummary(settings) {
     "📝 **Current prize-claim instructions (" + (settings.trialClaimInstructions?"Saved Trial custom":"Built-in default") + "):**",
     (settings.trialClaimInstructions || DEFAULT_CLAIM_INSTRUCTIONS),
     "⏰ **Claim deadline:** " + settings.trialClaimWindowMinutes + " minutes after the verdict",
-    "🔁 **Automatic unclaimed-prize rerolls:** " + settings.trialMaxAutoRerolls + " per winning place",
+    "🚫 **Prize rerolls:** Not allowed. Unclaimed prizes are forfeited after the claim deadline.",
     "🔔 **Shared giveaway ping role (all giveaways and Trials):** " +
       roleShown(sharedGiveawayPingRoleId(settings)),
     "🖼️ **Default banner:** " + (settings.trialDefaultBannerNameKey || "None"),
@@ -75,7 +75,7 @@ export function trialSetupPreview(settings, { userId = "123456789012345678", ban
     claimWindowMinutes: settings.trialClaimWindowMinutes,
     claimInstructions: settings.trialClaimInstructions,
     autoRerollClaims: true, trialTicketClaimsEnabled: true,
-    maxAutoRerolls: settings.trialMaxAutoRerolls,
+    maxAutoRerolls: 0,
   };
   const payload = survivalFinalePayload(record, { entered: 1, won: 1 });
   payload.content = "👁️ **Royal Verdict Preview** — No Trial has been created.";
@@ -148,12 +148,7 @@ function layout(session,banners=[]) {
       ["24 hours", "minutes1440"], ["Custom", "customMinutes"],
     ]));
     components.push(buttons(session, [["Keep", "keep"]]));
-  } else if (step === "rerolls") {
-    content = "How many times may the bot replace a winner who does not submit the ticket information before the deadline? **Default 2**. Setting 0 means a win is forfeited without replacement. Staff may still reroll manually.\n**Current:** " +
-      s.trialMaxAutoRerolls;
-    components.push(buttons(session, [0, 1, 2, 3, 5].map(n => [String(n) + " rerolls", "reroll" + n])));
-    components.push(buttons(session, [["10 rerolls", "reroll10"], ["Keep", "keep"]]));
-  } else if (step === "roles") {
+   } else if (step === "roles") {
     content = "Select **one shared giveaway ping role**. It gets mentioned when a regular giveaway, activity giveaway, or Court's Trial is first posted. It is separate from the Giveaway Manager role and the required entry role.\n**Current:** " +
       roleShown(sharedGiveawayPingRoleId(s));
     components.push(new ActionRowBuilder().addComponents(
@@ -352,13 +347,9 @@ async function process(session, action, value) {
     if (!/^\d+$/.test(value) || +value < 1 || +value > MAX_TRIAL_CLAIM_MINUTES)
       throw Error("Enter 1–43,200 whole minutes.");
     s.trialClaimWindowMinutes = Number(value);
-    return session.fromReview ? advance(session) : show(session, "rerolls");
+    return session.fromReview ? advance(session) : show(session, "roles");
   }
-  if (session.step === "rerolls" && /^reroll(0|1|2|3|5|10)$/.test(action)) {
-    s.trialMaxAutoRerolls = Number(action.slice(6));
-    return advance(session);
-  }
-  if (session.step === "roles") {
+   if (session.step === "roles") {
     if (action === "clearRoles") {
       Object.assign(s,sharedGiveawayNotificationFields(""));
       return advance(session);
@@ -415,7 +406,8 @@ export async function startTrialGiveawaySetup(interaction) {
     trialShowRoleInstructions: config?.trialShowRoleInstructions ?? config?.giveawayShowRoleInstructions ?? true,
     trialClaimInstructions: config?.trialClaimInstructions ?? config?.activityClaimInstructions ?? "",
     trialClaimWindowMinutes: config?.trialClaimWindowMinutes ?? 720,
-    trialMaxAutoRerolls: config?.trialMaxAutoRerolls ?? 2,
+    // Keep the legacy configuration field at zero; Trial claims are never rerolled.
+    trialMaxAutoRerolls: 0,
     ...sharedGiveawayNotificationFields(sharedGiveawayPingRoleId(config)),
     trialDefaultBannerNameKey: config?.trialDefaultBannerNameKey || "",
   };

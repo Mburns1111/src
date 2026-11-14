@@ -29,7 +29,9 @@ export async function submitGiveawayTicket({id,guildId,userId,ticketNumber,ticke
   if ((record.winnerClaims || []).some(c=>c.slot===slot && c.userId===userId))
     throw Error("You have already filed a ticket claim. Contact staff to correct it.");
   const deadline=winnerClaimDeadline(record,slot);
-  if (deadline && now>=deadline) throw Error("Your claim deadline has passed. The bot will process the reroll.");
+  if (deadline && now>=deadline) throw Error(record.mode==="survival"
+    ? "Your Trial prize claim deadline has passed. The prize is forfeited; Trials do not allow rerolls."
+    : "Your claim deadline has passed. The bot will process the reroll.");
   const clean=validateTicketClaim(ticketNumber,ticketUrl);
   const updated=await Giveaway.findOneAndUpdate(
     {_id:id,guildId,status:"ended",publicListingRemovedAt:null,[`winnerIds.${slot}`]:userId,

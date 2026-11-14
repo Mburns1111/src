@@ -737,7 +737,7 @@ test("legacy staff-managed Court's Trials retain their existing collection direc
  assert.equal(finale.components.length,0);
 });
 
-test("unclaimed Court's Trial prize with no replacement becomes No Eligible Winner, leaving the Royal Verdict",()=>{
+test("unclaimed Court's Trial prize is forfeited without rerolls, leaving the Royal Verdict",()=>{
   const ended=record({
     status:"ended",winnerIds:[contestants[0]],winnerCount:1,
     originalChampionId:contestants[0],trialTicketClaimsEnabled:true,
@@ -752,7 +752,8 @@ test("unclaimed Court's Trial prize with no replacement becomes No Eligible Winn
   assert.match(description,/No eligible winner/);
   assert.match(description,/until staff explicitly remove the listing/);
   assert.match(description,/The Last Survivor/,"historic champion identity remains");
-  assert.match(description,/forfeited; no replacement/);
+  assert.match(description,/forfeited at the deadline/);
+  assert.match(description,/Trials do not allow rerolls/);
   assert.doesNotMatch(description,/Claim deadline:|How to claim:|Submit your claim:/);
   assert.equal(finale.components.length,0,"no expired ticket button");
 });

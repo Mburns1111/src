@@ -87,6 +87,11 @@ test("announcement remains on completion with details, winners and audit trail",
  assert.match(description,/fox cackles/i);
  assert.match(description,/pocket heist/i);
  assert.match(description,/Prize delivery is handled by the giveaway host/i);
+ assert.doesNotMatch(description,/\*\*Winners \/ Results\*\*|\*\*Winner ticket claims\*\*/);
+ const resultFields=finished.embeds[0].toJSON().fields.filter(field=>field.name==="🏆 Winners / Results");
+ assert.equal(resultFields.length,1,"winners and claims should appear in one dedicated field");
+ assert.equal(resultFields[0].value.split("\n").length,2);
+ assert.match(resultFields[0].value,/Awaiting ticket claim/);
  const oneWinner = giveawayAnnouncement(snapshot({status:"ended",winnerIds:[userId]}));
  assert.match(oneWinner.embeds[0].data.description,new RegExp(userId));
  assert.match(oneWinner.embeds[0].data.description,/sneaky helper/i);
@@ -94,6 +99,22 @@ test("announcement remains on completion with details, winners and audit trail",
  assert.match(nobody.embeds[0].data.description,/No eligible winner/i);
  assert.match(nobody.embeds[0].data.description,/No one entered or qualified/i);
  assert.ok(nobody.embeds[0].data.description.length<450);
+});
+
+test("Court's Trials reject staff and automatic rerolls on old records",async()=>{
+ const original=Giveaway.findOne;
+ try {
+   Giveaway.findOne=()=>({lean:async()=>snapshot({
+     mode:"survival",status:"ended",winnerIds:[userId],
+     maxAutoRerolls:10,autoRerollClaims:true,trialTicketClaimsEnabled:true,
+   })});
+   for(const reason of ["staff","claim-expired"]){
+     await assert.rejects(
+       rerollGiveaway({id,guildId,staffId:userId,slot:0,reason}),
+       /Court's Trials do not allow rerolls/
+     );
+   }
+ }finally{Giveaway.findOne=original;}
 });
 
 test("random selection chooses distinct entrants, excludes past winners, and never overdraws",()=>{

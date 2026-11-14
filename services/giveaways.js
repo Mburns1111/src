@@ -81,9 +81,19 @@ export function giveawayAnnouncement(record) {
   }
   const activeWinners=(record.winnerIds||[]).filter((id,i)=>
     id && !(record.claimResolvedSlots||[]).includes(i));
-  const winners = (record.winnerIds || []).map((id, i) => (record.claimResolvedSlots || []).includes(i)
-    ? `${i + 1}. **No eligible winner** — <@${id}> did not claim; no replacement available`
-    : `${i + 1}. <@${id}>`);
+  // Keep each winner and their current ticket state in one public result field.
+  // The full claim information and reroll history remain private staff records.
+  const winners = (record.winnerIds || []).map((id, slot) => {
+    const place=`${slot+1}. `;
+    if ((record.claimResolvedSlots||[]).includes(slot))
+      return place+`**No eligible winner** — <@${id}> forfeited their claim; no replacement available.`;
+    const claim=(record.winnerClaims||[]).find(c=>c.slot===slot&&c.userId===id);
+    if (claim) return place+`<@${id}> — **Claim submitted successfully**`;
+    const deadline=winnerClaimDeadline(record,slot);
+    return place+`<@${id}> — **Awaiting ticket claim**`+
+      (deadline?(deadline<=new Date()?" · **Claim deadline expired**":
+        ` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>`):"");
+  });
   const changed = (record.rerollHistory || []).slice(-8).map(item =>
     `#${item.slot + 1}: <@${item.previousId}> → <@${item.replacementId}>`);
   const activity = record.mode === "activity";
@@ -130,20 +140,8 @@ export function giveawayAnnouncement(record) {
         (record.winnerIds||[]).length
           ? "*The claim deadline passed and no eligible replacement was available.*"
           : "*Nobody entered or qualified for this giveaway.*");
-    lines.push("", "**Winners / Results**", ...(winners.length ? winners : ["**No eligible winner** — no eligible entries."]));
-    if (record.mode !== "survival" && (record.winnerIds || []).length) {
-      lines.push("", "**Winner ticket claims**");
-      for (let slot=0;slot<record.winnerIds.length;slot++) {
-        const userId=record.winnerIds[slot];
-        const claim=(record.winnerClaims || []).find(c=>c.slot===slot && c.userId===userId);
-        const deadline=winnerClaimDeadline(record,slot);
-        if (claim) {
-          lines.push(`#${slot+1} <@${userId}> — **Claim submitted successfully**`);
-        } else if ((record.claimResolvedSlots || []).includes(slot))
-          lines.push(`#${slot+1} — **No eligible winner** · <@${userId}> forfeited their claim; no replacement available.`);
-        else lines.push(`#${slot+1} <@${userId}> — **Awaiting ticket claim**${deadline ? (deadline<=new Date()?` · **Claim deadline expired**`:` · Due <t:${Math.floor(deadline.getTime()/1000)}:R>`) : ""}`);
-      }
-    }
+    // Winner names, claim states and per-winner deadlines appear together
+    // only in the dedicated Winners / Results embed field below.
     const claims = prizeClaimLines(record, { finished: true });
     if (claims.length) lines.push("", "**Claiming your prize:** Follow the instructions below and use the claim button before the deadline.");
     if(record.mode==="activity" && !record.winnerIds?.length)
@@ -319,6 +317,7 @@ export async function closeGiveaway({ id, guildId, now = new Date(), client = nu
 export async function rerollGiveaway({ id, guildId, staffId, slot, reason = "staff", now = new Date(), client = null }) {
   const item = await Giveaway.findOne({ _id: id, guildId, status: "ended" }).lean();
   if (!item) throw Error("That giveaway is not finished or does not exist.");
+  if(item.mode==="survival")throw Error("Court's Trials do not allow rerolls. Unclaimed prizes are forfeited at the claim deadline.");
   if(item.publicListingRemovedAt) throw Error("This completed giveaway listing has already been deleted and cannot be rerolled.");
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Choose an existing winner number to reroll.");
@@ -369,6 +368,19 @@ export async function finishPendingReroll(item,{client=null,now=new Date()}={}) 
   const slot = item.pendingRerollSlot;
   if (!Number.isInteger(slot) || slot < 0 || slot >= item.winnerIds.length)
     throw Error("Giveaway reroll state requires staff repair.");
+  // Retire any older in-flight Trial reroll after a restart without replacing
+  // its winner or prematurely forfeiting their remaining claim time.
+  if(item.mode==="survival"){
+    const settled={...item,status:"ended"};
+    const restored=await Giveaway.findOneAndUpdate({
+      _id:item._id,guildId:item.guildId,status:"rerolling",pendingRerollSlot:slot,
+    },{$set:{
+      status:"ended",pendingRerollSlot:null,pendingRerollStaffId:"",
+      pendingRerollReason:"",pendingRerollAt:null,pendingRerollEligibleIds:[],
+      claimCheckAt:nextClaimCheckAt(settled),renderedAt:null,
+    },$inc:{renderVersion:1}},{returnDocument:"after"}).lean();
+    return restored||Giveaway.findById(item._id).lean();
+  }
   const used = [...item.winnerIds, ...(item.rerollHistory || []).flatMap(x => [x.previousId, x.replacementId])];
   const eligible=item.pendingRerollEligibleIds?.length ? item.pendingRerollEligibleIds :
     (item.activityVerifiedIds?.length ? item.activityVerifiedIds : item.entrantIds||[]);

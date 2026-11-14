@@ -53,8 +53,11 @@ test("scheduled activity drawing announces winners exclusively in the configured
   assert.equal(created.mode,"activity");
   assert.deepEqual(channelsRequested,[winnersId]);
   assert.equal(sent.length,1);
-  assert.match(sent[0].embeds[0].toJSON().description,/Winners/);
-  assert.match(sent[0].embeds[0].toJSON().description,/456789012345678901/);
+  const resultEmbed=sent[0].embeds[0].toJSON();
+  const winners=resultEmbed.fields.find(field=>field.name==="🏆 Winners / Results");
+  assert.ok(winners,"winning places must be in the dedicated results field");
+  assert.match(winners.value,/456789012345678901/);
+  assert.doesNotMatch(resultEmbed.description,/\*\*Winners \/ Results\*\*|\*\*Winner ticket claims\*\*/);
  }finally{
   [Giveaway.findOne,Giveaway.findOneAndUpdate,Giveaway.create,Giveaway.updateOne,
    GuildConfig.findOne,GiveawayActivityMinuteCount.aggregate,ActivityGiveawayOptIn.find]=original;

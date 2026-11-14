@@ -73,6 +73,9 @@ export function showPublicClaimDirections(record) {
 }
 
 export function automaticRerollLimit(record) {
+  // Court's Trials never replace prize winners, even if older records
+  // retain a nonzero reroll setting. Claim-expiry sweeps still forfeit.
+  if(record?.mode==="survival")return 0;
   const n=record.maxAutoRerolls;
   return Number.isSafeInteger(n)&&n>=0&&n<=MAX_AUTO_REROLLS?n:DEFAULT_MAX_AUTO_REROLLS;
 }

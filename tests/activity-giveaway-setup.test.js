@@ -4,7 +4,7 @@ import GuildConfig from "../models/GuildConfig.js";
 import Giveaway from "../models/Giveaway.js";
 import {data as setupCommand} from "../commands/setup.js";
 import {activityWizardPrompts,defaultActivityWizardSettings} from "../commands/activity-wizard.js";
-import {describeActivityGiveawaySetup,claimAnnouncementPreview,currentGiveawayClaimInstructions} from "../commands/activity-giveaway-setup.js";
+import {describeActivityGiveawaySetup,claimAnnouncementPreview,currentGiveawayClaimInstructions,currentEmptyResultSetting,emptyResultSetupPrompt} from "../commands/activity-giveaway-setup.js";
 import {validateTicketClaim} from "../services/giveaway-ticket-claims.js";
 import {giveawayAnnouncement} from "../services/giveaways.js";
 import {giveawayStaffRecordPayload} from "../services/giveaway-staff-records.js";
@@ -77,6 +77,19 @@ test("separate activity setup exposes channels, editable summary and preview",()
  assert.equal(preview.components[0].components[0].data.label,"Enter Ticket Claim info");
  assert.deepEqual(preview.allowedMentions,{parse:[]});
  assert.equal(preview.files,undefined);
+});
+
+test("no-eligible-winner setup prompt and review show the current choice for both giveaway types",()=>{
+ for(const [setting,expected] of [[true,"Announce no winners"],[false,"Do not announce"],[undefined,"Announce no winners"]]){
+   const settings={...claimSettings,activityAnnounceEmptyResults:setting};
+   assert.equal(currentEmptyResultSetting(settings),expected);
+   assert.match(emptyResultSetupPrompt(settings),/If nobody qualifies/);
+   assert.ok(emptyResultSetupPrompt(settings).includes("**Current setting:** "+expected));
+   for(const mode of ["regular","activity"]){
+     const review=describeActivityGiveawaySetup(settings,{mode});
+     assert.ok(review.includes("**No eligible members:** "+expected));
+   }
+ }
 });
 
 test("winner announcement preview attaches saved banner and matches actual regular/activity layouts",()=>{
@@ -155,7 +168,8 @@ test("ticket number and exact Discord ticket message link are preserved",()=>{
  assert.ok(privateRecord.embeds[0].toJSON().fields.some(f=>f.value.includes(ticketLink)),
    "the private staff record keeps the full original ticket URL");
  assert.equal(fields.filter(f=>!/Winners \/ Results/i.test(f.name)).length,0,"claim and forfeiture details disappear; required winner identity remains visible");
- assert.match(post.embeds[0].toJSON().description,/Claim submitted/);
+ assert.match(fields.find(f=>/Winners \/ Results/i.test(f.name)).value,/Claim submitted/);
+ assert.doesNotMatch(post.embeds[0].toJSON().description,/Claim submitted/);
  assert.doesNotMatch(post.embeds[0].toJSON().description,/Claiming your prize|How to claim|FORFEIT YOUR WIN/);
  assert.equal(post.components.length,0,"claim form button disappears when every winner has claimed");
 });

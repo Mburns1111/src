@@ -146,7 +146,9 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
    if(giveawayHasNoEligibleWinner(record))
      lines.push("","🏁 **Final outcome: No eligible winner.**",
        (record.winnerIds||[]).length
-         ? "*The claim window expired and no eligible replacement remained.*"
+         ? (record.mode==="survival"
+           ? "*The claim deadline expired; Court's Trials do not allow rerolls.*"
+           : "*The claim window expired and no eligible replacement remained.*")
          : "*No eligible members entered or qualified.*",
        completedAndRemoved
          ? "*The public listing was deleted by staff; this private record preserves the outcome.*"
@@ -156,8 +158,9 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
      for(let slot=0;slot<record.winnerIds.length;slot++)
        lines.push(record.mode==="survival"&&!record.trialTicketClaimsEnabled?"**Place "+(slot+1)+"** · <@"+record.winnerIds[slot]+"> — delivery coordinated by staff":claimStatus(record,slot));
    }
-   if(record.mode!=="survival"||record.trialTicketClaimsEnabled)
-     lines.push("","**Automatic rerolls:** "+(record.autoRerollClaims?"Enabled":"Disabled")+
+   if(record.mode==="survival")
+     lines.push("","**Prize rerolls:** Not allowed — unclaimed prizes are forfeited at the claim deadline.");
+   else lines.push("","**Automatic rerolls:** "+(record.autoRerollClaims?"Enabled":"Disabled")+
        " · Maximum "+automaticRerollLimit(record)+" per winning place");
    if(record.mode!=="survival"&&record.cooldownAssignments?.length){
      lines.push("","**Winner cooldown actions**");
@@ -215,10 +218,10 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
          record.cooldownAssignments?.length?"Manage Cooldowns":"Apply Cooldown",ButtonStyle.Primary));
      if(!record.prizeDeliveredAt)
        controls.push(btn("giveawaystaff:cancel:"+record._id,"Cancel Giveaway",ButtonStyle.Danger));
-     if((record.mode!=="survival"||record.trialTicketClaimsEnabled)&&hasOutstandingTicketClaims(record))
+     if(record.mode!=="survival"&&hasOutstandingTicketClaims(record))
        controls.push(btn("giveawaystaff:reroll:"+record._id,"Manual Reroll",ButtonStyle.Primary));
      if(!completedGiveawayCanDeleteListing(record)&&
-       (record.mode!=="survival"||record.trialTicketClaimsEnabled)&&record.autoRerollClaims)
+       record.mode!=="survival"&&record.autoRerollClaims)
        controls.push(btn("giveawaystaff:stop:"+record._id,"Disable Further Rerolls",ButtonStyle.Secondary));
    }else if(["open","pending_review","running"].includes(record.status))
      controls.push(btn("giveawaystaff:cancel:"+record._id,"Cancel & Remove Giveaway",ButtonStyle.Danger));
@@ -609,8 +612,8 @@ export async function handleGiveawayStaffAction(interaction){
        "Counting stopped. The giveaway is being finalized.");
    }
    if(action==="reroll"){
-     if(record.mode==="survival"&&!record.trialTicketClaimsEnabled)
-       return interaction.reply({content:"Legacy Trials use staff-managed prize follow-up, not ticket-based rerolls.",...ephemeral});
+     if(record.mode==="survival")
+       return interaction.reply({content:"Court's Trials do not allow rerolls. Unclaimed prizes are forfeited at the deadline.",...ephemeral});
      if(record.status!=="ended"||record.publicListingRemovedAt||
        !hasOutstandingTicketClaims(record))
        return interaction.reply({content:"A manual reroll is only available while waiting for a current winner to claim.",...ephemeral});
@@ -626,8 +629,8 @@ export async function handleGiveawayStaffAction(interaction){
              description:"Current winner "+userId,value:String(slot)}))))],...ephemeral});
    }
    if(action==="rerollselect"){
-     if(record.mode==="survival"&&!record.trialTicketClaimsEnabled)
-       return showTemporaryPanel(interaction,{content:"Legacy Trials do not use ticket-based rerolls.",components:[]});
+     if(record.mode==="survival")
+       return showTemporaryPanel(interaction,{content:"Court's Trials do not allow rerolls.",components:[]});
      const slot=Number(interaction.values?.[0]);
      if(!Number.isSafeInteger(slot)||slot<0||slot>9)
        return showTemporaryPanel(interaction,{content:"Choose an existing unclaimed prize place.",components:[]});
@@ -641,8 +644,8 @@ export async function handleGiveawayStaffAction(interaction){
    }
    if(action==="confirmreroll"){
      await acknowledgeTemporaryAction(interaction);
-     if(record.mode==="survival"&&!record.trialTicketClaimsEnabled)
-       return finishTemporaryAction(interaction,"Legacy Trials do not use ticket-based rerolls.");
+     if(record.mode==="survival")
+       return finishTemporaryAction(interaction,"Court's Trials do not allow rerolls.");
      const slot=Number(pageText);
      if(!Number.isSafeInteger(slot)||!record.winnerIds?.[slot]||
        record.status!=="ended"||record.publicListingRemovedAt||
@@ -762,7 +765,7 @@ export async function handleGiveawayStaffAction(interaction){
        :"Giveaway archived in <#"+config.giveawayArchiveChannelId+">. Its private review, winner and claim records are preserved.");
    }
    if(action==="stop"){
-     if(record.publicListingRemovedAt||(record.mode==="survival"&&!record.trialTicketClaimsEnabled)||record.status!=="ended"||!record.autoRerollClaims)
+     if(record.publicListingRemovedAt||record.mode==="survival"||record.status!=="ended"||!record.autoRerollClaims)
        return interaction.editReply("Automatic claim rerolls are not active on this giveaway.");
      const updated=await Giveaway.findOneAndUpdate({_id:id,guildId:interaction.guildId,
        status:"ended",autoRerollClaims:true,publicListingRemovedAt:null},
