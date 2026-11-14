@@ -288,3 +288,22 @@ for(const mode of ["regular","activity","trial"]){
     }finally{restore();}
   });
 }
+
+for(const mode of ["trial","regular","activity"]){
+ test(mode+" setup retires its prior prompt buttons after a choice and on Cancel",async()=>{
+  try{
+   const h=await harness(mode);
+   const original=h.current();
+   assert.ok(original.components.length>0);
+   await h.step("keep");
+   const second=h.current();
+   assert.notEqual(second.id,original.id);
+   assert.deepEqual(original.components,[],
+     "old step must retain text but no longer offer stale controls");
+   assert.ok(second.components.length>0);
+   await h.step("cancel");
+   assert.deepEqual(second.components,[],
+     "the last active prompt must lose its controls after cancellation");
+  }finally{restore();}
+ });
+}
