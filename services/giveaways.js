@@ -95,15 +95,13 @@ export function giveawayAnnouncement(record) {
         " · Due <t:"+Math.floor(+deadline/1000)+":R>":"";
       return (slot+1)+". <@"+userId+"> — "+claimStatus+due;
     });
-    const instructions=String(record.claimInstructions||"").trim();
+    const claimDirections=prizeClaimLines(record,{finished:true});
     const lines=[
       "**"+String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)+"**",
       "**Prize:** "+String(record.prize||"").slice(0,1500),
       "", "**Winners / Results**",...(winners.length?winners:["No eligible winner"]),
       "", "**Ended:** <t:"+endUnix+":F>",
-      ...(record.status==="ended"&&hasOutstandingTicketClaims(record)?
-        ["", "**Claim your prize:** Use **Enter Ticket Claim Info** below to submit your ticket number and Discord ticket message link before your deadline."]:[]),
-      ...(instructions?["", "**Prize collection instructions:** "+instructions.slice(0,1000)]:[]),
+      ...(claimDirections.length?["",...claimDirections]:[]),
     ];
     const embed=new EmbedBuilder().setColor(0x86738d)
       .setTitle(record.mode==="standard"&&record.displayEndedTitle?
