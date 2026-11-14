@@ -538,6 +538,11 @@ export async function ensurePublicHelpEntry(client,guildId){
 }
 export async function handlePublicHelpEntry(interaction){
  if(!interaction.guildId)return interaction.reply({content:"Help is available inside a server.",flags:MessageFlags.Ephemeral});
+ const config=await GuildConfig.findOne({guildId:interaction.guildId})
+   .select("helpChannelId helpMessageId").lean();
+ if(!config?.helpChannelId||interaction.channelId!==config.helpChannelId||
+    (config.helpMessageId&&interaction.message?.id!==config.helpMessageId))
+   return interaction.reply({content:"This Help button is no longer active. Use the current Open Help panel or /help.",flags:MessageFlags.Ephemeral});
  await interaction.deferReply({flags:MessageFlags.Ephemeral});
  await showTopic(interaction,"root",interaction.user.id);
  return true;
