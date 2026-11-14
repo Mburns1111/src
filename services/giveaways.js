@@ -588,7 +588,7 @@ async function notifyGiveawayWinnersByDm(client,item){
    try{
      const user=await client.users.fetch(userId);
      await user.send({content:"🏆 Congratulations! You won **place #"+place+"** in **"+
-       String(item.title||"the giveaway").slice(0,100)+"**.\\n"+
+       String(item.title||"the giveaway").slice(0,100)+"**.\n"+
        "See your results and use **Enter Ticket Claim Info** to claim your prize: "+url,
        allowedMentions:{parse:[]}});
      delivered=true;
