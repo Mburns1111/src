@@ -83,6 +83,15 @@ export function giveawayAnnouncement(record) {
   // A winner is mentioned once, alongside their claim state and deadline.
   // Detailed requirements, reroll history and ticket data remain in staff records.
   if(ended){
+    // Retain custom winner storytelling, but prevent its placeholders from
+    // mentioning winners a second time. Avoid duplicating the host when the
+    // host is also a winner (common during staff testing).
+    const winnerStory=record.mode==="standard" ?
+      (record.displayWinnerText?
+        renderRegularDisplayText(record.displayWinnerText,{
+          hostId:(record.winnerIds||[]).includes(record.creatorId)?"":record.creatorId,
+          winnerIds:[]
+        }):"🦊 The fox cackles: The heist is complete!") : "";
     const winners=(record.winnerIds||[]).map((userId,slot)=>{
       const cancelledPrize=(record.cancelledPrizes||[]).some(c=>c.slot===slot&&c.userId===userId);
       if(cancelledPrize)return (slot+1)+". Prize cancelled by staff";
@@ -99,13 +108,14 @@ export function giveawayAnnouncement(record) {
     const lines=[
       "**"+String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)+"**",
       "**Prize:** "+String(record.prize||"").slice(0,1500),
+      ...(winnerStory?["",winnerStory]:[]),
       "", "**Winners / Results**",...(winners.length?winners:["No eligible winner"]),
       "", "**Ended:** <t:"+endUnix+":F>",
       ...(claimDirections.length?["",...claimDirections]:[]),
     ];
     const embed=new EmbedBuilder().setColor(0x86738d)
       .setTitle(record.mode==="standard"&&record.displayEndedTitle?
-        cleanRegularDisplayTitle(record.displayEndedTitle):"🏆 Giveaway Complete")
+        cleanRegularDisplayTitle(record.displayEndedTitle):(record.mode==="standard"?"🦊 Heist Complete":"🏆 Giveaway Complete"))
       .setDescription(lines.join("\n").slice(0,3900));
     const components=record.status==="ended"&&hasOutstandingTicketClaims(record)?
       [new ActionRowBuilder().addComponents(
