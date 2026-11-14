@@ -591,6 +591,7 @@ async function notifyGiveawayWinnersByDm(client,item){
  const seen=new Set([...(item.winnerDmNotifiedIds||[]),...(item.winnerDmFailedIds||[])]
    .map(String));
  const fresh=ids.filter(id=>!seen.has(id));
+ const failed=[];
  const url="https://discord.com/channels/"+item.guildId+"/"+item.channelId+"/"+item.messageId;
  for(const userId of fresh){
    const place=(item.winnerIds||[]).indexOf(userId)+1;
@@ -603,11 +604,13 @@ async function notifyGiveawayWinnersByDm(client,item){
        allowedMentions:{parse:[]}});
      delivered=true;
    }catch(error){
+     failed.push(userId);
      console.warn("[Giveaways] Winner DM unavailable:",String(item._id),userId,error?.code||error?.message);
    }
    await Giveaway.updateOne({_id:item._id,guildId:item.guildId},
      {$addToSet:delivered?{winnerDmNotifiedIds:userId}:{winnerDmFailedIds:userId}});
  }
+ return failed;
 }
 
 async function publishRegularResultLocked(client,item){
@@ -620,7 +623,7 @@ async function publishRegularResultLocked(client,item){
  await message.edit(await giveawayAnnouncementWithBanner(record));
  await cleanupRegularGiveawayListPost(client,record);
  // DM each winner; a member with disabled DMs still gets a normal claim deadline.
- await notifyGiveawayWinnersByDm(client,record);
+ const failedDms=await notifyGiveawayWinnersByDm(client,record);
  const now=new Date(),dates=[...(record.winnerAssignedAt||[])];
  let newlyPublished=false;
  for(let slot=0;slot<(record.winnerIds||[]).length;slot++){
@@ -646,7 +649,8 @@ async function publishRegularResultLocked(client,item){
  await Giveaway.updateOne({_id:record._id,status:"ended",
    resultPublicationToken:record.resultPublicationToken,renderVersion:record.renderVersion},
    {$set:{renderedAt:new Date()}});
- try{await ensureGiveawayStaffRecord(client,{...updated,listChannelId:"",listMessageId:""});}
+ try{await ensureGiveawayStaffRecord(client,{...updated,listChannelId:"",listMessageId:"",
+   winnerDmFailedIds:[...new Set([...(record.winnerDmFailedIds||[]),...failedDms])]});}
  catch(error){console.error("[Giveaways] Staff result link update failed:",record._id,error);}
  return true;
 }
@@ -721,7 +725,11 @@ export async function publishGiveawayResult(client, item) {
       {$set:{messageId:message.id,claimStartedAt:announced.claimStartedAt,
         winnerAssignedAt:dates,resultPublishedAt:announced.resultPublishedAt,
         claimCheckAt:nextClaimCheckAt(announced),renderedAt:null}});
-    await notifyGiveawayWinnersByDm(client,announced);
+    const failedDms=await notifyGiveawayWinnersByDm(client,announced);
+    if(failedDms.length)try{
+      await ensureGiveawayStaffRecord(client,{...announced,
+        winnerDmFailedIds:[...new Set([...(announced.winnerDmFailedIds||[]),...failedDms])]});
+    }catch(error){console.warn("[Giveaways] Failed DM staff notice will retry:",error);}
     await Giveaway.updateOne({_id:item._id,status:"ended",renderVersion:item.renderVersion},
       {$set:{renderedAt:new Date()}});
     return true;
