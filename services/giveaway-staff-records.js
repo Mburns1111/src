@@ -222,7 +222,11 @@ export function giveawayStaffRecordPayload(record,{series=null,archived=false}={
      controls.push(btn("giveawaystaff:end:"+record._id,"Finish Trial Early",ButtonStyle.Success));
    }
    if(record.status==="ended"){
-     if(!record.prizeDeliveredAt&&(record.winnerIds||[]).some((id,slot)=>
+     if(record.mode==="survival"&&!record.trialTicketClaimsEnabled&&
+        giveawayClaimsComplete(record)&&!record.prizeDeliveredAt)
+       controls.push(btn("giveawaystaff:deliver:"+record._id,"Confirm Prizes Delivered",ButtonStyle.Success));
+     if((record.mode!=="survival"||record.trialTicketClaimsEnabled)&&
+        !record.prizeDeliveredAt&&(record.winnerIds||[]).some((id,slot)=>
          id&&winnerHasClaim(record,slot)&&!(record.claimResolvedSlots||[]).includes(slot)&&
          !(record.prizeDeliveries||[]).some(d=>d.slot===slot&&d.userId===id)))
        controls.push(btn("giveawaystaff:deliver:"+record._id,"Confirm Prize Delivered",ButtonStyle.Success));
@@ -701,6 +705,23 @@ export async function handleGiveawayStaffAction(interaction){
        ));
    }
    if(action==="deliver"){
+     // Legacy Trials had manual delivery confirmation, not ticket claims.
+     // Preserve that unchanged workflow while modern giveaways use per-winner delivery.
+     if(record.mode==="survival"&&!record.trialTicketClaimsEnabled){
+       if(record.status!=="ended"||record.publicListingRemovedAt||record.prizeDeliveredAt||
+         !giveawayClaimsComplete(record))
+         return interaction.reply({content:"This Trial cannot be marked delivered.",...ephemeral});
+       return interaction.showModal(new ModalBuilder()
+         .setCustomId("giveawaystaff:confirmdeliver:"+id)
+         .setTitle("Confirm all prizes delivered")
+         .addComponents(
+           new ActionRowBuilder().addComponents(new TextInputBuilder()
+             .setCustomId("confirm").setLabel("Type DELIVERED to confirm")
+             .setStyle(TextInputStyle.Short).setMaxLength(9).setRequired(true)),
+           new ActionRowBuilder().addComponents(new TextInputBuilder()
+             .setCustomId("proof").setLabel("Discord proof message URL (optional)")
+             .setStyle(TextInputStyle.Short).setMaxLength(500).setRequired(false))));
+     }
      const slots=(record.winnerIds||[]).map((userId,slot)=>({userId,slot}))
        .filter(({userId,slot})=>userId&&winnerHasClaim(record,slot)&&
          !(record.claimResolvedSlots||[]).includes(slot)&&
