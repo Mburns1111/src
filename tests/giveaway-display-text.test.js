@@ -26,12 +26,16 @@ test("manual regular giveaways replace only opening story text, not mandatory de
 
 test("winner story persists after settling or rerolling a regular giveaway",()=>{
   for(const status of ["ended","rerolling"]){
-    const s=display(fixture({status,winnerIds:[winner],entrantIds:[winner],
+    const announcement=giveawayAnnouncement(fixture({status,winnerIds:[winner],entrantIds:[winner],
       displayWinnerText:"{winners} won the court's prize from {host}!"}));
+    const s=announcement.embeds[0].toJSON().description;
     assert.match(s,/won the court's prize/);
     assert.ok(s.includes("<@"+winner+">"));
     assert.ok(s.includes("<@"+creator+">"));
-    assert.match(s,/Winners \/ Results/);
+    const resultField=announcement.embeds[0].toJSON().fields.find(f=>f.name==="🏆 Winners / Results");
+    assert.ok(resultField,"the winner list belongs in one dedicated results field");
+    assert.match(resultField.value,new RegExp(winner));
+    assert.doesNotMatch(s,/\*\*Winners \/ Results\*\*|\*\*Winner ticket claims\*\*/);
   }
 });
 
