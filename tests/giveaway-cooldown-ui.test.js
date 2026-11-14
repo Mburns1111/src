@@ -24,6 +24,10 @@ function makeAction(extra={}){
   deferUpdate:async()=>{responses.deferred=true;},
   ...extra,
  };
+ // The staff directory button is permanent; subsequent cooldown picker
+ // messages are ephemeral and may safely be updated in place.
+ if(i.customId.startsWith("giveawaydir:")&&i.customId!=="giveawaydir:cooldowns"&&!i.message)
+   i.message={flags:{has:()=>true}};
  return {i,responses};
 }
 function customId(payload){
@@ -204,5 +208,32 @@ test("Apply / Extend advances an existing ephemeral cooldown panel instead of st
   assert.ok(action.responses.update.components.length);
   assert.equal(action.responses.update.components[0].components[0].toJSON().custom_id,
     "giveawaystaff:cooldownselect:"+giveawayId);
+ }finally{restore(backups);}
+});
+
+test("cooldown manager opened from a permanent public/staff directory never edits that message",async()=>{
+ const backups=[];
+ try{
+  patch(GiveawayWinnerCooldown,"findOne",()=>({lean:async()=>null}),backups);
+  const publicAction=makeAction({
+   customId:"giveawaydir:cooldownmember",values:[a],
+   message:{flags:{has:()=>false}},
+  });
+  await handleGiveawayCooldownDirectoryAction(publicAction.i);
+  assert.equal(publicAction.responses.update,null,"permanent directory cannot be updated");
+  assert.equal(publicAction.responses.reply.flags,64);
+  assert.match(publicAction.responses.reply.content,/no active winner cooldown/);
+ }finally{restore(backups);}
+});
+
+test("empty cooldown picker retires old ephemeral selector instead of leaving it clickable",async()=>{
+ const backups=[];
+ try{
+  patch(GiveawayWinnerCooldown,"find",()=>({lean:async()=>[]}),backups);
+  const previous={...giveaway,winnerIds:[]};
+  const action=makeAction({message:{flags:{has:()=>true}}});
+  await handleGiveawayCooldownAction(action.i,previous,"cooldowncreate");
+  assert.equal(action.responses.reply,null);
+  assert.deepEqual(action.responses.update.components,[]);
  }finally{restore(backups);}
 });
