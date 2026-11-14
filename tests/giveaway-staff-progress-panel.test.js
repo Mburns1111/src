@@ -32,7 +32,7 @@ test("two-post staff progress keeps partial members and no-activity members out 
 test("staff progress does not touch Discord between refreshes",async()=>{
  const at=new Date("2026-11-12T16:00:00Z");
  const saved={...record,staffProgressMessageId:"345678901234567890",
-   staffProgressRefreshedAt:new Date("2026-11-12T05:00:00Z"),
+   staffProgressRefreshedAt:new Date("2026-11-12T15:59:30Z"),
    staffProgressStatus:"open"};
  let requested=0;
  const channel={messages:{fetch:async()=>{requested++;throw Error("Should not fetch");}}};
