@@ -74,7 +74,8 @@ test("approved help content includes core requirements and public claim instruct
  assert.match(textOf("sgiveaways"),/Shared Staff Archives/);
  assert.match(textOf("sactivity"),/not per day/);
  assert.match(textOf("sactivity"),/next two scheduled periods/);
- assert.match(textOf("sarchives"),/Regular giveaway entry posts are deleted when archived/);
+ assert.match(textOf("sarchives"),/Regular giveaway entry posts are removed when results are published/);
+ assert.match(textOf("sarchives"),/Regular result posts are deleted when archived/);
  assert.equal(fields(helpTopicPayload("scards",userId)).length,1);
  assert.match(textOf("scards"),/Points must be enabled/);
  assert.match(textOf("spoints"),/independent shop/);
