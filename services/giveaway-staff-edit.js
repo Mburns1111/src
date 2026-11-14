@@ -65,7 +65,7 @@ export function validateGiveawayStaffEdit(record,field,raw,{now=new Date()}={}){
   }
   if(field==="roleBonuses"){
     if(value.toLowerCase()==="clear")return {roleBonuses:[]};
-    const match=/^(?:<@&(\\d{17,20})>|(\\d{17,20}))\\s+(\\d{1,2}|remove)$/i.exec(value);
+    const match=/^(?:<@&(\d{17,20})>|(\d{17,20}))\s+(\d{1,2}|remove)$/i.exec(value);
     if(!match)throw Error("Enter a role ID followed by 1–20 extra chances, 'remove', or 'clear'.");
     const roleId=match[1]||match[2],current=(record.roleBonuses||[]).filter(b=>b.roleId!==roleId);
     if(match[3].toLowerCase()==="remove")return {roleBonuses:normalizeRoleBonuses(current)};
