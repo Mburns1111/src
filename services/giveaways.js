@@ -95,7 +95,7 @@ export function giveawayAnnouncement(record) {
     });
     const instructions=String(record.claimInstructions||"").trim();
     const lines=[
-      "**"+String(record.title||"Giveaway").replace(/[\\r\\n]+/g," ").slice(0,180)+"**",
+      "**"+String(record.title||"Giveaway").replace(/[\r\n]+/g," ").slice(0,180)+"**",
       "**Prize:** "+String(record.prize||"").slice(0,800),
       "", "**Winners / Results**",...(winners.length?winners:["No eligible winner"]),
       "", "**Ended:** <t:"+endUnix+":F>",
@@ -106,7 +106,7 @@ export function giveawayAnnouncement(record) {
     const embed=new EmbedBuilder().setColor(0x86738d)
       .setTitle(record.mode==="standard"&&record.displayEndedTitle?
         cleanRegularDisplayTitle(record.displayEndedTitle):"🏆 Giveaway Complete")
-      .setDescription(lines.join("\\n").slice(0,3900));
+      .setDescription(lines.join("\n").slice(0,3900));
     const components=record.status==="ended"&&hasOutstandingTicketClaims(record)?
       [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`giveaway:claim:${record._id}`)
