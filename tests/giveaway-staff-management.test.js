@@ -70,6 +70,31 @@ test("private staff controls offer manual rerolls only while waiting on ticket c
  assert.ok(!archived.some(x=>x.label==="Archive Trial"));
 });
 
+test("Court's Trials never expose reroll controls, even for older saved reroll settings",async()=>{
+ const trial=example({
+   mode:"survival",status:"ended",trialTicketClaimsEnabled:true,
+   winnerIds:[userId],winnerAssignedAt:[new Date()],claimStartedAt:new Date(),
+   maxAutoRerolls:10,autoRerollClaims:true,
+ });
+ const payload=giveawayStaffRecordPayload(trial);
+ const labels=controls(payload).map(x=>x.label);
+ assert.ok(!labels.includes("Manual Reroll"));
+ assert.ok(!labels.includes("Disable Further Rerolls"));
+ assert.match(payload.embeds[0].toJSON().description,/Prize rerolls:\*\* Not allowed/);
+ const original=Giveaway.findOne;
+ let replied;
+ try {
+   Giveaway.findOne=()=>({lean:async()=>trial});
+   await handleGiveawayStaffAction({
+     customId:"giveawaystaff:reroll:"+id,
+     guildId,channelId:staffId,user:{id:userId},
+     memberPermissions:{has:()=>true},message:{id:messageId},
+     reply:async value=>{replied=value;},client:{user:{id:"bot"}},
+   });
+   assert.match(replied.content,/Trials do not allow rerolls/);
+ }finally{Giveaway.findOne=original;}
+});
+
 test("staff-only edits support custom long durations, winners and claim instructions",()=>{
  const regular=example();
  const fields=giveawayStaffEditMenuOptions(regular).map(x=>x.value);
