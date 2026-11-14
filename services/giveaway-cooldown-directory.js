@@ -3,6 +3,7 @@ import {
  ModalBuilder,TextInputBuilder,TextInputStyle,MessageFlags,
 } from "discord.js";
 import GiveawayWinnerCooldown from "../models/GiveawayWinnerCooldown.js";
+import {showTemporaryPanel,acknowledgeTemporaryAction,finishTemporaryAction} from "./temporary-interaction-controls.js";
 import {
  activeCooldownFor,removeGiveawayWinnerCooldown,adjustGiveawayWinnerCooldown,
  assignManualWinnerCooldown,cooldownExpiration,
@@ -15,10 +16,7 @@ const row=(...controls)=>new ActionRowBuilder().addComponents(controls);
 const unix=date=>Math.floor(+new Date(date)/1000);
 const idFor=(action,...pieces)=>"giveawaydir:"+action+pieces.map(x=>":"+x).join("");
 const validMember=id=>/^\d{15,22}$/.test(id||"");
-const panelReply=(interaction,payload)=>
- typeof interaction.update==="function"?
-   interaction.update({...payload,flags:undefined}):
-   interaction.reply({...payload,...ephemeral});
+const panelReply=(interaction,payload)=>showTemporaryPanel(interaction,payload);
 const noCooldownPanel=id=>({
  content:"<@"+id+"> has no active winner cooldown.\n\nStaff may assign a new cooldown without a prior giveaway win. The expiry will start from confirmation.",
  components:[row(btn(idFor("cooldownadd",id),"Add Cooldown",ButtonStyle.Primary))],
@@ -108,9 +106,9 @@ export async function handleGiveawayCooldownDirectoryAction(interaction){
    return panelReply(interaction,{content:"Invalid cooldown duration.",components:[]});
   if(active)
    return panelReply(interaction,{content:"A cooldown was added by another staff member. Use Correct Expiry.",components:[]});
-  await interaction.deferUpdate();
+  await acknowledgeTemporaryAction(interaction);
   const applied=await assignManualWinnerCooldown({guildId,userId:arg,staffId,days});
-  return interaction.editReply({content:"✅ New winner cooldown saved for <@"+arg+">.\n"+
+  return finishTemporaryAction(interaction,{content:"✅ New winner cooldown saved for <@"+arg+">.\n"+
    "Expires: <t:"+unix(applied.expiresAt)+":F> (<t:"+unix(applied.expiresAt)+":R>)"+
    (applied.cleanupWarning?"\nExisting giveaway entries will be cleaned up on the next sweep.":"")+
    "\n\nStaff action recorded. The Giveaway Banned role is unchanged.",
@@ -126,9 +124,9 @@ export async function handleGiveawayCooldownDirectoryAction(interaction){
    allowedMentions:{parse:[]}});
  }
  if(action==="cooldownconfirmremove"){
-  await interaction.deferUpdate();
+  await acknowledgeTemporaryAction(interaction);
   const removed=await removeGiveawayWinnerCooldown({guildId,userId:arg,staffId});
-  return interaction.editReply({content:removed?
+  return finishTemporaryAction(interaction,{content:removed?
     "Cooldown removed for <@"+arg+">. The Giveaway Banned role is unchanged.":
     "That member's cooldown is no longer active.",
     components:[],allowedMentions:{parse:[]}});
@@ -155,12 +153,12 @@ export async function handleGiveawayCooldownDirectoryAction(interaction){
    allowedMentions:{parse:[]},...ephemeral});
  }
  if(action==="cooldownconfirmedit"){
-  await interaction.deferUpdate();
+  await acknowledgeTemporaryAction(interaction);
   const days=Number(daysText);
   if(!/^\d{1,3}$/.test(daysText||"")||days<1||days>365)
-   return interaction.editReply({content:"Invalid remaining duration.",components:[]});
+   return finishTemporaryAction(interaction,{content:"Invalid remaining duration.",components:[]});
   const updated=await adjustGiveawayWinnerCooldown({guildId,userId:arg,staffId,daysRemaining:days});
-  return interaction.editReply({content:updated?
+  return finishTemporaryAction(interaction,{content:updated?
    "Cooldown corrected for <@"+arg+">. New expiry: <t:"+unix(updated.expiresAt)+":F>. The audit record is preserved.":
    "The cooldown expired or was removed before your correction.",
    components:[],allowedMentions:{parse:[]}});
