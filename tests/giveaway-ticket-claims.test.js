@@ -46,7 +46,8 @@ test("one-winner regular and activity results remove public claim details on suc
 });
 
 test("multiple winners keep instructions while another winner is pending, then remove them after all claims",()=>{
- const firstClaim={...record,winnerClaims:[{slot:0,userId:first,ticketNumber:"123",submittedAt:new Date()}]};
+ const firstClaim={...record,winnerAssignedAt:[new Date(),new Date()],
+   winnerClaims:[{slot:0,userId:first,ticketNumber:"123",submittedAt:new Date()}]};
  for(const mode of ["standard","activity"]){
    const active=giveawayAnnouncement({...firstClaim,mode});
    assert.match(active.embeds[0].toJSON().description,/Claim submitted/g);
