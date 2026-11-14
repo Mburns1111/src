@@ -412,13 +412,13 @@ export async function handleGuidedStaffAction(i){
      publication="The end was saved, but the drawing or Discord announcement will need a retry.";
    }
    await refreshPublished(i.client,final);
-   return i.editReply("Ended the **current giveaway** early. "+
+   return finishTemporaryAction(i,"Ended the **current giveaway** early. "+
      eligible.length+" member(s) qualified when counting stopped. "+publication+
      " Future repeats are unchanged.");
  }catch(error){
    console.error("[Giveaways] Staff control action failed:",error);
    const msg="Couldn't complete that staff action: "+String(error.message||"Unknown error").slice(0,350);
-   if(i.deferred||i.replied)return i.editReply(msg);
+   if(i.deferred||i.replied)return finishTemporaryAction(i,msg);
    return i.reply({content:msg,...ephemeral});
  }
 }
